@@ -1,6 +1,6 @@
 # Phase 1A 收口与集成验收
 
-- 状态：approved / in-progress
+- 状态：approved；功能实现已集成，完整验收 partial。2026-09-09 用户要求停止重复测试后，执行根 AGENTS.md 的精简约束，剩余项见[延期清单](deferred-tests.md)。下文全量验证要求不构成自动重跑授权。
 - 批准：2026-09-09 用户明确要求 IMPLEMENT THIS PLAN，覆盖本文件及 Spec §8。
 - 阶段：Phase 1A；继续使用既定工具链、OpenAPI 0.2.0、Docker Desktop Kubernetes、固定端口和五套主题。阶段验收前不进入 Phase 1B。
 - 起点：主阶段已集成存储/主题；API `955045644d2ab4b886ecff58018da0e43bae4017`、WEB `d201cde8faf40846f4c52329b6410b78a5d361ab`、TEST `0b194da668790870dd276b276cd339f14e47f114` 作为已交付批次集成。

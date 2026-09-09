@@ -1,6 +1,6 @@
 # Phase 1A Plan：正式工程与平台基础
 
-- 状态：in-progress；CORE 已通过交接检查，SERVER / WEB 开发与独立测试用例编写并行
+- 状态：功能实现已集成，完整验收 partial；2026-09-09 起按用户要求停止重复测试，剩余三项见[延期清单](deferred-tests.md)。下文保留已批准方案，实际进度以[验收记录](acceptance.md)为准。
 - 日期：2026-09-09
 - 对应：[Spec](spec.md)
 - 评审参考基线：`28fcd44eebc205a35735d3e7b60a308ce5f749bc`
