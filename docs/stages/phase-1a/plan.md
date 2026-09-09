@@ -1,6 +1,6 @@
 # Phase 1A Plan：正式工程与平台基础
 
-- 状态：in-progress；先执行 CORE，按交付门槛推进后续批次
+- 状态：in-progress；CORE 已通过交接检查，SERVER / WEB 开发与独立测试用例编写并行
 - 日期：2026-09-09
 - 对应：[Spec](spec.md)
 - 评审参考基线：`28fcd44eebc205a35735d3e7b60a308ce5f749bc`
@@ -33,6 +33,8 @@ SQLAlchemy 的 psycopg 方言支持同步和异步使用，因此 API 与迁移�
 ## 2. 本地环境、数据与身份实现
 
 使用 `kubectl --context docker-desktop apply -k` 管理专用命名空间资源。Kustomize 复用 kubectl，不需要先安装 Helm；不修改当前 context、不创建新集群、不接触其他 namespace 的业务资源。开发依赖采用单实例 PostgreSQL + 单实例 Keycloak，Keycloak 使用独立数据库/账号。先验证 PVC 绑定、重建保持和资源配额，再把依赖就绪作为启动成功。
+
+PostgreSQL 18 镜像的 PVC 挂载到 `/var/lib/postgresql`，显式 `PGDATA=/var/lib/postgresql/18/docker`；持久性检查确认该目录实际位于已绑定卷内，避免沿用旧版镜像的数据目录。[官方镜像 PGDATA 说明](https://github.com/docker-library/docs/blob/master/postgres/README.md#pgdata)
 
 | 本地入口 | 地址 / 用途 |
 | --- | --- |
@@ -74,7 +76,7 @@ RLS 四表及复合约束按 Spec。事务用 `set_config(..., true)` 设置已�
 
 ## 4. 子任务与唯一归属
 
-阶段分支为 `codex/phase-1a`，工作树根为主仓库 ignored 的 `work/worktrees/phase-1a-<task>`。创建时任务书记录完整绝对路径与固定基准 SHA；表中所有任务当前均未派发。
+阶段分支为 `codex/phase-1a`，工作树根为主仓库 ignored 的 `work/worktrees/phase-1a-<task>`。创建时任务书记录完整绝对路径与固定基准 SHA；实际派发状态和提交在[执行记录](execution.md)维护。
 
 | 任务 | 执行者 | 修改归属 | 依赖与交付 |
 | --- | --- | --- | --- |

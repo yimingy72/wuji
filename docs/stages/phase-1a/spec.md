@@ -49,7 +49,7 @@ Cookie 使用 HttpOnly、SameSite=Lax、Path=/。生产必须 Secure/HTTPS；只
 
 ## 4. API 与契约增量
 
-现有 OpenAPI 继续作为权威契约，当前 0.1.0 在阶段实施的 CORE 批次先扩展为 0.2.0，再按其实现和生成类型；本轮评审不修改当前契约。Session、Project、ProjectPage 和 Error 保留现有字段含义；Permission 枚举追加 `project.read`，保留既有任务/证据枚举。项目角色的有效能力与平台已实现能力取交集：Phase 1A 中有效 Viewer/Operator 均只返回 `project.read`，未实现的任务/证据能力不据此开放入口。
+OpenAPI 继续作为权威契约，CORE 已将其扩展为 0.2.0，并生成类型和浏览器校验器；SERVER / WEB 按该版本实施。Session、Project、ProjectPage 和 Error 保留现有字段含义；Permission 枚举追加 `project.read`，保留既有任务/证据枚举。项目角色的有效能力与平台已实现能力取交集：Phase 1A 中有效 Viewer/Operator 均只返回 `project.read`，未实现的任务/证据能力不据此开放入口。
 
 | 接口 | 本阶段行为 |
 | --- | --- |
