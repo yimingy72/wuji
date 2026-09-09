@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import concurrent.futures
+import hashlib
 from pathlib import Path
 import re
 import time
@@ -296,6 +297,68 @@ def test_lost_exchange_stops_blocking_login_after_handshake_expiry(
     time.sleep(1.1)
     retry = client.get("/api/v1/auth/login", params={"return_to": "/projects"})
     assert retry.status_code == 302
+
+
+@pytest.mark.parametrize(
+    ("old_scenario", "expected_error"),
+    [
+        ("blocked_valid", "UNAUTHENTICATED"),
+        ("blocked_bad_nonce", "UNAUTHENTICATED"),
+        ("blocked_token_error", "SERVICE_UNAVAILABLE"),
+    ],
+)
+def test_expired_inflight_exchange_cannot_create_session_or_clear_replacement_handshake(
+    old_scenario: str, expected_error: str, client, run_manifest: RunManifest
+) -> None:
+    fixture_control(run_manifest, old_scenario)
+    old_callback = authorize(client, begin_login(client))
+    old_state = parse_qs(urlparse(old_callback).query)["state"][0]
+    before = session_counts(run_manifest, "protocol_user")
+
+    def finish_old() -> httpx.Response:
+        return finish_callback(client, old_callback)
+
+    dsn = run_manifest.data["credentials"]["database"]["management_dsn"].replace(
+        "postgresql+psycopg://", "postgresql://", 1
+    )
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        old_future = executor.submit(finish_old)
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline and not fixture_stats(run_manifest)["token_waiting"]:
+            time.sleep(0.05)
+        assert fixture_stats(run_manifest)["token_waiting"] is True
+
+        with psycopg.connect(dsn) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "UPDATE oidc_handshakes SET expires_at = created_at + interval '1 second' "
+                "WHERE state_hash = %s AND status = 'exchanging' RETURNING id",
+                (hashlib.sha256(old_state.encode("ascii")).hexdigest(),),
+            )
+            assert cursor.fetchone() is not None
+        time.sleep(1.1)
+
+        fixture_control(run_manifest, "valid")
+        new_login = begin_login(client)
+        new_binding = client.cookies.get("wuji_oidc_handshake")
+        assert new_binding
+        new_callback = authorize(client, new_login)
+
+        release_fixture_token(run_manifest)
+        old_response = old_future.result(timeout=15)
+
+    assert assert_safe_callback_failure(old_response) == expected_error
+    assert old_response.headers.get_list("set-cookie") == []
+    assert client.cookies.get("wuji_oidc_handshake") == new_binding
+    assert client.cookies.get("wuji_session") is None
+    assert session_counts(run_manifest, "protocol_user") == before
+
+    replacement = finish_callback(client, new_callback)
+    assert replacement.status_code == 303
+    assert replacement.headers["location"] == "/projects"
+    assert client.get("/api/v1/session").status_code == 200
+    after = session_counts(run_manifest, "protocol_user")
+    assert after["total_count"] == before["total_count"] + 1
+    assert after["active_count"] == before["active_count"] + 1
 
 
 def test_callback_is_one_time_and_concurrent_consumption_creates_at_most_one_session(

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 import concurrent.futures
 import re
 import time
@@ -14,9 +14,17 @@ from conftest import RunManifest, authorize, begin_login, complete_fixture_login
 
 pytestmark = pytest.mark.platform
 
+USER_LOCK_SEED = 0x57554A49
+
 
 def management_dsn(manifest: RunManifest) -> str:
     return manifest.data["credentials"]["database"]["management_dsn"].replace(
+        "postgresql+psycopg://", "postgresql://", 1
+    )
+
+
+def admin_dsn(manifest: RunManifest) -> str:
+    return manifest.data["credentials"]["database"]["admin_dsn"].replace(
         "postgresql+psycopg://", "postgresql://", 1
     )
 
@@ -61,6 +69,46 @@ def active_session_count(manifest: RunManifest, user: str) -> int:
             (manifest.seed(user)["id"],),
         )
         return cursor.fetchone()[0]
+
+
+def waiting_advisory_locks(connection: psycopg.Connection) -> int:
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT count(*) FROM pg_locks waiting "
+            "WHERE waiting.locktype = 'advisory' AND NOT waiting.granted AND EXISTS ("
+            "SELECT 1 FROM pg_locks held WHERE held.pid = pg_backend_pid() "
+            "AND held.locktype = 'advisory' AND held.granted "
+            "AND held.database IS NOT DISTINCT FROM waiting.database "
+            "AND held.classid = waiting.classid AND held.objid = waiting.objid "
+            "AND held.objsubid = waiting.objsubid)"
+        )
+        return cursor.fetchone()[0]
+
+
+def wait_for_advisory_waiters(connection: psycopg.Connection, expected: int) -> None:
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
+        if waiting_advisory_locks(connection) >= expected:
+            return
+        time.sleep(0.05)
+    raise AssertionError(f"expected at least {expected} advisory lock waiters")
+
+
+def wait_for_blocked_auth_backend(
+    connection: psycopg.Connection, *, blocker_pid: int, auth_role: str
+) -> None:
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT count(*) FROM pg_stat_activity "
+                "WHERE usename = %s AND %s = ANY(pg_blocking_pids(pid))",
+                (auth_role, blocker_pid),
+            )
+            if cursor.fetchone()[0] >= 1:
+                return
+        time.sleep(0.05)
+    raise AssertionError("API auth backend did not wait on the held Session row")
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -125,6 +173,68 @@ def test_expired_session_is_not_extended_before_validation(
     assert first.json()["code"] == second.json()["code"] == "UNAUTHENTICATED"
 
 
+@pytest.mark.parametrize("boundary", ["idle", "absolute"])
+def test_session_expiring_while_authentication_waits_on_row_lock_is_not_refreshed(
+    boundary: str, client, run_manifest: RunManifest
+) -> None:
+    logged_in(client, run_manifest)
+    user_id = run_manifest.seed("protocol_user")["id"]
+    auth_role = run_manifest.data["database"]["roles"]["auth"]
+    dsn = management_dsn(run_manifest)
+    with psycopg.connect(dsn) as setup, setup.cursor() as cursor:
+        database_now = cursor.execute("SELECT clock_timestamp()").fetchone()[0]
+        deadline = database_now + timedelta(seconds=4)
+        if boundary == "absolute":
+            cursor.execute(
+                "UPDATE sessions SET last_seen_at = clock_timestamp(), absolute_expires_at = %s "
+                "WHERE id = (SELECT id FROM sessions WHERE user_id = %s "
+                "ORDER BY created_at DESC LIMIT 1) RETURNING id, last_seen_at",
+                (deadline, user_id),
+            )
+        else:
+            cursor.execute(
+                "UPDATE sessions SET last_seen_at = %s - interval '30 minutes', "
+                "absolute_expires_at = clock_timestamp() + interval '1 hour' "
+                "WHERE id = (SELECT id FROM sessions WHERE user_id = %s "
+                "ORDER BY created_at DESC LIMIT 1) RETURNING id, last_seen_at",
+                (deadline, user_id),
+            )
+        session_id, last_seen_before = cursor.fetchone()
+
+    holder = psycopg.connect(dsn, autocommit=False)
+    observer = psycopg.connect(admin_dsn(run_manifest), autocommit=True)
+    try:
+        locked_id = holder.execute(
+            "SELECT id FROM sessions WHERE id = %s FOR UPDATE", (session_id,)
+        ).fetchone()[0]
+        assert locked_id == session_id
+        blocker_pid = holder.execute("SELECT pg_backend_pid()").fetchone()[0]
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            pending = executor.submit(client.get, "/api/v1/session")
+            try:
+                wait_for_blocked_auth_backend(
+                    observer, blocker_pid=blocker_pid, auth_role=auth_role
+                )
+                while holder.execute("SELECT clock_timestamp() < %s", (deadline,)).fetchone()[0]:
+                    time.sleep(0.05)
+                assert not pending.done()
+            finally:
+                holder.rollback()
+            response = pending.result(timeout=15)
+    finally:
+        holder.close()
+        observer.close()
+
+    assert response.status_code == 401
+    assert response.json()["code"] == "UNAUTHENTICATED"
+    with psycopg.connect(dsn) as connection, connection.cursor() as cursor:
+        last_seen_after = cursor.execute(
+            "SELECT last_seen_at FROM sessions WHERE id = %s", (session_id,)
+        ).fetchone()[0]
+    assert last_seen_after == last_seen_before
+
+
 def test_disable_then_enable_does_not_revive_existing_cookie(
     client, run_manifest: RunManifest, control
 ) -> None:
@@ -165,6 +275,63 @@ def test_real_oidc_callback_and_disable_are_serialized_so_no_cookie_can_revive(
             stale.cookies.set("wuji_session", possible_cookie, domain="127.0.0.1", path="/")
             assert stale.get("/api/v1/session").status_code == 401
     assert active_session_count(run_manifest, "protocol_user") == 0
+
+
+def test_callback_and_disable_reach_same_user_lock_before_session_can_be_revived(
+    client, run_manifest: RunManifest, control
+) -> None:
+    user_symbol = "protocol_user"
+    user_id = run_manifest.seed(user_symbol)["id"]
+    control.run("user", "enable", "--user", user_symbol)
+    fixture_control(run_manifest, "valid")
+    callback = authorize(client, begin_login(client))
+    cookie_header = "; ".join(f"{cookie.name}={cookie.value}" for cookie in client.cookies.jar)
+
+    def finish_login() -> httpx.Response:
+        return httpx.get(
+            callback,
+            headers={"Cookie": cookie_header},
+            follow_redirects=False,
+            timeout=30,
+        )
+
+    holder = psycopg.connect(management_dsn(run_manifest), autocommit=False)
+    try:
+        holder.execute(
+            "SELECT pg_advisory_xact_lock(hashtextextended(%s, %s))",
+            (user_id, USER_LOCK_SEED),
+        ).fetchone()
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            login_future = executor.submit(finish_login)
+            disable_future = None
+            try:
+                wait_for_advisory_waiters(holder, 1)
+                disable_future = executor.submit(
+                    control.run, "user", "disable", "--user", user_symbol
+                )
+                wait_for_advisory_waiters(holder, 2)
+                assert not login_future.done()
+                assert not disable_future.done()
+            finally:
+                holder.rollback()
+            callback_response = login_future.result(timeout=30)
+            assert disable_future is not None
+            disable_future.result(timeout=30)
+    finally:
+        holder.close()
+
+    try:
+        assert callback_response.status_code == 303
+        assert callback_response.headers["location"] == "/projects"
+        stale_cookie = callback_response.cookies.get("wuji_session")
+        assert stale_cookie
+        assert active_session_count(run_manifest, user_symbol) == 0
+    finally:
+        control.run("user", "enable", "--user", user_symbol)
+
+    with httpx.Client(base_url=run_manifest.url("web"), follow_redirects=False) as stale:
+        stale.cookies.set("wuji_session", stale_cookie, domain="127.0.0.1", path="/")
+        assert stale.get("/api/v1/session").status_code == 401
 
 
 def test_new_login_in_same_browser_revokes_replaced_session(

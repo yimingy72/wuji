@@ -42,6 +42,8 @@ ALLOWED_SCENARIOS = {
     "future_nbf",
     "discovery_wrong_issuer",
     "blocked_valid",
+    "blocked_bad_nonce",
+    "blocked_token_error",
     "token_error",
 }
 
@@ -300,15 +302,15 @@ class Handler(BaseHTTPRequestHandler):
             state.token_count += 1
         now = int(time.time())
         scenario, user_symbol = issued.scenario.split(":", 1)
-        if scenario == "token_error":
-            self.json_response(HTTPStatus.SERVICE_UNAVAILABLE, {"error": "temporarily_unavailable"})
-            return
-        if scenario == "blocked_valid":
+        if scenario in {"blocked_valid", "blocked_bad_nonce", "blocked_token_error"}:
             state.token_waiting.set()
             if not state.token_release.wait(timeout=15):
                 self.json_response(HTTPStatus.SERVICE_UNAVAILABLE, {"error": "temporarily_unavailable"})
                 return
             state.token_waiting.clear()
+        if scenario in {"token_error", "blocked_token_error"}:
+            self.json_response(HTTPStatus.SERVICE_UNAVAILABLE, {"error": "temporarily_unavailable"})
+            return
         user = state.users[user_symbol]
         claims: dict[str, Any] = {
             "iss": state.issuer,
@@ -320,7 +322,7 @@ class Handler(BaseHTTPRequestHandler):
             "preferred_username": user["username"],
             "email": user["email"],
         }
-        if scenario == "bad_nonce":
+        if scenario in {"bad_nonce", "blocked_bad_nonce"}:
             claims["nonce"] = "not-the-handshake-nonce"
         elif scenario == "missing_nonce":
             claims.pop("nonce")
