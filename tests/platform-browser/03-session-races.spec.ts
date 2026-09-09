@@ -123,7 +123,7 @@ test('served production application contains no seed credentials or prototype co
     }
   });
   await page.goto('/login');
-  await expect(page.getByRole('button', { name: '使用身份提供方登录' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '使用组织账号登录' })).toBeVisible();
   const bundle = scripts.join('\n');
   for (const user of Object.values(run.seed_users)) {
     expect(bundle).not.toContain(user.password);
