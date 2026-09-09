@@ -62,3 +62,21 @@ WEB 开发者从原型抽出单份五套主题与 Ant Design token，交付 `7f4
 | 退出确认 | 畸形401响应不能等同于符合契约的 UNAUTHENTICATED；退出失败保留显式重试 | 已交 B 修正，待独立退出测试 |
 
 独立测试正在按 Spec 编写协议、数据库故障、权限和浏览器用例。测试运行文件/控制命令由 SERVER 唯一实现，测试者提供受控 issuer；完整执行仍须等待固定集成 SHA。
+
+## 收口批次执行
+
+2026-09-09 用户明确批准实施《Phase 1A 收口与集成验收》。主代理先将 SERVER 未提交生命周期草稿保存到 ignored 的 `work/draft-backups/phase-1a-closeout-20260909/`，记录文件摘要，再更新 Spec / Plan / closeout；合并统一基线后逐项确认草稿未变。
+
+已集成身份 API `955045644d2ab4b886ecff58018da0e43bae4017`（主线 `ebf1bf0`）、正式 WEB `d201cde8faf40846f4c52329b6410b78a5d361ab`（主线 `39e0e27`）和独立测试 `0b194da668790870dd276b276cd339f14e47f114`（主线 `f43f5d2`）。这些是工程交付，完整平台仍未验收。
+
+收口统一主线为 `2f15ae89ed9474987699a806c1ee2de1f2cdce2c`。保留任务原历史后，A 的工作树起点为 `2dc217c9ad321a74db22217f2cfa75c693a59d01`，B 为 `bc7f618bb3f224dd1f2d3a6ff385a4557f9c2e1c`，T 为 `6293d9eb62d33f270284adcd586401a0714a36e9`；三者包含同一已集成产品内容。
+
+| 项目 | 状态与证据 |
+| --- | --- |
+| 工程复核 | 主代理在统一主线执行 `./scripts/uv.sh sync --frozen`、`pnpm install --frozen-lockfile`、`pnpm check:platform` 均退出0，后者包含正式构建；证据 `artifacts/phase-1a/closeout-root/baseline-check-summary.json` 及同目录日志 |
+| 登录文案 | B 交付 `15cccc5c6301df13fb3d230b892be2909bea3e18`，仅精简登录页说明与排版；开发者构建、antd lint、6项浏览器探针通过，主代理审查后集成 |
+| 身份与运行权限 | A 修正迟到握手、TEMP 授权及会话刷新时效边界；独立测试补确定性时序，仍待真实数据库验收 |
+| 生命周期与控制 | A 完成原草稿，T 配套 serve-only 与独立生命周期测试；仍待交付与统一候选测试 |
+| 真实 WEB / ACCEPT | 等待真实生命周期启动和最终候选 SHA；开发者 Mock 检查不计入 P1A 验收 |
+
+主代理在会话鉴权中另发现：持锁 SELECT 检查过期后，刷新 last_seen 的 UPDATE 未重查有效期；锁等待或两条语句之间跨过期限时存在恢复过期会话的风险。已交 A 收紧刷新条件，T 用真实会话行锁和数据库时钟验证。此项属于既有会话过期验收边界，不增加接口。
