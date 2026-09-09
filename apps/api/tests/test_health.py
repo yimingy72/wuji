@@ -52,14 +52,18 @@ def test_health_is_public_and_readiness_fails_closed() -> None:
 
 
 @pytest.mark.unit
-def test_ready_probe_and_unregistered_business_routes_are_truthful() -> None:
+def test_ready_probe_and_unconfigured_business_routes_are_truthful() -> None:
     ready = asyncio.run(request("/health/ready", ready=True))
     assert ready.status_code == 200
     assert ready.json() == {"status": "ready"}
 
     session = asyncio.run(request("/api/v1/session"))
-    assert session.status_code == 404
-    assert session.json()["code"] == "NOT_FOUND"
+    assert session.status_code == 503
+    assert session.json()["code"] == "SERVICE_UNAVAILABLE"
+
+    unimplemented = asyncio.run(request("/api/v1/projects/00000000-0000-4000-8000-000000000001/scopes"))
+    assert unimplemented.status_code == 404
+    assert unimplemented.json()["code"] == "NOT_FOUND"
 
 
 @pytest.mark.unit
@@ -70,7 +74,18 @@ def test_runtime_health_responses_follow_the_authoritative_openapi() -> None:
         contract.validate_response(ContractRequest(path), ContractResponse(response))
 
     runtime = create_app().openapi()
-    assert set(runtime["paths"]) == {"/health/live", "/health/ready"}
-    for path in runtime["paths"].values():
-        assert path["get"]["security"] == []
-        assert path["get"]["servers"] == [{"url": "/"}]
+    assert set(runtime["paths"]) == {
+        "/health/live",
+        "/health/ready",
+        "/api/v1/auth/login",
+        "/api/v1/auth/callback",
+        "/api/v1/auth/logout",
+        "/api/v1/session",
+        "/api/v1/projects",
+        "/api/v1/projects/{project_id}",
+    }
+    for route in ("/health/live", "/health/ready"):
+        assert runtime["paths"][route]["get"]["security"] == []
+        assert runtime["paths"][route]["get"]["servers"] == [{"url": "/"}]
+    for route in ("/api/v1/auth/login", "/api/v1/auth/callback"):
+        assert runtime["paths"][route]["get"]["security"] == []

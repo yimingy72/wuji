@@ -6,6 +6,7 @@
 - 实施批准依据：2026-09-09 方案评审收口后，用户回复“可以，继续”，批准按本阶段 Spec / Plan 开始实施
 - 上游：[架构 v0.4](../../architecture.md)、[Phase 1 契约](../../phase1-api-contract.md)、[协作流程](../../development-workflow.md)
 - 方案评审：[修订记录](review.md)
+- 收口修订：2026-09-09 用户明确批准 [收口与集成验收](closeout.md)，继续本阶段实施；未改变阶段范围或公开 API 版本。
 
 ## 1. 可交付结果
 
@@ -49,7 +50,7 @@ Cookie 使用 HttpOnly、SameSite=Lax、Path=/。生产必须 Secure/HTTPS；只
 
 ## 4. API 与契约增量
 
-现有 OpenAPI 继续作为权威契约，当前 0.1.0 在阶段实施的 CORE 批次先扩展为 0.2.0，再按其实现和生成类型；本轮评审不修改当前契约。Session、Project、ProjectPage 和 Error 保留现有字段含义；Permission 枚举追加 `project.read`，保留既有任务/证据枚举。项目角色的有效能力与平台已实现能力取交集：Phase 1A 中有效 Viewer/Operator 均只返回 `project.read`，未实现的任务/证据能力不据此开放入口。
+OpenAPI 继续作为权威契约，CORE 已将其扩展为 0.2.0，并生成类型和浏览器校验器；SERVER / WEB 按该版本实施。Session、Project、ProjectPage 和 Error 保留现有字段含义；Permission 枚举追加 `project.read`，保留既有任务/证据枚举。项目角色的有效能力与平台已实现能力取交集：Phase 1A 中有效 Viewer/Operator 均只返回 `project.read`，未实现的任务/证据能力不据此开放入口。
 
 | 接口 | 本阶段行为 |
 | --- | --- |
@@ -111,3 +112,11 @@ RLS 精确关联条件：TenantMembership 行的 user_id 必须是当前 app.use
 | P1A-10 | 集群操作限定 docker-desktop 的 Wuji 所有权资源；停止开发进程只清理本次转发/服务，不重置集群 |
 
 P1A-01–10 对应架构 F01/F04/F05/F11/F12 与 S15 的适用部分，不能据此宣告完整 Phase 1 或 80 个架构场景通过。实际身份/数据库/前端检查必须在实施后记录 SHA 和证据。
+
+## 8. 收口验收补充
+
+- 交换令牌期间过期的握手，不能创建或替换应用会话。创建事务取得用户锁后、撤销旧会话或插入新会话前，原子消费仍为 exchanging 且未过期的记录；未命中按 UNAUTHENTICATED 安全回跳。迟到的过期/已取代请求不能设置或删除当前浏览器的新握手、应用会话 Cookie。
+- auth/project 运行角色不能创建普通表或临时表；撤销 PUBLIC 与两个运行角色的数据库 TEMP 权限，并以真实角色验证42501。修复初始化权限不得重置现有业务数据。
+- 集群资源修改前验证所有权，只有明确 NotFound 才允许创建；Pod 重建绑定已核验对象和 UID，不能用泛选择器删除未验证对象。
+- 启动失败、子进程退出与 SIGINT/SIGTERM 必须留下可解释的非敏感结果，并清理本次拥有的进程。进程先登记再等待就绪，运行记录更新必须串行化；暂停的测试转发不得被自动恢复。
+- P1A-02/03增加旧交换过期后释放、保留新握手，以及登录/禁用临界区的确定性并发用例。P1A-10增加独立生命周期测试，不以运行文件元数据检查替代实际中断、端口冲突与清理证据。

@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: wuji-test
+  labels:
+    app.kubernetes.io/part-of: wuji
+    app.kubernetes.io/managed-by: wuji-platform
+    wuji.dev/owner: phase-1a
+    wuji.dev/environment: test

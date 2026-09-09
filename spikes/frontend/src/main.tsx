@@ -6,7 +6,7 @@ import { QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { createBrowserRouter, Link, Navigate, Outlet, RouterProvider, useLocation, useSearchParams } from 'react-router-dom';
 import { queryClient, taskQuery, initialTask, rawFixture, artifactPath, stopDemoTask } from './shared/model';
 import { Notice } from './shared/ui';
-import { palettes, isPaletteId } from './shared/theme';
+import { palettes, isPaletteId } from '@wuji/theme';
 import { AppearanceProvider, useAppearance } from './shared/Appearance';
 import './shared/fonts.css';
 import '@fontsource/ibm-plex-mono/latin-400.css';
