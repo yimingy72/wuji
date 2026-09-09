@@ -1,6 +1,6 @@
 # B1 Spec：范围选择与任务预览
 
-- 状态：review-ready；方案供用户评审，未批准业务实现。
+- 状态：approved；用户在 Plan 模式方案确认后明确要求 Implement the proposed plan，现进入实施。
 - 基础代码：`70668be2d5d42c9468764399b5be2d5157951943`；开发启动时固定实际集成 SHA。
 - 对应：[阶段 Spec](spec.md)、[B1 Plan](b1-plan.md)。本批次不执行目标请求。
 
@@ -36,7 +36,7 @@ TaskPreview 有效期固定为300秒且不超过授权截止时间；blocked 预
 3. IPv4 仅接受标准点分十进制；IPv6 仅接受带方括号的字面量，规范化为压缩小写形式，拒绝 zone ID。拒绝十六进制、单整数或非标准省略 IP 写法。预览不把解析成功视为目的地址已经通过出口审查。
 4. 路径必须以 `/` 开始，拒绝重复斜杠及 `.`/`..` 路径段。百分号必须组成合法 `%HH`；仅解码 ASCII unreserved 字符，解码后再次拒绝点路径段。其他百分号编码的路径字符在首批拒绝，尤其不接受编码斜杠、反斜杠和二次编码。原始路径仅允许 unreserved、`/`、`:`、`@` 和 sub-delims `!$&'()*+,;=`。这是 B1 的明确支持范围，不宣称覆盖所有 URL 表示法。
 5. query 保留原有参数顺序、重复参数、加号及编码字节；只校验百分号语法并统一十六进制大小写，不解码或重排。非 ASCII 查询需由用户提供百分号编码。query 参与摘要，但不能用它扩大 path/origin 授权；导入者仍须明确批准这些端点的非破坏性观察用途。
-6. Scope origins 规范化为无 path/query 的 origin；路径前缀执行同一规范化。匹配前缀先移除末尾 `/`（根路径除外），只有完全相等或以 `prefix + '/'` 起始才匹配。`/public` 匹配 `/public`、`/public/a`，不匹配 `/publicity`。任何排除前缀命中均拒绝；方法必须在允许集合中。
+6. Scope origins 规范化为无 path/query 的 origin；路径前缀执行同一规范化。根前缀 `/` 匹配全部规范化路径；其他前缀先移除末尾 `/`，只有完全相等或以 `prefix + '/'` 起始才匹配。`/public` 匹配 `/public`、`/public/a`，不匹配 `/publicity`。任何排除前缀命中均拒绝；方法必须在允许集合中。
 7. effective_scope 的 limits 对 draft、批准 Scope 和平台上限逐字段取最小值；保留规范化原 draft，不悄悄把用户请求限额改写为有效限额。SHA-256 input_digest 以带 `task-draft/v1` 标记、固定字段类型、排序键和紧凑 JSON 的规范化 draft 计算；Scope hash 独立绑定完整不可变策略内容。
 
 首批必要输入向量：默认443端口与域名大小写归一；`/public/a`通过；`/publicity`与`/public/logout`拒绝；`%2e%2e`和`%2f`拒绝。其他编码与解析矩阵集中后测，不新增长时间模糊测试。

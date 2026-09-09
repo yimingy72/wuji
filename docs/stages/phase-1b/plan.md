@@ -1,6 +1,6 @@
 # Phase 1B Plan：范围、任务与事件
 
-- 状态：B1 review-ready；未分派业务开发。B2/B3在进入对应批次前完成具体实施计划。
+- 状态：B1 in-progress；用户明确批准实施。B2/B3在进入对应批次前完成具体实施计划。
 - 对应：[Spec](spec.md)；候选基础为 Phase 1A 阶段分支，实际开工时固定 SHA。
 - 约束：沿用根 AGENTS.md 的 Plan 流程、SOL/xhigh 开发、Luna/xhigh 集中测试及共享 10 分钟测试预算。
 

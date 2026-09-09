@@ -1,7 +1,7 @@
 # Phase 1B 验收记录
 
-- 设计状态：B1 review-ready；已完成主代理和SOL/xhigh只读设计评审，见[记录](review.md)及[B1 Spec](b1-spec.md)/[Plan](b1-plan.md)。尚未批准实施，不宣称已在Plan模式运行。
-- 实施状态：not-started。
+- 设计状态：B1 approved；已完成独立设计评审、Plan模式最终规划及用户明确实施批准。
+- 实施状态：in-progress，实际任务记录见[execution.md](execution.md)。
 - 测试状态：not-tested。
 - 被测试提交 / run_id：无。
 - 当前阶段不存在已通过的业务验收项；不把 Phase 1A 证据转记为任务管理测试。

@@ -1,6 +1,6 @@
 # B1 Plan：首批实施任务
 
-- 状态：review-ready；未批准业务实现，当前仅进行设计评审。
+- 状态：in-progress；用户明确批准 Plan 模式最终方案，按本计划实施。
 - 对应：[B1 Spec](b1-spec.md)。主代理负责决策与集成，开发使用 SOL/xhigh，独立测试使用 Luna/xhigh。
 - 本计划沿用本地 Docker Desktop 集群及固定端口；当前主工作树运行 Phase 1A，本次评审在独立工作树进行，不修改其 HEAD 或运行记录。
 
