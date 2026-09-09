@@ -80,3 +80,9 @@ WEB 开发者从原型抽出单份五套主题与 Ant Design token，交付 `7f4
 | 真实 WEB / ACCEPT | 等待真实生命周期启动和最终候选 SHA；开发者 Mock 检查不计入 P1A 验收 |
 
 主代理在会话鉴权中另发现：持锁 SELECT 检查过期后，刷新 last_seen 的 UPDATE 未重查有效期；锁等待或两条语句之间跨过期限时存在恢复过期会话的风险。已交 A 收紧刷新条件，T 用真实会话行锁和数据库时钟验证。此项属于既有会话过期验收边界，不增加接口。
+
+### 身份与 TEMP 修正交接
+
+A 交付 `77b132fcd9f0401d622a4f696609ac4fec809f15`，主代理审查后集成为 `722d6d6422c2e0a8f4d643a9767d0c447f67c819`。开发者 `pnpm check:api` 退出0（11项），真实DB的过期/替换握手均不创建新会话且保留旧会话；幂等权限修复前后为8用户/57项目，两运行角色普通建表及临时建表均返回42501。证据在 A 工作树 `artifacts/phase-1a/server/closeout/`。
+
+主代理另外在同一真实开发数据库中创建两条专属测试会话，比较旧 SQL 与集成后的实际 `DatabaseAuthority.authenticate`。通过 pg_stat_activity 确认请求等待行锁，再等数据库时钟跨过空闲期限后释放：旧 SQL 仍通过并刷新时间，修正实现拒绝且时间不变。两条测试会话均精确删除，未改动已有会话或业务数据。证据 `artifacts/phase-1a/closeout-root/session-lock-probe.json` 绑定上述集成 SHA，退出0。初次探针使用 migration 角色观测其他角色的 wait 字段，权限不足未能建立屏障；改用既有管理连接后完成确定性对照，此为探针修正而非产品失败。独立测试仍需在最终测试 run 重验。
