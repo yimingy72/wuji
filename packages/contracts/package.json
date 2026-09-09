@@ -1,10 +1,19 @@
 {
   "name": "@wuji/contracts",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "exports": {
     "./types": "./generated/api.d.ts",
+    "./validators": {
+      "types": "./generated/validators.d.ts",
+      "import": "./generated/validators.js",
+      "default": "./generated/validators.js"
+    },
     "./fixtures": "./fixtures/phase1.json"
+  },
+  "dependencies": {
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1"
   }
 }

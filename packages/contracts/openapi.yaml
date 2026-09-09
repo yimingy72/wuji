@@ -1,7 +1,7 @@
 openapi: 3.1.1
 info:
   title: Wuji Phase 1 Control API
-  version: 0.1.0
+  version: 0.2.0
   description: Reviewable contract baseline, not a running service. Authorized non-destructive HTTP observation
     only. All object reads/writes enforce caller/project/tenant ownership. Cookie authentication plus CSRF and Origin
     checks for writes. Limits and URL syntax validation do not replace server policy enforcement.
@@ -11,8 +11,12 @@ servers:
 security:
 - SessionCookie: []
 tags:
+- name: Authentication
+  description: Browser OIDC entry, callback and application-session logout
 - name: Session
   description: Browser session and project discovery
+- name: Health
+  description: Process and dependency readiness probes
 - name: Scopes
   description: Approved scope and canonical preview
 - name: Tasks
@@ -127,12 +131,170 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '500': &id012
+          description: Unexpected server error
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
       parameters: []
+  /auth/login:
+    get:
+      operationId: beginLogin
+      summary: Begin the configured OIDC login flow
+      description: Validates the local return path, creates a browser-bound handshake and redirects to the configured identity provider.
+      tags:
+      - Authentication
+      security: []
+      parameters:
+      - name: return_to
+        in: query
+        required: false
+        schema:
+          type: string
+          maxLength: 2048
+          pattern: ^/projects(?:/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})?/?$
+          default: /projects
+      responses:
+        '302':
+          description: Redirect to the configured identity provider
+          headers:
+            Location:
+              required: true
+              schema:
+                type: string
+                format: uri
+            Cache-Control:
+              required: true
+              schema:
+                type: string
+                const: no-store
+        '409': *id004
+        '422': *id006
+        '503': *id008
+        '500': *id012
+  /auth/callback:
+    get:
+      operationId: finishLogin
+      summary: Complete the current browser-bound OIDC handshake
+      description: Always redirects to an allowed local page. Failures expose only a fixed error code and trace identifier.
+      tags:
+      - Authentication
+      security: []
+      parameters:
+      - name: code
+        in: query
+        required: false
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 4096
+      - name: state
+        in: query
+        required: false
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 1024
+      - name: error
+        in: query
+        required: false
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 128
+      responses:
+        '303':
+          description: Redirect to the allowed return path or fixed login error page
+          headers:
+            Location:
+              required: true
+              schema:
+                type: string
+                pattern: ^/(?:projects(?:/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})?/?|login\?error=(?:UNAUTHENTICATED|FORBIDDEN|SERVICE_UNAVAILABLE|INTERNAL_ERROR)&trace_id=[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$
+            Cache-Control:
+              required: true
+              schema:
+                type: string
+                const: no-store
+  /auth/logout:
+    post:
+      operationId: logout
+      summary: Revoke the current Wuji application session
+      tags:
+      - Authentication
+      security:
+      - SessionCookie: []
+        CsrfToken: []
+      responses:
+        '204':
+          description: Current application session revoked
+          headers:
+            Cache-Control:
+              required: true
+              schema:
+                type: string
+                const: no-store
+        '401': *id001
+        '403': *id002
+        '503': *id008
+        '500': *id012
+  /health/live:
+    get:
+      operationId: getLiveness
+      summary: Report that the API process can serve requests
+      tags:
+      - Health
+      security: []
+      servers:
+      - url: /
+      responses:
+        '200':
+          description: Process is live
+          headers:
+            Cache-Control:
+              required: true
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+  /health/ready:
+    get:
+      operationId: getReadiness
+      summary: Report database and migration readiness
+      tags:
+      - Health
+      security: []
+      servers:
+      - url: /
+      responses:
+        '200':
+          description: Required dependencies and migrations are ready
+          headers:
+            Cache-Control:
+              required: true
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+        '503': *id008
+        '500': *id012
   /projects:
     get:
       operationId: listProjects
       summary: List accessible projects
-      description: List accessible projects
+      description: Lists current memberships ordered by (created_at, id) descending. The signed cursor is bound to this endpoint, caller, permissions version and limit. Tampering or cross-user reuse returns 422; expiry or a changed permissions version returns 410. Every page reauthorizes current membership.
       tags:
       - Session
       responses:
@@ -155,9 +317,36 @@ paths:
         '422': *id006
         '429': *id007
         '503': *id008
+        '500': *id012
       parameters:
       - $ref: '#/components/parameters/PageSize'
       - $ref: '#/components/parameters/PageCursor'
+  /projects/{project_id}:
+    get:
+      operationId: getProject
+      summary: Read one accessible project
+      description: Missing and inaccessible projects both return 404.
+      tags:
+      - Session
+      responses:
+        '200':
+          description: Successful response
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '401': *id001
+        '404': *id003
+        '422': *id006
+        '503': *id008
+        '500': *id012
+      parameters:
+      - $ref: '#/components/parameters/ProjectId'
   /projects/{project_id}/scopes:
     get:
       operationId: listApprovedScopes
@@ -715,6 +904,7 @@ components:
     Permission:
       type: string
       enum:
+      - project.read
       - task.read
       - task.create
       - task.control
@@ -767,6 +957,17 @@ components:
                 type: string
                 minLength: 1
                 maxLength: 300
+    HealthStatus:
+      type: object
+      additionalProperties: false
+      required:
+      - status
+      properties:
+        status:
+          type: string
+          enum:
+          - live
+          - ready
     Session:
       type: object
       additionalProperties: false

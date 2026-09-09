@@ -1,6 +1,8 @@
 packages:
+  - apps/*
   - packages/*
   - spikes/*
+  - tests/contracts-browser
 useNodeVersion: 24.20.0
 nodeVersion: 24.20.0
 engineStrict: true

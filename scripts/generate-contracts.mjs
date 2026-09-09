@@ -1,17 +1,124 @@
-import { readFile, mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import Ajv2020 from 'ajv/dist/2020.js';
+import standaloneCode from 'ajv/dist/standalone/index.js';
+import addFormats from 'ajv-formats';
 import openapiTS, { astToString } from 'openapi-typescript';
+import { parse } from 'yaml';
 
 const source = new URL('../packages/contracts/openapi.yaml', import.meta.url);
-const destination = new URL('../packages/contracts/generated/api.d.ts', import.meta.url);
-const output = astToString(await openapiTS(source));
-if (process.argv.includes('--check')) {
-  const existing = await readFile(destination, 'utf8').catch(() => '');
-  if (existing !== output) {
-    throw new Error('Generated contracts are stale. Run pnpm contracts:generate and include the output.');
+const generatedDirectory = new URL('../packages/contracts/generated/', import.meta.url);
+const typeDestination = new URL('api.d.ts', generatedDirectory);
+const validatorDestination = new URL('validators.js', generatedDirectory);
+const validatorTypeDestination = new URL('validators.d.ts', generatedDirectory);
+const schemaId = 'urn:wuji:contracts:0.2';
+const validatorSchemas = {
+  validateSession: 'Session',
+  validateProject: 'Project',
+  validateProjectPage: 'ProjectPage',
+  validateError: 'Error',
+};
+
+const sourceText = await readFile(source, 'utf8');
+const api = parse(sourceText);
+const schemas = JSON.parse(
+  JSON.stringify(api.components.schemas).replaceAll('#/components/schemas/', `${schemaId}#/$defs/`),
+);
+
+const typeOutput = astToString(await openapiTS(source));
+const ajv = new Ajv2020({
+  allErrors: true,
+  strict: true,
+  strictRequired: false,
+  code: { esm: true, lines: true, source: true },
+});
+addFormats(ajv);
+ajv.addSchema({ $id: schemaId, $defs: schemas });
+
+const standaloneExports = Object.fromEntries(
+  Object.entries(validatorSchemas).map(([exportName, schemaName]) => {
+    const reference = `${schemaId}#/$defs/${schemaName}`;
+    if (!ajv.getSchema(reference)) throw new Error(`OpenAPI does not define ${schemaName}.`);
+    return [exportName, reference];
+  }),
+);
+const validatorOutput = convertRuntimeHelpersToEsm(standaloneCode(ajv, standaloneExports));
+const validatorTypeOutput = `import type { components } from './api.js';
+
+export interface ContractValidationError {
+  readonly instancePath: string;
+  readonly schemaPath: string;
+  readonly keyword: string;
+  readonly params: Record<string, unknown>;
+  readonly message?: string;
+}
+
+export interface ContractValidator<T> {
+  (value: unknown): value is T;
+  errors: readonly ContractValidationError[] | null;
+}
+
+export declare const validateSession: ContractValidator<components['schemas']['Session']>;
+export declare const validateProject: ContractValidator<components['schemas']['Project']>;
+export declare const validateProjectPage: ContractValidator<components['schemas']['ProjectPage']>;
+export declare const validateError: ContractValidator<components['schemas']['Error']>;
+`;
+
+const outputs = [
+  [typeDestination, typeOutput],
+  [validatorDestination, validatorOutput],
+  [validatorTypeDestination, validatorTypeOutput],
+];
+
+function convertRuntimeHelpersToEsm(output) {
+  const imports = [];
+  let converted = output;
+  const helpers = [
+    {
+      pattern: /require\(["']ajv-formats\/dist\/formats["']\)/g,
+      replacement: 'wujiAjvFormats',
+      declaration: `import * as wujiAjvFormatsModule from 'ajv-formats/dist/formats.js';
+const wujiAjvFormats = 'fullFormats' in wujiAjvFormatsModule
+  ? wujiAjvFormatsModule
+  : wujiAjvFormatsModule.default;`,
+    },
+    {
+      pattern: /require\(["']ajv\/dist\/runtime\/ucs2length["']\)\.default/g,
+      replacement: 'wujiAjvUcs2Length',
+      declaration: `import * as wujiAjvUcs2LengthModule from 'ajv/dist/runtime/ucs2length.js';
+const wujiAjvUcs2Length = typeof wujiAjvUcs2LengthModule.default === 'function'
+  ? wujiAjvUcs2LengthModule.default
+  : wujiAjvUcs2LengthModule.default.default;`,
+    },
+  ];
+
+  for (const helper of helpers) {
+    if (helper.pattern.test(converted)) {
+      helper.pattern.lastIndex = 0;
+      converted = converted.replace(helper.pattern, helper.replacement);
+      imports.push(helper.declaration);
+    }
   }
-  console.log('Generated TypeScript contract matches OpenAPI.');
+  if (/\brequire\s*\(/.test(converted)) {
+    throw new Error('Standalone validator emitted an unapproved CommonJS runtime helper.');
+  }
+  if (/\bnew\s+Function\s*\(|\beval\s*\(/.test(converted)) {
+    throw new Error('Standalone validator emitted runtime code generation.');
+  }
+  return `${imports.join('\n')}\n${converted.trimEnd()}\n`;
+}
+
+if (process.argv.includes('--check')) {
+  const stale = [];
+  for (const [destination, expected] of outputs) {
+    const existing = await readFile(destination, 'utf8').catch(() => '');
+    if (existing !== expected) stale.push(destination.pathname.split('/').at(-1));
+  }
+  if (stale.length > 0) {
+    throw new Error(`Generated contracts are stale: ${stale.join(', ')}. Run pnpm contracts:generate and include the output.`);
+  }
+  console.log('Generated TypeScript types and standalone validators match OpenAPI.');
 } else {
-  await mkdir(new URL('../packages/contracts/generated/', import.meta.url), { recursive: true });
-  await writeFile(destination, output);
-  console.log('Generated packages/contracts/generated/api.d.ts');
+  await mkdir(generatedDirectory, { recursive: true });
+  for (const [destination, output] of outputs) await writeFile(destination, output);
+  console.log('Generated contract types and standalone validators.');
 }

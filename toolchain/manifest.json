@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "node": {
+    "version": "24.20.0",
+    "manager": "pnpm",
+    "manager_version": "10.32.1"
+  },
+  "uv": {
+    "version": "0.12.11",
+    "artifacts": {
+      "darwin-x86_64": {
+        "url": "https://github.com/astral-sh/uv/releases/download/0.12.11/uv-x86_64-apple-darwin.tar.gz",
+        "sha256": "96d773bf5fda4f9b08c4444847f9183d1c14bc8a28ff9c0490e261a8fc6e5309"
+      },
+      "linux-x86_64-gnu": {
+        "url": "https://github.com/astral-sh/uv/releases/download/0.12.11/uv-x86_64-unknown-linux-gnu.tar.gz",
+        "sha256": "4ae93e0f148a18434cc094072547cec88912fc4a72b984183c7d0d0e9586cb5e"
+      }
+    }
+  },
+  "python": {
+    "version": "3.13.15",
+    "implementation": "cpython",
+    "gil": "standard",
+    "build": "20260901",
+    "metadata_source": "https://raw.githubusercontent.com/astral-sh/uv/0.12.11/crates/uv-python/download-metadata.json",
+    "artifacts": {
+      "darwin-x86_64-none": {
+        "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20260901/cpython-3.13.15%2B20260901-x86_64-apple-darwin-install_only_stripped.tar.gz",
+        "sha256": "f712a9143c8a5d248438ec7921a0b48d548bca4f1337d33c690d28c2d0504137"
+      },
+      "linux-x86_64-gnu": {
+        "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20260901/cpython-3.13.15%2B20260901-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz",
+        "sha256": "8a689a077337bea6d1c4bc0b7df1d52fcaa28f5f67e50df8bf417c1e3f9d8874"
+      }
+    }
+  },
+  "images": {
+    "postgres": {
+      "tag": "docker.io/library/postgres:18.6",
+      "index_digest": "sha256:4ef4dbc939d61acea57712655ddb4b4ab27419c913f94cca0cd57cb3ea3c2280",
+      "linux_amd64_digest": "sha256:7341002d2b8c7c5bdd7542a671a95b36196c0b5b888daf454ae4fc33ba5346d7"
+    },
+    "keycloak": {
+      "tag": "quay.io/keycloak/keycloak:26.7.2",
+      "index_digest": "sha256:9d1f1b2b7261ff53c66cb1092dfcdc34a5fb77e81f9e6a6e75b8b6a795de8067",
+      "linux_amd64_digest": "sha256:c2a17fe407e892196d0b7cf9cef54e60952d6c372a9205f661a9efa0911463b0"
+    }
+  }
+}
