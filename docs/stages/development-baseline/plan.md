@@ -18,7 +18,7 @@
 | BASE-02 | SOL/xhigh 开发代理 | docs/development-workflow.md、docs/stages/_templates/；spikes/frontend/src/shared/model.ts 仅清理文件末尾多余空行 | 依赖 BASE-01；实现指南/模板并修正首次暂存检查发现的空白问题，本地提交并回报 SHA；不改契约/运行逻辑/锁文件 |
 | BASE-03 | SOL/high 独立测试代理 | 本阶段独立测试报告；其余只读，测试产物进入 ignored 目录 | 依赖可测试 SHA；固定工具链运行现有检查、核查 B01–B08，提交报告 |
 | BASE-04 | 主代理 | README.md、docs/predevelopment-plan.md、本阶段 acceptance.md | 集成 BASE-02，检查最终差异、复核证据、记录测试 SHA 与未覆盖项 |
-| PLAN-1A | 主代理，SOL/xhigh 只读调研协助 | docs/stages/phase-1a/spec.md、plan.md | 调查实际开发环境和成熟依赖；主代理确定草案，未授权 Phase 1A 业务实现 |
+| PLAN-1A | 主代理，SOL/xhigh 只读调研协助 | docs/stages/phase-1a/spec.md、plan.md、acceptance.md 状态占位 | 调查实际开发环境和成熟依赖；主代理确定草案，未授权 Phase 1A 业务实现 |
 
 公共契约、依赖锁文件、数据库迁移本阶段无计划变更；若基线失败暴露必须修复的问题，主代理先记录原因并指派唯一实现者，不由测试代理自行修改预期。
 

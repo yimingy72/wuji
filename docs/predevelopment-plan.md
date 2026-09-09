@@ -23,6 +23,8 @@
 | Agent 执行框架决策 | [Harness 职责与选型](agent-harness-decision.md) | 补齐 LangGraph 与 Harness 分工；优先验证 Deep Agents，具体依赖尚未安装或集成 |
 | 模型网关基础验证 | [实际测试记录](model-gateway-validation.md) | 两个协议的模拟工具往返及 Responses 短文本通过；不代表完整 SDK 兼容或生产计量验收 |
 | 架构复审 v0.4 | [问题与修正](architecture-review.md) | 修正框架复用、上下文、辅助计费、恢复与事件边界；新增 H01–H10，均待集成验证 |
+| 分阶段协作与 Git 基线 | [协作流程](development-workflow.md)、[基线 Spec](stages/development-baseline/spec.md) | 已建立本地 Git 快照、SOL/xhigh 开发与 SOL/high 独立测试流程；最终阶段状态以验收记录为准 |
+| Phase 1A Spec / Plan | [Spec](stages/phase-1a/spec.md)、[Plan](stages/phase-1a/plan.md) | 草案；默认 Python/FastAPI + PostgreSQL + Keycloak，复用已验证 Ready 的 Docker Desktop Kubernetes；尚未实施 |
 
 上述完成项不代表整个 Phase 0 完成，也不代表 80 个架构验收场景已通过。验证结果和未覆盖项记录在 [Phase 0 验证记录](phase0-validation.md)。
 
@@ -53,13 +55,13 @@
 | 编号 | 任务 / 责任 | 必须产物与通过条件 | 依赖 / 状态 |
 | --- | --- | --- | --- |
 | P0-01 | 第一切片契约 / 前后端 | 完成当前 API 基线的实现评审，补充正式身份端点、错误和容量配置策略 | 当前已有可校验基线；待后端评审与实现 |
-| P0-02 | 后端语言与框架 / 后端 | 记录 API、Router、Controller、Orchestrator 的语言/SDK 组合及职责；区分 LangGraph 与 Agent Harness，明确默认执行层候选及适配边界 | 语言与版本待决策；已有 Harness 选型建议，不能从前端选型推断 |
-| P0-03 | 身份接入 / 后端与部署 | 选定首个提供方，完成会话、CSRF、登录回跳、退出、过期/撤销验证 | 待实现；原型身份不可沿用 |
+| P0-02 | 后端语言与框架 / 后端 | 记录 API、Router、Controller、Orchestrator 的语言/SDK 组合及职责；区分 LangGraph 与 Agent Harness，明确默认执行层候选及适配边界 | Phase 1A 草案已选 Python/FastAPI 及具体候选版本，待阶段评审与安装验证；Harness 仍按 P0-10 验证 |
+| P0-03 | 身份接入 / 后端与部署 | 选定首个提供方，完成会话、CSRF、登录回跳、退出、过期/撤销验证 | Phase 1A 草案采用 Keycloak OIDC + Authlib；待评审与实现，原型身份不可沿用 |
 | P0-04 | 数据库初始迁移 / 后端 | Tenant/Project/Membership、授权策略、Task/命令/ToolCall、Artifact、Audit/Outbox 的约束和迁移 | 依赖 P0-01/02；测试跨租户关联、连接池上下文与唯一约束 |
 | P0-05 | 出口与 CNI 小验证 / 基础设施 | 选定实现组合；实测 DNS/IPv6/重定向、直连阻断、限速、撤销窗口 | Phase 1 执行开放前必须完成 |
 | P0-06 | Runtime 生命周期小验证 / 后端与基础设施 | 受限镜像启动、租约过期断流、取消与孤儿资源回收；双副本/失联时最多一个有效 attempt | 依赖 P0-05；记录实测停止窗口 |
 | P0-07 | 幂等命令与事件小验证 / 后端 | 请求丢失、并发创建/取消、事务乱序、Outbox 补发和一致游标的数据库集成测试 | 依赖 P0-04；不能以当前 Schema 测试替代 |
-| P0-08 | 开发/测试环境 / 全栈与基础设施 | 自建 HTTP/DNS 夹具、数据库/存储启动、测试身份、初始化和重置脚本；CI 可复现 | 当前只有前端/契约 CI，平台环境待建 |
+| P0-08 | 开发/测试环境 / 全栈与基础设施 | 自建 HTTP/DNS 夹具、数据库/存储启动、测试身份、初始化和重置脚本；CI 可复现 | 已核实 docker-desktop Kubernetes 1.36.1 Ready 与默认 hostpath StorageClass；平台依赖/PVC/身份尚未部署验证 |
 | P0-09 | 正式前端基础层 / 前端 | 会话、权限、运行时响应校验、命令客户端、缓存代次隔离、加载/错误状态、服务端分页 | 复用已验证依赖和线框，不能直接把原型 Mock 发布上线 |
 | P0-10 | SSE/模型工作流预验证 / 后端与前端 | 快照交接/补发/撤权；一个默认 Harness 实际压缩与回查证据、辅助调用计费、打断/恢复与账本去重、受控工具与模型协议；覆盖 H01–H10 | 基础协议已实测；候选小验证可在框架冻结前开展，不阻塞 Phase 1 无模型切片；完整集成在 Phase 2 开放前完成 |
 
