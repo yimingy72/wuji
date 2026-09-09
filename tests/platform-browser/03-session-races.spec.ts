@@ -80,7 +80,7 @@ test('late project error cannot replace the newly selected project', async ({ pa
   await page.waitForTimeout(250);
   await expect(page).toHaveURL(new RegExp(`/projects/${newId}$`));
   await expect(page.getByTestId('project-canary')).toContainText(newId!);
-  await expect(page.getByRole('alert')).not.toContainText('delayed');
+  await expect(page.locator('body')).not.toContainText('delayed');
 });
 
 test('revocation wins over an already-authorized delayed 200 response', async ({ page }) => {
@@ -132,7 +132,7 @@ test('served production application contains no seed credentials or prototype co
     }
   });
   await page.goto('/login');
-  await expect(page.getByRole('button', { name: '使用组织账号登录' })).toBeVisible();
+  await expect(page.getByRole('link', { name: '使用组织账号登录' })).toBeVisible();
   const bundle = scripts.join('\n');
   for (const user of Object.values(run.seed_users)) {
     expect(bundle).not.toContain(user.password);
