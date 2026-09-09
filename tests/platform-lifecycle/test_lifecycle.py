@@ -24,6 +24,7 @@ SERVE_ONLY = REPOSITORY_ROOT / "scripts" / "platform" / "test-platform.sh"
 CONTROL = REPOSITORY_ROOT / "scripts" / "platform" / "control.sh"
 FIXED_PORTS = (4182, 8002, 18082, 15434, 18083, 8003)
 EVIDENCE_ROOT = REPOSITORY_ROOT / "artifacts" / "phase-1a" / "lifecycle-independent"
+TEST_LOCK = REPOSITORY_ROOT / "work" / "run" / "test-platform.lock"
 
 
 def private_case(name: str) -> Path:
@@ -106,14 +107,24 @@ def stop_owned_processes(process: subprocess.Popen[str], case: Path) -> None:
             pass
 
 
+def save_parent_output(case: Path, stdout: str, stderr: str) -> None:
+    for name, value in (("parent.stdout.log", stdout), ("parent.stderr.log", stderr)):
+        path = case / name
+        path.write_text(value, encoding="utf-8")
+        path.chmod(0o600)
+
+
 def complete_process(
     process: subprocess.Popen[str], case: Path, *, timeout: float = 180
 ) -> int:
     try:
-        process.communicate(timeout=timeout)
+        stdout, stderr = process.communicate(timeout=timeout)
     except subprocess.TimeoutExpired:
         stop_owned_processes(process, case)
+        stdout, stderr = process.communicate(timeout=10)
+        save_parent_output(case, stdout, stderr)
         raise AssertionError("serve-only did not exit within its bounded cleanup time")
+    save_parent_output(case, stdout, stderr)
     assert process.returncode is not None
     return process.returncode
 
@@ -171,7 +182,10 @@ def assert_fixed_ports_reusable() -> None:
 
 
 def assert_lock_reusable(manifest: dict[str, Any]) -> None:
-    lock_path = Path(manifest["control"]["lock_file"])
+    assert_file_lock_reusable(Path(manifest["control"]["lock_file"]))
+
+
+def assert_file_lock_reusable(lock_path: Path) -> None:
     with lock_path.open("a+", encoding="utf-8") as stream:
         fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
         fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
@@ -200,10 +214,26 @@ def assert_cleanup(
     assert report["exit_code"] == exit_code
     assert report["reason"] == reason
     for record in manifest.get("processes", {}).values():
-        if not isinstance(record, dict) or "pid" not in record or "start_marker" not in record:
+        if not isinstance(record, dict) or not {
+            "pid",
+            "process_group",
+            "start_id",
+            "command_marker",
+        }.issubset(record):
             continue
         identity = process_identity(int(record["pid"]))
-        assert identity is None or str(record["start_marker"]) not in identity[1]
+        if identity is None:
+            continue
+        try:
+            current_group = os.getpgid(int(record["pid"]))
+        except ProcessLookupError:
+            continue
+        same_owned_process = (
+            identity[0] == str(record["start_id"])
+            and str(record["command_marker"]) in identity[1]
+            and current_group == int(record["process_group"])
+        )
+        assert not same_owned_process
     assert_fixed_ports_reusable()
     assert_lock_reusable(manifest)
 
@@ -341,11 +371,18 @@ def test_fixed_port_conflict_fails_without_touching_owner_and_releases_lifecycle
         owner.bind(("127.0.0.1", 18083))
         owner.listen()
         results = []
+        reasons = []
         for _ in range(2):
             process = invoke_serve_only(case)
             results.append(complete_process(process, case, timeout=30))
             assert owner.getsockname()[1] == 18083
+            payload = json.loads((case / "parent.stderr.log").read_text(encoding="utf-8"))
+            reason = json.dumps(payload.get("error", {}), sort_keys=True)
+            assert "port" in reason.lower()
+            reasons.append(reason)
+            assert_file_lock_reusable(TEST_LOCK)
     assert results == [1, 1]
+    assert reasons[0] == reasons[1]
 
 
 @pytest.mark.parametrize("mode", ["foreign-owner", "forbidden"])
