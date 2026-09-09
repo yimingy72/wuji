@@ -17,13 +17,14 @@ from common import (
     LifecycleError,
     load_manifest,
     mutate_manifest,
+    pause_forward,
     record_is_owned,
     replace_database,
     require_owned_resource,
     run_command,
     safe_error_payload,
+    resume_forward,
     start_api,
-    start_forward,
     terminate_record,
     update_process,
     wait_http,
@@ -108,28 +109,15 @@ def _db_forward(path: Path, run: dict[str, Any], arguments: Sequence[str]) -> di
     if list(arguments) not in (["pause"], ["resume"]):
         raise LifecycleError("db-forward requires pause or resume")
     action = arguments[0]
-    record = run.get("processes", {}).get("postgres_forward")
     if action == "pause":
-        if not isinstance(record, dict) or not record_is_owned(record):
-            raise LifecycleError("PostgreSQL forward is not owned by this run")
-        update_process(path, "postgres_forward", {"paused": True, "lifecycle_state": "paused"})
-        if not terminate_record(record):
-            raise LifecycleError("PostgreSQL forward could not be paused")
+        pause_forward(path, "postgres")
         return {"paused": True}
-    if isinstance(record, dict) and record_is_owned(record):
-        update_process(path, "postgres_forward", {"paused": False, "lifecycle_state": "running"})
-        return {"paused": False, "pid": record["pid"]}
-    record = start_forward(path, "postgres")
+    record = resume_forward(path, "postgres")
     return {"paused": False, "pid": record["pid"]}
 
 
 def _ensure_forward(path: Path, service: str) -> dict[str, Any]:
-    run = load_manifest(path)
-    key = f"{service}_forward"
-    record = run.get("processes", {}).get(key)
-    if isinstance(record, dict) and record_is_owned(record):
-        return record
-    return start_forward(path, service)
+    return resume_forward(path, service)
 
 
 def _owned_postgres_pod(namespace: str) -> dict[str, Any]:

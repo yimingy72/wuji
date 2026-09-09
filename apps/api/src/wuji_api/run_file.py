@@ -49,7 +49,11 @@ def run_file_lock(path: Path) -> Iterator[None]:
         raise ValueError("run file mutex must not be a symbolic link")
     if not lock_path.parent.exists():
         lock_path.parent.mkdir(parents=True, mode=0o700)
-    descriptor = os.open(lock_path, os.O_RDWR | os.O_CREAT, 0o600)
+    descriptor = os.open(
+        lock_path,
+        os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0),
+        0o600,
+    )
     try:
         os.fchmod(descriptor, 0o600)
         fcntl.flock(descriptor, fcntl.LOCK_EX)

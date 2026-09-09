@@ -432,7 +432,10 @@ def _monitor_required(
             try:
                 start_forward(run_path, service)
                 recovery["healthy_since"] = time.monotonic()
-            except LifecycleError:
+            except LifecycleError as error:
+                if error.code == "FORWARD_PAUSED":
+                    recovery["attempts"] = attempts
+                    continue
                 if int(recovery["attempts"]) >= 5 or time.monotonic() >= deadline:
                     raise ChildExited(name) from None
             continue
