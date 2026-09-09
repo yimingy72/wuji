@@ -92,6 +92,9 @@ test('revocation wins over an already-authorized delayed 200 response', async ({
   const oldResponseCaptured = new Promise<void>(resolve => { captured = resolve; });
   const canRelease = new Promise<void>(resolve => { release = resolve; });
   await keycloakLogin(page, user);
+  const initialSession = await page.request.get('/api/v1/session');
+  expect(initialSession.status()).toBe(200);
+  const initialPermissionsVersion = Number((await initialSession.json()).permissions_version);
   const projectLink = page.locator(`a[href="/projects/${projectId}"]`);
   await expect(projectLink).toBeVisible();
   await page.route(`**/api/v1/projects/${projectId}`, async route => {
@@ -105,10 +108,17 @@ test('revocation wins over an already-authorized delayed 200 response', async ({
   await oldResponseCaptured;
   await control('permissions', 'revoke', ...permissionArgs(run, 'single_a', projectId, 'operator'));
   try {
-    const focusDetour = await page.context().newPage();
-    await focusDetour.goto('about:blank');
-    await page.bringToFront();
-    await focusDetour.close();
+    const refreshedSession = page.waitForResponse(response =>
+      response.url().endsWith('/api/v1/session') && response.status() === 200,
+    );
+    const revokedDetail = page.waitForResponse(response =>
+      response.url().endsWith(`/api/v1/projects/${projectId}`) && response.status() === 404,
+    );
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    const refreshedSessionResponse = await refreshedSession;
+    expect(Number((await refreshedSessionResponse.json()).permissions_version))
+      .toBeGreaterThan(initialPermissionsVersion);
+    await revokedDetail;
     await expect(page).toHaveURL(/\/projects(?:\?.*)?$/);
     await expect(page.getByTestId('project-canary')).toHaveCount(0);
     release();
