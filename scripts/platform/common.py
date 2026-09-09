@@ -960,6 +960,10 @@ def pause_forward(run_path: Path, service: str) -> dict[str, Any]:
             raise LifecycleError("port-forward process record is missing")
         if record.get("paused") or record.get("lifecycle_state") == "paused":
             if not record_is_owned(record):
+                if process_group_exists(int(record["process_group"])):
+                    raise LifecycleError(
+                        "paused port-forward process group is still running"
+                    )
                 return {**record, "paused": True, "lifecycle_state": "paused"}
         elif not record_is_owned(record):
             raise LifecycleError("port-forward process is not owned by this run")
@@ -968,7 +972,12 @@ def pause_forward(run_path: Path, service: str) -> dict[str, Any]:
             process_name,
             {"paused": True, "lifecycle_state": "paused"},
         )
-        terminate_record(record)
+        stopped = terminate_record(record)
+        if not stopped and (
+            record_is_owned(record)
+            or process_group_exists(int(record["process_group"]))
+        ):
+            raise LifecycleError("port-forward could not be paused safely")
         return {**record, "paused": True, "lifecycle_state": "paused"}
 
 
