@@ -406,7 +406,7 @@ export interface components {
         /** @enum {string} */
         TaskAction: "pause" | "resume" | "cancel";
         /** @enum {string} */
-        Permission: "project.read" | "task.read" | "task.create" | "task.control" | "artifact.read" | "artifact.download_sensitive";
+        Permission: "project.read" | "task.preview" | "task.read" | "task.create" | "task.control" | "artifact.read" | "artifact.download_sensitive";
         Error: {
             /** @enum {string} */
             code: "UNAUTHENTICATED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "SCOPE_DENIED" | "PREVIEW_EXPIRED" | "VERSION_CONFLICT" | "IDEMPOTENCY_CONFLICT" | "INVALID_TRANSITION" | "RATE_LIMITED" | "SERVICE_UNAVAILABLE" | "CURSOR_EXPIRED" | "INTERNAL_ERROR";
@@ -487,7 +487,7 @@ export interface components {
             can_create: boolean;
             blockers: {
                 /** @enum {string} */
-                code: "MISSING_ADAPTER" | "MISSING_IDENTITY" | "SCOPE_DENIED" | "AUTHORIZATION_EXPIRED";
+                code: "MISSING_ADAPTER" | "MISSING_IDENTITY" | "SCOPE_DENIED" | "AUTHORIZATION_EXPIRED" | "CREATION_UNAVAILABLE";
                 message: string;
             }[];
         } & unknown;
@@ -505,7 +505,7 @@ export interface components {
             active_calls: number;
             unknown_calls: number;
             /** @enum {string} */
-            egress_state: "pending" | "active" | "frozen" | "revoked" | "unknown";
+            egress_state: "pending" | "active" | "frozen" | "revoked" | "not_granted" | "unknown";
         };
         Task: {
             /** Format: uuid */
@@ -1187,28 +1187,8 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Insufficient permission or invalid CSRF/Origin */
-            403: {
-                headers: {
-                    "Cache-Control"?: "no-store";
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
             /** @description Resource unavailable to this caller */
             404: {
-                headers: {
-                    "Cache-Control"?: "no-store";
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Version, idempotency, transition or expired preview conflict */
-            409: {
                 headers: {
                     "Cache-Control"?: "no-store";
                     [name: string]: unknown;
@@ -1237,8 +1217,8 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Rate limited */
-            429: {
+            /** @description Unexpected server error */
+            500: {
                 headers: {
                     "Cache-Control"?: "no-store";
                     [name: string]: unknown;
@@ -1314,26 +1294,6 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Version, idempotency, transition or expired preview conflict */
-            409: {
-                headers: {
-                    "Cache-Control"?: "no-store";
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Cursor or artifact expired */
-            410: {
-                headers: {
-                    "Cache-Control"?: "no-store";
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
             /** @description Invalid structured input */
             422: {
                 headers: {
@@ -1344,8 +1304,8 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Rate limited */
-            429: {
+            /** @description Unexpected server error */
+            500: {
                 headers: {
                     "Cache-Control"?: "no-store";
                     [name: string]: unknown;

@@ -1,7 +1,7 @@
 openapi: 3.1.1
 info:
   title: Wuji Phase 1 Control API
-  version: 0.2.0
+  version: 0.3.0
   description: Reviewable contract baseline, not a running service. Authorized non-destructive HTTP observation
     only. All object reads/writes enforce caller/project/tenant ownership. Cookie authentication plus CSRF and Origin
     checks for writes. Limits and URL syntax validation do not replace server policy enforcement.
@@ -158,7 +158,7 @@ paths:
         schema:
           type: string
           maxLength: 2048
-          pattern: ^/projects(?:/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})?/?$
+          pattern: ^/projects(?:/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}(?:/tasks/new)?)?/?$
           default: /projects
       responses:
         '302':
@@ -368,13 +368,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/ScopePage'
         '401': *id001
-        '403': *id002
         '404': *id003
-        '409': *id004
         '410': *id005
         '422': *id006
-        '429': *id007
         '503': *id008
+        '500': *id012
       parameters:
       - $ref: '#/components/parameters/ProjectId'
       - $ref: '#/components/parameters/PageSize'
@@ -403,11 +401,9 @@ paths:
         '401': *id001
         '403': *id002
         '404': *id003
-        '409': *id004
-        '410': *id005
         '422': *id006
-        '429': *id007
         '503': *id008
+        '500': *id012
       parameters:
       - $ref: '#/components/parameters/ProjectId'
       requestBody:
@@ -905,6 +901,7 @@ components:
       type: string
       enum:
       - project.read
+      - task.preview
       - task.read
       - task.create
       - task.control
@@ -1181,6 +1178,7 @@ components:
                 - MISSING_IDENTITY
                 - SCOPE_DENIED
                 - AUTHORIZATION_EXPIRED
+                - CREATION_UNAVAILABLE
               message:
                 type: string
                 minLength: 1
@@ -1250,6 +1248,7 @@ components:
           - active
           - frozen
           - revoked
+          - not_granted
           - unknown
     Task:
       type: object
@@ -1344,7 +1343,9 @@ components:
                 unknown_calls:
                   const: 0
                 egress_state:
-                  const: revoked
+                  enum:
+                  - revoked
+                  - not_granted
               type: object
             allowed_actions:
               maxItems: 0
