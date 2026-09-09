@@ -2,7 +2,7 @@
 
 Wuji 是一个 Kubernetes 原生、AI 驱动的授权安全验证平台，仅面向非破坏性测试，禁止目标数据破坏、目标持久化和越权扩散。
 
-当前处于架构设计与开工准备阶段，已有可校验 API 契约、独立前端流程原型及本地工程检查；尚无平台后端、Runtime 部署或平台运行验收结果。
+当前处于 Phase 1A 实施阶段，CORE 工程骨架、OpenAPI 0.2.0 与响应校验器已通过交接检查，正式身份、数据库/API 和前端正在开发；Runtime 和完整平台运行验收尚未完成。
 
 v0.4 架构基线：
 
@@ -24,7 +24,7 @@ v0.4 架构基线：
 文档：
 
 - [开发协作流程](docs/development-workflow.md)：主代理规划/验收、SOL 子代理开发/测试、CodeGraph 与 Git 分工。
-- [开发基线验收](docs/stages/development-baseline/acceptance.md)：B01–B08 通过，21 项契约测试和 12 项浏览器用例通过；[Phase 1A Spec](docs/stages/phase-1a/spec.md) / [Plan](docs/stages/phase-1a/plan.md) 已获批准，当前执行 CORE 批次。
+- [开发基线验收](docs/stages/development-baseline/acceptance.md)：B01–B08 通过，21 项契约测试和 12 项浏览器用例通过；[Phase 1A Spec](docs/stages/phase-1a/spec.md) / [Plan](docs/stages/phase-1a/plan.md) 已获批准，CORE 通过，SERVER / WEB 开发与独立测试准备并行。
 - [Phase 1A 方案评审](docs/stages/phase-1a/review.md)：设计已完成复核；实际开发批次、提交与检查状态见[执行记录](docs/stages/phase-1a/execution.md)。
 - [架构设计 v0.4](docs/architecture.md)：组件职责、执行契约、安全边界、状态机和开发阶段。
 - [整体架构复审](docs/architecture-review.md)：十项设计缺口、已修正边界、框架复用清单与剩余验证。
@@ -33,7 +33,7 @@ v0.4 架构基线：
 - [评估、知识与交付模型](docs/assessment-model.md)：验证单元、覆盖指标、配置知识版本、资产证据、Finding 与报告契约。
 - [前端架构与技术选型](docs/frontend-architecture.md)：框架取舍、状态与权限、REST/SSE、页面阶段、部署和工程初始化门槛。
 - [开工准备与交付顺序](docs/predevelopment-plan.md)：精确依赖、当前产物、后端/身份/数据库/执行环境的后续任务。
-- [Phase 1 API 契约](docs/phase1-api-contract.md)：15 个操作、OpenAPI、生成类型、幂等命令与事件约定。
+- [Phase 1 API 契约](docs/phase1-api-contract.md)：0.2.0 共21个设计操作、生成类型/校验器、身份增量、幂等命令与事件约定；接口定义和实际实现状态分别记录。
 - [页面线框与交互](docs/phase1-wireframes.md)：三栏工作台、创建与证据详情、异常场景和接口映射。
 - [工作台视觉基线](DESIGN.md)：五套明暗配色、紧凑组件、字体、响应布局与页面文案规则。
 - [Phase 0 验证记录](docs/phase0-validation.md)：本地测试、截图、构建及未覆盖项。

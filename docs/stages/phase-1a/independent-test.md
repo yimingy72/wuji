@@ -1,0 +1,54 @@
+# Phase 1A 独立测试记录
+
+- 状态：prepared；等待最终集成候选提交后执行
+- 测试角色：独立 `gpt-5.6-sol / high`
+- 测试工作树：`work/worktrees/phase-1a-test`
+- 测试实现基准：`b1730e6e9937d42084df11137c8843d21af774a6`
+- 被测试产品提交 SHA：无
+- 平台测试 run_id：无
+- 阶段结论：not-tested
+
+本文件只记录独立测试套件的准备状态。CORE 检查、受控 issuer 自身冒烟和测试收集成功均不能替代 P1A-01–10 的最终平台验收。最终报告必须绑定主代理给出的唯一集成 SHA 和新建的隔离 run；失败或关键 skip 时保持不通过。
+
+## 已准备的独立覆盖
+
+| 验收项 | 测试入口与观察点 | 当前状态 |
+| --- | --- | --- |
+| P1A-01 | 冻结生命周期、迁移/种子重放、同 run API 重启与 PostgreSQL Pod 重建后会话/项目/cursor 保持 | 待运行 |
+| P1A-02 | 真实 Keycloak 浏览器 Code+PKCE、跨浏览器/替换/并发/重放；loopback issuer 的 RS256、issuer/aud/nonce/signature/time 反例；握手交换状态与日志脱敏 | 待运行 |
+| P1A-03 | Cookie 不透明及仅哈希落库、8h/30m 边界、API 重启、禁用再启用、登录/禁用并发 | 待运行 |
+| P1A-04 | CSRF/Origin 正反例、204 后旧 Cookie 失效、DB 失联时 503、前端遮蔽和显式重试 | 待运行 |
+| P1A-05 | 单/双租户、同租户互斥 U1/P1 与 U2/P2、真实运行角色、无上下文、事务级池复用、游标及复合 FK | 待运行 |
+| P1A-06 | 项目/租户撤权、版本和审计同事务、幂等 no-op、审计失败回滚、迟到 200/错误、真实空项目 | 待运行 |
+| P1A-07 | Session/Project/ProjectPage/Error 的 openapi-core 真实响应验证、API→DB 失联恢复、全新未迁移库 fail closed | 待运行 |
+| P1A-08 | 五主题主页面/浮层/键盘、设备偏好、URL 临时覆盖、无效/不可用存储、项目及分页状态 | 待运行 |
+| P1A-09 | 深链接刷新与回跳、真实退出、项目切换、生产 bundle 凭据/Mock/未实现入口检查 | 待运行 |
+| P1A-10 | run manifest 权限/所有权/context/固定端口，独占锁和 finally 仅清本 run 进程，保留 run 数据与证据 | 待运行 |
+
+Python 用例位于 `tests/api`，浏览器用例位于 `tests/platform-browser`，协议夹具位于 `tests/fixtures/oidc/issuer.py`。协议夹具只绑定 loopback，校验 confidential client 与 PKCE S256，通过受限控制 token 选择单一协议反例；应用仍走正常 Authlib/OIDC 路径。
+
+## 准备阶段证据
+
+| 命令 | 退出码 | 结果 |
+| --- | ---: | --- |
+| `./scripts/bootstrap-toolchain.sh` | 0 | 安装项目固定 uv 0.12.11 与 CPython 3.13.15 到 ignored 工作树目录 |
+| `./scripts/uv.sh sync --frozen` | 0 | 冻结 Python 依赖安装成功 |
+| `pnpm install --frozen-lockfile` | 0 | Node 24.20.0 / pnpm 10.32.1 锁文件安装成功 |
+| `pnpm check:platform` | 0 | 当前 CORE 基准检查通过；26 项契约、3 项 Python unit、类型/antd/构建通过，不计作 P1A 平台通过 |
+| `python -m py_compile tests/fixtures/oidc/issuer.py tests/api/*.py` | 0 | Python 测试与夹具可编译 |
+| `pytest --collect-only ... tests/api` | 0 | 67 个平台用例可收集；正式入口需 SERVER 添加 strict marker |
+| `playwright test --config playwright.platform.config.ts --list` | 0 | 14 个浏览器用例可收集；使用临时无凭据 manifest，仅做收集 |
+| `tsc --noEmit ... playwright.platform.config.ts tests/platform-browser/*.ts` | 0 | 独立浏览器测试严格类型检查通过 |
+| loopback issuer discovery → authorization → token smoke | 0 | confidential client、PKCE S256、RS256 ID Token 路径可运行 |
+
+准备阶段没有启动 Wuji Kubernetes 依赖、没有测试正式 API/前端，也没有修改开发或既有 run 数据。工作树无 `.codegraph/`，按仓库约定使用 `rg`、直接读取当前文件及固定提交内容。
+
+## 最终执行待填
+
+- tested SHA：待主代理提供
+- run_id / namespace / DB / realm 非敏感标识：待运行
+- Docker / Kubernetes / PostgreSQL / Keycloak / Python / Node / pnpm / Chrome 实际版本：待运行
+- `pnpm check:platform`、`pnpm test:platform` 及阶段子命令退出码：待运行
+- Python / Playwright 实际通过、失败、skip 数：待运行
+- P1A-01–10 结果、失败复现与本机 ignored evidence 路径：待运行
+- finally 清理与端口/锁可重用检查：待运行
