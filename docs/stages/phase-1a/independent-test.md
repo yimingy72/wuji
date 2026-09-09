@@ -1,15 +1,15 @@
 # Phase 1A 独立测试记录
 
-- 状态：prepared；等待最终集成候选提交后执行
+- 状态：partial；下文准备阶段内容保留为历史，当前结果见本节末尾及阶段验收
 - 测试角色：独立 `gpt-5.6-sol / high`
 - 测试工作树：`work/worktrees/phase-1a-test`
 - 测试实现基准：`b1730e6e9937d42084df11137c8843d21af774a6`
 - 收口统一起点：`6293d9eb62d33f270284adcd586401a0714a36e9`
-- 被测试产品提交 SHA：无
-- 平台测试 run_id：无
-- 阶段结论：not-tested
+- 被测试产品提交 SHA：`f337ef3d4b7d4a5f8aee569152e09ba06383aa4e`
+- 平台测试 run_id：`p1a20260909t143035156a02`
+- 阶段结论：partial；完整验收未通过
 
-本文件只记录独立测试套件的准备状态。CORE 检查、受控 issuer 自身冒烟和测试收集成功均不能替代 P1A-01–10 的最终平台验收。最终报告必须绑定主代理给出的唯一集成 SHA 和新建的隔离 run；失败或关键 skip 时保持不通过。
+本文件保留独立测试套件的准备历史，并在末尾记录实际执行结果。CORE 检查、受控 issuer 自身冒烟和测试收集成功均不能替代 P1A-01–10 的最终平台验收。最终报告必须绑定主代理给出的唯一集成 SHA 和新建的隔离 run；失败或关键 skip 时保持不通过。
 
 ## 已准备的独立覆盖
 
@@ -46,12 +46,8 @@ Python API 用例位于 `tests/api`，生命周期父测试位于 `tests/platfor
 
 准备阶段没有启动 Wuji Kubernetes 依赖、没有测试正式 API/前端，也没有修改开发或既有 run 数据。工作树无 `.codegraph/`，按仓库约定使用 `rg`、直接读取当前文件及固定提交内容。
 
-## 最终执行待填
+## 实际执行汇总
 
-- tested SHA：待主代理提供
-- run_id / namespace / DB / realm 非敏感标识：待运行
-- Docker / Kubernetes / PostgreSQL / Keycloak / Python / Node / pnpm / Chrome 实际版本：待运行
-- `pnpm check:platform`、`pnpm test:platform` 及阶段子命令退出码：待运行
-- Python / Playwright 实际通过、失败、skip 数：待运行
-- P1A-01–10 结果、失败复现与本机 ignored evidence 路径：待运行
-- finally 清理与端口/锁可重用检查：待运行
+主代理根据独立测试代理的交付与本机日志汇总：冻结安装/check:platform均exit0，生命周期6/6，API73/73，Chrome12/15；整体test:platform exit1。提交为`f337ef3d4b7d4a5f8aee569152e09ba06383aa4e`，run为`p1a20260909t143035156a02`。具体P1A映射、环境、限制与证据路径见[阶段验收](acceptance.md)。
+
+用户2026-09-09要求停止长时间重复测试。当前已清理测试进程，保留DB/realm；未通过的3项真实Keycloak回调用例及未验证helper草案转入[后续集中测试清单](deferred-tests.md)。后续使用Luna/xhigh，并执行根AGENTS.md的精简测试约束。
