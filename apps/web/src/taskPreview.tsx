@@ -161,7 +161,6 @@ function TaskPreviewResult({ preview }: { preview: TaskPreview }) {
             type="info"
             showIcon
             title="任务创建尚未开放"
-            description={creationBlocker.message}
           />
         )}
       </div>
@@ -343,7 +342,7 @@ function TaskPreviewWorkspace({
             form={form}
             layout="vertical"
             initialValues={initialDraft}
-            requiredMark="optional"
+            requiredMark={false}
             onValuesChange={discardPreview}
             onFinish={(values) => void handleSubmit(values)}
           >
