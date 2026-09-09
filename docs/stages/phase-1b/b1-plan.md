@@ -1,6 +1,6 @@
 # B1 Plan：首批实施任务
 
-- 状态：in-progress；用户明确批准 Plan 模式最终方案，按本计划实施。
+- 状态：implemented，最小验证通过；用户明确批准 Plan 模式最终方案，按本计划实施。
 - 对应：[B1 Spec](b1-spec.md)。主代理负责决策与集成，开发使用 SOL/xhigh，独立测试使用 Luna/xhigh。
 - 本计划沿用本地 Docker Desktop 集群及固定端口；当前主工作树运行 Phase 1A，本次评审在独立工作树进行，不修改其 HEAD 或运行记录。
 
@@ -43,4 +43,4 @@ A/B 不共享写入文件；前端可以先读布局，依赖 A1 的代码开发
 
 评审通过并进入获准实施模式后，从固定基线创建 `codex/phase-1b`；A/B 分别使用独立 worktree。主代理集成后的候选才启动测试，报告绑定实际 SHA；只改文档不用重跑产品。
 
-切换本机正式工作台到 B1 前先用现有 dev:down 停止归属明确的旧开发进程，完成集成，再执行 dev:infra、dev:seed、dev:platform；这属于正常开发启动，不删除已有业务数据。master 在完整验收之前仍保留原已验收基线。当前阶段没有启动上述操作。
+切换本机正式工作台到 B1 前先用现有 dev:down 停止归属明确的旧开发进程，完成集成，再执行 dev:infra、dev:seed、dev:platform；这属于正常开发启动，不删除已有业务数据。master 在完整验收之前仍保留原已验收基线。实际启动与交付记录见acceptance.md及execution.md。
