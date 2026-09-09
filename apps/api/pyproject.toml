@@ -17,6 +17,7 @@ dependencies = [
 
 [project.scripts]
 wuji-api = "wuji_api.cli:main"
+wuji-manage = "wuji_api.manage:main"
 
 [build-system]
 requires = ["hatchling==1.29.0"]

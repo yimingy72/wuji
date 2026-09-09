@@ -27,4 +27,5 @@ addopts = "--strict-markers"
 testpaths = ["apps/api/tests"]
 markers = [
   "unit: isolated checks that do not require Kubernetes or external services",
+  "platform: full Docker Desktop Phase 1A integration tests",
 ]
