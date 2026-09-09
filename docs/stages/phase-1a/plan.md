@@ -1,12 +1,13 @@
 # Phase 1A Plan：正式工程与平台基础
 
-- 状态：in-progress；先执行 CORE，按交付门槛推进后续批次
+- 状态：in-progress；CORE 已通过交接检查，SERVER / WEB 开发与独立测试用例编写并行
 - 日期：2026-09-09
 - 对应：[Spec](spec.md)
 - 评审参考基线：`28fcd44eebc205a35735d3e7b60a308ce5f749bc`
 - 已复核规划基线：`c583f0b08f81df43b1f6508376d952ed23b17c34`；任务分派的实际起点在[执行记录](execution.md)及任务书固定，不能自动跟随分支漂移
 - 实施批准依据：2026-09-09 方案评审收口后，用户回复“可以，继续”，批准按本阶段 Spec / Plan 开始实施
 - 方案评审：[发现与修订记录](review.md)
+- 收口批次：按用户明确批准的 [收口与集成验收](closeout.md) 继续；该文件固定剩余修正、接口和任务归属。
 
 ## 1. 固定方案与依赖
 
@@ -34,6 +35,8 @@ SQLAlchemy 的 psycopg 方言支持同步和异步使用，因此 API 与迁移�
 
 使用 `kubectl --context docker-desktop apply -k` 管理专用命名空间资源。Kustomize 复用 kubectl，不需要先安装 Helm；不修改当前 context、不创建新集群、不接触其他 namespace 的业务资源。开发依赖采用单实例 PostgreSQL + 单实例 Keycloak，Keycloak 使用独立数据库/账号。先验证 PVC 绑定、重建保持和资源配额，再把依赖就绪作为启动成功。
 
+PostgreSQL 18 镜像的 PVC 挂载到 `/var/lib/postgresql`，显式 `PGDATA=/var/lib/postgresql/18/docker`；持久性检查确认该目录实际位于已绑定卷内，避免沿用旧版镜像的数据目录。[官方镜像 PGDATA 说明](https://github.com/docker-library/docs/blob/master/postgres/README.md#pgdata)
+
 | 本地入口 | 地址 / 用途 |
 | --- | --- |
 | 正式开发前端 | `http://127.0.0.1:4180`；Vite 同源代理 `/api` 到 API |
@@ -51,6 +54,8 @@ SERVER 显式配置 ID Token 校验：固定 RS256、`leeway=0`，先核对 disc
 复用 Authlib 的 OAuth/OIDC 客户端和 ID Token 校验，通过 Wuji 的 PostgreSQL 状态适配接入；不直接采用默认 Starlette `request.session` 状态存储，因为其读取/清除不是本项目数据库的原子消费。`OIDCHandshake` 至少保存 state_hash、binding_hash、nonce、code_verifier、return_to、expires_at 和消费状态。回调以条件状态更新原子领取，再提交事务并交换 code，失败不能退回可消费状态；同一回调并发仅允许一个成功领取者。新登录替换仍待回调的旧绑定；当前绑定正在交换时拒绝启动第二次交换并要求稍后重试。协议 URL 使用 query 回调，返回站内页面的成功/失败映射按 Spec；不自行实现 OAuth/JWT 密码学。[Authlib 状态适配源码](https://github.com/authlib/authlib/blob/v1.8.0/authlib/integrations/starlette_client/integration.py)
 
 Session 存储 token_hash、user_id、csrf_token、created_at、last_seen_at、absolute_expires_at、revoked_at。条件更新同时校验当前用户/句柄/两个期限并续期；权限版本从 User 当前行读取。会话创建/替换、注销、禁用用户和权限管理命令的审计与状态变更同事务提交。注销只有事务提交后才返回 204/清 Cookie；认证已确认不存在有效会话时返回 401/清失效 Cookie，前端可以据此确认当前已登出，不能声称本次撤销了一个有效会话。数据库故障时不得返回 401 或假 204。
+
+会话创建/替换与用户启用/禁用共享用户级 PostgreSQL 事务 advisory lock，固定命名空间、从可信 user_id 导出锁键，两边在重新读取 enabled 或修改用户之前获取，提交/回滚时释放。禁用事务必须看见此前获准创建的会话并撤销；禁用先完成时后续创建必须拒绝，防止重新启用后竞态遗留 Cookie 复活。auth 角色仍不获得 User 更新权限；独立测试覆盖回调与禁用并发后的旧 Cookie 行为。
 
 迁移/初始化、auth、project 使用三个独立凭据/连接入口。auth 只读 User/ExternalIdentity，读写 Session/OIDCHandshake 并追加身份审计；project 只读四张租户/成员/项目表，不可读取认证存储。API 只加载 auth/project DSN，不继承管理进程的迁移或 Keycloak 管理凭据。身份预置和权限变更走专用管理命令，禁止以运行时 SET ROLE 绕过边界。
 
@@ -74,7 +79,7 @@ RLS 四表及复合约束按 Spec。事务用 `set_config(..., true)` 设置已�
 
 ## 4. 子任务与唯一归属
 
-阶段分支为 `codex/phase-1a`，工作树根为主仓库 ignored 的 `work/worktrees/phase-1a-<task>`。创建时任务书记录完整绝对路径与固定基准 SHA；表中所有任务当前均未派发。
+阶段分支为 `codex/phase-1a`，工作树根为主仓库 ignored 的 `work/worktrees/phase-1a-<task>`。创建时任务书记录完整绝对路径与固定基准 SHA；实际派发状态和提交在[执行记录](execution.md)维护。
 
 | 任务 | 执行者 | 修改归属 | 依赖与交付 |
 | --- | --- | --- | --- |
@@ -90,7 +95,7 @@ RLS 四表及复合约束按 Spec。事务用 `set_config(..., true)` 设置已�
 
 ## 5. 实施后必须执行的检查
 
-以下为将要新增的命令契约，不是当前仓库已有可运行命令：
+以下定义本阶段完成后的命令行为。CORE 已提供工程检查，生命周期入口暂时明确返回非零；实际完成进度见[执行记录](execution.md)：
 
 | 入口 | 行为与验收 |
 | --- | --- |
@@ -117,6 +122,8 @@ RLS 四表及复合约束按 Spec。事务用 `set_config(..., true)` 设置已�
 - **持久性/未迁移：** PostgreSQL Pod 重建单独执行，等待数据库、Keycloak、转发和 API 全部恢复再读原数据。未迁移反例使用该 run 另一个全新空 Wuji DB 与8003 API，启动不自动迁移，观察live200、ready/业务503；不能downgrade已有DB。
 - **撤权/迟到响应：** 挂起一个已授权的项目响应，管理命令提交撤权并记录完成，再用新请求观察404及页面清理，随后释放旧200；其项目专属canary不得回到DOM，重新进入该路由仍404。另验注销/禁用后的旧Cookie401、项目切换后迟到错误不覆盖新页。时间上允许撤销前已开始的请求完成，页面知道失权之后不能恢复旧数据。
 - **期限与RLS：** 通过管理数据库调整本run会话时间验证两个边界，不等待8小时；使用真实auth/project角色、池复用和无上下文请求，检查无越权读取/关联/写权限。种子明确包含同租户互斥项目成员 U1→P1、U2→P2，U1 不得读取 U2 的成员行/P2，反向同样验证。复合外键反例由管理夹具角色插入并期待数据库拒绝，与运行角色的禁止写入检查分别取证。权限变更/版本递增/审计失败时共同回滚，幂等重放不多增版本。
+
+游标期限的加速测试由测试进程启动配置控制：默认900秒，dev/production固定900秒；仅显式 `local-test` profile 且属于 `wuji-test` run 的8002 API可通过管理控制命令使用1–900秒期限。该配置不接受业务请求参数，不绕过签名或解析。独立测试先解码默认实例签发的游标，验证到期时间与签发时间差为900秒，再以短期限验证同一代码的410行为；finally恢复900秒，并在报告中记录配置和恢复结果。该测试不能被描述为实际等待15分钟。
 
 主题检查覆盖五套主题、URL 临时覆盖、设备偏好恢复、禁用存储、浮层/键盘与当前项目/游标分页状态保持。本阶段没有 Wuji 业务编辑表单，“表单草稿保持”不作为虚构通过项；后续引入表单时再验收。原型原有检查继续运行一次回归，防止共享主题迁移影响已确认样式。所有结果记录候选 SHA，修复后的差异决定复测范围。
 
