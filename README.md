@@ -2,7 +2,7 @@
 
 Wuji 是一个 Kubernetes 原生、AI 驱动的授权安全验证平台，仅面向非破坏性测试，禁止目标数据破坏、目标持久化和越权扩散。
 
-当前处于 Phase 1A 收口阶段，工程骨架、OpenAPI 0.2.0、身份与项目 API、数据库存储及五主题正式前端已集成；正在修正登录竞态和本地生命周期，并进行独立集成验收。Runtime 和 Agent 尚未实现。
+Phase 1A 的工程骨架、OpenAPI 0.2.0、身份与项目 API、数据库存储、本地生命周期及五主题正式前端已集成。完整验收当前为 partial：最近一次独立检查中 API 73/73、生命周期 6/6、Chrome 12/15 通过，3 个真实 Keycloak 回调场景留待集中测试。Runtime 和 Agent 尚未实现。
 
 v0.4 架构基线：
 
@@ -24,8 +24,8 @@ v0.4 架构基线：
 文档：
 
 - [开发协作流程](docs/development-workflow.md)：主代理规划/验收、SOL 子代理开发/测试、CodeGraph 与 Git 分工。
-- [本地工作台启动与停止](docs/local-development.md)：Docker Desktop Kubernetes、正式入口、开发账号及独立验收命令；随当前收口更新。
-- [开发基线验收](docs/stages/development-baseline/acceptance.md)：B01–B08 通过，21 项契约测试和 12 项浏览器用例通过；[Phase 1A Spec](docs/stages/phase-1a/spec.md) / [Plan](docs/stages/phase-1a/plan.md) 已获批准，正在按[收口计划](docs/stages/phase-1a/closeout.md)修正并验收已集成的平台。
+- [本地工作台启动与停止](docs/local-development.md)：Docker Desktop Kubernetes、正式入口、开发账号读取及按影响选择的检查入口。
+- [开发基线验收](docs/stages/development-baseline/acceptance.md)：B01–B08 通过，21 项契约测试和 12 项浏览器用例通过；Phase 1A 功能已按 [Spec](docs/stages/phase-1a/spec.md) / [Plan](docs/stages/phase-1a/plan.md) 集成，[完整验收](docs/stages/phase-1a/acceptance.md)仍为 partial，剩余 3 项见[集中测试清单](docs/stages/phase-1a/deferred-tests.md)。
 - [Phase 1A 方案评审](docs/stages/phase-1a/review.md)：设计已完成复核；实际开发批次、提交与检查状态见[执行记录](docs/stages/phase-1a/execution.md)。
 - [架构设计 v0.4](docs/architecture.md)：组件职责、执行契约、安全边界、状态机和开发阶段。
 - [整体架构复审](docs/architecture-review.md)：十项设计缺口、已修正边界、框架复用清单与剩余验证。
