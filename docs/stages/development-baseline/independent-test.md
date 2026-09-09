@@ -25,7 +25,7 @@
 | CodeGraph | 当前测试 worktree 无 `.codegraph/`，按约定回退 `rg` 与直接读取；未使用主工作区索引 |
 | Docker Desktop | Docker context `desktop-linux`；客户端/服务端 `29.7.2` |
 | 本地 Kubernetes | context `docker-desktop`；节点 `docker-desktop` Ready；客户端/服务端与 kubelet 均为 `v1.36.1` |
-| 开发存储/Helm | 默认 `hostpath` StorageClass（`docker.io/hostpath`）；Helm 未安装，草案使用 kubectl 内置 Kustomize |
+| 开发存储/Helm | 默认 `hostpath` StorageClass（`docker.io/hostpath`）；本次 PATH 检查未找到 Helm，草案使用 kubectl 内置 Kustomize |
 
 ## 命令结果
 
@@ -58,7 +58,7 @@ Ant Design 两条提示均为显式关闭 Select 虚拟滚动：
 | B05 | `passed` | 固定 Node 24.20.0 / pnpm 10.32.1 完成冻结安装、契约生成一致性、OpenAPI lint、21 项契约测试、类型检查和构建；全部退出码为 0。 |
 | B06 | `passed` | Chrome 153 上 12 项浏览器用例全部通过，服务端口为 4175；测试前后 4173 评审服务保持同一 PID 监听。 |
 | B07 | `not-tested` | 独立部分已完成：源码/跟踪清单/忽略规则检查通过。最终文档提交的 24 个 Markdown 中检查 94 个本地链接，79 个在提交树中可解析；其余 15 个全部是 `docs/phase0-validation.md` 指向被 Git 忽略的截图。当前测试 worktree 已重新生成其中 10 个 `workbench-current` / `palettes` 产物，只有 5 个早期 `artifacts/phase0/*.png` 不存在；该文档第 31 行已明确新检出仓库中链接可能不存在，截图不是单独证明。新增 Phase 1A 与导航链接均有效。B07 仍要求主代理复核关键契约和至少一条交互证据，独立测试者不代替该复核，因此整体不标记通过。 |
-| B08 | `passed` | `81ba4ada1e0360d4e4d08c83a73481b92d4966a7` 中 Phase 1A Spec 为 `draft` 且批准依据为无，Plan 为 `draft` 且明确尚未批准实施，Acceptance 为 `not-tested` / `pending` 且被测业务代码 SHA 为无。README、开工文档与开发基线 Plan 将该草案和当前基线分开，后端、Runtime、Harness、数据库/身份部署及 P1A-01–10 均保持未实现/未测试。只读环境检查确认草案所述 docker-desktop Kubernetes `v1.36.1` 节点 Ready、默认 hostpath StorageClass 存在；Helm 未安装与使用 `kubectl apply -k` 的方案一致。 |
+| B08 | `passed` | `81ba4ada1e0360d4e4d08c83a73481b92d4966a7` 中 Phase 1A Spec 为 `draft` 且批准依据为无，Plan 为 `draft` 且明确尚未批准实施，Acceptance 为 `not-tested` / `pending` 且被测业务代码 SHA 为无。README、开工文档与开发基线 Plan 将该草案和当前基线分开，后端、Runtime、Harness、数据库/身份部署及 P1A-01–10 均保持未实现/未测试。只读环境检查确认草案所述 docker-desktop Kubernetes `v1.36.1` 节点 Ready、默认 hostpath StorageClass 存在；本次 PATH 检查未找到 Helm，与使用 `kubectl apply -k` 的方案一致。 |
 
 ## 样本与真实平台边界
 
