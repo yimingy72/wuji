@@ -177,5 +177,5 @@ def test_migration_and_seed_replay_are_idempotent_and_preserve_rows(
     second = control.run("database", "migrate")
     control.run("database", "seed")
     after = seed_state(run_manifest)
-    assert first["revision"] == second["revision"] == "20260909_0001"
+    assert first["revision"] == second["revision"] == "20260910_0002"
     assert after == before

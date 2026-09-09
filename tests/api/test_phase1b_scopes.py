@@ -8,6 +8,7 @@ import httpx
 import pytest
 
 from conftest import Control, RunManifest, complete_fixture_login
+from test_projects_permissions import contract, validate
 
 
 pytestmark = pytest.mark.platform
@@ -71,11 +72,11 @@ def _with_host_case_and_default_port(scope: dict[str, Any], path: str) -> str:
     if ":" in host and not host.startswith("["):
         host = f"[{host}]"
     default_port = 443 if parsed.scheme.casefold() == "https" else 80
-    return urlunsplit((parsed.scheme.upper(), f"{host}:{default_port}", path, "", ""))
+    return urlunsplit((parsed.scheme.upper(), f"{host}:{parsed.port or default_port}", path, "", ""))
 
 
 def test_operator_can_list_scope_and_preview_canonical_effective_scope(
-    run_manifest: RunManifest,
+    run_manifest: RunManifest, contract,
 ) -> None:
     project_id = run_manifest.seed("single_a")["project_ids"][0]
     with login(run_manifest, "single_a") as client:
@@ -85,21 +86,26 @@ def test_operator_can_list_scope_and_preview_canonical_effective_scope(
             prefix for prefix in scope["allowed_path_prefixes"] if prefix != "/"
         ) if any(prefix != "/" for prefix in scope["allowed_path_prefixes"]) else "/"
         path = allowed.rstrip("/") + "/a" if allowed != "/" else "/a"
+        draft = _draft(scope, target_url=_with_host_case_and_default_port(scope, path))
+        draft["limits"] = dict(scope["limits"])
+        draft["limits"]["max_total_requests"] = min(7, scope["limits"]["max_total_requests"])
         response = client.post(
             f"/api/v1/projects/{project_id}/task-previews",
             headers={
                 "Origin": run_manifest.url("web"),
                 "X-CSRF-Token": client.get("/api/v1/session").json()["csrf_token"],
             },
-            json=_draft(scope, target_url=_with_host_case_and_default_port(scope, path)),
+            json=draft,
         )
         assert response.status_code == 200, response.text
+        validate(contract, response)
         preview = response.json()
         assert preview["project_id"] == project_id
         assert preview["draft"]["scope"] == scope["binding"]
         assert preview["draft"]["target_url"] == _draft(scope)["target_url"]
         assert preview["can_create"] is False
-        assert any(blocker["code"] == "CREATION_UNAVAILABLE" for blocker in preview["blockers"])
+        assert [blocker["code"] for blocker in preview["blockers"]] == ["CREATION_UNAVAILABLE"]
+        assert preview["effective_scope"]["limits"]["max_total_requests"] == draft["limits"]["max_total_requests"]
 
 
 def test_path_outside_scope_is_rejected_without_contacting_target(
