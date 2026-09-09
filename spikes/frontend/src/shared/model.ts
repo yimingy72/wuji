@@ -34,4 +34,3 @@ export async function stopDemoTask(task: Task) {
   await queryClient.invalidateQueries({ queryKey: taskKey });
 }
 export { rawFixture };
-
