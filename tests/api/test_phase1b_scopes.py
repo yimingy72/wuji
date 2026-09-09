@@ -7,14 +7,15 @@ from urllib.parse import urlsplit, urlunsplit
 import httpx
 import pytest
 
-from conftest import RunManifest, complete_fixture_login
+from conftest import Control, RunManifest, complete_fixture_login
 
 
 pytestmark = pytest.mark.platform
 
 
 @pytest.fixture(scope="module", autouse=True)
-def controlled_issuer_profile(control):
+def controlled_issuer_profile(run_manifest: RunManifest):
+    control = Control(run_manifest)
     control.run("api", "restart", "--profile", "issuer_fixture")
     control.run("api", "wait-ready")
     try:
@@ -125,21 +126,13 @@ def test_path_outside_scope_is_rejected_without_contacting_target(
 def test_scope_binding_from_another_project_is_not_accepted(
     run_manifest: RunManifest,
 ) -> None:
-    with login(run_manifest, "dual_ab") as client:
-        project_ids = run_manifest.seed("dual_ab")["project_ids"]
-        scoped_projects: list[tuple[str, dict[str, Any]]] = []
-        for project_id in project_ids:
-            page = client.get(f"/api/v1/projects/{project_id}/scopes")
-            assert page.status_code == 200, page.text
-            scopes = page.json().get("items", [])
-            if scopes:
-                scoped_projects.append((project_id, scopes[0]))
-            if len(scoped_projects) == 2:
-                break
-        assert len(scoped_projects) == 2, "the B1 seed must expose scopes in two projects"
-        project_a, local_scope = scoped_projects[0]
-        project_b, foreign_scope = scoped_projects[1]
-        assert project_a != project_b
+    project_a = run_manifest.seed("single_a")["project_ids"][0]
+    project_b = run_manifest.seed("single_b")["project_ids"][0]
+    assert project_a != project_b
+    with login(run_manifest, "single_b") as other_client:
+        foreign_scope = _scope_page(other_client, project_b)[0]
+    with login(run_manifest, "single_a") as client:
+        local_scope = _scope_page(client, project_a)[0]
         response = client.post(
             f"/api/v1/projects/{project_a}/task-previews",
             headers={

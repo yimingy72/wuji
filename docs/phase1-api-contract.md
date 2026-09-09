@@ -1,7 +1,7 @@
 # Phase 1 API 契约说明
 
-- **契约版本**：0.2.0；OpenAPI 3.1.1
-- **状态**：可校验的接口基线；CORE 已实现两个健康端点，身份与项目接口在 SERVER 批次实现，任务/证据接口仍为后续阶段设计
+- **契约版本**：0.3.0；OpenAPI 3.1.1
+- **状态**：身份、健康与项目接口已实现；B1接入范围列表与服务端预览，实际交付结果见[B1验收](stages/phase-1b/acceptance.md)。任务创建/控制/事件与证据接口仍为后续阶段设计。
 - **权威文件**：[openapi.yaml](../packages/contracts/openapi.yaml)
 - **生成类型**：[api.d.ts](../packages/contracts/generated/api.d.ts)
 - **响应校验器**：[@wuji/contracts/validators](../packages/contracts/generated/validators.js)，从同一 Schema 生成的 standalone ESM
@@ -44,7 +44,7 @@
 
 另有根路径 `GET /health/live` 和 `GET /health/ready`，通过操作级 `servers: [{url: /}]` 保持在 `/api/v1` 之外。存活200，就绪失败503；当前CORE未配置数据库时ready保持503。运行文档只公开已注册路由。
 
-权限码是动作能力标识，由现有角色映射得到；不引入另一套角色管理。0.2.0追加`project.read`，保留`task.read/create/control`和`artifact.read/download_sensitive`。Phase 1A有效Viewer/Operator与已实现能力求交后只返回`project.read`，不能提前开放任务或证据功能；Viewer的普通查看能力不自动获得敏感原件下载能力。
+权限码由当前有效租户/项目角色的最小权限与已实现能力求交。0.3.0追加`task.preview`：B1 Operator返回`project.read/task.preview`，Viewer仅`project.read`；不提前开放创建、任务读取/控制或证据。范围GET要求项目可读，预览POST另要求task.preview、CSRF与Origin。Phase 1A历史版本仅返回project.read，旧严格枚举客户端需与服务端一起升级。
 
 项目列表使用`limit/cursor`、默认50/最多100、按`(created_at,id)`降序；游标绑定用户、权限版本、limit和最后排序键，15分钟到期。篡改或跨用户422，过期或权限版本变化410 `CURSOR_EXPIRED`，每页重新鉴权。
 
@@ -54,7 +54,11 @@ TaskDraft 包含名称、已批准 Scope 的 ID/版本、一个目标 URL、固�
 
 预览只做输入规范化和策略计算，不执行 DNS、目标探测或模型调用。预览绑定当前用户、项目、规范化后的完整输入、Scope 版本和短时有效期；`can_create=false` 必须给出 blocker。前端修改输入后丢弃旧预览。
 
+B1预览有效期为300秒且不超过授权截止时间；始终返回`can_create=false`和`CREATION_UNAVAILABLE`（任务创建尚未开放），并保留实际范围拒绝或授权过期原因。页面分别展示范围结果和创建可用性。当前固定观察配置不因Runtime未部署返回MISSING_ADAPTER。B2开放真实创建后必须重新预览，不能复用B1被阻断的预览。具体URL支持范围见[B1 Spec](stages/phase-1b/b1-spec.md#3-输入和范围算法)。
+
 创建提交 `preview_id`、`input_digest` 和完整 draft。服务端重新计算摘要，检查绑定关系、权限、有效期、版本和业务端点语义，然后在同一事务内写入 Task queued、CommandReceipt 和 Outbox。固定到期时间不能由客户端延长。请求只携带已批准的策略引用，不接受客户端提供更宽的 origin 或任意工具配置。
+
+上述创建流程属于B2，本批次没有对应运行入口。B1登录回跳仅增加精确的`/projects/{uuid}/tasks/new`，API、前端及契约声明同步，不开放任意URL回跳。
 
 URL Schema 只校验 HTTP(S) 语法和长度；实际 URL 规范化、路径段边界、编码、凭据、DNS/连接和重定向检查仍由平台策略及出口执行。JSON Schema 校验通过不等于获得执行授权。
 
@@ -67,7 +71,7 @@ URL Schema 只校验 HTTP(S) 语法和长度；实际 URL 规范化、路径段�
 | 情况 | 服务端行为 | 客户端行为 |
 | --- | --- | --- |
 | 创建响应丢失 | 相同键返回同一个 task_id | 按原键查询或重送完全相同的请求 |
-| 取消响应 202 | 返回不可变接受回执；Task 进入 cancelling | 展示取消中，继续查询执行状态 |
+| 取消响应 202（后续批次） | 返回不可变接受回执；B2从未分配执行资源的queued任务可同事务直接cancelled，已执行任务由Phase 1C协调停止 | 查询Task实际状态，不从202推断仍在取消或已停止 |
 | 原键查询 404 | 可能尚未提交，不能证明原请求未执行 | 保留原键重送相同请求，不自动生成新键 |
 | 新控制请求版本冲突 | 409 VERSION_CONFLICT，不执行操作 | 重新获取快照；用户重新发起操作时使用新键和新版本 |
 | 权限被撤销后重投 | 当前鉴权拒绝，不返回旧敏感回执 | 清理视图并停止重试 |
@@ -79,7 +83,7 @@ CommandReceipt 的 `accepted_task_version` 记录接受时版本。回执不随�
 
 ## 5. 状态与事件
 
-Task 状态枚举沿用主架构。API 将执行状态、`cleanup_state`、活动/待核对调用数和出口状态分别提供。completed、cancelled、failed 要求活动及未知调用都为零、出口 revoked，且不能继续接受控制动作；paused 要求调用已排空且出口 frozen。条件 Schema 检查这些响应声明自洽，真实状态仍必须由执行端证据支持。
+Task状态枚举沿用主架构。API分别提供执行状态、cleanup_state、活动/待核对调用数和出口状态。0.3.0增加not_granted，表示从未授予执行许可；completed、cancelled、failed要求活动/未知调用为零、出口为revoked或not_granted且无可用控制动作。只有真实未授权执行时才能使用not_granted；已经发放的许可必须走实际撤销。paused仍要求排空且出口frozen。B1仅更新契约声明，不生成Task或伪造执行证据。
 
 任务快照和 `event_cursor` 需要来自一致的已提交视图。数据库自增序号的分配顺序不保证事务提交顺序，服务端不能直接用“当前最大序号”作为已完整交付的游标。后端实现应选择能证明完整性的任务流序列化或发布游标方案，并用并发事务测试验证。
 

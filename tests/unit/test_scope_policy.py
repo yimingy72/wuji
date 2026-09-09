@@ -1,66 +1,38 @@
-"""Minimal B1 URL and scope-policy vectors.
-
-These tests deliberately exercise the public pure-policy exports only.  The
-small adapter below keeps the vectors readable while B1-A1 finalizes the
-export names; it must be removed or narrowed before the first B1 run.
-"""
-
-from __future__ import annotations
-
-from importlib import import_module
-from typing import Any, Callable
+"""Independent, bounded vectors for B1 policy normalization and path matching."""
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
+from wuji_api.scope_policy import ScopePolicyError, evaluate_scope, normalize_task_draft, normalize_url
 
-def _policy_module():
-    try:
-        return import_module("wuji_api.scope_policy")
-    except ModuleNotFoundError as error:  # pragma: no cover - pre-B1 baseline
-        pytest.fail(f"B1 pure policy module is missing: {error}")
-
-
-def _export(*names: str) -> Callable[..., Any]:
-    module = _policy_module()
-    for name in names:
-        candidate = getattr(module, name, None)
-        if callable(candidate):
-            return candidate
-    pytest.fail(f"B1 pure policy export not found; tried {', '.join(names)}")
-
-
-def _normalized_url(value: str) -> str:
-    result = _export("normalize_target_url", "normalize_url")(value)
-    # A small value object is acceptable, but the policy must expose its
-    # canonical URL without requiring a network or resolver.
-    if isinstance(result, str):
-        return result
-    for attribute in ("url", "target_url", "canonical"):
-        canonical = getattr(result, attribute, None)
-        if isinstance(canonical, str):
-            return canonical
-    pytest.fail(f"pure URL normalizer returned no canonical URL: {result!r}")
+pytestmark = pytest.mark.unit
 
 
 def _path_allowed(path: str) -> bool:
-    checker = _export("path_is_allowed", "is_path_allowed", "matches_scope_path")
-    try:
-        return bool(
-            checker(
-                path,
-                allowed_path_prefixes=["/public"],
-                excluded_path_prefixes=["/public/logout"],
-            )
-        )
-    except TypeError:
-        # Accommodate the positional form while keeping the policy inputs
-        # explicit and independent from any API/database fixture.
-        return bool(checker(path, ["/public"], ["/public/logout"]))
+    limits = {
+        "max_total_requests": 20, "requests_per_second": 1,
+        "max_concurrent_requests": 1, "request_timeout_seconds": 5,
+        "max_response_bytes": 1024, "max_runtime_seconds": 60,
+    }
+    scope = {
+        "label": "Independent policy vector", "origins": ["https://example.com"],
+        "allowed_path_prefixes": ["/public"], "excluded_path_prefixes": ["/public/logout"],
+        "allowed_methods": ["GET", "HEAD"], "limits": limits,
+    }
+    draft = normalize_task_draft({
+        "name": "Independent vector", "scope": {"policy_id": "00000000-0000-4000-8000-000000000001", "version": 1},
+        "target_url": f"https://example.com{path}", "tool": "http_observe", "method": "GET", "limits": limits,
+    })
+    now = datetime(2026, 9, 9, tzinfo=UTC)
+    preview = evaluate_scope(draft, scope, {
+        "valid_from": now - timedelta(hours=1), "valid_until": now + timedelta(hours=1), "revoked_at": None,
+    }, now=now)
+    return all(blocker["code"] != "SCOPE_DENIED" for blocker in preview["blockers"])
 
 
 def test_default_ports_and_host_case_are_canonicalized_without_network_access() -> None:
-    assert _normalized_url("HTTPS://Example.COM:443/public/a") == "https://example.com/public/a"
-    assert _normalized_url("http://Example.COM:80/public/a") == "http://example.com/public/a"
+    assert normalize_url("HTTPS://Example.COM:443/public/a") == "https://example.com/public/a"
+    assert normalize_url("http://Example.COM:80/public/a") == "http://example.com/public/a"
 
 
 def test_scope_prefix_matching_accepts_child_and_rejects_sibling_and_exclusion() -> None:
@@ -69,16 +41,12 @@ def test_scope_prefix_matching_accepts_child_and_rejects_sibling_and_exclusion()
     assert _path_allowed("/public/logout") is False
 
 
-@pytest.mark.parametrize(
-    "url",
-    [
-        "https://example.com/public/%2e%2e/admin",
-        "https://example.com/public/%2E%2E/admin",
-        "https://example.com/public/%2fadmin",
-        "https://example.com/public/%2Fadmin",
-    ],
-)
+@pytest.mark.parametrize("url", [
+    "https://example.com/public/%2e%2e/admin",
+    "https://example.com/public/%2E%2E/admin",
+    "https://example.com/public/%2fadmin",
+    "https://example.com/public/%2Fadmin",
+])
 def test_encoded_dot_segments_and_slashes_are_rejected(url: str) -> None:
-    normalizer = _export("normalize_target_url", "normalize_url")
-    with pytest.raises((ValueError, TypeError)):
-        normalizer(url)
+    with pytest.raises(ScopePolicyError):
+        normalize_url(url)
