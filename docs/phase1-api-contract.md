@@ -1,18 +1,20 @@
 # Phase 1 API 契约说明
 
-- **契约版本**：0.1.0；OpenAPI 3.1.1
-- **状态**：可校验的接口基线，尚无 Platform API 服务实现
+- **契约版本**：0.2.0；OpenAPI 3.1.1
+- **状态**：可校验的接口基线；CORE 已实现两个健康端点，身份与项目接口在 SERVER 批次实现，任务/证据接口仍为后续阶段设计
 - **权威文件**：[openapi.yaml](../packages/contracts/openapi.yaml)
 - **生成类型**：[api.d.ts](../packages/contracts/generated/api.d.ts)
+- **响应校验器**：[@wuji/contracts/validators](../packages/contracts/generated/validators.js)，从同一 Schema 生成的 standalone ESM
 - **共享夹具**：[phase1.json](../packages/contracts/fixtures/phase1.json)
+- **Phase 1A 夹具**：[phase1a.json](../packages/contracts/fixtures/phase1a.json)，与原型含未实现权限的夹具分开
 
 ## 1. 首版范围
 
-本契约覆盖 15 个操作：读取会话和项目、选择已批准 Scope、预览并创建受控 HTTP 任务、查询和控制任务、补发事件及查看证据。Phase 1 暂不暴露通用工具执行接口、模型调用、配置发布、SSE、Finding 工作流或报告发布。后续能力必须扩充契约及验收后接入。
+本契约覆盖21个设计操作。0.2.0 在原15个操作上增加登录/回调/退出、项目详情和两个健康端点。Phase 1 暂不暴露通用工具执行接口、模型调用、配置发布、SSE、Finding 工作流或报告发布。后续能力必须扩充契约及验收后接入。
 
 统一同源前缀为 `/api/v1`。项目 ID 来自路由，但租户和访问上下文由服务端建立；客户端提交的资源 ID、游标或对象摘要均不是授权。所有业务响应禁止缓存，错误返回结构化 `Error`，客户端不能把错误页当作空列表。
 
-会话 Cookie 名称为 `wuji_session`，写操作同时要求 `X-CSRF-Token` 和服务端 Origin 校验。首个身份提供方及登录/回调/退出端点仍待身份接入决策，本契约中的 `GET /session` 只定义登录完成后的读取接口；原型演示身份不构成登录实现。
+会话 Cookie 名称为 `wuji_session`，写操作同时要求 `X-CSRF-Token` 和服务端 Origin 校验。首个身份提供方已选定 Keycloak OIDC + Authlib，具体握手、会话和权限行为见 [Phase 1A Spec](stages/phase-1a/spec.md)。公开的登录/回调/健康操作显式取消根 Cookie 安全要求；原型演示身份不构成登录实现。
 
 ## 2. 接口清单
 
@@ -20,8 +22,12 @@
 
 | 方法 | 地址 | 用途 |
 | --- | --- | --- |
+| GET | `/auth/login` | 创建浏览器绑定握手，302到配置IdP |
+| GET | `/auth/callback` | 成功或失败均303回允许的站内页面，失败只含白名单错误和trace_id |
+| POST | `/auth/logout` | 校验会话/CSRF/Origin，撤销提交后204 |
 | GET | `/session` | 当前身份、会话有效期、CSRF Token 和权限版本 |
 | GET | `/projects` | 按权限分页列出项目 |
+| GET | `P` | 可访问项目详情，不存在与无权均404 |
 | GET | `P/scopes` | 已批准且当前可用的 HTTP Scope 版本 |
 | POST | `P/task-previews` | 规范化输入，返回服务端有效范围预览 |
 | GET | `P/tasks` | 稳定游标分页列出任务 |
@@ -36,7 +42,11 @@
 | GET | `P/artifacts/{artifact_id}/preview` | 有大小上限的脱敏纯文本预览 |
 | GET | `P/artifacts/{artifact_id}/download` | 经重新鉴权的附件下载 |
 
-权限码是动作能力标识，由现有角色映射得到；不引入另一套角色管理。`task.read/create/control` 和 `artifact.read/download_sensitive` 分开。Viewer 的普通查看能力不自动获得敏感原件下载能力。
+另有根路径 `GET /health/live` 和 `GET /health/ready`，通过操作级 `servers: [{url: /}]` 保持在 `/api/v1` 之外。存活200，就绪失败503；当前CORE未配置数据库时ready保持503。运行文档只公开已注册路由。
+
+权限码是动作能力标识，由现有角色映射得到；不引入另一套角色管理。0.2.0追加`project.read`，保留`task.read/create/control`和`artifact.read/download_sensitive`。Phase 1A有效Viewer/Operator与已实现能力求交后只返回`project.read`，不能提前开放任务或证据功能；Viewer的普通查看能力不自动获得敏感原件下载能力。
+
+项目列表使用`limit/cursor`、默认50/最多100、按`(created_at,id)`降序；游标绑定用户、权限版本、limit和最后排序键，15分钟到期。篡改或跨用户422，过期或权限版本变化410 `CURSOR_EXPIRED`，每页重新鉴权。
 
 ## 3. 预览与创建
 
