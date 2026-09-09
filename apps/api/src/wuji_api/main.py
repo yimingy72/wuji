@@ -1,4 +1,4 @@
-"""Phase 1A Platform API with database-backed identity and project authority."""
+"""Phase 1B Platform API with identity, projects, and approved-scope previews."""
 
 from __future__ import annotations
 
@@ -21,14 +21,23 @@ from wuji_api.database import (
     DatabaseAuthority,
     HandshakeCompletionInvalid,
     HandshakeInProgress,
+    PreviewForbidden,
 )
 from wuji_api.oidc import OIDCClient, OIDCDependencyError, OIDCProtocolError
+from wuji_api.scope_policy import ScopePolicyError, normalize_task_draft
+from wuji_api.scopes import (
+    ApprovedScopeResponse,
+    ScopePageResponse,
+    TaskDraftRequest,
+    TaskPreviewResponse,
+)
 from wuji_api.security import (
     CursorCodec,
     CursorPosition,
     ExpiredCursor,
     InvalidCursor,
     InvalidReturnPath,
+    ScopeCursorPosition,
     normalize_return_path,
     opaque_token,
     token_hash,
@@ -169,11 +178,29 @@ async def _authenticated(request: Request, runtime: Runtime):
 
 
 def _project_response(record) -> ProjectResponse:
+    permissions = ["project.read"]
+    if record.role == "operator":
+        permissions.append("task.preview")
     return ProjectResponse(
         id=record.id,
         tenant_id=record.tenant_id,
         name=record.name,
-        permissions=["project.read"],
+        permissions=permissions,
+    )
+
+
+def _scope_response(record) -> ApprovedScopeResponse:
+    return ApprovedScopeResponse.model_validate(
+        {
+            "binding": {"policy_id": record.policy_id, "version": record.version},
+            "label": record.scope["label"],
+            "valid_until": record.valid_until,
+            "origins": record.scope["origins"],
+            "allowed_path_prefixes": record.scope["allowed_path_prefixes"],
+            "excluded_path_prefixes": record.scope["excluded_path_prefixes"],
+            "allowed_methods": record.scope["allowed_methods"],
+            "limits": record.scope["limits"],
+        }
     )
 
 
@@ -193,7 +220,7 @@ def create_app(
             if runtime is not None:
                 await runtime.close()
 
-    application = FastAPI(title="Wuji Platform API", version="0.2.0", lifespan=lifespan)
+    application = FastAPI(title="Wuji Platform API", version="0.3.0", lifespan=lifespan)
     application.state.runtime = runtime
 
     @application.middleware("http")
@@ -568,6 +595,138 @@ def create_app(
         if record is None:
             raise ApiProblem(404, "NOT_FOUND")
         return _project_response(record)
+
+    @application.get(
+        "/api/v1/projects/{project_id}/scopes",
+        tags=["Scopes"],
+        response_model=ScopePageResponse,
+        responses={
+            401: {"model": ErrorResponse},
+            404: {"model": ErrorResponse},
+            410: {"model": ErrorResponse},
+            422: {"model": ErrorResponse},
+            500: {"model": ErrorResponse},
+            503: {"model": ErrorResponse},
+        },
+    )
+    async def list_approved_scopes(
+        request: Request,
+        project_id: UUID,
+        limit: int = Query(default=50, ge=1, le=100),
+        cursor: str | None = Query(default=None, min_length=1, max_length=512),
+    ) -> ScopePageResponse:
+        current = _runtime(request)
+        session = await _authenticated(request, current)
+        try:
+            project = await current.authority.get_project(
+                user_id=session.user_id, project_id=project_id
+            )
+        except AuthorityUnavailable as error:
+            raise ApiProblem(503, "SERVICE_UNAVAILABLE") from error
+        if project is None:
+            raise ApiProblem(404, "NOT_FOUND")
+        position = None
+        if cursor is not None:
+            try:
+                position = current.cursors.decode_scope(
+                    cursor,
+                    user_id=session.user_id,
+                    permissions_version=session.permissions_version,
+                    project_id=project_id,
+                    limit=limit,
+                )
+            except ExpiredCursor as error:
+                raise ApiProblem(410, "CURSOR_EXPIRED") from error
+            except InvalidCursor as error:
+                raise ApiProblem(422, "VALIDATION_FAILED") from error
+        try:
+            records = await current.authority.list_scopes(
+                user_id=session.user_id,
+                project=project,
+                limit=limit,
+                position=position,
+            )
+        except AuthorityUnavailable as error:
+            raise ApiProblem(503, "SERVICE_UNAVAILABLE") from error
+        if records is None:
+            raise ApiProblem(404, "NOT_FOUND")
+        has_more = len(records) > limit
+        visible = records[:limit]
+        next_cursor = None
+        if has_more:
+            last = visible[-1]
+            next_cursor = current.cursors.encode_scope(
+                user_id=session.user_id,
+                permissions_version=session.permissions_version,
+                project_id=project_id,
+                limit=limit,
+                position=ScopeCursorPosition(
+                    created_at=last.created_at,
+                    policy_id=last.policy_id,
+                    version=last.version,
+                ),
+            )
+        return ScopePageResponse(
+            items=[_scope_response(record) for record in visible], next_cursor=next_cursor
+        )
+
+    @application.post(
+        "/api/v1/projects/{project_id}/task-previews",
+        tags=["Scopes"],
+        response_model=TaskPreviewResponse,
+        responses={
+            401: {"model": ErrorResponse},
+            403: {"model": ErrorResponse},
+            404: {"model": ErrorResponse},
+            422: {"model": ErrorResponse},
+            500: {"model": ErrorResponse},
+            503: {"model": ErrorResponse},
+        },
+    )
+    async def preview_task(
+        request: Request,
+        project_id: UUID,
+        draft: TaskDraftRequest,
+        csrf_token: str | None = Header(default=None, alias="X-CSRF-Token"),
+    ) -> TaskPreviewResponse:
+        current = _runtime(request)
+        session = await _authenticated(request, current)
+        origin = request.headers.get("origin")
+        if (
+            origin is None
+            or not hmac.compare_digest(origin, current.settings.public_origin)
+            or csrf_token is None
+            or not hmac.compare_digest(csrf_token, session.csrf_token)
+        ):
+            raise ApiProblem(403, "FORBIDDEN")
+        try:
+            project = await current.authority.get_project(
+                user_id=session.user_id, project_id=project_id
+            )
+        except AuthorityUnavailable as error:
+            raise ApiProblem(503, "SERVICE_UNAVAILABLE") from error
+        if project is None:
+            raise ApiProblem(404, "NOT_FOUND")
+        if project.role != "operator":
+            raise ApiProblem(403, "FORBIDDEN")
+        try:
+            normalized = normalize_task_draft(draft.model_dump(mode="json"))
+        except ScopePolicyError as error:
+            raise ApiProblem(422, "VALIDATION_FAILED") from error
+        try:
+            preview = await current.authority.create_task_preview(
+                user_id=session.user_id,
+                permissions_version=session.permissions_version,
+                project_id=project_id,
+                normalized_draft=normalized,
+            )
+        except PreviewForbidden as error:
+            raise ApiProblem(403, "FORBIDDEN") from error
+        except AuthorityUnavailable as error:
+            raise ApiProblem(503, "SERVICE_UNAVAILABLE") from error
+        if preview is None:
+            raise ApiProblem(404, "NOT_FOUND")
+        return TaskPreviewResponse.model_validate(preview)
 
     return application
 

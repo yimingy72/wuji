@@ -21,6 +21,9 @@ from alembic import command
 from alembic.config import Config
 from psycopg import sql
 
+from wuji_api.scope_policy import normalize_approved_scope, normalize_origin, policy_hash
+from wuji_api.scopes import ScopeImportDocument
+
 ROLE_PATTERN = re.compile(r"^[a-z][a-z0-9_]{0,62}$")
 DATABASE_PATTERN = re.compile(r"^[a-z][a-z0-9_]{0,62}$")
 ROLES = frozenset({"operator", "viewer"})
@@ -236,7 +239,33 @@ def seed_database(*, migration_database_url: str, run: Mapping[str, Any]) -> dic
         ),
     )
 
-    counts = {"users": 0, "external_identities": 0, "tenants": 0, "projects": 0}
+    fixture_origin = normalize_origin(run["urls"]["issuer_fixture"])
+    seed_scope = normalize_approved_scope(
+        {
+            "label": "Development HTTP fixture",
+            "origins": [fixture_origin],
+            "allowed_path_prefixes": ["/"],
+            "excluded_path_prefixes": ["/admin"],
+            "allowed_methods": ["GET", "HEAD"],
+            "limits": {
+                "max_total_requests": 20,
+                "requests_per_second": 1.0,
+                "max_concurrent_requests": 1,
+                "request_timeout_seconds": 5,
+                "max_response_bytes": 262_144,
+                "max_runtime_seconds": 120,
+            },
+        }
+    )
+    seed_scope_projects = ("project_a_primary", "project_a_secondary", "project_b_primary")
+    counts = {
+        "users": 0,
+        "external_identities": 0,
+        "tenants": 0,
+        "projects": 0,
+        "authorization_records": 0,
+        "scope_policy_versions": 0,
+    }
     with psycopg.connect(_psycopg_url(migration_database_url)) as connection:
         with connection.cursor() as cursor:
             for tenant_id, name in tenants:
@@ -314,8 +343,178 @@ def seed_database(*, migration_database_url: str, run: Mapping[str, Any]) -> dic
                         role,
                     ),
                 )
+            for project_symbol in seed_scope_projects:
+                project = entities["projects"][project_symbol]
+                authorization_id = str(
+                    seed_uuid(run["run_id"], f"scope-authorization:{project_symbol}")
+                )
+                policy_id = str(seed_uuid(run["run_id"], f"scope-policy:{project_symbol}"))
+                authorization = {
+                    "id": authorization_id,
+                    "tenant_id": project["tenant_id"],
+                    "project_id": project["id"],
+                    "subject": "Development fixture HTTP observation",
+                    "basis": "Self-managed non-destructive development fixture",
+                    "approved_by": "development-seed",
+                    "valid_from": "2026-01-01T00:00:00+00:00",
+                    "valid_until": "2036-01-01T00:00:00+00:00",
+                }
+                immutable = {
+                    "authorization": authorization,
+                    "policy_id": policy_id,
+                    "scope": seed_scope,
+                    "version": 1,
+                }
+                cursor.execute(
+                    "INSERT INTO authorization_records "
+                    "(id, tenant_id, project_id, subject, basis, approved_by, valid_from, valid_until) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s::timestamptz, %s::timestamptz) "
+                    "ON CONFLICT (id) DO NOTHING",
+                    (
+                        authorization_id,
+                        project["tenant_id"],
+                        project["id"],
+                        authorization["subject"],
+                        authorization["basis"],
+                        authorization["approved_by"],
+                        authorization["valid_from"],
+                        authorization["valid_until"],
+                    ),
+                )
+                counts["authorization_records"] += cursor.rowcount
+                cursor.execute(
+                    "INSERT INTO scope_policy_versions "
+                    "(policy_id, version, tenant_id, project_id, authorization_id, scope, policy_hash) "
+                    "VALUES (%s, 1, %s, %s, %s, %s::jsonb, %s) "
+                    "ON CONFLICT (policy_id, version) DO NOTHING",
+                    (
+                        policy_id,
+                        project["tenant_id"],
+                        project["id"],
+                        authorization_id,
+                        json.dumps(seed_scope, separators=(",", ":"), sort_keys=True),
+                        policy_hash(immutable),
+                    ),
+                )
+                counts["scope_policy_versions"] += cursor.rowcount
         connection.commit()
     return counts
+
+
+def import_scope(
+    *, database_url_value: str, document: ScopeImportDocument
+) -> dict[str, Any]:
+    """Import one immutable approved scope version through the trusted role."""
+
+    authorization = document.authorization
+    scope = document.normalized_scope()
+    immutable = {
+        "authorization": authorization.model_dump(mode="json"),
+        "policy_id": str(document.scope.policy_id),
+        "scope": scope,
+        "version": document.scope.version,
+    }
+    digest = policy_hash(immutable)
+    with management_transaction(database_url_value) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT pg_advisory_xact_lock(hashtextextended(%s, %s))",
+                (str(document.scope.policy_id), USER_LOCK_SEED + 1),
+            )
+            cursor.execute(
+                "SELECT tenant_id FROM projects WHERE id = %s",
+                (authorization.project_id,),
+            )
+            project_row = cursor.fetchone()
+            if project_row is None or project_row[0] != authorization.tenant_id:
+                raise ValueError("scope project does not exist in the supplied tenant")
+
+            cursor.execute(
+                "SELECT tenant_id, project_id, subject, basis, approved_by, valid_from, "
+                "valid_until, revoked_at FROM authorization_records WHERE id = %s FOR UPDATE",
+                (authorization.id,),
+            )
+            existing_authorization = cursor.fetchone()
+            expected_authorization = (
+                authorization.tenant_id,
+                authorization.project_id,
+                authorization.subject,
+                authorization.basis,
+                authorization.approved_by,
+                authorization.valid_from,
+                authorization.valid_until,
+                None,
+            )
+            if existing_authorization is None:
+                cursor.execute(
+                    "INSERT INTO authorization_records "
+                    "(id, tenant_id, project_id, subject, basis, approved_by, valid_from, valid_until) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                    (
+                        authorization.id,
+                        authorization.tenant_id,
+                        authorization.project_id,
+                        authorization.subject,
+                        authorization.basis,
+                        authorization.approved_by,
+                        authorization.valid_from,
+                        authorization.valid_until,
+                    ),
+                )
+            elif existing_authorization != expected_authorization:
+                raise ValueError("authorization ID already exists with different immutable content")
+
+            cursor.execute(
+                "SELECT tenant_id, project_id, authorization_id, policy_hash "
+                "FROM scope_policy_versions WHERE policy_id = %s AND version = %s FOR UPDATE",
+                (document.scope.policy_id, document.scope.version),
+            )
+            existing_policy = cursor.fetchone()
+            if existing_policy is not None:
+                if existing_policy != (
+                    authorization.tenant_id,
+                    authorization.project_id,
+                    authorization.id,
+                    digest,
+                ):
+                    raise ValueError("scope policy version already exists with different content")
+                return {
+                    "status": "noop",
+                    "policy_id": str(document.scope.policy_id),
+                    "version": document.scope.version,
+                    "policy_hash": digest,
+                }
+            cursor.execute(
+                "SELECT tenant_id, project_id FROM scope_policy_versions "
+                "WHERE policy_id = %s LIMIT 1 FOR UPDATE",
+                (document.scope.policy_id,),
+            )
+            existing_binding = cursor.fetchone()
+            if existing_binding is not None and existing_binding != (
+                authorization.tenant_id,
+                authorization.project_id,
+            ):
+                raise ValueError("scope policy ID is already bound to another project")
+            cursor.execute(
+                "INSERT INTO scope_policy_versions "
+                "(policy_id, version, tenant_id, project_id, authorization_id, scope, policy_hash) "
+                "VALUES (%s, %s, %s, %s, %s, %s::jsonb, %s)",
+                (
+                    document.scope.policy_id,
+                    document.scope.version,
+                    authorization.tenant_id,
+                    authorization.project_id,
+                    authorization.id,
+                    json.dumps(scope, separators=(",", ":"), sort_keys=True),
+                    digest,
+                ),
+            )
+    return {
+        "status": "imported",
+        "policy_id": str(document.scope.policy_id),
+        "version": document.scope.version,
+        "policy_hash": digest,
+    }
 
 
 @contextmanager
@@ -490,6 +689,9 @@ def inspect_authority(*, database_url_value: str, user_id: str | None = None) ->
                 "sessions",
                 "oidc_handshakes",
                 "identity_audit",
+                "authorization_records",
+                "scope_policy_versions",
+                "task_previews",
             ):
                 cursor.execute(sql.SQL("SELECT count(*) FROM {}").format(sql.Identifier(table)))
                 counts[table] = int(cursor.fetchone()[0])
