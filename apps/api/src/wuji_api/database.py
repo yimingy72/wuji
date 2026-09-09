@@ -27,6 +27,10 @@ class HandshakeInProgress(RuntimeError):
     pass
 
 
+class HandshakeCompletionInvalid(RuntimeError):
+    """The claimed handshake is no longer eligible to create a session."""
+
+
 @dataclass(frozen=True)
 class ClaimedHandshake:
     id: UUID
@@ -166,16 +170,19 @@ class DatabaseAuthority:
         except SQLAlchemyError as error:
             raise AuthorityUnavailable from error
 
-    async def fail_handshake(self, handshake_id: UUID, *, reason: str) -> None:
+    async def fail_handshake(self, handshake_id: UUID, *, reason: str) -> bool:
         try:
             async with self.auth.begin() as connection:
-                await connection.execute(
+                failed = await connection.scalar(
                     text(
                         "UPDATE oidc_handshakes SET status = 'failed', consumed_at = clock_timestamp() "
-                        "WHERE id = :id AND status = 'exchanging'"
+                        "WHERE id = :id AND status IN ('pending', 'exchanging') "
+                        "AND expires_at > clock_timestamp() RETURNING id"
                     ),
                     {"id": handshake_id},
                 )
+                if failed is None:
+                    return False
                 await connection.execute(
                     text(
                         "INSERT INTO identity_audit (user_id, action, actor, details) "
@@ -184,6 +191,7 @@ class DatabaseAuthority:
                     ),
                     {"reason": reason},
                 )
+            return True
         except SQLAlchemyError as error:
             raise AuthorityUnavailable from error
 
@@ -207,13 +215,16 @@ class DatabaseAuthority:
                     {"issuer": issuer, "subject": subject},
                 )
                 if user_id is None:
-                    await connection.execute(
+                    failed = await connection.scalar(
                         text(
                             "UPDATE oidc_handshakes SET status = 'failed', consumed_at = clock_timestamp() "
-                            "WHERE id = :id AND status = 'exchanging'"
+                            "WHERE id = :id AND status = 'exchanging' "
+                            "AND expires_at > clock_timestamp() RETURNING id"
                         ),
                         {"id": handshake_id},
                     )
+                    if failed is None:
+                        raise HandshakeCompletionInvalid
                     await connection.execute(
                         text(
                             "INSERT INTO identity_audit (user_id, action, actor, details) "
@@ -226,6 +237,17 @@ class DatabaseAuthority:
                     text("SELECT pg_advisory_xact_lock(hashtextextended(:user_id, :seed))"),
                     {"user_id": str(user_id), "seed": USER_LOCK_SEED},
                 )
+                consumed = await connection.scalar(
+                    text(
+                        "UPDATE oidc_handshakes SET status = 'consumed', "
+                        "consumed_at = clock_timestamp() "
+                        "WHERE id = :id AND status = 'exchanging' "
+                        "AND expires_at > clock_timestamp() RETURNING id"
+                    ),
+                    {"id": handshake_id},
+                )
+                if consumed is None:
+                    raise HandshakeCompletionInvalid
                 user = (
                     await connection.execute(
                         text(
@@ -236,13 +258,6 @@ class DatabaseAuthority:
                     )
                 ).mappings().one_or_none()
                 if user is None:
-                    await connection.execute(
-                        text(
-                            "UPDATE oidc_handshakes SET status = 'failed', consumed_at = clock_timestamp() "
-                            "WHERE id = :id AND status = 'exchanging'"
-                        ),
-                        {"id": handshake_id},
-                    )
                     await connection.execute(
                         text(
                             "INSERT INTO identity_audit (user_id, action, actor, details) "
@@ -278,13 +293,6 @@ class DatabaseAuthority:
                         },
                     )
                 ).mappings().one()
-                await connection.execute(
-                    text(
-                        "UPDATE oidc_handshakes SET status = 'consumed', consumed_at = clock_timestamp() "
-                        "WHERE id = :id AND status = 'exchanging'"
-                    ),
-                    {"id": handshake_id},
-                )
                 await connection.execute(
                     text(
                         "INSERT INTO identity_audit (user_id, action, actor, details) "
@@ -331,11 +339,17 @@ class DatabaseAuthority:
                     return None
                 last_seen_at = await connection.scalar(
                     text(
-                        "UPDATE sessions SET last_seen_at = clock_timestamp() "
-                        "WHERE id = :id RETURNING last_seen_at"
+                        "UPDATE sessions AS s SET last_seen_at = clock_timestamp() "
+                        "FROM users AS u WHERE s.id = :id AND u.id = s.user_id "
+                        "AND s.revoked_at IS NULL AND u.enabled "
+                        "AND clock_timestamp() < s.absolute_expires_at "
+                        "AND clock_timestamp() < s.last_seen_at + interval '30 minutes' "
+                        "RETURNING s.last_seen_at"
                     ),
                     {"id": row["session_id"]},
                 )
+                if last_seen_at is None:
+                    return None
                 expires_at = min(
                     row["absolute_expires_at"],
                     last_seen_at + timedelta(minutes=30),

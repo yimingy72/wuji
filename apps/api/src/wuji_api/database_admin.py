@@ -99,11 +99,36 @@ def prepare_database(
                     sql.SQL("ALTER DATABASE {} OWNER TO {}")
                     .format(sql.Identifier(database), sql.Identifier(migration_role))
                 )
-            cursor.execute(sql.SQL("REVOKE CONNECT ON DATABASE {} FROM PUBLIC").format(sql.Identifier(database)))
+            cursor.execute(
+                sql.SQL("REVOKE CONNECT, CREATE, TEMPORARY ON DATABASE {} FROM PUBLIC").format(
+                    sql.Identifier(database)
+                )
+            )
+            cursor.execute(
+                sql.SQL("REVOKE TEMPORARY ON DATABASE {} FROM {}, {}").format(
+                    sql.Identifier(database),
+                    sql.Identifier(auth_role),
+                    sql.Identifier(project_role),
+                )
+            )
             cursor.execute(
                 sql.SQL("GRANT CONNECT ON DATABASE {} TO {}, {}, {}").format(
                     sql.Identifier(database),
                     sql.Identifier(migration_role),
+                    sql.Identifier(auth_role),
+                    sql.Identifier(project_role),
+                )
+            )
+    target_admin_url = database_url(
+        urlsplit(admin_database_url).hostname or "",
+        urlsplit(admin_database_url).port or 5432,
+        database,
+        *credentials_from_database_url(admin_database_url),
+    )
+    with psycopg.connect(_psycopg_url(target_admin_url), autocommit=True) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                sql.SQL("REVOKE CREATE ON SCHEMA public FROM PUBLIC, {}, {}").format(
                     sql.Identifier(auth_role),
                     sql.Identifier(project_role),
                 )
