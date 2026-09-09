@@ -1,9 +1,10 @@
 # Phase 1B Spec：真实任务管理
 
-- 状态：draft；尚未进入 Plan 模式评审或批准实施。
+- 状态：B1 方案 review-ready，尚未批准实施；B2/B3 在进入对应批次前继续细化。当前应用仍为 Default，本次不宣称已切换至 Plan 模式。
 - 日期：2026-09-09。
 - 设计输入：[现有架构](../../architecture.md)、[Phase 1 契约](../../phase1-api-contract.md)、[Phase 1A 验收](../phase-1a/acceptance.md)。
 - 当前 Phase 1A 功能已集成，三个真实 Keycloak 回调用例延期；本草案不把上一阶段改记为通过，也不授权目标执行。
+- 本次[评审记录](review.md)固定首批行为；B1 实施以 [Spec](b1-spec.md) / [Plan](b1-plan.md) 为准。
 
 ## 1. 可交付结果
 
@@ -24,21 +25,21 @@
 ## 3. 范围与预览
 
 - Scope 由受信管理入口预置不可变版本，关联项目、授权依据、批准者、起止时间和策略摘要；普通任务表单不能扩张授权或发布策略。
-- 公开沿用 `GET /projects/{project_id}/scopes`、`POST /projects/{project_id}/task-previews` 和现有 ApprovedScope / TaskDraft / TaskPreview 类型。找不到或无权访问项目返回 404。
-- HTTP(S) 输入规范化只做本地计算：拒绝用户信息、控制字符和歧义编码；规范化 origin、默认端口和路径，按路径段匹配允许范围，排除规则优先。查询参数保留参与摘要；禁止携带 URL fragment。具体算法及共享输入向量在 B1 实施计划中固定，不能只使用字符串前缀。
-- 预览绑定当前用户、项目、完整规范化 draft、Scope 版本与摘要，有效期提议为 5 分钟且不超过授权截止时间。改变表单立即废弃旧预览。
+- 公开沿用 `GET /projects/{project_id}/scopes`、`POST /projects/{project_id}/task-previews` 和既有 DTO；B1 将契约升至0.3.0，增加 task.preview、CREATION_UNAVAILABLE、not_granted 及明确的错误/回跳声明。找不到或无权访问项目返回404。
+- HTTP(S) 输入规范化只做本地计算：拒绝用户信息、控制字符和歧义编码；规范化 origin、默认端口和路径，按路径段匹配允许范围，排除规则优先。查询参数保留参与摘要；禁止携带 URL fragment。具体算法和有限输入向量已固定在 B1 Spec §3，不能只使用字符串前缀。
+- 预览绑定当前用户、项目、权限版本、完整规范化 draft、Scope 版本与摘要，有效期为5分钟且不超过授权截止时间。改变表单立即废弃旧预览。B1没有创建入口时返回CREATION_UNAVAILABLE，不把范围通过等同于任务可以提交。
 - 限额为 draft、Scope 和平台上限的交集，沿用首版 200 请求、2 请求/秒、并发 2、单次 10 秒、响应 1 MiB、任务 600 秒的最大值。预览不进行网络访问。
 - 输入不合法返回 422；可解析但范围不允许或授权过期时返回有明确 blocker 的预览。Scope 本身不存在或不可见时返回 404，不能拼造 effective_scope。
 
 ## 4. 创建、控制与权限
 
-创建复核当前权限、preview 绑定、摘要、有效期和 Scope；同事务写入 Task、CommandReceipt 与初始 `task.changed` 事件。初始 Task 为 queued、version=1、active_calls=0、unknown_calls=0、egress_state=pending、cleanup_state=not_required、assessment_outcome=not_assessed。
+创建复核当前权限、preview 绑定、摘要、有效期和 Scope；同事务写入 Task、CommandReceipt 与初始 `task.changed` 事件。初始 Task 为 queued、version=1、active_calls=0、unknown_calls=0、egress_state=not_granted、cleanup_state=not_required、assessment_outcome=not_assessed，允许动作仅cancel。Runtime未部署或离线不影响已授权请求进入队列；创建不是执行许可。
 
 创建和取消都要求会话、CSRF、Origin 与 UUID Idempotency-Key。键空间为当前用户和项目，绑定命令种类、目标及规范化完整请求。相同键和输入重投返回原回执；内容不同返回 409 IDEMPOTENCY_CONFLICT。已存在回执的重投先重新鉴权，再返回原结果，不重新检查旧 expected_version 或已经到期的 preview。
 
-Operator 开放 project.read、task.read/create/control；Viewer 开放 project.read、task.read。任务控制仍受服务端 allowed_actions 约束，不因为角色权限就开放未实现动作。Receipt 的 accepted_task_version 固定接受时版本；前端另查 Task 获取当前状态。最少保留 24 小时的幂等记录，本阶段不增加自动清理任务。
+角色为当前有效租户/项目成员角色的最小权限；能力再与已实现接口求交。B1 Operator只开放project.read/task.preview，Viewer只开放project.read；B2 Operator追加task.read/create/control，Viewer追加task.read。控制仍受服务端allowed_actions约束。Receipt的accepted_task_version固定接受时版本，前端另查Task获取当前状态。最少保留24小时的幂等记录，本阶段不增加自动清理任务。
 
-取消提议仅面向从未获得执行许可的 queued 任务：原子版本检查后记录取消接受，再由同一受信业务模块核实无 attempt、活动或未知调用，完成取消并追加事件。回执与最终状态分别记录；不得伪造运行停止或出口回收证据。任何已分配执行资源的任务交 Phase 1C 的协调器处理，B2 不替它确认停止。pause/resume 返回 409 INVALID_TRANSITION，页面不展示对应按钮。
+取消仅面向从未分配执行资源/许可的queued任务：鉴权、幂等串行核对、锁Task、版本检查、核实未执行、更新为cancelled/version+1、写不可变回执与递增task.changed/Outbox均在同一事务完成，提交后202。accepted_task_version取取消后的版本；不存在持久化cancelling中间态或后台补偿任务。cleanup_state=not_required、egress_state=not_granted、stop_reason=user_cancelled，不伪造revoked证据。Phase 1C开放执行时必须将真实attempt/许可核对及实际停止协调接入取消路径；B2不替已分配资源确认停止。pause/resume返回409 INVALID_TRANSITION，页面不展示对应按钮。
 
 ## 5. 存储与事件
 
@@ -50,7 +51,7 @@ Operator 开放 project.read、task.read/create/control；Viewer 开放 project.
 
 ## 6. 前端与失败行为
 
-路由提议为 `/projects/:projectId/tasks`、`/tasks/new`、`/tasks/:taskId`，后两者同样位于完整项目路径之下。复用现有 AppShell、Query、响应校验和身份/项目代次；不能引入原型 Mock 到正式请求层。
+完整路由为 `/projects/:projectId/tasks`、`/projects/:projectId/tasks/new`、`/projects/:projectId/tasks/:taskId`；B1只注册tasks/new，B2再加列表与详情。后端/前端/契约的登录回跳白名单按已实现路由同步扩展。复用现有AppShell、Query、响应校验和身份/项目代次，不引入原型Mock。
 
 创建响应丢失后，保留原键及原始请求，只按原键核对或重送相同输入；查键 404 不等于没有执行。409 版本冲突刷新快照并交用户重新操作；401/项目404清理失效上下文；503不显示假成功。新输入产生新预览，不能在旧命令结果不明时自动以新键创建重复任务。事件只用于刷新视图，不触发目标操作。
 
@@ -58,9 +59,6 @@ Operator 开放 project.read、task.read/create/control；Viewer 开放 project.
 
 每批次只做主流程、直接受影响错误路径和一项必要权限边界；全体代理共享 10 分钟预算，受影响项通过即停止，未测项进清单。计划中的场景见 [Plan](plan.md)，不能把列表本身作为执行证据。
 
-Plan 模式评审须先确认两项阶段决定：
+本次评审已决定保留Phase 1A三项延期，不以此反复启动旧回归；采用独立阶段分支推进，master保持原已验收基线。B1创建不可用、B2可以排队、Phase 1C才能授权执行的语义已分开写明。MISSING_ADAPTER在当前固定http_observe配置下没有实际失败来源时不发出。
 
-1. 是否在 Phase 1A 的三个回调用例保持延期记录时，允许隔离分支开展 B1/B2；master 仍不标记完整 Phase 1A 通过。
-2. 没有 Runtime 时允许创建 queued 任务，明确 can_create 只表示任务可被接受；MISSING_ADAPTER 留给未支持的观察工具配置，不将执行器未部署误报为任务不能保存。若既有公开契约无法明确表达此差异，先作版本化修订，再分派实现。
-
-本草案尚不能替代上述评审及各批次实施计划。
+用户后续开发约定仍要求新阶段先在Plan模式完成规划；当前review-ready表示方案已具备评审材料，不代表模式已切换、用户已批准或业务实现已经开始。

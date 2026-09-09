@@ -1,6 +1,6 @@
 # Phase 1B 验收记录
 
-- 设计状态：draft；[Spec](spec.md) / [Plan](plan.md) 尚待 Plan 模式评审。
+- 设计状态：B1 review-ready；已完成主代理和SOL/xhigh只读设计评审，见[记录](review.md)及[B1 Spec](b1-spec.md)/[Plan](b1-plan.md)。尚未批准实施，不宣称已在Plan模式运行。
 - 实施状态：not-started。
 - 测试状态：not-tested。
 - 被测试提交 / run_id：无。
