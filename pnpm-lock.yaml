@@ -39,9 +39,7 @@ importers:
         specifier: 2.9.0
         version: 2.9.0
 
-  packages/contracts: {}
-
-  spikes/frontend:
+  apps/web:
     dependencies:
       '@ant-design/icons':
         specifier: 6.3.4
@@ -58,6 +56,9 @@ importers:
       '@wuji/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@wuji/theme':
+        specifier: workspace:*
+        version: link:../../packages/theme
       antd:
         specifier: 6.6.3
         version: 6.6.3(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -86,6 +87,86 @@ importers:
       vite:
         specifier: 8.2.2
         version: 8.2.2(@types/node@24.13.3)(yaml@2.9.0)
+
+  packages/contracts:
+    dependencies:
+      ajv:
+        specifier: 8.20.0
+        version: 8.20.0
+      ajv-formats:
+        specifier: 3.0.1
+        version: 3.0.1(ajv@8.20.0)
+
+  packages/theme:
+    dependencies:
+      antd:
+        specifier: 6.6.3
+        version: 6.6.3(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      react:
+        specifier: 19.2.8
+        version: 19.2.8
+      react-dom:
+        specifier: 19.2.8
+        version: 19.2.8(react@19.2.8)
+    devDependencies:
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
+  spikes/frontend:
+    dependencies:
+      '@ant-design/icons':
+        specifier: 6.3.4
+        version: 6.3.4(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@fontsource-variable/inter':
+        specifier: 5.3.0
+        version: 5.3.0
+      '@fontsource/ibm-plex-mono':
+        specifier: 5.3.0
+        version: 5.3.0
+      '@tanstack/react-query':
+        specifier: 5.102.8
+        version: 5.102.8(react@19.2.8)
+      '@wuji/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@wuji/theme':
+        specifier: workspace:*
+        version: link:../../packages/theme
+      antd:
+        specifier: 6.6.3
+        version: 6.6.3(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      react:
+        specifier: 19.2.8
+        version: 19.2.8
+      react-dom:
+        specifier: 19.2.8
+        version: 19.2.8(react@19.2.8)
+      react-router-dom:
+        specifier: 7.18.3
+        version: 7.18.3(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+    devDependencies:
+      '@types/react':
+        specifier: 19.2.18
+        version: 19.2.18
+      '@types/react-dom':
+        specifier: 19.2.7
+        version: 19.2.7(@types/react@19.2.18)
+      '@vitejs/plugin-react':
+        specifier: 6.1.1
+        version: 6.1.1(vite@8.2.2(@types/node@24.13.3)(yaml@2.9.0))
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+      vite:
+        specifier: 8.2.2
+        version: 8.2.2(@types/node@24.13.3)(yaml@2.9.0)
+
+  tests/contracts-browser:
+    dependencies:
+      '@wuji/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
 
 packages:
 

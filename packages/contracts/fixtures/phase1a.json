@@ -1,0 +1,41 @@
+{
+  "session": {
+    "user_id": "00000000-0000-4000-8000-000000000103",
+    "display_name": "平台查看者",
+    "csrf_token": "fixture-only-not-a-real-token",
+    "expires_at": "2026-09-09T12:00:00Z",
+    "permissions_version": 1
+  },
+  "project": {
+    "id": "00000000-0000-4000-8000-000000000102",
+    "tenant_id": "00000000-0000-4000-8000-000000000101",
+    "name": "平台基础项目",
+    "permissions": [
+      "project.read"
+    ]
+  },
+  "project_page": {
+    "items": [
+      {
+        "id": "00000000-0000-4000-8000-000000000102",
+        "tenant_id": "00000000-0000-4000-8000-000000000101",
+        "name": "平台基础项目",
+        "permissions": [
+          "project.read"
+        ]
+      }
+    ],
+    "next_cursor": null
+  },
+  "error": {
+    "code": "SERVICE_UNAVAILABLE",
+    "message": "平台依赖尚未就绪",
+    "trace_id": "00000000-0000-4000-8000-000000000111"
+  },
+  "live": {
+    "status": "live"
+  },
+  "ready": {
+    "status": "ready"
+  }
+}

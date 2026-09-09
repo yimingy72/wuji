@@ -1,0 +1,5 @@
+packages/contracts/openapi.yaml:
+  operation-4xx-response:
+    - '#/paths/~1auth~1callback/get/responses'
+    - '#/paths/~1health~1live/get/responses'
+    - '#/paths/~1health~1ready/get/responses'

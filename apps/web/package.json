@@ -1,13 +1,13 @@
 {
-  "name": "@wuji/frontend-spike",
-  "version": "0.1.0",
+  "name": "@wuji/web",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --host 127.0.0.1 --port 4173 --strictPort",
+    "dev": "vite --host 127.0.0.1 --port 4180 --strictPort",
     "typecheck": "tsc --noEmit",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview --host 127.0.0.1 --port 4173 --strictPort"
+    "preview": "vite preview --host 127.0.0.1 --port 4180 --strictPort"
   },
   "dependencies": {
     "@ant-design/icons": "6.3.4",

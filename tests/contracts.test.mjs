@@ -6,6 +6,10 @@ import { parse } from 'yaml';
 
 const api = parse(readFileSync(new URL('../packages/contracts/openapi.yaml', import.meta.url), 'utf8'));
 const fixture = JSON.parse(readFileSync(new URL('../packages/contracts/fixtures/phase1.json', import.meta.url), 'utf8'));
+const phase1a = JSON.parse(readFileSync(new URL('../packages/contracts/fixtures/phase1a.json', import.meta.url), 'utf8'));
+const lintIgnore = parse(readFileSync(new URL('../.redocly.lint-ignore.yaml', import.meta.url), 'utf8'));
+const standaloneSource = readFileSync(new URL('../packages/contracts/generated/validators.js', import.meta.url), 'utf8');
+const { validateError, validateProject, validateProjectPage, validateSession } = await import('../packages/contracts/generated/validators.js');
 const schemaId = 'urn:wuji:phase1';
 const schemas = JSON.parse(JSON.stringify(api.components.schemas).replaceAll('#/components/schemas/', `${schemaId}#/$defs/`));
 const ajv = new Ajv2020({ allErrors: true, strict: true, strictRequired: false });
@@ -80,6 +84,79 @@ describe('execution claims and strict inputs', () => {
           expect(operation.security).toEqual([{ SessionCookie: [], CsrfToken: [] }]);
         }
       }
+    }
+  });
+});
+
+describe('Phase 1A contract increment', () => {
+  it('preserves the original fixture while adding project.read', () => {
+    expect(fixture.project.permissions).toEqual(['task.read', 'task.create', 'task.control', 'artifact.read']);
+    expect(validate('Project', fixture.project).valid).toBe(true);
+    expect(validate('Project', phase1a.project).valid).toBe(true);
+  });
+
+  it('publishes the four browser response validators as standalone ESM', () => {
+    expect(Object.keys({ validateSession, validateProject, validateProjectPage, validateError }).sort()).toEqual([
+      'validateError',
+      'validateProject',
+      'validateProjectPage',
+      'validateSession',
+    ]);
+    expect(standaloneSource).not.toMatch(/require\s*\(|new Ajv|new\s+Function\s*\(|\.compile\(/);
+    expect(validateSession(phase1a.session), JSON.stringify(validateSession.errors)).toBe(true);
+    expect(validateProject(phase1a.project), JSON.stringify(validateProject.errors)).toBe(true);
+    expect(validateProjectPage(phase1a.project_page), JSON.stringify(validateProjectPage.errors)).toBe(true);
+    expect(validateError(phase1a.error), JSON.stringify(validateError.errors)).toBe(true);
+
+    const extra = { ...phase1a.project, leaked: true };
+    expect(validateProject(extra)).toBe(false);
+    expect(validateProject.errors?.some(error => error.keyword === 'additionalProperties')).toBe(true);
+  });
+
+  it('defines the public auth flow and root health operations exactly', () => {
+    expect(api.paths['/auth/login'].get.security).toEqual([]);
+    expect(Object.keys(api.paths['/auth/login'].get.responses)).toContain('302');
+    expect(api.paths['/auth/callback'].get.security).toEqual([]);
+    expect(Object.keys(api.paths['/auth/callback'].get.responses)).toEqual(['303']);
+    expect(api.paths['/auth/logout'].post.security).toEqual([{ SessionCookie: [], CsrfToken: [] }]);
+    expect(Object.keys(api.paths['/auth/logout'].post.responses)).toContain('204');
+    for (const path of ['/health/live', '/health/ready']) {
+      expect(api.paths[path].get.security).toEqual([]);
+      expect(api.paths[path].get.servers).toEqual([{ url: '/' }]);
+    }
+    expect(Object.keys(api.paths['/health/ready'].get.responses)).toContain('503');
+    expect(lintIgnore).toEqual({
+      'packages/contracts/openapi.yaml': {
+        'operation-4xx-response': [
+          '#/paths/~1auth~1callback/get/responses',
+          '#/paths/~1health~1live/get/responses',
+          '#/paths/~1health~1ready/get/responses',
+        ],
+      },
+    });
+  });
+
+  it('keeps business routes and pagination names compatible', () => {
+    expect(api.servers).toEqual([{ url: '/api/v1', description: 'Same-origin platform API' }]);
+    expect(api.components.parameters.PageSize.name).toBe('limit');
+    expect(api.components.parameters.PageCursor.name).toBe('cursor');
+    expect(Object.keys(api.paths['/projects'].get.responses)).toContain('500');
+    expect(api.paths['/projects'].get.description).toContain('(created_at, id) descending');
+    expect(api.paths['/projects'].get.description).toContain('permissions version');
+    expect(api.paths['/projects/{project_id}'].get.responses['200'].content['application/json'].schema.$ref).toBe('#/components/schemas/Project');
+    expect(api.paths['/projects/{project_id}'].get.responses['403']).toBeUndefined();
+    expect(validate('HealthStatus', phase1a.live).valid).toBe(true);
+    expect(validate('HealthStatus', phase1a.ready).valid).toBe(true);
+  });
+
+  it('limits declared return paths to project routes with UUID-shaped identifiers', () => {
+    const returnTo = api.paths['/auth/login'].get.parameters.find(parameter => parameter.name === 'return_to');
+    const allowed = new RegExp(returnTo.schema.pattern);
+    expect(allowed.test('/projects')).toBe(true);
+    expect(allowed.test('/projects/')).toBe(true);
+    expect(allowed.test('/projects/00000000-0000-0000-0000-000000000102')).toBe(true);
+    for (const rejected of ['/projects/arbitrary', '/projects/../login', '/projects\\login', '//projects']) {
+      expect(allowed.test(rejected)).toBe(false);
     }
   });
 });
