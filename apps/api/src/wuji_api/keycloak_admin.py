@@ -2,36 +2,17 @@
 
 from __future__ import annotations
 
-import json
-import os
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
 import httpx2
 
+from wuji_api.run_file import mutate_run_file
+
 
 class KeycloakAdminError(RuntimeError):
     pass
-
-
-def _write_private_json(path: Path, payload: dict[str, Any]) -> None:
-    temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
-    descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    try:
-        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
-            json.dump(payload, stream, indent=2, sort_keys=True)
-            stream.write("\n")
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(temporary, path)
-        path.chmod(0o600)
-    except Exception:
-        try:
-            temporary.unlink()
-        except FileNotFoundError:
-            pass
-        raise
 
 
 class KeycloakAdmin:
@@ -199,5 +180,11 @@ def provision_keycloak(run_path: Path, run: dict[str, Any]) -> dict[str, int]:
         raise KeycloakAdminError from error
     finally:
         admin.close()
-    _write_private_json(run_path, run)
+    subjects = {symbol: user["sub"] for symbol, user in run["seed_users"].items()}
+
+    def update_subjects(current: dict[str, Any]) -> None:
+        for symbol, subject in subjects.items():
+            current["seed_users"][symbol]["sub"] = subject
+
+    mutate_run_file(run_path, update_subjects)
     return result
