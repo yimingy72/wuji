@@ -54,6 +54,8 @@ SERVER 显式配置 ID Token 校验：固定 RS256、`leeway=0`，先核对 disc
 
 Session 存储 token_hash、user_id、csrf_token、created_at、last_seen_at、absolute_expires_at、revoked_at。条件更新同时校验当前用户/句柄/两个期限并续期；权限版本从 User 当前行读取。会话创建/替换、注销、禁用用户和权限管理命令的审计与状态变更同事务提交。注销只有事务提交后才返回 204/清 Cookie；认证已确认不存在有效会话时返回 401/清失效 Cookie，前端可以据此确认当前已登出，不能声称本次撤销了一个有效会话。数据库故障时不得返回 401 或假 204。
 
+会话创建/替换与用户启用/禁用共享用户级 PostgreSQL 事务 advisory lock，固定命名空间、从可信 user_id 导出锁键，两边在重新读取 enabled 或修改用户之前获取，提交/回滚时释放。禁用事务必须看见此前获准创建的会话并撤销；禁用先完成时后续创建必须拒绝，防止重新启用后竞态遗留 Cookie 复活。auth 角色仍不获得 User 更新权限；独立测试覆盖回调与禁用并发后的旧 Cookie 行为。
+
 迁移/初始化、auth、project 使用三个独立凭据/连接入口。auth 只读 User/ExternalIdentity，读写 Session/OIDCHandshake 并追加身份审计；project 只读四张租户/成员/项目表，不可读取认证存储。API 只加载 auth/project DSN，不继承管理进程的迁移或 Keycloak 管理凭据。身份预置和权限变更走专用管理命令，禁止以运行时 SET ROLE 绕过边界。
 
 RLS 四表及复合约束按 Spec。事务用 `set_config(..., true)` 设置已验证的 user 上下文；TenantMembership/ProjectMembership 行均必须满足 `row.user_id = app.user_id`，后者还需同 `(tenant_id,user_id)` 的有效 TenantMembership。Project 只允许匹配 `(tenant_id,project_id,app.user_id)` 的有效 ProjectMembership，Tenant 只允许匹配 `(tenant_id,app.user_id)` 的有效 TenantMembership。详情在同一受限事务内查明归属后再设置 tenant/project；无上下文默认拒绝。用真实 project/auth 角色执行反例，不能用表 owner/迁移角色代替 RLS 验收。[PostgreSQL 事务级设置](https://www.postgresql.org/docs/18/functions-admin.html#FUNCTIONS-ADMIN-SET)、[RLS 边界](https://www.postgresql.org/docs/18/ddl-rowsecurity.html)
