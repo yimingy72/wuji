@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import concurrent.futures
 import fcntl
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -152,6 +153,16 @@ def process_identity(pid: int) -> tuple[str, str] | None:
     return start.stdout.strip(), command.stdout.strip()
 
 
+def process_group_exists(process_group: int) -> bool:
+    try:
+        os.killpg(process_group, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
 def assert_event_process_owned(event: dict[str, Any]) -> None:
     identity = process_identity(int(event["pid"]))
     assert identity is not None
@@ -221,19 +232,27 @@ def assert_cleanup(
             "command_marker",
         }.issubset(record):
             continue
-        identity = process_identity(int(record["pid"]))
+        pid = int(record["pid"])
+        process_group = int(record["process_group"])
+        identity = process_identity(pid)
         if identity is None:
+            if pid == process_group:
+                assert not process_group_exists(process_group)
             continue
         try:
-            current_group = os.getpgid(int(record["pid"]))
+            current_group = os.getpgid(pid)
         except ProcessLookupError:
+            if pid == process_group:
+                assert not process_group_exists(process_group)
             continue
         same_owned_process = (
             identity[0] == str(record["start_id"])
             and str(record["command_marker"]) in identity[1]
-            and current_group == int(record["process_group"])
+            and current_group == process_group
         )
         assert not same_owned_process
+        if pid == process_group:
+            assert not process_group_exists(process_group)
     assert_fixed_ports_reusable()
     assert_lock_reusable(manifest)
 
@@ -254,43 +273,113 @@ def control(manifest: dict[str, Any], *arguments: str) -> dict[str, Any]:
     return payload["result"]
 
 
-def assert_invalid_run_file_is_rejected_without_secret_echo(
+def manifest_sensitive_values(manifest: dict[str, Any]) -> set[str]:
+    values = set(manifest["credentials"]["database"].values())
+    values.add(manifest["credentials"]["app"]["cursor_signing_key"])
+    for profile in ("oidc_keycloak", "oidc_fixture"):
+        for name, value in manifest["credentials"][profile].items():
+            if any(marker in name for marker in ("password", "secret", "token")):
+                values.add(value)
+    values.update(user["password"] for user in manifest["seed_users"].values())
+    return {str(value) for value in values if isinstance(value, str) and len(value) >= 8}
+
+
+def redact_manifest_copy(manifest: dict[str, Any], label: str) -> tuple[dict[str, Any], set[str]]:
+    copied = json.loads(json.dumps(manifest))
+    canaries: set[str] = set()
+    for name, dsn in copied["credentials"]["database"].items():
+        prefix, authority = dsn.split("://", 1)
+        user, location = authority.split(":", 1)
+        _, endpoint = location.split("@", 1)
+        canary = f"phase1a-{label}-{name}-dsn-canary"
+        copied["credentials"]["database"][name] = f"{prefix}://{user}:{canary}@{endpoint}"
+        canaries.add(canary)
+    copied["credentials"]["app"]["cursor_signing_key"] = (
+        f"phase1a-{label}-cursor-signing-canary"
+    )
+    canaries.add(copied["credentials"]["app"]["cursor_signing_key"])
+    for profile in ("oidc_keycloak", "oidc_fixture"):
+        for name in tuple(copied["credentials"][profile]):
+            if any(marker in name for marker in ("password", "secret", "token")):
+                canary = f"phase1a-{label}-{profile}-{name}-canary"
+                copied["credentials"][profile][name] = canary
+                canaries.add(canary)
+    for symbol, user in copied["seed_users"].items():
+        canary = f"phase1a-{label}-{symbol}-password-canary"
+        user["password"] = canary
+        canaries.add(canary)
+    return copied, canaries
+
+
+def assert_invalid_run_files_are_rejected_before_business_operation(
     manifest: dict[str, Any], case: Path
 ) -> None:
-    invalid_path = (case / "invalid-run.json").resolve()
-    invalid = json.loads(json.dumps(manifest))
-    invalid["control"]["run_file"] = str(invalid_path)
-    canaries = {
-        "password": "phase1a-password-redaction-canary",
-        "client_secret": "phase1a-client-secret-redaction-canary",
-        "dsn": "phase1a-dsn-redaction-canary",
-    }
-    first_user = next(iter(invalid["seed_users"].values()))
-    first_user["password"] = canaries["password"]
-    invalid["credentials"]["oidc_fixture"]["client_secret"] = canaries["client_secret"]
-    invalid["credentials"]["database"]["auth_dsn"] = (
-        "postgresql+psycopg://role:"
-        f'{canaries["dsn"]}@127.0.0.1:15434/{invalid["database"]["name"]}'
-    )
-    invalid["credentials"]["oidc_fixture"]["client_id"] = 7
-    invalid_path.write_text(json.dumps(invalid), encoding="utf-8")
-    invalid_path.chmod(0o600)
+    original_sensitive_values = manifest_sensitive_values(manifest)
+    another_worktree = case / "another-worktree"
+    another_worktree.mkdir(mode=0o700)
 
-    result = subprocess.run(
-        [str(CONTROL), "--run-file", str(invalid_path), "query", "authority"],
-        cwd=REPOSITORY_ROOT,
-        capture_output=True,
-        text=True,
-        timeout=30,
-        check=False,
+    def invalid_schema(value: dict[str, Any]) -> None:
+        value["credentials"]["oidc_fixture"]["client_id"] = 7
+
+    def wrong_mode(_: dict[str, Any]) -> None:
+        return None
+
+    def wrong_worktree(value: dict[str, Any]) -> None:
+        value["repository_root"] = str(another_worktree.resolve())
+
+    def wrong_sha(value: dict[str, Any]) -> None:
+        value["source_sha"] = "0" * 40
+
+    def wrong_profile_namespace(value: dict[str, Any]) -> None:
+        assert value["profile"] == "test"
+        value["namespace"] = "wuji-dev"
+
+    def wrong_dsn_port(value: dict[str, Any]) -> None:
+        original = value["credentials"]["database"]["auth_dsn"]
+        changed = original.replace("@127.0.0.1:15434/", "@127.0.0.1:15432/", 1)
+        assert changed != original
+        value["credentials"]["database"]["auth_dsn"] = changed
+
+    variants: tuple[tuple[str, Callable[[dict[str, Any]], None], int], ...] = (
+        ("schema", invalid_schema, 0o600),
+        ("mode", wrong_mode, 0o644),
+        ("worktree", wrong_worktree, 0o600),
+        ("source-sha", wrong_sha, 0o600),
+        ("profile-namespace", wrong_profile_namespace, 0o600),
+        ("dsn-port", wrong_dsn_port, 0o600),
     )
-    assert result.returncode == 1
-    assert result.stdout == ""
-    assert all(canary not in result.stderr for canary in canaries.values())
-    payload = json.loads(result.stderr)
-    assert payload["ok"] is False
-    assert isinstance(payload.get("error"), dict)
-    assert set(payload["error"]) == {"code", "message"}
+    for label, mutate, mode in variants:
+        invalid_path = (case / f"invalid-{label}-run.json").resolve()
+        invalid, canaries = redact_manifest_copy(manifest, label)
+        invalid["control"]["run_file"] = str(invalid_path)
+        invalid["control"]["record_lock_file"] = str(
+            invalid_path.with_name(f".{invalid_path.name}.record.lock")
+        )
+        mutate(invalid)
+        invalid_path.write_text(json.dumps(invalid), encoding="utf-8")
+        invalid_path.chmod(mode)
+        try:
+            result = subprocess.run(
+                [str(CONTROL), "--run-file", str(invalid_path), "query", "authority"],
+                cwd=REPOSITORY_ROOT,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+        finally:
+            invalid_path.chmod(0o600)
+        evidence = case / f"invalid-{label}.stderr.log"
+        evidence.write_text(result.stderr, encoding="utf-8")
+        evidence.chmod(0o600)
+        assert result.returncode == 1
+        assert result.stdout == ""
+        if any(value in result.stderr for value in original_sensitive_values | canaries):
+            pytest.fail("control failure output leaked a sensitive manifest value", pytrace=False)
+        payload = json.loads(result.stderr)
+        assert payload["ok"] is False
+        assert isinstance(payload.get("error"), dict)
+        assert set(payload["error"]) == {"code", "message"}
 
 
 def assert_retained(previous: list[dict[str, Any]]) -> None:
@@ -327,6 +416,24 @@ if args == ['config', 'current-context']:
 if 'get' in args and 'nodes' in args:
     print('{{"items":[]}}')
     raise SystemExit(0)
+if 'kustomize' in args:
+    print('''apiVersion: v1
+kind: Namespace
+metadata:
+  name: wuji-test
+  labels:
+    wuji.dev/owner: phase-1a
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: wuji-test
+  labels:
+    wuji.dev/owner: phase-1a
+spec: {{}}
+''')
+    raise SystemExit(0)
 if {mode!r} == 'forbidden':
     print('{{"kind":"Status","reason":"Forbidden","code":403}}', file=sys.stderr)
     raise SystemExit(1)
@@ -336,7 +443,9 @@ if kind == 'namespace':
     print('{{"metadata":{{"name":"wuji-test","labels":{{"wuji.dev/owner":"phase-1a"}}}}}}')
     raise SystemExit(0)
 if kind == 'deployment' and name == 'postgres':
-    print('{{"metadata":{{"name":"postgres","uid":"foreign-uid","labels":{{"wuji.dev/owner":"someone-else"}}}}}}')
+    print('{{"metadata":{{"name":"postgres","namespace":"wuji-test","uid":"foreign-uid","labels":{{"wuji.dev/owner":"someone-else"}}}}}}')
+    raise SystemExit(0)
+if '--ignore-not-found=true' in args:
     raise SystemExit(0)
 print('{{"kind":"Status","reason":"NotFound","code":404}}', file=sys.stderr)
 raise SystemExit(1)
@@ -377,9 +486,9 @@ def test_fixed_port_conflict_fails_without_touching_owner_and_releases_lifecycle
             results.append(complete_process(process, case, timeout=30))
             assert owner.getsockname()[1] == 18083
             payload = json.loads((case / "parent.stderr.log").read_text(encoding="utf-8"))
-            reason = json.dumps(payload.get("error", {}), sort_keys=True)
-            assert "port" in reason.lower()
-            reasons.append(reason)
+            assert payload["error"]["code"] == "PORT_CONFLICT"
+            assert "18083" in payload["error"]["message"]
+            reasons.append(payload["error"])
             assert_file_lock_reusable(TEST_LOCK)
     assert results == [1, 1]
     assert reasons[0] == reasons[1]
@@ -395,8 +504,72 @@ def test_cluster_read_failure_or_wrong_ownership_is_rejected_before_any_write(mo
     write_verbs = {"apply", "create", "delete", "patch", "replace", "scale"}
     assert kubectl_arguments
     assert not any(write_verbs.intersection(arguments) for arguments in kubectl_arguments)
+    failure = json.loads((case / "parent.stderr.log").read_text(encoding="utf-8"))
+    assert failure["error"]["code"] == (
+        "KUBERNETES_OWNERSHIP_MISMATCH"
+        if mode == "foreign-owner"
+        else "KUBERNETES_OWNERSHIP_READ_FAILED"
+    )
     if mode == "foreign-owner":
         assert any("get" in arguments and "postgres" in arguments for arguments in kubectl_arguments)
+
+
+class InjectedLifecycleSignal(BaseException):
+    pass
+
+
+@pytest.mark.parametrize(
+    "injected_error",
+    [InjectedLifecycleSignal("SIGTERM"), RuntimeError("registration failed")],
+    ids=["early-signal", "registration-failure"],
+)
+def test_spawned_child_is_cleaned_if_registration_does_not_complete(
+    monkeypatch: pytest.MonkeyPatch, injected_error: BaseException
+) -> None:
+    case = private_case(f"spawn-registration-{type(injected_error).__name__}")
+    module_path = REPOSITORY_ROOT / "scripts" / "platform" / "common.py"
+    spec = importlib.util.spec_from_file_location("wuji_platform_common_under_test", module_path)
+    assert spec is not None and spec.loader is not None
+    common = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(common)
+    captured: dict[str, Any] = {}
+    original_spawn = common.spawn_logged
+
+    def capture_spawn(*args: Any, **kwargs: Any) -> tuple[subprocess.Popen[Any], dict[str, Any]]:
+        process, record = original_spawn(*args, **kwargs)
+        captured.update(process=process, record=record)
+        return process, record
+
+    def reject_registration(*_args: Any, **_kwargs: Any) -> None:
+        raise injected_error
+
+    monkeypatch.setattr(common, "spawn_logged", capture_spawn)
+    monkeypatch.setattr(common, "register_process", reject_registration)
+    marker = "phase1a-lifecycle-registration-probe"
+    with pytest.raises(type(injected_error)):
+        common.spawn_registered(
+            case / "unused-run.json",
+            "probe",
+            [sys.executable, "-c", "import time; time.sleep(300)", marker],
+            log_path=case / "probe.log",
+            command_marker=marker,
+        )
+
+    process = captured["process"]
+    record = captured["record"]
+    try:
+        try:
+            returncode = process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            returncode = None
+        group_gone = not process_group_exists(int(record["process_group"]))
+    finally:
+        if process.poll() is None:
+            os.killpg(int(record["process_group"]), signal.SIGKILL)
+            process.wait(timeout=10)
+    assert returncode == -signal.SIGTERM
+    assert group_gone
+    assert stat.S_IMODE((case / "probe.log").stat().st_mode) == 0o600
 
 
 def test_real_serve_only_startup_signals_child_failure_and_retention() -> None:
@@ -434,7 +607,7 @@ def test_real_serve_only_startup_signals_child_failure_and_retention() -> None:
             manifest = read_manifest(case)
             assert_retained(retained)
             if signum == signal.SIGINT:
-                assert_invalid_run_file_is_rejected_without_secret_echo(manifest, case)
+                assert_invalid_run_files_are_rejected_before_business_operation(manifest, case)
             process.send_signal(signum)
             assert complete_process(process, case) == expected_code
             assert_cleanup(
