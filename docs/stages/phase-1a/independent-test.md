@@ -24,7 +24,7 @@
 | P1A-07 | Session/Project/ProjectPage/Error 的 openapi-core 真实响应验证、API→DB 失联恢复、全新未迁移库 fail closed | 待运行 |
 | P1A-08 | 五主题主页面/浮层/键盘、设备偏好、URL 临时覆盖、无效/不可用存储、项目及分页状态 | 待运行 |
 | P1A-09 | 深链接刷新与回跳、真实退出、项目切换、回调错误 own-key 白名单、生产 bundle 凭据/Mock/未实现入口检查 | 待运行 |
-| P1A-10 | manifest/context/端口；错误集群归属写前拒绝；启动期与就绪后子进程失败；SIGINT/SIGTERM；并发运行记录；外部父测试核对清理、端口/锁复用及旧 run DB/realm 保留 | 待运行 |
+| P1A-10 | manifest schema/0600/工作树/SHA/profile-namespace/DSN 端口语义与错误脱敏；context/端口；错误集群归属写前拒绝；登记前信号/异常、启动期与就绪后子进程失败；SIGINT/SIGTERM；并发运行记录；外部父测试核对独立进程组清理、端口/锁复用及旧 run DB/realm 保留 | 待运行 |
 
 Python API 用例位于 `tests/api`，生命周期父测试位于 `tests/platform-lifecycle`，浏览器用例位于 `tests/platform-browser`，协议夹具位于 `tests/fixtures/oidc/issuer.py`。协议夹具只绑定 loopback，校验 confidential client 与 PKCE S256，通过受限控制 token 选择单一协议反例；应用仍走正常 Authlib/OIDC 路径。生命周期测试只终止事件中已核验 PID、进程组和命令标识的本 run 进程；集群错误归属反例使用 PATH 内独立命令夹具，不连接或修改真实集群资源。
 
@@ -41,7 +41,7 @@ Python API 用例位于 `tests/api`，生命周期父测试位于 `tests/platfor
 | `playwright test --config playwright.platform.config.ts --list` | 0 | 14 个浏览器用例可收集；使用临时无凭据 manifest，仅做收集 |
 | `tsc --noEmit ... playwright.platform.config.ts tests/platform-browser/*.ts` | 0 | 独立浏览器测试严格类型检查通过 |
 | loopback issuer discovery → authorization → token smoke | 0 | confidential client、PKCE S256、RS256 ID Token 路径可运行 |
-| `pytest --collect-only tests/platform-lifecycle tests/api`（收口） | 0 | 73 个 API 用例及 4 个生命周期用例可收集；不计作实际平台通过 |
+| `pytest --collect-only tests/platform-lifecycle tests/api`（收口） | 0 | 73 个 API 用例及 6 个生命周期用例可收集；不计作实际平台通过 |
 | `playwright ... --list`（收口） | 0 | 15 个浏览器用例可收集；使用无凭据临时 manifest，不计作实际平台通过 |
 
 准备阶段没有启动 Wuji Kubernetes 依赖、没有测试正式 API/前端，也没有修改开发或既有 run 数据。工作树无 `.codegraph/`，按仓库约定使用 `rg`、直接读取当前文件及固定提交内容。
