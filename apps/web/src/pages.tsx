@@ -44,6 +44,10 @@ const loginErrors = {
 } as const;
 const traceIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+function isLoginErrorCode(value: string | null): value is keyof typeof loginErrors {
+  return value !== null && Object.prototype.hasOwnProperty.call(loginErrors, value);
+}
+
 function errorCopy(error: unknown): { title: string; body: string; traceId: string | null } {
   if (error instanceof ApiRequestError) {
     if (error.contractFailure) {
@@ -275,8 +279,8 @@ export function LoginPage() {
   });
   const callbackError = search.get('error');
   const traceId = search.get('trace_id');
-  const safeCallbackError = callbackError && callbackError in loginErrors && traceIdPattern.test(traceId ?? '')
-    ? callbackError as keyof typeof loginErrors
+  const safeCallbackError = isLoginErrorCode(callbackError) && traceIdPattern.test(traceId ?? '')
+    ? callbackError
     : null;
 
   if (!safeCallbackError && identity.status === 'authenticated' && (session.data || identity.session)) {
