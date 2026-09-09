@@ -30,7 +30,9 @@ test('all five themes cover project pages and popup, persist, and remain keyboar
   const selector = page.getByRole('combobox', { name: '工作台配色' });
   await selector.focus();
   await page.keyboard.press('Enter');
-  await page.keyboard.press('Home');
+  for (let index = 1; index < themes.length; index += 1) {
+    await page.keyboard.press('ArrowUp');
+  }
   await page.keyboard.press('Enter');
   await expect(page.locator('html')).toHaveAttribute('data-palette', 'silver');
   await page.reload();
