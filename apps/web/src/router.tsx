@@ -14,6 +14,7 @@ import {
   RootLayout,
   RouteErrorPage,
 } from './pages';
+import { TaskPreviewPage } from './taskPreview';
 import {
   enterProject,
   enterProjects,
@@ -98,6 +99,12 @@ export const router = createBrowserRouter([
         path: 'projects/:projectId',
         loader: projectLoader,
         element: <ProjectPage />,
+        errorElement: <RouteErrorPage />,
+      },
+      {
+        path: 'projects/:projectId/tasks/new',
+        loader: projectLoader,
+        element: <TaskPreviewPage />,
         errorElement: <RouteErrorPage />,
       },
       { path: '*', element: <NotFoundPage /> },

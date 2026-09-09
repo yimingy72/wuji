@@ -80,12 +80,13 @@
 .routeNotice { margin-bottom: 18px; }
 
 .backLink { width: fit-content; margin-bottom: 20px; display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
-.workspaceHeading { margin-bottom: 22px; }
+.workspaceHeading { margin-bottom: 22px; display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; }
 .workspaceHeading p { margin-top: 8px; color: var(--muted); font: 10px/1.7 var(--mono); overflow-wrap: anywhere; }
 .workspacePanel { display: grid; grid-template-columns: minmax(240px, 31%) minmax(0, 1fr); }
 .projectSummary { padding: 24px 20px; background: var(--queue); border-right: 1px solid var(--line); }
 .projectSummary code { display: block; margin: 6px 0 24px; color: var(--text); font-size: 10px; overflow-wrap: anywhere; }
 .summaryLabel { color: var(--muted); font-size: 10px; }
+.projectDetail { min-width: 0; }
 .permissionPanel { min-width: 0; }
 .permissionPanel header { min-height: 78px; padding: 18px 22px; display: flex; align-items: center; justify-content: space-between; gap: 20px; border-bottom: 1px solid var(--line); }
 .permissionPanel header p { margin-top: 5px; color: var(--muted); font-size: 11px; }
@@ -94,7 +95,70 @@
 .permissionPanel dt, .permissionPanel dd { min-width: 0; margin: 0; padding: 18px 22px; border-bottom: 1px solid var(--line); }
 .permissionPanel dt { color: var(--muted); font-size: 11px; background: var(--node); }
 .permissionPanel dd { color: var(--text); overflow-wrap: anywhere; }
-.permissionState { margin-left: 12px; padding: 2px 7px; color: var(--success); background: var(--success-bg); border: 1px solid var(--success-border); border-radius: 3px; font-size: 10px; }
+.permissionState { display: inline-block; padding: 2px 7px; color: var(--success); background: var(--success-bg); border: 1px solid var(--success-border); border-radius: 3px; font-size: 10px; }
+.scopePanel { min-width: 0; border-top: 1px solid var(--line); }
+.scopePanel > header { min-height: 70px; padding: 16px 22px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.scopePanel > header p { margin-top: 4px; color: var(--muted); font-size: 11px; }
+.scopePanel > header > span { color: var(--muted); font: 10px/1.4 var(--mono); }
+.scopeStatus { min-height: 180px; padding: 22px; display: grid; place-items: center; border-top: 1px solid var(--line); }
+.scopeList { border-top: 1px solid var(--line); }
+.scopeItem { padding: 18px 22px; border-bottom: 1px solid var(--line); }
+.scopeItem:last-child { border-bottom: 0; }
+.scopeItemHeading { margin-bottom: 16px; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.scopeItemHeading h3, .selectedScope h3, .resultSection h3 { margin: 0; color: var(--text); font-size: 12px; font-weight: 600; }
+.scopeItemHeading span { color: var(--muted); font: 10px/1.5 var(--mono); }
+.scopeDetails { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 24px; }
+.scopeDetails > div { min-width: 0; }
+.scopeDetails > div > span:first-child { display: block; margin-bottom: 4px; color: var(--muted); font-size: 10px; }
+.scopeDetails time { color: var(--text); font-size: 10px; overflow-wrap: anywhere; }
+.valueList { min-width: 0; display: grid; gap: 3px; color: var(--muted); font-size: 10px; }
+.valueList code { color: var(--text); font-size: 10px; overflow-wrap: anywhere; }
+.methodList { display: flex; flex-wrap: wrap; gap: 4px; }
+.scopeLimits { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.scopeLimits h4 { margin: 0 0 10px; color: var(--muted); font-size: 10px; font-weight: 500; }
+.scopeLimits .limitList { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px 18px; }
+.scopePagination { min-height: 58px; padding: 11px 22px; display: flex; align-items: center; justify-content: space-between; gap: 16px; color: var(--muted); font-size: 10px; border-top: 1px solid var(--line); }
+
+.taskPreviewPage { flex: 1; min-width: 0; }
+.previewHeading { margin-bottom: 22px; padding: 19px 22px; display: flex; align-items: center; justify-content: space-between; gap: 24px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); }
+.previewHeading p { margin-top: 7px; color: var(--muted); font-size: 11px; }
+.previewHeading > span { color: var(--accent); font-size: 24px; }
+.previewLayout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(210px, 27%); gap: 18px; align-items: start; }
+.previewFormPanel, .previewAside, .previewResult { min-width: 0; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); }
+.previewFormPanel > header { min-height: 68px; padding: 15px 20px; display: flex; align-items: center; justify-content: space-between; gap: 18px; border-bottom: 1px solid var(--line); }
+.previewFormPanel > header p { margin-top: 4px; color: var(--muted); font-size: 11px; }
+.previewFormPanel > header > span { color: var(--muted); font: 9px/1.4 var(--mono); letter-spacing: .1em; }
+.previewFormPanel form { padding: 20px; }
+.formGrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(180px, .45fr); gap: 0 18px; }
+.fullField { grid-column: 1 / -1; }
+.formScopeStatus { min-height: 120px; margin-bottom: 18px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 5px; }
+.selectedScope { margin-bottom: 18px; padding: 15px; border: 1px solid var(--selected-border); border-radius: 5px; background: var(--selected); }
+.selectedScope h3 { margin-bottom: 13px; }
+.loadScopeButton { margin: -6px 0 20px; }
+.limitFields { margin: 4px 0 20px; padding: 18px 16px 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 14px; border: 1px solid var(--line); border-radius: 5px; }
+.limitFields legend { padding: 0 6px; color: var(--text); font-size: 12px; font-weight: 600; }
+.numberInput { width: 100%; }
+.formAlert { margin-bottom: 18px; }
+.formActions { display: flex; align-items: center; gap: 14px; }
+.previewAside { padding: 20px; background: var(--queue); }
+.previewAside h2 { margin-bottom: 13px; }
+.previewAside ol { margin: 0; padding-left: 18px; color: var(--muted); font-size: 11px; }
+.previewAside li + li { margin-top: 9px; }
+.previewResult { margin-top: 18px; overflow: hidden; }
+.resultHeading { min-height: 68px; padding: 15px 20px; display: flex; align-items: center; justify-content: space-between; gap: 18px; border-bottom: 1px solid var(--line); }
+.resultHeading time { color: var(--muted); font-size: 10px; }
+.previewStatus { padding: 18px 20px 0; display: grid; gap: 10px; }
+.previewStatus ul { margin: 6px 0 0; padding-left: 18px; }
+.resultSection { min-width: 0; padding: 20px; }
+.resultSection + .resultSection { border-left: 1px solid var(--line); }
+.resultSection > h3 { margin-bottom: 14px; }
+.resultGrid { display: grid; grid-template-columns: minmax(0, 1.25fr) repeat(2, minmax(185px, .75fr)); border-top: 1px solid var(--line); }
+.breakCode { overflow-wrap: anywhere; }
+.limitList { margin: 0; display: grid; gap: 7px; }
+.limitList > div { display: flex; justify-content: space-between; gap: 14px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+.limitList > div:last-child { padding-bottom: 0; border-bottom: 0; }
+.limitList dt { color: var(--muted); font-size: 10px; }
+.limitList dd { margin: 0; color: var(--text); font: 10px/1.6 var(--mono); }
 .routeError { width: min(680px, 100%); margin: auto; display: grid; justify-items: start; gap: 18px; }
 
 @media (max-width: 820px) {
@@ -105,6 +169,11 @@
   .projectRow > :last-child { grid-column: 4; grid-row: 1 / 3; }
   .workspacePanel { grid-template-columns: minmax(0, 1fr); }
   .projectSummary { border-right: 0; border-bottom: 1px solid var(--line); }
+  .previewLayout { grid-template-columns: minmax(0, 1fr); }
+  .previewAside { order: -1; }
+  .resultGrid { grid-template-columns: minmax(0, 1fr); }
+  .resultSection + .resultSection { border-top: 1px solid var(--line); border-left: 0; }
+  .limitFields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 600px) {
@@ -124,6 +193,7 @@
   .statusbar > span:last-child { display: none; }
   .loginPanel { padding: 40px 24px; }
   .pageHeading { align-items: flex-start; flex-direction: column; }
+  .workspaceHeading, .previewHeading, .resultHeading { align-items: flex-start; flex-direction: column; }
   .projectRow { grid-template-columns: 30px minmax(0, 1fr) 14px; gap: 11px; padding-inline: 12px; }
   .tenantIdentity { grid-column: 2; }
   .rowPermission { grid-column: 2; grid-row: auto; justify-self: start; }
@@ -132,7 +202,12 @@
   .panelHeader { padding-inline: 12px; }
   .permissionPanel dl { grid-template-columns: 95px minmax(0, 1fr); }
   .permissionPanel dt, .permissionPanel dd { padding: 15px 13px; }
-  .permissionState { display: block; width: fit-content; margin: 7px 0 0; }
+  .scopePanel > header, .scopeItem, .scopePagination { padding-inline: 13px; }
+  .scopeDetails { grid-template-columns: minmax(0, 1fr); }
+  .scopeLimits .limitList { grid-template-columns: minmax(0, 1fr); }
+  .previewFormPanel form, .resultSection, .previewStatus { padding-inline: 13px; }
+  .formGrid, .limitFields { grid-template-columns: minmax(0, 1fr); }
+  .formActions { align-items: flex-start; flex-direction: column; }
 }
 
 @media (prefers-reduced-motion: reduce) {

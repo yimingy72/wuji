@@ -33,6 +33,7 @@ import {
   sessionQueryOptions,
 } from './queries';
 import { beginLoginPath, loginPath, normalizeReturnTo } from './routing';
+import { ApprovedScopesPanel } from './scopes';
 import { useIdentitySnapshot } from './state';
 import styles from './workbench.module.css';
 
@@ -186,7 +187,7 @@ function AppShell({ children, session = null }: ShellProps) {
         <main id="main-content" tabIndex={-1} className={styles.main}>{children}</main>
         <footer className={styles.statusbar}>
           <span>工作区 <strong>PLATFORM</strong></span>
-          <span>AUTHORIZED ACCESS <span aria-hidden="true">/</span> v0.2</span>
+          <span>AUTHORIZED ACCESS <span aria-hidden="true">/</span> v0.3</span>
         </footer>
       </div>
     </div>
@@ -254,7 +255,7 @@ function usePrivateSession(): Session | null {
   return query.data ?? identity.session;
 }
 
-function PrivatePage({ children }: { children: (session: Session) => ReactNode }) {
+export function PrivatePage({ children }: { children: (session: Session) => ReactNode }) {
   const identity = useIdentitySnapshot();
   const session = usePrivateSession();
   const location = useLocation();
@@ -462,6 +463,8 @@ function ProjectContent({ session, projectId }: { session: Session; projectId: s
 }
 
 function ProjectWorkspace({ session, project }: { session: Session; project: Project }) {
+  const navigate = useNavigate();
+  const canPreview = project.permissions.includes('task.preview');
   return (
     <section className={styles.projectWorkspace} aria-labelledby="project-title">
       <Link className={styles.backLink} to="/projects">
@@ -469,9 +472,16 @@ function ProjectWorkspace({ session, project }: { session: Session; project: Pro
         返回项目列表
       </Link>
       <header className={styles.workspaceHeading}>
-        <span className={styles.eyebrow}>PROJECT WORKSPACE</span>
-        <h1 id="project-title">{project.name}</h1>
-        <p data-testid="project-canary">项目 {project.name} · {project.id}</p>
+        <div>
+          <span className={styles.eyebrow}>PROJECT WORKSPACE</span>
+          <h1 id="project-title">{project.name}</h1>
+          <p data-testid="project-canary">项目 {project.name} · {project.id}</p>
+        </div>
+        {canPreview && (
+          <Button type="primary" onClick={() => navigate(`/projects/${project.id}/tasks/new`)}>
+            任务预览
+          </Button>
+        )}
       </header>
       <div className={styles.workspacePanel}>
         <aside className={styles.projectSummary}>
@@ -480,22 +490,27 @@ function ProjectWorkspace({ session, project }: { session: Session; project: Pro
           <div className={styles.summaryLabel}>租户标识</div>
           <code>{project.tenant_id}</code>
         </aside>
-        <div className={styles.permissionPanel}>
-          <header>
-            <div>
-              <h2>项目访问</h2>
-              <p>该身份可以查看此项目。</p>
-            </div>
-            <SafetyCertificateOutlined aria-hidden="true" />
-          </header>
-          <dl>
-            <dt>身份</dt>
-            <dd>{session.display_name}</dd>
-            <dt>能力</dt>
-            <dd>项目查看<span className={styles.permissionState}>已授权</span></dd>
-            <dt>会话到期</dt>
-            <dd><time dateTime={session.expires_at}>{new Date(session.expires_at).toLocaleString('zh-CN')}</time></dd>
-          </dl>
+        <div className={styles.projectDetail}>
+          <div className={styles.permissionPanel}>
+            <header>
+              <div>
+                <h2>项目访问</h2>
+                <p>{canPreview ? '该身份可以查看项目并提交任务预览。' : '该身份可以只读查看项目与批准范围。'}</p>
+              </div>
+              <SafetyCertificateOutlined aria-hidden="true" />
+            </header>
+            <dl>
+              <dt>身份</dt>
+              <dd>{session.display_name}</dd>
+              <dt>项目查看</dt>
+              <dd><span className={styles.permissionState}>已授权</span></dd>
+              <dt>任务预览</dt>
+              <dd>{canPreview ? <span className={styles.permissionState}>已授权</span> : '只读身份不可提交'}</dd>
+              <dt>会话到期</dt>
+              <dd><time dateTime={session.expires_at}>{new Date(session.expires_at).toLocaleString('zh-CN')}</time></dd>
+            </dl>
+          </div>
+          <ApprovedScopesPanel session={session} projectId={project.id} />
         </div>
       </div>
     </section>

@@ -1,16 +1,26 @@
-import { QueryClient, queryOptions } from '@tanstack/react-query';
+import {
+  QueryClient,
+  infiniteQueryOptions,
+  queryOptions,
+  type InfiniteData,
+} from '@tanstack/react-query';
 import {
   ApiRequestError,
   StaleContextError,
   getProject,
   getProjects,
+  getScopes,
   getSession,
   isApiError,
   postLogout,
+  postTaskPreview,
   shouldRetryRead,
   type Project,
   type ProjectPage,
+  type ScopePage,
   type Session,
+  type TaskDraft,
+  type TaskPreview,
 } from './api';
 import {
   acceptProject,
@@ -69,6 +79,20 @@ function projectKey(projectId: string, session: Session) {
   ] as const;
 }
 
+function scopePagesKey(projectId: string, session: Session) {
+  const snapshot = getIdentitySnapshot();
+  return [
+    'private',
+    'scopes',
+    snapshot.identityGeneration,
+    snapshot.projectGeneration,
+    session.user_id,
+    session.permissions_version,
+    snapshot.activeProject?.tenantId ?? 'pending-tenant',
+    projectId,
+  ] as const;
+}
+
 async function removeAllPrivateQueries() {
   await queryClient.cancelQueries({ queryKey: ['private'] });
   queryClient.removeQueries({ queryKey: ['private'] });
@@ -77,12 +101,20 @@ async function removeAllPrivateQueries() {
 async function removeProjectQueries(identityGeneration?: number) {
   await queryClient.cancelQueries({
     predicate: (query) => query.queryKey[0] === 'private'
-      && (query.queryKey[1] === 'projects' || query.queryKey[1] === 'project')
+      && (
+        query.queryKey[1] === 'projects'
+        || query.queryKey[1] === 'project'
+        || query.queryKey[1] === 'scopes'
+      )
       && (identityGeneration === undefined || query.queryKey[2] === identityGeneration),
   });
   queryClient.removeQueries({
     predicate: (query) => query.queryKey[0] === 'private'
-      && (query.queryKey[1] === 'projects' || query.queryKey[1] === 'project')
+      && (
+        query.queryKey[1] === 'projects'
+        || query.queryKey[1] === 'project'
+        || query.queryKey[1] === 'scopes'
+      )
       && (identityGeneration === undefined || query.queryKey[2] === identityGeneration),
   });
 }
@@ -92,6 +124,7 @@ interface CapturedContext {
   readonly projectGeneration?: number;
   readonly userId?: string;
   readonly permissionsVersion?: number;
+  readonly projectId?: string;
 }
 
 async function handleReadError(error: unknown, captured: CapturedContext): Promise<never> {
@@ -103,6 +136,7 @@ async function handleReadError(error: unknown, captured: CapturedContext): Promi
     || (captured.userId !== undefined && current.session?.user_id !== captured.userId)
     || (captured.permissionsVersion !== undefined
       && current.session?.permissions_version !== captured.permissionsVersion)
+    || (captured.projectId !== undefined && current.activeProject?.id !== captured.projectId)
   ) {
     throw new StaleContextError();
   }
@@ -211,6 +245,93 @@ export function projectQueryOptions(session: Session, projectId: string) {
   });
 }
 
+export function scopePagesQueryOptions(session: Session, projectId: string) {
+  const captured = getIdentitySnapshot();
+  return infiniteQueryOptions<
+    ScopePage,
+    Error,
+    InfiniteData<ScopePage>,
+    ReturnType<typeof scopePagesKey>,
+    string | null
+  >({
+    queryKey: scopePagesKey(projectId, session),
+    initialPageParam: null as string | null,
+    getNextPageParam: (page) => page.next_cursor ?? undefined,
+    staleTime: 5_000,
+    retry: shouldRetryRead,
+    queryFn: async ({ pageParam, signal }) => {
+      try {
+        const page = await getScopes(projectId, pageParam, signal);
+        const current = getIdentitySnapshot();
+        if (
+          current.identityGeneration !== captured.identityGeneration
+          || current.projectGeneration !== captured.projectGeneration
+          || current.session?.user_id !== session.user_id
+          || current.session.permissions_version !== session.permissions_version
+          || current.activeProject?.id !== projectId
+        ) {
+          throw new StaleContextError();
+        }
+        return page;
+      } catch (error) {
+        return handleReadError(error, {
+          identityGeneration: captured.identityGeneration,
+          projectGeneration: captured.projectGeneration,
+          userId: session.user_id,
+          permissionsVersion: session.permissions_version,
+          projectId,
+        });
+      }
+    },
+  });
+}
+
+export async function resetScopePages(session: Session, projectId: string) {
+  await queryClient.resetQueries({
+    queryKey: scopePagesKey(projectId, session),
+    exact: true,
+  });
+}
+
+export async function previewTask(
+  session: Session,
+  projectId: string,
+  draft: TaskDraft,
+  signal: AbortSignal,
+): Promise<TaskPreview> {
+  const captured = getIdentitySnapshot();
+  try {
+    const preview = await postTaskPreview(projectId, draft, session.csrf_token, signal);
+    const current = getIdentitySnapshot();
+    if (
+      current.identityGeneration !== captured.identityGeneration
+      || current.projectGeneration !== captured.projectGeneration
+      || current.session?.user_id !== session.user_id
+      || current.session.permissions_version !== session.permissions_version
+      || current.activeProject?.id !== projectId
+    ) {
+      throw new StaleContextError();
+    }
+    if (preview.project_id !== projectId) {
+      throw new ApiRequestError({
+        status: 200,
+        code: 'INTERNAL_ERROR',
+        message: '平台响应与当前项目不一致',
+        contractFailure: true,
+      });
+    }
+    return preview;
+  } catch (error) {
+    return handleReadError(error, {
+      identityGeneration: captured.identityGeneration,
+      projectGeneration: captured.projectGeneration,
+      userId: session.user_id,
+      permissionsVersion: session.permissions_version,
+      projectId,
+    });
+  }
+}
+
 export async function loadCurrentSession(): Promise<Session> {
   return queryClient.fetchQuery({ ...sessionQueryOptions(), staleTime: 0 });
 }
@@ -220,7 +341,8 @@ async function selectRouteProject(projectId: string | null) {
   const generation = selectProject(projectId);
   if (generation !== before) {
     await queryClient.cancelQueries({
-      predicate: (query) => query.queryKey[0] === 'private' && query.queryKey[1] === 'project',
+      predicate: (query) => query.queryKey[0] === 'private'
+        && (query.queryKey[1] === 'project' || query.queryKey[1] === 'scopes'),
     });
   }
 }
@@ -248,7 +370,8 @@ export function selectKnownProject(project: Project) {
   const generation = selectProject(project.id, project.tenant_id);
   if (generation !== before) {
     void queryClient.cancelQueries({
-      predicate: (query) => query.queryKey[0] === 'private' && query.queryKey[1] === 'project',
+      predicate: (query) => query.queryKey[0] === 'private'
+        && (query.queryKey[1] === 'project' || query.queryKey[1] === 'scopes'),
     });
   }
 }
@@ -258,7 +381,7 @@ export function leaveUnavailableProject(projectId: string) {
   if (!clearProject(generation, projectId)) return;
   queryClient.removeQueries({
     predicate: (query) => query.queryKey[0] === 'private'
-      && query.queryKey[1] === 'project'
+      && (query.queryKey[1] === 'project' || query.queryKey[1] === 'scopes')
       && query.queryKey.at(-1) === projectId,
   });
 }
