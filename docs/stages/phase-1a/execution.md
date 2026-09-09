@@ -10,7 +10,7 @@
 
 | 批次 | 状态 | 提交与证据 |
 | --- | --- | --- |
-| CORE | 开发中 | A：`phase1a_developer_a`，独立分支 `codex/phase-1a-core`，工作树 `work/worktrees/phase-1a-core`，起点 `e0f4c84ae822f944c1729470263b76ce7281baf0` |
+| CORE | 交接门槛通过 | A：`phase1a_developer_a`；起点 `e0f4c84ae822f944c1729470263b76ce7281baf0`，交付 `8af768fd51ce121bbe434b1f13e4fb449e73f148`，集成及主代理复核版本 `68e6a557e5f1d76261ddac210eee6cf874ffd39c` |
 | SERVER | 等待 CORE | API、身份、数据库、迁移、Kubernetes 依赖与进程生命周期由 A 负责 |
 | WEB | 等待 CORE | 正式页面、共享主题与原型主题迁移由 B 负责 |
 | TEST | 等待 CORE | 独立编写用例，最终绑定集成 SHA 运行 |
@@ -32,3 +32,15 @@
 | 交接依赖与检查 | 原型缺共享主题依赖，平台检查需包含 antd，uv 检查需冻结解析 | 已交 A 修正，待 CORE 提交检查 |
 | 公共接口 | 项目列表补500和游标语义，回跳路径限定现有项目路由 | 已交 A 修正，待生成物及用例验证 |
 | 浏览器校验器 | Ajv standalone 的 esm 选项仍生成两个 CommonJS require，原生 ESM 导入失败 | 主代理在内存复现 require 未定义；已交 A 修正生成器与 helper 导入，待正反例及浏览器消费验证 |
+
+## CORE 交接验收
+
+主代理接受 CORE 的工程交接门槛，允许 SERVER / WEB 基于固定集成版本并行实施，独立测试开始按 Spec 编写用例。此结论不改变 P1A-01–10 的待测试状态。
+
+开发者的最终 `uv sync --frozen`、`pnpm install --frozen-lockfile`、`pnpm check:platform` 和原型构建退出码均为0。主代理在集成提交 `68e6a557e5f1d76261ddac210eee6cf874ffd39c` 的主工作区重新安装项目工具链和冻结依赖，完整 `pnpm check:platform` 通过：26项契约测试、3项Python unit（含真实健康响应的openapi-core校验）、正式前端/主题/原型类型及构建检查通过。主代理另外执行原型构建和Chrome校验器浏览器探针，分别退出0、1/1通过。
+
+主代理亲自启动 API，通过动态分配的loopback监听端口验证 live=200、ready=503、尚未实现的session/login=404，所有响应no-store；运行OpenAPI只包含两个公开health操作且使用根server。向该自建进程发SIGINT后退出0，没有占用固定开发端口。证据在主工作区 ignored 的 `artifacts/phase-1a/core-root-review/check-platform.log`、`api-smoke.json`、`api-smoke.log`。
+
+上述四项开发审查问题均在交付中修正。Redocly的三条4xx例外仅用于回调和两个健康端点，由契约测试固定；保留登录302/回调303引发的两条2xx提示。Ant Design保留原型已有的两条virtual=false提示，正式骨架与主题检查无问题。本机使用系统Chrome，尚未运行Linux CI。主代理首次把依赖检查与工具链安装同时启动，检查按设计因uv尚未就绪退出1；安装完成后按顺序重跑完整检查退出0，该次编排错误不记为产品缺陷。
+
+当前 `test:platform` 明确返回非零，等待 SERVER / TEST 实现完整生命周期；未部署Wuji集群依赖，未实现真实身份、项目或任务执行。CORE工作树保持干净并保留证据，后续为SERVER创建新工作树。
