@@ -11,9 +11,9 @@
 | 批次 | 状态 | 提交与证据 |
 | --- | --- | --- |
 | CORE | 交接门槛通过 | A：`phase1a_developer_a`；起点 `e0f4c84ae822f944c1729470263b76ce7281baf0`，交付 `8af768fd51ce121bbe434b1f13e4fb449e73f148`，集成及主代理复核版本 `68e6a557e5f1d76261ddac210eee6cf874ffd39c` |
-| SERVER | 等待 CORE | API、身份、数据库、迁移、Kubernetes 依赖与进程生命周期由 A 负责 |
-| WEB | 等待 CORE | 正式页面、共享主题与原型主题迁移由 B 负责 |
-| TEST | 等待 CORE | 独立编写用例，最终绑定集成 SHA 运行 |
+| SERVER | 开发中 | A：`phase1a_developer_a`；分支 `codex/phase-1a-server`，工作树 `work/worktrees/phase-1a-server`，起点 `b1730e6e9937d42084df11137c8843d21af774a6` |
+| WEB | 开发中 | B：`phase1a_developer_b`；分支 `codex/phase-1a-web`，工作树 `work/worktrees/phase-1a-web`，同一起点 `b1730e6e9937d42084df11137c8843d21af774a6` |
+| TEST | 独立编写用例 | `phase1a_independent_test`；分支 `codex/phase-1a-test`，工作树 `work/worktrees/phase-1a-test`，同一起点 `b1730e6e9937d42084df11137c8843d21af774a6`；运行等待集成 SHA |
 | ACCEPT | pending | 主代理核对独立证据并复核关键链路 |
 
 本文件持续记录实际任务起点、交付 SHA、设计修订、检查结果与未解决事项。尚未执行的 P1A-01–10 保持未通过；文档提交不作为被测试的产品实现。
