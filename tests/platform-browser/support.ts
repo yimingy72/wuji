@@ -85,10 +85,10 @@ export async function captureKeycloakCallback(page: Page, authorizationUrl: stri
   if (outcome === 'form') {
     await username.fill(user.username);
     await page.locator('#password').fill(user.password);
-    await page.locator('#kc-login').click().catch(() => null);
+    await page.locator('#kc-form-login').evaluate((form: HTMLFormElement) => form.requestSubmit());
   }
   const value = await callback;
-  await navigation;
+  void navigation;
   return value;
 }
 

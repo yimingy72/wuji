@@ -18,7 +18,11 @@ async function chooseTheme(page: Page, label: string): Promise<void> {
 test('all five themes cover project pages and popup, persist, and remain keyboard operable', async ({ page }) => {
   const run = await manifest();
   await keycloakLogin(page, run.seed_users.single_a);
-  for (const [id, label] of themes) {
+  await expect(page.locator('html')).toHaveAttribute('data-palette', 'silver');
+  await page.getByRole('combobox', { name: '工作台配色' }).click();
+  await expect(page.getByRole('option', { name: '雾银', exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
+  for (const [id, label] of themes.slice(1)) {
     await chooseTheme(page, label);
     await expect(page.locator('html')).toHaveAttribute('data-palette', id);
     await page.getByRole('combobox', { name: '工作台配色' }).click();
@@ -35,6 +39,7 @@ test('all five themes cover project pages and popup, persist, and remain keyboar
   }
   await page.keyboard.press('Enter');
   await expect(page.locator('html')).toHaveAttribute('data-palette', 'silver');
+  expect(await page.evaluate(() => localStorage.getItem('wuji.workbench.palette'))).toBe('silver');
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-palette', 'silver');
 });
@@ -88,13 +93,16 @@ test('theme changes preserve current project and cursor page', async ({ page }) 
   const run = await manifest();
   await keycloakLogin(page, run.seed_users.dual_ab);
   const projectLinks = page.getByRole('navigation', { name: '项目列表' }).getByRole('link');
+  await expect(projectLinks).toHaveCount(50);
   const firstPage = await projectLinks.evaluateAll(links => links.map(link => link.getAttribute('href')));
   await page.getByRole('button', { name: '下一页' }).click();
+  await expect(projectLinks).toHaveCount(4);
   const secondPage = await projectLinks.evaluateAll(links => links.map(link => link.getAttribute('href')));
   expect(secondPage).not.toEqual(firstPage);
   await chooseTheme(page, '青瓷');
   expect(await projectLinks.evaluateAll(links => links.map(link => link.getAttribute('href')))).toEqual(secondPage);
   await page.getByRole('button', { name: '上一页' }).click();
+  await expect(projectLinks).toHaveCount(50);
   expect(await projectLinks.evaluateAll(links => links.map(link => link.getAttribute('href')))).toEqual(firstPage);
 
   const projectId = run.seed_users.dual_ab.project_ids[0]!;
