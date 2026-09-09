@@ -1,16 +1,23 @@
 import type { components } from '@wuji/contracts/types';
 import {
+  validateScopePage,
   validateError,
   validateProject,
   validateProjectPage,
   validateSession,
+  validateTaskPreview,
   type ContractValidator,
 } from '@wuji/contracts/validators';
 
+export type ApprovedScope = components['schemas']['ApprovedScope'];
 export type ApiErrorBody = components['schemas']['Error'];
+export type Limits = components['schemas']['Limits'];
 export type Project = components['schemas']['Project'];
 export type ProjectPage = components['schemas']['ProjectPage'];
+export type ScopePage = components['schemas']['ScopePage'];
 export type Session = components['schemas']['Session'];
+export type TaskDraft = components['schemas']['TaskDraft'];
+export type TaskPreview = components['schemas']['TaskPreview'];
 
 type ErrorCode = ApiErrorBody['code'];
 
@@ -123,6 +130,62 @@ export function getProjects(cursor: string | null, signal: AbortSignal): Promise
 
 export function getProject(projectId: string, signal: AbortSignal): Promise<Project> {
   return getValidated(`/api/v1/projects/${encodeURIComponent(projectId)}`, validateProject, signal);
+}
+
+export function getScopes(
+  projectId: string,
+  cursor: string | null,
+  signal: AbortSignal,
+): Promise<ScopePage> {
+  const query = new URLSearchParams({ limit: '50' });
+  if (cursor) query.set('cursor', cursor);
+  return getValidated(
+    `/api/v1/projects/${encodeURIComponent(projectId)}/scopes?${query.toString()}`,
+    validateScopePage,
+    signal,
+  );
+}
+
+export async function postTaskPreview(
+  projectId: string,
+  draft: TaskDraft,
+  csrfToken: string,
+  signal: AbortSignal,
+): Promise<TaskPreview> {
+  let response: Response;
+  try {
+    response = await fetch(`/api/v1/projects/${encodeURIComponent(projectId)}/task-previews`, {
+      method: 'POST',
+      mode: 'same-origin',
+      credentials: 'same-origin',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': csrfToken,
+      },
+      body: JSON.stringify(draft),
+      signal,
+    });
+  } catch (error) {
+    if (signal.aborted) throw error;
+    throw new ApiRequestError({
+      status: 0,
+      code: 'SERVICE_UNAVAILABLE',
+      message: '无法连接平台服务',
+    });
+  }
+
+  const payload = await responsePayload(response);
+  if (!response.ok) throw httpError(response, payload);
+  if (!validateTaskPreview(payload)) {
+    throw new ApiRequestError({
+      status: response.status,
+      code: 'INTERNAL_ERROR',
+      message: '平台响应不符合契约',
+      contractFailure: true,
+    });
+  }
+  return payload;
 }
 
 export async function postLogout(csrfToken: string, signal: AbortSignal): Promise<void> {
