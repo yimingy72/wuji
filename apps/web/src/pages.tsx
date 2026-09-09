@@ -289,7 +289,6 @@ export function LoginPage() {
         <div className={styles.loginPanel}>
           <div className={styles.eyebrow}>WUJI PLATFORM</div>
           <h1 id="login-title">进入工作台</h1>
-          <p>使用已配置的身份提供方继续。</p>
           {safeCallbackError && (
             <Alert
               role="alert"
@@ -303,17 +302,10 @@ export function LoginPage() {
           {session.error && !isApiError(session.error, 401) && (
             <ErrorNotice error={session.error} onRetry={() => void session.refetch()} />
           )}
-          <Button type="primary" href={beginLoginPath(returnTo)}>
-            使用身份提供方登录
+          <Button className={styles.loginButton} type="primary" href={beginLoginPath(returnTo)}>
+            使用组织账号登录
           </Button>
         </div>
-        <aside className={styles.loginAside} aria-label="登录说明">
-          <SafetyCertificateOutlined aria-hidden="true" />
-          <div>
-            <strong>安全登录</strong>
-            <span>通过组织身份服务进入项目工作区。</span>
-          </div>
-        </aside>
       </section>
     </AppShell>
   );
