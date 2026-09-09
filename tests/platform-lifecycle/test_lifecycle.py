@@ -6,11 +6,13 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import shlex
 import signal
 import socket
 import stat
 import subprocess
 import sys
+import threading
 import time
 from typing import Any, Callable
 from uuid import uuid4
@@ -83,6 +85,8 @@ def wait_event(
             if predicate(event):
                 return event
         if process.poll() is not None:
+            stdout, stderr = process.communicate(timeout=5)
+            save_parent_output(case, stdout, stderr)
             raise AssertionError(
                 f"serve-only exited {process.returncode} before the required lifecycle event"
             )
@@ -404,8 +408,9 @@ def fake_cluster_environment(case: Path, mode: str) -> dict[str, str]:
     command_log = case / "cluster-commands.jsonl"
     kubectl = case / "kubectl"
     docker = case / "docker"
-    script = f"""#!{sys.executable}
-import json, os, sys
+    kubectl_driver = case / "fake-kubectl.py"
+    docker_driver = case / "fake-docker.py"
+    script = f"""import json, os, sys
 from pathlib import Path
 args = sys.argv[1:]
 with Path(os.environ['WUJI_FAKE_CLUSTER_LOG']).open('a', encoding='utf-8') as stream:
@@ -450,28 +455,90 @@ if '--ignore-not-found=true' in args:
 print('{{"kind":"Status","reason":"NotFound","code":404}}', file=sys.stderr)
 raise SystemExit(1)
 """
-    kubectl.write_text(script, encoding="utf-8")
+    kubectl_driver.write_text(script, encoding="utf-8")
+    kubectl_driver.chmod(0o600)
+    kubectl.write_text(
+        f"#!/bin/sh\nexec {shlex.quote(sys.executable)} {shlex.quote(str(kubectl_driver))} \"$@\"\n",
+        encoding="utf-8",
+    )
     kubectl.chmod(0o700)
-    docker.write_text(
-        f"""#!{sys.executable}
-import json, os, sys
+    docker_driver.write_text(
+        """import json, os, sys
 from pathlib import Path
 with Path(os.environ['WUJI_FAKE_CLUSTER_LOG']).open('a', encoding='utf-8') as stream:
-    stream.write(json.dumps({{'tool':'docker','args':sys.argv[1:]}}, separators=(',', ':')) + '\\n')
+    stream.write(json.dumps({'tool':'docker','args':sys.argv[1:]}, separators=(',', ':')) + '\\n')
 print('desktop-linux')
 """,
+        encoding="utf-8",
+    )
+    docker_driver.chmod(0o600)
+    docker.write_text(
+        f"#!/bin/sh\nexec {shlex.quote(sys.executable)} {shlex.quote(str(docker_driver))} \"$@\"\n",
         encoding="utf-8",
     )
     docker.chmod(0o700)
     environment = os.environ.copy()
     environment["PATH"] = f"{case}:{environment['PATH']}"
     environment["WUJI_FAKE_CLUSTER_LOG"] = str(command_log)
+    kubectl_probe = subprocess.run(
+        [str(kubectl), "config", "current-context"],
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+    docker_probe = subprocess.run(
+        [str(docker), "context", "show"],
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+    assert (kubectl_probe.returncode, kubectl_probe.stdout.strip()) == (0, "docker-desktop")
+    assert (docker_probe.returncode, docker_probe.stdout.strip()) == (0, "desktop-linux")
+    assert [entry["tool"] for entry in fake_commands(case)] == ["kubectl", "docker"]
+    command_log.write_text("", encoding="utf-8")
+    command_log.chmod(0o600)
     return environment
 
 
 def fake_commands(case: Path) -> list[dict[str, Any]]:
     path = case / "cluster-commands.jsonl"
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+
+
+def forward_events(case: Path, service: str = "postgres") -> list[dict[str, Any]]:
+    return [
+        event
+        for event in events(case)
+        if event.get("event") == "process_registered"
+        and event.get("name") == f"{service}_forward"
+    ]
+
+
+def listening_pids(port: int) -> set[int]:
+    result = subprocess.run(
+        ["lsof", "-nP", "-t", f"-iTCP:{port}", "-sTCP:LISTEN"],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+    assert result.returncode in {0, 1}
+    return {int(line) for line in result.stdout.splitlines() if line.strip()}
+
+
+def assert_forward_matches_manifest_and_listener(
+    case: Path, manifest: dict[str, Any], event: dict[str, Any]
+) -> None:
+    record = manifest["processes"]["postgres_forward"]
+    assert record["pid"] == event["pid"]
+    assert record["process_group"] == event["pgid"]
+    assert record["start_id"] == event["start_marker"]
+    assert_event_process_owned(event)
+    assert listening_pids(15434) == {int(event["pid"])}
 
 
 def test_fixed_port_conflict_fails_without_touching_owner_and_releases_lifecycle_lock() -> None:
@@ -626,6 +693,77 @@ def test_real_serve_only_startup_signals_child_failure_and_retention() -> None:
         wait_event(concurrent_process, concurrent_case, lambda event: event.get("event") == "ready")
         concurrent_manifest = read_manifest(concurrent_case)
         assert_retained(retained)
+
+        initial_forwards = forward_events(concurrent_case)
+        assert len(initial_forwards) == 1
+        assert control(concurrent_manifest, "db-forward", "pause") == {"paused": True}
+        pause_deadline = time.monotonic() + 2
+        while time.monotonic() < pause_deadline:
+            assert forward_events(concurrent_case) == initial_forwards
+            assert listening_pids(15434) == set()
+            time.sleep(0.1)
+        paused = read_manifest(concurrent_case)
+        assert paused["processes"]["postgres_forward"]["paused"] is True
+
+        resume_barrier = threading.Barrier(3)
+
+        def simultaneous_resume() -> dict[str, Any]:
+            resume_barrier.wait(timeout=10)
+            return control(concurrent_manifest, "db-forward", "resume")
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            resumes = [executor.submit(simultaneous_resume) for _ in range(2)]
+            resume_barrier.wait(timeout=10)
+            resume_results = [future.result(timeout=180) for future in resumes]
+        resumed_pids = {int(result["pid"]) for result in resume_results}
+        assert len(resumed_pids) == 1
+        resumed_events = forward_events(concurrent_case)
+        assert len(resumed_events) == len(initial_forwards) + 1
+        resumed = read_manifest(concurrent_case)
+        assert_forward_matches_manifest_and_listener(
+            concurrent_case, resumed, resumed_events[-1]
+        )
+        assert resumed_pids == {int(resumed["processes"]["postgres_forward"]["pid"])}
+
+        service_lock = Path(concurrent_manifest["control"]["run_file"]).with_name(
+            f'.{Path(concurrent_manifest["control"]["run_file"]).name}.postgres-forward.lock'
+        )
+        before_recovery = forward_events(concurrent_case)
+        active_forward = before_recovery[-1]
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            with service_lock.open("a+", encoding="utf-8") as lock_stream:
+                lock_stream.flush()
+                os.fchmod(lock_stream.fileno(), 0o600)
+                fcntl.flock(lock_stream.fileno(), fcntl.LOCK_EX)
+                kill_owned_event_process(active_forward)
+                recovery = executor.submit(
+                    control, concurrent_manifest, "db-forward", "resume"
+                )
+                time.sleep(2)
+                assert not recovery.done()
+                assert forward_events(concurrent_case) == before_recovery
+                fcntl.flock(lock_stream.fileno(), fcntl.LOCK_UN)
+            recovery_result = recovery.result(timeout=180)
+        recovery_deadline = time.monotonic() + 30
+        while (
+            len(forward_events(concurrent_case)) == len(before_recovery)
+            and time.monotonic() < recovery_deadline
+        ):
+            time.sleep(0.1)
+        with service_lock.open("a+", encoding="utf-8") as lock_stream:
+            fcntl.flock(lock_stream.fileno(), fcntl.LOCK_EX)
+            fcntl.flock(lock_stream.fileno(), fcntl.LOCK_UN)
+        time.sleep(0.5)
+        recovered_events = forward_events(concurrent_case)
+        assert len(recovered_events) == len(before_recovery) + 1
+        recovered = read_manifest(concurrent_case)
+        assert int(recovery_result["pid"]) == int(
+            recovered["processes"]["postgres_forward"]["pid"]
+        )
+        assert_forward_matches_manifest_and_listener(
+            concurrent_case, recovered, recovered_events[-1]
+        )
+
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
             restart = executor.submit(
                 control, concurrent_manifest, "api", "restart", "--profile", "keycloak"
