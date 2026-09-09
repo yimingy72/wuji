@@ -31,7 +31,7 @@ from common import (
     wait_infrastructure,
 )
 
-DELEGATED = {"database", "identity", "permissions", "user", "session", "cursor"}
+DELEGATED = {"database", "identity", "permissions", "user", "session", "cursor", "scope"}
 
 
 class SafeArgumentParser(argparse.ArgumentParser):

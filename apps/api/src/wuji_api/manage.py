@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from pathlib import Path
 from typing import Any
 
 import psycopg
@@ -14,6 +15,7 @@ from wuji_api.database_admin import (
     change_membership,
     credentials_from_database_url,
     inspect_authority,
+    import_scope,
     migrate_database,
     prepare_database,
     seed_database,
@@ -22,6 +24,7 @@ from wuji_api.database_admin import (
 )
 from wuji_api.keycloak_admin import provision_keycloak
 from wuji_api.run_file import load_run_file
+from wuji_api.scopes import ScopeImportDocument
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -35,6 +38,11 @@ def _parser() -> argparse.ArgumentParser:
     prepare.add_argument("--migrate", action="store_true")
     database_actions.add_parser("migrate")
     database_actions.add_parser("seed")
+
+    scope = commands.add_parser("scope")
+    scope_actions = scope.add_subparsers(dest="scope_action", required=True)
+    import_command = scope_actions.add_parser("import")
+    import_command.add_argument("--file", required=True)
 
     identity = commands.add_parser("identity")
     identity.add_subparsers(dest="identity_command", required=True).add_parser("provision")
@@ -140,7 +148,20 @@ def _migrate(run: dict[str, Any]) -> dict[str, Any]:
         auth_role=run["database"]["roles"]["auth"],
         project_role=run["database"]["roles"]["project"],
     )
-    return {"migrated": True, "revision": "20260909_0001"}
+    return {"migrated": True, "revision": "20260910_0002"}
+
+
+def _import_scope(run: dict[str, Any], value: str) -> dict[str, Any]:
+    source = Path(value)
+    if not source.is_absolute():
+        raise ValueError("--file must be absolute")
+    if source.is_symlink() or not source.is_file():
+        raise ValueError("--file must be a regular non-symlink file")
+    payload = json.loads(source.read_text(encoding="utf-8"))
+    document = ScopeImportDocument.model_validate(payload)
+    return import_scope(
+        database_url_value=_database_credentials(run)["management_dsn"], document=document
+    )
 
 
 def _query_roles(run: dict[str, Any], include_migration: bool) -> dict[str, Any]:
@@ -198,6 +219,8 @@ def execute(args: argparse.Namespace, run_path, run: dict[str, Any]) -> dict[str
         if args.database_command == "migrate":
             return _migrate(run)
         return {"seeded": seed_database(migration_database_url=credentials["management_dsn"], run=run)}
+    if args.command == "scope":
+        return _import_scope(run, args.file)
     if args.command == "identity":
         return {"provisioned": provision_keycloak(run_path, run)}
     if args.command == "permissions":

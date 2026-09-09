@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hmac
+import json
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
@@ -13,10 +14,11 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from wuji_api.database_admin import USER_LOCK_SEED
-from wuji_api.security import CursorPosition, opaque_token, token_hash
+from wuji_api.scope_policy import evaluate_scope
+from wuji_api.security import CursorPosition, ScopeCursorPosition, opaque_token, token_hash
 from wuji_api.settings import Settings
 
-EXPECTED_REVISION = "20260909_0001"
+EXPECTED_REVISION = "20260910_0002"
 
 
 class AuthorityUnavailable(RuntimeError):
@@ -29,6 +31,10 @@ class HandshakeInProgress(RuntimeError):
 
 class HandshakeCompletionInvalid(RuntimeError):
     """The claimed handshake is no longer eligible to create a session."""
+
+
+class PreviewForbidden(RuntimeError):
+    pass
 
 
 @dataclass(frozen=True)
@@ -60,6 +66,22 @@ class ProjectRecord:
     id: UUID
     tenant_id: UUID
     name: str
+    created_at: datetime
+    role: str
+
+
+@dataclass(frozen=True)
+class ScopeRecord:
+    policy_id: UUID
+    version: int
+    tenant_id: UUID
+    project_id: UUID
+    authorization_id: UUID
+    policy_hash: str
+    scope: dict[str, Any]
+    valid_from: datetime
+    valid_until: datetime
+    revoked_at: datetime | None
     created_at: datetime
 
 
@@ -422,15 +444,23 @@ class DatabaseAuthority:
                 params: dict[str, Any] = {"limit": limit + 1}
                 after = ""
                 if position is not None:
-                    after = "WHERE (created_at, id) < (:created_at, :project_id)"
+                    after = "WHERE (p.created_at, p.id) < (:created_at, :project_id)"
                     params.update(
                         {"created_at": position.created_at, "project_id": position.project_id}
                     )
                 rows = (
                     await connection.execute(
                         text(
-                            "SELECT id, tenant_id, name, created_at FROM projects "
-                            f"{after} ORDER BY created_at DESC, id DESC LIMIT :limit"
+                            "SELECT p.id, p.tenant_id, p.name, p.created_at, "
+                            "CASE WHEN tm.role = 'operator' AND pm.role = 'operator' "
+                            "THEN 'operator' ELSE 'viewer' END AS role "
+                            "FROM projects p "
+                            "JOIN project_memberships pm ON pm.tenant_id = p.tenant_id "
+                            "AND pm.project_id = p.id AND pm.user_id = "
+                            "NULLIF(current_setting('app.user_id', true), '')::uuid AND pm.enabled "
+                            "JOIN tenant_memberships tm ON tm.tenant_id = p.tenant_id "
+                            "AND tm.user_id = pm.user_id AND tm.enabled "
+                            f"{after} ORDER BY p.created_at DESC, p.id DESC LIMIT :limit"
                         ),
                         params,
                     )
@@ -460,12 +490,196 @@ class DatabaseAuthority:
                 row = (
                     await connection.execute(
                         text(
-                            "SELECT id, tenant_id, name, created_at FROM projects "
-                            "WHERE id = :project_id AND tenant_id = :tenant_id"
+                            "SELECT p.id, p.tenant_id, p.name, p.created_at, "
+                            "CASE WHEN tm.role = 'operator' AND pm.role = 'operator' "
+                            "THEN 'operator' ELSE 'viewer' END AS role "
+                            "FROM projects p "
+                            "JOIN project_memberships pm ON pm.tenant_id = p.tenant_id "
+                            "AND pm.project_id = p.id AND pm.user_id = "
+                            "NULLIF(current_setting('app.user_id', true), '')::uuid AND pm.enabled "
+                            "JOIN tenant_memberships tm ON tm.tenant_id = p.tenant_id "
+                            "AND tm.user_id = pm.user_id AND tm.enabled "
+                            "WHERE p.id = :project_id AND p.tenant_id = :tenant_id"
                         ),
                         {"project_id": project_id, "tenant_id": tenant_id},
                     )
                 ).mappings().one_or_none()
             return None if row is None else ProjectRecord(**row)
+        except SQLAlchemyError as error:
+            raise AuthorityUnavailable from error
+
+    async def list_scopes(
+        self,
+        *,
+        user_id: UUID,
+        project: ProjectRecord,
+        limit: int,
+        position: ScopeCursorPosition | None,
+    ) -> list[ScopeRecord] | None:
+        try:
+            async with self.project.begin() as connection:
+                await self._set_user_context(connection, user_id)
+                await connection.execute(
+                    text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
+                    {"tenant_id": str(project.tenant_id)},
+                )
+                await connection.execute(
+                    text("SELECT set_config('app.project_id', :project_id, true)"),
+                    {"project_id": str(project.id)},
+                )
+                still_visible = await connection.scalar(
+                    text(
+                        "SELECT id FROM projects WHERE tenant_id = :tenant_id "
+                        "AND id = :project_id"
+                    ),
+                    {"tenant_id": project.tenant_id, "project_id": project.id},
+                )
+                if still_visible is None:
+                    return None
+                params: dict[str, Any] = {
+                    "tenant_id": project.tenant_id,
+                    "project_id": project.id,
+                    "limit": limit + 1,
+                }
+                after = ""
+                if position is not None:
+                    after = (
+                        "AND (sp.created_at, sp.policy_id, sp.version) "
+                        "< (:created_at, :policy_id, :version)"
+                    )
+                    params.update(
+                        {
+                            "created_at": position.created_at,
+                            "policy_id": position.policy_id,
+                            "version": position.version,
+                        }
+                    )
+                rows = (
+                    await connection.execute(
+                        text(
+                            "SELECT sp.policy_id, sp.version, sp.tenant_id, sp.project_id, "
+                            "sp.authorization_id, sp.policy_hash, sp.scope, sp.created_at, "
+                            "a.valid_from, a.valid_until, a.revoked_at "
+                            "FROM scope_policy_versions sp "
+                            "JOIN authorization_records a ON a.tenant_id = sp.tenant_id "
+                            "AND a.project_id = sp.project_id AND a.id = sp.authorization_id "
+                            "WHERE sp.tenant_id = :tenant_id AND sp.project_id = :project_id "
+                            "AND a.valid_from <= clock_timestamp() "
+                            "AND a.valid_until > clock_timestamp() AND a.revoked_at IS NULL "
+                            f"{after} ORDER BY sp.created_at DESC, sp.policy_id DESC, "
+                            "sp.version DESC LIMIT :limit"
+                        ),
+                        params,
+                    )
+                ).mappings().all()
+            return [ScopeRecord(**row) for row in rows]
+        except SQLAlchemyError as error:
+            raise AuthorityUnavailable from error
+
+    async def create_task_preview(
+        self,
+        *,
+        user_id: UUID,
+        permissions_version: int,
+        project_id: UUID,
+        normalized_draft: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        try:
+            async with self.project.begin() as connection:
+                await self._set_user_context(connection, user_id)
+                project_row = (
+                    await connection.execute(
+                        text(
+                            "SELECT p.id, p.tenant_id, "
+                            "CASE WHEN tm.role = 'operator' AND pm.role = 'operator' "
+                            "THEN 'operator' ELSE 'viewer' END AS role "
+                            "FROM projects p "
+                            "JOIN project_memberships pm ON pm.tenant_id = p.tenant_id "
+                            "AND pm.project_id = p.id AND pm.user_id = :user_id AND pm.enabled "
+                            "JOIN tenant_memberships tm ON tm.tenant_id = p.tenant_id "
+                            "AND tm.user_id = pm.user_id AND tm.enabled "
+                            "WHERE p.id = :project_id"
+                        ),
+                        {"user_id": user_id, "project_id": project_id},
+                    )
+                ).mappings().one_or_none()
+                if project_row is None:
+                    return None
+                if project_row["role"] != "operator":
+                    raise PreviewForbidden
+                tenant_id = project_row["tenant_id"]
+                await connection.execute(
+                    text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
+                    {"tenant_id": str(tenant_id)},
+                )
+                await connection.execute(
+                    text("SELECT set_config('app.project_id', :project_id, true)"),
+                    {"project_id": str(project_id)},
+                )
+                scope_row = (
+                    await connection.execute(
+                        text(
+                            "SELECT sp.policy_id, sp.version, sp.policy_hash, sp.scope, "
+                            "a.valid_from, a.valid_until, a.revoked_at "
+                            "FROM scope_policy_versions sp "
+                            "JOIN authorization_records a ON a.tenant_id = sp.tenant_id "
+                            "AND a.project_id = sp.project_id AND a.id = sp.authorization_id "
+                            "WHERE sp.tenant_id = :tenant_id AND sp.project_id = :project_id "
+                            "AND sp.policy_id = :policy_id AND sp.version = :version"
+                        ),
+                        {
+                            "tenant_id": tenant_id,
+                            "project_id": project_id,
+                            "policy_id": UUID(normalized_draft["scope"]["policy_id"]),
+                            "version": normalized_draft["scope"]["version"],
+                        },
+                    )
+                ).mappings().one_or_none()
+                if scope_row is None:
+                    return None
+                evaluated = evaluate_scope(
+                    normalized_draft,
+                    scope_row["scope"],
+                    {
+                        "valid_from": scope_row["valid_from"],
+                        "valid_until": scope_row["valid_until"],
+                        "revoked_at": scope_row["revoked_at"],
+                    },
+                    now=await connection.scalar(text("SELECT clock_timestamp()")),
+                )
+                preview_id = uuid4()
+                await connection.execute(
+                    text(
+                        "INSERT INTO task_previews "
+                        "(id, tenant_id, project_id, user_id, permissions_version, draft, "
+                        "input_digest, policy_id, policy_version, policy_hash, effective_scope, "
+                        "can_create, blockers, expires_at) VALUES "
+                        "(:id, :tenant_id, :project_id, :user_id, :permissions_version, "
+                        "CAST(:draft AS jsonb), :input_digest, :policy_id, :policy_version, "
+                        ":policy_hash, CAST(:effective_scope AS jsonb), :can_create, "
+                        "CAST(:blockers AS jsonb), :expires_at)"
+                    ),
+                    {
+                        "id": preview_id,
+                        "tenant_id": tenant_id,
+                        "project_id": project_id,
+                        "user_id": user_id,
+                        "permissions_version": permissions_version,
+                        "draft": json.dumps(evaluated["draft"], separators=(",", ":")),
+                        "input_digest": evaluated["input_digest"],
+                        "policy_id": scope_row["policy_id"],
+                        "policy_version": scope_row["version"],
+                        "policy_hash": scope_row["policy_hash"],
+                        "effective_scope": json.dumps(
+                            evaluated["effective_scope"], separators=(",", ":")
+                        ),
+                        "can_create": evaluated["can_create"],
+                        "blockers": json.dumps(evaluated["blockers"], separators=(",", ":")),
+                        "expires_at": evaluated["expires_at"],
+                    },
+                )
+            return {"preview_id": preview_id, "project_id": project_id, **evaluated}
+        except PreviewForbidden:
+            raise
         except SQLAlchemyError as error:
             raise AuthorityUnavailable from error
