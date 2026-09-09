@@ -192,7 +192,9 @@ def kill_owned_event_process(event: dict[str, Any]) -> None:
 
 def assert_fixed_ports_reusable() -> None:
     for port in FIXED_PORTS:
+        assert listening_pids(port) == set()
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+            probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             probe.bind(("127.0.0.1", port))
 
 
