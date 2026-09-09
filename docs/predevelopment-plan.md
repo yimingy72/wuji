@@ -23,7 +23,7 @@
 | Agent 执行框架决策 | [Harness 职责与选型](agent-harness-decision.md) | 补齐 LangGraph 与 Harness 分工；优先验证 Deep Agents，具体依赖尚未安装或集成 |
 | 模型网关基础验证 | [实际测试记录](model-gateway-validation.md) | 两个协议的模拟工具往返及 Responses 短文本通过；不代表完整 SDK 兼容或生产计量验收 |
 | 架构复审 v0.4 | [问题与修正](architecture-review.md) | 修正框架复用、上下文、辅助计费、恢复与事件边界；新增 H01–H10，均待集成验证 |
-| 分阶段协作与 Git 基线 | [协作流程](development-workflow.md)、[基线 Spec](stages/development-baseline/spec.md) | 已建立本地 Git 快照、SOL/xhigh 开发与 SOL/high 独立测试流程；最终阶段状态以验收记录为准 |
+| 分阶段协作与 Git 基线 | [协作流程](development-workflow.md)、[基线验收](stages/development-baseline/acceptance.md) | B01–B08 已通过；已建立本地 Git 快照、SOL/xhigh 开发与 SOL/high 独立测试流程，实际 SHA 和证据见验收记录 |
 | Phase 1A Spec / Plan | [Spec](stages/phase-1a/spec.md)、[Plan](stages/phase-1a/plan.md) | 草案；默认 Python/FastAPI + PostgreSQL + Keycloak，复用已验证 Ready 的 Docker Desktop Kubernetes；尚未实施 |
 
 上述完成项不代表整个 Phase 0 完成，也不代表 80 个架构验收场景已通过。验证结果和未覆盖项记录在 [Phase 0 验证记录](phase0-validation.md)。

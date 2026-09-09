@@ -24,7 +24,7 @@ v0.4 架构基线：
 文档：
 
 - [开发协作流程](docs/development-workflow.md)：主代理规划/验收、SOL 子代理开发/测试、CodeGraph 与 Git 分工。
-- [当前开发基线](docs/stages/development-baseline/spec.md)：协作规则、项目快照与独立验证；[Phase 1A 草案](docs/stages/phase-1a/spec.md)已准备，尚未进入业务实施。
+- [开发基线验收](docs/stages/development-baseline/acceptance.md)：B01–B08 通过，21 项契约测试和 12 项浏览器用例通过；[Phase 1A Spec](docs/stages/phase-1a/spec.md) / [Plan](docs/stages/phase-1a/plan.md) 为待评审草案，尚未进入业务实施。
 - [架构设计 v0.4](docs/architecture.md)：组件职责、执行契约、安全边界、状态机和开发阶段。
 - [整体架构复审](docs/architecture-review.md)：十项设计缺口、已修正边界、框架复用清单与剩余验证。
 - [Agent 执行框架决策](docs/agent-harness-decision.md)：LangGraph、Deep Agents、pi、Claude/Codex SDK 与 DeepSeek Harness 的分工和接入顺序。

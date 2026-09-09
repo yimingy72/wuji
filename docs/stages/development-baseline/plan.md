@@ -1,6 +1,6 @@
 # 开发基线 Plan
 
-- 状态：in-progress；用户已批准协作流程，本文件记录执行拆分
+- 状态：completed；B01–B08 已完成，见 [验收记录](acceptance.md)
 - 日期：2026-09-09
 - 对应：[Spec](spec.md)
 
