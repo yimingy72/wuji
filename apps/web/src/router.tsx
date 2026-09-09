@@ -23,6 +23,7 @@ import {
   prepareProjectsRoute,
 } from './queries';
 import { isProjectId, loginPath, returnToFromRequest } from './routing';
+import { getIdentitySnapshot } from './state';
 
 async function requireSession(request: Request) {
   try {
@@ -50,17 +51,30 @@ async function projectLoader({ params, request }: LoaderFunctionArgs) {
     });
   }
   await prepareProjectRoute(projectId);
-  const session = await requireSession(request);
-  try {
-    await enterProject(session, projectId);
-  } catch (error) {
-    if (isApiError(error, 404)) {
-      leaveUnavailableProject(projectId);
-      throw redirect('/projects?notice=project-unavailable');
+  let session = await requireSession(request);
+  for (;;) {
+    try {
+      await enterProject(session, projectId);
+      return null;
+    } catch (error) {
+      if (request.signal.aborted) throw error;
+      if (isApiError(error, 404)) {
+        leaveUnavailableProject(projectId);
+        throw redirect('/projects?notice=project-unavailable');
+      }
+
+      const current = getIdentitySnapshot();
+      const replacement = current.status === 'authenticated'
+        && current.activeProject?.id === projectId
+        && current.session
+        && (current.session.user_id !== session.user_id
+          || current.session.permissions_version !== session.permissions_version)
+        ? current.session
+        : null;
+      if (!replacement) throw error;
+      session = replacement;
     }
-    throw error;
   }
-  return null;
 }
 
 export const router = createBrowserRouter([
