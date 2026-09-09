@@ -43,6 +43,22 @@ const loginErrors = {
   INTERNAL_ERROR: '登录处理失败，请稍后重试。',
 } as const;
 const traceIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const paletteOptions = palettes.map((palette) => ({ value: palette.id, label: palette.name }));
+
+function renderPaletteLabel(value: unknown, label: ReactNode) {
+  const palette = palettes.find((candidate) => candidate.id === value);
+  if (!palette) return label;
+  return (
+    <span className={styles.paletteOption}>
+      <span
+        aria-hidden="true"
+        className={styles.paletteSwatch}
+        style={{ background: palette.colors.canvas, color: palette.colors.accent }}
+      />
+      {label}
+    </span>
+  );
+}
 
 function isLoginErrorCode(value: string | null): value is keyof typeof loginErrors {
   return value !== null && Object.prototype.hasOwnProperty.call(loginErrors, value);
@@ -142,19 +158,10 @@ function AppShell({ children, session = null }: ShellProps) {
               aria-label="工作台配色"
               className={styles.paletteSelect}
               value={paletteId}
-              options={palettes.map((palette) => ({
-                value: palette.id,
-                label: (
-                  <span className={styles.paletteOption}>
-                    <span
-                      aria-hidden="true"
-                      className={styles.paletteSwatch}
-                      style={{ background: palette.colors.canvas, color: palette.colors.accent }}
-                    />
-                    {palette.name}
-                  </span>
-                ),
-              }))}
+              virtual={false}
+              options={paletteOptions}
+              labelRender={(option) => renderPaletteLabel(option.value, option.label)}
+              optionRender={(option) => renderPaletteLabel(option.value, option.label)}
               onChange={choosePalette}
             />
             {session && (
