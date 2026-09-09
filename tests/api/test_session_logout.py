@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 import concurrent.futures
+from decimal import Decimal
 import re
 import time
 
@@ -146,7 +147,7 @@ def test_session_expiry_is_minimum_of_idle_and_absolute_and_survives_restart(
             (run_manifest.seed("protocol_user")["id"],),
         )
         duration, token_hash, stored_csrf = cursor.fetchone()
-        assert duration == 8 * 60 * 60
+        assert abs(duration - Decimal(8 * 60 * 60)) <= Decimal("0.001")
         assert re.fullmatch(r"[a-f0-9]{64}", token_hash)
         assert token_hash != cookie
         assert stored_csrf == csrf

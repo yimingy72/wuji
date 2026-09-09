@@ -4,8 +4,9 @@ import copy
 import base64
 import json
 import time
+from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Iterator
 from uuid import UUID, uuid4
 
 import httpx
@@ -55,12 +56,15 @@ def contract() -> OpenAPI:
     return OpenAPI.from_file_path("packages/contracts/openapi.yaml")
 
 
-def login(manifest: RunManifest, user: str) -> httpx.Client:
-    client = httpx.Client(base_url=manifest.url("web"), follow_redirects=False, timeout=15)
-    response = complete_fixture_login(client, manifest, user=user)
-    assert response.status_code == 303
-    assert response.headers["location"] == "/projects"
-    return client
+@contextmanager
+def login(manifest: RunManifest, user: str) -> Iterator[httpx.Client]:
+    with httpx.Client(
+        base_url=manifest.url("web"), follow_redirects=False, timeout=15
+    ) as client:
+        response = complete_fixture_login(client, manifest, user=user)
+        assert response.status_code == 303
+        assert response.headers["location"] == "/projects"
+        yield client
 
 
 def permission_args(manifest: RunManifest, user: str, project_id: str, role: str = "viewer") -> list[str]:
