@@ -46,6 +46,8 @@ SQLAlchemy 的 psycopg 方言支持同步和异步使用，因此 API 与迁移�
 
 OIDC client 使用 confidential client + PKCE S256，开发回调固定 `http://127.0.0.1:4180/api/v1/auth/callback`；测试使用对应测试端口。生产配置要求显式 HTTPS public origin 与 issuer，启动时拒绝继承开发回调或关闭 Secure。后端不能从未验证的 Host/Forwarded 头生成回调地址。
 
+SERVER 显式配置 ID Token 校验：固定 RS256、`leeway=0`，先核对 discovery issuer 等于配置 issuer，再通过 Authlib `claims_options` 强制 `iss`、`aud`、`nonce` 的 essential 与预期值。不能仅依赖 `client_id` / `nonce` 位置参数；Authlib 的默认实现可能从 discovery 推导 issuer、提供时间宽限，且对 `nonce_supported=false` 关闭 nonce 参数。受控 issuer 测试增加缺失 nonce、该标记伴随错误 nonce、错误 aud 但正确 azp 的反例，继续走正常协议客户端。[固定发行的解析实现](https://github.com/authlib/authlib/blob/v1.8.0/authlib/integrations/base_client/async_openid.py)、[声明配置实现](https://github.com/authlib/authlib/blob/v1.8.0/authlib/oauth2/claims.py)
+
 复用 Authlib 的 OAuth/OIDC 客户端和 ID Token 校验，通过 Wuji 的 PostgreSQL 状态适配接入；不直接采用默认 Starlette `request.session` 状态存储，因为其读取/清除不是本项目数据库的原子消费。`OIDCHandshake` 至少保存 state_hash、binding_hash、nonce、code_verifier、return_to、expires_at 和消费状态。回调以条件状态更新原子领取，再提交事务并交换 code，失败不能退回可消费状态；同一回调并发仅允许一个成功领取者。新登录替换仍待回调的旧绑定；当前绑定正在交换时拒绝启动第二次交换并要求稍后重试。协议 URL 使用 query 回调，返回站内页面的成功/失败映射按 Spec；不自行实现 OAuth/JWT 密码学。[Authlib 状态适配源码](https://github.com/authlib/authlib/blob/v1.8.0/authlib/integrations/starlette_client/integration.py)
 
 Session 存储 token_hash、user_id、csrf_token、created_at、last_seen_at、absolute_expires_at、revoked_at。条件更新同时校验当前用户/句柄/两个期限并续期；权限版本从 User 当前行读取。会话创建/替换、注销、禁用用户和权限管理命令的审计与状态变更同事务提交。注销只有事务提交后才返回 204/清 Cookie；认证已确认不存在有效会话时返回 401/清失效 Cookie，前端可以据此确认当前已登出，不能声称本次撤销了一个有效会话。数据库故障时不得返回 401 或假 204。

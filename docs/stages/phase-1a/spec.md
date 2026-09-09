@@ -35,6 +35,8 @@
 
 采用 Authorization Code + PKCE S256，Authlib 验证 state、nonce、issuer、audience、签名及有效期。身份唯一键为 `(issuer, sub)`；不能按同名或邮箱自动合并账号，不能把 IdP group/role 直接当作项目权限。
 
+本阶段 ID Token 固定允许 RS256，时钟宽限为 0 秒；discovery 的 issuer 必须与配置的 issuer 完全一致。通过 Authlib 的声明校验配置强制 issuer、audience 与握手 nonce 必需且匹配预期值；不能让 token 的 `nonce_supported=false` 关闭本平台的 nonce 要求。错误或缺失 nonce、错误 audience 即使 azp 正确也拒绝。此处配置已有库的校验能力，不另行实现 JWT 密码学。
+
 OIDC 使用 `response_mode=query`。临时握手状态由后端保存，通过独立的不透明 HttpOnly/SameSite=Lax 握手 Cookie 绑定发起浏览器，5 分钟过期且一次性消费；仅持有正确 state 但缺少对应浏览器绑定的回调也必须拒绝。一个浏览器只保留一个当前握手 Cookie；再次发起登录使请求携带的仍待回调旧绑定失效，并设置新绑定。当前绑定已进入交换时，新登录返回 409 `INVALID_TRANSITION`，提示稍后重试；失去请求进程的交换记录到握手期限后失效，不能永远阻塞重试。并行首次登录以浏览器最后生效的 Cookie 为准，不承诺各个标签页同时登录成功。
 
 回调在交换 code 前原子取得并消费匹配 state/浏览器绑定/期限的记录，事务提交后才调用 IdP；同一回调并发只能一份取得记录，协议/网络失败也不恢复该握手，用户重新发起登录。成功后清除握手 Cookie、撤销被替换的旧应用会话并创建不透明 `wuji_session`：32 字节安全随机值，数据库只保存其哈希及会话记录。IdP token 不进入该 Cookie、URL 或前端持久存储；无需调用 IdP API 的 token 在登录完成后不保留。协议回调参数在访问日志中剔除。
