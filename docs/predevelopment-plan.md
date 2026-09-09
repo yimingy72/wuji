@@ -24,7 +24,7 @@
 | 模型网关基础验证 | [实际测试记录](model-gateway-validation.md) | 两个协议的模拟工具往返及 Responses 短文本通过；不代表完整 SDK 兼容或生产计量验收 |
 | 架构复审 v0.4 | [问题与修正](architecture-review.md) | 修正框架复用、上下文、辅助计费、恢复与事件边界；新增 H01–H10，均待集成验证 |
 | 分阶段协作与 Git 基线 | [协作流程](development-workflow.md)、[基线验收](stages/development-baseline/acceptance.md) | B01–B08 已通过；已建立本地 Git 快照、SOL/xhigh 开发与 SOL/high 独立测试流程，实际 SHA 和证据见验收记录 |
-| Phase 1A Spec / Plan | [Spec](stages/phase-1a/spec.md)、[Plan](stages/phase-1a/plan.md)、[方案评审](stages/phase-1a/review.md) | 已完成方案评审修订，仍为待批准草案；Python/FastAPI + PostgreSQL + Keycloak，复用现有 Docker Desktop Kubernetes；尚未实施 |
+| Phase 1A Spec / Plan | [Spec](stages/phase-1a/spec.md)、[Plan](stages/phase-1a/plan.md)、[方案评审](stages/phase-1a/review.md) | 方案已批准，CORE 工程批次开发中；Python/FastAPI + PostgreSQL + Keycloak，复用现有 Docker Desktop Kubernetes；实际结果见阶段执行记录 |
 
 上述完成项不代表整个 Phase 0 完成，也不代表 80 个架构验收场景已通过。验证结果和未覆盖项记录在 [Phase 0 验证记录](phase0-validation.md)。
 
@@ -55,8 +55,8 @@
 | 编号 | 任务 / 责任 | 必须产物与通过条件 | 依赖 / 状态 |
 | --- | --- | --- | --- |
 | P0-01 | 第一切片契约 / 前后端 | 完成当前 API 基线的实现评审，补充正式身份端点、错误和容量配置策略 | 当前已有可校验基线；待后端评审与实现 |
-| P0-02 | 后端语言与框架 / 后端 | 记录 API、Router、Controller、Orchestrator 的语言/SDK 组合及职责；区分 LangGraph 与 Agent Harness，明确默认执行层候选及适配边界 | Phase 1A 已完成 Python/FastAPI 方案评审修订，待批准和安装验证；项目 uv 版本冲突已修订，Harness 仍按 P0-10 验证 |
-| P0-03 | 身份接入 / 后端与部署 | 选定首个提供方，完成会话、CSRF、登录回跳、退出、过期/撤销验证 | Phase 1A 采用 Keycloak OIDC + Authlib 的评审方案；待批准与实现，原型身份不可沿用 |
+| P0-02 | 后端语言与框架 / 后端 | 记录 API、Router、Controller、Orchestrator 的语言/SDK 组合及职责；区分 LangGraph 与 Agent Harness，明确默认执行层候选及适配边界 | Phase 1A 已批准 Python/FastAPI 方案，CORE 执行安装验证；项目 uv 版本冲突已修订，Harness 仍按 P0-10 验证 |
+| P0-03 | 身份接入 / 后端与部署 | 选定首个提供方，完成会话、CSRF、登录回跳、退出、过期/撤销验证 | Phase 1A 已批准 Keycloak OIDC + Authlib 方案；SERVER 在 CORE 交付后实施，原型身份不可沿用 |
 | P0-04 | 数据库初始迁移 / 后端 | Tenant/Project/Membership、授权策略、Task/命令/ToolCall、Artifact、Audit/Outbox 的约束和迁移 | 依赖 P0-01/02；测试跨租户关联、连接池上下文与唯一约束 |
 | P0-05 | 出口与 CNI 小验证 / 基础设施 | 选定实现组合；实测 DNS/IPv6/重定向、直连阻断、限速、撤销窗口 | Phase 1 执行开放前必须完成 |
 | P0-06 | Runtime 生命周期小验证 / 后端与基础设施 | 受限镜像启动、租约过期断流、取消与孤儿资源回收；双副本/失联时最多一个有效 attempt | 依赖 P0-05；记录实测停止窗口 |

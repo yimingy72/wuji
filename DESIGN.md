@@ -20,7 +20,7 @@
 | 亮石墨 | `theme=slate` | 提亮的蓝灰内容面、高亮文字、浅青强调 | darkAlgorithm |
 | 原石墨 | `theme=graphite` | 保留原深石墨背景作对照 | darkAlgorithm |
 
-颜色集中定义在 `spikes/frontend/src/shared/theme.ts`；正式工程初始化时迁入 `apps/web/src/app/` 的主题模块。CSS Modules 和 Ant Design 从同一语义色表取值。每套覆盖背景、内容面、浮层、边界、正文、辅助文字、占位符、选择状态、成功/警告/错误和证据正文。
+颜色集中定义在 `spikes/frontend/src/shared/theme.ts`；Phase 1A 提取到 `packages/theme` / `@wuji/theme`，由原型和正式应用共享。CSS Modules 和 Ant Design 从同一语义色表取值。每套覆盖背景、内容面、浮层、边界、正文、辅助文字、占位符、选择状态、成功/警告/错误和证据正文。
 
 - 当前主题的强调色表示选择和主要操作；绿色表示已确认结果；琥珀色表示待核对、取消中与清理等待；红色用于错误和取消操作。
 - 单个 Ant Design ConfigProvider 根据主题切换 defaultAlgorithm / darkAlgorithm；全局及组件 tokens 控制颜色、34 px 控件高度、13 px 基础字号、5 px 圆角。浅色主题主按钮使用白字，深色主题主按钮使用深色文字；分别检查对比度。
