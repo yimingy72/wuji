@@ -344,6 +344,33 @@ def reap_process_if_child(pid: int) -> None:
         pass
 
 
+def _forward_operation_lock_path(run_path: Path, service: str) -> Path:
+    if service not in {"postgres", "keycloak"}:
+        raise LifecycleError("unsupported port-forward service")
+    if not run_path.is_absolute() or run_path.is_symlink():
+        raise LifecycleError("forward operation requires an absolute private run file")
+    return run_path.with_name(f".{run_path.name}.{service}-forward.lock")
+
+
+@contextmanager
+def forward_operation_lock(run_path: Path, service: str) -> Iterator[None]:
+    lock_path = _forward_operation_lock_path(run_path, service)
+    if lock_path.is_symlink():
+        raise LifecycleError("forward operation lock must not be a symbolic link")
+    descriptor = os.open(
+        lock_path,
+        os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0),
+        0o600,
+    )
+    try:
+        os.fchmod(descriptor, 0o600)
+        fcntl.flock(descriptor, fcntl.LOCK_EX)
+        yield
+    finally:
+        fcntl.flock(descriptor, fcntl.LOCK_UN)
+        os.close(descriptor)
+
+
 def terminate_record(
     record: Mapping[str, Any],
     *,
@@ -843,10 +870,39 @@ def start_api(
     return record
 
 
-def start_forward(run_path: Path, service: str) -> dict[str, Any]:
-    if service not in {"postgres", "keycloak"}:
-        raise LifecycleError("unsupported port-forward service")
+def _start_forward_locked(
+    run_path: Path, service: str, *, explicit_resume: bool
+) -> dict[str, Any]:
     run = load_manifest(run_path)
+    process_name = f"{service}_forward"
+    existing = run.get("processes", {}).get(process_name)
+    if isinstance(existing, dict) and record_is_owned(existing):
+        if existing.get("paused") or existing.get("lifecycle_state") == "paused":
+            if not explicit_resume:
+                raise LifecycleError(
+                    "port-forward remains paused", code="FORWARD_PAUSED"
+                )
+            update_process(
+                run_path,
+                process_name,
+                {"paused": False, "lifecycle_state": "running"},
+            )
+            return {**existing, "paused": False, "lifecycle_state": "running"}
+        return existing
+    if isinstance(existing, dict) and (
+        existing.get("paused") or existing.get("lifecycle_state") == "paused"
+    ):
+        if not explicit_resume:
+            raise LifecycleError("port-forward remains paused", code="FORWARD_PAUSED")
+        update_process(
+            run_path,
+            process_name,
+            {
+                "paused": False,
+                "lifecycle_state": "restarting",
+                "state_deadline": time.time() + 45,
+            },
+        )
     local_port = (
         run["database"]["port"]
         if service == "postgres"
@@ -871,7 +927,7 @@ def start_forward(run_path: Path, service: str) -> dict[str, Any]:
     ]
     process, record = spawn_registered(
         run_path,
-        f"{service}_forward",
+        process_name,
         command,
         log_path=log_path,
         command_marker=f"kubectl port-forward service/{service}",
@@ -883,11 +939,42 @@ def start_forward(run_path: Path, service: str) -> dict[str, Any]:
         terminate_record(record, process=process)
         update_process(
             run_path,
-            f"{service}_forward",
+            process_name,
             {"lifecycle_state": "exited", "exit_code": 1},
         )
         raise
     return record
+
+
+def start_forward(run_path: Path, service: str) -> dict[str, Any]:
+    with forward_operation_lock(run_path, service):
+        return _start_forward_locked(run_path, service, explicit_resume=False)
+
+
+def pause_forward(run_path: Path, service: str) -> dict[str, Any]:
+    with forward_operation_lock(run_path, service):
+        run = load_manifest(run_path)
+        process_name = f"{service}_forward"
+        record = run.get("processes", {}).get(process_name)
+        if not isinstance(record, dict) or "pid" not in record:
+            raise LifecycleError("port-forward process record is missing")
+        if record.get("paused") or record.get("lifecycle_state") == "paused":
+            if not record_is_owned(record):
+                return {**record, "paused": True, "lifecycle_state": "paused"}
+        elif not record_is_owned(record):
+            raise LifecycleError("port-forward process is not owned by this run")
+        update_process(
+            run_path,
+            process_name,
+            {"paused": True, "lifecycle_state": "paused"},
+        )
+        terminate_record(record)
+        return {**record, "paused": True, "lifecycle_state": "paused"}
+
+
+def resume_forward(run_path: Path, service: str) -> dict[str, Any]:
+    with forward_operation_lock(run_path, service):
+        return _start_forward_locked(run_path, service, explicit_resume=True)
 
 
 def assert_run_ownership(run: Mapping[str, Any]) -> None:
