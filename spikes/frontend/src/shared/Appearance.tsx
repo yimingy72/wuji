@@ -1,6 +1,6 @@
 import { createContext, useContext, useLayoutEffect, useMemo, useState, type ReactNode } from 'react';
 import { ConfigProvider } from 'antd';
-import { getPalette, isPaletteId, makeWorkbenchTheme, type PaletteId } from './theme';
+import { getPalette, isPaletteId, makeWorkbenchTheme, type PaletteId } from '@wuji/theme';
 
 const preferenceKey = 'wuji.workbench.palette';
 const AppearanceContext = createContext<{ paletteId: PaletteId; setPaletteId: (id: PaletteId) => void } | null>(null);
