@@ -199,7 +199,7 @@ def begin_login(client: httpx.Client, return_to: str = "/projects") -> httpx.Res
     handshake = next(cookie for cookie in client.cookies.jar if cookie.name != "wuji_session")
     assert handshake.has_nonstandard_attr("HttpOnly")
     assert handshake.path == "/"
-    assert handshake.get_nonstandard_attr("SameSite") == "Lax"
+    assert str(handshake.get_nonstandard_attr("SameSite")).casefold() == "lax"
     return response
 
 

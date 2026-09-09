@@ -75,7 +75,7 @@ def test_valid_rs256_code_pkce_login_creates_opaque_session(client, run_manifest
     assert {cookie.name for cookie in client.cookies.jar} == {"wuji_session"}
     cookie = cookies[0]
     assert cookie.has_nonstandard_attr("HttpOnly")
-    assert cookie.get_nonstandard_attr("SameSite") == "Lax"
+    assert str(cookie.get_nonstandard_attr("SameSite")).casefold() == "lax"
     assert cookie.path == "/"
     assert cookie.secure is False
     assert len(cookie.value) >= 43

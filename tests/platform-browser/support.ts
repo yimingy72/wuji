@@ -69,8 +69,12 @@ export async function captureKeycloakCallback(page: Page, authorizationUrl: stri
   let resolveCallback!: (value: string) => void;
   const callback = new Promise<string>(resolve => { resolveCallback = resolve; });
   await page.route('**/api/v1/auth/callback?**', async route => {
-    resolveCallback(route.request().url());
-    await route.abort('aborted');
+    const url = route.request().url();
+    await route.fulfill({
+      status: 204,
+      headers: { 'cache-control': 'no-store' },
+    });
+    resolveCallback(url);
   }, { times: 1 });
   const navigation = page.goto(authorizationUrl).catch(() => null);
   const username = page.locator('#username');

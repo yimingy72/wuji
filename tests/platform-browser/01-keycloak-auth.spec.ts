@@ -94,7 +94,7 @@ test('login callback errors accept only own whitelist keys and keep inherited ke
   const trace = '00000000-0000-4000-8000-000000000001';
   for (const error of ['__proto__', 'constructor', 'toString', 'unknown']) {
     await page.goto(`/login?error=${encodeURIComponent(error)}&trace_id=${trace}`);
-    await expect(page.getByRole('button', { name: '使用组织账号登录' })).toBeVisible();
+    await expect(page.getByRole('link', { name: '使用组织账号登录' })).toBeVisible();
     await expect(page.getByRole('alert')).toHaveCount(0);
     await expect(page.locator('body')).not.toContainText(error);
   }
@@ -102,6 +102,6 @@ test('login callback errors accept only own whitelist keys and keep inherited ke
   for (const error of ['UNAUTHENTICATED', 'FORBIDDEN', 'SERVICE_UNAVAILABLE', 'INTERNAL_ERROR']) {
     await page.goto(`/login?error=${error}&trace_id=${trace}`);
     await expect(page.getByRole('alert')).toBeVisible();
-    await expect(page.getByRole('button', { name: '使用组织账号登录' })).toBeVisible();
+    await expect(page.getByRole('link', { name: '使用组织账号登录' })).toBeVisible();
   }
 });
