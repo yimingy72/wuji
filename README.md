@@ -2,7 +2,7 @@
 
 Wuji 是一个 Kubernetes 原生、AI 驱动的授权安全验证平台，仅面向非破坏性测试，禁止目标数据破坏、目标持久化和越权扩散。
 
-Phase 1A 的工程骨架、OpenAPI 0.2.0、身份与项目 API、数据库存储、本地生命周期及五主题正式前端已集成。完整验收当前为 partial：最近一次独立检查中 API 73/73、生命周期 6/6、Chrome 12/15 通过，3 个真实 Keycloak 回调场景留待集中测试。Runtime 和 Agent 尚未实现。
+Phase 1A 的身份、项目、数据库、本地生命周期及五主题正式前端已集成。Phase 1B / B1 正在交付批准范围与任务预览，公开契约升级为 OpenAPI 0.3.0。完整验收当前为 partial：最近一次独立检查中 API 73/73、生命周期 6/6、Chrome 12/15 通过，3 个真实 Keycloak 回调场景留待集中测试。Runtime 和 Agent 尚未实现。
 
 v0.4 架构基线：
 
@@ -27,7 +27,7 @@ v0.4 架构基线：
 - [本地工作台启动与停止](docs/local-development.md)：Docker Desktop Kubernetes、正式入口、开发账号读取及按影响选择的检查入口。
 - [开发基线验收](docs/stages/development-baseline/acceptance.md)：B01–B08 通过，21 项契约测试和 12 项浏览器用例通过；Phase 1A 功能已按 [Spec](docs/stages/phase-1a/spec.md) / [Plan](docs/stages/phase-1a/plan.md) 集成，[完整验收](docs/stages/phase-1a/acceptance.md)仍为 partial，剩余 3 项见[集中测试清单](docs/stages/phase-1a/deferred-tests.md)。
 - [Phase 1A 方案评审](docs/stages/phase-1a/review.md)：设计已完成复核；实际开发批次、提交与检查状态见[执行记录](docs/stages/phase-1a/execution.md)。
-- [Phase 1B Spec](docs/stages/phase-1b/spec.md) / [Plan](docs/stages/phase-1b/plan.md)：范围预览、真实任务、幂等命令与事件的分批草案，尚待 Plan 模式评审，未开始业务实现。
+- [Phase 1B Spec](docs/stages/phase-1b/spec.md) / [Plan](docs/stages/phase-1b/plan.md)：B1 批准范围与任务预览已获准实施；B2/B3 的真实任务、命令和事件尚未进入开发。
 - [架构设计 v0.4](docs/architecture.md)：组件职责、执行契约、安全边界、状态机和开发阶段。
 - [整体架构复审](docs/architecture-review.md)：十项设计缺口、已修正边界、框架复用清单与剩余验证。
 - [Agent 执行框架决策](docs/agent-harness-decision.md)：LangGraph、Deep Agents、pi、Claude/Codex SDK 与 DeepSeek Harness 的分工和接入顺序。
@@ -35,7 +35,7 @@ v0.4 架构基线：
 - [评估、知识与交付模型](docs/assessment-model.md)：验证单元、覆盖指标、配置知识版本、资产证据、Finding 与报告契约。
 - [前端架构与技术选型](docs/frontend-architecture.md)：框架取舍、状态与权限、REST/SSE、页面阶段、部署和工程初始化门槛。
 - [开工准备与交付顺序](docs/predevelopment-plan.md)：精确依赖、当前产物、后端/身份/数据库/执行环境的后续任务。
-- [Phase 1 API 契约](docs/phase1-api-contract.md)：0.2.0 共21个设计操作、生成类型/校验器、身份增量、幂等命令与事件约定；接口定义和实际实现状态分别记录。
+- [Phase 1 API 契约](docs/phase1-api-contract.md)：0.3.0 共21个设计操作、生成类型/校验器、身份增量、幂等命令与事件约定；接口定义和实际实现状态分别记录。
 - [页面线框与交互](docs/phase1-wireframes.md)：三栏工作台、创建与证据详情、异常场景和接口映射。
 - [工作台视觉基线](DESIGN.md)：五套明暗配色、紧凑组件、字体、响应布局与页面文案规则。
 - [Phase 0 验证记录](docs/phase0-validation.md)：本地测试、截图、构建及未覆盖项。

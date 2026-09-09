@@ -11,7 +11,7 @@ Phase 1A 功能已集成，完整验收当前为 partial：最近一次独立检
 | 开发 | http://127.0.0.1:4180 | http://127.0.0.1:8000 | http://127.0.0.1:18080 | 127.0.0.1:15432 | wuji-dev |
 | 独立测试 | http://127.0.0.1:4182 | http://127.0.0.1:8002 | http://127.0.0.1:18082 | 127.0.0.1:15434 | wuji-test |
 
-原型仍使用 `pnpm dev` 和 http://127.0.0.1:4173。正式工作台使用数据库中的身份与项目；本阶段包含登录、项目访问和五套主题，任务执行与 Agent 在后续阶段实现。
+原型仍使用 `pnpm dev` 和 http://127.0.0.1:4173。正式工作台使用数据库中的身份与项目；B1 增加批准范围和任务预览，保留登录、项目访问和五套主题；任务执行与 Agent 在后续阶段实现。
 
 ## 首次准备
 
@@ -64,8 +64,22 @@ pnpm dev:down
 
 ## 检查入口
 
-日常开发只执行覆盖当前改动的最小检查：文档改动检查 diff；契约、API 或前端改动分别选择 `pnpm contracts:check`、`pnpm check:api` 或 `pnpm --filter @wuji/web build`。跨模块平台改动使用 `pnpm check:platform`；直接修改生命周期时才运行 `pnpm test:platform:lifecycle`。
+日常开发只执行覆盖当前改动的最小检查：文档改动检查 diff；契约、API 或前端改动分别选择 `pnpm contracts:check`、`pnpm check:api` 或 `pnpm --filter @wuji/web build`。跨模块改动按实际影响选择检查，不默认串行运行全量 `pnpm check:platform`；直接修改生命周期时才运行 `pnpm test:platform:lifecycle`。
 
 `pnpm test:platform` 是显式安排的集中全量验收入口，不与前述命令默认串行执行。它在 `wuji-test` 为本次运行创建独立数据库和 realm，不清空开发数据或上次运行的数据；协议夹具占用 18083，空迁移库探针占用 8003。最近一次全量运行仍有 3 个回调用例待测，不能据此标记完整通过。
 
 运行与验收证据保存在 ignored 的 `artifacts/phase-1a/`，私有运行记录在 `work/run/`。最终验收报告记录候选提交 SHA、run_id、命令、退出码及未通过项；本机证据不随 Git 提交分发。
+
+## 批准范围与任务预览（B1）
+
+用 `single_a` 登录后进入项目，点击“任务预览”，选择批准范围并填写任务名称与目标 URL。开发种子包含本机协议夹具 origin、根路径与 `/admin` 排除路径；界面展示具体 origin。预览仅计算范围和有效限额，不访问目标，成功时也会显示“任务创建尚未开放”。Viewer 可在项目中查看批准范围，不能提交预览。离开项目不保存草稿。
+
+`dev:seed` 会执行增量迁移 `20260910_0002` 并幂等添加三个开发项目的范围，不清空既有数据。管理侧导入使用当前私有运行文件与绝对 JSON 路径：
+
+```sh
+./scripts/platform/control.sh --run-file "$PWD/work/run/dev.json" scope import --file /absolute/path/scope.json
+```
+
+JSON 顶层为 `authorization` 与 `scope`：前者包含 `id`、`tenant_id`、`project_id`、`subject`、`basis`、`approved_by`、带时区的 `valid_from` / `valid_until`；后者包含 `policy_id`、正整数 `version`、`label`、`origins`、`allowed_path_prefixes`、`excluded_path_prefixes`、`allowed_methods` 与六项 `limits`。字段约束见 `apps/api/src/wuji_api/scopes.py`。项目必须已经存在；相同版本相同内容重复导入不新增记录，同版本内容变化会被拒绝，应使用新版本。此入口仅供本机管理，不暴露为公开 API。
+
+B1 定向验证入口为 `tests/unit/test_scope_policy.py`、`tests/api/test_phase1b_scopes.py` 和 `tests/platform-browser/05-scope-preview.spec.ts`。真实 API / 浏览器检查共用 `test-platform.sh --serve-only` 创建的隔离环境；不自动运行 Phase 1A 全量用例。当前交付状态以 [B1 验收记录](stages/phase-1b/acceptance.md) 为准。
