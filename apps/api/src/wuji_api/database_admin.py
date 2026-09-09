@@ -248,7 +248,12 @@ def seed_database(*, migration_database_url: str, run: Mapping[str, Any]) -> dic
                         "IS DISTINCT FROM (EXCLUDED.username, EXCLUDED.email) "
                         "RETURNING user_id",
                         (
-                            str(seed_uuid(run["run_id"], f"identity:{identity_kind}:{symbol}")),
+                            str(
+                                seed_uuid(
+                                    run["run_id"],
+                                    f"identity:{identity_kind}:{symbol}:{issuer}:{subject}",
+                                )
+                            ),
                             issuer,
                             subject,
                             user_id,

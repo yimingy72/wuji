@@ -20,6 +20,7 @@ from wuji_api.database_admin import (
     set_session_times,
     set_user_enabled,
 )
+from wuji_api.keycloak_admin import provision_keycloak
 from wuji_api.run_file import load_run_file
 
 
@@ -34,6 +35,9 @@ def _parser() -> argparse.ArgumentParser:
     prepare.add_argument("--migrate", action="store_true")
     database_actions.add_parser("migrate")
     database_actions.add_parser("seed")
+
+    identity = commands.add_parser("identity")
+    identity.add_subparsers(dest="identity_command", required=True).add_parser("provision")
 
     permissions = commands.add_parser("permissions")
     permissions_actions = permissions.add_subparsers(dest="permission_action", required=True)
@@ -186,7 +190,7 @@ def _query_rls(run: dict[str, Any], user_id: str) -> dict[str, Any]:
     }
 
 
-def execute(args: argparse.Namespace, run: dict[str, Any]) -> dict[str, Any]:
+def execute(args: argparse.Namespace, run_path, run: dict[str, Any]) -> dict[str, Any]:
     credentials = _database_credentials(run)
     if args.command == "database":
         if args.database_command == "prepare":
@@ -194,6 +198,8 @@ def execute(args: argparse.Namespace, run: dict[str, Any]) -> dict[str, Any]:
         if args.database_command == "migrate":
             return _migrate(run)
         return {"seeded": seed_database(migration_database_url=credentials["management_dsn"], run=run)}
+    if args.command == "identity":
+        return {"provisioned": provision_keycloak(run_path, run)}
     if args.command == "permissions":
         changed = change_membership(
             database_url_value=credentials["management_dsn"],
@@ -242,8 +248,8 @@ def main() -> None:
     parser = _parser()
     args = parser.parse_args()
     try:
-        _, run = load_run_file(args.run_file)
-        result = execute(args, run)
+        run_path, run = load_run_file(args.run_file)
+        result = execute(args, run_path, run)
     except Exception as error:
         print(
             json.dumps(
