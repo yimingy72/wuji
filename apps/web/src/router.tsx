@@ -29,7 +29,9 @@ async function requireSession(request: Request) {
   try {
     return await loadCurrentSession();
   } catch (error) {
-    if (isApiError(error, 401)) throw redirect(loginPath(returnToFromRequest(request)));
+    if (!request.signal.aborted && getIdentitySnapshot().status === 'signed-out') {
+      throw redirect(loginPath(returnToFromRequest(request)));
+    }
     throw error;
   }
 }
