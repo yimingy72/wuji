@@ -1,0 +1,36 @@
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Node
+node_modules/
+.next/
+dist/
+playwright-report/
+test-results/
+
+# Runtime artifacts
+work/
+artifacts/
+*.log
+
+# Local Kubernetes
+.kube/
+
+# CodeGraph local index
+.codegraph/

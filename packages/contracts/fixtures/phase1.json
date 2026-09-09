@@ -1,0 +1,203 @@
+{
+  "session": {
+    "user_id": "00000000-0000-4000-8000-000000000003",
+    "display_name": "演示操作员",
+    "csrf_token": "fixture-only-not-a-real-token",
+    "expires_at": "2026-09-09T12:00:00Z",
+    "permissions_version": 1
+  },
+  "project": {
+    "id": "00000000-0000-4000-8000-000000000002",
+    "tenant_id": "00000000-0000-4000-8000-000000000001",
+    "name": "本地验证项目",
+    "permissions": [
+      "task.read",
+      "task.create",
+      "task.control",
+      "artifact.read"
+    ]
+  },
+  "draft": {
+    "name": "公开页面 HTTP 观察",
+    "scope": {
+      "policy_id": "00000000-0000-4000-8000-000000000004",
+      "version": 3
+    },
+    "target_url": "https://training.example/public/",
+    "tool": "http_observe",
+    "method": "GET",
+    "limits": {
+      "max_total_requests": 200,
+      "requests_per_second": 2,
+      "max_concurrent_requests": 2,
+      "request_timeout_seconds": 10,
+      "max_response_bytes": 1048576,
+      "max_runtime_seconds": 600
+    }
+  },
+  "scope": {
+    "binding": {
+      "policy_id": "00000000-0000-4000-8000-000000000004",
+      "version": 3
+    },
+    "label": "本地演示范围 · v3",
+    "valid_until": "2026-09-09T12:00:00Z",
+    "origins": [
+      "https://training.example:443"
+    ],
+    "allowed_path_prefixes": [
+      "/public/"
+    ],
+    "excluded_path_prefixes": [
+      "/public/logout",
+      "/public/admin"
+    ],
+    "allowed_methods": [
+      "GET",
+      "HEAD"
+    ],
+    "limits": {
+      "max_total_requests": 200,
+      "requests_per_second": 2,
+      "max_concurrent_requests": 2,
+      "request_timeout_seconds": 10,
+      "max_response_bytes": 1048576,
+      "max_runtime_seconds": 600
+    }
+  },
+  "preview": {
+    "preview_id": "00000000-0000-4000-8000-000000000006",
+    "project_id": "00000000-0000-4000-8000-000000000002",
+    "draft": {
+      "name": "公开页面 HTTP 观察",
+      "scope": {
+        "policy_id": "00000000-0000-4000-8000-000000000004",
+        "version": 3
+      },
+      "target_url": "https://training.example/public/",
+      "tool": "http_observe",
+      "method": "GET",
+      "limits": {
+        "max_total_requests": 200,
+        "requests_per_second": 2,
+        "max_concurrent_requests": 2,
+        "request_timeout_seconds": 10,
+        "max_response_bytes": 1048576,
+        "max_runtime_seconds": 600
+      }
+    },
+    "input_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "effective_scope": {
+      "binding": {
+        "policy_id": "00000000-0000-4000-8000-000000000004",
+        "version": 3
+      },
+      "label": "本地演示范围 · v3",
+      "valid_until": "2026-09-09T12:00:00Z",
+      "origins": [
+        "https://training.example:443"
+      ],
+      "allowed_path_prefixes": [
+        "/public/"
+      ],
+      "excluded_path_prefixes": [
+        "/public/logout",
+        "/public/admin"
+      ],
+      "allowed_methods": [
+        "GET",
+        "HEAD"
+      ],
+      "limits": {
+        "max_total_requests": 200,
+        "requests_per_second": 2,
+        "max_concurrent_requests": 2,
+        "request_timeout_seconds": 10,
+        "max_response_bytes": 1048576,
+        "max_runtime_seconds": 600
+      }
+    },
+    "expires_at": "2026-09-09T03:05:00Z",
+    "can_create": true,
+    "blockers": []
+  },
+  "snapshot": {
+    "task": {
+      "id": "00000000-0000-4000-8000-000000000005",
+      "tenant_id": "00000000-0000-4000-8000-000000000001",
+      "project_id": "00000000-0000-4000-8000-000000000002",
+      "name": "公开页面 HTTP 观察",
+      "target_url": "https://training.example/public/",
+      "scope": {
+        "policy_id": "00000000-0000-4000-8000-000000000004",
+        "version": 3
+      },
+      "version": 12,
+      "state": "running",
+      "cleanup_state": "pending",
+      "execution": {
+        "active_calls": 1,
+        "unknown_calls": 0,
+        "egress_state": "active"
+      },
+      "allowed_actions": [
+        "pause",
+        "cancel"
+      ],
+      "assessment_outcome": "not_assessed",
+      "stop_reason": null,
+      "created_at": "2026-09-09T02:57:00Z",
+      "updated_at": "2026-09-09T03:00:00Z"
+    },
+    "event_cursor": "fixture-cursor-12"
+  },
+  "receipt": {
+    "command_id": "00000000-0000-4000-8000-000000000007",
+    "idempotency_key": "00000000-0000-4000-8000-000000000008",
+    "kind": "cancel",
+    "disposition": "accepted",
+    "project_id": "00000000-0000-4000-8000-000000000002",
+    "task_id": "00000000-0000-4000-8000-000000000005",
+    "accepted_at": "2026-09-09T03:00:00Z",
+    "accepted_task_version": 13,
+    "request_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  },
+  "event": {
+    "schema_version": "1.0",
+    "event_id": "00000000-0000-4000-8000-000000000010",
+    "cursor": "fixture-cursor-13",
+    "tenant_id": "00000000-0000-4000-8000-000000000001",
+    "project_id": "00000000-0000-4000-8000-000000000002",
+    "task_id": "00000000-0000-4000-8000-000000000005",
+    "aggregate_version": 13,
+    "type": "task.changed",
+    "occurred_at": "2026-09-09T03:00:00Z",
+    "trace_id": "00000000-0000-4000-8000-000000000011",
+    "summary": "取消已接受，等待执行端停止回执"
+  },
+  "artifact": {
+    "id": "00000000-0000-4000-8000-000000000009",
+    "tenant_id": "00000000-0000-4000-8000-000000000001",
+    "project_id": "00000000-0000-4000-8000-000000000002",
+    "task_id": "00000000-0000-4000-8000-000000000005",
+    "name": "public-index.response.txt",
+    "media_type": "text/plain",
+    "size_bytes": 234,
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "classification": "redacted",
+    "availability": "available",
+    "preview_kind": "text",
+    "created_at": "2026-09-09T03:00:00Z"
+  },
+  "artifact_preview": {
+    "artifact_id": "00000000-0000-4000-8000-000000000009",
+    "text": "HTTP/1.1 200 OK\nContent-Type: text/html\nSet-Cookie: [REDACTED]\n\n<html><body>Fixture response</body></html>\n<script>window.__evidenceExecuted = true</script>\n<img src=\"https://external.example/tracker.png\">",
+    "truncated": false,
+    "redacted": true
+  },
+  "error": {
+    "code": "FORBIDDEN",
+    "message": "当前账号无权查看此项目",
+    "trace_id": "00000000-0000-4000-8000-000000000011"
+  }
+}

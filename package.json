@@ -1,0 +1,30 @@
+{
+  "name": "wuji-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.32.1",
+  "engines": { "node": "24.x", "pnpm": "10.32.1" },
+  "scripts": {
+    "contracts:generate": "node scripts/generate-contracts.mjs",
+    "contracts:check": "node scripts/generate-contracts.mjs --check && redocly lint packages/contracts/openapi.yaml",
+    "test": "vitest run",
+    "typecheck": "pnpm --filter @wuji/frontend-spike typecheck",
+    "check": "pnpm contracts:check && pnpm test && pnpm typecheck",
+    "build": "pnpm --filter @wuji/frontend-spike build",
+    "dev": "pnpm --filter @wuji/frontend-spike dev",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@ant-design/cli": "6.6.3",
+    "@playwright/test": "1.63.0",
+    "@redocly/cli": "2.51.2",
+    "@types/node": "24.13.3",
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1",
+    "openapi-typescript": "7.13.0",
+    "typescript": "5.9.3",
+    "vitest": "5.0.0",
+    "yaml": "2.9.0"
+  }
+}

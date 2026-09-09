@@ -1,0 +1,9 @@
+packages:
+  - packages/*
+  - spikes/*
+useNodeVersion: 24.20.0
+nodeVersion: 24.20.0
+engineStrict: true
+strictPeerDependencies: true
+onlyBuiltDependencies:
+  - esbuild

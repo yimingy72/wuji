@@ -1,0 +1,10 @@
+{
+  "name": "@wuji/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./types": "./generated/api.d.ts",
+    "./fixtures": "./fixtures/phase1.json"
+  }
+}

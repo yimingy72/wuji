@@ -1,0 +1,1395 @@
+openapi: 3.1.1
+info:
+  title: Wuji Phase 1 Control API
+  version: 0.1.0
+  description: Reviewable contract baseline, not a running service. Authorized non-destructive HTTP observation
+    only. All object reads/writes enforce caller/project/tenant ownership. Cookie authentication plus CSRF and Origin
+    checks for writes. Limits and URL syntax validation do not replace server policy enforcement.
+servers:
+- url: /api/v1
+  description: Same-origin platform API
+security:
+- SessionCookie: []
+tags:
+- name: Session
+  description: Browser session and project discovery
+- name: Scopes
+  description: Approved scope and canonical preview
+- name: Tasks
+  description: Durable task commands and read models
+- name: Artifacts
+  description: Authorized evidence metadata, preview and download
+paths:
+  /session:
+    get:
+      operationId: getSession
+      summary: Read current session
+      description: Read current session
+      tags:
+      - Session
+      responses:
+        '200':
+          description: Successful response
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '401': &id001
+          description: Session missing or expired
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403': &id002
+          description: Insufficient permission or invalid CSRF/Origin
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404': &id003
+          description: Resource unavailable to this caller
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409': &id004
+          description: Version, idempotency, transition or expired preview conflict
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '410': &id005
+          description: Cursor or artifact expired
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422': &id006
+          description: Invalid structured input
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429': &id007
+          description: Rate limited
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503': &id008
+          description: Authority unavailable; fail closed
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters: []
+  /projects:
+    get:
+      operationId: listProjects
+      summary: List accessible projects
+      description: List accessible projects
+      tags:
+      - Session
+      responses:
+        '200':
+          description: Successful response
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectPage'
+        '401': *id001
+        '403': *id002
+        '404': *id003
+        '409': *id004
+        '410': *id005
+        '422': *id006
+        '429': *id007
+        '503': *id008
+      parameters:
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/PageCursor'
+  /projects/{project_id}/scopes:
+    get:
+      operationId: listApprovedScopes
+      summary: List usable approved HTTP scope versions
+      description: Only approved versions visible to this caller. Preview and creation revalidate expiry and current
+        authorization. This read never contacts the target.
+      tags:
+      - Scopes
+      responses:
+        '200':
+          description: Successful response
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScopePage'
+        '401': *id001
+        '403': *id002
+        '404': *id003
+        '409': *id004
+        '410': *id005
+        '422': *id006
+        '429': *id007
+        '503': *id008
+      parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/PageCursor'
+  /projects/{project_id}/task-previews:
+    post:
+      operationId: previewTask
+      summary: Preview the effective task scope
+      description: Creates a short-lived, caller/project-bound preview. Canonicalization and policy evaluation only;
+        no DNS/target/model execution. Phase 1 accepts only approved HTTP observation profiles. GET/HEAD alone do
+        not prove absence of side effects.
+      tags:
+      - Scopes
+      responses:
+        '200':
+          description: Successful response
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskPreview'
+        '401': *id001
+        '403': *id002
+        '404': *id003
+        '409': *id004
+        '410': *id005
+        '422': *id006
+        '429': *id007
+        '503': *id008
+      parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskDraft'
+      security:
+      - SessionCookie: []
+        CsrfToken: []
+  /projects/{project_id}/tasks:
+    get:
+      operationId: listTasks
+      summary: List tasks with stable cursor pagination
+      description: List tasks with stable cursor pagination
+      tags:
+      - Tasks
+      responses:
+        '200':
+          description: Successful response
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskPage'
+        '401': *id001
+        '403': *id002
+        '404': *id003
+        '409': *id004
+        '410': *id005
+        '422': *id006
+        '429': *id007
+        '503': *id008
+      parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/PageCursor'
+    post:
+      operationId: createTask
+      summary: Accept a task creation command
+      description: Reauthorize, resolve idempotency, validate caller/project-bound unexpired preview and exact canonical
+        draft/digest, then atomically create Task queued + command receipt + Outbox. Cannot grant scope or arbitrary
+        tools. Limits may only narrow approved limits. Concurrent same-key requests return one task. Never contact
+        a target in this transaction.
+      tags:
+      - Tasks
+      responses:
+        '202':
+          description: Successful response
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandReceipt'
+        '401': *id001
+        '403': *id002
+        '404': *id003
+        '409': *id004
+        '410': *id005
+        '422': *id006
+        '429': *id007
+        '503': *id008
+      parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTask'
+      security:
+      - SessionCookie: []
+        CsrfToken: []
+  /projects/{project_id}/tasks/{task_id}:
+    get:
+      operationId: getTask
+      summary: Read an authoritative task snapshot and consistent event cursor
+      description: Snapshot and cursor use one consistent committed view. Every later committed change must be replayable
+        after this cursor; database sequence allocation alone is not commit ordering. Task terminal states require
+        confirmed no active/unknown execution and revoked egress. Cleanup remains independent.
+      tags:
+      - Tasks
+      responses:
+        '200':
+          description: Successful response
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskSnapshot'
+        '401': *id001
+        '403': *id002
+        '404': *id003
+        '409': *id004
+        '410': *id005
+        '422': *id006
+        '429': *id007
+        '503': *id008
+      parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/TaskId'
+  /projects/{project_id}/tasks/{task_id}/commands:
+    post:
+      operationId: controlTask
+      summary: Accept pause, resume or cancel
+      description: Reauthorize first. Same-key replay resolves before expected_version checking and returns the
+        original receipt. A new command atomically checks the task version, transitions intent/state, writes receipt
+        and Outbox. Cancel bars new grants in the same authority transaction; accepted is not proof execution stopped.
+        Resuming rechecks scope, budget and runtime. Terminal tasks reject new controls.
+      tags:
+      - Tasks
+      responses:
+        '202':
+          description: Successful response
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandReceipt'
+        '401': *id001
+        '403': *id002
+        '404': *id003
+        '409': *id004
+        '410': *id005
+        '422': *id006
+        '429': *id007
+        '503': *id008
+      parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/TaskId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskControl'
+      security:
+      - SessionCookie: []
+        CsrfToken: []
+  /projects/{project_id}/commands/{command_id}:
+    get:
+      operationId: getCommand
+      summary: Read an immutable acceptance receipt
+      description: Project membership and receipt visibility are rechecked. Use task_id to query achieved execution
+        state; the receipt does not change when execution later fails.
+      tags:
+      - Tasks
+      responses:
+        '200':
+          description: Successful response
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandReceipt'
+        '401': *id001
+        '403': *id002
+        '404': *id003
+        '409': *id004
+        '410': *id005
+        '422': *id006
+        '429': *id007
+        '503': *id008
+      parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/CommandId'
+  /projects/{project_id}/command-keys/{idempotency_key}:
+    get:
+      operationId: findCommandByKey
+      summary: Reconcile a command whose response was lost
+      description: 'Lookup is scoped to caller/project and all task command kinds. A 404 does not prove an in-flight
+        transaction failed: resend the identical request with the same key, never mint a new key automatically.
+        Minimum server idempotency retention is 24 hours; unknown commands beyond that window require explicit reconciliation.'
+      tags:
+      - Tasks
+      responses:
+        '200':
+          description: Successful response
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandReceipt'
+        '401': *id001
+        '403': *id002
+        '404': *id003
+        '409': *id004
+        '410': *id005
+        '422': *id006
+        '429': *id007
+        '503': *id008
+      parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/KeyPath'
+  /projects/{project_id}/tasks/{task_id}/events:
+    get:
+      operationId: listTaskEvents
+      summary: Replay persisted task event notices
+      description: Phase 1 read API; Phase 2 SSE is not yet exposed. After is exclusive. Stable replay cursor ordering
+        must not skip late commits. Empty pages preserve cursor, has_more bounds catch-up. Expired cursor returns
+        410 CURSOR_EXPIRED. Every page reauthorizes. No raw credentials or evidence body in events.
+      tags:
+      - Tasks
+      responses:
+        '200':
+          description: Successful response
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventPage'
+        '401': *id001
+        '403': *id002
+        '404': *id003
+        '409': *id004
+        '410': *id005
+        '422': *id006
+        '429': *id007
+        '503': *id008
+      parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/TaskId'
+      - $ref: '#/components/parameters/After'
+      - $ref: '#/components/parameters/PageSize'
+  /projects/{project_id}/tasks/{task_id}/artifacts:
+    get:
+      operationId: listArtifacts
+      summary: List authorized artifact metadata
+      description: List authorized artifact metadata
+      tags:
+      - Artifacts
+      responses:
+        '200':
+          description: Successful response
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArtifactPage'
+        '401': *id001
+        '403': *id002
+        '404': *id003
+        '409': *id004
+        '410': *id005
+        '422': *id006
+        '429': *id007
+        '503': *id008
+      parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/TaskId'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/PageCursor'
+  /projects/{project_id}/artifacts/{artifact_id}:
+    get:
+      operationId: getArtifact
+      summary: Read authorized artifact metadata
+      description: Read authorized artifact metadata
+      tags:
+      - Artifacts
+      responses:
+        '200':
+          description: Successful response
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Artifact'
+        '401': *id001
+        '403': *id002
+        '404': *id003
+        '409': *id004
+        '410': *id005
+        '422': *id006
+        '429': *id007
+        '503': *id008
+      parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/ArtifactId'
+  /projects/{project_id}/artifacts/{artifact_id}/preview:
+    get:
+      operationId: previewArtifact
+      summary: Read bounded, redacted text evidence
+      description: Phase 1 returns escaped-as-data plain text in JSON only. The UI renders text, never raw HTML.
+        Server checks artifact.read and classification, redacts sensitive values, caps content, disables external
+        resources, and denies unsupported/unavailable previews.
+      tags:
+      - Artifacts
+      responses:
+        '200':
+          description: Successful response
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArtifactPreview'
+        '401': *id001
+        '403': *id002
+        '404': *id003
+        '409': *id004
+        '410': *id005
+        '422': *id006
+        '429': *id007
+        '503': *id008
+      parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/ArtifactId'
+  /projects/{project_id}/artifacts/{artifact_id}/download:
+    get:
+      operationId: downloadArtifact
+      summary: Download evidence through the authorized API
+      description: Reauthorize on every request. Restricted content requires artifact.download_sensitive. Return
+        attachment and nosniff; no bucket URL or signed public URL in Phase 1. Expired content returns 410. Audit
+        downloads.
+      tags:
+      - Artifacts
+      parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/ArtifactId'
+      responses:
+        '200':
+          description: Authorized attachment
+          headers:
+            Content-Disposition:
+              required: true
+              schema:
+                type: string
+            Cache-Control:
+              required: true
+              schema:
+                type: string
+                const: no-store
+            X-Content-Type-Options:
+              required: true
+              schema:
+                type: string
+                const: nosniff
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '401': *id001
+        '403': *id002
+        '404': *id003
+        '409': *id004
+        '410': *id005
+        '422': *id006
+        '429': *id007
+        '503': *id008
+components:
+  securitySchemes:
+    SessionCookie:
+      type: apiKey
+      in: cookie
+      name: wuji_session
+      description: Production HttpOnly Secure SameSite session cookie, issued by the backend identity integration.
+    CsrfToken:
+      type: apiKey
+      in: header
+      name: X-CSRF-Token
+      description: Bound to the current session; additionally validate Origin on browser writes.
+  parameters:
+    ProjectId:
+      name: project_id
+      in: path
+      required: true
+      schema: &id009
+        type: string
+        format: uuid
+    TaskId:
+      name: task_id
+      in: path
+      required: true
+      schema: *id009
+    ArtifactId:
+      name: artifact_id
+      in: path
+      required: true
+      schema: *id009
+    CommandId:
+      name: command_id
+      in: path
+      required: true
+      schema: *id009
+    KeyPath:
+      name: idempotency_key
+      in: path
+      required: true
+      schema: *id009
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: *id009
+      description: Same key + same canonical request returns the original receipt after reauthorization. Reusing
+        a key with a different request returns 409.
+    PageSize:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 50
+    PageCursor:
+      name: cursor
+      in: query
+      required: false
+      schema:
+        $ref: '#/components/schemas/Cursor'
+    After:
+      name: after
+      in: query
+      required: true
+      schema:
+        $ref: '#/components/schemas/Cursor'
+      description: Opaque task stream cursor. Not an authorization credential.
+  schemas:
+    Version:
+      type: integer
+      minimum: 1
+      maximum: 9007199254740991
+    Cursor:
+      type: string
+      minLength: 1
+      maxLength: 512
+    Sha256:
+      type: string
+      pattern: ^[a-f0-9]{64}$
+    TaskState:
+      type: string
+      enum:
+      - queued
+      - provisioning
+      - running
+      - completing
+      - completed
+      - pausing
+      - paused
+      - cancelling
+      - cancelled
+      - reconciling
+      - failed
+    TaskAction:
+      type: string
+      enum:
+      - pause
+      - resume
+      - cancel
+    Permission:
+      type: string
+      enum:
+      - task.read
+      - task.create
+      - task.control
+      - artifact.read
+      - artifact.download_sensitive
+    Error:
+      type: object
+      additionalProperties: false
+      required:
+      - code
+      - message
+      - trace_id
+      properties:
+        code:
+          type: string
+          enum:
+          - UNAUTHENTICATED
+          - FORBIDDEN
+          - NOT_FOUND
+          - VALIDATION_FAILED
+          - SCOPE_DENIED
+          - PREVIEW_EXPIRED
+          - VERSION_CONFLICT
+          - IDEMPOTENCY_CONFLICT
+          - INVALID_TRANSITION
+          - RATE_LIMITED
+          - SERVICE_UNAVAILABLE
+          - CURSOR_EXPIRED
+          - INTERNAL_ERROR
+        message:
+          type: string
+          minLength: 1
+          maxLength: 500
+        trace_id: *id009
+        field_errors:
+          type: array
+          maxItems: 30
+          items:
+            type: object
+            additionalProperties: false
+            required:
+            - field
+            - message
+            properties:
+              field:
+                type: string
+                minLength: 1
+                maxLength: 128
+              message:
+                type: string
+                minLength: 1
+                maxLength: 300
+    Session:
+      type: object
+      additionalProperties: false
+      required:
+      - user_id
+      - display_name
+      - csrf_token
+      - expires_at
+      - permissions_version
+      properties:
+        user_id: *id009
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        csrf_token:
+          type: string
+          minLength: 1
+          maxLength: 256
+        expires_at: &id010
+          type: string
+          format: date-time
+        permissions_version:
+          $ref: '#/components/schemas/Version'
+    Project:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - tenant_id
+      - name
+      - permissions
+      properties:
+        id: *id009
+        tenant_id: *id009
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        permissions:
+          type: array
+          maxItems: 10
+          items:
+            $ref: '#/components/schemas/Permission'
+    Limits:
+      type: object
+      additionalProperties: false
+      required:
+      - max_total_requests
+      - requests_per_second
+      - max_concurrent_requests
+      - request_timeout_seconds
+      - max_response_bytes
+      - max_runtime_seconds
+      properties:
+        max_total_requests:
+          type: integer
+          minimum: 1
+          maximum: 200
+        requests_per_second:
+          type: number
+          exclusiveMinimum: 0
+          maximum: 2
+        max_concurrent_requests:
+          type: integer
+          minimum: 1
+          maximum: 2
+        request_timeout_seconds:
+          type: integer
+          minimum: 1
+          maximum: 10
+        max_response_bytes:
+          type: integer
+          minimum: 1
+          maximum: 1048576
+        max_runtime_seconds:
+          type: integer
+          minimum: 1
+          maximum: 600
+    ScopeBinding:
+      type: object
+      additionalProperties: false
+      required:
+      - policy_id
+      - version
+      properties:
+        policy_id: *id009
+        version:
+          $ref: '#/components/schemas/Version'
+    ApprovedScope:
+      type: object
+      additionalProperties: false
+      required:
+      - binding
+      - label
+      - valid_until
+      - origins
+      - allowed_path_prefixes
+      - excluded_path_prefixes
+      - allowed_methods
+      - limits
+      properties:
+        binding:
+          $ref: '#/components/schemas/ScopeBinding'
+        label:
+          type: string
+          minLength: 1
+          maxLength: 120
+        valid_until: *id010
+        origins:
+          type: array
+          maxItems: 20
+          items:
+            type: string
+            format: uri
+            pattern: ^https?://
+        allowed_path_prefixes:
+          type: array
+          maxItems: 100
+          items:
+            type: string
+            minLength: 1
+            maxLength: 2048
+        excluded_path_prefixes:
+          type: array
+          maxItems: 100
+          items:
+            type: string
+            minLength: 1
+            maxLength: 2048
+        allowed_methods:
+          type: array
+          maxItems: 2
+          items:
+            type: string
+            enum:
+            - GET
+            - HEAD
+        limits:
+          $ref: '#/components/schemas/Limits'
+    TaskDraft:
+      type: object
+      additionalProperties: false
+      required:
+      - name
+      - scope
+      - target_url
+      - tool
+      - method
+      - limits
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        scope:
+          $ref: '#/components/schemas/ScopeBinding'
+        target_url:
+          type: string
+          format: uri
+          maxLength: 2048
+          pattern: ^https?://
+        tool:
+          type: string
+          const: http_observe
+        method:
+          type: string
+          enum:
+          - GET
+          - HEAD
+        limits:
+          $ref: '#/components/schemas/Limits'
+    TaskPreview:
+      type: object
+      additionalProperties: false
+      required:
+      - preview_id
+      - project_id
+      - draft
+      - input_digest
+      - effective_scope
+      - expires_at
+      - can_create
+      - blockers
+      properties:
+        preview_id: *id009
+        project_id: *id009
+        draft:
+          $ref: '#/components/schemas/TaskDraft'
+        input_digest:
+          $ref: '#/components/schemas/Sha256'
+        effective_scope:
+          $ref: '#/components/schemas/ApprovedScope'
+        expires_at: *id010
+        can_create:
+          type: boolean
+        blockers:
+          type: array
+          maxItems: 20
+          items:
+            type: object
+            additionalProperties: false
+            required:
+            - code
+            - message
+            properties:
+              code:
+                type: string
+                enum:
+                - MISSING_ADAPTER
+                - MISSING_IDENTITY
+                - SCOPE_DENIED
+                - AUTHORIZATION_EXPIRED
+              message:
+                type: string
+                minLength: 1
+                maxLength: 300
+      allOf:
+      - if:
+          properties:
+            can_create:
+              const: true
+          type: object
+        then:
+          properties:
+            blockers:
+              maxItems: 0
+              type: array
+          type: object
+        else:
+          properties:
+            blockers:
+              minItems: 1
+              type: array
+          type: object
+    CreateTask:
+      type: object
+      additionalProperties: false
+      required:
+      - preview_id
+      - input_digest
+      - draft
+      properties:
+        preview_id: *id009
+        input_digest:
+          $ref: '#/components/schemas/Sha256'
+        draft:
+          $ref: '#/components/schemas/TaskDraft'
+    TaskControl:
+      type: object
+      additionalProperties: false
+      required:
+      - action
+      - expected_version
+      properties:
+        action:
+          $ref: '#/components/schemas/TaskAction'
+        expected_version:
+          $ref: '#/components/schemas/Version'
+    ExecutionSummary:
+      type: object
+      additionalProperties: false
+      required:
+      - active_calls
+      - unknown_calls
+      - egress_state
+      properties:
+        active_calls:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+        unknown_calls:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+        egress_state:
+          type: string
+          enum:
+          - pending
+          - active
+          - frozen
+          - revoked
+          - unknown
+    Task:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - tenant_id
+      - project_id
+      - name
+      - target_url
+      - scope
+      - version
+      - state
+      - cleanup_state
+      - execution
+      - allowed_actions
+      - assessment_outcome
+      - stop_reason
+      - created_at
+      - updated_at
+      properties:
+        id: *id009
+        tenant_id: *id009
+        project_id: *id009
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        target_url:
+          type: string
+          format: uri
+          maxLength: 2048
+          pattern: ^https?://
+        scope:
+          $ref: '#/components/schemas/ScopeBinding'
+        version:
+          $ref: '#/components/schemas/Version'
+        state:
+          $ref: '#/components/schemas/TaskState'
+        cleanup_state:
+          type: string
+          enum:
+          - not_required
+          - pending
+          - cleaning
+          - cleaned
+          - cleanup_pending
+        execution:
+          $ref: '#/components/schemas/ExecutionSummary'
+        allowed_actions:
+          type: array
+          maxItems: 3
+          items:
+            $ref: '#/components/schemas/TaskAction'
+        assessment_outcome:
+          type: string
+          enum:
+          - criteria_met
+          - partial
+          - inconclusive
+          - not_assessed
+        stop_reason:
+          type:
+          - string
+          - 'null'
+          enum:
+          - null
+          - criteria_met
+          - plan_exhausted
+          - budget_exhausted
+          - deadline_exceeded
+          - user_cancelled
+          - runtime_error
+          - authorization_expired
+        created_at: *id010
+        updated_at: *id010
+      allOf:
+      - if:
+          properties:
+            state:
+              enum:
+              - completed
+              - cancelled
+              - failed
+          type: object
+        then:
+          properties:
+            execution:
+              properties:
+                active_calls:
+                  const: 0
+                unknown_calls:
+                  const: 0
+                egress_state:
+                  const: revoked
+              type: object
+            allowed_actions:
+              maxItems: 0
+              type: array
+          type: object
+      - if:
+          properties:
+            state:
+              const: paused
+          type: object
+        then:
+          properties:
+            execution:
+              properties:
+                active_calls:
+                  const: 0
+                unknown_calls:
+                  const: 0
+                egress_state:
+                  const: frozen
+              type: object
+          type: object
+    TaskSnapshot:
+      type: object
+      additionalProperties: false
+      required:
+      - task
+      - event_cursor
+      properties:
+        task:
+          $ref: '#/components/schemas/Task'
+        event_cursor:
+          $ref: '#/components/schemas/Cursor'
+    CommandReceipt:
+      type: object
+      additionalProperties: false
+      required:
+      - command_id
+      - idempotency_key
+      - kind
+      - disposition
+      - project_id
+      - task_id
+      - accepted_at
+      - accepted_task_version
+      - request_digest
+      properties:
+        command_id: *id009
+        idempotency_key: *id009
+        kind:
+          type: string
+          enum:
+          - create
+          - pause
+          - resume
+          - cancel
+        disposition:
+          type: string
+          const: accepted
+        project_id: *id009
+        task_id: *id009
+        accepted_at: *id010
+        accepted_task_version:
+          $ref: '#/components/schemas/Version'
+        request_digest:
+          $ref: '#/components/schemas/Sha256'
+    TaskEvent:
+      type: object
+      additionalProperties: false
+      required:
+      - schema_version
+      - event_id
+      - cursor
+      - tenant_id
+      - project_id
+      - task_id
+      - aggregate_version
+      - type
+      - occurred_at
+      - trace_id
+      - summary
+      properties:
+        schema_version:
+          type: string
+          const: '1.0'
+        event_id: *id009
+        cursor:
+          $ref: '#/components/schemas/Cursor'
+        tenant_id: *id009
+        project_id: *id009
+        task_id: *id009
+        aggregate_version:
+          $ref: '#/components/schemas/Version'
+        type:
+          type: string
+          enum:
+          - task.changed
+          - task.cleanup_changed
+          - artifact.available
+        occurred_at: *id010
+        trace_id: *id009
+        summary:
+          type: string
+          minLength: 1
+          maxLength: 500
+    Artifact:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - tenant_id
+      - project_id
+      - task_id
+      - name
+      - media_type
+      - size_bytes
+      - sha256
+      - classification
+      - availability
+      - preview_kind
+      - created_at
+      properties:
+        id: *id009
+        tenant_id: *id009
+        project_id: *id009
+        task_id: *id009
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        media_type:
+          type: string
+          minLength: 1
+          maxLength: 100
+        size_bytes:
+          type: integer
+          minimum: 0
+          maximum: 10485760
+        sha256:
+          $ref: '#/components/schemas/Sha256'
+        classification:
+          type: string
+          enum:
+          - redacted
+          - restricted
+        availability:
+          type: string
+          enum:
+          - available
+          - expired
+          - unavailable
+        preview_kind:
+          type: string
+          enum:
+          - text
+          - download_only
+        created_at: *id010
+    ArtifactPreview:
+      type: object
+      additionalProperties: false
+      required:
+      - artifact_id
+      - text
+      - truncated
+      - redacted
+      properties:
+        artifact_id: *id009
+        text:
+          type: string
+          maxLength: 65536
+        truncated:
+          type: boolean
+        redacted:
+          type: boolean
+          const: true
+    ProjectPage:
+      type: object
+      additionalProperties: false
+      required:
+      - items
+      - next_cursor
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/Project'
+        next_cursor: &id011
+          type:
+          - string
+          - 'null'
+          minLength: 1
+          maxLength: 512
+    ScopePage:
+      type: object
+      additionalProperties: false
+      required:
+      - items
+      - next_cursor
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/ApprovedScope'
+        next_cursor: *id011
+    TaskPage:
+      type: object
+      additionalProperties: false
+      required:
+      - items
+      - next_cursor
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/Task'
+        next_cursor: *id011
+    ArtifactPage:
+      type: object
+      additionalProperties: false
+      required:
+      - items
+      - next_cursor
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/Artifact'
+        next_cursor: *id011
+    EventPage:
+      type: object
+      additionalProperties: false
+      required:
+      - items
+      - next_cursor
+      - has_more
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/TaskEvent'
+        next_cursor:
+          $ref: '#/components/schemas/Cursor'
+        has_more:
+          type: boolean
