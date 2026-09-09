@@ -208,6 +208,7 @@ def upgrade() -> None:
         f"""
         REVOKE ALL ON ALL TABLES IN SCHEMA public FROM PUBLIC;
         REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM PUBLIC;
+        REVOKE CREATE ON SCHEMA public FROM PUBLIC, {auth_role}, {project_role};
 
         GRANT SELECT ON users, external_identities TO {auth_role};
         GRANT SELECT, INSERT, UPDATE, DELETE ON sessions, oidc_handshakes TO {auth_role};

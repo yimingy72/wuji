@@ -16,7 +16,12 @@ from fastapi.responses import JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from wuji_api.database import AuthorityUnavailable, DatabaseAuthority, HandshakeInProgress
+from wuji_api.database import (
+    AuthorityUnavailable,
+    DatabaseAuthority,
+    HandshakeCompletionInvalid,
+    HandshakeInProgress,
+)
 from wuji_api.oidc import OIDCClient, OIDCDependencyError, OIDCProtocolError
 from wuji_api.security import (
     CursorCodec,
@@ -364,13 +369,17 @@ def create_app(
         error_code: Literal[
             "UNAUTHENTICATED", "FORBIDDEN", "SERVICE_UNAVAILABLE", "INTERNAL_ERROR"
         ] | None = None
+        clear_handshake_cookie = True
         created = None
         if provider_error is not None or not code:
             error_code = "UNAUTHENTICATED"
             try:
-                await current.authority.fail_handshake(handshake.id, reason="provider_or_missing_code")
+                clear_handshake_cookie = await current.authority.fail_handshake(
+                    handshake.id, reason="provider_or_missing_code"
+                )
             except AuthorityUnavailable:
                 error_code = "SERVICE_UNAVAILABLE"
+                clear_handshake_cookie = False
         else:
             try:
                 claims = await current.oidc.exchange(
@@ -384,28 +393,38 @@ def create_app(
                 )
                 if created is None:
                     error_code = "FORBIDDEN"
+            except HandshakeCompletionInvalid:
+                error_code = "UNAUTHENTICATED"
+                clear_handshake_cookie = False
             except OIDCDependencyError:
                 error_code = "SERVICE_UNAVAILABLE"
                 try:
-                    await current.authority.fail_handshake(
+                    clear_handshake_cookie = await current.authority.fail_handshake(
                         handshake.id, reason="provider_dependency"
                     )
                 except AuthorityUnavailable:
                     error_code = "SERVICE_UNAVAILABLE"
+                    clear_handshake_cookie = False
             except OIDCProtocolError:
                 error_code = "UNAUTHENTICATED"
                 try:
-                    await current.authority.fail_handshake(handshake.id, reason="protocol_validation")
+                    clear_handshake_cookie = await current.authority.fail_handshake(
+                        handshake.id, reason="protocol_validation"
+                    )
                 except AuthorityUnavailable:
                     error_code = "SERVICE_UNAVAILABLE"
+                    clear_handshake_cookie = False
             except AuthorityUnavailable:
                 error_code = "SERVICE_UNAVAILABLE"
+                clear_handshake_cookie = False
             except Exception:
                 error_code = "INTERNAL_ERROR"
+                clear_handshake_cookie = False
 
         if error_code is not None:
             response = _callback_error(request, error_code)
-            _delete_cookie(response, HANDSHAKE_COOKIE, secure=current.settings.secure_cookies)
+            if clear_handshake_cookie:
+                _delete_cookie(response, HANDSHAKE_COOKIE, secure=current.settings.secure_cookies)
             return response
 
         assert created is not None

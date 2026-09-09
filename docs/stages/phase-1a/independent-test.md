@@ -4,6 +4,7 @@
 - 测试角色：独立 `gpt-5.6-sol / high`
 - 测试工作树：`work/worktrees/phase-1a-test`
 - 测试实现基准：`b1730e6e9937d42084df11137c8843d21af774a6`
+- 收口统一起点：`6293d9eb62d33f270284adcd586401a0714a36e9`
 - 被测试产品提交 SHA：无
 - 平台测试 run_id：无
 - 阶段结论：not-tested
@@ -15,17 +16,17 @@
 | 验收项 | 测试入口与观察点 | 当前状态 |
 | --- | --- | --- |
 | P1A-01 | 冻结生命周期、迁移/种子重放、同 run API 重启与 PostgreSQL Pod 重建后会话/项目/cursor 保持 | 待运行 |
-| P1A-02 | 真实 Keycloak 浏览器 Code+PKCE、跨浏览器/替换/并发/重放；loopback issuer 的 RS256、issuer/aud/nonce/signature/time 反例；握手交换状态与日志脱敏 | 待运行 |
-| P1A-03 | Cookie 不透明及仅哈希落库、8h/30m 边界、API 重启、禁用再启用、登录/禁用并发 | 待运行 |
+| P1A-02 | 真实 Keycloak 浏览器 Code+PKCE、跨浏览器/替换/并发/重放；loopback issuer 的 RS256、issuer/aud/nonce/signature/time 反例；握手交换状态与日志脱敏；旧交换过期后迟到成功、协议失败或依赖失败均不创建 Session、不清新握手 Cookie | 待运行 |
+| P1A-03 | Cookie 不透明及仅哈希落库、8h/30m 边界、API 重启、禁用再启用、登录/禁用双方到达同一用户锁的确定性屏障、认证行锁等待期间跨过 idle/absolute 期限 | 待运行 |
 | P1A-04 | CSRF/Origin 正反例、204 后旧 Cookie 失效、DB 失联时 503、前端遮蔽和显式重试 | 待运行 |
-| P1A-05 | 单/双租户、同租户互斥 U1/P1 与 U2/P2、真实运行角色、无上下文、事务级池复用、游标及复合 FK | 待运行 |
+| P1A-05 | 单/双租户、同租户互斥 U1/P1 与 U2/P2、真实运行角色、普通与 TEMP DDL 42501、无上下文、事务级池复用、游标及复合 FK | 待运行 |
 | P1A-06 | 项目/租户撤权、版本和审计同事务、幂等 no-op、审计失败回滚、迟到 200/错误、真实空项目 | 待运行 |
 | P1A-07 | Session/Project/ProjectPage/Error 的 openapi-core 真实响应验证、API→DB 失联恢复、全新未迁移库 fail closed | 待运行 |
 | P1A-08 | 五主题主页面/浮层/键盘、设备偏好、URL 临时覆盖、无效/不可用存储、项目及分页状态 | 待运行 |
-| P1A-09 | 深链接刷新与回跳、真实退出、项目切换、生产 bundle 凭据/Mock/未实现入口检查 | 待运行 |
-| P1A-10 | run manifest 权限/所有权/context/固定端口，独占锁和 finally 仅清本 run 进程，保留 run 数据与证据 | 待运行 |
+| P1A-09 | 深链接刷新与回跳、真实退出、项目切换、回调错误 own-key 白名单、生产 bundle 凭据/Mock/未实现入口检查 | 待运行 |
+| P1A-10 | manifest schema/0600/工作树/SHA/profile-namespace/DSN 端口语义与错误脱敏；context/端口；错误集群归属写前拒绝；登记前信号/异常、启动期与就绪后子进程失败；SIGINT/SIGTERM；并发运行记录；外部父测试核对独立进程组清理、端口/锁复用及旧 run DB/realm 保留 | 待运行 |
 
-Python 用例位于 `tests/api`，浏览器用例位于 `tests/platform-browser`，协议夹具位于 `tests/fixtures/oidc/issuer.py`。协议夹具只绑定 loopback，校验 confidential client 与 PKCE S256，通过受限控制 token 选择单一协议反例；应用仍走正常 Authlib/OIDC 路径。
+Python API 用例位于 `tests/api`，生命周期父测试位于 `tests/platform-lifecycle`，浏览器用例位于 `tests/platform-browser`，协议夹具位于 `tests/fixtures/oidc/issuer.py`。协议夹具只绑定 loopback，校验 confidential client 与 PKCE S256，通过受限控制 token 选择单一协议反例；应用仍走正常 Authlib/OIDC 路径。生命周期测试只终止事件中已核验 PID、进程组和命令标识的本 run 进程；集群错误归属反例使用 PATH 内独立命令夹具，不连接或修改真实集群资源。
 
 ## 准备阶段证据
 
@@ -40,6 +41,8 @@ Python 用例位于 `tests/api`，浏览器用例位于 `tests/platform-browser`
 | `playwright test --config playwright.platform.config.ts --list` | 0 | 14 个浏览器用例可收集；使用临时无凭据 manifest，仅做收集 |
 | `tsc --noEmit ... playwright.platform.config.ts tests/platform-browser/*.ts` | 0 | 独立浏览器测试严格类型检查通过 |
 | loopback issuer discovery → authorization → token smoke | 0 | confidential client、PKCE S256、RS256 ID Token 路径可运行 |
+| `pytest --collect-only tests/platform-lifecycle tests/api`（收口） | 0 | 73 个 API 用例及 6 个生命周期用例可收集；不计作实际平台通过 |
+| `playwright ... --list`（收口） | 0 | 15 个浏览器用例可收集；使用无凭据临时 manifest，不计作实际平台通过 |
 
 准备阶段没有启动 Wuji Kubernetes 依赖、没有测试正式 API/前端，也没有修改开发或既有 run 数据。工作树无 `.codegraph/`，按仓库约定使用 `rg`、直接读取当前文件及固定提交内容。
 

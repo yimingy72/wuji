@@ -1,0 +1,262 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wuji.invalid/schemas/phase-1a-run-file.json",
+  "title": "Wuji Phase 1A private run record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_id",
+    "source_sha",
+    "repository_root",
+    "artifacts_dir",
+    "namespace",
+    "profile",
+    "database",
+    "realm",
+    "urls",
+    "seed_entities",
+    "seed_users",
+    "credentials",
+    "processes",
+    "control"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "run_id": { "type": "string", "pattern": "^[a-z0-9]+$" },
+    "source_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "repository_root": { "type": "string", "pattern": "^/" },
+    "artifacts_dir": { "type": "string", "pattern": "^/" },
+    "namespace": { "enum": ["wuji-dev", "wuji-test"] },
+    "profile": { "enum": ["dev", "test"] },
+    "database": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "host", "port", "roles"],
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,62}$" },
+        "host": { "const": "127.0.0.1" },
+        "port": { "enum": [15432, 15434] },
+        "roles": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["migration", "auth", "project"],
+          "properties": {
+            "migration": { "$ref": "#/$defs/role" },
+            "auth": { "$ref": "#/$defs/role" },
+            "project": { "$ref": "#/$defs/role" }
+          }
+        }
+      }
+    },
+    "realm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "issuer"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "issuer": { "type": "string", "format": "uri" }
+      }
+    },
+    "urls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["web", "api", "idp", "issuer_fixture", "unmigrated_api", "database"],
+      "properties": {
+        "web": { "type": "string", "format": "uri" },
+        "api": { "type": "string", "format": "uri" },
+        "idp": { "type": "string", "format": "uri" },
+        "issuer_fixture": { "type": "string", "format": "uri" },
+        "unmigrated_api": { "type": "string", "format": "uri" },
+        "database": { "type": "string", "format": "uri" }
+      }
+    },
+    "seed_entities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tenants", "projects"],
+      "properties": {
+        "tenants": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "name"],
+            "properties": {
+              "id": { "type": "string", "format": "uuid" },
+              "name": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "projects": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "tenant_id", "name"],
+            "properties": {
+              "id": { "type": "string", "format": "uuid" },
+              "tenant_id": { "type": "string", "format": "uuid" },
+              "name": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    },
+    "seed_users": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "sub",
+          "fixture_sub",
+          "username",
+          "display_name",
+          "email",
+          "password",
+          "tenant_ids",
+          "project_ids"
+        ],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "sub": { "type": "string", "minLength": 1 },
+          "fixture_sub": { "type": "string", "minLength": 1 },
+          "username": { "type": "string", "minLength": 1 },
+          "display_name": { "type": "string", "minLength": 1 },
+          "email": { "type": "string", "format": "email" },
+          "password": { "type": "string", "minLength": 16 },
+          "tenant_ids": {
+            "type": "array",
+            "items": { "type": "string", "format": "uuid" },
+            "uniqueItems": true
+          },
+          "project_ids": {
+            "type": "array",
+            "items": { "type": "string", "format": "uuid" },
+            "uniqueItems": true
+          }
+        }
+      }
+    },
+    "credentials": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["database", "app", "oidc_keycloak", "oidc_fixture"],
+      "properties": {
+        "database": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["admin_dsn", "management_dsn", "auth_dsn", "project_dsn"],
+          "properties": {
+            "admin_dsn": { "$ref": "#/$defs/secretString" },
+            "management_dsn": { "$ref": "#/$defs/secretString" },
+            "auth_dsn": { "$ref": "#/$defs/secretString" },
+            "project_dsn": { "$ref": "#/$defs/secretString" }
+          }
+        },
+        "app": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["cursor_signing_key"],
+          "properties": { "cursor_signing_key": { "$ref": "#/$defs/secretString" } }
+        },
+        "oidc_keycloak": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["client_id", "client_secret", "admin_username", "admin_password"],
+          "properties": {
+            "client_id": { "type": "string", "minLength": 1 },
+            "client_secret": { "$ref": "#/$defs/secretString" },
+            "admin_username": { "type": "string", "minLength": 1 },
+            "admin_password": { "$ref": "#/$defs/secretString" }
+          }
+        },
+        "oidc_fixture": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["client_id", "client_secret", "control_token"],
+          "properties": {
+            "client_id": { "type": "string", "minLength": 1 },
+            "client_secret": { "$ref": "#/$defs/secretString" },
+            "control_token": { "$ref": "#/$defs/secretString" }
+          }
+        }
+      }
+    },
+    "processes": {
+      "type": "object",
+      "required": ["api", "issuer_fixture"],
+      "additionalProperties": { "$ref": "#/$defs/processRecord" },
+      "properties": {
+        "api": { "$ref": "#/$defs/processRecord" },
+        "issuer_fixture": { "$ref": "#/$defs/processRecord" }
+      }
+    },
+    "control": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["run_file", "lock_file", "record_lock_file"],
+      "properties": {
+        "run_file": { "type": "string", "pattern": "^/" },
+        "lock_file": { "type": "string", "pattern": "^/" },
+        "record_lock_file": { "type": "string", "pattern": "^/" },
+        "event_file": { "type": "string", "pattern": "^/" },
+        "unmigrated_database": { "type": "string" },
+        "unmigrated_admin_dsn": { "$ref": "#/$defs/secretString" },
+        "unmigrated_auth_dsn": { "$ref": "#/$defs/secretString" },
+        "unmigrated_project_dsn": { "$ref": "#/$defs/secretString" },
+        "recreated_postgres_pod": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "uid"],
+          "properties": {
+            "name": { "type": "string", "minLength": 1 },
+            "uid": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "role": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,62}$" },
+    "secretString": { "type": "string", "minLength": 1 },
+    "processRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "log_path": { "type": "string", "pattern": "^/" },
+        "reads_run_file": { "const": false },
+        "credential_scopes": {
+          "type": "array",
+          "items": { "enum": ["auth_dsn", "project_dsn", "oidc_client"] },
+          "minItems": 3,
+          "maxItems": 3,
+          "uniqueItems": true
+        },
+        "pid": { "type": "integer", "minimum": 1 },
+        "process_group": { "type": "integer", "minimum": 1 },
+        "start_id": { "type": "string", "minLength": 1 },
+        "command_marker": { "type": "string", "minLength": 1 },
+        "command": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" }
+        },
+        "observed_command": { "type": "string", "minLength": 1 },
+        "lifecycle_state": {
+          "enum": ["running", "restarting", "paused", "exited", "stopped"]
+        },
+        "state_deadline": { "type": "number" },
+        "paused": { "type": "boolean" },
+        "profile": { "enum": ["keycloak", "issuer_fixture"] },
+        "cursor_ttl_seconds": { "type": "integer", "minimum": 1, "maximum": 900 },
+        "exit_code": { "type": "integer" }
+      }
+    }
+  }
+}

@@ -45,9 +45,11 @@ def test_project_role_has_no_auth_data_write_truncate_or_ddl(run_manifest: RunMa
             "DELETE FROM projects WHERE false",
             "TRUNCATE projects",
             f"CREATE TABLE phase1a_runtime_ddl_probe_{uuid4().hex} (id integer)",
+            f"CREATE TEMP TABLE phase1a_runtime_temp_probe_{uuid4().hex} (id integer)",
         ):
-            with pytest.raises(psycopg.errors.InsufficientPrivilege):
+            with pytest.raises(psycopg.errors.InsufficientPrivilege) as denied:
                 connection.execute(statement)
+            assert denied.value.sqlstate == "42501"
 
 
 def test_auth_role_cannot_read_or_modify_project_authority(run_manifest: RunManifest) -> None:
@@ -59,6 +61,9 @@ def test_auth_role_cannot_read_or_modify_project_authority(run_manifest: RunMani
                 connection.execute(sql.SQL("DELETE FROM {} WHERE false").format(sql.Identifier(table)))
         with pytest.raises(psycopg.errors.InsufficientPrivilege):
             connection.execute(f"CREATE TABLE phase1a_auth_ddl_probe_{uuid4().hex} (id integer)")
+        with pytest.raises(psycopg.errors.InsufficientPrivilege) as denied:
+            connection.execute(f"CREATE TEMP TABLE phase1a_auth_temp_probe_{uuid4().hex} (id integer)")
+        assert denied.value.sqlstate == "42501"
 
 
 def test_rls_defaults_to_zero_rows_and_transaction_context_does_not_leak_from_pool(

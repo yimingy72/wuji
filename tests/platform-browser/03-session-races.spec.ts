@@ -46,7 +46,16 @@ test('authoritative 401 clears identity and all private project content', async 
 
 test('late project error cannot replace the newly selected project', async ({ page }) => {
   const run = await manifest();
-  const [oldId, newId] = run.seed_users.dual_ab.project_ids;
+  await keycloakLogin(page, run.seed_users.dual_ab);
+  const visibleProjectLinks = page.locator('a[href^="/projects/"]');
+  await expect(visibleProjectLinks.first()).toBeVisible();
+  const visibleHrefs = await visibleProjectLinks.evaluateAll(links =>
+    [...new Set(links.map(link => link.getAttribute('href')).filter((href): href is string => Boolean(href)))],
+  );
+  expect(visibleHrefs.length).toBeGreaterThanOrEqual(2);
+  const [oldHref, newHref] = visibleHrefs;
+  const oldId = oldHref!.split('/').at(-1)!;
+  const newId = newHref!.split('/').at(-1)!;
   let started!: () => void;
   let release!: () => void;
   const wasStarted = new Promise<void>(resolve => { started = resolve; });
@@ -61,10 +70,9 @@ test('late project error cannot replace the newly selected project', async ({ pa
       body: JSON.stringify({ code: 'SERVICE_UNAVAILABLE', message: 'delayed', trace_id: crypto.randomUUID() }),
     }).catch(() => undefined);
   }, { times: 1 });
-  await keycloakLogin(page, run.seed_users.dual_ab);
-  const oldNavigation = page.goto(`/projects/${oldId}`).catch(() => null);
+  const oldNavigation = page.locator(`a[href="${oldHref}"]`).click();
   await wasStarted;
-  await page.goto(`/projects/${newId}`);
+  await page.locator(`a[href="${newHref}"]`).click();
   await expect(page).toHaveURL(new RegExp(`/projects/${newId}$`));
   await expect(page.getByTestId('project-canary')).toContainText(newId!);
   release();
@@ -83,6 +91,9 @@ test('revocation wins over an already-authorized delayed 200 response', async ({
   let release!: () => void;
   const oldResponseCaptured = new Promise<void>(resolve => { captured = resolve; });
   const canRelease = new Promise<void>(resolve => { release = resolve; });
+  await keycloakLogin(page, user);
+  const projectLink = page.locator(`a[href="/projects/${projectId}"]`);
+  await expect(projectLink).toBeVisible();
   await page.route(`**/api/v1/projects/${projectId}`, async route => {
     const oldAuthorizedResponse = await route.fetch();
     expect(oldAuthorizedResponse.status()).toBe(200);
@@ -90,8 +101,7 @@ test('revocation wins over an already-authorized delayed 200 response', async ({
     await canRelease;
     await route.fulfill({ response: oldAuthorizedResponse }).catch(() => undefined);
   }, { times: 1 });
-  await keycloakLogin(page, user);
-  const oldNavigation = page.goto(`/projects/${projectId}`).catch(() => null);
+  const oldNavigation = projectLink.click();
   await oldResponseCaptured;
   await control('permissions', 'revoke', ...permissionArgs(run, 'single_a', projectId, 'operator'));
   try {
@@ -105,7 +115,6 @@ test('revocation wins over an already-authorized delayed 200 response', async ({
     await oldNavigation;
     await page.waitForTimeout(250);
     await expect(page.getByTestId('project-canary')).toHaveCount(0);
-    await page.goto(`/projects/${projectId}`);
     await expect(page).toHaveURL(/\/projects(?:\?.*)?$/);
     await expect(page.getByTestId('project-canary')).toHaveCount(0);
   } finally {
@@ -123,7 +132,7 @@ test('served production application contains no seed credentials or prototype co
     }
   });
   await page.goto('/login');
-  await expect(page.getByRole('button', { name: '使用身份提供方登录' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '使用组织账号登录' })).toBeVisible();
   const bundle = scripts.join('\n');
   for (const user of Object.values(run.seed_users)) {
     expect(bundle).not.toContain(user.password);
