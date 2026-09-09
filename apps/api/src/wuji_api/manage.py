@@ -247,20 +247,35 @@ def execute(args: argparse.Namespace, run_path, run: dict[str, Any]) -> dict[str
 def main() -> None:
     parser = _parser()
     args = parser.parse_args()
+    run_id: str | None = None
     try:
         run_path, run = load_run_file(args.run_file)
+        run_id = run["run_id"]
         result = execute(args, run_path, run)
     except Exception as error:
         print(
             json.dumps(
-                {"ok": False, "error": error.__class__.__name__},
+                {
+                    "ok": False,
+                    "run_id": run_id,
+                    "error": {
+                        "code": error.__class__.__name__,
+                        "message": "management operation failed safely",
+                    },
+                },
                 separators=(",", ":"),
                 sort_keys=True,
             ),
             file=sys.stderr,
         )
         raise SystemExit(1) from None
-    print(json.dumps({"ok": True, "result": result}, separators=(",", ":"), sort_keys=True))
+    print(
+        json.dumps(
+            {"ok": True, "run_id": run_id, "result": result},
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+    )
 
 
 if __name__ == "__main__":
