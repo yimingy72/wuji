@@ -1,6 +1,6 @@
 # B2/B3 independent test preparation
 
-Status: `prepared`, execution pending the frozen integrated candidate.
+Status: `executed`, bounded candidate checks complete.
 
 This test worktree is based on the exact result of `git rev-parse 235f05f`:
 `235f05f5afe8bc53ff70c8f2b07950d4c2e6fa32`, on
@@ -42,5 +42,22 @@ integrated candidate SHA and private run file. The intended commands are:
 pnpm exec playwright test --config playwright.platform.config.ts tests/platform-browser/06-task-management.spec.ts --workers=1
 ```
 
-The report must be updated after execution with the tested SHA, run id,
-commands, exit codes, elapsed seconds, and actual pass/fail/deferred evidence.
+## Execution record
+
+- Product candidate: `e76a265d445ae9548d7f56fdb85f9b8b5c005759`.
+- Test script revisions: `83e45706f5114db3b4d503f441a8689e79b20fce`, then
+  `868d477faa7a165a9f88bc6859a3cb01ed360bd2`, then the unique-name fixture
+  correction `9ea345c86d8ac379e346a615add76991a11353ff`.
+- Run: `p1a20260910t0159448786fa`, using the private manifest
+  `work/run/b23-candidate.json`.
+- API command exited 0: `6 passed in 12.65s`.
+- The first Chrome attempt exited 1 after completing server commit,
+  reconciliation, list, cancel, and snapshot checks; its only failure was the
+  non-unique UI locator for the cancelled state. The exact-text fix was
+  `868d477faa7a165a9f88bc6859a3cb01ed360bd2`.
+- Chrome command with the unique task-name fixture exited 0: `1 passed in
+  8.9s`.
+- Evidence screenshot: `/Users/yym/Documents/ChatGPT/Wuji 自动化渗透平台/work/worktrees/phase-1b/artifacts/phase-1a/platform/p1a20260910t0159448786fa/b23-task-management.png`.
+- No target traffic, runtime execution, pause/resume, artifact, or deferred
+  unrelated suites were run. The first browser failure was corrected and the
+  bounded browser rerun passed; no further rerun was needed.
