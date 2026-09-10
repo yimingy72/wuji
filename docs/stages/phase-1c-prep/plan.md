@@ -1,63 +1,79 @@
-# Phase 1C 前置开发 Plan
+# Phase 1C 前置：0.5 配置与创建 Plan 草案
 
-> 已批准的第一批现以 [P0 Spec](../phase-1c-prep-p0/spec.md) / [Plan](../phase-1c-prep-p0/plan.md) 为准；本文件中的其余新版创建/配置业务仍需细化，不因P0实施自动获批。
+- 状态：draft / 供Plan模式评审，不可直接派发业务开发。
+- 日期：2026-09-10；起点：4b3feb4；对应Spec见spec.md。
+- 当前模式由应用控制。本轮只整理草案，无迁移、安装、测试、模型调用或业务代码修改。
 
-状态：draft / 需修订；以下任务表尚不是可派发的开发任务书。实施须先按应用 Plan 模式完成具体方案评审；此文件不表示原型或业务开发已经启动。
+## 1. 已固定的复用与工程边界
 
-## 最新确认的修订输入
+复用P0的ModelConfig/原生模型工厂、Provider子进程、框架消息序列化与取消等待；复用现有FastAPI、SQLAlchemy/Alembic、用户事务锁、幂等回执、任务事件/游标和前端命令恢复机制。
 
-本文件原基准为 `95c5ed3`，最新文档来源见 [背景索引](../../project-context.md)。用户已确认基础模型配置页面、组织共享/管理员维护及创建者确认范围。下表是原顺序草案，必须补齐模型配置与检查后重新完成方案评审；不得依据原表跳过这些能力。
+新增drafts、scope_confirmations、model_configuration三个路由/服务/存储模块，避免继续向main.py和DatabaseAuthority堆全部业务；只提取已有鉴权依赖，不重构旧身份/任务全模块。组织模型配置是Platform模块，原生Provider调用保持独立进程。无Redis、消息队列、图数据库或新通用Agent循环。
 
-需要显式完成框架复用映射：模型客户端使用既有成熟 Provider 集成，连接检查和将来的 Harness 共用接入能力；不自写协议/SSE/摘要循环。配置存储、发布快照、TenantAdmin 权限、密钥隔离、QuotaGroup 与任务预算是平台补充。Deep Agents 仍是优先验证候选，不因配置页面提前交付就标为集成完成。框架版本、实际能力与 Gateway 边界在具体方案中固定。
+P0的256输出和4次额度仅属于probe。正式模型配置与检查策略分开建模，不能直接把这些常量作为Task预算。此批不运行Deep Agents任务，不解锁P0未验证的流式、压缩或恢复能力。
 
-## 1. 交付顺序
+## 2. 接口草案
 
-| 顺序 | 工作 | 负责人 | 交付检查点 |
+以下是需要在Plan模式冻结的候选路径与语义，不代表已发布接口；全部沿用已有会话、Origin/CSRF和实时权限检查。
+
+| 范围 | 接口候选 | 主要约定 |
+| --- | --- | --- |
+| 组织入口 | GET /api/v1/tenants | 返回当前用户可见组织及组织级管理能力，不扩大项目可见性 |
+| 模型服务 | GET/POST /api/v1/tenants/{tenant_id}/model-services；GET/PATCH /model-services/{id} | 管理元数据与版本；Key只写，新版本生成新secret_ref，GET不回显 |
+| 模型方案 | GET/POST /api/v1/tenants/{tenant_id}/model-profiles；PATCH /model-profiles/{id}；POST /model-profiles/{id}/versions/{version}/publish | 方案绑定不可变服务版本、模型ID与检查记录；停用不删除历史 |
+| 配额关系 | GET/POST /api/v1/tenants/{tenant_id}/quota-groups | 管理员明确共享关系，本批不实现生产分布式配额调度 |
+| 连接检查 | POST /api/v1/tenants/{tenant_id}/model-checks；GET /model-checks/{id} | 写入模型版本与幂等键，202返回检查ID；queued/running/succeeded/failed/unknown，前端有界查询 |
+| 创建选项 | GET /api/v1/projects/{project_id}/task-creation-options | 场景能力、已发布模型摘要、服务器预算默认/边界、执行不可用原因 |
+| 草稿 | GET/POST /api/v1/projects/{project_id}/task-drafts；GET/PATCH/DELETE /task-drafts/{id} | 原作者权限；部分输入；expected_version条件更新；已转换草稿保留来源关联 |
+| 范围确认 | POST /api/v1/projects/{project_id}/task-drafts/{id}/scope-confirmations | 固定草稿版本与规范化范围，返回不可变确认ID和有效期 |
+| 预览 | POST /api/v1/projects/{project_id}/task-previews | 接收草稿ID/版本及确认ID，返回摘要、冻结输入、缺项及短期preview_id |
+| 创建 | POST /api/v1/projects/{project_id}/tasks | 接收草稿ID/版本、preview_id、input_digest，复用Idempotency-Key；202回执，实际状态读取快照 |
+| 任务读取/取消 | 保留现有列表、快照、commands、command-keys、events路径 | DTO扩展场景/ConfigSnapshot与ready；旧回执原样可查，pause/resume/start仍不开放 |
+
+模型配置管理与检查是组织权限；任务创建仍依赖项目Operator权限。租户管理员能力在tenant_memberships上独立表示，不用把所有role字符串替换为管理员而破坏已有项目角色判定。具体数据库RLS、管理能力变更入口与seed身份在最终计划中固定。
+
+新增DTO候选：TenantSummary、ModelServiceVersion、ModelProfileVersion、ModelCheck、TaskCreationOptions、TaskDraftDocument、TaskScopeConfirmation、TaskConfigSnapshot。旧TaskDraft字段名与新的持久草稿区分，避免复用旧http_observe表单作为全部场景输入。
+
+## 3. 存储、事务与兼容
+
+使用新迁移衔接0003；候选编号20260910_0004，执行前核对是否被其他已集成工作占用。迁移唯一owner为开发A，所有对象使用租户/项目复合归属及RLS。
+
+草稿版本与规范化目标声明独立存储；Task冻结场景、范围、模型方案/服务版本、预算和配置schema版本。秘密只引用，不进草稿或Task JSON。已转换草稿保留task_id，重复操作返回原任务关联，不生成第二个任务。
+
+旧Scope与queued记录原样保留；新建ready使用新schema版本。Task版号约束不再绑定固定状态版本1/2；取消仍锁Task、核对expected_version、更新事件位置。旧接口形状的新命令在升级后给出明确重新创建/预览错误，已经接受的同键重放先核对旧回执，不重新解释旧输入。
+
+连接检查先持久化记录再派发；Provider返回只更新对应不可变配置版本的检查状态。具体作业领取/异常恢复需要按待决项固定，禁止先写202接口却没有消费者。不得复用P0文件账本冒充多用户平台检查账本。
+
+## 4. 顺序、代理与文件归属
+
+| 顺序 | 交付 | 负责人 | 依赖 |
 | --- | --- | --- | --- |
-| P1 | 修正场景目录、Web 四步及其他场景差异原型 | 开发 B：SOL/xhigh | 用户可评审最新交互；无模型/网络执行 |
-| P2a | 冻结创建选项、草稿、配置快照、ready 和兼容迁移契约 | 主代理决策，开发 A：SOL/xhigh | 合同提交供前后端共用；字段、权限、失败语义明确 |
-| P2b | 草稿存储、创建 ready、取消、旧任务兼容、场景能力读取 | 开发 A：SOL/xhigh | 真实 API 与增量迁移，无执行入口 |
-| P2c | 原型交互接入 apps/web，列表/详情与回执恢复 | 开发 B：SOL/xhigh | 真实配置管理闭环 |
-| P3 | 一次定向验收、主代理审查、记录与本地交付 | Luna/xhigh + 主代理 | 集成候选、证据、剩余限制和 4180 入口 |
+| R0 | Plan模式解决本稿待决项，固定行为、接口、迁移和预算 | 主代理 | P0证据已具备，不追加框架验证 |
+| R1 | 新五场景创建、模型配置及无模型/检查失败状态的可点击原型 | SOL/xhigh 前端代理 | R0；合成数据；用户评审后再接业务 |
+| R2 | 0.5契约、生成器、迁移与权限基础提交 | SOL/xhigh 开发A | 原型交互确认；主代理冻结公共契约 |
+| R3A | 模型配置/检查、草稿、范围确认、ready与兼容 | SOL/xhigh 开发A | R2 |
+| R3B | 正式前端接入、列表详情、命令恢复 | SOL/xhigh 开发B | R2，与R3A独立范围并行 |
+| R4 | 固定集成候选，一次最小验收与主代理复核 | Luna/xhigh + 主代理 | R3A/B完成 |
 
-P1 → 交互确认 → P2。确认前可以准备契约草案，不提前做后端业务开发。P2a 固定后，P2b/P2c 才并行；不让前端代理猜 DTO。P3 只有一个集成候选，必要修复只复测受影响项。
+开发A独占apps/api、packages/agent-integration、迁移、契约生成器、manifest、Python/Node锁文件及根命令；开发B限定spikes/frontend/src、apps/web/src，复用packages/theme，必要主题改动提前归属B；测试代理限定本阶段定向测试及报告。主代理维护Spec/Plan/验收并集成。开发前才从当前集成基线创建独立worktree，不自动清理旧树。
 
-## 2. 文件归属与 Git
+## 5. 验证与交付
 
-- 文档来源分支 `codex/product-interaction-plan`，当前设计基准 `95c5ed3`；主工作区代码基准 `381ae3a`。执行时复核实际 HEAD、未提交改动和运行服务，不移动正在运行且绑定 SHA 的主工作区。
-- 主代理负责阶段集成分支 `codex/phase-1c-prep`、Spec/Plan、冲突解决和验收。保留 master 和 Phase 1A partial 状态。
-- 开发 A worktree/分支：`work/worktrees/phase-1c-prep-server` / `codex/phase-1c-prep-server`；独占 `apps/api/**`、迁移目录、`packages/contracts/**`、`scripts/generate-contracts.mjs`、manifest、锁文件及根命令。
-- 开发 B worktree/分支：`work/worktrees/phase-1c-prep-web` / `codex/phase-1c-prep-web`；限定 `spikes/frontend/src/**`、`apps/web/src/**`；共享主题原则上复用，需要修改时提前归属给 B。不能改契约、锁文件、迁移或服务脚本。
-- 独立测试 worktree/分支：`work/worktrees/phase-1c-prep-test` / `codex/phase-1c-prep-test`；只负责对应 API/浏览器测试和证据报告，不独立改变产品行为。
-- 开工时才创建这些 worktree 和代理。最多两个开发、一个测试并行；指定模型不可用时报告，不替换。Agent 任务书包含实际基准 SHA、绝对目录、文件范围、Spec/Plan、共享预算与交付格式。
-- 主工作区有索引则 CodeGraph 优先，确认工作树与新鲜度；新 worktree 无索引时回退 rg/直接读取；业务最终集成后同步主索引。
+总预算仍为600秒，P0保守消耗426秒，余174秒；原型构建/查看、正式构建、安装、启动、检查、等待、排查都累计。不能按R1/R4或代理重置，也不把已耗真实调用额度换账本重新领取。
 
-## 3. 开工前必须固定的具体契约
+R1只构建一次并短走查，不跑旧12项或五主题矩阵。R4复用缓存与一次环境启动，集中执行契约检查、正式构建、合并的权限/草稿/幂等/旧数据兼容API用例、一条浏览器主流程。模型检查使用受控夹具，P0原生协议证据注明被测SHA复用。已有无影响部分不重跑。
 
-本轮给出任务计划，以下决策在 Plan 模式完成；未固定前不能派代理自行填空：
+验证入口应由一条总控命令记录UTC/monotonic起止并设剩余时间截止，finally清理自有进程和写报告；避免再次缺失完整窗口证据。具体脚本路径在R0固定，测试代理不另创第二套平台启动路径。预算不足即partial和待测，不擅自增加预算。
 
-1. 场景目录/创建选项读取、部分草稿 CRUD、草稿版本与预览绑定的请求/响应和错误码。
-2. 草稿权限及幂等保存/创建转换方式；Task 配置快照兼容当前 TaskSnapshot、分页和事件游标。
-3. 场景及配置引用的来源：组织级基础模型配置、已发布方案与真实能力状态、缺失模型/环境的 UI 表达；其他能力不扩成全部配置中心。模型管理权限沿用 TenantAdmin 目标设计，当前运行角色的具体映射与迁移仍需固定。
-4. 域名级 Scope 与历史路径 Scope 的并存/批准入口；创建者确认任务范围的职责、事务边界与当前项目角色的映射；不继续沿用“仅管理员预导入”的旧草案。
-5. 基础模型配置管理、显式连接检查的接口与错误语义、原生客户端参数映射、凭据保存/访问边界、配额与检查预算；模型目录、上游可用性和已验证能力分开展示。
-6. 旧 queued 任务如何保留原版本/回执并阻止自动执行，新状态如何升级已发布校验器。增量迁移编号在实际主线复核后分配。
+交付时才按既有流程停止旧主目录运行、核验未提交导航、集成候选、增量迁移/seed、启动4180并同步CodeGraph。保留身份、数据库、Scope、任务与回执；不篡改运行SHA。文档记录与实测候选SHA分开，master只在对应基线已验收后按原规则处理。
 
-流量控制产品选型、TLS 采集、CNI、代理池、候选 IP 主动核验、DNSLog、凭据共享、Worker 循环参数不属于本前置任务的决策前提。只保留后续挂接的对象边界，不发布空壳执行 API。
+## 6. R0必须收口的决策
 
-## 4. 最小验证与预算
+用户已确认无模型只能保存草稿，补齐可用方案再创建。以下为主代理在Plan模式继续收口的技术决策，不重复询问已确认产品行为：
 
-P1/P2/P3 总共 600 秒，安装、启动等待、构建、测试排查与复跑均计入；不是每个子步骤各 10 分钟。预算由主代理记录一个累加表，计划留至少一半给集成主流程，任何代理不得自主开全量套件。
+1. 本机私有凭据后端还是本批Kubernetes Secret接入；前者复用P0最快，后者需额外限定Secret权限与生命周期，不能误用Runtime Controller权限。
+2. 服务端任务Token/时间预算默认值与硬上限来源，避免从probe复制数字。
+3. 发布是否强制同版本连接成功；本草案推荐强制，但连接成功不证明工具能力可执行。
+4. 模型检查消费者采用API托管受限子进程还是独立Gateway作业进程，并明确版本、恢复、幂等及既有本地生命周期接入。
 
-- P1：一次 `pnpm --dir spikes/frontend build` 和短浏览器走查；必要 `pnpm exec antd lint spikes/frontend/src --format json`。不跑旧原型 12 项。
-- P2/P3：一次 `pnpm contracts:check`、`pnpm build:platform`；相关前端的 antd lint。冻结依赖安装只在需要时做一次。
-- 定向 API 入口拟为 `./scripts/uv.sh run --frozen pytest tests/api/test_phase1c_configuration.py -q`，浏览器入口拟为 `WUJI_BROWSER_CHANNEL=chrome pnpm exec playwright test --config playwright.platform.config.ts tests/platform-browser/07-task-configuration.spec.ts --workers=1`。两文件是计划新增，当前不存在，不写作已通过。
-- 测试环境沿用现有受管启动路径与固定端口，由一名负责人串行管理；API/浏览器共用同一次启动，不重复生命周期检查。具体 run-file 在执行时生成并绑定实际候选。
-- API 合并覆盖草稿版本/权限、幂等创建、ready 取消、旧 queued 与旧 Scope；浏览器一条保存→刷新→创建→列表/详情→取消流程。P1 已确认的纯展示不再在正式版本重跑五场景/五主题矩阵。
-- 通过即停止。同类脚本问题最多两轮；达到预算后清理自有测试进程并记录待测，关键未通过则不开执行能力、不标 accepted。
-
-## 5. 本地交付与后续顺序
-
-代码集成后按现有启动/停止流程切换正式 4180 工作台，先停止旧 SHA 所属进程再迁移和启动；保留数据库/身份/Scope。原型 4185 与正式入口用途明确。独立报告绑定被测业务 SHA、测试脚本 SHA、run_id、命令/退出码；后续文档提交不伪装同一个被测提交。
-
-之后单独规划 Phase 1C Runtime/执行与证据，再进入 Phase 2 Harness + 单 Agent + 最小黑板，最后扩展多 Agent 和其他场景。真实目标访问前再确定并验证流量控制边界，本轮不展开该选型。
+上述未决项未解决前不标approved、不派发业务开发。
