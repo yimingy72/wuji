@@ -11,7 +11,7 @@ Phase 1A 功能已集成，完整验收当前为 partial：最近一次独立检
 | 开发 | http://127.0.0.1:4180 | http://127.0.0.1:8000 | http://127.0.0.1:18080 | 127.0.0.1:15432 | wuji-dev |
 | 独立测试 | http://127.0.0.1:4182 | http://127.0.0.1:8002 | http://127.0.0.1:18082 | 127.0.0.1:15434 | wuji-test |
 
-原型仍使用 `pnpm dev` 和 http://127.0.0.1:4173。正式工作台使用数据库中的身份与项目；B1 增加批准范围和任务预览，保留登录、项目访问和五套主题；任务执行与 Agent 在后续阶段实现。
+原型仍使用 `pnpm dev` 和 http://127.0.0.1:4173。正式工作台使用数据库中的身份与项目，保留登录、项目访问和五套主题。B2/B3新增任务创建、查询、取消和事件同步；交付状态见[B2/B3验收](stages/phase-1b/b23-acceptance.md)。任务执行与 Agent 在后续阶段实现。
 
 ## 首次准备
 
@@ -70,11 +70,13 @@ pnpm dev:down
 
 运行与验收证据保存在 ignored 的 `artifacts/phase-1a/`，私有运行记录在 `work/run/`。最终验收报告记录候选提交 SHA、run_id、命令、退出码及未通过项；本机证据不随 Git 提交分发。
 
-## 批准范围与任务预览（B1）
+## 批准范围、预览与任务（B2/B3）
 
-用 `single_a` 登录后进入项目，点击“任务预览”，选择批准范围并填写任务名称与目标 URL。开发种子包含本机协议夹具 origin、根路径与 `/admin` 排除路径；界面展示具体 origin。预览仅计算范围和有效限额，不访问目标，成功时也会显示“任务创建尚未开放”。Viewer 可在项目中查看批准范围，不能提交预览。离开项目不保存草稿。
+用 `single_a` 登录后进入项目的任务列表，点击“新建任务”，选择批准范围并填写任务名称与目标 URL，生成预览后创建任务。开发种子包含本机协议夹具 origin、根路径与 `/admin` 排除路径；界面展示具体 origin。预览只计算范围和有效限额，不访问目标。旧B1预览必须重新生成。Viewer可以查看范围和任务，不能预览、创建或取消。
 
-`dev:seed` 会执行增量迁移 `20260910_0002` 并幂等添加三个开发项目的范围，不清空既有数据。管理侧导入使用当前私有运行文件与绝对 JSON 路径：
+本批新任务状态为queued，取消后为cancelled，尚未接入实际执行。详情从服务端读取Scope版本、当前状态及变更记录，刷新可恢复。创建或取消结果不明时，页面保留“提交结果待确认”；刷新后点击“核对提交结果”按原键查询。404仍代表结果待确认。刷新已丢失原请求正文，不能直接重送；查看任务列表后，可明确放弃旧核对再发起新操作。标签页不保存目标URL、请求正文或凭据，关闭标签页会丢失核对标记；已创建任务仍保存在数据库中。
+
+`dev:seed` 会按顺序执行增量迁移至 `20260910_0003` 并幂等添加三个开发项目的范围，保留既有数据库、身份、范围和任务。管理侧导入使用当前私有运行文件与绝对 JSON 路径：
 
 ```sh
 ./scripts/platform/control.sh --run-file "$PWD/work/run/dev.json" scope import --file /absolute/path/scope.json
@@ -83,3 +85,5 @@ pnpm dev:down
 JSON 顶层为 `authorization` 与 `scope`：前者包含 `id`、`tenant_id`、`project_id`、`subject`、`basis`、`approved_by`、带时区的 `valid_from` / `valid_until`；后者包含 `policy_id`、正整数 `version`、`label`、`origins`、`allowed_path_prefixes`、`excluded_path_prefixes`、`allowed_methods` 与六项 `limits`。字段约束见 `apps/api/src/wuji_api/scopes.py`。项目必须已经存在；相同版本相同内容重复导入不新增记录，同版本内容变化会被拒绝，应使用新版本。此入口仅供本机管理，不暴露为公开 API。
 
 B1 定向验证入口为 `tests/unit/test_scope_policy.py`、`tests/api/test_phase1b_scopes.py` 和 `tests/platform-browser/05-scope-preview.spec.ts`。真实 API / 浏览器检查共用 `test-platform.sh --serve-only` 创建的隔离环境；不自动运行 Phase 1A 全量用例。当前交付状态以 [B1 验收记录](stages/phase-1b/acceptance.md) 为准。
+
+B2/B3的必要验证限定为`tests/api/test_phase1b_tasks.py`和`tests/platform-browser/06-task-management.spec.ts`，加一次契约检查与正式构建。通过即停止，不串行补跑旧全套。实际候选、命令、预算和延期项见[B2/B3验收](stages/phase-1b/b23-acceptance.md)。
