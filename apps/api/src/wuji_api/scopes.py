@@ -121,7 +121,13 @@ class TaskPreviewResponse(BaseModel):
     effective_scope: ApprovedScopeResponse
     expires_at: datetime
     can_create: bool
-    blockers: list[PreviewBlockerResponse] = Field(min_length=1, max_length=20)
+    blockers: list[PreviewBlockerResponse] = Field(max_length=20)
+
+    @model_validator(mode="after")
+    def validate_creation_consistency(self) -> "TaskPreviewResponse":
+        if self.can_create == bool(self.blockers):
+            raise ValueError("creatable previews require no blockers; blocked previews require one")
+        return self
 
 
 class AuthorizationImport(BaseModel):

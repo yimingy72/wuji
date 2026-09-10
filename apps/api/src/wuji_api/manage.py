@@ -148,7 +148,7 @@ def _migrate(run: dict[str, Any]) -> dict[str, Any]:
         auth_role=run["database"]["roles"]["auth"],
         project_role=run["database"]["roles"]["project"],
     )
-    return {"migrated": True, "revision": "20260910_0002"}
+    return {"migrated": True, "revision": "20260910_0003"}
 
 
 def _import_scope(run: dict[str, Any], value: str) -> dict[str, Any]:

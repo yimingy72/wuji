@@ -1,4 +1,4 @@
-"""Phase 1B Platform API with identity, projects, and approved-scope previews."""
+"""Phase 1B Platform API with identity, scopes, tasks, and event replay."""
 
 from __future__ import annotations
 
@@ -18,10 +18,19 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from wuji_api.database import (
     AuthorityUnavailable,
+    CommandForbidden,
+    CommandValidationFailed,
     DatabaseAuthority,
+    FreshAuthorityInvalid,
     HandshakeCompletionInvalid,
     HandshakeInProgress,
+    IdempotencyConflict,
+    InvalidTransition,
+    PreviewExpired,
     PreviewForbidden,
+    ResourceNotFound,
+    ScopeDenied,
+    VersionConflict,
 )
 from wuji_api.oidc import OIDCClient, OIDCDependencyError, OIDCProtocolError
 from wuji_api.scope_policy import ScopePolicyError, normalize_task_draft
@@ -34,15 +43,28 @@ from wuji_api.scopes import (
 from wuji_api.security import (
     CursorCodec,
     CursorPosition,
+    EventCursorPosition,
     ExpiredCursor,
     InvalidCursor,
     InvalidReturnPath,
     ScopeCursorPosition,
+    TaskCursorPosition,
     normalize_return_path,
     opaque_token,
     token_hash,
 )
 from wuji_api.settings import Settings, optional_settings
+from wuji_api.tasks import (
+    CommandReceiptResponse,
+    CreateTaskRequest,
+    EventPageResponse,
+    TaskControlRequest,
+    TaskEventResponse,
+    TaskPageResponse,
+    TaskResponse,
+    TaskSnapshotResponse,
+    command_request_digest,
+)
 
 ReadinessProbe = Callable[[], Awaitable[bool]]
 NO_STORE: Final = {"Cache-Control": "no-store"}
@@ -53,7 +75,11 @@ ERROR_MESSAGES = {
     "FORBIDDEN": "当前身份无权执行此操作",
     "NOT_FOUND": "请求的资源不存在",
     "VALIDATION_FAILED": "请求参数无效",
-    "INVALID_TRANSITION": "当前登录流程仍在处理中",
+    "SCOPE_DENIED": "当前批准范围不允许创建该任务",
+    "PREVIEW_EXPIRED": "任务预览已过期，请重新预览",
+    "VERSION_CONFLICT": "资源版本已变化，请重新加载",
+    "IDEMPOTENCY_CONFLICT": "幂等键已绑定到不同请求",
+    "INVALID_TRANSITION": "当前任务状态不允许该操作",
     "SERVICE_UNAVAILABLE": "平台依赖暂时不可用",
     "CURSOR_EXPIRED": "分页状态已过期，请重新加载",
     "INTERNAL_ERROR": "服务暂时无法处理请求",
@@ -180,7 +206,9 @@ async def _authenticated(request: Request, runtime: Runtime):
 def _project_response(record) -> ProjectResponse:
     permissions = ["project.read"]
     if record.role == "operator":
-        permissions.append("task.preview")
+        permissions.extend(("task.preview", "task.read", "task.create", "task.control"))
+    else:
+        permissions.append("task.read")
     return ProjectResponse(
         id=record.id,
         tenant_id=record.tenant_id,
@@ -204,6 +232,70 @@ def _scope_response(record) -> ApprovedScopeResponse:
     )
 
 
+def _task_response(record: dict, *, can_control: bool) -> TaskResponse:
+    state = record["state"]
+    draft = record["draft"]
+    return TaskResponse.model_validate(
+        {
+            "id": record["id"],
+            "tenant_id": record["tenant_id"],
+            "project_id": record["project_id"],
+            "name": draft["name"],
+            "target_url": draft["target_url"],
+            "scope": {
+                "policy_id": record["policy_id"],
+                "version": record["policy_version"],
+            },
+            "version": record["version"],
+            "state": state,
+            "cleanup_state": record["cleanup_state"],
+            "execution": {
+                "active_calls": record["active_calls"],
+                "unknown_calls": record["unknown_calls"],
+                "egress_state": record["egress_state"],
+            },
+            "allowed_actions": ["cancel"] if can_control and state == "queued" else [],
+            "assessment_outcome": record["assessment_outcome"],
+            "stop_reason": record["stop_reason"],
+            "created_at": record["created_at"],
+            "updated_at": record["updated_at"],
+        }
+    )
+
+
+def _require_write(request: Request, runtime: Runtime, session, csrf_token: str | None) -> None:
+    origin = request.headers.get("origin")
+    if (
+        origin is None
+        or not hmac.compare_digest(origin, runtime.settings.public_origin)
+        or csrf_token is None
+        or not hmac.compare_digest(csrf_token, session.csrf_token)
+    ):
+        raise ApiProblem(403, "FORBIDDEN")
+
+
+def _command_problem(error: Exception) -> ApiProblem:
+    if isinstance(error, FreshAuthorityInvalid):
+        return ApiProblem(401, "UNAUTHENTICATED", clear_session=True)
+    if isinstance(error, CommandForbidden):
+        return ApiProblem(403, "FORBIDDEN")
+    if isinstance(error, ResourceNotFound):
+        return ApiProblem(404, "NOT_FOUND")
+    if isinstance(error, ScopeDenied):
+        return ApiProblem(403, "SCOPE_DENIED")
+    if isinstance(error, PreviewExpired):
+        return ApiProblem(409, "PREVIEW_EXPIRED")
+    if isinstance(error, VersionConflict):
+        return ApiProblem(409, "VERSION_CONFLICT")
+    if isinstance(error, IdempotencyConflict):
+        return ApiProblem(409, "IDEMPOTENCY_CONFLICT")
+    if isinstance(error, InvalidTransition):
+        return ApiProblem(409, "INVALID_TRANSITION")
+    if isinstance(error, CommandValidationFailed):
+        return ApiProblem(422, "VALIDATION_FAILED")
+    return ApiProblem(500, "INTERNAL_ERROR")
+
+
 def create_app(
     readiness_probe: ReadinessProbe | None = None,
     *,
@@ -220,7 +312,7 @@ def create_app(
             if runtime is not None:
                 await runtime.close()
 
-    application = FastAPI(title="Wuji Platform API", version="0.3.0", lifespan=lifespan)
+    application = FastAPI(title="Wuji Platform API", version="0.4.0", lifespan=lifespan)
     application.state.runtime = runtime
 
     @application.middleware("http")
@@ -691,14 +783,7 @@ def create_app(
     ) -> TaskPreviewResponse:
         current = _runtime(request)
         session = await _authenticated(request, current)
-        origin = request.headers.get("origin")
-        if (
-            origin is None
-            or not hmac.compare_digest(origin, current.settings.public_origin)
-            or csrf_token is None
-            or not hmac.compare_digest(csrf_token, session.csrf_token)
-        ):
-            raise ApiProblem(403, "FORBIDDEN")
+        _require_write(request, current, session, csrf_token)
         try:
             project = await current.authority.get_project(
                 user_id=session.user_id, project_id=project_id
@@ -727,6 +812,372 @@ def create_app(
         if preview is None:
             raise ApiProblem(404, "NOT_FOUND")
         return TaskPreviewResponse.model_validate(preview)
+
+    @application.get(
+        "/api/v1/projects/{project_id}/tasks",
+        tags=["Tasks"],
+        response_model=TaskPageResponse,
+        responses={
+            401: {"model": ErrorResponse},
+            404: {"model": ErrorResponse},
+            410: {"model": ErrorResponse},
+            422: {"model": ErrorResponse},
+            500: {"model": ErrorResponse},
+            503: {"model": ErrorResponse},
+        },
+    )
+    async def list_tasks(
+        request: Request,
+        project_id: UUID,
+        limit: int = Query(default=50, ge=1, le=100),
+        cursor: str | None = Query(default=None, min_length=1, max_length=512),
+    ) -> TaskPageResponse:
+        current = _runtime(request)
+        session = await _authenticated(request, current)
+        position = None
+        if cursor is not None:
+            try:
+                position = current.cursors.decode_task(
+                    cursor,
+                    user_id=session.user_id,
+                    permissions_version=session.permissions_version,
+                    project_id=project_id,
+                    limit=limit,
+                )
+            except ExpiredCursor as error:
+                raise ApiProblem(410, "CURSOR_EXPIRED") from error
+            except InvalidCursor as error:
+                raise ApiProblem(422, "VALIDATION_FAILED") from error
+        try:
+            result = await current.authority.list_tasks(
+                user_id=session.user_id,
+                project_id=project_id,
+                limit=limit,
+                position=position,
+            )
+        except AuthorityUnavailable as error:
+            raise ApiProblem(503, "SERVICE_UNAVAILABLE") from error
+        if result is None:
+            raise ApiProblem(404, "NOT_FOUND")
+        project, records = result
+        has_more = len(records) > limit
+        visible = records[:limit]
+        next_cursor = None
+        if has_more:
+            last = visible[-1]
+            next_cursor = current.cursors.encode_task(
+                user_id=session.user_id,
+                permissions_version=session.permissions_version,
+                project_id=project_id,
+                limit=limit,
+                position=TaskCursorPosition(created_at=last["created_at"], task_id=last["id"]),
+            )
+        return TaskPageResponse(
+            items=[
+                _task_response(record, can_control=project.role == "operator")
+                for record in visible
+            ],
+            next_cursor=next_cursor,
+        )
+
+    @application.post(
+        "/api/v1/projects/{project_id}/tasks",
+        tags=["Tasks"],
+        response_model=CommandReceiptResponse,
+        status_code=202,
+        responses={
+            401: {"model": ErrorResponse},
+            403: {"model": ErrorResponse},
+            404: {"model": ErrorResponse},
+            409: {"model": ErrorResponse},
+            422: {"model": ErrorResponse},
+            500: {"model": ErrorResponse},
+            503: {"model": ErrorResponse},
+        },
+    )
+    async def create_task(
+        request: Request,
+        project_id: UUID,
+        command: CreateTaskRequest,
+        idempotency_key: UUID = Header(alias="Idempotency-Key"),
+        csrf_token: str | None = Header(default=None, alias="X-CSRF-Token"),
+    ) -> CommandReceiptResponse:
+        current = _runtime(request)
+        session = await _authenticated(request, current)
+        _require_write(request, current, session, csrf_token)
+        try:
+            normalized_draft = normalize_task_draft(command.draft.model_dump(mode="json"))
+        except ScopePolicyError as error:
+            raise ApiProblem(422, "VALIDATION_FAILED") from error
+        request_payload = {
+            "draft": normalized_draft,
+            "input_digest": command.input_digest,
+            "preview_id": str(command.preview_id),
+        }
+        digest = command_request_digest(
+            kind="create", project_id=project_id, task_id=None, request=request_payload
+        )
+        try:
+            receipt = await current.authority.create_task_command(
+                user_id=session.user_id,
+                permissions_version=session.permissions_version,
+                project_id=project_id,
+                idempotency_key=idempotency_key,
+                preview_id=command.preview_id,
+                supplied_input_digest=command.input_digest,
+                normalized_draft=normalized_draft,
+                request_digest=digest,
+                trace_id=request.state.trace_id,
+            )
+        except (
+            CommandForbidden,
+            CommandValidationFailed,
+            FreshAuthorityInvalid,
+            IdempotencyConflict,
+            PreviewExpired,
+            ResourceNotFound,
+            ScopeDenied,
+            VersionConflict,
+        ) as error:
+            raise _command_problem(error) from error
+        except AuthorityUnavailable as error:
+            raise ApiProblem(503, "SERVICE_UNAVAILABLE") from error
+        return CommandReceiptResponse.model_validate(receipt)
+
+    @application.get(
+        "/api/v1/projects/{project_id}/tasks/{task_id}",
+        tags=["Tasks"],
+        response_model=TaskSnapshotResponse,
+        responses={
+            401: {"model": ErrorResponse},
+            404: {"model": ErrorResponse},
+            422: {"model": ErrorResponse},
+            500: {"model": ErrorResponse},
+            503: {"model": ErrorResponse},
+        },
+    )
+    async def get_task(
+        request: Request, project_id: UUID, task_id: UUID
+    ) -> TaskSnapshotResponse:
+        current = _runtime(request)
+        session = await _authenticated(request, current)
+        try:
+            result = await current.authority.get_task_snapshot(
+                user_id=session.user_id, project_id=project_id, task_id=task_id
+            )
+        except AuthorityUnavailable as error:
+            raise ApiProblem(503, "SERVICE_UNAVAILABLE") from error
+        if result is None:
+            raise ApiProblem(404, "NOT_FOUND")
+        project, record = result
+        return TaskSnapshotResponse(
+            task=_task_response(record, can_control=project.role == "operator"),
+            event_cursor=current.cursors.encode_event(
+                user_id=session.user_id,
+                permissions_version=session.permissions_version,
+                project_id=project_id,
+                task_id=task_id,
+                position=EventCursorPosition(sequence=record["event_sequence"]),
+            ),
+        )
+
+    @application.post(
+        "/api/v1/projects/{project_id}/tasks/{task_id}/commands",
+        tags=["Tasks"],
+        response_model=CommandReceiptResponse,
+        status_code=202,
+        responses={
+            401: {"model": ErrorResponse},
+            403: {"model": ErrorResponse},
+            404: {"model": ErrorResponse},
+            409: {"model": ErrorResponse},
+            422: {"model": ErrorResponse},
+            500: {"model": ErrorResponse},
+            503: {"model": ErrorResponse},
+        },
+    )
+    async def control_task(
+        request: Request,
+        project_id: UUID,
+        task_id: UUID,
+        command: TaskControlRequest,
+        idempotency_key: UUID = Header(alias="Idempotency-Key"),
+        csrf_token: str | None = Header(default=None, alias="X-CSRF-Token"),
+    ) -> CommandReceiptResponse:
+        current = _runtime(request)
+        session = await _authenticated(request, current)
+        _require_write(request, current, session, csrf_token)
+        request_payload = command.model_dump(mode="json")
+        digest = command_request_digest(
+            kind=command.action,
+            project_id=project_id,
+            task_id=task_id,
+            request=request_payload,
+        )
+        try:
+            receipt = await current.authority.control_task_command(
+                user_id=session.user_id,
+                permissions_version=session.permissions_version,
+                project_id=project_id,
+                task_id=task_id,
+                idempotency_key=idempotency_key,
+                action=command.action,
+                expected_version=command.expected_version,
+                request_digest=digest,
+                trace_id=request.state.trace_id,
+            )
+        except (
+            CommandForbidden,
+            FreshAuthorityInvalid,
+            IdempotencyConflict,
+            InvalidTransition,
+            ResourceNotFound,
+            VersionConflict,
+        ) as error:
+            raise _command_problem(error) from error
+        except AuthorityUnavailable as error:
+            raise ApiProblem(503, "SERVICE_UNAVAILABLE") from error
+        return CommandReceiptResponse.model_validate(receipt)
+
+    async def _read_receipt(
+        request: Request,
+        project_id: UUID,
+        *,
+        command_id: UUID | None = None,
+        idempotency_key: UUID | None = None,
+    ) -> CommandReceiptResponse:
+        current = _runtime(request)
+        session = await _authenticated(request, current)
+        try:
+            receipt = await current.authority.get_command_receipt(
+                user_id=session.user_id,
+                project_id=project_id,
+                command_id=command_id,
+                idempotency_key=idempotency_key,
+            )
+        except AuthorityUnavailable as error:
+            raise ApiProblem(503, "SERVICE_UNAVAILABLE") from error
+        if receipt is None:
+            raise ApiProblem(404, "NOT_FOUND")
+        return CommandReceiptResponse.model_validate(receipt)
+
+    @application.get(
+        "/api/v1/projects/{project_id}/commands/{command_id}",
+        tags=["Tasks"],
+        response_model=CommandReceiptResponse,
+        responses={
+            401: {"model": ErrorResponse},
+            404: {"model": ErrorResponse},
+            422: {"model": ErrorResponse},
+            500: {"model": ErrorResponse},
+            503: {"model": ErrorResponse},
+        },
+    )
+    async def get_command(
+        request: Request, project_id: UUID, command_id: UUID
+    ) -> CommandReceiptResponse:
+        return await _read_receipt(request, project_id, command_id=command_id)
+
+    @application.get(
+        "/api/v1/projects/{project_id}/command-keys/{idempotency_key}",
+        tags=["Tasks"],
+        response_model=CommandReceiptResponse,
+        responses={
+            401: {"model": ErrorResponse},
+            404: {"model": ErrorResponse},
+            422: {"model": ErrorResponse},
+            500: {"model": ErrorResponse},
+            503: {"model": ErrorResponse},
+        },
+    )
+    async def find_command_by_key(
+        request: Request, project_id: UUID, idempotency_key: UUID
+    ) -> CommandReceiptResponse:
+        return await _read_receipt(request, project_id, idempotency_key=idempotency_key)
+
+    @application.get(
+        "/api/v1/projects/{project_id}/tasks/{task_id}/events",
+        tags=["Tasks"],
+        response_model=EventPageResponse,
+        responses={
+            401: {"model": ErrorResponse},
+            404: {"model": ErrorResponse},
+            410: {"model": ErrorResponse},
+            422: {"model": ErrorResponse},
+            500: {"model": ErrorResponse},
+            503: {"model": ErrorResponse},
+        },
+    )
+    async def list_task_events(
+        request: Request,
+        project_id: UUID,
+        task_id: UUID,
+        after: str | None = Query(default=None, min_length=1, max_length=512),
+        limit: int = Query(default=50, ge=1, le=100),
+    ) -> EventPageResponse:
+        current = _runtime(request)
+        session = await _authenticated(request, current)
+        position = EventCursorPosition(sequence=0)
+        if after is not None:
+            try:
+                position = current.cursors.decode_event(
+                    after,
+                    user_id=session.user_id,
+                    permissions_version=session.permissions_version,
+                    project_id=project_id,
+                    task_id=task_id,
+                )
+            except ExpiredCursor as error:
+                raise ApiProblem(410, "CURSOR_EXPIRED") from error
+            except InvalidCursor as error:
+                raise ApiProblem(422, "VALIDATION_FAILED") from error
+        try:
+            records = await current.authority.list_task_events(
+                user_id=session.user_id,
+                project_id=project_id,
+                task_id=task_id,
+                after_sequence=position.sequence,
+                limit=limit,
+            )
+        except AuthorityUnavailable as error:
+            raise ApiProblem(503, "SERVICE_UNAVAILABLE") from error
+        if records is None:
+            raise ApiProblem(404, "NOT_FOUND")
+        has_more = len(records) > limit
+        visible = records[:limit]
+        next_position = position if not visible else EventCursorPosition(sequence=visible[-1]["sequence"])
+        next_cursor = after if not visible and after is not None else current.cursors.encode_event(
+            user_id=session.user_id,
+            permissions_version=session.permissions_version,
+            project_id=project_id,
+            task_id=task_id,
+            position=next_position,
+        )
+        items = [
+            TaskEventResponse.model_validate(
+                {
+                    "schema_version": "1.0",
+                    "event_id": record["event_id"],
+                    "cursor": current.cursors.encode_event(
+                        user_id=session.user_id,
+                        permissions_version=session.permissions_version,
+                        project_id=project_id,
+                        task_id=task_id,
+                        position=EventCursorPosition(sequence=record["sequence"]),
+                    ),
+                    "tenant_id": record["tenant_id"],
+                    "project_id": record["project_id"],
+                    "task_id": record["task_id"],
+                    "aggregate_version": record["aggregate_version"],
+                    "type": record["event_type"],
+                    "occurred_at": record["occurred_at"],
+                    "trace_id": record["trace_id"],
+                    "summary": record["summary"],
+                }
+            )
+            for record in visible
+        ]
+        return EventPageResponse(items=items, next_cursor=next_cursor, has_more=has_more)
 
     return application
 
