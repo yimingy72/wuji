@@ -13,15 +13,19 @@ dev = [
   "openapi-core==0.23.1",
   "pytest==9.1.1",
 ]
+agent-validation = [
+  "wuji-agent-integration",
+]
 
 [tool.uv]
 package = false
 
 [tool.uv.sources]
 wuji-api = { workspace = true }
+wuji-agent-integration = { workspace = true }
 
 [tool.uv.workspace]
-members = ["apps/api"]
+members = ["apps/api", "packages/agent-integration"]
 
 [tool.pytest.ini_options]
 addopts = "--strict-markers"
