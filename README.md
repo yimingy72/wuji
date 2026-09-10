@@ -27,7 +27,7 @@ v0.4 架构基线：
 - [本地工作台启动与停止](docs/local-development.md)：Docker Desktop Kubernetes、正式入口、开发账号读取及按影响选择的检查入口。
 - [开发基线验收](docs/stages/development-baseline/acceptance.md)：B01–B08 通过，21 项契约测试和 12 项浏览器用例通过；Phase 1A 功能已按 [Spec](docs/stages/phase-1a/spec.md) / [Plan](docs/stages/phase-1a/plan.md) 集成，[完整验收](docs/stages/phase-1a/acceptance.md)仍为 partial，剩余 3 项见[集中测试清单](docs/stages/phase-1a/deferred-tests.md)。
 - [Phase 1A 方案评审](docs/stages/phase-1a/review.md)：设计已完成复核；实际开发批次、提交与检查状态见[执行记录](docs/stages/phase-1a/execution.md)。
-- [Phase 1B Spec](docs/stages/phase-1b/spec.md) / [Plan](docs/stages/phase-1b/plan.md)：B1 批准范围与任务预览已获准实施；B2/B3 的真实任务、命令和事件尚未进入开发。
+- [Phase 1B Spec](docs/stages/phase-1b/spec.md) / [Plan](docs/stages/phase-1b/plan.md)：B1最小验证通过；B2/B3真实任务、命令和事件已批准连续实施，见[具体规范](docs/stages/phase-1b/b23-spec.md)与[验收记录](docs/stages/phase-1b/b23-acceptance.md)。
 - [架构设计 v0.4](docs/architecture.md)：组件职责、执行契约、安全边界、状态机和开发阶段。
 - [整体架构复审](docs/architecture-review.md)：十项设计缺口、已修正边界、框架复用清单与剩余验证。
 - [Agent 执行框架决策](docs/agent-harness-decision.md)：LangGraph、Deep Agents、pi、Claude/Codex SDK 与 DeepSeek Harness 的分工和接入顺序。

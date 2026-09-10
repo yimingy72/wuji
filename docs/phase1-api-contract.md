@@ -1,7 +1,7 @@
 # Phase 1 API 契约说明
 
-- **契约版本**：0.3.0；OpenAPI 3.1.1
-- **状态**：身份、健康与项目接口已实现；B1接入范围列表与服务端预览，实际交付结果见[B1验收](stages/phase-1b/acceptance.md)。任务创建/控制/事件与证据接口仍为后续阶段设计。
+- **契约版本**：0.4.0；OpenAPI 3.1.1
+- **状态**：身份、健康、项目、范围与预览已实现；B2/B3按[具体规范](stages/phase-1b/b23-spec.md)接入任务创建/取消/回执/事件，实际交付见[B2/B3验收](stages/phase-1b/b23-acceptance.md)。证据接口仍是后续设计。
 - **权威文件**：[openapi.yaml](../packages/contracts/openapi.yaml)
 - **生成类型**：[api.d.ts](../packages/contracts/generated/api.d.ts)
 - **响应校验器**：[@wuji/contracts/validators](../packages/contracts/generated/validators.js)，从同一 Schema 生成的 standalone ESM
@@ -58,7 +58,7 @@ B1预览有效期为300秒且不超过授权截止时间；始终返回`can_crea
 
 创建提交 `preview_id`、`input_digest` 和完整 draft。服务端重新计算摘要，检查绑定关系、权限、有效期、版本和业务端点语义，然后在同一事务内写入 Task queued、CommandReceipt 和 Outbox。固定到期时间不能由客户端延长。请求只携带已批准的策略引用，不接受客户端提供更宽的 origin 或任意工具配置。
 
-上述创建流程属于B2，本批次没有对应运行入口。B1登录回跳仅增加精确的`/projects/{uuid}/tasks/new`，API、前端及契约声明同步，不开放任意URL回跳。
+上述创建流程按已批准的B2/B3规范实施。0.4登录回跳在B1的`/projects/{uuid}/tasks/new`之外增加tasks列表和UUID详情，API、前端及契约声明同步，不开放任意URL回跳。
 
 URL Schema 只校验 HTTP(S) 语法和长度；实际 URL 规范化、路径段边界、编码、凭据、DNS/连接和重定向检查仍由平台策略及出口执行。JSON Schema 校验通过不等于获得执行授权。
 
@@ -87,7 +87,7 @@ Task状态枚举沿用主架构。API分别提供执行状态、cleanup_state、
 
 任务快照和 `event_cursor` 需要来自一致的已提交视图。数据库自增序号的分配顺序不保证事务提交顺序，服务端不能直接用“当前最大序号”作为已完整交付的游标。后端实现应选择能证明完整性的任务流序列化或发布游标方案，并用并发事务测试验证。
 
-事件查询使用排他的 `after` 和有界 `limit`，空结果保持游标，`has_more` 表示是否继续补页。游标超出保留期返回 410 `CURSOR_EXPIRED`，前端重新获取快照。事件包含资源归属、版本和简短摘要，不包含原始证据正文；重复通知只能刷新视图，不能触发新的目标操作。
+事件查询使用排他的 `after` 和有界 `limit`；0.4允许首次省略after从位置0读取历史，后续带游标增量读取。空结果保持游标（首次空页签发位置0），`has_more`表示是否继续补页。游标超出保留期返回410 `CURSOR_EXPIRED`，前端重新获取快照。事件包含资源归属、版本和简短摘要，不包含原始证据正文；重复通知只能刷新视图，不能触发新的目标操作。
 
 首版列表按稳定的 `(created_at, id)` 降序及绑定项目/查询条件的游标分页，每页默认 50、最大 100；任务名称筛选和排序扩展尚未进入接口。本地原型的示例筛选不是服务端分页或筛选实现。
 
