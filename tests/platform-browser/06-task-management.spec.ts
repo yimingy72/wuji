@@ -138,6 +138,6 @@ test('lost create response recovers by original key, lists the task, and cancels
   expect(cancelledSnapshot.task.id).toBe(committedTaskId);
   expect(cancelledSnapshot.task.state).toBe('cancelled');
   expect(cancelledSnapshot.task.version).toBe(2);
-  await expect(page.getByText(/已取消|cancelled/i)).toBeVisible();
+  await expect(page.getByText('已取消', { exact: true })).toBeVisible();
   await page.screenshot({ path: `${run.artifacts_dir}/b23-task-management.png`, fullPage: true });
 });
