@@ -18,6 +18,8 @@
 
 实施核对：现有change_membership与bump_permissions_version未使用用户锁；A在其写事务开始处补_lock_user，与set_user_enabled及新命令锁保持同一顺序，落实已批准的撤权协调要求。
 
+主代理接口收口：详情需要读取已有状态变更，但快照只返回尾部游标，因此events允许省略after从位置0有界读取初始历史；有after时原增量语义不变。A同步操作级参数与描述，B以历史事件展示而非伪造记录，T使用limit=1验证补页。
+
 ## 验证预算与命令
 
 所有B2/B3开发、测试共用600秒。A/B各预留60秒，T执行预留360秒，主代理集成及启动预留120秒；只按实际用时累计，不按代理/轮次重置。构建主代理统一一次，A/B不重复全量检查；Ant Design按技能必要info/lint限定改动路径。依赖仅缺失或版本变动时冻结安装，复用本机toolchain缓存，node_modules/.venv各树独立。
