@@ -7,7 +7,7 @@
 - 被测集成 SHA：`a84716c9d5c8f11b6bc3145c199743cac6af82b3`
 - 测试脚本：`tests/agent-integration/check_p0_independent.py`，提交 `14572c6f7dc127224bc5925e0f7efb5f4ebc965a`
 - 运行：`p1cp0-20260910-a84716c`
-- 预算：依赖准备耗时 128 秒；本独立窗口约 15 秒（取消夹具 shell wall 4.6 秒、真实 CLI shell wall 9.6 秒、离线报告核验约 0.2 秒），未达到 180 秒上限；阶段共享预算余约 457 秒，后续开发检查继续计入
+- 预算：依赖与开发检查合计耗时 128 秒；已记录的单命令 wall 为取消夹具 4.6 秒、真实 CLI 9.6 秒、离线报告核验约 0.2 秒。完整独立窗口起止 UTC 未采集，不能将上述片段相加作为完整窗口；按主代理规则保守扣除预算。后续开发检查继续计入共享 600 秒
 
 本记录绑定固定候选完成一次最小独立核查，不代表生产隔离或后续业务验收已通过。测试使用开发树提供的既有 Python 3.13.15 venv，固定 `PYTHONPATH` 到候选适配包源码；模块 `__file__` 已核对为候选包下的 `wuji_agent_integration/__init__.py`。未读取凭据内容。
 
@@ -28,6 +28,7 @@
 - 无网络静态护栏：退出码 `0`。源码与模块路径核对通过，实际工具集合、原生工厂、两处 `max_retries=0`、共享/协议次数限制均满足；未做 model discovery 或连通预热。
 - 本地取消命令：`PYTHONPATH=<candidate>/packages/agent-integration/src <existing-venv>/bin/python -m wuji_agent_integration.probe --fixture-cancel`；退出码 `0`；shell wall `4.6s`，夹具自身耗时 `1.144345s`；`cancelled=true`、`adapter_wait_ended=true`、`provider_process_cleaned=true`。
 - 真实命令：`PYTHONPATH=<candidate>/packages/agent-integration/src <existing-venv>/bin/python -m wuji_agent_integration.probe --credentials <private-path> --ledger <shared-ledger> --report <candidate>/artifacts/phase-1c-prep-p0/report.json --run-id p1cp0-20260910-a84716c --timeout-seconds 40`；退出码 `0`；shell wall `9.6s`；实际请求恰为 4 次。
+- 完整窗口时间证据：未采集到从执行前准备/路径核对开始至最后离线校验结束的 UTC 起止，不能据现有记录推导；账本仅证明真实上游预留区间为 `2026-09-10T06:55:18.915479+00:00` 至 `2026-09-10T06:55:23.367927+00:00`，不覆盖前置核对、取消夹具或报告校验。
 - OpenAI 兼容 Harness：2 次，实际模型均为 `qwen-flash`；结束原因为 `tool_calls` / `stop`；用量为 `(195,18,213)` / `(235,6,241)`（输入/输出/总计）。工具 `wuji_synthetic_check` 的调用 ID 与结果回传匹配，最终文本为 `WUJI_GATEWAY_OK`。
 - Anthropic 原生客户端：2 次，实际模型均为 `qwen-flash`；结束原因为 `tool_use` / `end_turn`；用量为 `(157,18,175)` / `(197,8,205)`（输入/输出/总计）。工具调用 ID 与结果回传匹配。
 - 持久账本核对：本 run 4 条记录，OpenAI 2 条、Anthropic 2 条，序号各为 1/2，均 `completed`；限制为共享 4、每协议 2、SDK retries 0、输出 256。报告记录 `provider_secrets_present_in_harness=false`、`external_tracing_enabled=false`，两 Provider 清理标志均为 true。
