@@ -9,9 +9,13 @@
 - **前端实施设计**：[前端架构与技术选型](frontend-architecture.md)
 - **Agent 执行层**：[Harness 职责与选型建议](agent-harness-decision.md)、[模型网关实测](model-gateway-validation.md)
 - **本次复审**：[问题、修正与验证缺口](architecture-review.md)
+- **参考复核补充（2026-09-10）**：[元刃后端复核](metablade-backend-review.md)、[已确认产品交互](product-interaction-proposal.md)；目标设计补充，公开 API 0.4.0 尚未升级
+- **黑板明确要求（2026-09-10）**：[Cairn 黑板适配设计](cairn-blackboard-design.md)；Fact/Intent/Hint 驱动探索，Phase 2 起落实最小协议
 - **开工准备**：[依赖与交付顺序](predevelopment-plan.md)、[Phase 1 API 契约](phase1-api-contract.md)
 
 v0.4 保留既有执行控制、评估与交付模型，修正框架复用边界：上下文管理、压缩和 Agent 循环复用 Harness，持久执行复用 LangGraph，多模型协议复用现成适配器。Wuji 实现领域策略与集成契约，不另建通用 Agent 框架；具体依赖仍待集成验证。本文描述目标能力，不把设计接口当成实现；实际进度以[Phase 1A验收](stages/phase-1a/acceptance.md)、[B1验收](stages/phase-1b/acceptance.md)和[B2/B3验收](stages/phase-1b/b23-acceptance.md)为准。
+
+2026-09-10 场景与流量补充设计见 [场景、执行边界与流量工作台](scenario-execution-design.md)。任务场景与 HTTP/Agent 实现能力分离；新增阶段授权、受管代理/MCP 出网资格与请求级流量视图的拟议契约。最新补充：Web 默认不配账号，成果凭据通过黑板受限引用共享；已批准阶段自动推进。外域页面资源可正常加载但不可主动测试，目标测试、依赖加载和候选核验采用不同执行许可。流量证据细化见 [Kali 流量方案](traffic-evidence-design.md)。该修订为待评审设计，不代表当前 0.4.0 已实现。
 
 ## 1. 目标与架构原则
 
@@ -38,7 +42,7 @@ Wuji 在 Kubernetes 中管理独立任务执行环境，由 Platform 中的 Agen
 | Agent | 运行在 Platform 的 Orchestrator，通过 MCP Router 请求工具 | 不持有 Kubernetes、Runtime 或 Provider 凭据 |
 | Agent Harness | 通过薄 AgentDriver 复用模型/工具循环与上下文管理；优先验证 Deep Agents | LangGraph 管外层任务；具体 Harness 和版本待受控集成验证，一个 AgentRun 绑定一种实现 |
 | 上下文 | Harness 独占会话历史、压缩和工作记忆；平台提供版本化输入与证据引用 | 不另建压缩服务；摘要不是事实或授权来源，辅助模型调用同样计费 |
-| 协作 | LangGraph 编排；Blackboard 共享事实；Dispatcher 管理 Worker | Worker 无权扩大范围、权限和任务总预算 |
+| 协作 | Cairn 风格 Fact/Intent/Hint 黑板驱动探索；LangGraph 持久编排；Dispatcher 分派 Worker | 角色是能力配置，不是固定流水线；Worker 无权扩大范围、权限和任务总预算 |
 | 评估单元 | VerificationRun 独立于 AgentRun，固定主张、方法、身份和证据 | 单 Agent 即可执行；独立复核不等于模型多数投票 |
 | 覆盖与停止 | 版本化 CoveragePlan，区分有效评估、未复现、阻断和未执行 | 计划内覆盖率不是整个目标系统的安全覆盖率 |
 | 能力配置 | ScenarioProfile、AgentProfile、SkillPackage、ReferenceVersion 各自版本化 | 配置与知识不能替代 ScopePolicy 授权 |
@@ -110,10 +114,8 @@ scopePolicy:
   validUntil: "2026-09-09T02:00:00Z"
   targets:
     - origin: https://authorized-target.example:443
-      allowedPathPrefixes: [/public/]
       allowedMethods: [GET, HEAD]
       operationClasses: [http-observe]
-  excludedPathPrefixes: [/public/logout, /public/admin]
   redirects: revalidate-every-hop
   dnsPolicy: resolve-validate-connect
   credentialPolicy: same-approved-origin-only
@@ -127,25 +129,25 @@ scopePolicy:
   prohibitions: [destructive-action, target-persistence, lateral-movement]
 ```
 
-Schema 必须明确 URL 规范化、路径段边界匹配、编码处理、IP 字面量和 IPv6 规则；前缀 `/public/` 不能误匹配 `/publicity/`。GET/HEAD 只是约束之一，已知会改变业务状态的端点仍必须排除。
+2026-09-10 用户删除路径级强制范围要求：目标策略只约束域名/子域、协议、端口及明确批准资产，不再包含路径白名单/黑名单。Schema 须明确域名规范化、子域匹配、IP 字面量和 IPv6 规则；路径可用于测试重点及流量查看，不构成权限。非破坏性约束仍通过已批准操作类别与受信 Adapter 实现，不能仅靠 GET/HEAD 名称判断。当前 0.4.0 的存量路径授权保持历史含义，正式迁移不得自动扩大旧授权。
 
-实际权限为平台允许集合、租户策略、项目授权、Task Scope、RuntimeProfile、Worker 授权和 Tool Adapter 能力的交集；平台禁止项和其他拒绝规则优先。
+主动测试权限为平台允许集合、租户策略、项目授权、Task Scope、RuntimeProfile、Worker 授权和 Tool Adapter 能力的交集；平台禁止项和其他拒绝规则优先。正常页面依赖按受管加载上下文获得独立、有限的访问许可；它不是测试权限，也不将外域加入 Task 测试 Scope。候选核验与平台服务亦独立按用途校验，不能使用一个目标白名单概括全部出网。
 
 新增目标、延长授权或放宽操作须经有权限的操作者创建新版本；Agent 只能提交请求。现有授权可复用且仍有效时，不重复索要确认。版本切换先阻止新派发并停止或排空受影响调用；Router、Runtime、出口完成新版本绑定后才能恢复。撤销策略、授权过期和禁止项命中不得自动降级放行。
 
 ### 4.2 三个执行检查点
 
-1. **Router**：校验可信身份、任务状态、策略版本、结构化参数、工具版本、预算及租约，保存 ToolCall 后签发有限许可。
+1. **Router**：校验可信身份、任务状态、策略版本、结构化参数、工具版本、操作用途、预算及租约，保存 ToolCall 后签发有限许可。
 2. **Runtime**：验证许可与本机 Task/attempt 匹配，检查参数摘要、截止时间、去重记录、可用 Adapter 和进程配额；不接受 Agent 直接构造的权限字段。
 3. **Egress Gateway**：独立验证工作负载与活动任务绑定、策略版本、执行有效期，检查实际目的地及累计请求量；拒绝 Runtime 直连互联网或平台内网。
 
 Router 同时签发接收方为出口的调用许可，绑定 call/attempt、Worker 的目标子集、操作类型和请求额度；Supervisor 使用它发起出口请求。后续 CLI 只能获得该次调用的受限出口句柄，不获得任务通用控制凭据。网关逐请求校验许可并累计用量，Task 级网络可达不代表获得整个 Task 的操作权限。
 
-首版出口提供受控 HTTP 请求转发，由网关解析并规范化 origin、方法、路径、请求头和重定向，不提供任意 CONNECT 隧道。TLS 在网关作为 HTTP 客户端连接目标并验证证书，返回受限响应。普通 L4 白名单无法实现方法/路径约束。
+首版出口提供受控 HTTP 请求转发，由网关解析并规范化 origin、方法、路径、请求头和重定向，不提供任意 CONNECT 隧道。TLS 在网关作为 HTTP 客户端连接目标并验证证书，返回受限响应。保留受控转发用于域名/工具操作检查及请求证据；不执行路径级范围校验。浏览器 HTTPS 内容可见性另行选型，不能仅凭 L4 日志声称已取得明文请求/响应。
 
 解析 DNS 后检查全部候选地址，只连接本次验证过的地址；每次重试、重定向和新连接重新检查，防止校验和连接使用不同目的地。网关拒绝平台 Service/Pod/Node 网段、API Server、元数据服务和保留地址；客户内网目标只能通过显式批准且与平台基础设施隔离的出口配置接入，不能笼统放行所有私网。
 
-发现新域名、子域名或关联资产只记录为候选事实，不自动纳入范围。跨 origin 不转发 Authorization/Cookie。目标路径限定到 Host 的授权不能因共用 IP 扩展为整台服务器授权。
+发现新域名、子域名或关联资产只记录为候选事实，不自动纳入范围。跨 origin 不转发 Authorization/Cookie。限定到 Host 的授权不能因共用 IP 扩展为整台服务器授权。
 
 ## 5. 工具契约与 MCP
 
@@ -237,7 +239,7 @@ Runtime 默认配置：
 | Router | 绑定的 Runtime MCP | mTLS + 有限执行许可；禁止任意用户指定 URL |
 | Runtime Supervisor | Router、Artifact 接口、Egress Gateway | 身份绑定的心跳/结果、受限上传、授权目标请求 |
 | Kali 工具容器 | Egress Gateway、受限本地 Adapter 通道 | 仅接受逐调用出口许可；无权访问平台业务 API |
-| Egress Gateway | 已验证目标、受控 DNS | 策略与活动租约内的连接；拒绝平台网段 |
+| Egress Gateway | 已验证目标、获准页面依赖/候选核验目的地、受控 DNS | 按用途许可与活动租约检查连接；辅助访问不变为测试权，拒绝平台网段 |
 | Model Gateway | 租户允许的 Provider/适配层 | 数据策略允许的模型请求 |
 | Runtime Controller | Kubernetes API、任务存储、出口管理接口 | 资源协调、执行租约及撤销 |
 
@@ -274,7 +276,7 @@ Controller 的集群权限限定在预置 Runtime Namespace 内的必要资源�
 | 预算 | PostgreSQL reservation/ledger；Gateway、Router 按预算类型预占和结算 |
 | 事件和 UI | 事务 Outbox 发布、持久化事件投影；不作为独立事实源 |
 
-Task API 的创建、暂停、恢复、取消接受幂等请求键和资源版本，区分“命令已接受”与“状态已达成”。事件带 `event_id / tenant_id / task_id / aggregate_version / trace_id`。投递按至少一次设计，消费者去重并检查版本；乱序事件不能让终态任务重新运行。
+Task API 的创建、启动、暂停、恢复、取消接受幂等请求键；变更已有任务的命令校验资源版本，区分“命令已接受”与“状态已达成”。事件带 `event_id / tenant_id / task_id / aggregate_version / trace_id`。投递按至少一次设计，消费者去重并检查版本；乱序事件不能让终态任务重新运行。
 
 取消提交、执行许可签发和租约续期都按同一 Task 版本/epoch 做数据库条件更新，避免检查后又被取消的竞争。取消提交后不再签发新许可；此前已签发且在途的操作通过出口撤销与租约上限停止，不能宣称分布式撤销无传播延迟。数据库不可用时拒绝新授权和续约。
 
@@ -282,7 +284,8 @@ Task API 的创建、暂停、恢复、取消接受幂等请求键和资源版�
 
 ```text
 Task:
-queued -> provisioning -> running -> completing -> completed
+ready --显式 start--> queued -> provisioning -> running -> completing -> completed
+ready / 无活动资源且从未执行的 queued -> cancelled
 running -> pausing -> paused -> provisioning/running
 任意非终态 -> cancelling -> cancelled
 运行异常 -> reconciling -> paused / running / cancelling / failed
@@ -293,6 +296,8 @@ proposed -> rejected
 authorized/dispatched/running -> cancelling -> cancelled
 dispatched/running -> unknown -> reconciling -> 已核实结果 / 保持 unknown
 ```
+
+`ready` 是 2026-09-10 产品确认后的目标状态，表示配置固定但尚未启动；可编辑草稿独立于 Task。当前 B2/B3 API 0.4.0 仍只实现创建 queued 和取消，不具备 start 或执行能力。Phase 1C 前置批次需先完成契约和迁移，保留旧回执与事件，并使历史未执行任务重新等待显式启动；执行器必须检查有效启动记录，不得自动执行旧 queued。
 
 只有授权有效、预算允许、旧 epoch 已隔离且未取消的任务才可从 reconciling 恢复 running。未知结果不会直接转为成功，也不会因为换了 Pod 就变成“未执行”。完成任务前必须确认没有活动执行和待核对调用，证据元数据已落库，出口权限已撤销；清理进度单独显示。
 
@@ -335,6 +340,8 @@ LangGraph 提供编排与持久执行机制，不自动包含完整 Agent Harnes
 
 ### 8.1 编排
 
+明确采用[黑板协作设计](cairn-blackboard-design.md)：一块黑板绑定一个 Task，保存有来源的事实、探索方向、人工/Agent 提示及因果关系。下一步工作由当前黑板状态动态产生；Scenario 给出边界与完成标准，AgentProfile 限定能力，不要求固定角色依次出场。
+
 ```text
 Bootstrap -> Reason -> Submit Intent -> Dispatch -> Wait Workers
     ^                                                |
@@ -345,7 +352,11 @@ Bootstrap -> Reason -> Submit Intent -> Dispatch -> Wait Workers
 
 Dispatcher 原子认领 Intent，记录 owner、租约和递增 fencing token；过期 Worker 的写入拒绝。Intent 使用任务、目标、验证方法、身份和阶段生成去重键，重复观察更新现有探索项。每个 Task 只有一个持有有效租约的主编排实例。
 
+Blackboard 使用 API 内统一领域写入口：Dispatcher 提交 Worker 结果，用户提示经鉴权 API 提交，均检查任务归属、版本和当前权限。事实/关系、Intent 结论及事件同事务更新；模型不直接写库。Hint 是有来源的建议，不是事实、授权或恢复命令。Origin/Goal 为任务起点与目标锚点，未达成目标不当作已验证 Fact。因果关系保留多个输入依据，冲突通过追加记录/关系表达。
+
 Worker 绑定服务端创建的 `agent_run_id / intent_id / scope_version / runtime_attempt / credential_handle / budget_reservation`。模型输入只包含必要描述和逻辑句柄，不包含授权凭据。Worker 可提交后续 Intent，创建权和预算分配留在 Dispatcher。
+
+WorkerAssignment 从冻结配置与当前执行权限装配自包含目标、完成标准、角色版本、允许方法/身份、资料与证据引用、已知事实来源、截止时间和取消 epoch；不默认复制主 Agent 整段会话。工作目录、Adapter 等环境事实来自实际运行配置，不复制模板中的旧环境文本。AgentRunResult 以结构化执行结果、证据、限制和后续提案落库，完成事件随后发布；框架会话和领域结果通过 AgentDriver 关联，不另建通用 Agent 循环。
 
 独立工作可后台执行，依赖结果的步骤等待持久化完成事件；恢复后从 AgentRun/事件游标取结果，不靠模型循环轮询。Worker 回传结构化结论、证据 ID、限制、新 Intent 和平台计量的 usage。前台/后台只是调度方式，共用相同许可、取消、租约和预算约束；AgentRun 续接须重新检查任务状态，不允许旧 Worker 在取消后被消息唤醒继续执行。
 
@@ -398,7 +409,9 @@ Harness 管理消息历史、Token 估计、上下文裁剪、摘要与大结果
 
 ### 8.7 打断与流式事件
 
-复用 Harness / LangGraph 的中断、恢复、取消信号与事件 API，Wuji 只映射业务命令。等待用户决策使用已保存的中断位置；用户补充指令在下一个安全边界入队处理，不另起并行主循环。Phase 1 只有 pause/resume/cancel，后续 steering 或审核交互扩展契约后再开放。
+复用 Harness / LangGraph 的中断、恢复、取消信号与事件 API，Wuji 只映射业务命令。等待用户决策使用已保存的中断位置；用户补充指令在下一个安全边界入队处理，不另起并行主循环。Phase 1 控制动作以 start/pause/resume/cancel 为目标并按批次开放；当前 B2/B3 仅实现 cancel。后续 steering 或审核交互扩展契约后再开放。
+
+人工问题及回答先保存领域归属（Task/AgentRun/问题 ID、允许回答者、状态和版本），再映射到框架中断与恢复；回答不能让已取消或失权任务被旧 agentId 唤醒。模型自述、提示词禁令、工具名称前缀均不能替代注册能力和服务端鉴权。元刃材料中的相似工具表面不作为 SDK/模型真实来源或压缩能力的证据，见[参考复核](metablade-backend-review.md)。
 
 框架中断不自动代表 Task 已 paused；必须满足第 7 节排空与出口冻结条件。取消先提交平台 epoch，再传播框架 abort 与工具停止，迟到结果只入账；恢复检查授权和活动租约，不能通过直接 resume 底层会话绕过业务命令。
 
@@ -460,7 +473,7 @@ Gateway 同时获得租户/任务预算预占和 QuotaGroup 容量许可；任�
 
 ```text
 Tenant / Project / Membership / Authorization / ScopePolicy
-Task / TaskRuntime / AgentRun / Intent / GraphCheckpoint
+Task / TaskRuntime / AgentRun / Intent / Hint / GraphCheckpoint
 ConfigSnapshot / ScenarioProfileVersion / AgentProfileVersion / SkillPackageVersion
 Reference / ReferenceVersion / CoveragePlanVersion / CoverageItem
 VerificationRun / ValidationRuleVersion / VerificationTemplateVersion
@@ -524,7 +537,7 @@ Finding 使用稳定 ID + 追加式 FindingRevision，分别管理证据结论�
 
 前端按“作业”和“配置”组织：作业包括总览、任务、资产、验证、漏洞、报告和资料；配置包括场景/角色/知识版本、RuntimeProfile、模型/QuotaGroup 和租户权限。Task 详情包含覆盖、时间线、工作区和 Agent 执行记录。
 
-创建页先选可用场景，再补齐目标、资料和验证身份；显示有效目标、授权期限、排除项、允许操作、请求上限、模型数据策略和出口位置。服务端保存配置及策略快照；用户看到的范围与执行策略使用同一版本。缺少 Adapter 或凭据的测试维度显示阻断原因，不伪装为可启动的完整场景。
+创建页先选可用场景，再补齐目标与可选资料；Web 单点默认匿名且不提供账号配置，运行中取得的身份作为受限任务成果管理；显示有效目标、授权期限、排除项、允许操作、请求上限、模型数据策略和出口位置。服务端保存配置及策略快照；用户看到的范围与执行策略使用同一版本。缺少 Adapter 或凭据的测试维度显示阻断原因，不伪装为可启动的完整场景。
 
 状态展示区分暂停中、已暂停、取消中、已取消、结果核对中、清理待完成；API 接受取消请求后不能立即显示“已停止”。写命令使用幂等键，超时先核对原命令；不自动换键再次提交。事件带游标，快照与订阅之间提供一致交接；SSE 断线后从持久事件补发，客户端去重并校验资源版本，游标失效时重新同步快照。
 
@@ -579,7 +592,7 @@ docs/
 | 阶段 | 交付内容 | 进入下一阶段的条件 |
 | --- | --- | --- |
 | Phase 1：受控工具闭环 | Task API、基础租户/RBAC、ScopePolicy、Controller、MCP Router、HTTP Adapter、出口、调用账本/Outbox、事件查询、配额、取消、清理、最小 Helm；控制台登录/项目、任务和证据页面 | 无模型介入，在自建服务验证越界拒绝、非破坏性、跨租户隔离、限额、失联断流和资源回收；前端状态与执行结果一致 |
-| Phase 2：单 Agent 评估 | Model Gateway/QuotaGroup、LangGraph + 一个已验证 Harness、框架上下文管理、配置快照、一个 HTTP 场景及知识包、CoveragePlan、VerificationRun、最小资产/证据模型、SSE、恢复、Markdown 报告快照及评估页面 | 上下文压缩/打断/恢复/辅助计费通过 H01–H10；提示注入不能扩大工具权限；恢复不盲目重复操作；阻断不算未复现；断线补发不造成状态回退 |
+| Phase 2：单 Agent 评估 | Model Gateway/QuotaGroup、LangGraph + 一个已验证 Harness、框架上下文管理、配置快照、一个 HTTP 场景及知识包、最小 Fact/Intent/Hint 黑板与关系/事件、CoveragePlan、VerificationRun、最小资产/证据模型、SSE、恢复、Markdown 报告快照及评估页面 | 上下文压缩/打断/恢复/辅助计费通过 H01–H10；提示注入不能扩大工具权限；恢复不盲目重复操作；阻断不算未复现；断线补发不造成状态回退 |
 | Phase 3：多 Agent | Blackboard 扩展、Intent 租约、Dispatcher、角色模板、异步 Worker、独立身份/目录、验证交接与复核 | 重复认领、过期 Worker、状态冲突和并发预算通过验收；有 Browser 时先通过 Context 隔离验收 |
 | Phase 4：平台完善 | Finding 研判/修复工作流、报告发布和多格式导出、资料导入、资产关系查询、租户管理、保留策略和容量演练 | 结论状态不混淆，报告版本固定，权限撤销及备份恢复可验证；未实现格式不声明支持 |
 | Phase 5：按需扩展 | 额外 Adapter、CRD、JetStream、多集群/ExternalRuntime | 有量化需求，并通过原有边界与新能力的增量验收 |
