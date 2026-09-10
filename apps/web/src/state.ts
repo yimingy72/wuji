@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import type { Project, Session } from './api';
+import { clearAllPendingCommands, retainPendingCommandsForUser } from './pendingCommand';
 
 export type SessionStatus =
   | 'checking'
@@ -66,6 +67,7 @@ export function acceptSession(
 
   const previous = snapshot.session;
   if (previous && previous.user_id !== session.user_id) {
+    clearAllPendingCommands();
     emit({
       status: 'authenticated',
       session,
@@ -75,6 +77,8 @@ export function acceptSession(
     });
     return 'identity-changed';
   }
+
+  retainPendingCommandsForUser(session.user_id);
 
   const permissionsChanged = previous?.permissions_version !== undefined
     && previous.permissions_version !== session.permissions_version;
@@ -97,6 +101,7 @@ export function acceptSession(
 
 export function markUnauthenticated(capturedGeneration: number): boolean {
   if (snapshot.identityGeneration !== capturedGeneration) return false;
+  clearAllPendingCommands();
   emit({
     status: 'signed-out',
     session: null,
@@ -176,6 +181,7 @@ export function beginLogout(): string | null {
   }
   if (!snapshot.session) return null;
 
+  clearAllPendingCommands();
   logoutCsrfToken = snapshot.session.csrf_token;
   emit({
     status: 'logout-pending',

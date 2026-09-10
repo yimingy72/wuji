@@ -465,6 +465,7 @@ function ProjectContent({ session, projectId }: { session: Session; projectId: s
 function ProjectWorkspace({ session, project }: { session: Session; project: Project }) {
   const navigate = useNavigate();
   const canPreview = project.permissions.includes('task.preview');
+  const canReadTasks = project.permissions.includes('task.read');
   return (
     <section className={styles.projectWorkspace} aria-labelledby="project-title">
       <Link className={styles.backLink} to="/projects">
@@ -477,11 +478,14 @@ function ProjectWorkspace({ session, project }: { session: Session; project: Pro
           <h1 id="project-title">{project.name}</h1>
           <p data-testid="project-canary">项目 {project.name} · {project.id}</p>
         </div>
-        {canPreview && (
-          <Button type="primary" onClick={() => navigate(`/projects/${project.id}/tasks/new`)}>
-            任务预览
-          </Button>
-        )}
+        <div className={styles.inlineActions}>
+          {canReadTasks && <Button onClick={() => navigate(`/projects/${project.id}/tasks`)}>任务列表</Button>}
+          {canPreview && (
+            <Button type="primary" onClick={() => navigate(`/projects/${project.id}/tasks/new`)}>
+              新建任务
+            </Button>
+          )}
+        </div>
       </header>
       <div className={styles.workspacePanel}>
         <aside className={styles.projectSummary}>
@@ -506,6 +510,8 @@ function ProjectWorkspace({ session, project }: { session: Session; project: Pro
               <dd><span className={styles.permissionState}>已授权</span></dd>
               <dt>任务预览</dt>
               <dd>{canPreview ? <span className={styles.permissionState}>已授权</span> : '只读身份不可提交'}</dd>
+              <dt>任务查看</dt>
+              <dd>{canReadTasks ? <span className={styles.permissionState}>已授权</span> : '当前身份不可查看'}</dd>
               <dt>会话到期</dt>
               <dd><time dateTime={session.expires_at}>{new Date(session.expires_at).toLocaleString('zh-CN')}</time></dd>
             </dl>

@@ -15,6 +15,7 @@ import {
   RouteErrorPage,
 } from './pages';
 import { TaskPreviewPage } from './taskPreview';
+import { TaskDetailPage, TasksPage } from './tasks';
 import {
   enterProject,
   enterProjects,
@@ -102,9 +103,21 @@ export const router = createBrowserRouter([
         errorElement: <RouteErrorPage />,
       },
       {
+        path: 'projects/:projectId/tasks',
+        loader: projectLoader,
+        element: <TasksPage />,
+        errorElement: <RouteErrorPage />,
+      },
+      {
         path: 'projects/:projectId/tasks/new',
         loader: projectLoader,
         element: <TaskPreviewPage />,
+        errorElement: <RouteErrorPage />,
+      },
+      {
+        path: 'projects/:projectId/tasks/:taskId',
+        loader: projectLoader,
+        element: <TaskDetailPage />,
         errorElement: <RouteErrorPage />,
       },
       { path: '*', element: <NotFoundPage /> },
