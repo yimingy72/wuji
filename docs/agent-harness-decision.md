@@ -1,5 +1,7 @@
 # Agent 执行框架与 LangGraph 的职责划分
 
+> 2026-09-10 P0增量：[受限适配验收](stages/phase-1c-prep-p0/acceptance.md)已通过：Deep Agents 0.7.13的单工具往返及OpenAI/Anthropic原生客户端接入。本页此前“尚未集成验证”描述适用于当时；正式Agent、长上下文、持久恢复与完整流式能力仍未验收。
+
 > 2026-09-10 阶段更新：下一步已包含基础模型配置与待细化的显式连接检查，详见 [Phase 1C 前置草案](stages/phase-1c-prep/spec.md)。本文“Phase 1 无模型闭环”指目标执行不依赖 Agent 推理，不排除已前移的配置能力；Harness 候选验证仍按后续独立切片进行。
 
 - **日期**：2026-09-09

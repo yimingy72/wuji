@@ -1,6 +1,6 @@
 # Phase 1C 前置 P0 Plan
 
-- 状态：in-progress；批准依据同Spec。
+- 状态：completed；本批P0已交付，后续0.5业务仍未批准。批准依据同Spec。
 - 背景：根AGENTS、project-context、agent-harness-decision、architecture中Model Gateway/QuotaGroup、模型网关历史实测；最新用户批准计划为本批范围依据。
 
 ## 顺序与唯一归属

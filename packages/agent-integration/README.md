@@ -18,3 +18,7 @@ Run the local cancellation fixture without credentials or network access:
 ```sh
 python -m wuji_agent_integration.probe --fixture-cancel
 ```
+
+The accepted P0 evidence is recorded in `docs/stages/phase-1c-prep-p0/acceptance.md` at repository root. The approved real-call allowance is now exhausted: do not rerun by changing the ledger path or run ID. Four attempts and the 256-output-token cap are probe limits, not permanent task defaults.
+
+This revision verifies synchronous tool round trips and local adapter cancellation only. Streaming, persistent recovery, long-context summarization, production isolation, and task token-budget enforcement remain outside this probe.

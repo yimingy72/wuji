@@ -39,8 +39,9 @@ Wuji 是 Kubernetes 原生的授权安全验证平台。产品流程是创建任
 | Phase 1B B1 | Scope 与预览已实现，通过最小验证 | [验收](stages/phase-1b/acceptance.md) |
 | Phase 1B B2/B3 | 创建、查询、取消、幂等回执、事件同步已实现，最小 API 6/6、浏览器 1/1；仅 queued/cancelled | [验收](stages/phase-1b/b23-acceptance.md)、[延期清单](stages/phase-1b/b23-deferred-tests.md) |
 | 产品交互 | 旧原型 review-ready / partial；新五场景设计不能沿用该验收 | [记录](stages/product-interaction/acceptance.md) |
-| Phase 1C 前置 | P0基线/框架验证已批准并实施，见[P0 Spec](stages/phase-1c-prep-p0/spec.md)；其余0.5业务仍draft | [Spec](stages/phase-1c-prep/spec.md)、[Plan](stages/phase-1c-prep/plan.md)、[记录](stages/phase-1c-prep/acceptance.md) |
-| Runtime、Harness、黑板、流量采集 | 设计与有限协议研究阶段，尚未业务实现 | 下节对应架构文档 |
+| Phase 1C 前置 | P0基线/框架验证已完成最小验收，见[P0 Spec](stages/phase-1c-prep-p0/spec.md)；其余0.5业务仍draft | [Spec](stages/phase-1c-prep/spec.md)、[Plan](stages/phase-1c-prep/plan.md)、[记录](stages/phase-1c-prep/acceptance.md) |
+| Harness适配 | 独立P0包通过受限Deep Agents与两协议工具往返；未接正式Agent | [P0验收](stages/phase-1c-prep-p0/acceptance.md) |
+| Runtime、黑板、流量采集 | 设计阶段，尚未业务实现 | 下节对应架构文档 |
 
 表内测试是复用历史记录，未在本次文档提交重跑。B2/B3 测试代码基准为 `e76a265d445ae9548d7f56fdb85f9b8b5c005759`，具体 run 与限制以验收正文为准。架构验收目录的 80 项不是本次或每次开发必须执行的清单。
 
@@ -62,4 +63,4 @@ Wuji 是 Kubernetes 原生的授权安全验证平台。产品流程是创建任
 
 恢复工作先完成 AGENTS 的阅读流程，再报告需要用户判断的实质问题；已经记录的事实不重复询问。每次批准新决策同步权威设计与此索引，新阶段的 Plan 记录复用依据和兼容影响。旧阶段记录保留时间、SHA 和实际证据，过时段落加适用范围，不把历史失败改为通过。
 
-本次文档整理的范围与证据见 [背景收口记录](stages/context-baseline/acceptance.md)。当前执行已批准的 [Phase 1C 前置 P0](stages/phase-1c-prep-p0/spec.md)：统一基线与最小框架适配；不接正式Agent。后续0.5业务方案与交互仍待冻结，不发布新业务接口或执行迁移。
+本次文档整理的范围与证据见 [背景收口记录](stages/context-baseline/acceptance.md)。已完成批准的 [Phase 1C 前置 P0](stages/phase-1c-prep-p0/spec.md)：统一基线与最小框架适配；不接正式Agent。共享检查预算已保守消耗426/600秒、剩174秒，真实4次额度已用完，后续不重置。后续0.5业务方案与交互仍待冻结，不发布新业务接口或执行迁移。
