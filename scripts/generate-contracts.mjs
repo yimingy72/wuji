@@ -10,7 +10,7 @@ const generatedDirectory = new URL('../packages/contracts/generated/', import.me
 const typeDestination = new URL('api.d.ts', generatedDirectory);
 const validatorDestination = new URL('validators.js', generatedDirectory);
 const validatorTypeDestination = new URL('validators.d.ts', generatedDirectory);
-const schemaId = 'urn:wuji:contracts:0.3';
+const schemaId = 'urn:wuji:contracts:0.4';
 const validatorSchemas = {
   validateSession: 'Session',
   validateProject: 'Project',
@@ -18,6 +18,11 @@ const validatorSchemas = {
   validateApprovedScope: 'ApprovedScope',
   validateScopePage: 'ScopePage',
   validateTaskPreview: 'TaskPreview',
+  validateTask: 'Task',
+  validateTaskPage: 'TaskPage',
+  validateTaskSnapshot: 'TaskSnapshot',
+  validateCommandReceipt: 'CommandReceipt',
+  validateEventPage: 'EventPage',
   validateError: 'Error',
 };
 
@@ -66,6 +71,11 @@ export declare const validateProjectPage: ContractValidator<components['schemas'
 export declare const validateApprovedScope: ContractValidator<components['schemas']['ApprovedScope']>;
 export declare const validateScopePage: ContractValidator<components['schemas']['ScopePage']>;
 export declare const validateTaskPreview: ContractValidator<components['schemas']['TaskPreview']>;
+export declare const validateTask: ContractValidator<components['schemas']['Task']>;
+export declare const validateTaskPage: ContractValidator<components['schemas']['TaskPage']>;
+export declare const validateTaskSnapshot: ContractValidator<components['schemas']['TaskSnapshot']>;
+export declare const validateCommandReceipt: ContractValidator<components['schemas']['CommandReceipt']>;
+export declare const validateEventPage: ContractValidator<components['schemas']['EventPage']>;
 export declare const validateError: ContractValidator<components['schemas']['Error']>;
 `;
 
