@@ -1,5 +1,7 @@
 # Wuji 产品交互方案：从创建到结果
 
+> 2026-09-10 阅读提示：本页保留初版交互提案；五场景、创建者确认范围、组织共享模型配置等最新决定见 [场景设计](scenario-execution-design.md) 和 [背景索引](project-context.md)。旧原型验收不覆盖这些新行为。
+
 状态：**revision-required / 首版原型已交付，用户提出场景与出网设计修订**。日期：2026-09-10。代码核查基准：`381ae3a2205965ad6aab1ce787d490d2c02839f3`。
 
 确认后的补充要求：后端再核对[元刃参考](metablade-backend-review.md)，明确采用 [Cairn 黑板协作](cairn-blackboard-design.md)，并复用 LangGraph 已有共享状态/子图/Store 能力。完整 Agent 原型加入 Fact/Intent/Hint 关联与提示输入；角色是能力配置，不构成固定流水线。

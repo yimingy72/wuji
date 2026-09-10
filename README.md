@@ -23,6 +23,8 @@ v0.4 架构基线：
 
 文档：
 
+- [项目背景与有效文档索引](docs/project-context.md)：恢复上下文先读，区分已确认设计、候选、实现和验收，定位跨工作树的最新文档。
+
 - [开发协作流程](docs/development-workflow.md)：主代理规划/验收、SOL 子代理开发、Luna 集中测试、CodeGraph 与 Git 分工。
 - [本地工作台启动与停止](docs/local-development.md)：Docker Desktop Kubernetes、正式入口、开发账号读取及按影响选择的检查入口。
 - [开发基线验收](docs/stages/development-baseline/acceptance.md)：B01–B08 通过，21 项契约测试和 12 项浏览器用例通过；Phase 1A 功能已按 [Spec](docs/stages/phase-1a/spec.md) / [Plan](docs/stages/phase-1a/plan.md) 集成，[完整验收](docs/stages/phase-1a/acceptance.md)仍为 partial，剩余 3 项见[集中测试清单](docs/stages/phase-1a/deferred-tests.md)。

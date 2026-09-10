@@ -1,5 +1,7 @@
 # Agent 执行框架与 LangGraph 的职责划分
 
+> 2026-09-10 阶段更新：下一步已包含基础模型配置与待细化的显式连接检查，详见 [Phase 1C 前置草案](stages/phase-1c-prep/spec.md)。本文“Phase 1 无模型闭环”指目标执行不依赖 Agent 推理，不排除已前移的配置能力；Harness 候选验证仍按后续独立切片进行。
+
 - **日期**：2026-09-09
 - **状态**：v0.4 复用边界已修订；具体候选与版本尚未集成验证
 - **关联**：[主架构](architecture.md)、[模型网关实测](model-gateway-validation.md)、[开工计划](predevelopment-plan.md)
