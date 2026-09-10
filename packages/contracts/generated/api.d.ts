@@ -303,7 +303,7 @@ export interface paths {
         };
         /**
          * Replay persisted task event notices
-         * @description Phase 1 read API; Phase 2 SSE is not yet exposed. After is exclusive. Stable replay cursor ordering must not skip late commits. Empty pages preserve cursor, has_more bounds catch-up. Expired cursor returns 410 CURSOR_EXPIRED. Every page reauthorizes. No raw credentials or evidence body in events.
+         * @description Phase 1 read API; Phase 2 SSE is not yet exposed. Omitting after returns bounded initial history from task sequence zero; supplied after is exclusive. Stable replay cursor ordering must not skip late commits. Empty pages preserve cursor, has_more bounds catch-up. Expired cursor returns 410 CURSOR_EXPIRED. Every page reauthorizes. No raw credentials or evidence body in events.
          */
         get: operations["listTaskEvents"];
         put?: never;
@@ -1967,9 +1967,9 @@ export interface operations {
     };
     listTaskEvents: {
         parameters: {
-            query: {
-                /** @description Opaque task stream cursor. Not an authorization credential. */
-                after: components["parameters"]["After"];
+            query?: {
+                /** @description Omit to read bounded initial history from task sequence zero. A supplied cursor is exclusive. */
+                after?: components["schemas"]["Cursor"];
                 limit?: components["parameters"]["PageSize"];
             };
             header?: never;
