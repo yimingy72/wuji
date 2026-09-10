@@ -19,6 +19,7 @@ import {
   StaleContextError,
   isApiError,
   type Project,
+  type CreateTask,
   type Session,
   type TaskDraft,
   type TaskPreview,
@@ -31,6 +32,13 @@ import {
   resetScopePages,
 } from './queries';
 import {
+  beginCommand,
+  clearPendingCommand,
+  getFrozenCommand,
+  PendingStorageError,
+  usePendingCommand,
+} from './pendingCommand';
+import {
   EffectiveLimits,
   LimitsList,
   ScopeDetails,
@@ -39,6 +47,11 @@ import {
   useApprovedScopes,
 } from './scopes';
 import { useIdentitySnapshot } from './state';
+import {
+  isExplicitCommandRejection,
+  PendingCommandNotice,
+  sendFrozenCommand,
+} from './tasks';
 import styles from './workbench.module.css';
 
 interface TaskDraftForm {
@@ -125,10 +138,18 @@ function PreviewError({ error, onRetry }: { error: unknown; onRetry: () => void 
   );
 }
 
-function TaskPreviewResult({ preview }: { preview: TaskPreview }) {
-  const previewBlockers = preview.blockers.filter((blocker) => blocker.code !== 'CREATION_UNAVAILABLE');
-  const creationBlocker = preview.blockers.find((blocker) => blocker.code === 'CREATION_UNAVAILABLE');
-  const scopeReady = previewBlockers.length === 0;
+function TaskPreviewResult({
+  preview,
+  canCreate,
+  creating,
+  onCreate,
+}: {
+  preview: TaskPreview;
+  canCreate: boolean;
+  creating: boolean;
+  onCreate: () => void;
+}) {
+  const scopeReady = preview.blockers.length === 0;
 
   return (
     <section className={styles.previewResult} aria-labelledby="preview-result-title" data-testid="task-preview-result">
@@ -145,23 +166,30 @@ function TaskPreviewResult({ preview }: { preview: TaskPreview }) {
         <Alert
           type={scopeReady ? 'success' : 'warning'}
           showIcon
-          title={scopeReady ? '范围计算通过' : '预览存在阻断项'}
+          title={preview.can_create ? '预览通过，可以创建任务' : scopeReady ? '范围计算通过' : '预览存在阻断项'}
           description={scopeReady ? (
             '规范化后的目标与方法位于所选批准范围内。'
           ) : (
             <ul>
-              {previewBlockers.map((blocker, index) => (
+              {preview.blockers.map((blocker, index) => (
                 <li key={`${blocker.code}:${index}`}>{blocker.message}</li>
               ))}
             </ul>
           )}
         />
-        {creationBlocker && (
+        {!preview.can_create && scopeReady && (
           <Alert
             type="info"
             showIcon
             title="任务创建尚未开放"
           />
+        )}
+        {preview.can_create && (
+          <div className={styles.formActions}>
+            <Button type="primary" loading={creating} disabled={!canCreate} onClick={onCreate}>
+              创建任务
+            </Button>
+          </div>
         )}
       </div>
       <div className={styles.resultSection}>
@@ -228,6 +256,9 @@ function TaskPreviewWorkspace({
   const [preview, setPreview] = useState<TaskPreview | null>(null);
   const [previewError, setPreviewError] = useState<unknown>(null);
   const [submitting, setSubmitting] = useState(false);
+  const pending = usePendingCommand(project.id, session.user_id);
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<unknown>(null);
 
   useEffect(() => () => activeRequest.current?.abort(), []);
 
@@ -238,7 +269,51 @@ function TaskPreviewWorkspace({
     setSubmitting(false);
     setPreview(null);
     setPreviewError(null);
+    setCreateError(null);
   };
+
+  const createTask = async () => {
+    if (!preview || !preview.can_create || pending) return;
+    const request: CreateTask = {
+      preview_id: preview.preview_id,
+      input_digest: preview.input_digest,
+      draft: preview.draft,
+    };
+    let command;
+    try {
+      command = beginCommand(session.user_id, project.id, 'create', preview.preview_id, {
+        kind: 'create', request,
+      });
+    } catch (error) {
+      setCreateError(error);
+      return;
+    }
+    const frozen = getFrozenCommand(command);
+    if (!frozen) return;
+    const controller = new AbortController();
+    activeRequest.current?.abort();
+    activeRequest.current = controller;
+    setCreating(true);
+    setCreateError(null);
+    try {
+      const receipt = await sendFrozenCommand(session, command, frozen, controller.signal);
+      clearPendingCommand(command);
+      navigate(`/projects/${project.id}/tasks/${receipt.task_id}`);
+    } catch (error) {
+      if (controller.signal.aborted || error instanceof StaleContextError) return;
+      if (isExplicitCommandRejection(error)) clearPendingCommand(command);
+      setCreateError(error);
+    } finally {
+      if (activeRequest.current === controller) activeRequest.current = null;
+      setCreating(false);
+    }
+  };
+
+  const createErrorCopy = createError instanceof PendingStorageError
+    ? '浏览器未能保存提交标记，任务没有提交。请允许当前标签页使用会话存储后重试。'
+    : createError instanceof ApiRequestError
+      ? createError.message
+      : '任务提交未完成，请先核对结果。';
 
   const handleSubmit = async (values: TaskDraftForm) => {
     const scope = scopes.items.find((candidate) => scopeBindingKey(candidate) === values.scopeKey);
@@ -330,6 +405,7 @@ function TaskPreviewWorkspace({
         </div>
         <SafetyCertificateOutlined aria-hidden="true" />
       </header>
+      <PendingCommandNotice session={session} projectId={project.id} />
       <div className={styles.previewLayout}>
         <section className={styles.previewFormPanel} aria-labelledby="task-draft-title">
           <header>
@@ -474,7 +550,23 @@ function TaskPreviewWorkspace({
           </ol>
         </aside>
       </div>
-      {preview && <TaskPreviewResult preview={preview} />}
+      {createError !== null && (
+        <Alert
+          className={styles.commandNotice}
+          type="error"
+          showIcon
+          title={createError instanceof ApiRequestError && (createError.status === 0 || createError.contractFailure) ? '提交结果待确认' : '任务创建失败'}
+          description={createErrorCopy}
+        />
+      )}
+      {preview && (
+        <TaskPreviewResult
+          preview={preview}
+          canCreate={project.permissions.includes('task.create') && pending === null}
+          creating={creating}
+          onCreate={() => void createTask()}
+        />
+      )}
     </section>
   );
 }

@@ -11,16 +11,28 @@ import {
   getProjects,
   getScopes,
   getSession,
+  getCommandByKey,
+  getTask,
+  getTaskEvents,
+  getTasks,
   isApiError,
+  postCreateTask,
   postLogout,
+  postTaskControl,
   postTaskPreview,
   shouldRetryRead,
   type Project,
   type ProjectPage,
+  type CommandReceipt,
+  type CreateTask,
+  type EventPage,
   type ScopePage,
   type Session,
   type TaskDraft,
+  type TaskControl,
+  type TaskPage,
   type TaskPreview,
+  type TaskSnapshot,
 } from './api';
 import {
   acceptProject,
@@ -93,6 +105,16 @@ function scopePagesKey(projectId: string, session: Session) {
   ] as const;
 }
 
+function taskPageKey(projectId: string, cursor: string | null, session: Session) {
+  const snapshot = getIdentitySnapshot();
+  return [
+    'private', 'tasks', snapshot.identityGeneration, snapshot.projectGeneration,
+    session.user_id, session.permissions_version,
+    snapshot.activeProject?.tenantId ?? 'pending-tenant', projectId,
+    cursor ?? 'first-page',
+  ] as const;
+}
+
 async function removeAllPrivateQueries() {
   await queryClient.cancelQueries({ queryKey: ['private'] });
   queryClient.removeQueries({ queryKey: ['private'] });
@@ -105,6 +127,7 @@ async function removeProjectQueries(identityGeneration?: number) {
         query.queryKey[1] === 'projects'
         || query.queryKey[1] === 'project'
         || query.queryKey[1] === 'scopes'
+        || query.queryKey[1] === 'tasks'
       )
       && (identityGeneration === undefined || query.queryKey[2] === identityGeneration),
   });
@@ -114,6 +137,7 @@ async function removeProjectQueries(identityGeneration?: number) {
         query.queryKey[1] === 'projects'
         || query.queryKey[1] === 'project'
         || query.queryKey[1] === 'scopes'
+        || query.queryKey[1] === 'tasks'
       )
       && (identityGeneration === undefined || query.queryKey[2] === identityGeneration),
   });
@@ -293,6 +317,130 @@ export async function resetScopePages(session: Session, projectId: string) {
   });
 }
 
+async function projectRequest<T>(
+  session: Session,
+  projectId: string,
+  request: () => Promise<T>,
+): Promise<T> {
+  const captured = getIdentitySnapshot();
+  try {
+    const result = await request();
+    const current = getIdentitySnapshot();
+    if (
+      current.identityGeneration !== captured.identityGeneration
+      || current.projectGeneration !== captured.projectGeneration
+      || current.session?.user_id !== session.user_id
+      || current.session.permissions_version !== session.permissions_version
+      || current.activeProject?.id !== projectId
+    ) {
+      throw new StaleContextError();
+    }
+    return result;
+  } catch (error) {
+    return handleReadError(error, {
+      identityGeneration: captured.identityGeneration,
+      projectGeneration: captured.projectGeneration,
+      userId: session.user_id,
+      permissionsVersion: session.permissions_version,
+      projectId,
+    });
+  }
+}
+
+export function taskPageQueryOptions(session: Session, projectId: string, cursor: string | null) {
+  return queryOptions<TaskPage, Error>({
+    queryKey: taskPageKey(projectId, cursor, session),
+    staleTime: 5_000,
+    refetchOnWindowFocus: 'always',
+    retry: shouldRetryRead,
+    queryFn: ({ signal }) => projectRequest(
+      session,
+      projectId,
+      () => getTasks(projectId, cursor, signal),
+    ),
+  });
+}
+
+export async function readTaskSnapshot(
+  session: Session,
+  projectId: string,
+  taskId: string,
+  signal: AbortSignal,
+): Promise<TaskSnapshot> {
+  const result = await projectRequest(session, projectId, () => getTask(projectId, taskId, signal));
+  if (result.task.project_id !== projectId || result.task.id !== taskId) {
+    throw new ApiRequestError({
+      status: 200,
+      code: 'INTERNAL_ERROR',
+      message: '平台响应与当前任务不一致',
+      contractFailure: true,
+    });
+  }
+  return result;
+}
+
+export function readTaskEvents(
+  session: Session,
+  projectId: string,
+  taskId: string,
+  after: string | null,
+  signal: AbortSignal,
+): Promise<EventPage> {
+  return projectRequest(session, projectId, () => getTaskEvents(projectId, taskId, after, signal));
+}
+
+export function findCommand(
+  session: Session,
+  projectId: string,
+  idempotencyKey: string,
+  signal: AbortSignal,
+): Promise<CommandReceipt> {
+  return projectRequest(
+    session,
+    projectId,
+    () => getCommandByKey(projectId, idempotencyKey, signal),
+  );
+}
+
+export function submitCreateTask(
+  session: Session,
+  projectId: string,
+  request: CreateTask,
+  idempotencyKey: string,
+  signal: AbortSignal,
+): Promise<CommandReceipt> {
+  return projectRequest(
+    session,
+    projectId,
+    () => postCreateTask(projectId, request, session.csrf_token, idempotencyKey, signal),
+  );
+}
+
+export function submitTaskControl(
+  session: Session,
+  projectId: string,
+  taskId: string,
+  request: TaskControl,
+  idempotencyKey: string,
+  signal: AbortSignal,
+): Promise<CommandReceipt> {
+  return projectRequest(
+    session,
+    projectId,
+    () => postTaskControl(
+      projectId, taskId, request, session.csrf_token, idempotencyKey, signal,
+    ),
+  );
+}
+
+export async function refreshTaskLists(projectId: string) {
+  await queryClient.invalidateQueries({
+    predicate: (query) => query.queryKey[0] === 'private'
+      && query.queryKey[1] === 'tasks'
+      && query.queryKey.at(-2) === projectId,
+  });
+}
+
 export async function previewTask(
   session: Session,
   projectId: string,
@@ -342,7 +490,7 @@ async function selectRouteProject(projectId: string | null) {
   if (generation !== before) {
     await queryClient.cancelQueries({
       predicate: (query) => query.queryKey[0] === 'private'
-        && (query.queryKey[1] === 'project' || query.queryKey[1] === 'scopes'),
+        && (query.queryKey[1] === 'project' || query.queryKey[1] === 'scopes' || query.queryKey[1] === 'tasks'),
     });
   }
 }
@@ -371,7 +519,7 @@ export function selectKnownProject(project: Project) {
   if (generation !== before) {
     void queryClient.cancelQueries({
       predicate: (query) => query.queryKey[0] === 'private'
-        && (query.queryKey[1] === 'project' || query.queryKey[1] === 'scopes'),
+        && (query.queryKey[1] === 'project' || query.queryKey[1] === 'scopes' || query.queryKey[1] === 'tasks'),
     });
   }
 }
@@ -381,8 +529,8 @@ export function leaveUnavailableProject(projectId: string) {
   if (!clearProject(generation, projectId)) return;
   queryClient.removeQueries({
     predicate: (query) => query.queryKey[0] === 'private'
-      && (query.queryKey[1] === 'project' || query.queryKey[1] === 'scopes')
-      && query.queryKey.at(-1) === projectId,
+      && (query.queryKey[1] === 'project' || query.queryKey[1] === 'scopes' || query.queryKey[1] === 'tasks')
+      && query.queryKey.includes(projectId),
   });
 }
 
