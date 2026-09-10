@@ -51,6 +51,8 @@ ConfigSnapshot 保存上述版本 ID、内容摘要、initial_scope_version、Ru
 
 ### 2.2 起步场景与角色
 
+产品任务类型已按用户要求调整为 CTF、Web 单点渗透、综合渗透、攻防演练、代码审计，详见 [场景修订](scenario-execution-design.md)。下文 web-observation 是早期能力配置，不作为顶层产品场景。TaskStage/StageGate 与独立资产授权对象待具体阶段契约冻结。
+
 首个场景 `web-observation` 只组合已验收 HTTP 观察能力，起手维度包括入口可达性、响应配置和公开内容观察。登录、访问控制、源码和协议分析在相应输入与 Adapter 可用后增加；缺失维度记录 blocked 或 not_run，不直接隐藏。
 
 采用用户明确要求的 [Cairn 风格黑板](cairn-blackboard-design.md)，由 Fact/Intent/Hint 的当前态势产生下一步工作，不固定 Planner→Explorer→Verifier 流水线。角色模板只表达模型、工具、方法和输出能力：Phase 2 用一个通用 Agent 读取黑板、规划和推进必要验证；Phase 3 才按可执行 Intent 与能力匹配分派 Worker。CodeAuditor 等专用配置在需要时匹配；Reporter 先为生成草稿的逻辑能力，不必启动常驻 Agent。模型能力、工具集合和网络操作始终受平台交集策略约束。

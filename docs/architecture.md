@@ -15,6 +15,8 @@
 
 v0.4 保留既有执行控制、评估与交付模型，修正框架复用边界：上下文管理、压缩和 Agent 循环复用 Harness，持久执行复用 LangGraph，多模型协议复用现成适配器。Wuji 实现领域策略与集成契约，不另建通用 Agent 框架；具体依赖仍待集成验证。本文描述目标能力，不把设计接口当成实现；实际进度以[Phase 1A验收](stages/phase-1a/acceptance.md)、[B1验收](stages/phase-1b/acceptance.md)和[B2/B3验收](stages/phase-1b/b23-acceptance.md)为准。
 
+2026-09-10 场景与流量补充设计见 [场景、执行边界与流量工作台](scenario-execution-design.md)。任务场景与 HTTP/Agent 实现能力分离；新增阶段授权、受管代理/MCP 出网资格与请求级流量视图的拟议契约。该修订为待评审设计，不代表当前 0.4.0 已实现。
+
 ## 1. 目标与架构原则
 
 Wuji 在 Kubernetes 中管理独立任务执行环境，由 Platform 中的 Agent 规划验证步骤，通过受控工具收集证据并生成可追溯报告。
@@ -112,10 +114,8 @@ scopePolicy:
   validUntil: "2026-09-09T02:00:00Z"
   targets:
     - origin: https://authorized-target.example:443
-      allowedPathPrefixes: [/public/]
       allowedMethods: [GET, HEAD]
       operationClasses: [http-observe]
-  excludedPathPrefixes: [/public/logout, /public/admin]
   redirects: revalidate-every-hop
   dnsPolicy: resolve-validate-connect
   credentialPolicy: same-approved-origin-only
@@ -129,7 +129,7 @@ scopePolicy:
   prohibitions: [destructive-action, target-persistence, lateral-movement]
 ```
 
-Schema 必须明确 URL 规范化、路径段边界匹配、编码处理、IP 字面量和 IPv6 规则；前缀 `/public/` 不能误匹配 `/publicity/`。GET/HEAD 只是约束之一，已知会改变业务状态的端点仍必须排除。
+2026-09-10 用户删除路径级强制范围要求：目标策略只约束域名/子域、协议、端口及明确批准资产，不再包含路径白名单/黑名单。Schema 须明确域名规范化、子域匹配、IP 字面量和 IPv6 规则；路径可用于测试重点及流量查看，不构成权限。非破坏性约束仍通过已批准操作类别与受信 Adapter 实现，不能仅靠 GET/HEAD 名称判断。当前 0.4.0 的存量路径授权保持历史含义，正式迁移不得自动扩大旧授权。
 
 实际权限为平台允许集合、租户策略、项目授权、Task Scope、RuntimeProfile、Worker 授权和 Tool Adapter 能力的交集；平台禁止项和其他拒绝规则优先。
 
@@ -143,11 +143,11 @@ Schema 必须明确 URL 规范化、路径段边界匹配、编码处理、IP �
 
 Router 同时签发接收方为出口的调用许可，绑定 call/attempt、Worker 的目标子集、操作类型和请求额度；Supervisor 使用它发起出口请求。后续 CLI 只能获得该次调用的受限出口句柄，不获得任务通用控制凭据。网关逐请求校验许可并累计用量，Task 级网络可达不代表获得整个 Task 的操作权限。
 
-首版出口提供受控 HTTP 请求转发，由网关解析并规范化 origin、方法、路径、请求头和重定向，不提供任意 CONNECT 隧道。TLS 在网关作为 HTTP 客户端连接目标并验证证书，返回受限响应。普通 L4 白名单无法实现方法/路径约束。
+首版出口提供受控 HTTP 请求转发，由网关解析并规范化 origin、方法、路径、请求头和重定向，不提供任意 CONNECT 隧道。TLS 在网关作为 HTTP 客户端连接目标并验证证书，返回受限响应。保留受控转发用于域名/工具操作检查及请求证据；不执行路径级范围校验。浏览器 HTTPS 内容可见性另行选型，不能仅凭 L4 日志声称已取得明文请求/响应。
 
 解析 DNS 后检查全部候选地址，只连接本次验证过的地址；每次重试、重定向和新连接重新检查，防止校验和连接使用不同目的地。网关拒绝平台 Service/Pod/Node 网段、API Server、元数据服务和保留地址；客户内网目标只能通过显式批准且与平台基础设施隔离的出口配置接入，不能笼统放行所有私网。
 
-发现新域名、子域名或关联资产只记录为候选事实，不自动纳入范围。跨 origin 不转发 Authorization/Cookie。目标路径限定到 Host 的授权不能因共用 IP 扩展为整台服务器授权。
+发现新域名、子域名或关联资产只记录为候选事实，不自动纳入范围。跨 origin 不转发 Authorization/Cookie。限定到 Host 的授权不能因共用 IP 扩展为整台服务器授权。
 
 ## 5. 工具契约与 MCP
 
