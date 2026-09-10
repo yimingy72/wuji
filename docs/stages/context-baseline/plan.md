@@ -1,6 +1,6 @@
 # 项目背景与约束收口 Plan
 
-- 状态：in-progress
+- 状态：completed（文档交付；主目录两项同步尚未提交）
 - 对应 Spec：[spec.md](spec.md)
 - 基准：设计分支 0051651047daeeee3b8741c460f182d42e755238；主业务分支 381ae3a2205965ad6aab1ce787d490d2c02839f3。
 - 批准依据：同 Spec；本次只执行文档治理。
