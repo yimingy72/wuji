@@ -2,7 +2,8 @@
 
 Status: `prepared`, execution pending the frozen integrated candidate.
 
-This test worktree is based on `235f05f5afe8bc53ff70c8f2b07950d4c2e6fa32` on
+This test worktree is based on the exact result of `git rev-parse 235f05f`:
+`235f05f5afe8bc53ff70c8f2b07950d4c2e6fa32`, on
 `codex/phase-1b-b23-test`. It follows the approved B2/B3 specification and
 uses the public routes and DTOs in `packages/contracts/openapi.yaml`.
 
