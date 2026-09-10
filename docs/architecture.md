@@ -1,19 +1,19 @@
 # Wuji 自动化渗透平台架构
 
-- **版本**：v0.4
-- **日期**：2026-09-09
+- **版本**：Cairn 架构修订（公开 API 仍为0.4.0）
+- **日期**：2026-09-10
 - **状态**：目标架构基线；身份/项目、范围预览、B2/B3任务管理与事件同步已实现并通过最小验证，完整执行闭环尚未实现
 - **适用范围**：已获授权的非破坏性安全验证；禁止目标数据破坏、目标持久化和越权扩散
 - **验收依据**：[架构验收清单](architecture-acceptance.md)
 - **评估业务契约**：[评估、知识与交付模型](assessment-model.md)
 - **前端实施设计**：[前端架构与技术选型](frontend-architecture.md)
 - **Agent 执行层**：[Harness 职责与选型建议](agent-harness-decision.md)、[模型网关实测](model-gateway-validation.md)
-- **本次复审**：[问题、修正与验证缺口](architecture-review.md)
+- **本次复审**：[已批准架构替代决策](cairn-architecture-decision.md)；[原v0.4复审](architecture-review.md)保留为历史
 - **参考复核补充（2026-09-10）**：[元刃后端复核](metablade-backend-review.md)、[已确认产品交互](product-interaction-proposal.md)；目标设计补充，公开 API 0.4.0 尚未升级
-- **黑板明确要求（2026-09-10）**：[Cairn 黑板适配设计](cairn-blackboard-design.md)；Fact/Intent/Hint 驱动探索，Phase 2 起落实最小协议
+- **黑板明确要求（2026-09-10）**：[Cairn 黑板适配设计](cairn-blackboard-design.md)；直接复用Cairn Server/Dispatcher，目标协议尚未实现
 - **开工准备**：[依赖与交付顺序](predevelopment-plan.md)、[Phase 1 API 契约](phase1-api-contract.md)
 
-v0.4 保留既有执行控制、评估与交付模型，修正框架复用边界：上下文管理、压缩和 Agent 循环复用 Harness，持久执行复用 LangGraph，多模型协议复用现成适配器。Wuji 实现领域策略与集成契约，不另建通用 Agent 框架；具体依赖仍待集成验证。本文描述目标能力，不把设计接口当成实现；实际进度以[Phase 1A验收](stages/phase-1a/acceptance.md)、[B1验收](stages/phase-1b/acceptance.md)和[B2/B3验收](stages/phase-1b/b23-acceptance.md)为准。
+本次按用户批准的[架构复审修订](cairn-architecture-decision.md)更新目标设计：Cairn负责共享图和探索调度，Pi负责平台侧Agent循环与上下文，LiteLLM负责模型接入及Task金额预算。Wuji负责任务、执行准入、工具、证据和停止核对。LangGraph/LangChain/Deep Agents不再是该链路必选依赖；原P0实验与验收保留。本文不代表业务已实现；实际仍以[Phase1A](stages/phase-1a/acceptance.md)、[B1](stages/phase-1b/acceptance.md)、[B2/B3](stages/phase-1b/b23-acceptance.md)及[P0](stages/phase-1c-prep-p0/acceptance.md)记录为准。
 
 2026-09-10 场景与流量补充设计见 [场景、执行边界与流量工作台](scenario-execution-design.md)。任务场景与 HTTP/Agent 实现能力分离；新增阶段授权、受管代理/MCP 出网资格与请求级流量视图的拟议契约。最新补充：Web 默认不配账号，成果凭据通过黑板受限引用共享；已批准阶段自动推进。外域页面资源可正常加载但不可主动测试，目标测试、依赖加载和候选核验采用不同执行许可。流量证据细化见 [Kali 流量方案](traffic-evidence-design.md)。该修订为待评审设计，不代表当前 0.4.0 已实现。
 
@@ -29,73 +29,60 @@ Wuji 在 Kubernetes 中管理独立任务执行环境，由 Platform 中的 Agen
 4. 工具执行、网络出口和模型访问都有独立于模型判断的控制点。
 5. 暂停、取消、失联、恢复和结果不明是明确状态，不能用“停止推理”代替“停止执行”。
 6. 外部请求不承诺 exactly-once；通过去重、执行账本和结果核对控制重复，结果不明时不盲目重试。
-7. 多租户身份、资源配额和审计从首版建立；多 Agent 在单 Agent 安全闭环通过验收后接入。
+7. 多租户身份、资源配额和审计从首版建立；先以合成工具验证多Agent归属与共享Runtime，真实目标执行另需出口和停止证据。
 
 “禁止持久化”指禁止在测试目标建立驻留、后门或其他持续访问机制。平台按保留策略保存任务、检查点和证据；这不授予在目标上写入数据的权限。非破坏性也不等于 HTTP GET 或工具名称含有“read”：仍须审查目标业务语义及请求负载。
 
 ## 2. 已确定的架构决策
 
-| 主题 | v0.4 决策 | 演进边界 |
+| 主题 | 当前决定 | 边界 |
 | --- | --- | --- |
-| 执行环境 | 一个 Task 一个活动 TaskRuntime；HTTP 切片使用最小镜像，Kali 工具按 RuntimeProfile 接入 | Pod 按 attempt 重建；ExternalRuntime 以后通过相同运行契约接入 |
-| Runner | 不作为业务概念；Worker Node/Node Pool 属于基础设施 | 不让任务依赖节点名称或 Pod IP |
-| Agent | 运行在 Platform 的 Orchestrator，通过 MCP Router 请求工具 | 不持有 Kubernetes、Runtime 或 Provider 凭据 |
-| Agent Harness | 通过薄 AgentDriver 复用模型/工具循环与上下文管理；优先验证 Deep Agents | LangGraph 管外层任务；具体 Harness 和版本待受控集成验证，一个 AgentRun 绑定一种实现 |
-| 上下文 | Harness 独占会话历史、压缩和工作记忆；平台提供版本化输入与证据引用 | 不另建压缩服务；摘要不是事实或授权来源，辅助模型调用同样计费 |
-| 协作 | Cairn 风格 Fact/Intent/Hint 黑板驱动探索；LangGraph 持久编排；Dispatcher 分派 Worker | 角色是能力配置，不是固定流水线；Worker 无权扩大范围、权限和任务总预算 |
-| 评估单元 | VerificationRun 独立于 AgentRun，固定主张、方法、身份和证据 | 单 Agent 即可执行；独立复核不等于模型多数投票 |
-| 覆盖与停止 | 版本化 CoveragePlan，区分有效评估、未复现、阻断和未执行 | 计划内覆盖率不是整个目标系统的安全覆盖率 |
-| 能力配置 | ScenarioProfile、AgentProfile、SkillPackage、ReferenceVersion 各自版本化 | 配置与知识不能替代 ScopePolicy 授权 |
-| 资产与交付 | PostgreSQL 资产关系、证据引用、FindingRevision、ReportCommit | 图可视化与导出格式是同一事实模型的投影 |
-| 工具 | 版本化、结构化 Tool Adapter；首版仅受限 HTTP 观察 | 通用 bash、任意代码、任意插件不进入当前工具契约 |
-| Runtime MCP | 内网 Streamable HTTP，固定并验证协商的协议版本 | MCP session ID 不承担认证或执行去重 |
-| 任务状态 | PostgreSQL 是业务期望状态和执行账本的权威来源 | Kubernetes 提供资源实况；缓存和事件不能反向覆盖业务决策 |
-| Kubernetes 接入 | 首版 Runtime Controller 直接调用 API | CRD 不是最小闭环前提，未来只增加单向投影 |
-| 事件 | PostgreSQL 事务 Outbox + 可重放事件记录 | Redis 可作缓存/唤醒；量化瓶颈出现后再引入 JetStream |
-| 模型接入 | 复用模型客户端与已有网关；Wuji Gateway 统一策略、路由、重试和预算 | 不重写各厂商协议；不在网关二次编排/压缩会话，不默认增加代理链 |
-| 前端 | React + TypeScript + Vite + Ant Design；REST 命令 + SSE 事件 | 统一查询缓存和同源会话；浏览器交互以后通过受控会话代理接入 |
-| 部署 | 按权限边界分进程，业务模块先合并部署 | 不把每个逻辑模块都拆成微服务 |
+| 任务映射 | 一个Wuji Project包含多个Task，一个Task对应一个Cairn Project | 草稿无Project；正式创建幂等绑定停止态Project，历史queued不自动执行 |
+| Agent | 平台侧Worker Pod中运行多个独立Pi Harness进程 | 每Task首版一个Worker Pod；Agent不运行在Kali |
+| 探索 | 复用Cairn Bootstrap/Reason/Explore及Worker选择 | Cairn状态不是许可；派发前经Wuji准入，不加第二个探索调度器 |
+| 上下文 | Pi coding-agent独占会话、压缩和工作记忆 | 不自研循环/压缩/模型协议；候选版本未集成验收 |
+| 黑板 | Cairn Server唯一可写Fact/Intent/Hint与探索图 | 首版单Server、单Dispatcher、持久化SQLite；Wuji只保存引用/投影与原始提交 |
+| 目标环境 | 同Task多个Agent共用一个Kali容器，一个获准Runtime attempt | Runtime Controller独占Kali；Worker后端只管理Agent资源 |
+| 工具 | 受信Pi扩展、Tool Router、Runtime MCP/受管能力 | 快照/工作记忆/业务/目标工具分权；默认本地执行工具关闭 |
+| 模型与预算 | LiteLLM；组织发布模型方案，Task设置USD金额预算 | 全部辅助调用共用，不周期重置；未知价格不按零，禁止自动付费探活 |
+| 执行恢复 | PostgreSQL执行记录、原结果、进程回执和幂等操作 | 先核对再恢复；同步失败只重投结果，不重跑探索 |
+| 评估 | VerificationRun、CoveragePlan、Finding与报告版本 | 结构校验不等于漏洞确认；Cairn complete先作为提案 |
+| 事件 | 各权威数据源本地事务事件，跨库凭回执同步 | 不假定跨库原子事务；投影不回写权威图 |
+| 前端 | React/TypeScript/Vite/Ant Design，五主题 | Task是入口；公开API仍0.4.0，业务页面按已实现能力开放 |
 
 ## 3. 逻辑链路与部署边界
 
 ### 3.1 主要链路
 
 ```text
-任务控制：Console -> Platform API -> PostgreSQL（Task / Policy / Outbox）
-资源协调：Runtime Controller -> Kubernetes API -> TaskRuntime Pod
-任务编排：Orchestrator -> Blackboard / Dispatcher -> Worker
-Agent 执行：Orchestrator（LangGraph）-> AgentDriver -> Agent Harness
-工作记忆：Agent Harness -> 按 AgentRun 隔离的框架存储后端
-业务工具：Agent Harness -> 已鉴权的平台模块（Blackboard / Knowledge / Assessment）
-目标工具：Agent Harness -> Tool Bridge -> MCP Router -> Runtime MCP / Supervisor -> Tool Adapter
-目标访问：Tool Adapter -> Egress Gateway -> 授权测试目标
-模型调用：Agent Harness -> Model Bridge -> Model Gateway -> Provider Adapter -> 已有网关 / Model Providers
-证据保存：Runtime Supervisor -> Artifact API -> S3；元数据 -> PostgreSQL
-评估闭环：CoverageItem -> Intent -> VerificationRun -> Observation/Evidence -> FindingRevision
-交付闭环：CoveragePlan 快照 + FindingRevision + 证据清单 -> ReportCommit -> ExportArtifact
+Console -> Platform API -> PostgreSQL（Task / 权限 / 配置 / 执行账本）
+Platform API内Cairn Bridge <-> Cairn Server（SQLite探索图）
+Cairn Dispatcher -> Wuji执行准入 -> AgentRun -> 平台侧Worker后端 -> Pi Harness
+Pi -> 受限快照/工作记忆，或鉴权平台查询
+Pi -> Tool Router -> Runtime Supervisor/MCP -> 一个共享Kali容器 -> 受控出口
+Pi -> LiteLLM -> 已发布方案的上游模型
+Kali产物 -> Artifact -> 对象存储；元数据/验证/报告 -> PostgreSQL
+Agent原始结果 -> Wuji持久提交 -> Bridge幂等同步 -> Cairn图与回执
 ```
 
-Blackboard 不直接调用 Runtime；所有目标操作经 MCP Router。框架工作记忆工具仅操作限定的 AgentRun 状态；业务工具使用项目鉴权接口，两者不提供目标网络或通用代码执行。Runtime 向 Router 返回状态和受限大小的结果，证据上传走 Artifact 接口。控制流、执行流、模型流量分开鉴权。
+### 3.2 组件与资源所有权
 
-### 3.2 逻辑职责与首版部署
-
-| 逻辑组件 | 职责 | 首版部署单元 |
+| 组件 | 唯一职责 | 部署边界 |
 | --- | --- | --- |
-| Platform API | 身份、租户、项目、Task、ScopePolicy、配置版本、产物授权、SSE | `platform-api` |
-| Policy 模块 | 编译不可变策略版本、权限求交、操作分类 | API 内管理；执行端使用版本化策略快照 |
-| Blackboard / Base MCP | Observation、Fact、Intent、验证请求及 Worker 请求 | API 内模块，内部接口独立鉴权 |
-| Assessment 模块 | 覆盖计划、VerificationRun、规则校验、FindingRevision 和研判 | API 内模块；模型只能提案，模块控制状态转换 |
-| Knowledge / Reference 模块 | 发布知识版本、资料导入、摘要和引用、加载审计 | API 内模块；耗时解析使用有限权限后台作业 |
-| Asset / Report 模块 | 资产关系、证据引用、报告快照和导出 | API 内模块；异步渲染与目标执行解耦 |
-| Orchestrator / Dispatcher | LangGraph、Worker 调度、检查点、任务推进 | `agent-orchestrator` |
-| AgentDriver / Harness | 单 AgentRun 的模型/工具循环、上下文与框架事件适配 | 默认内嵌 Orchestrator；以后接入独立 SDK Worker 时使用相同限定身份与调用边界 |
-| MCP Router / Execution Broker | 身份派生、策略校验、调用账本、执行许可、结果接收 | `mcp-router` |
-| Runtime Controller | Pod 生命周期、工作负载身份、租约协调、资源回收 | `runtime-controller`，独立 ServiceAccount |
-| Model Gateway | 请求策略检查、路由、预算和每次尝试审计；复用协议客户端 | `model-gateway`，Provider Key 只在此边界内；不管理 Agent 会话历史 |
-| Egress Gateway | Task 出口身份、目标检查、请求限流、租约到期断流 | 独立受信进程，部署在 Runtime Pod 之外 |
-| Runtime Supervisor | 许可验证、工具调度、进程管理、状态与证据收集 | 每个 TaskRuntime 内的受信控制容器 |
+| Platform API | 身份/任务/配置/准入/验证/产物访问 | 现有FastAPI；Policy、Assessment、Artifact等先作为模块 |
+| Cairn Bridge | Task归属、持久操作、控制/结果同步及完成提案 | API内部模块；不决定探索方向 |
+| Cairn Server | 探索图、版本、事件和写入回执 | 独立服务、SQLite持久卷；无公开管理入口 |
+| Cairn Dispatcher | 探索工作、Worker选择与并发 | 首版单实例；内存Future不是持久账本 |
+| Agent Worker后端 | 平台Worker Pod、Harness进程/会话/回执 | 每Task首版一个Worker Pod，多AgentRun；只清理Agent资源 |
+| Tool Router | 工具权限、真实身份、调用账本、当前attempt路由 | 独立受信服务；无模型循环 |
+| Runtime Controller | Kali Runtime创建/重建/停止核对/回收 | 独立ServiceAccount；不启动Harness |
+| Runtime Supervisor/MCP | 许可、工具执行、进程句柄、证据上报 | TaskRuntime受信控制容器，面向共享Kali工具容器 |
+| LiteLLM | 模型、凭据、原生费用和Task金额限制 | 独立网关和数据库；上游Key不进入Agent/Kali |
+| Egress | 目标与操作出口约束、流量归属和停止 | 平台独立执行边界；具体方案待后续设计/验证 |
 
-这些部署边界用于限制凭据和故障影响。Blackboard、Policy、Assessment、Knowledge、Asset、Artifact 和 Report 先作为模块维护，不额外增加网络服务。资料解析和报告渲染复用后台作业基础设施，但使用独立低权限进程/沙箱，不在 API 进程里执行不可信内容。首版数据基础设施为 PostgreSQL 和 S3 兼容对象存储。
+平台Worker Pod和Kali Pod不共享文件卷、进程空间或凭据。Cairn的ExecutionBackend只适配平台Worker环境，其配置选择、执行上下文和cleanup需同步修改；不把原生Docker接口称为已支持Kubernetes。Agent不直接访问测试目标，Kali不持有平台数据库、Cairn管理或模型凭据。
+
+详细边界见[架构决策](cairn-architecture-decision.md)、[Harness](agent-harness-decision.md)与[黑板](cairn-blackboard-design.md)。新增服务均为目标设计，本批不部署。
 
 ## 4. 授权范围与操作策略
 
@@ -137,13 +124,15 @@ scopePolicy:
 
 ### 4.2 三个执行检查点
 
+以下保留平台执行要求；具体HTTP转发、DNS/CNI及流量采集方案仍属后续设计，不构成本轮已选实现或已通过验收。
+
 1. **Router**：校验可信身份、任务状态、策略版本、结构化参数、工具版本、操作用途、预算及租约，保存 ToolCall 后签发有限许可。
 2. **Runtime**：验证许可与本机 Task/attempt 匹配，检查参数摘要、截止时间、去重记录、可用 Adapter 和进程配额；不接受 Agent 直接构造的权限字段。
 3. **Egress Gateway**：独立验证工作负载与活动任务绑定、策略版本、执行有效期，检查实际目的地及累计请求量；拒绝 Runtime 直连互联网或平台内网。
 
 Router 同时签发接收方为出口的调用许可，绑定 call/attempt、Worker 的目标子集、操作类型和请求额度；Supervisor 使用它发起出口请求。后续 CLI 只能获得该次调用的受限出口句柄，不获得任务通用控制凭据。网关逐请求校验许可并累计用量，Task 级网络可达不代表获得整个 Task 的操作权限。
 
-首版出口提供受控 HTTP 请求转发，由网关解析并规范化 origin、方法、路径、请求头和重定向，不提供任意 CONNECT 隧道。TLS 在网关作为 HTTP 客户端连接目标并验证证书，返回受限响应。保留受控转发用于域名/工具操作检查及请求证据；不执行路径级范围校验。浏览器 HTTPS 内容可见性另行选型，不能仅凭 L4 日志声称已取得明文请求/响应。
+原HTTP切片候选为受控 HTTP 请求转发，由网关解析并规范化 origin、方法、路径、请求头和重定向，不提供任意 CONNECT 隧道。TLS 在网关作为 HTTP 客户端连接目标并验证证书，返回受限响应。保留受控转发用于域名/工具操作检查及请求证据；不执行路径级范围校验。浏览器 HTTPS 内容可见性另行选型，不能仅凭 L4 日志声称已取得明文请求/响应。
 
 解析 DNS 后检查全部候选地址，只连接本次验证过的地址；每次重试、重定向和新连接重新检查，防止校验和连接使用不同目的地。网关拒绝平台 Service/Pod/Node 网段、API Server、元数据服务和保留地址；客户内网目标只能通过显式批准且与平台基础设施隔离的出口配置接入，不能笼统放行所有私网。
 
@@ -165,13 +154,13 @@ Router 同时签发接收方为出口的调用许可，绑定 call/attempt、Wor
 | `retry_class` | `safe-read`、`idempotent-with-key` 或 `never-auto-retry` |
 | `cancel_handler / evidence_schema` | 停止机制、状态反馈、证据关联方式 |
 
-Task 和 Worker 必须配置最大运行时间、工具调用数、Agent 并发/深度和产物大小；模型接入后还须配置 Token/费用上限。子级截止时间和配额不能超过父级；到期执行取消链路，预算耗尽停止新派发并按策略进入暂停或停止流程。
+Task 和 Worker 必须配置最大运行时间、工具调用数、Agent 并发/深度和产物大小；模型接入后还须配置Task金额上限（USD），Token用于统计和上下文容量。子级截止时间和配额不能超过父级；到期执行取消链路，预算耗尽停止新派发并按策略进入暂停或停止流程。
 
-首版只开放 `http_observe`，使用第 4 节的受控 HTTP 转发。后续 `browser_observe`、`network_probe` 只有在各自出口约束通过验收后才能启用；浏览器子请求、WebSocket、下载和后台请求同样受控，不支持的通道拒绝。
+当前0.4.0不开放目标执行。原HTTP观察切片使用 `http_observe` 的设想保留为候选；新增Kali工具按后续Spec和出口能力逐项开放。后续 `browser_observe`、`network_probe` 只有在各自出口约束通过验收后才能启用；浏览器子请求、WebSocket、下载和后台请求同样受控，不支持的通道拒绝。
 
 HTTP 观察是第一个可验收切片，不是长期产品能力上限。后续可并行建设离线源码审计、浏览器与协议分析 Profile；源码审计优先使用只读输入快照和离线解析 Adapter。需要构建或执行输入代码时必须单独设计沙箱和验证契约，不能借“代码审计”默认获得任意代码执行或网络权限。
 
-CLI Adapter 使用固定可执行文件和校验后的参数数组，不经 shell 拼接，不开放脚本、插件加载、任意代理和任意输出路径参数。`read_artifact`/`save_artifact` 使用服务端句柄，不暴露任意宿主文件路径。MVP 不提供通用 bash、任意文件读写、Kali 交互终端或可任意导航的远程桌面。
+目标命令/脚本和Kali文件操作由受管工具能力提供，不能在平台侧直接使用任意Bash或本机文件工具。参数、工作目录、代理及可执行能力由服务端限定；不通过shell字符串拼接构造平台控制命令。Artifact接口使用受限句柄，Kali路径不等于证据引用；交互终端/远程桌面另行按权限与出口能力开放。
 
 ### 5.2 Base MCP
 
@@ -183,7 +172,7 @@ submit_intent / request_worker / request_verification / submit_verification_resu
 save_artifact / request_report_draft
 ```
 
-上述是按阶段开放的逻辑工具目录，不是当前已实现接口。Worker 请求由 Dispatcher 再检查权限和剩余预算，不能直接创建自由运行的子 Agent。模型只能提交候选事实、验证结果及 Finding；Assessment 模块根据证据和 ValidationRuleVersion 决定可接受的结论。Fact 可标记 verified，Finding 使用分离的证据/研判/修复/发布状态，避免一个 verified 布尔值混淆多个含义。规则不满足时保留不确定状态。
+上述是按阶段开放的逻辑工具目录，不是当前已实现接口。Worker 请求由 Dispatcher 再检查权限和剩余预算，不能直接创建自由运行的子 Agent。模型只能提交候选事实、验证结果及 Finding；Assessment 模块根据证据和 ValidationRuleVersion 决定可接受的结论。Cairn Fact记录共享发现，真实性由Wuji验证记录和证据关系表达；Finding使用分离的证据/研判/修复/发布状态，避免一个 verified 布尔值混淆多个含义。规则不满足时保留不确定状态。
 
 知识发布、范围批准、人工研判、修复关闭和报告发布是 Platform API 的受权限保护命令，不作为普通 Agent 工具开放。`request_report_draft` 只生成草稿，不自动发布或向外部发送报告。
 
@@ -208,6 +197,8 @@ Runtime 使用专门签发给本接收方的短期凭据及逐次执行许可，
 ## 6. Runtime 与 Kubernetes 隔离
 
 ### 6.1 Pod 与进程边界
+
+本节仅描述Kali目标执行Pod，Agent Harness运行在另一个平台侧Worker Pod。Agent会话/模型凭据不进入本节工具环境；两类资源生命周期分别归属Worker后端和Runtime Controller。
 
 ```text
 Task -> TaskRuntime -> attempt-N Pod
@@ -235,7 +226,8 @@ Runtime 默认配置：
 | 发起方 | 接收方 | 允许内容 |
 | --- | --- | --- |
 | Console | Platform API | 已认证 HTTPS / SSE |
-| Orchestrator | API 内部模块、Router、Model Gateway、PostgreSQL | 各自角色允许的业务与检查点操作 |
+| Cairn Dispatcher / Worker后端 | API准入/Bridge、受限Worker执行控制 | 服务身份限定的调度与Agent资源操作 |
+| 平台Agent Worker | LiteLLM、Tool Router、受限快照/证据接口 | 当前Task/AgentRun限定能力；无目标直连 |
 | Router | 绑定的 Runtime MCP | mTLS + 有限执行许可；禁止任意用户指定 URL |
 | Runtime Supervisor | Router、Artifact 接口、Egress Gateway | 身份绑定的心跳/结果、受限上传、授权目标请求 |
 | Kali 工具容器 | Egress Gateway、受限本地 Adapter 通道 | 仅接受逐调用出口许可；无权访问平台业务 API |
@@ -253,234 +245,125 @@ Controller 根据 PostgreSQL 中的 Task 期望状态反复调谐，使用任务
 
 Controller 的集群权限限定在预置 Runtime Namespace 内的必要资源，不能创建 RoleBinding、任意特权 Pod 或修改平台资源。Namespace 和配额由部署管理流程预置。Pod 创建成功但 DB 回写失败时按资源标签核对，不重复建立第二个可执行环境。
 
-重建前撤销旧 attempt 出口权限并确认撤销或等待其租约失效，再激活新 attempt。临时浏览器会话和进程不承诺恢复；Pod 重建后重新 Bootstrap，结果不明的调用进入核对流程。
+重建前撤销旧 attempt 出口权限并确认撤销或等待其租约失效，再激活新 attempt。临时浏览器会话和进程不承诺恢复；Pod重建先冻结派发并核对旧调用；不能因为新Pod就重新Bootstrap或重跑结果不明的操作。
 
 回收覆盖 Pod、Service、临时 Secret、工作卷和出口授权。保存独立 `cleanup_status`，定期清扫带有效所有权标记的孤儿资源；清扫器不得按模糊名称删除不属于本平台的资源。
 
 ## 7. 生命周期、恢复与事件一致性
 
-### 7.1 状态权威与写入责任
+### 7.1 状态权威
 
-| 状态 | 权威来源 / 写入责任 |
-| --- | --- |
-| Task 期望状态、ScopePolicy | PostgreSQL；API 授权变更 |
-| Task 执行进度、AgentRun | PostgreSQL；Orchestrator 通过版本条件更新 |
-| TaskRuntime 实况 | Controller 观察 Kubernetes 后记录，不能撤销用户的取消决定 |
-| ToolCall / ToolAttempt | Router 执行账本；Runtime 回执作为证据输入 |
-| Graph 检查点 | PostgreSQL checkpointer；Orchestrator 单一活动执行租约 |
-| Blackboard / Finding | PostgreSQL；模块接口维护版本和证据关联 |
-| CoveragePlan / VerificationRun | PostgreSQL；Assessment 模块校验提案并提交，模型不能直接改结论 |
-| Profile / Skill / Reference 版本 | PostgreSQL 元数据 + 对象存储内容；配置/资料模块发布不可变版本 |
-| Asset / EvidenceLink | PostgreSQL；资产与证据模块维护来源、时间和版本 |
-| ReportCommit / ExportArtifact | PostgreSQL 快照清单 + 对象存储渲染产物；Report 模块管理发布 |
-| 预算 | PostgreSQL reservation/ledger；Gateway、Router 按预算类型预占和结算 |
-| 事件和 UI | 事务 Outbox 发布、持久化事件投影；不作为独立事实源 |
+Wuji PostgreSQL维护Task期望状态、授权、执行代次、AgentRun、Runtime/工具账本及原始结果。Cairn维护探索图，LiteLLM维护原生模型计量；Kubernetes提供资源实况。界面和事件投影不是独立写入源。
 
-Task API 的创建、启动、暂停、恢复、取消接受幂等请求键；变更已有任务的命令校验资源版本，区分“命令已接受”与“状态已达成”。事件带 `event_id / tenant_id / task_id / aggregate_version / trace_id`。投递按至少一次设计，消费者去重并检查版本；乱序事件不能让终态任务重新运行。
+草稿不创建Cairn Project，正式Task幂等绑定初始stopped Project。需要Cairn原子停止态创建和外部Task标识唯一能力，不能先active再停止。跨库以稳定操作ID、摘要、回执和按Task排序的持久操作同步；每个数据源只保证其本地事务，不声称跨库原子完成。
 
-取消提交、执行许可签发和租约续期都按同一 Task 版本/epoch 做数据库条件更新，避免检查后又被取消的竞争。取消提交后不再签发新许可；此前已签发且在途的操作通过出口撤销与租约上限停止，不能宣称分布式撤销无传播延迟。数据库不可用时拒绝新授权和续约。
-
-### 7.2 Task 与 ToolCall 状态
+### 7.2 Task与执行许可
 
 ```text
-Task:
-ready --显式 start--> queued -> provisioning -> running -> completing -> completed
-ready / 无活动资源且从未执行的 queued -> cancelled
-running -> pausing -> paused -> provisioning/running
-任意非终态 -> cancelling -> cancelled
-运行异常 -> reconciling -> paused / running / cancelling / failed
-
-ToolCall:
-proposed -> authorized -> dispatched -> running -> succeeded / failed
-proposed -> rejected
-authorized/dispatched/running -> cancelling -> cancelled
-dispatched/running -> unknown -> reconciling -> 已核实结果 / 保持 unknown
+草稿 -> 正式创建ready（Cairn stopped）
+ready --显式start--> queued / provisioning -> running（Cairn active且Wuji准入通过）
+running -> pausing -> paused
+非终态 -> cancelling -> cancelled
+完成提案被接受 -> completing -> completed（目标达成或明确partial结果）
+执行仍否继续未知 -> reconciling（禁止重新派发）
 ```
 
-`ready` 是 2026-09-10 产品确认后的目标状态，表示配置固定但尚未启动；可编辑草稿独立于 Task。当前 B2/B3 API 0.4.0 仍只实现创建 queued 和取消，不具备 start 或执行能力。Phase 1C 前置批次需先完成契约和迁移，保留旧回执与事件，并使历史未执行任务重新等待显式启动；执行器必须检查有效启动记录，不得自动执行旧 queued。
+这是目标状态机，不是当前0.4.0 DTO。现有迁移限定queued/cancelled、活动调用恒零；ready/start、执行状态、代次和账本须随0.5契约及迁移同步实现。旧queued没有启动记录，不能自动接管，也不能伪造曾经ready/start的历史。
 
-只有授权有效、预算允许、旧 epoch 已隔离且未取消的任务才可从 reconciling 恢复 running。未知结果不会直接转为成功，也不会因为换了 Pod 就变成“未执行”。完成任务前必须确认没有活动执行和待核对调用，证据元数据已落库，出口权限已撤销；清理进度单独显示。
+每次Agent派发和工具请求重新检查Task、真实身份、当前epoch、有效授权/配置、预算及runtime_attempt。Cairn active/stopped不能代替执行许可。worker_profile_id表达能力和容量，agent_run_id表达本次真实执行/认领/会话；Intent有运行、停止核对或结果同步中AgentRun时拒绝重复派发。
 
-这里的“待核对调用”指可能仍执行或目标副作用未知的 ToolCall，不等同于业务结论 inconclusive。Task 达到执行终态时另外保存 `assessment_outcome` 和 `stop_reason`：允许结论不完整的任务在明确披露限制后结束，不允许把 unknown 执行改成业务“未复现”来绕过核对。完成判据和覆盖计算见评估业务契约。
+### 7.3 持久交接与失败
 
-Phase 1 的工具任务由 API 与 Router/Controller 协调上述状态；接入 Orchestrator 后由其推进工作流，禁止两者同时拥有同一 Task 的执行推进权。任何 failed 终态同样要求先隔离出口并停止活动执行；无法确认时保留 reconciling。
+Agent启动前登记AgentRun，保存进程归属及后续回执。结果先持久化原始结构化提交/产物引用，再校验并登记稳定黑板操作；Cairn写入后返回原生ID和回执，Wuji登记同步完成。黑板不可用时保持结果待同步，只重投结果，不重新询问模型或访问目标。
 
-Phase 1 的状态转换、派发、核对和停止实现为可复用业务操作，由持久任务协调循环调用；不把长任务放在 HTTP 请求线程或仅内存后台回调中。Phase 2 的 Graph 节点调用这些既有操作，只接替调度职责，不重新实现另一套 Task / ToolCall 状态机。
+取消前接受的结果可以补入历史；取消后产生的新提案不触发执行。读取旧回执和申请新许可分别处理。通知或流连接丢失不代表任务未执行；Cairn内存Future不是恢复账本。
 
-### 7.3 暂停、取消和失联
+工具保留逻辑tool_call_id与实际attempt，派发前保存参数摘要和许可，Runtime接受/启动/退出分别有记录。相同ID不同输入拒绝；可能已执行的工具不能因超时、换Pod或新会话ID直接重发。明确重试也重新检查授权和剩余限额。
 
-- **暂停**：先停止新 Worker、模型尝试和工具派发，进入 pausing；允许已批准调用在有限 drain deadline 内结束，超时则停止。没有活动调用且出口已冻结后才标记 paused。恢复时重新验证授权、预算、策略和 Runtime 健康。
-- **取消**：API 提交取消意图并增加 execution epoch；Router/Gateway 拒绝旧 epoch 的新操作，出口撤销活动授权并关闭连接；Supervisor 停止工具进程组、浏览器 Context 和后台任务。已发往目标的请求无法撤回，取消不声称回滚目标效果。
-- **失联**：Supervisor 和 Egress Gateway 使用可到期执行租约，续约失败时停止执行/转发，不能无限使用缓存策略。无法确认进程停止时保留 cancelling/reconciling，不因 Pod 删除请求成功就宣告结束。
-- **确认**：收到可信停止回执，或已证实运行环境终止，且出口被隔离，才完成取消；清理失败保留 `cleanup_pending` 并告警。下游模型响应可能稍后返回，只记账，不再触发工具。
+### 7.4 完成、暂停、取消与重启
 
-建议初始参数为租约 30 秒、续约周期 10 秒、额外时钟/调度容差 5 秒，暂停 drain deadline 15 秒；这些是待验收配置，不是已实测 SLA。最坏失联断流目标为最后一次有效续约后 35 秒内。出口检查覆盖已建立的长连接和流式转发，旧续约消息不能延长撤销后的租约。
+Dispatcher complete先交Bridge作为完成提案，不立即触发Cairn默认完成清理。平台核对目标、覆盖和证据；仍缺必需项且允许继续时反馈缺项。接受结束后停止新派发，分别核对Agent及Kali活动执行，再定终态。达成目标才写Cairn完成边；预算/环境/用户决定导致部分结束时保持stopped，不伪造goal达成。
 
-租约同时受授权到期、Task/Worker 截止时间和调用截止时间约束，取最早者；时钟容差不能延长业务授权。调度使用单调计时，并检验签名期限和时钟偏差；偏差超限停止续约。
+暂停和取消先改变平台执行许可，再传播到Dispatcher、Harness、Tool Router、Runtime与出口。Worker后端只停止/清理Agent资源，Runtime Controller独占Kali。SDK abort和Pod删除请求都不是停止证明，不承诺撤回或回滚已发送的目标请求。
 
-### 7.4 执行账本与重试
+执行是否仍在继续未知时保持reconciling；已确认执行/出口停止但结果缺失时保留未知结果和证据缺口，可按partial结束，不能转成成功或未复现。停止与资源清理状态分开，清理失败保留待处理状态。
 
-每次逻辑操作有稳定 `tool_call_id`，每次实际尝试有 `attempt_id`；相同 ID 但不同参数摘要必须拒绝。记录 authorized、dispatch intent、Runtime accepted、started、exit/result、证据摘要和终态。Runtime 在启动工具前保存接收/去重记录，Router 保存持久账本；Runtime 临时盘丢失后结合 Router 记录核对，不能假设从未执行。
+首次集成在Dispatcher/Worker重启后先冻结相关派发，核对持久AgentRun、进程回执、会话和ToolCall，再决定显式恢复；不承诺无缝续接，不因租约超时直接换Worker重跑。终态复测创建关联新Task，不用Cairn reopen改写历史。
 
-Runtime 以 `(tool_call_id, attempt_id)` 去重投递；只有 Router 能经状态核对与预算预占后创建新的 attempt。HTTP 客户端、Adapter 和出口禁用不可观测的自动重试；网关处理的重定向逐跳留痕、计数并验证 Scope，不隐藏在一次调用统计中。
+## 8. Agent与共享黑板
 
-故障恢复先查询已有执行状态和证据，再决定重试。`safe-read` 也须重新获得预算和 Scope 许可；`idempotent-with-key` 要求目标接口或 Adapter 真正支持幂等，不以数据库唯一键替代目标幂等。无法判断是否已产生目标效果的调用不自动再次发送。
+### 8.1 框架和数据
 
-LangGraph 的外部操作封装为可记录结果的 task/node，并使用数据库检查点；图节点恢复时通过业务调用 ID 读取既有结果。框架恢复仍要求应用处理副作用和幂等性。[LangGraph 官方说明](https://docs.langchain.com/oss/python/langgraph/functional-api)
+Cairn Server是Fact/Intent/Hint及探索关系的唯一可写来源，首版单Server/单Dispatcher/SQLite持久卷。Cairn Dispatcher复用Bootstrap/Reason/Explore及Worker匹配；Pi coding-agent复用模型客户端、循环、会话和压缩。LangGraph/LangChain/Deep Agents不再必选，P0实验及证据保留。
 
-Graph 检查点与业务账本不假定在同一事务提交；Orchestrator 恢复时按 AgentRun、调用 ID 和版本对账。DB 状态变更与 Outbox 在同一事务写入，发布失败可补发。MCP 重连、HTTP 超时和消息重投都不构成重发工具的授权。
+Bridge负责平台归属、操作和结果同步，不选择下一Intent。原始Agent提交、Wuji图引用与只读投影不能成为第二套可写Fact。共享图、Agent完整会话和Kali共享文件是不同资源；一块黑板只绑定一个Task，跨Task引用须显式保留来源并重新鉴权。
 
-工具执行前先持久化模型产出的动作及其业务调用 ID，再派发。恢复身份绑定 `agent_run_id + checkpoint/step + emission_index` 等稳定位置，并核对参数摘要；具体字段由适配契约固定，不能只用目标/参数去重而误吞合法的新观察。若框架无法稳定恢复位置，停在核对状态，不重新询问模型来猜测原动作。模型调用同样保存逻辑请求 ID、已返回结果与用量；Graph 重放不直接生成第二个付费请求。
+### 8.2 工具和上下文
 
-审计回放只重放已存储事件、输入摘要和结果，不调用模型或目标。重新验证应创建新执行请求并重新检查范围和剩余预算。
+Pi关闭自动发现和默认本地执行工具，只加载受信扩展/版本化知识。快照工具只读取本AgentRun绑定的不可变黑板快照，不能接收任意平台路径；工作记忆只作用于限定AgentRun存储。Cairn原生图文件交付必须同步改造，不能只删除read工具。
 
-## 8. Agent 与 Blackboard
+目标命令、文件和浏览器操作经Tool Router/MCP在共享Kali中执行。工具白名单同时在Harness与服务端检查；MCP session、模型自报ID、提示词或工具名字都不能授予权限。当前Scope/epoch从平台装配，不依赖摘要保存授权。
 
-LangGraph 提供编排与持久执行机制，不自动包含完整 Agent Harness。Wuji 复用成熟执行框架，平台保留任务、授权、账本和证据的状态权威；框架取舍见 [Agent 执行层决策](agent-harness-decision.md)。
+同Task共享Kali工具环境，AgentRun/ToolCall分目录，浏览器Context按执行/身份区分，共享端口/代理等可变资源由工具服务协调。目录不是同容器恶意执行者的强隔离。Kali路径只用于现场定位，登记Artifact后才作为可追溯引用；缺失产物明确标注。凭据以受限引用共享，不广播明文。
 
-### 8.1 编排
+### 8.3 验证、覆盖和人工介入
 
-明确采用[黑板协作设计](cairn-blackboard-design.md)：一块黑板绑定一个 Task，保存有来源的事实、探索方向、人工/Agent 提示及因果关系。下一步工作由当前黑板状态动态产生；Scenario 给出边界与完成标准，AgentProfile 限定能力，不要求固定角色依次出场。
+Origin是起始依据，Goal是未达成目标，Fact为共享发现而非已确认漏洞。VerificationRun表达主张、方法、证据与结论，AgentRun表达一次执行；Finding/Report按明确规则生成并保留版本。CoveragePlan不能扩大Scope，缺项/阻断/未知不改成未复现。
 
-```text
-Bootstrap -> Reason -> Submit Intent -> Dispatch -> Wait Workers
-    ^                                                |
-    +---------------- Reduce Results <---------------+
-                         |
-                  Continue / Pause / Finish
-```
+Hint为建议、回答绑定具体问题、控制/授权变更走权限化命令；三者不可混用。范围扩展由人决定，已授权阶段按策略推进，不把全部工具调用改为人审。五场景由版本化输入/阶段/完成条件驱动同一调度引擎，不开发固定角色流水线。
 
-Dispatcher 原子认领 Intent，记录 owner、租约和递增 fencing token；过期 Worker 的写入拒绝。Intent 使用任务、目标、验证方法、身份和阶段生成去重键，重复观察更新现有探索项。每个 Task 只有一个持有有效租约的主编排实例。
+会话、压缩和工作记忆由Pi维护，网关不二次编排历史，黑板不合并所有聊天。证据/摘要保留来源数据身份，不升级成系统规则。恢复已删除会话时明确不可恢复，不依赖模型猜测。
 
-Blackboard 使用 API 内统一领域写入口：Dispatcher 提交 Worker 结果，用户提示经鉴权 API 提交，均检查任务归属、版本和当前权限。事实/关系、Intent 结论及事件同事务更新；模型不直接写库。Hint 是有来源的建议，不是事实、授权或恢复命令。Origin/Goal 为任务起点与目标锚点，未达成目标不当作已验证 Fact。因果关系保留多个输入依据，冲突通过追加记录/关系表达。
+### 8.4 界面与事件
 
-Worker 绑定服务端创建的 `agent_run_id / intent_id / scope_version / runtime_attempt / credential_handle / budget_reservation`。模型输入只包含必要描述和逻辑句柄，不包含授权凭据。Worker 可提交后续 Intent，创建权和预算分配留在 Dispatcher。
+Agent原始事件转成受限领域事件后才对外提供，展示运行状态、工具调用、产物、结果和限制；不公开隐藏推理。黑板变更、版本、事务事件与回执是所需Cairn增量，不能把现有重建时间线称为完整不可变事件日志。
 
-WorkerAssignment 从冻结配置与当前执行权限装配自包含目标、完成标准、角色版本、允许方法/身份、资料与证据引用、已知事实来源、截止时间和取消 epoch；不默认复制主 Agent 整段会话。工作目录、Adapter 等环境事实来自实际运行配置，不复制模板中的旧环境文本。AgentRunResult 以结构化执行结果、证据、限制和后续提案落库，完成事件随后发布；框架会话和领域结果通过 AgentDriver 关联，不另建通用 Agent 循环。
+Wuji查询投影按来源ID/版本/游标去重，只在校验成功后推进；快照按各来源版本标注，不假装跨库全局原子快照。历史回放只读已有数据，不调用模型/目标。详细职责见[Harness](agent-harness-decision.md)和[黑板](cairn-blackboard-design.md)。
 
-独立工作可后台执行，依赖结果的步骤等待持久化完成事件；恢复后从 AgentRun/事件游标取结果，不靠模型循环轮询。Worker 回传结构化结论、证据 ID、限制、新 Intent 和平台计量的 usage。前台/后台只是调度方式，共用相同许可、取消、租约和预算约束；AgentRun 续接须重新检查任务状态，不允许旧 Worker 在取消后被消息唤醒继续执行。
+## 9. LiteLLM与任务预算
 
-### 8.2 共享与隔离
+### 9.1 配置与模型接入
 
-| 资源 | 策略 |
-| --- | --- |
-| Task Pod、出口、基础工具镜像 | Task 级共享；同一 Task 是共同的运行信任域 |
-| 浏览器 | 按 Worker 与验证身份建立独立 Context、Cookie jar、下载目录；不共享登录状态 |
-| 工作目录 | `/workspace/<agent_run_id>/<tool_call_id>/`；Adapter 限定路径并拒绝符号链接逃逸 |
-| 代理配置 | 策略由平台管理；共享资源变更使用租约锁，Worker 不自由修改 |
-| 凭据 | 项目/任务/目标/身份限定的句柄，按调用注入受信 Adapter；不进入模型上下文 |
-| 事实与证据 | Blackboard 显式共享，携带来源、时间、工具版本、验证身份及可信度 |
+Model Gateway采用LiteLLM Proxy，候选v1.100.0。组织共享模型配置由TenantAdmin维护，Task选择已发布版本；平台模型配置不设置Task预算。发布要求管理员显式触发的同版本连接检查成功，保存配置不隐式请求模型。无可用方案时只能保存草稿。
 
-目录和 Context 隔离用于防止会话污染与误操作，不声明对同 Pod 内任意恶意代码提供强隔离。需要相互不信任的执行者时拆分 Task/运行环境，不能仅增加目录。
+Pi原生模型客户端接LiteLLM，再路由到已配置上游。上游Key只在网关；平台侧Agent仅使用Task限定凭据，无管理权限，Kali不接收模型凭据。LiteLLM使用独立数据库与原生迁移，密钥保存/运行镜像和实际兼容性由后续Spec固定验证；P0的私有文件/ProviderSession/IPC/次数账本不作为生产网关。
 
-Observation 为原始观察索引；Fact 保留来源和有效期；Hypothesis 为待验证假设；Finding 必须引用证据、适用目标/身份、验证规则版本和置信状态。模型总结不能自行提升来源可信度。冲突事实并存并标记待核对，不采用最后写入覆盖。
+### 9.2 金额与辅助调用
 
-### 8.3 验证单元与覆盖计划
+Task金额预算按USD计量，全部Agent/Reason/Bootstrap/收尾/摘要/重试共用LiteLLM原生预算，不周期重置，不因换Worker、模型或重建Runtime创建新预算。Token作为上下文容量和用量指标；价格未知不按零，也不宣称金额限制可用。
 
-VerificationRun 固定“核实什么、在什么身份和条件下、依据什么证据”，AgentRun 表示“谁在执行”。一个验证单元可有多个顺序交接的 AgentRun 和多个 ToolCall；交接遵守 fencing，不并发写同一执行所有权。重新验证创建新 VerificationRun 并关联旧结果，不覆盖原记录。
+达到预算后停止新增模型请求及继续派发；已在途请求可能继续结算，不承诺未经验证的并发零超支。预算耗尽不额外请求模型写总结。平台保存预算配置、归属、费用引用及耗尽后的控制状态，不再自建另一套模型金额预占/结算引擎。
 
-VerificationRun 的执行状态与结论分开：完成一次工作不自动得到 confirmed；模型未找到问题不自动得到 not_reproduced。未满足方法前提、被环境阻断、输出被截断或关键证据缺失时保存原因和 inconclusive/unassessed。
+共享上游容量关系必须有依据，不能按别名/URL猜测；确需QuotaGroup元数据时仅表达已确认关联，不能让子Agent分别领取完整Task预算。原生网关不能满足的能力须明确记录缺口，不静默重建通用网关。
 
-CoveragePlan 是当前已定义计划，CoverageItem 以授权目标、测试维度和验证身份组织；ScopePolicy 决定允许范围，CoveragePlan 不签发权限。计划增删形成新版本，保留原分母和改动原因；不允许为了提高覆盖率删除未完成项。首版用列表/矩阵展示，后续图视图是同一数据投影。
+### 9.3 重试、健康与停止
 
-### 8.4 场景、角色、知识与资料
+关闭Cairn自动付费探活；普通readiness/liveness不请求模型。无效配置、权限拒绝、不支持工具等错误不能按短周期重启Worker。结果不明先核对，不自动更换模型/幂等键追加付费调用。收尾最多按既定单次流程且仍受Task预算限制。
 
-ScenarioProfile 定义起手维度、所需资料和完成判据；AgentProfile 定义角色、逻辑模型、工具子集和输出 Schema；SkillPackage 提供版本化方法与工具用法；ReferenceVersion 固定源码/文档等任务输入。RuntimeProfile 管理实际环境能力，ScopePolicy 管理权限，任何一项配置不能越过其他限制。
+网关、SDK及Harness隐式重试/fallback必须显式收敛；模型主动纠错是有预算的新回合，目标工具重试仍由Tool Router账本控制。原生网关取消不代表上游费用回滚；迟到用量继续关联原Task。
 
-Task 创建 ConfigSnapshot 固定所引用版本及摘要；按需加载知识有上下文大小限制、来源记录和逐次加载审计。管理员发布的知识与用户/目标资料区分信任级别，仓库中的同名 SKILL.md 不自动成为平台知识。配置、资料更新不会静默改变运行中任务；详细配置和变更契约见 [评估、知识与交付模型](assessment-model.md)。
+### 9.4 数据策略
 
-### 8.5 Harness 接入与恢复
+发送模型前按任务分类限制数据，原始敏感证据和凭据不默认进入上下文；System/Developer规则与用户/目标/工具数据分开。未知模型能力、容量、价格不从名字猜测，协议连通不代表工具/流式/Harness通过。
 
-外层 LangGraph 推进 Task / Intent，内层 Harness 运行当前 AgentRun；通过 AgentDriver 适配模型、工具、事件与恢复位置，不另写一套通用模型循环。优先验证 Deep Agents 的受限配置；若默认能力无法收敛，最小切片采用 LangChain `create_agent` 与现成 SummarizationMiddleware。pi、Claude Agent SDK、Codex SDK 和 DeepSeek Harness 按需求评估，不同时堆叠进首版。
-
-Harness 的目标工具只能通过 Router 执行，模型请求只能通过 Wuji Gateway；工作记忆和平台业务工具按第 5 节分流。默认 shell、任意网络/宿主文件写入和本机插件发现必须关闭或改接受控服务；框架的权限提示不能替代 Scope 与网络隔离。子代理创建必须经 Dispatcher 取得身份、预算和租约，首版单 Agent 配置关闭自动派生。
-
-每个 AgentRun 固定 Harness 类型、版本、配置摘要与租户限定会话引用。外层拥有任务执行租约，内层检查点不直接覆盖 Task 状态；恢复先对账已有模型/工具调用，不能仅凭重新生成的框架调用 ID 重发操作。停止推理后，仍由平台完成在途执行停止、断流和清理。
-
-### 8.6 上下文与压缩的唯一责任方
-
-Harness 管理消息历史、Token 估计、上下文裁剪、摘要与大结果卸载；优先配置其现成机制，不在 Orchestrator、Blackboard 或 Gateway 再维护另一份可写会话。Deep Agents 已提供压缩/卸载机制，LangChain 也有可配置的摘要中间件。[上下文机制](https://docs.langchain.com/oss/python/deepagents/context-engineering)、[内置中间件](https://docs.langchain.com/oss/python/langchain/middleware/built-in)
-
-平台提供 ContextPolicy 配置与受限存储适配：输入上限、保留最近消息、压缩触发条件、摘要模型、最大压缩次数、脱敏及保留策略随 ConfigSnapshot 固定。未知模型别名不能套用猜测的上下文窗口；设置经验证的 Model Profile，开发探测可使用显式保守输入上限。Token 估计用于预留空间，不能冒充 Provider 实际计费用量。
-
-可信规则与当前 Scope/epoch 从服务端装配，恢复时重新读取；不依赖压缩摘要记住授权。工具输入保留必要证据引用、来源和截断标记，大正文存对象存储并按需读取。工作记忆、模型摘要与候选结论不能直接提升为 Blackboard 已验证事实，也不能覆盖原始证据。
-
-框架虚拟文件系统只挂载当前 AgentRun 工作区及允许读取的知识快照；发布知识和规则只读，框架不自动加载开发者目录或其他项目的记忆。摘要、工具选择、自动评估和未来子 Agent 的模型调用全部经过相同 Gateway 身份与预算，不能让辅助模型沿默认客户端直连上游。压缩失败或预算不足时有界停止，不无限压缩/重试。
-
-### 8.7 打断与流式事件
-
-复用 Harness / LangGraph 的中断、恢复、取消信号与事件 API，Wuji 只映射业务命令。等待用户决策使用已保存的中断位置；用户补充指令在下一个安全边界入队处理，不另起并行主循环。Phase 1 控制动作以 start/pause/resume/cancel 为目标并按批次开放；当前 B2/B3 仅实现 cancel。后续 steering 或审核交互扩展契约后再开放。
-
-人工问题及回答先保存领域归属（Task/AgentRun/问题 ID、允许回答者、状态和版本），再映射到框架中断与恢复；回答不能让已取消或失权任务被旧 agentId 唤醒。模型自述、提示词禁令、工具名称前缀均不能替代注册能力和服务端鉴权。元刃材料中的相似工具表面不作为 SDK/模型真实来源或压缩能力的证据，见[参考复核](metablade-backend-review.md)。
-
-框架中断不自动代表 Task 已 paused；必须满足第 7 节排空与出口冻结条件。取消先提交平台 epoch，再传播框架 abort 与工具停止，迟到结果只入账；恢复检查授权和活动租约，不能通过直接 resume 底层会话绕过业务命令。
-
-框架事件转换为领域事件后才进入持久 Outbox。任务状态、工具动作、证据引用、压缩发生及用量需要留痕；逐 Token 文本不是 Task 版本更新，不逐片写 Outbox。后续如展示实时文本，采用有界临时流并保留最终可见摘要；断线恢复依据持久事件与快照，不承诺逐 Token 回放。框架 thread ID、内部控制事件和隐藏推理不直接开放给前端。
-
-## 9. Model Gateway 与资源预算
-
-### 9.1 模型与数据策略
-
-逻辑模型使用 `reasoning / fast / vision / long-context`；`private` 作为数据处理策略而非可被 fallback 绕过的模型别名。
-
-每次调用先求交租户、项目与 Task 的允许 Provider、部署区域、数据类别、留存要求、工具调用和结构化输出能力，再从候选路由选择模型。fallback 只能选择满足全部硬约束的候选；无合格模型则失败。私有数据策略不能回退到公网模型。
-
-Wuji Gateway 是模型重试与 fallback 的唯一责任层。接入 LiteLLM/Bifrost 时通过配置和契约测试确认关闭内置自动重试/fallback；无法关闭或无法观察每次实际尝试的模式不接入。Orchestrator 对 Gateway 超时先用幂等请求键查询状态，不自行生成第二次付费调用。
-
-复用模型客户端完成协议序列化、工具调用与流式解析；默认候选使用 LangChain 的 Provider 集成，业务层不手写每家模型协议。SDK、Harness 重试中间件和 HTTP 客户端的传输重试/fallback 必须与 Gateway 协调，目标工具重试则由 Router 决定。模型纠正无效参数属于有预算上限的新推理回合，不能与网络重投或 unknown 工具重试混为一谈。
-
-已有企业模型网关可直接作为上游；Wuji 首先补齐业务策略与账本，不默认串联额外代理。2026-09-09 已验证用户提供网关的两种协议工具往返及 Responses 基础文本，具体见 [实测记录](model-gateway-validation.md)。该结果不代表 Harness 兼容、全部模型可用或上游重试/计费已满足本节要求；开发接入和生产验收分别记录。
-
-### 9.2 消息与不可信数据
-
-```text
-System/Developer：平台可信规则 + 管理员策略 + Agent 角色 + 结构化 Scope 摘要
-User：用户目标及补充信息
-Tool/Data：网页、HTTP 响应、文件内容、Blackboard 事实与摘要
-```
-
-Blackboard 摘要和检索结果保留来源标记，不拼入系统指令。不同 Provider 的消息映射必须维持信任层级，不支持的映射拒绝；输出工具调用仍经 Router 校验。角色分离降低注入影响，不保证模型不会被诱导，也不替代执行授权。
-
-发往 Provider 前进行凭据剔除、敏感字段处理和大小限制；原始 HAR、Cookie、Authorization 和完整目标响应默认不自动发送给外部模型。Prompt Profile、工具 Schema 和策略版本随调用记录，模型不得修改。
-
-业务输入在进入 Harness 前完成分类和脱敏；Harness 管理会话，Gateway 在出口检查策略，不再次排序历史、压缩消息或重写工具对应关系。协议中的不透明续接状态由已验证客户端原样维护，并继承数据分类与路由绑定；无法按数据策略处理的形式拒绝接入，不在网关猜测其含义或任意改写。
-
-AgentRun 绑定模型路由与会话兼容信息。fallback 除数据/预算约束外，还检查协议、工具 Schema、上下文容量及续接状态；不能把原 Provider 的会话 ID 或专属内容直接传给另一模型。需要切换不兼容模型时，先完成在途调用核对，在安全边界从平台证据和可迁移摘要建立新的会话段并记录切换，禁止重复执行已提交动作。模型清单、实测能力和暂时健康分别维护。
-
-### 9.3 预算与限流
-
-预算分为模型 Token/费用、工具尝试、目标请求/带宽/并发、Runtime 资源和产物存储，均有 Task 总上限；Worker 获得总预算内的分配，不能各自领取完整 Task 配额。
-
-Gateway 在调用前原子预占输入及最大输出成本，设置输出上限，结束后按实际用量结算并释放剩余。请求发送后结果不明时保留预占并等待对账，不能超时即退款。所有 fallback、重试和取消后返回的用量都记录；未知用量先按预占上限保守处理。
-
-Router 为每个工具 attempt 预占调用配额；出口以实际请求计数，重定向和重试也消耗额度。Task、租户及指向同一目标的并发任务服从聚合速率上限，防止多 Task 叠加负载。跨副本计数或配额租约必须原子协调；计数服务失联时停止新增请求，不回退到不限流。
-
-记录 `model_call_id / attempt_id / actual_model / route_policy_version / prompt_version / input_tokens / output_tokens / reserved_cost / actual_cost / latency / trace_id`，价格配置版本一并保存。限制不可观测收费的 Provider 模式，不能承诺无法计量的硬成本上限。
-
-### 9.4 上游共享配额与计量
-
-增加 QuotaGroup 描述一个真实上游账户/配额池的并发、RPM、TPM 和可用容量；多个 Provider 配置、模型别名或路由可引用同一组。组映射由管理员确认，不能只按显示名或 URL 猜测。切换模型、Key 或 fallback 不重新获得一份共享额度。
-
-Gateway 同时获得租户/任务预算预占和 QuotaGroup 容量许可；任一条件失败则排队或拒绝，排队有截止时间和公平调度。结果不明的 Provider 尝试按已知最大执行期限和核对策略处理，不能仅凭本地连接超时立即释放全部上游并发许可。容量协调不可用时不放行。
-
-用量保留 Provider 原始字段及规范化输入/输出、缓存读/写、其他计费项和计费规则版本。未知字段标记未知，不按零计费；缓存 Token 与输入 Token 的包含关系按 Provider 映射，不能直接相加造成重复统计。按 Task、Worker、VerificationRun、模型和 QuotaGroup 汇总，计量数据来自 Gateway/执行器，不信任模型自报。
+会话/摘要/工具日志按保留策略保存，第三方遥测默认关闭。LiteLLM不重排或压缩Harness历史，也不覆盖Task、Scope或黑板的状态权威。完整模型/网关兼容和恢复矩阵不属于本轮文档验收。
 
 ## 10. 多租户数据、证据和审计
 
 ### 10.1 PostgreSQL
 
-核心实体为：
+以下为Wuji PostgreSQL目标实体；Cairn图表和LiteLLM原生表不放入此数据库：
 
 ```text
 Tenant / Project / Membership / Authorization / ScopePolicy
-Task / TaskRuntime / AgentRun / Intent / Hint / GraphCheckpoint
+Task / TaskRuntime / AgentRun / CairnTaskBinding / GraphOperation / GraphProjection
 ConfigSnapshot / ScenarioProfileVersion / AgentProfileVersion / SkillPackageVersion
 Reference / ReferenceVersion / CoveragePlanVersion / CoverageItem
 VerificationRun / ValidationRuleVersion / VerificationTemplateVersion
-Asset / AssetRelation / Observation / EvidenceLink / Fact / Hypothesis
+Asset / AssetRelation / Observation / EvidenceLink / CairnFactRef / Hypothesis
 Finding / FindingRevision / Artifact / ReportCommit / ExportArtifact
-ToolCall / ToolAttempt / ModelCall / ModelAttempt
-QuotaGroup / BudgetReservation / BudgetLedger / AuditEvent / OutboxEvent
+ToolCall / ToolAttempt / ModelUsageRef / TaskBudgetConfig
+QuotaGroup（已确认关系）/ ToolBudgetLedger / AuditEvent / OutboxEvent
 ```
 
 所有业务记录携带 tenant_id，项目级记录携带 project_id；父子关系使用包含租户/项目维度的复合约束，阻止跨租户关联。服务端从身份和资源归属建立上下文，禁止只凭客户端 tenant_id 查询。
@@ -491,9 +374,9 @@ QuotaGroup / BudgetReservation / BudgetLedger / AuditEvent / OutboxEvent
 
 基础角色按项目分配：Viewer 查看被授权的脱敏结果；Operator 在已批准 Scope 内创建和控制任务；ScopeManager 管理授权与策略版本；TenantAdmin 管理本租户成员和配置。角色可组合，但租户管理员不能越过平台禁止项。原始敏感证据下载和数据导出是独立权限，不随普通查看权限自动授予。
 
-后台 Worker 同样以 Task 归属限定事务；Controller 跨租户权限只允许其所需任务/Runtime 字段，不授予读取所有证据内容的通用角色。Graph checkpoint 的 thread ID 由服务端映射至 tenant/task/run，不允许用户通过任意 thread ID 读取状态。
+后台执行同样限定Task归属，Controller只持有所需资源/状态权限。Cairn SQLite和LiteLLM独立数据库不自动继承Wuji RLS，各自通过受信服务入口和任务映射控制权限。
 
-复用框架维护的 checkpointer/store 与序列化格式，Wuji 保存租户归属映射并控制访问入口。框架自建表不自动拥有业务表的 tenant_id/RLS，接入时单独验证 schema、数据库角色、命名空间授权与清理接口，不能把 ID 前缀当作隔离证明。仅受信 Orchestrator 的检查点角色访问框架表；API、Runtime 和模型无通用读取权限。
+Pi会话ID映射到真实AgentRun，用户不能凭底层session读取其他任务内容。会话格式使用Harness原生实现，不新建LangGraph检查点作为目标必选项；平台账本保存恢复与结果核对依据。
 
 上下文卸载文件、摘要、检查点和框架 trace 也属于任务数据，继承分类、加密、保留与删除策略；第三方 tracing 默认关闭，启用前纳入允许的数据出口。恢复所需对象已删除时明确不可恢复，不静默回退到模型猜测。
 
@@ -551,9 +434,9 @@ Phase 1 先交付登录/项目、任务列表、基本范围预览、任务详�
 
 ## 12. 部署与演进
 
-Helm 安装 Platform、出口组件、Runtime 基础策略及可选开发数据依赖；生产数据库和对象存储可以外置。Task Pod 由 Controller 动态管理，每个 Task 不单独执行 Helm release。
+目标部署按平台服务、Agent Worker和Kali Runtime分权；生产数据服务可外置。两类任务Pod分别由各自所有者管理，不为每Task建立独立Helm release；本批不部署。
 
-第 3 节列出的是完整 MVP 部署边界；Phase 1 仅启用 API、Router、Controller、出口与数据依赖，Phase 2 再启用 Orchestrator 和 Model Gateway。未实现工具和模块默认不注册，不能暴露占位接口执行实际操作。
+第3节是目标边界，实际业务仍0.4.0。后续依赖改为控制面基础→调度适配→共享Runtime→产品接入→真实目标开放；配置/账本不能放到真实调度之后。未实现能力不注册为可执行工具。
 
 控制台由独立 web 容器提供静态文件，与 API 共用浏览器访问入口；SSE 关闭代理缓冲并配置连接超时。SPA fallback 不接管 API、证据和事件响应。入口 HTML/公开运行配置与带摘要静态资源分别配置缓存，业务数据不进入共享静态缓存。构建产物不包含凭据，详情见前端设计第 8 节。
 
@@ -561,10 +444,12 @@ Helm 安装 Platform、出口组件、Runtime 基础策略及可选开发数据�
 
 ```text
 apps/web/
-services/platform-api/        # 含 Policy / Assessment / Knowledge / Asset / Report 等模块
-services/agent-orchestrator/
+apps/api/                    # 已有，后续含 Cairn Bridge / Policy / Assessment / Artifact
+services/cairn-server/        # 候选部署配置，不在本批实现
+services/cairn-dispatcher/
+services/agent-worker/
 services/mcp-router/
-services/model-gateway/
+deploy/litellm/              # 使用上游原生网关
 services/runtime-controller/
 services/egress-gateway/
 packages/contracts/          # API / policy / event / tool schema
@@ -574,42 +459,43 @@ deploy/helm/wuji-platform/
 docs/
 ```
 
-升级固定镜像 digest、工具 Schema、Graph/Prompt 和策略版本；保留活动任务的兼容执行版本，无法兼容的检查点暂停并显式迁移，不能用新图静默重放旧操作。配置和 Schema 变更有迁移策略，平台启动不得因依赖未就绪而绕过鉴权或策略检查。
+升级固定镜像 digest、工具 Schema、Cairn/Pi/Prompt 和策略版本；保留活动任务的兼容执行版本，无法兼容的检查点暂停并显式迁移，不能用新图静默重放旧操作。配置和 Schema 变更有迁移策略，平台启动不得因依赖未就绪而绕过鉴权或策略检查。
 
 | 演进项 | 启用条件 |
 | --- | --- |
 | Redis | 已测得缓存或协调需求；不能成为唯一业务账本 |
 | NATS JetStream | Outbox 延迟、吞吐或消费者数量达到记录过的容量阈值；通过重投/乱序测试 |
 | CRD | 存在 GitOps 或外部 Kubernetes 消费需求；先确定唯一写入方向 |
-| 独立 Blackboard 服务 | 有独立扩容、权限或性能需求；保持原接口契约 |
+| Cairn容量/高可用演进 | 首版已是独立单实例服务；有量化需求后再设计迁移/高可用，不能直接横向复制SQLite写实例 |
 | ExternalRuntime / 多集群 | 能验证身份、策略、出口、租约、取消和证据契约，先通过同一验收清单 |
 | Browser / 网络探测 | 专用 Adapter 与所有流量通道通过范围、限速、取消验收 |
 
 未来可引入 `TaskRuntime` CRD 作为 PostgreSQL 期望状态的单向资源投影：业务字段只由 Controller 写入，Kubernetes status 回传资源实况。不同时允许 API 与用户直接修改两份 Task 期望状态；原 v0.1 的 `PenTestTask` CRD 示例不作为首版契约。
 
-## 13. 开发阶段与准入门槛
+## 13. 开发依赖与准入门槛
 
-| 阶段 | 交付内容 | 进入下一阶段的条件 |
-| --- | --- | --- |
-| Phase 1：受控工具闭环 | Task API、基础租户/RBAC、ScopePolicy、Controller、MCP Router、HTTP Adapter、出口、调用账本/Outbox、事件查询、配额、取消、清理、最小 Helm；控制台登录/项目、任务和证据页面 | 无模型介入，在自建服务验证越界拒绝、非破坏性、跨租户隔离、限额、失联断流和资源回收；前端状态与执行结果一致 |
-| Phase 2：单 Agent 评估 | Model Gateway/QuotaGroup、LangGraph + 一个已验证 Harness、框架上下文管理、配置快照、一个 HTTP 场景及知识包、最小 Fact/Intent/Hint 黑板与关系/事件、CoveragePlan、VerificationRun、最小资产/证据模型、SSE、恢复、Markdown 报告快照及评估页面 | 上下文压缩/打断/恢复/辅助计费通过 H01–H10；提示注入不能扩大工具权限；恢复不盲目重复操作；阻断不算未复现；断线补发不造成状态回退 |
-| Phase 3：多 Agent | Blackboard 扩展、Intent 租约、Dispatcher、角色模板、异步 Worker、独立身份/目录、验证交接与复核 | 重复认领、过期 Worker、状态冲突和并发预算通过验收；有 Browser 时先通过 Context 隔离验收 |
-| Phase 4：平台完善 | Finding 研判/修复工作流、报告发布和多格式导出、资料导入、资产关系查询、租户管理、保留策略和容量演练 | 结论状态不混淆，报告版本固定，权限撤销及备份恢复可验证；未实现格式不声明支持 |
-| Phase 5：按需扩展 | 额外 Adapter、CRD、JetStream、多集群/ExternalRuntime | 有量化需求，并通过原有边界与新能力的增量验收 |
+本批只做[架构文档收口](stages/cairn-architecture-baseline/spec.md)，实际开发进度见[背景索引](project-context.md)。Phase1A保持partial，B1/B2/B3原证据及P0实验不改写。
 
-各阶段场景与证据要求见 [架构验收清单](architecture-acceptance.md)。测试只针对自建服务、测试租户和隔离 Runtime；不为验证平台控制而访问未授权第三方或修改真实目标数据。
+| 后续批次 | 必须交付 |
+| --- | --- |
+| 控制面基础 | 0.5契约、必要配置快照、ready/start、执行代次、AgentRun/工具账本、Task与Cairn绑定 |
+| 调度适配 | 派发准入、平台Worker后端、Pi受限工具、持久结果回写；先合成工具夹具 |
+| 共享Runtime | 多Agent对接一个Kali、产物登记、取消和停止核对 |
+| 产品接入 | 原型评审后接正式创建与执行观察页面，复用已冻结接口和五主题 |
+| 真实目标开放 | 出口和停止边界有证据后启用，详细流量设计仍需单独收口 |
+| 后续平台完善 | VerificationRun/覆盖、Finding、报告、资料、图查询按对应业务Spec推进，不重新开发调度引擎 |
 
-业务实现前增加 Phase 0：固定接口和依赖，验证身份、数据库约束、受控出口、Runtime 生命周期和恢复。当前已有 API 契约及独立前端原型；本地工程测试与平台验收分别记录，详见开工准备文档。
+每批先冻结具体Spec/Plan、API与迁移、归属及最小验证入口；上述依赖表不是已批准业务任务书。旧0.5草案superseded，不直接施工。配置和框架不能满足所需能力时记录阻断，不能悄悄换框架或扩大测试。
 
-Phase 2 先实现内置配置、已上传资料引用和只读 HTTP 评估闭环；配置管理 UI、Git 导入和更多场景按需后续开放。评估模型中的对象先确定契约，未交付的能力不对外注册。跨阶段依赖和新增验收编号见评估业务契约第 9 节。
+后续最小验证只覆盖未启动不派发、独立AgentRun共用Runtime、结果重投不重跑、工具越权拒绝、取消与迟到派发、历史queued不执行。原共享检查预算426/600秒已用，剩174秒，真实4次额度已用完，不按重拆批次重置；预算不足则待测。架构验收目录是历史场景参考，不是每次全量执行清单。
 
 ## 14. 待实现验证的选型
 
 以下选型不改变前述契约，也不代表已有可用实现：
 
 1. Egress Gateway 实现及 CNI 组合：验证规范化、DNS、IPv6、TLS、长连接撤销和聚合限流。
-2. Agent Harness 与模型接入：优先验证 Deep Agents + 现成模型客户端接已有网关；固定上下文、取消、恢复和数据/计费能力后锁定版本。不以增加代理层补偿未知的上游行为。
+2. Cairn 8e7e0ea、Pi 0.73.0、LiteLLM v1.100.0为候选集成基线；适配、实际工具表、金额计量与停止待验证，未验证不称可用，不静默换框架。
 3. Runtime 镜像与沙箱：验证 Kali 工具在 Restricted 配置下可运行；不兼容工具先不提供。
-4. 容量参数：通过压测确定租户并发、Pod 资源、证据大小、Outbox 吞吐和数据库连接池配置。
+4. 容量参数：后续集中容量验证再确定，不能借本次文档修改启动压测。
 
 本版验收前提是平台控制组件、集群管理员及策略签发链可信。针对这些主体被攻陷的防护需要额外威胁模型；不能以本架构宣称已经解决所有宿主机或供应链风险。

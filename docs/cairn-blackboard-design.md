@@ -1,161 +1,79 @@
-# Wuji 黑板架构：参考 Cairn 的领域适配
+# Cairn 黑板与 Wuji 任务的接入设计
 
-日期：2026-09-10。状态：**用户已明确要求采用黑板架构；本文为待阶段 Spec 固定的适配设计**。不表示当前 0.4.0 API 已实现黑板。
+- 日期：2026-09-10；状态：目标架构已确认，implementation pending。
+- 权威取舍：[架构替代决策](cairn-architecture-decision.md)；本页负责共享图与生命周期，Worker/工具边界见[Harness设计](agent-harness-decision.md)。
+- 旧6ee84b5中“仅借鉴Cairn领域模型、PostgreSQL自建黑板、LangGraph持久编排”的方案已被替代。公开API0.4.0尚无黑板，task_events不能当成Fact/Intent/Hint实现证明。
 
-明确参考 [oritera/Cairn](https://github.com/oritera/Cairn)。其官方[协作探索协议](https://github.com/oritera/Cairn/blob/main/docs/specs/server-protocol.md)直接使用“衍迹（Cairn）”名称；这能确认参考项目的关联，不能据此证明用户调研到的商业界面与公开仓库版本完全相同。
+## 1. 直接复用及唯一图来源
 
-## 1. 设计决定
+复用Cairn Server和Dispatcher。一个Wuji Task对应一个Cairn Project及一块黑板；Wuji Project是多任务分组，不能直接与Cairn Project映射。角色用于能力匹配，探索通过Bootstrap/Reason/Explore动态产生，不固化为角色流水线。
 
-Wuji 的 Agent 协作以**共享黑板驱动探索**。Worker 基于已记录的事实、未完成方向和提示提出下一步工作，结构化结果回到黑板，再触发后续判断。角色是能力/方法配置，不是必须逐个经过的 Planner → Explorer → Verifier 固定流水线。
-
-元刃参考用于平台/Runtime 分层、成熟 Harness、角色配置和产物交付；Cairn 参考用于共享知识与协作协议；衍迹 UI 调研用于黑板、时间线、证据和结果的联动。三者各自解决不同问题，不把三个完整引擎叠加部署。
-
-```text
-用户目标 / 授权对象 / 冻结配置
-                ↓
-Task Blackboard：Origin、Goal、Fact、Intent、Hint
-        ↓ 读取同一版本的态势                 ↑ 原子记录结果与事件
-Orchestrator + Dispatcher ── 派发 ──→ AgentDriver / Harness
-        │                                  │
-        │                                  ├─ 模型 → Model Gateway
-        │                                  └─ 目标工具 → Router → Runtime → Egress
-        └─ 校验执行归属、候选结果、证据 → Blackboard / Assessment
-```
-
-LangGraph 仍管理持久生命周期、等待和恢复；Dispatcher 根据黑板和预算分派工作；Harness 管一次 AgentRun 的模型/工具循环和上下文。**Blackboard 是共享领域状态，不是另一份聊天历史、另一套调度器或一个必需的图数据库。**
-
-## 2. 参考的核心及证据范围
-
-Cairn README 描述 Fact/Intent/Hint、无固定角色的 Worker、通过共享图间接协作，以及 Dispatcher 统一写入探索结果。[README](https://github.com/oritera/Cairn#how-it-works)
-
-协议把 Fact 定为追加记录，Intent 连接一个或多个起点与探索结果，Hint 是图外提示；认领/心跳用于协作，完成/重开是显式动作。[协议](https://github.com/oritera/Cairn/blob/main/docs/specs/server-protocol.md)
-
-这些是借鉴的协作抽象，不直接继承它的项目状态、身份字段、超时参数或“文本结论即事实”接受方式。Wuji 要承接既有任务账本、Scope、验证及报告契约，具体适配如下。
-
-## 3. 作用域与对象
-
-**一个 Wuji Task 对应一块任务黑板。** Cairn 的 Project 表示一个问题实例，不能机械映射成 Wuji 的项目：Wuji 一个项目含多个授权、身份、预算和时间不同的 Task，不能共用一张可自由写入的执行黑板。
-
-| 对象 | Wuji 含义 | 不能混同 |
-| --- | --- | --- |
-| Origin | 冻结的起始对象、已知输入及其来源，引用 ConfigSnapshot | 用户输入的断言不自动成为已验证事实 |
-| Goal | 有版本的目标和完成标准，引用 Scenario/CoveragePlan | 目标尚未达成，不能作为“已经为真”的普通 Fact |
-| Fact | 有来源、适用对象/身份/时间、证据关系的事实记录 | 模型印象、用户 Hint、已确认漏洞或执行许可 |
-| Intent | 基于若干已知依据准备探索的问题、方法和完成标准 | 已执行的工具调用、固定 Agent 职位或授权扩展 |
-| Hint | 人或 Agent 提交的建议、关注点和态势判断，保留作者与来源 | 更高优先级系统指令、Scope 更新、停止/恢复命令 |
-| Observation / Artifact | 原始观察与证据内容 | Fact 自述文本；文件路径本身不代替有权限的证据引用 |
-| VerificationRun | 对主张、方法和证据进行核实的领域单元 | 必须另启动一个“验证者 Agent”；单 Agent 也能推进验证 |
-
-现有 Fact/Intent/Observation/EvidenceLink 等对象继续使用，不为“黑板”再复制一套平行事实表。新增 Hint 和黑板版本/关系投影等必要契约。跨 Task 参考必须显式记录来源任务/时间/身份，重新检查当前权限，不能在项目级自动传播成新任务事实。
-
-## 4. 因果关系与冲突
-
-- 一个 Intent 可以由多个 Fact/Observation 引用共同支持；保存全部输入关系，不能只保留一个父节点。结果关联可引用多个事实及证据。
-- Fact 内容追加而不覆盖。新证据与旧记录矛盾时追加反驳/替代关系，界面显示“存在冲突/已被后续记录修正”；不删除旧事实来让图变得整齐。
-- 探索因果边只引用已有输入，再产生新结果，形成可追溯的无环因果图。反驳、适用范围和相似性是独立类型的关系，不假装都是时间上的因果边。
-- Intent 可以受阻、取消或无有效证据；这种执行结果如实记录，不能为了画出一条 Fact 边伪造“未发现漏洞”。
-- 模型提交的是候选内容。Blackboard/Assessment 校验来源、归属、输出 Schema 与规则，不能由 Worker 任意设置“已确认漏洞”；不把结构校验通过宣传为已证明业务结论正确。
-
-## 5. 统一写入口与原子操作
-
-采用一个**逻辑写入口**：API 内的 Blackboard 领域服务。模型/Worker 无直接数据库写权限；Dispatcher 提交 Agent 结果，用户 Hint 经鉴权 API 提交，两者都经过同一领域约束。不是所有请求必须由一个全局 Python 进程串行处理。
-
-| 操作 | 必须同事务完成的内容 |
+| 对象 | 语义与界限 |
 | --- | --- |
-| 提出方向 | 当前任务状态/权限检查，来源引用、方法与去重检查，Intent 及其输入边，黑板版本与事件 |
-| 认领 | Task/Intent 版本检查、唯一 owner、递增 fencing token、预算/租约关联、事件 |
-| 提交结果 | 当前 owner/epoch、调用账本和证据归属校验，结果记录及关系、Intent 结论、黑板版本与事件 |
-| 添加提示 | 服务端派生作者/权限、Hint 内容与来源、版本与事件；不派发目标调用 |
-| 判定完成 | 验证目标/覆盖/限制，确认无活动或未知调用、出口隔离；Task 完成与原因单独记录 |
+| Origin | 冻结的起始条件及来源；用户输入不自动成为已验证结论 |
+| Goal | 目标锚点及完成条件，存在该节点不表示目标已经达成 |
+| Fact | 有来源的共享发现；不直接等于已确认漏洞或执行许可 |
+| Intent | 从已有依据出发的探索方向，可引用多个输入Fact |
+| Hint | 人工/Agent建议与态势说明，不是事实、授权或控制命令 |
+| Artifact/Observation | 原始产物与观察，由Wuji维护受限存储和证据关系 |
+| VerificationRun/Finding | Wuji核对主张、证据与结论，不由Cairn图结构校验代替 |
 
-“单写入口”是约束集中，不是把所有状态交给模型或靠一把全局锁。Task 控制、Assessment 和黑板仍在同一 PostgreSQL 权威边界协调。历史事件和完成通知都是结果的投影；通知丢失后读取结果，不能从头重跑已提交探索。
+原生Fact主要为描述文本，结构校验不验证真实性；原生worker字段及心跳也不等于平台身份/执行代次。[固定协议](https://github.com/oritera/Cairn/blob/8e7e0ea67552383851dfcabfba0c4e9c8d007878/docs/specs/server-protocol.md)
 
-## 6. 动态探索、角色与 Harness
+Cairn SQLite是探索图唯一可写来源，首版单Server、单Dispatcher、持久卷。Wuji PostgreSQL保存Task/AgentRun/ToolCall、权限、验证和图引用/只读投影；原始Agent提交是交接证据，不能成为另一份可独立编辑的Fact。
 
-起步可以做一条明确的观察，也可以基于当前信息提出多个 Intent；不要求每个任务先调用一遍所有角色。可选的“分析态势/探索方向/检查完成”是调度工作类型，不是需要各自启动常驻服务的角色。
+## 2. Bridge与必要增量
 
-AgentProfile 保留模型、工具、Skill、输出 Schema 和能力限制。默认以通用 Worker 从当前可执行 Intent 取任务；需要专门 Adapter、身份或审核职责时才匹配专用配置。验证的可靠性来自 VerificationRun 的方法与证据，不来自角色名字或多个模型投票。
+Cairn Bridge作为Platform API内部模块，负责Task映射、真实调用归属、持久操作、结果及控制同步。它不生成探索方向，不形成第二个调度器。用户不直连原生Cairn写接口，Worker不拥有数据库或跨任务管理能力。
 
-外层 LangGraph 执行既有领域操作，例如读取态势、请求一次 AgentRun、等待结果、提交结果、处理控制命令；不再把“规划 Agent → 探索 Agent → 验证 Agent”写死为必须经过的业务图。内层 Harness 的自动子代理首版继续关闭，Phase 3 分派全部走 Dispatcher。
+需要给Cairn增加：外部Task标识唯一、创建时stopped、操作ID与完整请求摘要、幂等回执查询，以及图变更/版本/事件/回执同事务写入。现有API只能提供部分能力，这些增量不能标为已实现。
 
-续约过期仅说明所有权失效，不证明外部调用已停止。旧 Worker 的迟到写入由 fencing 拒绝；存在未知调用时先核对账本和隔离旧执行，不立刻把同一意图重新发给新 Worker 重试。
+跨库使用Wuji持久操作/Outbox、Cairn本地事务及原回执核对；不假定两库原子提交。按Task顺序同步控制与结果；同ID异输入拒绝，响应丢失查询原操作，投影落后不覆盖权威图。具体HTTP/DTO和迁移由后续控制面Spec冻结。
 
-## 7. Hint 与人工介入
+## 3. 创建、启动与派发
 
-详情中的“补充提示”可挂到整个任务或某个 Intent，保存作者、时间、来源与可见范围。示例：“重点解释当前响应头的影响；没有证据的项目请标明未检查。”提示只是建议；后续规划记录读取了哪个黑板版本和哪些提示，不声称提交后立即改变在途调用。
+草稿不创建Project。Task正式创建后按稳定Task标识幂等创建stopped Project；映射尚未同步就显示待同步，不伪造已就绪。禁止创建active后再补停止，因为Dispatcher可能抢先派发。
 
-区分三种动作：
+只有显式start、有效配置/授权/预算、Worker及Kali Runtime就绪后才允许调度。Cairn active只是探索状态，Wuji仍在每次派发/工具调用检查许可。旧queued没有start记录，不得自动接管。
 
-1. **Hint**：非阻塞的关注点/解释，供下一次决策参考。
-2. **回答问题**：回应具体问题 ID，检查问题版本和允许回答者，安全边界消费一次。
-3. **控制/授权变更**：启动、暂停、取消、Scope 或预算变更，必须使用对应受控命令，不能用 Hint 实现。
+Dispatcher选Worker配置后先申请AgentRun。worker_profile_id用于能力/容量，agent_run_id用于认领/会话/结果，execution_epoch和runtime_attempt限定当前执行。Intent已有运行、停止核对或结果同步中AgentRun时拒绝重复派发；原生心跳过期不能单独触发重跑。
 
-用户提示和 Agent 态势总结均有明确来源。派发上下文时不能把摘要中的 Hint 升级成可信事实或平台规则。添加新资料/身份/方法仍按已确认产品设计创建关联任务。
+## 4. 结果写入与恢复
 
-终态任务允许按权限添加复盘备注或下一次复测建议，但不恢复执行、不改已冻结报告。Wuji 不直接复制 Cairn 的 completed → reopen 执行语义；需要继续时建立关联新 Task，并显式引用原黑板中的历史依据。
+固定顺序：
 
-## 8. 读取、上下文与前端
+1. 在Wuji保存原始结构化结果、执行状态和Artifact引用。
+2. 校验真实Task/AgentRun、代次、证据归属和结构。
+3. 保存具有稳定操作ID的黑板提交。
+4. Cairn幂等写入并返回原生Fact/Intent ID与版本。
+5. Wuji登记同步完成并发布只读展示事件。
 
-黑板快照与事件位置保持一致，提交通过后再推进版本。关键参数来源为 Task 和配置记录，不能从图布局反推授权或实际执行状态。
+黑板不可用时保持结果待同步，只重投已保存结果。取消前接受的结果可补入历史；取消后新提案不能触发执行。已完成探索的结果丢失通知，不构成重新跑模型/目标的理由。
 
-小图可以读取完整逻辑快照；图变大后按当前 Intent 的祖先依据、有关提示和增量记录提供受限上下文包，包含 board_version、选取依据、截断/省略说明及可按权限展开的引用。所有 Worker 可在其任务权限内查询共享依据，但不必每次向模型重新发送全部原始证据。不得用摘要冒充原始完整图。
+原生Cairn从现有图重建时间线，并非完整不可变事件日志；所需事务事件是Wuji接入增量。快照版本和事件位置保持一致，整批校验通过再推进游标；各数据源保留自己的版本，不用一次全局序列假装跨库一致快照。
 
-上下文压缩仍由 Harness 负责。Blackboard 保留可查询的领域记录，不替代 Harness 历史，也不允许 Harness 的 Todo/记忆文件直接修改黑板事实或 CoveragePlan。
+## 5. 完成、停止与重新验证
 
-前端提供“黑板 / 时间线 / 结果”关联视图：点 Fact 看证据，点 Intent 看依据、认领和结果，Hint 显示作者与处理上下文。先提供紧凑关系卡/列表与局部关系，再增加完整图操作；不能只有一个漂亮关系图而没有写入/认领/恢复协议。首批 HTTP 仍以观察记录为主，完整 Agent 原型展示黑板交互。
+Dispatcher的complete改为向Bridge提交完成提案。平台核对目标/覆盖/证据；缺少必需项且允许继续时反馈具体缺项。接受结束后停止新派发，分别核对Agent与Kali活动调用。目标达成才提交Cairn完成边；预算、环境或用户决定导致部分结束时保持stopped，不写假goal边。
 
-## 9. 分阶段落地与既有进度
+取消/暂停先改变平台执行许可，再传播Cairn状态和Harness/Runtime停止。执行仍否继续未知时保持reconciling；已确认停止但结果缺失可部分结束，保留未知结果和证据缺口，不转成未复现。
 
-| 阶段 | 黑板范围 |
-| --- | --- |
-| 当前交互原型 | 合成 Fact/Intent/Hint、关联证据与提示输入；清楚标为规划体验 |
-| Phase 1C/D | 为后续黑板建立真实 Task/ToolCall/Artifact 依据；不虚构 Agent 或补做完整多 Agent |
-| Phase 2 | 最小黑板领域协议：Fact/Intent/Hint、输入/结果关系、版本与事件、单 Agent 读写闭环和人工提示；与 Harness 选择一起确定具体 Spec |
-| Phase 3 | 多 Worker 动态认领、fencing、共享事实、去重与依赖交接；沿用 Phase 2 黑板和验证对象 |
-| Phase 4 | 完整关系查询、冲突研判、历史回放及报告冻结引用；不是到此时才第一次实现黑板 |
+首次集成重启后先冻结派发并核对持久回执/会话/账本，不承诺无缝恢复。Cairn内存Future仅作运行时缓存。终态复测创建关联新Task，引用历史依据并重新授权，不调用reopen改写已交付图历史。上游reopen会删除原完成边，这种行为不直接用于Wuji。[上游实现](https://github.com/oritera/Cairn/blob/8e7e0ea67552383851dfcabfba0c4e9c8d007878/cairn/src/cairn/server/routers/projects.py)
 
-当前 B2/B3 的 task_events 是任务管理事件，不是已经实现了 Fact/Intent/Hint 黑板。原“共享事实”的宽泛描述需要以本文件的最小领域协议补齐。新增 Hint 与图关系、动态调度策略是设计增量，进入实现前更新对应阶段契约和迁移；本轮不修改 OpenAPI 或数据表。
+## 6. 共享成果与人工输入
 
-## 10. 最小检查范围
+多个Agent通过同一Task图间接协作。每次执行读入绑定的不可变快照，后续读图取得新Fact/Hint；不声称更新会立即推送到所有在途Agent。完整会话与压缩状态仍属于各自Harness，不能把黑板当作共享聊天历史。
 
-本次只读参考资料与代码，不运行 Cairn、不安装它的执行环境、不增加模型调用或测试。后续测试并入对应阶段已有预算：一个事实→意图→结果链、一个人工 Hint、重复认领/迟到结果拒绝、停止后不续作即可；不为黑板另建无上限的全图/全模型/长时间故障矩阵。
+Kali本地文件路径只用于现场定位，上传/登记Artifact后才能形成可追溯证据引用；未上传标为待收集或缺失。凭据实体受限保存，图只登记来源、适用对象、受限credential_ref及证据。共享引用不能扩大Scope，也不改写初始ConfigSnapshot。
 
-参考是架构语义，不在本轮把 Cairn 作为运行依赖，也不复制其执行代码。实际源码固定版本与协议差异由独立静态核查附记记录。
+Hint、回答问题和控制/授权命令分别处理：Hint保留作者/来源、供后续规划参考；回答绑定具体问题和AgentRun；范围/预算/启动/取消使用对应权限化命令。发现新资产只产生候选及申请，不自动授权。
 
-## 11. LangGraph 已有共享能力与复用方式
+跨Task引用必须显式保留来源任务、时间、身份并重新鉴权；不在Wuji Project中自动传播成可执行事实。反证与纠错保留原发现及来源，不覆盖已交付报告；关联和证据接纳规则由后续领域契约固定。
 
-2026-09-10 核对官方文档：LangGraph 提供共享 State/reducer 和动态 Send/Command；子图既可使用共享状态键，也可保留各自上下文并通过输入输出交接。它不是只能表达固定流程的工具。[Graph API](https://docs.langchain.com/oss/python/langgraph/graph-api)、[子图](https://docs.langchain.com/oss/python/langgraph/use-subgraphs)
+## 7. 工作台、依赖和验收
 
-checkpoint 保存 thread 的执行状态；Store 支持跨 thread 共享数据。仅有 checkpointer 不会自动形成跨 thread 共享存储。[持久化](https://docs.langchain.com/oss/python/langgraph/persistence)
+任务详情关联黑板、AgentRun、共享环境、工具记录、证据和结果。点Fact查看其受限证据，点Intent查看依据、认领及结果，Hint显示作者和生效上下文。页面只读权威记录/投影，不直接修改Cairn或通过原生界面绕过Wuji权限。
 
-| 需求 | 复用 LangGraph | Wuji 的领域补充 |
-| --- | --- | --- |
-| 多 Agent 看见共同结果 | State/子图接口；跨 thread 使用受控 Store 或领域查询 | 黑板版本、证据引用、用户/项目/任务权限及 Hint 来源 |
-| 合并并发输出 | 为状态键定义 reducer | 幂等记录 ID、结论版本和矛盾关系；合并列表不等于判定哪个结论真实 |
-| 动态派发/交接 | Send/Command/条件边与子图 | 只派发已认领并具备预算/执行许可的 Intent；不建立第二个框架调度器 |
-| 中断/恢复 | checkpoint 与 interrupt/resume | 人工问题归属、停止核实、重鉴权及账本核对 |
-| 共享长期材料 | Store 的 namespace/key 与查询接口 | 访问控制、分类和保留；namespace 不是天然租户隔离证明 |
+先完成0.5控制面必要契约与持久记录，再接入调度和合成工具，随后共享Kali及正式产品页面。真实目标开放以出口和停止证据为前提；详细流量控制仍待后续设计。
 
-小型演示可以将事实列表放进共享 State；Wuji 的正式方案选择让 PostgreSQL 领域表保存 Fact/Intent/Hint 与元数据，对象存储保存原始证据，LangGraph 状态保存记录 ID、board_version、当前工作位置和必要缓存。节点通过薄领域适配器读取/提交黑板，不把两份可写事实分别放在 State/Store 与业务数据库。
-
-这是为了复用现有领域事务与权限，**不是 LangGraph 无法保存事实数据**。需要框架 Store 的工作记忆与跨会话内容继续复用其接口，但不能作为第二个证据/结论权威。Reducer 的结构合并也不能代替 VerificationRun 的结论接受规则。
-
-还需区分两种“图”：LangGraph 图的节点是计算步骤/Agent，边表示控制流；黑板图的内容是依据、探索和结果，关系表达因果。前者负责怎样执行，后者提供当前为什么执行这一步及得到什么。Wuji 让执行节点读取黑板并作出下一次分派，而不是运行两个互不一致的工作流引擎。
-
-## 12. 固定源码核查附记
-
-独立 SOL/xhigh 静态核查采用 Cairn 提交 [`e0ef2f850e5805f824815ee38f049e066deeb7d1`](https://github.com/oritera/Cairn/tree/e0ef2f850e5805f824815ee38f049e066deeb7d1)，不是对商业衍迹版本的确认。主代理另行复核 WorkerDriver、WorkerConfig 和 reopen 协议；未执行仓库代码。
-
-| 核查 | 证据与采用方式 |
-| --- | --- |
-| 无固定角色仍有能力配置 | `WorkerConfig` 含 task_types、容量、优先级；Wuji 保留能力匹配，不强制所有 Worker 配置完全相同。[源码](https://github.com/oritera/Cairn/blob/e0ef2f850e5805f824815ee38f049e066deeb7d1/cairn/src/cairn/dispatcher/config.py#L157-L163) |
-| Harness 适配是薄接口 | WorkerDriver 构造执行/收尾命令并维护 session；这支持沿用 Wuji AgentDriver 分工，不证明任一 SDK 在 Wuji 网关上已兼容。[源码](https://github.com/oritera/Cairn/blob/e0ef2f850e5805f824815ee38f049e066deeb7d1/cairn/src/cairn/dispatcher/workers/base.py#L17-L43) |
-| 调度与结果回写集中 | Dispatcher 按图态派发；Wuji 映射到现有 Orchestrator/Dispatcher，不运行第二套 Cairn 调度器。[调度循环](https://github.com/oritera/Cairn/blob/e0ef2f850e5805f824815ee38f049e066deeb7d1/cairn/src/cairn/dispatcher/scheduler/loop.py#L66-L81) |
-| 完成后重新打开有不同历史语义 | 所核查协议的 reopen 删除原完成边；Wuji 保留历史并创建关联新任务，不直接复制此行为。[协议](https://github.com/oritera/Cairn/blob/e0ef2f850e5805f824815ee38f049e066deeb7d1/docs/specs/server-protocol.md#L555-L570) |
-
-Wuji 已设计的 ToolCall/AgentRun 账本、租约 fencing、VerificationRun 和报告版本仍保留；黑板是协作知识的权威记录，通过受控关系引用执行与验证记录，不覆盖它们的状态职责。
-
-
-## 13. 用户补充：运行成果与凭据共享
-
-2026-09-10：Web 单点创建不预置账号。当前授权方法内获得的账号、会话和其他成果作为运行记录进入黑板；其他同任务 Agent 可通过受限引用使用。凭据实体加密保存，黑板记录来源、适用对象/权限、有效状态、credential_ref 和证据；不把明文 Secret 广播到所有模型上下文。运行成果追加不改变初始配置快照，也不要求为每份成果重建任务；目标范围和工具权限独立检查。详细契约留在后续 Agent 协作 Spec。
+本次只改文档，不启动Cairn、不调用模型；旧P0预算及事实保持。后续最小场景为一个Fact→Intent→结果链、结果重投不重跑、两个独立AgentRun共用一个Runtime、未启动/失权不派发和取消边界。完整图、长断线、压力与模型矩阵不成为本轮检查要求。

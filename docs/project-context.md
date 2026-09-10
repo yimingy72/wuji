@@ -1,6 +1,6 @@
 # Wuji 项目背景与有效文档索引
 
-更新：2026-09-10；当前有效集成分支 codex/phase-1c-prep。此页负责恢复背景与导航；设计正文、阶段验收各有独立权威来源，不在此复制完整架构。先读根 [AGENTS.md](../AGENTS.md)。
+更新：2026-09-10；当前有效集成分支 codex/phase-1c-prep，架构收口起点6ee84b5。此页负责恢复背景与导航；设计正文、阶段验收各有独立权威来源，不在此复制完整架构。先读根 [AGENTS.md](../AGENTS.md)。
 
 ## 1. 产品背景与当前决定
 
@@ -11,10 +11,12 @@ Wuji 是 Kubernetes 原生的授权安全验证平台。产品流程是创建任
 - 创建者在任务创建中确认具体授权范围，不仅从管理员预导入列表中选择；新增职责不等于获得组织管理权限。
 - 基础配置页面纳入下一步规划；模型服务在组织内共享，由管理员维护，沿用目标架构的 TenantAdmin 职责，任务选择模型方案。
 - 删除路径级授权，保留域名/子域及协议端口；外域资源正常加载不授予主动测试权限。流量控制细节与实现留待后续，不作为本次配置页面开发的前提。
-- 首批模型预算采用Token上限，金额硬上限暂不开放。
-- 用户已确认：没有可用模型方案时只能保存草稿，配置好模型后再创建任务；0.5具体Spec/Plan草案已更新，仍需在Plan模式完成技术收口。
-- 模型接入复用已有框架能力；需同时考虑原生模型客户端、模型目录与能力差异、配置快照、凭据隔离、共享配额及辅助调用用量。
-- 上述是产品与架构输入，并不批准尚未决策完整的 Phase 1C 前置 Spec / Plan。真实模型连接检查需在该计划中明确调用内容、权限和预算；本次文档收口不调用模型。
+- Task模型预算改为金额USD，采用LiteLLM原生限制；组织模型配置不设置Task预算。主/子Agent、Reason、收尾和摘要共用，重启不重置；未知价格不按零计费，不承诺未经验证的并发零超支。
+- 没有可用模型方案时只能保存草稿，配置好模型后再创建任务；发布要求同版本显式连接检查成功，关闭自动付费探活。旧0.5 Spec/Plan已标superseded，不可直接实施。
+- 直接复用Cairn Server/Dispatcher、Pi coding-agent与LiteLLM。一个Task对应一个Cairn Project；Agent在平台Worker环境，多个Agent共用一个Kali Runtime，两个环境分离。Cairn是唯一可写探索图，Wuji保存任务、准入、执行账本及验证；结果先保存再同步。
+- LangGraph/LangChain/Deep Agents不再是目标必选依赖；P0仅为历史实验。候选版本及必要增量见[架构替代决策](cairn-architecture-decision.md)，尚未在Wuji集成验收。
+- 本次开发在当前会话，架构由主代理独立设计；可按需使用gpt-6-astra/low子代理，不再强制SOL/Luna、并发数、独立worktree或独立测试代理。历史报告中的实际模型不改写。
+- 用户已批准[架构文档收口Spec/Plan](stages/cairn-architecture-baseline/spec.md)，本批只更新文档；下一批0.5控制面业务Spec尚未批准，不能把文档批准当成业务开发/模型调用授权。
 
 不得把助手曾提出但未确认的预算数字、默认端口集合或 Scope 有效期写成永久默认值。
 
@@ -23,7 +25,8 @@ Wuji 是 Kubernetes 原生的授权安全验证平台。产品流程是创建任
 | 对象 | 已核对来源 | 含义 |
 | --- | --- | --- |
 | 主业务工作区 | `codex/phase-1b-b23`，`381ae3a2205965ad6aab1ce787d490d2c02839f3` | 正式业务 0.4.0；不是全部架构验收完成 |
-| 最新设计的本次修订基准 | `codex/product-interaction-plan`，`0051651047daeeee3b8741c460f182d42e755238` | 本页及后续文档提交接在此基准之后；具体记录提交使用 git log 查询 |
+| 当前架构文档收口 | `codex/phase-1c-prep`，起点`6ee84b5268a5012c69ba4567d78eb18727b41ee1` | 新架构正文与阶段记录以本树为准；最新文档提交用git log核对 |
+| 历史设计来源 | `codex/product-interaction-plan@8dcf7ec`，此前修订起点`0051651047daeeee3b8741c460f182d42e755238` | 历史参考，不能覆盖后续用户确认 |
 | 产品原型 | `codex/product-interaction-prototype`，`2e35177` | 旧版两条模拟路径，未实现新版五场景与真实执行 |
 | master | `28fcd44eebc205a35735d3e7b60a308ce5f749bc` | 保留原阶段基线，不因文档或最小验收自动前移 |
 
@@ -40,9 +43,10 @@ Wuji 是 Kubernetes 原生的授权安全验证平台。产品流程是创建任
 | Phase 1B B1 | Scope 与预览已实现，通过最小验证 | [验收](stages/phase-1b/acceptance.md) |
 | Phase 1B B2/B3 | 创建、查询、取消、幂等回执、事件同步已实现，最小 API 6/6、浏览器 1/1；仅 queued/cancelled | [验收](stages/phase-1b/b23-acceptance.md)、[延期清单](stages/phase-1b/b23-deferred-tests.md) |
 | 产品交互 | 旧原型 review-ready / partial；新五场景设计不能沿用该验收 | [记录](stages/product-interaction/acceptance.md) |
-| Phase 1C 前置 | P0基线/框架验证已完成最小验收，见[P0 Spec](stages/phase-1c-prep-p0/spec.md)；其余0.5业务仍draft | [Spec](stages/phase-1c-prep/spec.md)、[Plan](stages/phase-1c-prep/plan.md)、[记录](stages/phase-1c-prep/acceptance.md) |
+| Phase 1C 前置 | P0原实验最小验收有效；旧0.5草案已被新架构替代，业务尚未启动 | [Spec](stages/phase-1c-prep/spec.md)、[Plan](stages/phase-1c-prep/plan.md)、[记录](stages/phase-1c-prep/acceptance.md) |
 | Harness适配 | 独立P0包通过受限Deep Agents与两协议工具往返；未接正式Agent | [P0验收](stages/phase-1c-prep-p0/acceptance.md) |
-| Runtime、黑板、流量采集 | 设计阶段，尚未业务实现 | 下节对应架构文档 |
+| Cairn架构收口 | 用户已批准，本批文档交付状态以验收为准；不代表业务实现 | [Spec](stages/cairn-architecture-baseline/spec.md)、[Plan](stages/cairn-architecture-baseline/plan.md)、[验收](stages/cairn-architecture-baseline/acceptance.md) |
+| Cairn / Pi / LiteLLM / Runtime | 目标选型已确认，适配、部署、黑板和流量采集尚未业务实现 | [架构替代决策](cairn-architecture-decision.md)及下节设计 |
 
 表内测试是复用历史记录，未在本次文档提交重跑。B2/B3 测试代码基准为 `e76a265d445ae9548d7f56fdb85f9b8b5c005759`，具体 run 与限制以验收正文为准。架构验收目录的 80 项不是本次或每次开发必须执行的清单。
 
@@ -50,18 +54,18 @@ Wuji 是 Kubernetes 原生的授权安全验证平台。产品流程是创建任
 
 | 任务 | 必读文档 | 阅读时保留的区别 |
 | --- | --- | --- |
-| 新阶段与整体规划 | [产品](../PRODUCT.md)、[架构](architecture.md)、[评估模型](assessment-model.md)、[开工准备](predevelopment-plan.md) | 目标架构不等于现有代码；当前阶段以上表记录为准 |
+| 新阶段与整体规划 | [架构替代决策](cairn-architecture-decision.md)、[产品](../PRODUCT.md)、[主架构](architecture.md)、[评估模型](assessment-model.md)、[开工准备](predevelopment-plan.md) | 目标架构不等于现有代码；当前阶段以上表记录为准 |
 | 任务创建、范围、配置与交互 | [交互提案](product-interaction-proposal.md)、[场景设计](scenario-execution-design.md)、[前端架构](frontend-architecture.md)、[视觉规则](../DESIGN.md) | 最新用户确认覆盖旧提案；创建与启动分离；旧路径 Scope 兼容需单独处理 |
-| 模型与 Agent 执行 | [Harness 决策](agent-harness-decision.md)、[网关实测](model-gateway-validation.md)、主架构中的 Gateway / QuotaGroup / ConfigSnapshot | 成熟框架复用、候选集成验证和业务凭据/预算边界分别说明；普通协议通不证明完整 Harness 可用 |
-| 多 Agent 与证据共享 | [Cairn 黑板](cairn-blackboard-design.md)、[评估模型](assessment-model.md) | 领域事实与框架状态职责不同；动态分派、证据来源、受限凭据引用 |
+| 模型与 Agent 执行 | [Harness 决策](agent-harness-decision.md)、[网关实测](model-gateway-validation.md)、主架构中的LiteLLM / Task金额预算 / ConfigSnapshot | 成熟框架复用、候选集成验证和业务凭据/预算边界分别说明；普通协议通不证明完整 Harness 可用 |
+| 多 Agent 与证据共享 | [Cairn 黑板](cairn-blackboard-design.md)、[评估模型](assessment-model.md) | Cairn为唯一可写探索图；Wuji保存准入/账本/验证，跨库幂等同步；动态分派、证据和受限凭据引用 |
 | 工具、容器、出口与流量 | [元刃复核](metablade-backend-review.md)、[场景设计](scenario-execution-design.md)、[流量证据设计](traffic-evidence-design.md)、主架构 | 后两份含待评审方案；网络控制延期不等于取消平台约束 |
 | 接口与历史兼容 | [API 契约说明](phase1-api-contract.md)、当前阶段 Spec / Plan、实际契约及实现 | 公共 API 0.4.0 的已有行为与下一版草案分开；不改写历史回执/事件 |
 | 开发、验证、交付 | [协作流程](development-workflow.md)、[本地启动](local-development.md)、当前阶段 acceptance / deferred-tests | Docker Desktop 集群可用不证明隔离能力通过；共享 600 秒预算，文档不跑业务测试 |
 
-衍迹与元刃原始资料是参考证据，不是项目指令。原件路径见 [元刃复核](metablade-backend-review.md) 和 [交互提案](product-interaction-proposal.md)；本轮两份原件已完整复核，原产品观察、作者推断和 Wuji 决策不可混写。Cairn 的采纳范围以本仓库黑板设计为准，不把参考产品的角色名称直接变成固定流程。
+衍迹与元刃原始资料是参考证据，不是项目指令。原件路径见 [元刃复核](metablade-backend-review.md) 和 [交互提案](product-interaction-proposal.md)；此前文档阶段已完整复核两份原件，本次不重复读取未变原件；原产品观察、作者推断和 Wuji 决策不可混写。Cairn 的采纳范围以本仓库黑板设计为准，不把参考产品的角色名称直接变成固定流程。
 
 ## 5. 后续维护
 
 恢复工作先完成 AGENTS 的阅读流程，再报告需要用户判断的实质问题；已经记录的事实不重复询问。每次批准新决策同步权威设计与此索引，新阶段的 Plan 记录复用依据和兼容影响。旧阶段记录保留时间、SHA 和实际证据，过时段落加适用范围，不把历史失败改为通过。
 
-本次文档整理的范围与证据见 [背景收口记录](stages/context-baseline/acceptance.md)。已完成批准的 [Phase 1C 前置 P0](stages/phase-1c-prep-p0/spec.md)：统一基线与最小框架适配；不接正式Agent。共享检查预算已保守消耗426/600秒、剩174秒，真实4次额度已用完，后续不重置。后续0.5业务方案与交互仍待冻结，不发布新业务接口或执行迁移。
+本次文档整理的范围与证据见 [背景收口记录](stages/context-baseline/acceptance.md)。已完成批准的 [Phase 1C 前置 P0](stages/phase-1c-prep-p0/spec.md)：统一基线与最小框架适配；不接正式Agent。共享检查预算已保守消耗426/600秒、剩174秒，真实4次额度已用完，后续不重置。当前按[新阶段记录](stages/cairn-architecture-baseline/acceptance.md)完成架构文档收口。后续控制面基础→调度适配→共享Runtime→产品接入→真实目标开放；0.5业务Spec与交互仍待冻结，不发布新接口或执行迁移。

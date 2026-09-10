@@ -1,5 +1,7 @@
 # Wuji v0.4 架构验收清单
 
+> 适用范围更新（2026-09-10）：本页为历史架构验收目录，不是本轮必跑清单。当前选择见[架构替代决策](cairn-architecture-decision.md)；A07中LangGraph检查点、H02中的自建金额预占等需在后续阶段映射为Pi/持久回执/LiteLLM实际能力，不能以名称替换声称已验证。本批仅文档检查，旧编号和结果不改写。
+
 - **日期**：2026-09-09
 - **依据**：[架构设计 v0.4](architecture.md)、[评估、知识与交付模型](assessment-model.md)、[前端架构与技术选型](frontend-architecture.md)、[Harness 决策](agent-harness-decision.md)
 - **状态**：后续平台验收场景目录；按阶段和受影响能力选取并记录证据，不能因目录存在而声明平台测试通过

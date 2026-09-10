@@ -1,5 +1,7 @@
 # Wuji v0.4 评估、知识与交付模型
 
+> 当前架构适用说明（2026-09-10）：验证/覆盖/证据/报告语义保留，但Fact/Intent/Hint与探索图由Cairn唯一维护，Wuji保存原始提交、引用及验证记录，见[架构替代决策](cairn-architecture-decision.md)。跨库关联通过Bridge核对归属和版本，不能声称PostgreSQL外键或单次事务覆盖Cairn；Task预算改为LiteLLM原生USD金额。下文均为领域目标设计，不是已实现接口。
+
 - **日期**：2026-09-09
 - **状态**：待实现业务契约；示例不是已部署 API 或已通过验收的能力
 - **上层约束**：[平台架构](architecture.md)
@@ -112,7 +114,7 @@ verificationRun:
 
 `confirmed` 指主张被支持，不必然意味着存在漏洞：示例“响应头存在”成立也可 confirmed。是否构成 Finding 由主张类型、影响证据和研判决定。界面不能把所有 confirmed 验证都计成漏洞。
 
-blocked/failed/cancelled 不自动产生 not_reproduced；已完成的子观察保留，整体结论为 unassessed 或有依据的 inconclusive。ToolCall unknown 会使相关验证进入 reconciling，禁止新的目标尝试；执行核对解决后才能结算。自动任务重试只按平台 Router 规则处理，验证层不额外重试一次目标操作。
+blocked/failed/cancelled 不自动产生 not_reproduced；已完成的子观察保留，整体结论为 unassessed 或有依据的 inconclusive。ToolCall是否仍在执行未知时，相关执行进入reconciling并禁止重新尝试；已确认停止但结果缺失时保留结果未知，可形成部分/不确定结论，不写成未复现。自动任务重试只按平台 Router 规则处理，验证层不额外重试一次目标操作。
 
 ### 3.3 复核、交接和恢复
 
@@ -205,7 +207,7 @@ FindingRevision 固定标题、主张、受影响资产、影响条件、严重�
 
 报告先捕获一致来源快照并生成正文，正文保存后冻结 draft ReportCommit，再渲染，审核后 publish。快照清单包含 Task、Scope/Config/CoveragePlan 版本、具体覆盖状态、FindingRevision、VerificationRun 的 result_revision、证据摘要、限制、正文摘要、模板和生成器版本。会后变更不能通过重新读取 live 表进入旧报告。
 
-Report 模块在数据库一致快照内固定所有来源引用与派生指标，保存报告构建作业的 source manifest；正文生成在事务外进行。首版使用确定性模板。若在任务运行阶段使用模型生成正文，先经 Gateway 许可、计费和幂等查询保存完成文本，再把正文摘要加入最终 manifest；模型输出缺失时保持构建失败/待核对，不产生完整 commit。
+Report模块分别固定Wuji记录与Cairn图的明确版本/快照引用，保存带各来源版本的source manifest；Wuji本地事务只固定本库记录，不声称跨库全局原子快照。来源未同步或不可获取时保留待收集/失败，不能静默混用live图；正文生成在事务外进行。首版使用确定性模板。若在任务运行阶段使用模型生成正文，先经Task许可和LiteLLM预算计量保存完成文本，结果不明先核对，不因缺失正文自动再次付费，再把正文摘要加入最终 manifest；模型输出缺失时保持构建失败/待核对，不产生完整 commit。
 
 冻结后的 ReportCommit 包含规范化 manifest、正文版本、生成时间及摘要。所有格式渲染只读取这些已保存输入，失败重试不再调用模型、不重新验证或悄悄切到最新证据。终态 Task 的报告使用已有正文或确定性模板，不借报告生成重启已取消的模型/工具调用。ReportCommit ID 和 manifest 摘要一起保存，摘要不替代访问控制或可信签名。
 

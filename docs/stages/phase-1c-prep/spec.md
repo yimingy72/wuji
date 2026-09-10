@@ -1,5 +1,11 @@
 # Phase 1C 前置：0.5 配置与任务创建 Spec
 
+> **当前状态：superseded / historical draft，不可执行（2026-09-10）。** 下方旧草案正文保留历史原貌，不是当前实施计划。Token 总上限、P0 自建 Provider 生产化及 LangGraph / Deep Agents 目标链路已由 [Cairn 架构替代决策](../../cairn-architecture-decision.md) 取代；旧模型分工、强制独立 worktree 和独立测试代理规则也已失效，以根 [AGENTS.md](../../../AGENTS.md) 与 [协作流程](../../development-workflow.md) 为准。当前设计采用 Task 一对一 Cairn Project、Cairn Server / Dispatcher 与 Pi coding-agent；Agent 在平台侧运行，同 Task 多个 Agent 共用一个 Kali Runtime，LiteLLM 执行 Task 金额（USD）预算。
+>
+> 新阶段入口：[架构基线 Spec](../cairn-architecture-baseline/spec.md)、[Plan](../cairn-architecture-baseline/plan.md)、[Acceptance](../cairn-architecture-baseline/acceptance.md)。本轮只批准架构文档；0.5 业务未实施，后续须依据新架构重新规划。原 P0 实验及其验收证据保留；预算已用 426/600 秒、余 174 秒，4 次真实调用已用完，均不重置。以下原文中的状态、建议及待决项只说明当时草案。
+
+## 历史草案正文
+
 - 状态：draft / 可评审草案，未批准业务实施。
 - 日期：2026-09-10；起点：codex/phase-1c-prep@4b3feb4。
 - P0已验收；本草案只承接其模型工厂与受限Provider适配，不扩大P0结论。正式规划需在应用Plan模式完成，不能由代理自行切换。

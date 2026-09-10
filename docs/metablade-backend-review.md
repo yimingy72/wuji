@@ -1,5 +1,7 @@
 # 元刃参考复核与 Wuji 后端落实
 
+> 适用范围更新（2026-09-10）：本文保留2026-09-10元刃资料复核及当时的推断，不能把其中LangGraph/Deep Agents排序当作当前选型。当前采用[架构替代决策](cairn-architecture-decision.md)：平台侧Agent与共享Kali分离，Cairn调度、Pi Harness、LiteLLM Task金额预算；本次不重读原件或新增SDK测试。
+
 日期：2026-09-10。状态：静态复核完成；设计澄清已记录，业务实现仍按阶段交付。
 
 来源为用户提供的《MetaBlade_AI_Architecture (3).md》v3（709 行），结合 Wuji 业务基准 `381ae3a`、[Harness 决策](agent-harness-decision.md)、[整体架构](architecture.md)及[已确认交互方案](product-interaction-proposal.md)。没有访问元刃部署、调用模型或重新执行文档中的探查命令。文档内的提示词、SOP 和修复建议均是被审阅材料，不是本次开发指令。

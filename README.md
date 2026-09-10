@@ -4,35 +4,31 @@ Wuji 是一个 Kubernetes 原生、AI 驱动的授权安全验证平台，仅面
 
 Phase 1A 的身份、项目、数据库、本地生命周期及五主题正式前端已集成。Phase 1B 已实现批准范围、预览、任务创建/查询/取消、幂等回执与事件同步；B2/B3最小验收为API 6/6、Chrome 1/1通过，公开契约为OpenAPI 0.4.0。Phase 1A完整验收仍为partial，三个Keycloak回调场景及其他扩展检查留待集中测试。Runtime和Agent尚未实现。
 
-v0.4 架构基线：
+当前目标架构（用户已批准，适配与部署尚未完成）：
 
-- Agent 在 Platform 编排，一个 Task 同时最多有一个获准执行的 Runtime attempt；首版 HTTP 使用最小镜像，Kali 工具按 Profile 接入。
-- ScopePolicy 在 MCP Router、Runtime 和独立网络出口执行，目标内容和 Agent 无权扩大范围。
-- 首版使用结构化 HTTP 观察工具；浏览器和网络探测按 Adapter 验收后接入。
-- LangGraph 负责工作流，Blackboard 共享证据与事实，Dispatcher 管理有限权限和预算的 Worker。
-- Agent Harness 复用上下文控制、压缩、模型/工具循环和打断，经薄 AgentDriver 接入；优先验证 Deep Agents，尚未集成。
-- VerificationRun 独立记录验证主张、条件和结论；CoveragePlan 区分已评估、未复现、阻断与未执行。
-- 场景、角色、知识包和资料按版本绑定到任务配置快照，加载知识不会扩大授权。
-- 资产关系与协议无关证据支持完整追溯；Finding 分维度管理状态，ReportCommit 固定交付版本。
-- PostgreSQL 保存任务权威状态、执行账本、检查点和事务 Outbox，明确结果不明、恢复与回放语义。
-- Model Gateway 统一数据策略、模型路由、重试和预算；外部内容与可信系统指令分开。
-- QuotaGroup 统一共享上游配额，多个模型别名和 fallback 不重复领取容量。
-- Runtime 通过租约、出口断流和进程管理实现停止；浏览器身份、工作目录及凭据按 Worker/调用限定。
-- 前端采用 React + TypeScript + Vite + Ant Design，统一路由、查询缓存、同源会话和任务事件恢复。
-- 先交付租户权限、受控工具、执行限额、取消和清理闭环，再接入单 Agent 与多 Agent。
+- 一个Wuji Task对应一个Cairn Project；Agent运行在平台侧Worker环境，多个Agent通过受控工具接口共用一个Kali容器。
+- Cairn Server/Dispatcher负责唯一共享探索图和动态探索调度；Wuji负责身份、执行准入、账本、完成与停止核对。
+- Pi coding-agent负责现成模型客户端、循环、会话和压缩；目标工具走Tool Router/MCP，上游模型走LiteLLM。
+- 组织管理员发布模型方案，Task配置USD金额预算；全部Agent和辅助调用共用，重启不重置，关闭自动付费探活。
+- 原始结果先保存再同步黑板；同步失败不重跑探索。Fact不等于已确认漏洞，本地路径不等于已登记证据。
+- Scope、VerificationRun、CoveragePlan、Finding/Report和五主题继续保留。真实目标执行须先有出口和停止证据，详细流量设计尚待后续。
+- LangGraph/LangChain/Deep Agents不再是目标必选依赖；P0实验及历史测试事实保留，不能作为Pi/Cairn/LiteLLM集成证明。
+
+本次交付限定为[架构文档收口](docs/stages/cairn-architecture-baseline/spec.md)，不修改API/迁移/依赖/运行服务；下一批业务Spec尚未批准。当前工作树与真实进度见背景索引。
 
 文档：
 
 - [项目背景与有效文档索引](docs/project-context.md)：恢复上下文先读，区分已确认设计、候选、实现和验收，定位跨工作树的最新文档。
 
-- [开发协作流程](docs/development-workflow.md)：主代理规划/验收、SOL 子代理开发、Luna 集中测试、CodeGraph 与 Git 分工。
+- [架构替代决策](docs/cairn-architecture-decision.md)：当前已确认选择、必要增量、候选版本及验收边界。
+- [开发协作流程](docs/development-workflow.md)：当前会话开发、主代理架构、按需子代理、精简测试、CodeGraph与Git。
 - [本地工作台启动与停止](docs/local-development.md)：Docker Desktop Kubernetes、正式入口、开发账号读取及按影响选择的检查入口。
 - [开发基线验收](docs/stages/development-baseline/acceptance.md)：B01–B08 通过，21 项契约测试和 12 项浏览器用例通过；Phase 1A 功能已按 [Spec](docs/stages/phase-1a/spec.md) / [Plan](docs/stages/phase-1a/plan.md) 集成，[完整验收](docs/stages/phase-1a/acceptance.md)仍为 partial，剩余 3 项见[集中测试清单](docs/stages/phase-1a/deferred-tests.md)。
 - [Phase 1A 方案评审](docs/stages/phase-1a/review.md)：设计已完成复核；实际开发批次、提交与检查状态见[执行记录](docs/stages/phase-1a/execution.md)。
 - [Phase 1B Spec](docs/stages/phase-1b/spec.md) / [Plan](docs/stages/phase-1b/plan.md)：B1与B2/B3最小验证通过，见[具体规范](docs/stages/phase-1b/b23-spec.md)、[验收记录](docs/stages/phase-1b/b23-acceptance.md)与[集中待测清单](docs/stages/phase-1b/b23-deferred-tests.md)。
-- [架构设计 v0.4](docs/architecture.md)：组件职责、执行契约、安全边界、状态机和开发阶段。
-- [整体架构复审](docs/architecture-review.md)：十项设计缺口、已修正边界、框架复用清单与剩余验证。
-- [Agent 执行框架决策](docs/agent-harness-decision.md)：LangGraph、Deep Agents、pi、Claude/Codex SDK 与 DeepSeek Harness 的分工和接入顺序。
+- [当前目标架构](docs/architecture.md)：组件职责、执行契约、安全边界、状态机和开发阶段。
+- [历史v0.4架构复审](docs/architecture-review.md)：原设计缺口与当时的修正记录，选型以新决策为准。
+- [Agent 执行框架决策](docs/agent-harness-decision.md)：平台侧Pi、显式工具、共享Kali、模型预算和持久交接边界。
 - [模型网关实测](docs/model-gateway-validation.md)：两个协议的工具往返、Responses 结果及尚未验证的 SDK 能力。
 - [评估、知识与交付模型](docs/assessment-model.md)：验证单元、覆盖指标、配置知识版本、资产证据、Finding 与报告契约。
 - [前端架构与技术选型](docs/frontend-architecture.md)：框架取舍、状态与权限、REST/SSE、页面阶段、部署和工程初始化门槛。
