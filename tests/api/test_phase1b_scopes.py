@@ -103,8 +103,8 @@ def test_operator_can_list_scope_and_preview_canonical_effective_scope(
         assert preview["project_id"] == project_id
         assert preview["draft"]["scope"] == scope["binding"]
         assert preview["draft"]["target_url"] == _draft(scope)["target_url"]
-        assert preview["can_create"] is False
-        assert [blocker["code"] for blocker in preview["blockers"]] == ["CREATION_UNAVAILABLE"]
+        assert preview["can_create"] is True
+        assert preview["blockers"] == []
         assert preview["effective_scope"]["limits"]["max_total_requests"] == draft["limits"]["max_total_requests"]
 
 
