@@ -1,7 +1,7 @@
 # Phase 1 API 契约说明
 
 - **契约版本**：0.4.0；OpenAPI 3.1.1
-- **状态**：身份、健康、项目、范围与预览已实现；B2/B3按[具体规范](stages/phase-1b/b23-spec.md)接入任务创建/取消/回执/事件，实际交付见[B2/B3验收](stages/phase-1b/b23-acceptance.md)。证据接口仍是后续设计。
+- **状态**：身份、健康、项目、范围、预览、任务创建/取消/回执/事件已实现，实际交付见[B2/B3验收](stages/phase-1b/b23-acceptance.md)。证据接口仍是后续设计。
 - **权威文件**：[openapi.yaml](../packages/contracts/openapi.yaml)
 - **生成类型**：[api.d.ts](../packages/contracts/generated/api.d.ts)
 - **响应校验器**：[@wuji/contracts/validators](../packages/contracts/generated/validators.js)，从同一 Schema 生成的 standalone ESM

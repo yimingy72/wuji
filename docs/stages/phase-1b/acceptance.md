@@ -1,6 +1,6 @@
 # Phase 1B 验收记录
 
-B1 开发完成，最小功能验证通过；Phase 1B 整阶段尚未完成，B2/B3 未实施。Phase 1A 的三个回调延期项仍独立保留，master 不因此前移。
+B1与B2/B3均已开发完成并通过各自最小功能验证；最新任务/命令/事件结果见[B2/B3验收](b23-acceptance.md)。扩展场景仍待集中验证，Phase 1A 的三个回调延期项独立保留，master不因此前移。下文保留B1当时的历史证据与范围。
 
 - 实测候选：`55bf6bd3c5c0370b017b879e098772843932e467`。
 - run_id：`p1a20260909t16282154d284`；私有 schema v1，隔离数据库/realm，Docker Desktop Kubernetes `wuji-test`。

@@ -1,6 +1,6 @@
 # Phase 1B Plan：范围、任务与事件
 
-- 状态：B1 implemented（最小验证通过）；B2/B3 in-progress，已批准统一[具体实施计划](b23-plan.md)，不重复审批内部交接。
+- 状态：B1与B2/B3 implemented（最小验证通过）；统一[具体实施计划](b23-plan.md)已完成，扩展验证保持待测。
 - 对应：[Spec](spec.md)；候选基础为 Phase 1A 阶段分支，实际开工时固定 SHA。
 - 约束：沿用根 AGENTS.md 的 Plan 流程、SOL/xhigh 开发、Luna/xhigh 集中测试及共享 10 分钟测试预算。
 

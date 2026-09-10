@@ -1,6 +1,6 @@
 # Phase 1B Spec：真实任务管理
 
-- 状态：B1最小验证通过；B2/B3已在Plan模式共同规划并获用户实施批准，详见[b23-spec.md](b23-spec.md)。
+- 状态：B1与B2/B3最小验证通过；扩展验证待集中执行，详见[b23-spec.md](b23-spec.md)和[b23-acceptance.md](b23-acceptance.md)。
 - 日期：2026-09-09。
 - 设计输入：[现有架构](../../architecture.md)、[Phase 1 契约](../../phase1-api-contract.md)、[Phase 1A 验收](../phase-1a/acceptance.md)。
 - 当前 Phase 1A 功能已集成，三个真实 Keycloak 回调用例延期；本草案不把上一阶段改记为通过，也不授权目标执行。

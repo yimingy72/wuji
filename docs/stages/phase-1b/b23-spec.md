@@ -1,6 +1,6 @@
 # B2/B3 Spec：任务管理与事件同步
 
-- 状态：approved，用户已在 Plan 模式审阅并明确要求实施；基准60f6544。
+- 状态：accepted（最小验收）；用户已在 Plan 模式审阅并明确要求实施，基准60f6544。实际证据及未覆盖项见[b23-acceptance.md](b23-acceptance.md)。
 - B2/B3连续开发，共用一个候选和600秒最小验收；Phase1A partial继续保留。
 
 ## 交付

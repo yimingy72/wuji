@@ -15,17 +15,17 @@
 | 产物 | 位置 | 状态与实际边界 |
 | --- | --- | --- |
 | 前端精确依赖及工具链 | package.json、pnpm-lock.yaml、.node-version | 已固定，兼容性验证见第 3 节；不是生产容量验证 |
-| 21 个设计 API 操作及业务 Schema | packages/contracts/openapi.yaml | 身份/项目/范围/预览已实现，任务命令和事件按B2/B3接入；设计操作不等于全部已注册 |
+| 21 个设计 API 操作及业务 Schema | packages/contracts/openapi.yaml | 身份/项目/范围/预览/任务命令/事件已实现，证据仍为设计；设计操作不等于全部已注册 |
 | 正反例夹具与契约检查 | packages/contracts/fixtures、tests/contracts.test.mjs | 校验字段、条件状态和契约声明；不能验证后端实际执法 |
 | 四页流程原型 | spikes/frontend | 使用本地内存夹具，按路由拆包；不接平台或测试目标 |
 | 最小 CI | .github/workflows/phase0.yml | 定义冻结安装、契约/类型/构建和浏览器检查；尚未在远端 CI 执行 |
-| 页面交互与主题 | docs/phase1-wireframes.md、DESIGN.md | 五主题正式工作台及范围预览已实现，任务页按B2/B3接入；完整配置页面按后续阶段交付 |
+| 页面交互与主题 | docs/phase1-wireframes.md、DESIGN.md | 五主题、范围预览及真实任务页面已实现；完整配置页面按后续阶段交付 |
 | Agent 执行框架决策 | [Harness 职责与选型](agent-harness-decision.md) | 补齐 LangGraph 与 Harness 分工；优先验证 Deep Agents，具体依赖尚未安装或集成 |
 | 模型网关基础验证 | [实际测试记录](model-gateway-validation.md) | 两个协议的模拟工具往返及 Responses 短文本通过；不代表完整 SDK 兼容或生产计量验收 |
 | 架构复审 v0.4 | [问题与修正](architecture-review.md) | 修正框架复用、上下文、辅助计费、恢复与事件边界；新增 H01–H10，均待集成验证 |
 | 分阶段协作与 Git 基线 | [协作流程](development-workflow.md)、[基线验收](stages/development-baseline/acceptance.md) | B01–B08已通过；SOL/xhigh开发，后续Luna/xhigh测试，全体共享10分钟最小验证预算 |
 | Phase 1A | [验收](stages/phase-1a/acceptance.md) | 正式工程/身份/项目/数据库已实现；3个真实回调场景延期，完整验收partial |
-| Phase 1B | [B1验收](stages/phase-1b/acceptance.md)、[B2/B3计划](stages/phase-1b/b23-plan.md) | B1最小验收通过，B2/B3已批准实施；Runtime及Agent尚未接入 |
+| Phase 1B | [B1验收](stages/phase-1b/acceptance.md)、[B2/B3验收](stages/phase-1b/b23-acceptance.md) | B1、B2/B3最小验收通过，扩展验证待集中执行；Runtime及Agent尚未接入 |
 
 上述完成项不代表整个 Phase 0 完成，也不代表 80 个架构验收场景已通过。验证结果和未覆盖项记录在 [Phase 0 验证记录](phase0-validation.md)。
 
@@ -55,7 +55,7 @@
 
 | 编号 | 任务 / 责任 | 必须产物与通过条件 | 依赖 / 状态 |
 | --- | --- | --- | --- |
-| P0-01 | 第一切片契约 / 前后端 | 完成当前 API 基线的实现评审，补充正式身份端点、错误和容量配置策略 | 身份/项目/B1已有实现及证据；任务与事件契约由B2/B3继续落实 |
+| P0-01 | 第一切片契约 / 前后端 | 完成当前 API 基线的实现评审，补充正式身份端点、错误和容量配置策略 | 身份/项目/范围及B2/B3任务事件已有实现和最小验证证据 |
 | P0-02 | 后端语言与框架 / 后端 | 记录 API、Router、Controller、Orchestrator 的语言/SDK 组合及职责；区分 LangGraph 与 Agent Harness，明确默认执行层候选及适配边界 | Python/FastAPI已实现并验证，Harness仍按P0-10验证 |
 | P0-03 | 身份接入 / 后端与部署 | 选定首个提供方，完成会话、CSRF、登录回跳、退出、过期/撤销验证 | Keycloak OIDC + Authlib已实现，主流程通过，3个真实回调专项延期 |
 | P0-04 | 数据库初始迁移 / 后端 | Tenant/Project/Membership、授权策略、Task/命令/ToolCall、Artifact、Audit/Outbox 的约束和迁移 | 依赖 P0-01/02；测试跨租户关联、连接池上下文与唯一约束 |
@@ -68,7 +68,7 @@
 
 ## 5. 实施顺序
 
-正式FastAPI后端和`apps/web`已交付身份、项目与范围预览；下一步按已批准的B2/B3方案完成任务管理及事件同步，再进入Phase 1C受控执行。当前Docker Desktop数据库/身份部署不代表已具备任务Runtime或出口隔离。
+正式FastAPI后端和`apps/web`已交付身份、项目、范围预览、任务管理及事件同步；下一阶段先规划Phase 1C受控执行。当前Docker Desktop数据库/身份部署不代表已具备任务Runtime或出口隔离。
 
 先完成 P0-01 至 P0-04，使身份、字段、事务和数据库约束可执行；同时开展 P0-05/P0-06 的隔离环境验证。P0-07/P0-08 为恢复和集成测试提供基础，P0-09 根据真实接口接入页面。
 

@@ -34,8 +34,8 @@ The directly affected B1 expectations now require operator task permissions,
 Viewer `task.read`, a valid preview with `can_create=true` and no blockers,
 and migration revision `20260910_0003`.
 
-Execution is intentionally not recorded here until root supplies the exact
-integrated candidate SHA and private run file. The intended commands are:
+Execution used the exact integrated product candidate and private run file
+recorded below. The commands were:
 
 ```text
 ./scripts/uv.sh run --frozen pytest tests/api/test_phase1b_tasks.py -q
