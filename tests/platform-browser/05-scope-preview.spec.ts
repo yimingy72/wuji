@@ -3,7 +3,7 @@ import { validateScopePage, validateTaskPreview } from '../../packages/contracts
 import { keycloakLogin, manifest } from './support';
 
 // Independently authored by Luna; pinned to the delivered public API and labels during integration.
-test('operator can preview an approved scope and creation remains unavailable', async ({ page }) => {
+test('operator can preview an approved scope and hand off to task creation', async ({ page }) => {
   const run = await manifest();
   const user = run.seed_users.single_a;
   const projectId = user.project_ids[0]!;
@@ -36,8 +36,8 @@ test('operator can preview an approved scope and creation remains unavailable', 
   if (!validateTaskPreview(preview)) throw new Error('Preview response violates the public contract');
   expect(preview.draft.scope).toEqual(scope!.binding);
   expect(preview.draft.target_url).toBe(target.href);
-  expect(preview.can_create).toBe(false);
-  expect(preview.blockers.map(blocker => blocker.code)).toEqual(['CREATION_UNAVAILABLE']);
+  expect(preview.can_create).toBe(true);
+  expect(preview.blockers).toEqual([]);
   const limits = Object.fromEntries(Object.entries(scope!.limits).map(([key, maximum]) =>
     [key, Math.min(maximum, preview.draft.limits[key as keyof typeof preview.draft.limits])],
   ));
@@ -45,8 +45,7 @@ test('operator can preview an approved scope and creation remains unavailable', 
 
   const result = page.getByTestId('task-preview-result');
   await expect(result).toContainText('范围计算通过');
-  await expect(result).toContainText('任务创建尚未开放');
   await expect(result).toContainText(target.href);
-  await expect(page.getByRole('button', { name: /创建任务|提交创建|执行任务/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /创建任务|提交创建|执行任务/ })).toHaveCount(1);
   await page.screenshot({ path: `${run.artifacts_dir}/b1-scope-preview.png`, fullPage: true });
 });

@@ -133,13 +133,16 @@ def test_project_list_is_exactly_current_membership_and_contract_valid(
         body = response.json()
         assert {item["id"] for item in body["items"]} == set(run_manifest.seed(user)["project_ids"])
         project_b_id = run_manifest.data["seed_entities"]["projects"]["project_b_primary"]["id"]
-        expected = {
-            item["id"]: (["project.read", "task.preview"]
-                          if user in {"single_a", "single_b"}
-                          or (user == "dual_ab" and item["id"] == project_b_id)
-                          else ["project.read"])
-            for item in body["items"]
-        }
+        expected = {}
+        for item in body["items"]:
+            is_operator = user in {"single_a", "single_b"} or (
+                user == "dual_ab" and item["id"] == project_b_id
+            )
+            expected[item["id"]] = (
+                ["project.read", "task.preview", "task.read", "task.create", "task.control"]
+                if is_operator
+                else ["project.read", "task.read"]
+            )
         assert {item["id"]: item["permissions"] for item in body["items"]} == expected
         assert body["next_cursor"] is None
 
