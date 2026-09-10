@@ -2,7 +2,7 @@
 
 - **版本**：v0.4
 - **日期**：2026-09-09
-- **状态**：实施设计基线，尚未实现或通过运行验收
+- **状态**：目标架构基线；平台身份/项目与B1范围预览已实现，B2/B3实施中，完整执行闭环尚未验收
 - **适用范围**：已获授权的非破坏性安全验证；禁止目标数据破坏、目标持久化和越权扩散
 - **验收依据**：[架构验收清单](architecture-acceptance.md)
 - **评估业务契约**：[评估、知识与交付模型](assessment-model.md)
@@ -11,7 +11,7 @@
 - **本次复审**：[问题、修正与验证缺口](architecture-review.md)
 - **开工准备**：[依赖与交付顺序](predevelopment-plan.md)、[Phase 1 API 契约](phase1-api-contract.md)
 
-v0.4 保留既有执行控制、评估与交付模型，修正框架复用边界：上下文管理、压缩和 Agent 循环复用 Harness，持久执行复用 LangGraph，多模型协议复用现成适配器。Wuji 实现领域策略与集成契约，不另建通用 Agent 框架；具体依赖仍待集成验证。本版是设计修订，尚无平台后端实现。
+v0.4 保留既有执行控制、评估与交付模型，修正框架复用边界：上下文管理、压缩和 Agent 循环复用 Harness，持久执行复用 LangGraph，多模型协议复用现成适配器。Wuji 实现领域策略与集成契约，不另建通用 Agent 框架；具体依赖仍待集成验证。本文描述目标能力，不把设计接口当成实现；实际进度以[Phase 1A验收](stages/phase-1a/acceptance.md)、[B1验收](stages/phase-1b/acceptance.md)和[B2/B3验收](stages/phase-1b/b23-acceptance.md)为准。
 
 ## 1. 目标与架构原则
 
