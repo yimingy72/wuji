@@ -132,7 +132,7 @@ class CairnTaskBridge:
                 if getattr(result, field) != getattr(context.runtime_config, field):
                     raise DispatchDenied("result execution binding changed")
         except DispatchDenied:
-            return self._result_state(result, "rejected")
+            return self.journal.reject_pending_result(result.key, result.operation_id)
         if not self.journal.claim_result(result.key, result.operation_id):
             return self.journal.get_result(result.key, result.operation_id)
         try:

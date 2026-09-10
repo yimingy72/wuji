@@ -15,7 +15,7 @@
 | 自建Wuji模型网关，P0 Provider/IPC进入生产 | LiteLLM承担网关和原生金额预算；模型协议与Harness继续复用成熟实现 | P0私有文件、IPC与次数账本只作实验资产 |
 | 首批模型预算用Token上限 | Task金额预算USD；组织模型配置不设置Task预算；全部Agent及辅助调用共享预算 | Token保留为统计与上下文容量指标，历史计数不改写 |
 | Cairn Agent与工具同住Kali | 每Task一个Pod，多个Agent运行于其中agent容器；多个Agent经受控工具接口共用一个Kali Runtime | 用户要求的是共享目标执行环境，而非把Harness迁入Kali |
-| 强制SOL开发、Luna独立验收及固定并发/worktree | 当前会话连续完成；允许按需子代理，本次gpt-6-astra/low；架构由主代理独立设计 | 历史报告仍记录当时实际模型；测试预算与Git约束继续有效 |
+| 强制SOL开发、Luna独立验收及固定并发/worktree | 当前会话连续完成；允许按需子代理，本次gpt-6-astra/low；架构由主代理独立设计 | 历史报告仍记录当时实际模型；精简测试与Git约束继续有效 |
 
 旧权威文档基准可从 `git show 6ee84b5:<path>` 追溯。旧0.5草案标为superseded，不得从其中复制过时设计进入实施。
 
@@ -101,4 +101,4 @@ Dispatcher/执行后端的必要适配保留明确归属，Cairn黑板核心不�
 
 后续依赖顺序：控制面基础（0.5契约、配置快照、ready/start、epoch、AgentRun/工具账本、Task绑定）→调度适配（先合成工具）→共享Runtime→原型评审后的正式产品接入→真实目标开放。具体API、迁移和验证入口由对应Spec/Plan冻结；旧0.5草案不能直接施工。
 
-原架构收口只更新文档；2026-09-11用户授权并完成[运行基础库离线验收](stages/phase-1c-runtime-foundation/acceptance.md)，完整执行尚未接入。Phase1A保持partial，P0仅限原实验，业务仍0.4.0。共享预算累计508/600秒、剩92秒，真实4次额度已用完，不按重拆批次重置。文档仅diff/链接检查；后续最小场景为未启动不派发、同一Task Pod的agent容器内两个AgentRun共用kali容器、结果核对不重跑、工具越权拒绝、取消与迟到派发、旧queued不执行；不足则待测，不预先标集成通过。
+原架构收口只更新文档；2026-09-11用户授权并完成[运行基础库离线验收](stages/phase-1c-runtime-foundation/acceptance.md)，完整执行尚未接入。Phase1A保持partial，P0仅限原实验，业务仍0.4.0。用户于2026-09-11取消累计检查时间预算，历史检查记录保留；真实4次模型调用额度仍已用完。文档仅diff/链接检查；后续最小场景为未启动不派发、同一Task Pod的agent容器内两个AgentRun共用kali容器、结果核对不重跑、工具越权拒绝、取消与迟到派发、旧queued不执行；缺少证据则待测，不预先标集成通过。

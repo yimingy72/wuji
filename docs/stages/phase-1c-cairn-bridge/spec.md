@@ -27,6 +27,7 @@ Wuji侧日志只保存Task归属、原生Project引用、输入摘要、原始�
 - Agent结果先持久化。每个operation_id绑定Task、AgentRun、原生Intent、描述及配置/许可代次摘要；同键异输入冲突。
 - conclude成功时核对原生Intent/Fact/worker/描述关系后记录applied。响应丢失可按已知Project+Intent只读核对：只有to指向的Fact描述和worker均匹配才确认applied；仍open则保持unknown，不自动重投；其他已结论记录conflict。
 - 已应用结果重放只返回日志；取消后或AgentRun未登记为活动时，新结果保留为rejected记录，不提交Core。原生查询核对不触发目标或模型。
+- 发送前准入拒绝只允许pending原子变为rejected；若另一请求已claim或已完成，则返回其现态，不覆盖sent/unknown/applied。已发送请求收到原生明确拒绝的处理独立于此规则。
 
 日志适配接受调用方提供的SQLAlchemy Engine，不读取DSN、不自动建生产表。表属于Wuji控制面，生产迁移/RLS/Task外键和服务角色仍须后续接入后才能对外使用。本批用临时SQLite验证持久状态与重放，不宣称PostgreSQL权限已经验收。
 
@@ -52,4 +53,4 @@ ControlSource.current(TaskKey)返回可信控制面快照或None。快照含Task
 | C04 | 创建结果不明跨日志实例重读后仍不自动发第二次创建；错误Task归属/异输入冲突 |
 | C05 | 取消后新结果不写Core；日志持久状态CAS与关闭/核对行为符合约定 |
 
-测试使用原生Cairn FastAPI应用与临时SQLite，通过进程内HTTP适配器连接原生客户端；不启动网络服务、Agent、Kubernetes或真实模型。原检查预算已用508/600秒，剩92秒，依赖准备/等待/候选/检查共同累计；不重置，P0真实4次额度仍已耗尽。只做定向检查及新包构建，改动共用许可函数时仅复测其直接用例，通过即停。
+测试使用原生Cairn FastAPI应用与临时SQLite，通过进程内HTTP适配器连接原生客户端；不启动网络服务、Agent、Kubernetes或真实模型。用户于2026-09-11取消累计检查时间预算；历史耗时与未测试记录保留，P0真实4次模型调用额度仍已耗尽。本次补跑不请求真实模型。只做定向检查及新包构建，改动共用许可函数时仅复测其直接用例，通过即停。

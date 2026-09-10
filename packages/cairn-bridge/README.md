@@ -22,7 +22,7 @@ Native Cairn does not gain idempotency receipts or immutable events. The journal
 
 ## Validation and licensing
 
-The native integration fixture routes a requests adapter to the actual Cairn FastAPI app in-process, with its database redirected to pytest's temporary directory. It never uses the user's default Cairn directory or starts a network service. Model calls and target requests are zero. Remaining shared budget is recorded in the [stage acceptance](../../docs/stages/phase-1c-cairn-bridge/acceptance.md).
+The native integration fixture routes a requests adapter to the actual Cairn FastAPI app in-process, with its database redirected to pytest's temporary directory. It never uses the user's default Cairn directory or starts a network service. Model calls and target requests are zero. Actual results and historical checks are recorded in the [stage acceptance](../../docs/stages/phase-1c-cairn-bridge/acceptance.md); development verification has no aggregate time budget.
 
 Upstream Cairn is AGPL-3.0; preserve its [license](https://github.com/oritera/Cairn/blob/8e7e0ea67552383851dfcabfba0c4e9c8d007878/LICENSE) and provenance. The dependency is not vendored or patched here. See the [Spec](../../docs/stages/phase-1c-cairn-bridge/spec.md) and [Plan](../../docs/stages/phase-1c-cairn-bridge/plan.md).
 

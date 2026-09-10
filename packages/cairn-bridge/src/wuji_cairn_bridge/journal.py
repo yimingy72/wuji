@@ -150,6 +150,16 @@ class SQLAlchemyJournal:
         with self.engine.begin() as conn:
             return conn.execute(update(results).where(*_where(results, key), results.c.operation_id == operation_id, results.c.state == "pending").values(state="sent")).rowcount == 1
 
+    def reject_pending_result(self, key, operation_id):
+        require_uuid(operation_id, "operation_id")
+        # A caller that loses admission must not overwrite another caller's claim.
+        with self.engine.begin() as conn:
+            conn.execute(update(results).where(*_where(results, key), results.c.operation_id == operation_id, results.c.state == "pending").values(state="rejected"))
+        record = self.get_result(key, operation_id)
+        if record is None:
+            raise OperationConflict("result operation is unavailable")
+        return record
+
     def finish_result(self, key, operation_id, fact_id):
         require_uuid(operation_id, "operation_id")
         native_id(fact_id)
@@ -164,11 +174,8 @@ class SQLAlchemyJournal:
         require_uuid(operation_id, "operation_id")
         if state not in {"rejected", "unknown", "conflict"}:
             raise InvalidBridgeInput("invalid result transition")
-        allowed = ["sent", "unknown"]
-        if state == "rejected":
-            allowed.append("pending")
         with self.engine.begin() as conn:
-            conn.execute(update(results).where(*_where(results, key), results.c.operation_id == operation_id, results.c.state.in_(allowed)).values(state=state))
+            conn.execute(update(results).where(*_where(results, key), results.c.operation_id == operation_id, results.c.state.in_(["sent", "unknown"])).values(state=state))
         record = self.get_result(key, operation_id)
         if record is None or record.state != state:
             raise OperationConflict("result cannot change state")

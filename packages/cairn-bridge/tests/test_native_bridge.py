@@ -178,3 +178,29 @@ def test_cancelled_or_unregistered_agent_result_does_not_write_core(environment)
     env.controls.value = replace(env.controls.value, active_agent_run_ids=frozenset())
     another = replace(result, operation_id=uuid4())
     assert env.bridge.submit_result(another).state == "rejected"
+
+
+def test_late_rejection_preserves_inflight_result(environment, monkeypatch):
+    env = environment
+    _, bound = create(env)
+    result = result_for(env, bound.project_id)
+
+    def other_request_claims_before_revocation(key):
+        # Both callers saw pending; the admitted caller claims while this one
+        # is waiting for admission. Its already-started write must remain tracked.
+        assert env.journal.claim_result(key, result.operation_id)
+        env.controls.value = replace(env.controls.value, control_state="cancelled")
+        raise DispatchDenied("revoked while the other request was in flight")
+
+    monkeypatch.setattr(env.bridge, "authorize_dispatch", other_request_claims_before_revocation)
+    assert env.bridge.submit_result(result).state == "sent"
+    path = f"/projects/{bound.project_id}/intents/{result.intent_id}/conclude"
+    assert count_posts(env, path) == 0
+
+    # Complete the admitted caller's native write, then recover from the graph.
+    response = env.native.conclude(bound.project_id, result.intent_id, str(result.agent_run_id), result.description)
+    assert response.ok
+    recovered = env.bridge.reconcile_result(env.key, result.operation_id)
+    assert recovered.state == "applied"
+    assert env.bridge.submit_result(result).fact_id == recovered.fact_id
+    assert count_posts(env, path) == 1

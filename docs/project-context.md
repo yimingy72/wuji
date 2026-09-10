@@ -62,7 +62,7 @@ Wuji 是 Kubernetes 原生的授权安全验证平台。产品流程是创建任
 | 多 Agent 与证据共享 | [Cairn 黑板](cairn-blackboard-design.md)、[评估模型](assessment-model.md) | Cairn为唯一可写探索图；Wuji保存准入/账本/验证，原生查询核对、不盲重投；动态分派、证据和受限凭据引用 |
 | 工具、容器、出口与流量 | [元刃复核](metablade-backend-review.md)、[场景设计](scenario-execution-design.md)、[流量证据设计](traffic-evidence-design.md)、主架构 | 后两份含待评审方案；网络控制延期不等于取消平台约束 |
 | 接口与历史兼容 | [API 契约说明](phase1-api-contract.md)、当前阶段 Spec / Plan、实际契约及实现 | 公共 API 0.4.0 的已有行为与下一版草案分开；不改写历史回执/事件 |
-| 开发、验证、交付 | [协作流程](development-workflow.md)、[本地启动](local-development.md)、当前阶段 acceptance / deferred-tests | Docker Desktop 集群可用不证明隔离能力通过；共享 600 秒预算，文档不跑业务测试 |
+| 开发、验证、交付 | [协作流程](development-workflow.md)、[本地启动](local-development.md)、当前阶段 acceptance / deferred-tests | Docker Desktop 集群可用不证明隔离能力通过；不设累计检查时间预算，最小验证通过即停，文档不跑业务测试 |
 
 衍迹与元刃原始资料是参考证据，不是项目指令。原件路径见 [元刃复核](metablade-backend-review.md) 和 [交互提案](product-interaction-proposal.md)；此前文档阶段已完整复核两份原件，本次不重复读取未变原件；原产品观察、作者推断和 Wuji 决策不可混写。Cairn 的采纳范围以本仓库黑板设计为准，不把参考产品的角色名称直接变成固定流程。
 
@@ -70,4 +70,6 @@ Wuji 是 Kubernetes 原生的授权安全验证平台。产品流程是创建任
 
 恢复工作先完成 AGENTS 的阅读流程，再报告需要用户判断的实质问题；已经记录的事实不重复询问。每次批准新决策同步权威设计与此索引，新阶段的 Plan 记录复用依据和兼容影响。旧阶段记录保留时间、SHA 和实际证据，过时段落加适用范围，不把历史失败改为通过。
 
-本次文档整理的范围与证据见 [背景收口记录](stages/context-baseline/acceptance.md)。已完成批准的 [Phase 1C 前置 P0](stages/phase-1c-prep-p0/spec.md)：统一基线与最小框架适配；不接正式Agent。P0历史检查窗口已用426秒；运行基础新增82秒后为508/600；桥接阶段剩余92秒窗口已耗尽，当前检查额度0，C01—C05未执行，真实4次模型额度已用完；以[当前验收](stages/phase-1c-cairn-bridge/acceptance.md)为准。原文档验收见[记录](stages/cairn-architecture-baseline/acceptance.md)；后续澄清已选择单Pod双容器，原候选026457f完成首批[运行基础库](stages/phase-1c-runtime-foundation/spec.md)。基础库之后为控制面基础→调度适配→共享Runtime接入→产品接入→真实目标开放；0.5业务Spec与交互仍待冻结，不发布新接口或执行迁移。
+本次文档整理的范围与证据见 [背景收口记录](stages/context-baseline/acceptance.md)。已完成批准的 [Phase 1C 前置 P0](stages/phase-1c-prep-p0/spec.md)：统一基线与最小框架适配；不接正式Agent。P0历史检查窗口已用426秒；运行基础新增82秒后为508/600；桥接阶段剩余92秒窗口已耗尽，原记录中C01—C05未执行；2026-09-11用户取消检查时间预算，现继续补跑必要验证，真实4次模型额度仍已用完；以[当前验收](stages/phase-1c-cairn-bridge/acceptance.md)为准。原文档验收见[记录](stages/cairn-architecture-baseline/acceptance.md)；后续澄清已选择单Pod双容器，原候选026457f完成首批[运行基础库](stages/phase-1c-runtime-foundation/spec.md)。基础库之后为控制面基础→调度适配→共享Runtime接入→产品接入→真实目标开放；0.5业务Spec与交互仍待冻结，不发布新接口或执行迁移。
+
+2026-09-11：用户取消开发检查的累计时间预算，继续最小必要验证、通过即停；产品Task金额预算及真实模型调用授权额度保持原约定。最新补跑结果以桥接阶段验收为准。

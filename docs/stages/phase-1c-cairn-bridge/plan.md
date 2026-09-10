@@ -1,6 +1,6 @@
 # Task / Cairn 桥接 Plan
 
-- 状态：code-delivered / verification-pending；日期：2026-09-11；对应[Spec](spec.md)。
+- 状态：in-progress / verification resumed；日期：2026-09-11；对应[Spec](spec.md)。
 - 当前用户“继续开发”授权承接既定架构；本次不改变核心选型或实际运行环境。
 
 ## 1. 实现顺序与归属
@@ -8,8 +8,8 @@
 1. 主代理固定Spec/Plan、models/errors及接口，新增可选workspace包/依赖group。
 2. gpt-6-astra/low可选子代理仅实现SQLAlchemy日志及对应测试，不设计架构，不运行检查或提交。
 3. 主代理复用固定Cairn客户端/模型，完成Bridge、执行预选和原生Server测试；核心源文件不修改。
-4. 统一计时解析依赖、冻结安装，固定候选SHA后运行定向检查和包构建；共享原剩余92秒。
-5. 记录实际结果、限制与预算，更新入口并本地提交；主工作区HEAD/master/服务不前移。
+4. 依赖和冻结安装已完成，复用现有环境；在固定候选SHA运行定向检查和包构建，不重复安装。
+5. 记录实际结果、限制与耗时，更新入口并本地提交；主工作区HEAD/master/服务不前移。
 
 ## 2. 固定接口
 
@@ -27,6 +27,8 @@
 
 表结构在包metadata中定义供部署迁移引用；导入/构造时不create_all。测试可在tmp_path创建SQLite表；生产Wuji Task外键、RLS、服务角色和迁移明确延期，不能把测试建表脚本当上线入口。
 
+2026-09-11审查修正：新增reject_pending_result(key,operation_id)，仅CAS pending→rejected并返回当前记录；准入拒绝使用此入口。set_result_state仅用于sent/unknown后的原生响应或核对结果，防止迟到拒绝覆盖其他请求的发送记录；以确定性时序补一条回归用例。
+
 原生成功响应需验证ID/worker/描述一致性；0/5xx/解码失败为unknown，明确400/401/403/404/422为rejected，409需要核对而不重投。创建unknown不提供按名称猜绑定的修复；结果unknown仅在已知Intent/Fact和worker匹配时确认applied。取消不妨碍只读核对已发生结果，但禁止新Core写入。
 
 ## 4. 依赖与验证
@@ -35,4 +37,4 @@
 
 用仓库既有uv和缓存安装可选group cairn-bridge；原生测试必须将Cairn数据库指向临时目录，禁止写用户默认Cairn数据目录。执行packages/cairn-bridge/tests和受影响的task-runtime许可用例，不跑旧API/浏览器全套。包构建仅wuji-cairn-bridge。
 
-所有检查由主代理统一计时；本批起始剩92秒，失败同类最多两轮；不足即记录待测。Schema/RLS、真实Core服务、真实Dispatcher/Pod/Pi和模型网关联调均不计作本批通过项。
+用户于2026-09-11取消累计检查时间预算，本轮直接补跑既有定向测试及包构建；不因历史额度耗尽停止必要检查，仍通过即停，同类脚本问题最多两轮。真实模型额度不变。Schema/RLS、真实Core服务、真实Dispatcher/Pod/Pi和模型网关联调均不计作本批通过项。
