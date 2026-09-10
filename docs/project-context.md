@@ -1,6 +1,6 @@
 # Wuji 项目背景与有效文档索引
 
-更新：2026-09-10；当前有效开发分支codex/phase-1c-runtime-foundation（沿用phase-1c-prep工作树），架构收口起点6ee84b5。此页负责恢复背景与导航；设计正文、阶段验收各有独立权威来源，不在此复制完整架构。先读根 [AGENTS.md](../AGENTS.md)。
+更新：2026-09-10；当前有效开发分支codex/phase-1c-cairn-bridge（沿用phase-1c-prep工作树），架构收口起点6ee84b5。此页负责恢复背景与导航；设计正文、阶段验收各有独立权威来源，不在此复制完整架构。先读根 [AGENTS.md](../AGENTS.md)。
 
 ## 1. 产品背景与当前决定
 
@@ -16,7 +16,7 @@ Wuji 是 Kubernetes 原生的授权安全验证平台。产品流程是创建任
 - 直接复用Cairn Server/Dispatcher、Pi coding-agent与LiteLLM。一个Task对应一个Cairn Project；每个Task一个Pod，agent容器运行多个Agent，kali容器提供共享执行环境。Task统筹目标与外部工具/约束，Cairn黑板核心不改。Cairn是唯一可写探索图，Wuji保存任务、准入、执行账本及验证；结果先保存再同步。
 - LangGraph/LangChain/Deep Agents不再是目标必选依赖；P0仅为历史实验。候选版本及必要增量见[架构替代决策](cairn-architecture-decision.md)，尚未在Wuji集成验收。
 - 本次开发在当前会话，架构由主代理独立设计；可按需使用gpt-6-astra/low子代理，不再强制SOL/Luna、并发数、独立worktree或独立测试代理。历史报告中的实际模型不改写。
-- 2026-09-11用户最终确认单Task Pod双容器并授权开始开发。当前执行[运行基础Spec](stages/phase-1c-runtime-foundation/spec.md)/[Plan](stages/phase-1c-runtime-foundation/plan.md)：独立基础包、Pod模板、许可与归属控制、官方Kubernetes客户端；不接正式API或启动真实模型/目标。完整0.5控制面和Cairn执行接入仍需具体后续Spec。
+- 2026-09-11用户最终确认单Task Pod双容器并授权开始开发。运行基础已完成；当前执行[Task/Cairn桥接Spec](stages/phase-1c-cairn-bridge/spec.md)/[Plan](stages/phase-1c-cairn-bridge/plan.md)：原生客户端/Server复用、Task绑定、持久操作日志、调度预选及结果核对；不接正式API或启动真实模型/目标。完整0.5控制面和Cairn执行接入仍需具体后续Spec。
 
 不得把助手曾提出但未确认的预算数字、默认端口集合或 Scope 有效期写成永久默认值。
 
@@ -25,7 +25,7 @@ Wuji 是 Kubernetes 原生的授权安全验证平台。产品流程是创建任
 | 对象 | 已核对来源 | 含义 |
 | --- | --- | --- |
 | 主业务工作区 | `codex/phase-1b-b23`，`381ae3a2205965ad6aab1ce787d490d2c02839f3` | 正式业务 0.4.0；不是全部架构验收完成 |
-| 当前运行基础开发 | `codex/phase-1c-runtime-foundation`，起点`eee81b4746a27cba633769c3cdf0fcdf60198028`及用户确认的工作树澄清 | 同一工作树继续；最新代码/验收用git log及当前阶段记录核对 |
+| 当前Task/Cairn桥接开发 | `codex/phase-1c-cairn-bridge`，起点`7cfcf386ca0d0388b039d60a941bc2812e118d5a` | 同一工作树继续；最新代码/验收用git log及当前阶段记录核对 |
 | 历史设计来源 | `codex/product-interaction-plan@8dcf7ec`，此前修订起点`0051651047daeeee3b8741c460f182d42e755238` | 历史参考，不能覆盖后续用户确认 |
 | 产品原型 | `codex/product-interaction-prototype`，`2e35177` | 旧版两条模拟路径，未实现新版五场景与真实执行 |
 | master | `28fcd44eebc205a35735d3e7b60a308ce5f749bc` | 保留原阶段基线，不因文档或最小验收自动前移 |
@@ -47,6 +47,7 @@ Wuji 是 Kubernetes 原生的授权安全验证平台。产品流程是创建任
 | Harness适配 | 独立P0包通过受限Deep Agents与两协议工具往返；未接正式Agent | [P0验收](stages/phase-1c-prep-p0/acceptance.md) |
 | Cairn架构收口 | 用户已批准，本批文档交付状态以验收为准；不代表业务实现 | [Spec](stages/cairn-architecture-baseline/spec.md)、[Plan](stages/cairn-architecture-baseline/plan.md)、[验收](stages/cairn-architecture-baseline/acceptance.md) |
 | Runtime基础库 | 026457f完成首批基础库，25个离线用例和包构建通过；未接真实执行 | [Spec](stages/phase-1c-runtime-foundation/spec.md)、[验收](stages/phase-1c-runtime-foundation/acceptance.md) |
+| Task/Cairn桥接 | 开发中，原生接口和平台日志适配，尚未验收 | [Spec](stages/phase-1c-cairn-bridge/spec.md)、[验收](stages/phase-1c-cairn-bridge/acceptance.md) |
 | Cairn / Pi / LiteLLM / Runtime集成 | 目标选型已确认，完整接入/部署/黑板和流量采集尚未实现 | [架构替代决策](cairn-architecture-decision.md)及下节设计 |
 
 表内测试是复用历史记录，未在本次文档提交重跑。B2/B3 测试代码基准为 `e76a265d445ae9548d7f56fdb85f9b8b5c005759`，具体 run 与限制以验收正文为准。架构验收目录的 80 项不是本次或每次开发必须执行的清单。
@@ -69,4 +70,4 @@ Wuji 是 Kubernetes 原生的授权安全验证平台。产品流程是创建任
 
 恢复工作先完成 AGENTS 的阅读流程，再报告需要用户判断的实质问题；已经记录的事实不重复询问。每次批准新决策同步权威设计与此索引，新阶段的 Plan 记录复用依据和兼容影响。旧阶段记录保留时间、SHA 和实际证据，过时段落加适用范围，不把历史失败改为通过。
 
-本次文档整理的范围与证据见 [背景收口记录](stages/context-baseline/acceptance.md)。已完成批准的 [Phase 1C 前置 P0](stages/phase-1c-prep-p0/spec.md)：统一基线与最小框架适配；不接正式Agent。P0历史检查窗口已用426秒；运行基础新增82秒后累计508/600秒、剩92秒，真实4次额度已用完，后续不重置，具体以[当前验收](stages/phase-1c-runtime-foundation/acceptance.md)为准。原文档验收见[记录](stages/cairn-architecture-baseline/acceptance.md)；后续澄清已选择单Pod双容器，当前已完成首批[运行基础库](stages/phase-1c-runtime-foundation/spec.md)。基础库之后为控制面基础→调度适配→共享Runtime接入→产品接入→真实目标开放；0.5业务Spec与交互仍待冻结，不发布新接口或执行迁移。
+本次文档整理的范围与证据见 [背景收口记录](stages/context-baseline/acceptance.md)。已完成批准的 [Phase 1C 前置 P0](stages/phase-1c-prep-p0/spec.md)：统一基线与最小框架适配；不接正式Agent。P0历史检查窗口已用426秒；运行基础新增82秒后累计508/600秒、剩92秒，真实4次额度已用完，后续不重置，后续桥接检查继续累计，以[当前验收](stages/phase-1c-cairn-bridge/acceptance.md)为准。原文档验收见[记录](stages/cairn-architecture-baseline/acceptance.md)；后续澄清已选择单Pod双容器，当前已完成首批[运行基础库](stages/phase-1c-runtime-foundation/spec.md)。基础库之后为控制面基础→调度适配→共享Runtime接入→产品接入→真实目标开放；0.5业务Spec与交互仍待冻结，不发布新接口或执行迁移。

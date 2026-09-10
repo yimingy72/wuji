@@ -11,7 +11,7 @@ from .errors import (
     RuntimeStateUnknown, RuntimeTransportError,
 )
 from .manifest import build_task_pod, verify_pod_ownership, verify_resource_ownership
-from .models import ExecutionPermit, RuntimeObservation, TaskRuntimeConfig
+from .models import ExecutionPermit, RuntimeObservation, TaskRuntimeConfig, validate_execution_permit
 
 
 class PermitSource(Protocol):
@@ -43,15 +43,7 @@ class TaskRuntimeController:
             permit = self.permits.current(config.task_id)
         except Exception:
             raise PermitDenied("current start permission is unavailable") from None
-        now = self.clock()
-        if now.utcoffset() is None:
-            raise PermitDenied("controller clock must include a timezone")
-        if not isinstance(permit, ExecutionPermit) or permit.expires_at <= now:
-            raise PermitDenied("current start permission is missing or expired")
-        for field in ("tenant_id", "task_id", "runtime_attempt", "execution_epoch", "scope_digest", "config_digest"):
-            if getattr(permit, field) != getattr(config, field):
-                raise PermitDenied(f"current permission does not match {field}")
-        return permit
+        return validate_execution_permit(config, permit, self.clock())
 
     def _check_resources(self, config: TaskRuntimeConfig) -> None:
         for key, kind in (

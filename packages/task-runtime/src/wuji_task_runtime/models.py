@@ -13,7 +13,7 @@ from uuid import UUID
 
 from kubernetes.utils.quantity import parse_quantity
 
-from .errors import InvalidRuntimeConfig
+from .errors import InvalidRuntimeConfig, PermitDenied
 
 MANAGED_BY = "wuji-task-runtime-controller"
 LABEL_MANAGED_BY = "app.kubernetes.io/managed-by"
@@ -187,3 +187,15 @@ class RuntimeObservation:
     pod_name: str
     pod_uid: str | None
     reason: str | None = None
+
+
+def validate_execution_permit(config: TaskRuntimeConfig, permit: ExecutionPermit | None, now: datetime) -> ExecutionPermit:
+    """Shared binding check; the caller still obtains permission from trusted storage."""
+    if not isinstance(now, datetime) or now.utcoffset() is None:
+        raise PermitDenied("controller clock must include a timezone")
+    if not isinstance(permit, ExecutionPermit) or permit.expires_at <= now:
+        raise PermitDenied("current start permission is missing or expired")
+    for field in ("tenant_id", "task_id", "runtime_attempt", "execution_epoch", "scope_digest", "config_digest"):
+        if getattr(permit, field) != getattr(config, field):
+            raise PermitDenied(f"current permission does not match {field}")
+    return permit

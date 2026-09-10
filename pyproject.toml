@@ -19,6 +19,9 @@ agent-validation = [
 task-runtime = [
   "wuji-task-runtime",
 ]
+cairn-bridge = [
+  "wuji-cairn-bridge",
+]
 
 [tool.uv]
 package = false
@@ -27,9 +30,11 @@ package = false
 wuji-api = { workspace = true }
 wuji-agent-integration = { workspace = true }
 wuji-task-runtime = { workspace = true }
+wuji-cairn-bridge = { workspace = true }
+cairn = { git = "https://github.com/oritera/Cairn.git", rev = "8e7e0ea67552383851dfcabfba0c4e9c8d007878", subdirectory = "cairn" }
 
 [tool.uv.workspace]
-members = ["apps/api", "packages/agent-integration", "packages/task-runtime"]
+members = ["apps/api", "packages/agent-integration", "packages/task-runtime", "packages/cairn-bridge"]
 
 [tool.pytest.ini_options]
 addopts = "--strict-markers"

@@ -1,0 +1,13 @@
+[build-system]
+requires = ["hatchling==1.29.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "wuji-cairn-bridge"
+version = "0.1.0"
+description = "Task-scoped integration with the unmodified Cairn blackboard"
+requires-python = "==3.13.15"
+dependencies = ["cairn", "sqlalchemy==2.0.52", "wuji-task-runtime"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/wuji_cairn_bridge"]
