@@ -550,7 +550,7 @@ function TaskPreviewWorkspace({
           </ol>
         </aside>
       </div>
-      {createError !== null && (
+      {createError !== null && pending === null && (
         <Alert
           className={styles.commandNotice}
           type="error"
