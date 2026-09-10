@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom';
-import { stateLabel, type TaskState } from './model';
+import { stateLabel, type DemoTaskState } from './model';
 import styles from '../prototype.module.css';
 
-export function Status({ state }: { state: TaskState }) {
+export function Status({ state }: { state: DemoTaskState }) {
   return <span className={styles.status} data-state={state}><span className={styles.statusDot} aria-hidden="true" />{stateLabel[state]}</span>;
 }
 

@@ -1,33 +1,31 @@
-import { useSearchParams, Link } from 'react-router-dom';
-import { ArrowLeftOutlined, FileTextOutlined } from '@ant-design/icons';
-import { taskPath, rawFixture, initialTask, hasDemoEvidence } from '../shared/model';
+import { Button, Tag } from 'antd';
+import { ArrowLeftOutlined, CopyOutlined, FileTextOutlined } from '@ant-design/icons';
+import { Link, useSearchParams } from 'react-router-dom';
+import { evidence } from '../shared/model';
 import { Notice } from '../shared/ui';
-import { EvidenceCode } from '../shared/Workbench';
 import styles from '../prototype.module.css';
 
 export function Component() {
   const [search] = useSearchParams();
-  if (search.get('scene') === 'empty' || !hasDemoEvidence()) return <Notice title="证据暂不可用" body="当前证据尚未发布或已过期。" />;
+  const key = search.get('key') ?? 'response';
+  const item = evidence[key];
+  const taskId = search.get('task') ?? 'DEMO-HTTP-1042';
+  const mode = search.get('mode') === 'agent' ? 'agent' : 'http';
+  const [copied, setCopied] = useState(false);
+  if (!item) return <Notice title="证据不存在" body="请返回任务选择已发布的合成证据。" />;
   return <div className={styles.evidencePage}>
-    <Link to={taskPath} className={styles.back}><ArrowLeftOutlined aria-hidden="true" /> 返回任务</Link>
-    <div className={styles.pageHeading}><div><h1>HTTP 响应证据</h1><code>{rawFixture.artifact.name}</code></div><span className={styles.redacted}>已脱敏</span></div>
+    <Link to={`/tasks/${taskId}?mode=${mode}&state=running`} className={styles.back}><ArrowLeftOutlined /> 返回任务</Link>
+    <div className={styles.pageHeading}><div><h1>{item.title}</h1><code>{item.id} · {item.source}</code></div><Tag color="success">合成证据</Tag></div>
     <div className={styles.evidenceGrid}>
-      <section className={styles.evidenceBody} aria-label="响应正文">
-        <div className={styles.evidenceToolbar}><FileTextOutlined aria-hidden="true" /><span>RESPONSE</span><span>{rawFixture.artifact.media_type}</span><span>UTF-8</span></div>
-        <EvidenceCode />
+      <section className={styles.evidenceBody} aria-label="证据内容">
+        <div className={styles.evidenceToolbar}><FileTextOutlined /><span>{item.kind.toUpperCase()}</span><span>UTF-8</span><Button size="small" icon={<CopyOutlined />} onClick={async () => { try { await navigator.clipboard.writeText(item.body); setCopied(true); } catch { setCopied(false); } }}>{copied ? '已复制' : '复制内容'}</Button></div>
+        <pre className={styles.codePreview}><code>{item.body}</code></pre>
       </section>
       <aside className={styles.evidenceProperties} aria-label="证据属性">
-        <h2>证据属性</h2>
-        <dl className={styles.propertyList}>
-          <dt>来源任务</dt><dd><Link to={taskPath}>{initialTask.name}</Link></dd>
-          <dt>证据编号</dt><dd className={styles.mono}>ART-{rawFixture.artifact.id.slice(-6)}</dd>
-          <dt>采集时间</dt><dd className={styles.mono}>09-09 11:00 UTC+8</dd>
-          <dt>文件大小</dt><dd className={styles.mono}>{rawFixture.artifact.size_bytes} B</dd>
-          <dt>内容类型</dt><dd className={styles.mono}>{rawFixture.artifact.media_type}</dd>
-          <dt>Scope</dt><dd><span className={styles.scopeBadge}>v{initialTask.scope.version}</span></dd>
-          <dt>SHA-256</dt><dd className={styles.mono}>{rawFixture.artifact.sha256}</dd>
-        </dl>
+        <h2>证据属性</h2><dl className={styles.propertyList}><dt>来源任务</dt><dd><Link to={`/tasks/${taskId}?mode=${mode}&state=running`}>{taskId}</Link></dd><dt>采集来源</dt><dd>{item.source}</dd><dt>记录时间</dt><dd className={styles.mono}>2026-09-10 {item.capturedAt} UTC+8</dd><dt>目标</dt><dd className={styles.mono}>app.example.test</dd><dt>数据说明</dt><dd>{item.note}</dd><dt>保留状态</dt><dd>演示会话内可读</dd></dl>
       </aside>
     </div>
   </div>;
 }
+
+import { useState } from 'react';
