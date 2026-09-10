@@ -14,11 +14,11 @@ Pi当前提供CLI、RPC与SDK入口，以及内置工具关闭、显式白名单
 
 ## 2. Worker与Kali分别管理
 
-每Task首版一个平台侧Worker Pod，其中多个Harness进程分别绑定AgentRun。Agent Worker后端管理这些Pod/进程，不管理或删除Kali。Task的Kali Runtime由Runtime Controller独占管理，一个有效attempt供同任务多个Agent共享。
+每Task一个Pod，包含agent与kali两个容器。多个Harness进程在agent容器内运行并分别绑定AgentRun，不嵌入API/Dispatcher或放入kali。Cairn执行后端管理agent进程；Task Runtime Controller唯一管理Pod创建、重建和回收。一个有效attempt供同任务所有Agent和Kali工具共享。
 
-Cairn ExecutionBackend接平台Worker环境；新增后端必须同时接入配置选择、执行上下文、进程回执和cleanup调用。不能只新增一个类就声称Kubernetes适配已完成。[上游接口](https://github.com/oritera/Cairn/blob/8e7e0ea67552383851dfcabfba0c4e9c8d007878/cairn/src/cairn/dispatcher/runtime/backend.py)
+Cairn ExecutionBackend接已就绪Task Pod中的agent容器；新增后端必须同时接入配置选择、执行上下文、进程回执和cleanup调用。不能只新增一个类就声称Kubernetes适配已完成。[上游接口](https://github.com/oritera/Cairn/blob/8e7e0ea67552383851dfcabfba0c4e9c8d007878/cairn/src/cairn/dispatcher/runtime/backend.py)
 
-两类Pod不共享文件卷、PID空间或凭据；Agent不能直连目标。Worker后端的Kubernetes权限不交给Harness，Kali不持有Provider、Cairn管理或平台数据库凭据。
+两个容器分别挂载工作卷/凭据，不共享PID空间；网络边界以整个Task Pod为单位。目标操作经工具接口，不能把Pod级NetworkPolicy当成容器间隔离。Kubernetes管理权限不交给Harness或Kali，Kali不持有Provider、Cairn管理或平台数据库凭据。
 
 ## 3. 明确工具表面
 
@@ -26,7 +26,7 @@ Cairn ExecutionBackend接平台Worker环境；新增后端必须同时接入配�
 
 | 类别 | 实现边界 |
 | --- | --- |
-| 快照读取 | 只读取本AgentRun分配的不可变黑板快照，不接收任意平台路径 |
+| 快照读取 | 只读取本AgentRun分配的原生查询快照（由Wuji保存采集内容），不接收任意平台路径 |
 | 工作记忆 | 每AgentRun限定存储；不具备目标访问或平台业务写权限 |
 | 黑板/证据读取 | 通过平台鉴权接口，核对Task、版本和引用权限 |
 | Kali命令/文件/浏览器 | 通过Tool Router/MCP，在同Task当前Kali attempt执行 |
@@ -42,9 +42,9 @@ WorkerAssignment由平台从配置快照及当前许可装配，包含Task/Inten
 
 模型不能提交任意归属字段以切换Task。Cairn原生accepted/data业务JSON保留，平台适配外围登记真实执行、证据和限制。结构校验通过不表示漏洞真实或授权充分。
 
-处理顺序：保存原始结构化结果与产物引用 → 校验身份/代次/归属 → 登记黑板操作 → Cairn按原操作ID幂等写入 → 保存回执并发布展示事件。黑板同步失败是结果待同步，不是重新运行Harness的理由。
+Wuji先保存原始Agent结果和本地操作记录，再通过原生Cairn API提交，成功后记录返回的原生ID及观察结果。请求失败需区分明确未发送与可能已提交；响应丢失按已知Project/Intent及原生读接口核对，能确认已提交则记录完成，不能确认则保持待核对。不得宣称原生API提供新增幂等回执、图版本或事务事件；不盲目重投写入，更不能重跑模型或目标。
 
-Kali文件须先登记Artifact再引用；原文件未上传就标记待收集/缺失，不把本地路径当成可跨Pod访问的证据。成果凭据以受限引用共享，不广播明文。
+执行中的文件直接在共享Kali内交接：/workspace/agents/<agent_run_id>/保存各Agent工作文件，/workspace/shared/保存明确共享成果，/workspace/inputs/保存任务输入。Agent经MCP读写这些目录，黑板可记录发现及工作文件路径；协作不必先上传对象存储。正式证据、报告或长期归档再登记Artifact、内容摘要和版本，临时路径不冒充已归档证据。成果凭据以受限引用共享，不广播明文。
 
 ## 5. 模型访问与上下文
 

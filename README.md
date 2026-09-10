@@ -6,7 +6,7 @@ Phase 1A 的身份、项目、数据库、本地生命周期及五主题正式�
 
 当前目标架构（用户已批准，适配与部署尚未完成）：
 
-- 一个Wuji Task对应一个Cairn Project；Agent运行在平台侧Worker环境，多个Agent通过受控工具接口共用一个Kali容器。
+- 一个Wuji Task对应一个Cairn Project；每Task一个Pod，agent容器内多个Agent通过受控工具接口共用kali容器工作区。
 - Cairn Server/Dispatcher负责唯一共享探索图和动态探索调度；Wuji负责身份、执行准入、账本、完成与停止核对。
 - Pi coding-agent负责现成模型客户端、循环、会话和压缩；目标工具走Tool Router/MCP，上游模型走LiteLLM。
 - 组织管理员发布模型方案，Task配置USD金额预算；全部Agent和辅助调用共用，重启不重置，关闭自动付费探活。
@@ -14,7 +14,7 @@ Phase 1A 的身份、项目、数据库、本地生命周期及五主题正式�
 - Scope、VerificationRun、CoveragePlan、Finding/Report和五主题继续保留。真实目标执行须先有出口和停止证据，详细流量设计尚待后续。
 - LangGraph/LangChain/Deep Agents不再是目标必选依赖；P0实验及历史测试事实保留，不能作为Pi/Cairn/LiteLLM集成证明。
 
-本次交付限定为[架构文档收口](docs/stages/cairn-architecture-baseline/spec.md)，不修改API/迁移/依赖/运行服务；下一批业务Spec尚未批准。当前工作树与真实进度见背景索引。
+已完成原架构文档收口，2026-09-11用户确认单Task Pod双容器并授权[运行基础开发](docs/stages/phase-1c-runtime-foundation/spec.md)。当前实现独立Pod/许可/资源控制基础库，正式API与运行服务仍未接入，实际结果见[验收](docs/stages/phase-1c-runtime-foundation/acceptance.md)。当前工作树与真实进度见背景索引。
 
 文档：
 

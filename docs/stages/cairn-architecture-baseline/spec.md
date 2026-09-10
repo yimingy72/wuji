@@ -1,5 +1,7 @@
 # Cairn 架构文档收口 Spec
 
+> 2026-09-11后续澄清已确认：[Task主体、核心不改、单Task Pod双容器](clarification.md)。本Spec同步现行边界；原944e95b验收只适用于当时文档，业务开发进入[新阶段Spec](../phase-1c-runtime-foundation/spec.md)。
+
 - 状态：approved；实施状态见 acceptance.md。
 - 日期：2026-09-10。
 - 批准依据：用户明确要求实施《Wuji 架构复审修订版：Cairn 调度、平台侧 Agent 与共享 Kali》，本轮执行产物限定为架构文档。
@@ -14,16 +16,14 @@
 
 ## 2. 必须表达的架构行为
 
-- 一个Wuji Project包含多个Task；一个Task对应一个Cairn Project。Agent在平台侧Worker Pod运行；多个Agent通过受控工具接口共用一个Kali容器，同时最多一个获准执行的Runtime attempt。
-- Worker后端只管理Agent资源；Runtime Controller独占Kali资源。Cairn调度探索，Wuji负责身份、执行准入、停止与核对；active/stopped不作为执行许可。
-- Cairn Server为Fact/Intent/Hint及探索关系唯一可写来源；首版单Server、单Dispatcher、持久化SQLite。Wuji PostgreSQL保留Task、AgentRun、工具账本、证据元数据和验证/报告；投影及原始提交不成为第二套可写Fact。
-- 草稿不创建Cairn Project；正式Task通过稳定外部标识幂等绑定停止态Project。历史queued缺少start记录，不得自动执行。
-- Worker配置身份和AgentRun执行身份分开。结果先持久化再同步黑板；同步失败只重投结果，不重跑探索。跨库使用按任务排序的幂等操作和回执，不假设分布式事务原子性。
-- 完成先提案，平台核对覆盖、证据和停止条件；达成目标才写Cairn完成边，部分结束保持停止态。终态复测创建关联新Task。区分未知执行与已停止但结果缺失，不把未知写成成功或未复现。
-- 目标链路复用Cairn、Pi coding-agent及LiteLLM；LangGraph/LangChain/Deep Agents不再是必选依赖，P0实验和证据保留。候选版本为Cairn 8e7e0ea、Pi 0.73.0、LiteLLM v1.100.0，尚未在Wuji集成验收。
-- Pi工具显式限定，提供不可变快照读取及受控工作记忆，Kali操作经Tool Router/MCP；本地路径不能代替Artifact引用。上游Key不进入Agent或Kali。
-- 管理员维护组织模型配置，任务配置金额预算USD；所有Agent及辅助调用共用Task预算，重启不重置。未知价格不按零计费，不承诺未经验证的并发零超支；关闭自动付费探活，发布要求同版本显式连接检查成功。
-- 保留五场景、五主题、默认匿名、域名/子域授权和凭据受限共享；流量细节仍待后续设计，真实目标执行前必须有出口和停止边界的证据。
+- Task是完整业务主体，统筹目标/起点/终点、场景、工具、约束、模型预算和外部执行控制；一个Task使用一个Cairn Project探索上下文。
+- 单Task Pod双容器：agent动态运行多个独立AgentRun；kali提供共享工具/工作区。Task Runtime Controller唯一拥有Pod生命周期；Cairn后端只管理agent进程。Runtime attempt为整个执行环境代次，同时最多一代获准执行。
+- Cairn Server、数据库和Fact/Intent/Hint及原生协议保持原样；适配在Dispatcher/执行后端/工具和Wuji外围。不添加核心外部Task字段、原子停止态创建、图版本、幂等回执或事务事件。
+- 未启动任务由外部许可和所有调度入口共同阻止，不能依赖Cairn默认active状态。原始结果先保存，原生写入响应不明先核对；无法确认不盲目重投，更不重跑模型/目标。
+- Cairn探索完成与Wuji执行/评估状态分开；保留原生完成语义，独立核对停止、证据和覆盖。不把结果未知写成成功或未复现，不自动reopen已交付历史。
+- 工作文件直接在Kali的agents/<agent_run_id>及shared目录交接；正式证据、报告和长期归档再登记Artifact。凭据仍通过受限引用共享。
+- 首个Harness采用Pi，模型/循环/压缩复用现成能力；LiteLLM执行Task USD金额预算，所有辅助调用共享，重启不重置。上游Key在网关，agent任务凭据不挂载给kali；关闭自动付费探活。
+- 保留五场景、五主题、匿名Web、域名/子域授权和旧queued不自动执行；网络约束以整个Task Pod为单位，真实目标开放前需有出口/停止证据。
 
 ## 3. 协作、兼容与历史
 

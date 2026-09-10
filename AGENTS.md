@@ -18,10 +18,11 @@
 - Web 单点默认匿名，不要求提供登录账号；单点可以是已授权内网 Web 系统，但不自动授权向内网扩展。正常加载外域依赖不等于允许主动测试外域，发现的新资产不自动纳入 Scope。范围执行必须由平台承担，不能只依赖提示词。
 - 已授权阶段内按策略自动推进，扩大范围需人工决定；不默认把所有工具调用都改成人工审批。任务完成须有覆盖与未完成原因，预算及调用上限防止循环，不把未执行/结果不明写成未复现。
 - 复用 Cairn Server / Dispatcher 与 Pi coding-agent，模型客户端、Agent 循环、会话和压缩使用现成 Harness；不自研完整循环、压缩算法或厂商协议。LangGraph / LangChain / Deep Agents 不再是目标链路的必选依赖；P0实验与历史证据保留。候选版本及接入状态见[背景索引中的架构替代决策](docs/project-context.md)，未验证不能称为可用。
-- 一个 Wuji Project 包含多个 Task；一个 Task 对应一个 Cairn Project。Agent 在平台侧 Worker 环境运行，每个 AgentRun 独立会话；同 Task 的多个 Agent 经 Tool Router / MCP 共用一个 Kali 容器，同时最多一个获准执行的 Runtime attempt。Worker 后端只管理 Agent 资源，Runtime Controller 独占 Kali Runtime；SDK abort 不等于目标执行停止。
-- Cairn 负责探索调度，Wuji 负责执行准入、授权、生命周期与核对。Cairn active/stopped 不是执行许可；每次派发与工具调用检查真实身份、当前 execution_epoch 和 runtime_attempt。Worker 配置身份与 AgentRun 执行身份分离。先持久化结果再同步黑板，同步失败不重跑探索；完成提案由平台核对，不直接套用 Cairn 默认完成清理。
+- Task是Wuji完整业务主体：统筹场景、目标/起点/终点、授权范围、模型和金额预算、平台/目标工具、约束以及执行控制；Cairn Project是其中的探索上下文。保留Wuji Task及其现有标识，不把Task删成Cairn Project的简单别名，也不向用户提供两套独立任务创建/编辑流程。 每个Task一个Pod，固定agent与kali两个容器；agent容器内动态运行多个独立AgentRun，会话分开，经受控工具接口共用kali工作区。Task Runtime Controller唯一管理整个Pod，Cairn执行后端只管理agent容器内进程。Runtime attempt表示整个Task执行环境代次，同时最多一代获准执行。
+- Cairn 负责探索调度，Wuji 负责执行准入、授权、生命周期与核对。Cairn active/stopped 不是执行许可；每次派发与工具调用检查真实身份、当前 execution_epoch 和 runtime_attempt。Worker 配置身份与 AgentRun 执行身份分离。先持久化结果再提交黑板，响应不明先核对，不盲目重投或重跑探索；Cairn探索完成与Wuji执行/评估状态分别表达，默认cleanup不直接删除共享Kali。
 - Model Gateway 使用 LiteLLM，组织模型配置由 TenantAdmin 维护，不配置任务预算；任务选择通过同版本显式连接检查的已发布模型方案，并配置金额预算（USD）。全部 Agent、Reason、收尾、摘要和重试共用 Task 预算，不因重启重置；未知价格不按零计费，不承诺未经验证的并发零超支。上游 Key 只在网关，任务受限凭据仅用于平台侧模型请求，不进入 Kali；关闭自动付费探活。
-- Cairn Server 是 Fact / Intent / Hint 与探索关系的唯一可写来源，首版采用单 Server、单 Dispatcher 和持久化 SQLite。Wuji PostgreSQL 保存任务、权限、AgentRun、调用账本、证据元数据和验证记录；黑板投影与原始 Agent 提交不能变成第二份可写 Fact。LiteLLM 使用独立数据库，对象存储保存产物；跨库通过幂等操作与回执同步，不假定分布式事务原子完成。
+- 保持Cairn Server、数据库结构、Fact/Intent/Hint模型和黑板读写/complete/reopen协议原样。改造集中在Dispatcher的调度接入、Worker后端、模型/工具适配，以及Wuji侧业务控制；不再给Cairn增加外部Task字段、原子停止态创建、操作回执或事务事件。 Cairn Server是Fact/Intent/Hint与探索关系的唯一可写来源，首版单Server、单Dispatcher、持久化SQLite。Wuji PostgreSQL 保存任务、权限、AgentRun、调用账本、证据元数据和验证记录；黑板投影与原始 Agent 提交不能变成第二份可写 Fact。LiteLLM 使用独立数据库，对象存储保存产物；Wuji侧记录操作与原生查询核对结果，不假定Cairn有新增幂等回执或跨库原子性。
+- 工作文件可在同Task共享Kali目录直接交接，正式证据/报告/归档再登记Artifact。
 - Task、AgentRun、VerificationRun 与证据/评估/清理状态分别表达职责。成果带来源和证据引用；运行中发现的凭据只通过受限、可审计的密钥引用共享，不广播明文。任务绑定版本化配置快照；历史查看和回放不触发目标请求或模型调用。
 
 ## 测试目标范围

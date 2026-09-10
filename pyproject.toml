@@ -16,6 +16,9 @@ dev = [
 agent-validation = [
   "wuji-agent-integration",
 ]
+task-runtime = [
+  "wuji-task-runtime",
+]
 
 [tool.uv]
 package = false
@@ -23,9 +26,10 @@ package = false
 [tool.uv.sources]
 wuji-api = { workspace = true }
 wuji-agent-integration = { workspace = true }
+wuji-task-runtime = { workspace = true }
 
 [tool.uv.workspace]
-members = ["apps/api", "packages/agent-integration"]
+members = ["apps/api", "packages/agent-integration", "packages/task-runtime"]
 
 [tool.pytest.ini_options]
 addopts = "--strict-markers"

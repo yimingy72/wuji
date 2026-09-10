@@ -37,17 +37,17 @@ Wuji 在 Kubernetes 中管理独立任务执行环境，由 Platform 中的 Agen
 
 | 主题 | 当前决定 | 边界 |
 | --- | --- | --- |
-| 任务映射 | 一个Wuji Project包含多个Task，一个Task对应一个Cairn Project | 草稿无Project；正式创建幂等绑定停止态Project，历史queued不自动执行 |
-| Agent | 平台侧Worker Pod中运行多个独立Pi Harness进程 | 每Task首版一个Worker Pod；Agent不运行在Kali |
+| 任务主体 | Task统筹目标/场景/工具/约束/预算及外部控制，包含一个Cairn Project探索上下文 | 保留Task业务对象；原生Project未关联或未获start许可不派发，旧queued不自动执行 |
+| Agent | 单Task Pod双容器，agent容器内动态运行多个Agent/Harness进程 | 各容器独立镜像/工作卷/凭据，共享Pod网络；不嵌入API/Dispatcher |
 | 探索 | 复用Cairn Bootstrap/Reason/Explore及Worker选择 | Cairn状态不是许可；派发前经Wuji准入，不加第二个探索调度器 |
 | 上下文 | Pi coding-agent独占会话、压缩和工作记忆 | 不自研循环/压缩/模型协议；候选版本未集成验收 |
 | 黑板 | Cairn Server唯一可写Fact/Intent/Hint与探索图 | 首版单Server、单Dispatcher、持久化SQLite；Wuji只保存引用/投影与原始提交 |
-| 目标环境 | 同Task多个Agent共用一个Kali容器，一个获准Runtime attempt | Runtime Controller独占Kali；Worker后端只管理Agent资源 |
+| 目标环境 | 同Task多个Agent共用一个Kali容器，一个获准Runtime attempt | Task Runtime Controller独占整个Pod；Worker后端只管理agent进程 |
 | 工具 | 受信Pi扩展、Tool Router、Runtime MCP/受管能力 | 快照/工作记忆/业务/目标工具分权；默认本地执行工具关闭 |
 | 模型与预算 | LiteLLM；组织发布模型方案，Task设置USD金额预算 | 全部辅助调用共用，不周期重置；未知价格不按零，禁止自动付费探活 |
-| 执行恢复 | PostgreSQL执行记录、原结果、进程回执和幂等操作 | 先核对再恢复；同步失败只重投结果，不重跑探索 |
-| 评估 | VerificationRun、CoveragePlan、Finding与报告版本 | 结构校验不等于漏洞确认；Cairn complete先作为提案 |
-| 事件 | 各权威数据源本地事务事件，跨库凭回执同步 | 不假定跨库原子事务；投影不回写权威图 |
+| 执行恢复 | PostgreSQL执行记录、原结果、进程回执和幂等操作 | 先核对再恢复；结果不明先核对，不盲目重投或重跑探索 |
+| 评估 | VerificationRun、CoveragePlan、Finding与报告版本 | 保留Cairn探索完成语义；Wuji独立核对执行与评估，不直接等同于全部通过 |
+| 事件 | Wuji保存操作审计与原生查询快照；Cairn核心保持原样 | 不承诺新增Cairn事务事件/幂等回执；不假定跨库原子性 |
 | 前端 | React/TypeScript/Vite/Ant Design，五主题 | Task是入口；公开API仍0.4.0，业务页面按已实现能力开放 |
 
 ## 3. 逻辑链路与部署边界
@@ -57,12 +57,12 @@ Wuji 在 Kubernetes 中管理独立任务执行环境，由 Platform 中的 Agen
 ```text
 Console -> Platform API -> PostgreSQL（Task / 权限 / 配置 / 执行账本）
 Platform API内Cairn Bridge <-> Cairn Server（SQLite探索图）
-Cairn Dispatcher -> Wuji执行准入 -> AgentRun -> 平台侧Worker后端 -> Pi Harness
+Cairn Dispatcher -> Wuji执行准入 -> AgentRun -> Agent执行后端 -> Task Pod的agent容器内Pi Harness
 Pi -> 受限快照/工作记忆，或鉴权平台查询
 Pi -> Tool Router -> Runtime Supervisor/MCP -> 一个共享Kali容器 -> 受控出口
 Pi -> LiteLLM -> 已发布方案的上游模型
 Kali产物 -> Artifact -> 对象存储；元数据/验证/报告 -> PostgreSQL
-Agent原始结果 -> Wuji持久提交 -> Bridge幂等同步 -> Cairn图与回执
+Agent原始结果 -> Wuji保存操作 -> Cairn原生API提交/查询核对 -> 平台记录观察结果
 ```
 
 ### 3.2 组件与资源所有权
@@ -70,17 +70,17 @@ Agent原始结果 -> Wuji持久提交 -> Bridge幂等同步 -> Cairn图与回执
 | 组件 | 唯一职责 | 部署边界 |
 | --- | --- | --- |
 | Platform API | 身份/任务/配置/准入/验证/产物访问 | 现有FastAPI；Policy、Assessment、Artifact等先作为模块 |
-| Cairn Bridge | Task归属、持久操作、控制/结果同步及完成提案 | API内部模块；不决定探索方向 |
-| Cairn Server | 探索图、版本、事件和写入回执 | 独立服务、SQLite持久卷；无公开管理入口 |
+| Cairn Bridge | Task归属、持久操作、原生接口适配与结果核对 | API内部模块；不决定探索方向 |
+| Cairn Server | 原生探索图和API；不修改核心数据模型/协议 | 独立服务、SQLite持久卷；无公开管理入口 |
 | Cairn Dispatcher | 探索工作、Worker选择与并发 | 首版单实例；内存Future不是持久账本 |
-| Agent Worker后端 | 平台Worker Pod、Harness进程/会话/回执 | 每Task首版一个Worker Pod，多AgentRun；只清理Agent资源 |
+| Agent Worker后端 | agent容器内Harness进程/会话/回执 | 每Task多个AgentRun；不创建/删除Pod |
 | Tool Router | 工具权限、真实身份、调用账本、当前attempt路由 | 独立受信服务；无模型循环 |
-| Runtime Controller | Kali Runtime创建/重建/停止核对/回收 | 独立ServiceAccount；不启动Harness |
-| Runtime Supervisor/MCP | 许可、工具执行、进程句柄、证据上报 | TaskRuntime受信控制容器，面向共享Kali工具容器 |
+| Runtime Controller | 整个Task Pod创建/重建/停止核对/回收 | 独立ServiceAccount；不启动Harness |
+| Runtime Supervisor/MCP | 许可、工具执行、进程句柄、证据上报 | kali容器内受管执行入口，接受平台工具许可；高权限平台控制留在Pod外 |
 | LiteLLM | 模型、凭据、原生费用和Task金额限制 | 独立网关和数据库；上游Key不进入Agent/Kali |
 | Egress | 目标与操作出口约束、流量归属和停止 | 平台独立执行边界；具体方案待后续设计/验证 |
 
-平台Worker Pod和Kali Pod不共享文件卷、进程空间或凭据。Cairn的ExecutionBackend只适配平台Worker环境，其配置选择、执行上下文和cleanup需同步修改；不把原生Docker接口称为已支持Kubernetes。Agent不直接访问测试目标，Kali不持有平台数据库、Cairn管理或模型凭据。
+单Task Pod的agent/kali容器分别挂载会话、工作区和凭据，不共享PID空间；网络是同一个Pod级边界。Cairn的ExecutionBackend只适配独立Agent Pod环境，其配置选择、执行上下文和cleanup需同步修改；不把原生Docker接口称为已支持Kubernetes。Agent通过工具接口访问目标，不能再宣称Pod策略可分别限制两个容器。Kali不持有平台数据库、Cairn管理或模型凭据。
 
 详细边界见[架构决策](cairn-architecture-decision.md)、[Harness](agent-harness-decision.md)与[黑板](cairn-blackboard-design.md)。新增服务均为目标设计，本批不部署。
 
@@ -196,50 +196,37 @@ Runtime 使用专门签发给本接收方的短期凭据及逐次执行许可，
 
 ## 6. Runtime 与 Kubernetes 隔离
 
-### 6.1 Pod 与进程边界
-
-本节仅描述Kali目标执行Pod，Agent Harness运行在另一个平台侧Worker Pod。Agent会话/模型凭据不进入本节工具环境；两类资源生命周期分别归属Worker后端和Runtime Controller。
+### 6.1 单Task Pod双容器
 
 ```text
-Task -> TaskRuntime -> attempt-N Pod
-                       ├── runtime-control：MCP / Supervisor / 凭据
-                       └── kali-tools：受限 Adapter 子进程 / Browser（后续）
+Task -> 当前执行环境代次的一个Pod
+        ├── agent：独立Pi镜像，动态AgentRun进程与会话
+        └── kali：独立Kali镜像，Runtime MCP/工具与共享工作区
 ```
 
-HTTP MVP 可只运行受信 Supervisor 和内置 HTTP Adapter；增加 Kali 工具进程时必须采用独立控制容器和工具容器，不能让通用工具与凭据同权限共存。两者使用不同非 root UID、不共享 PID namespace、不共享凭据卷。受限本地调度接口只接受 Router 已授权的操作，所有网络监听端口都鉴权，不能信任请求来自同一 Pod。
+Task Runtime Controller是Pod唯一资源所有者；Cairn通过执行后端在agent容器内启动/停止进程，不增加业务容器，也不单独删除Pod。更新Agent或Kali镜像形成新RuntimeProfile/Task配置快照，不静默热换活动任务镜像。
 
-Sidecar 共享 Pod 网络，不能靠 Kubernetes NetworkPolicy 隔离同 Pod 的不同容器；它用于进程和凭据分离。工具容器不挂载控制凭据、签名材料、数据库或 Provider Key。Egress Gateway 在 Pod 外强制限制目标；拆 Sidecar 本身不是网络安全边界。[NetworkPolicy 的能力与限制](https://kubernetes.io/docs/concepts/services-networking/network-policies/)
+两个容器不共享PID空间，各自挂载工作卷/配置和所需任务凭据。模型任务凭据只给agent容器，Kali不挂载Agent会话或模型凭据；平台/集群管理凭据均在Pod外。共享工作文件保留在Kali，经工具接口访问，证据归档另行登记Artifact。
 
-Runtime 默认配置：
+非root、禁止privileged/hostNetwork/hostPID/hostIPC/hostPath、关闭ServiceAccount token自动挂载、限制提权与capabilities，并设置容器资源限制；镜像须符合对应RuntimeProfile。此处是目标安全基线，不能据文档宣称镜像兼容或隔离已验证。
 
-- `automountServiceAccountToken: false`；禁止 hostNetwork、hostPID、hostIPC、hostPath 和 privileged。
-- 非 root、`allowPrivilegeEscalation: false`、drop ALL capabilities、`seccompProfile: RuntimeDefault`、只读根文件系统，写入限定的临时卷。
-- 设置 CPU、内存、临时存储 requests/limits、进程上限和租户 ResourceQuota；工具不兼容时更换 Adapter，不自动放宽限制。
-- Runtime 与 Platform 使用独立节点池；对恶意工具或不受信代码的强隔离需求，先验证沙箱运行时/虚机方案，当前契约不声称普通 Pod 是该类安全边界。
+### 6.2 网络与命名空间
 
-准入控制拒绝违反 RuntimeProfile 的 Pod，而不是只依赖应用生成正确 YAML。基线参照 [Kubernetes Restricted Pod Security Standard](https://kubernetes.io/docs/concepts/security/pod-security-standards/)。
+网络边界按Task Pod统一表达。两个容器共享IP和端口空间，原生NetworkPolicy不能为其分别设置出网规则；容器凭据和接口鉴权仍独立，localhost不作为授权依据。
 
-### 6.2 网络允许矩阵
-
-所有未列出的 Runtime 入站和出站默认拒绝；选用能实际执行 NetworkPolicy 的 CNI，并验收 IPv4、IPv6 和节点访问路径。
-
-| 发起方 | 接收方 | 允许内容 |
+| 发起方 | 接收方 | 边界 |
 | --- | --- | --- |
-| Console | Platform API | 已认证 HTTPS / SSE |
-| Cairn Dispatcher / Worker后端 | API准入/Bridge、受限Worker执行控制 | 服务身份限定的调度与Agent资源操作 |
-| 平台Agent Worker | LiteLLM、Tool Router、受限快照/证据接口 | 当前Task/AgentRun限定能力；无目标直连 |
-| Router | 绑定的 Runtime MCP | mTLS + 有限执行许可；禁止任意用户指定 URL |
-| Runtime Supervisor | Router、Artifact 接口、Egress Gateway | 身份绑定的心跳/结果、受限上传、授权目标请求 |
-| Kali 工具容器 | Egress Gateway、受限本地 Adapter 通道 | 仅接受逐调用出口许可；无权访问平台业务 API |
-| Egress Gateway | 已验证目标、获准页面依赖/候选核验目的地、受控 DNS | 按用途许可与活动租约检查连接；辅助访问不变为测试权，拒绝平台网段 |
-| Model Gateway | 租户允许的 Provider/适配层 | 数据策略允许的模型请求 |
-| Runtime Controller | Kubernetes API、任务存储、出口管理接口 | 资源协调、执行租约及撤销 |
+| 工作台 | Platform API | 会话/项目权限与命令鉴权 |
+| Cairn Dispatcher/执行后端 | Task准入与受管agent进程接口 | 不拥有任意Pod删除权限 |
+| Task Pod | LiteLLM、Tool Router、受限产物/查询接口、受控出口 | Task统一网络策略；每个接收服务再检查凭据/Task归属 |
+| 受控出口 | 授权目标与允许的辅助访问 | Scope/用途/Task租约约束，具体实现仍待设计 |
+| Task Runtime Controller | Kubernetes API | 只管理预置namespace内自有Task资源，核验UID和归属 |
 
-Pod 级策略无法区分同 Pod 容器，因此表中控制容器专有的平台接口还必须认证其独享凭据，工具容器即使网络可达也无权限。Runtime 不需要任意 DNS，目标解析由出口执行；必要的内部服务解析使用受控解析器，禁止借 DNS 外发任意数据。
-
-Namespace 按租户划分，Task 使用服务端不可由工具修改的标签和 Pod UID 绑定；每 Task 一个 Namespace 可作为管理选择，但不能替代上述控制。Egress 身份绑定到已注册工作负载及有效 attempt，不采用客户端自报 task header，也不能仅凭可复用的 Pod IP 认证。
+命名空间延续按租户组织任务资源，平台共享服务单独部署。目录、namespace或Pod IP不是身份凭证。后续实际出口/CNI能力经验证后才开放目标执行；本批基础库不生成假装已生效的网络隔离证据。
 
 ### 6.3 Controller 调谐
+
+Runtime attempt在本文表示“执行环境代次”：首次启动Kali为一代，Kali环境重建/重新初始化并重新授权后产生新代次；单个Agent重启或一次工具调用不自动产生新代次。同一Task最多一代环境获准执行，不能让新旧环境同时接收目标操作。
 
 Controller 根据 PostgreSQL 中的 Task 期望状态反复调谐，使用任务版本、唯一活动 attempt 约束和协调租约避免多副本重复创建。资源使用确定名称及 task/attempt/Pod UID 标签；策略就绪、身份签发、出口注册和 MCP readiness 全部完成才进入 ready。
 
@@ -255,16 +242,18 @@ Controller 的集群权限限定在预置 Runtime Namespace 内的必要资源�
 
 Wuji PostgreSQL维护Task期望状态、授权、执行代次、AgentRun、Runtime/工具账本及原始结果。Cairn维护探索图，LiteLLM维护原生模型计量；Kubernetes提供资源实况。界面和事件投影不是独立写入源。
 
-草稿不创建Cairn Project，正式Task幂等绑定初始stopped Project。需要Cairn原子停止态创建和外部Task标识唯一能力，不能先active再停止。跨库以稳定操作ID、摘要、回执和按Task排序的持久操作同步；每个数据源只保证其本地事务，不声称跨库原子完成。
+Task是Wuji完整业务主体：统筹场景、目标/起点/终点、授权范围、模型和金额预算、平台/目标工具、约束以及执行控制；Cairn Project是其中的探索上下文。保留Wuji Task及其现有标识，不把Task删成Cairn Project的简单别名，也不向用户提供两套独立任务创建/编辑流程。
+
+草稿不创建Cairn Project。Task正式创建时由Wuji记录创建命令与执行配置，再调用原生Cairn创建并保存关联；原生Project可以是active，但所有未显式启动、未关联或许可不完整的Project均被改造后的Dispatcher拒绝派发。Task业务状态与Cairn探索状态分开，不要求核心支持ready或原子停止态创建。创建响应丢失则先核对；无法确认时保留结果不明，不按名称/时间猜关联，也不盲目再次创建。 保持Cairn Server、数据库结构、Fact/Intent/Hint模型和黑板读写/complete/reopen协议原样。改造集中在Dispatcher的调度接入、Worker后端、模型/工具适配，以及Wuji侧业务控制；不再给Cairn增加外部Task字段、原子停止态创建、操作回执或事务事件。
 
 ### 7.2 Task与执行许可
 
 ```text
-草稿 -> 正式创建ready（Cairn stopped）
+草稿 -> 正式创建ready（外部执行许可关闭，不依赖Cairn默认状态）
 ready --显式start--> queued / provisioning -> running（Cairn active且Wuji准入通过）
 running -> pausing -> paused
 非终态 -> cancelling -> cancelled
-完成提案被接受 -> completing -> completed（目标达成或明确partial结果）
+Cairn探索结束/平台决定停止 -> completing -> completed（执行已停，评估结果另行记录）
 执行仍否继续未知 -> reconciling（禁止重新派发）
 ```
 
@@ -274,7 +263,7 @@ running -> pausing -> paused
 
 ### 7.3 持久交接与失败
 
-Agent启动前登记AgentRun，保存进程归属及后续回执。结果先持久化原始结构化提交/产物引用，再校验并登记稳定黑板操作；Cairn写入后返回原生ID和回执，Wuji登记同步完成。黑板不可用时保持结果待同步，只重投结果，不重新询问模型或访问目标。
+Agent启动前登记AgentRun，保存进程归属及后续回执。Wuji先保存原始Agent结果和本地操作记录，再通过原生Cairn API提交，成功后记录返回的原生ID及观察结果。请求失败需区分明确未发送与可能已提交；响应丢失按已知Project/Intent及原生读接口核对，能确认已提交则记录完成，不能确认则保持待核对。不得宣称原生API提供新增幂等回执、图版本或事务事件；不盲目重投写入，更不能重跑模型或目标。
 
 取消前接受的结果可以补入历史；取消后产生的新提案不触发执行。读取旧回执和申请新许可分别处理。通知或流连接丢失不代表任务未执行；Cairn内存Future不是恢复账本。
 
@@ -282,9 +271,9 @@ Agent启动前登记AgentRun，保存进程归属及后续回执。结果先持�
 
 ### 7.4 完成、暂停、取消与重启
 
-Dispatcher complete先交Bridge作为完成提案，不立即触发Cairn默认完成清理。平台核对目标、覆盖和证据；仍缺必需项且允许继续时反馈缺项。接受结束后停止新派发，分别核对Agent及Kali活动执行，再定终态。达成目标才写Cairn完成边；预算/环境/用户决定导致部分结束时保持stopped，不伪造goal达成。
+Cairn按原生语义记录探索完成，Wuji独立维护任务执行、停止、评估和报告状态。Core completed不直接等于全部进程已停或漏洞已确认；平台核对Agent/Kali活动执行、覆盖、证据和限制后形成自己的结论，可为partial。平台预算/取消通过外部执行许可和原生停止操作终止继续派发，不修改黑板核心完成语义；不自动reopen已交付任务，复测创建关联新Task。
 
-暂停和取消先改变平台执行许可，再传播到Dispatcher、Harness、Tool Router、Runtime与出口。Worker后端只停止/清理Agent资源，Runtime Controller独占Kali。SDK abort和Pod删除请求都不是停止证明，不承诺撤回或回滚已发送的目标请求。
+暂停和取消先改变平台执行许可，再传播到Dispatcher、Harness、Tool Router、Runtime与出口。Worker后端只停止/清理agent进程，Task Runtime Controller唯一管理整个Pod。SDK abort和Pod删除请求都不是停止证明，不承诺撤回或回滚已发送的目标请求。
 
 执行是否仍在继续未知时保持reconciling；已确认执行/出口停止但结果缺失时保留未知结果和证据缺口，可按partial结束，不能转成成功或未复现。停止与资源清理状态分开，清理失败保留待处理状态。
 
@@ -300,11 +289,11 @@ Bridge负责平台归属、操作和结果同步，不选择下一Intent。原�
 
 ### 8.2 工具和上下文
 
-Pi关闭自动发现和默认本地执行工具，只加载受信扩展/版本化知识。快照工具只读取本AgentRun绑定的不可变黑板快照，不能接收任意平台路径；工作记忆只作用于限定AgentRun存储。Cairn原生图文件交付必须同步改造，不能只删除read工具。
+Pi关闭自动发现和默认本地执行工具，只加载受信扩展/版本化知识。快照工具只读取本AgentRun绑定的Wuji采集快照，不宣称Cairn提供原生事务版本，不能接收任意平台路径；工作记忆只作用于限定AgentRun存储。Cairn原生图文件交付必须同步改造，不能只删除read工具。
 
 目标命令、文件和浏览器操作经Tool Router/MCP在共享Kali中执行。工具白名单同时在Harness与服务端检查；MCP session、模型自报ID、提示词或工具名字都不能授予权限。当前Scope/epoch从平台装配，不依赖摘要保存授权。
 
-同Task共享Kali工具环境，AgentRun/ToolCall分目录，浏览器Context按执行/身份区分，共享端口/代理等可变资源由工具服务协调。目录不是同容器恶意执行者的强隔离。Kali路径只用于现场定位，登记Artifact后才作为可追溯引用；缺失产物明确标注。凭据以受限引用共享，不广播明文。
+同Task共享Kali工具环境，AgentRun/ToolCall分目录，浏览器Context按执行/身份区分，共享端口/代理等可变资源由工具服务协调。目录不是同容器恶意执行者的强隔离。执行中的文件直接在共享Kali内交接：/workspace/agents/<agent_run_id>/保存各Agent工作文件，/workspace/shared/保存明确共享成果，/workspace/inputs/保存任务输入。Agent经MCP读写这些目录，黑板可记录发现及工作文件路径；协作不必先上传对象存储。正式证据、报告或长期归档再登记Artifact、内容摘要和版本，临时路径不冒充已归档证据。凭据以受限引用共享，不广播明文。
 
 ### 8.3 验证、覆盖和人工介入
 
@@ -316,9 +305,9 @@ Hint为建议、回答绑定具体问题、控制/授权变更走权限化命令
 
 ### 8.4 界面与事件
 
-Agent原始事件转成受限领域事件后才对外提供，展示运行状态、工具调用、产物、结果和限制；不公开隐藏推理。黑板变更、版本、事务事件与回执是所需Cairn增量，不能把现有重建时间线称为完整不可变事件日志。
+Agent原始事件转成受限领域事件后才对外提供，展示运行状态、工具调用、产物、结果和限制；不公开隐藏推理。Cairn黑板核心不增加事务事件或回执；Wuji记录操作审计和带采集时间/摘要的观察快照，不把原生重建时间线称为完整不可变事件日志。
 
-Wuji查询投影按来源ID/版本/游标去重，只在校验成功后推进；快照按各来源版本标注，不假装跨库全局原子快照。历史回放只读已有数据，不调用模型/目标。详细职责见[Harness](agent-harness-decision.md)和[黑板](cairn-blackboard-design.md)。
+Wuji查询投影引用原生ID和本地观察记录，标明采集时间/摘要；本地序号不冒充Cairn事务版本，不假装跨库全局原子快照。历史回放只读已有数据，不调用模型/目标。详细职责见[Harness](agent-harness-decision.md)和[黑板](cairn-blackboard-design.md)。
 
 ## 9. LiteLLM与任务预算
 
@@ -434,7 +423,7 @@ Phase 1 先交付登录/项目、任务列表、基本范围预览、任务详�
 
 ## 12. 部署与演进
 
-目标部署按平台服务、Agent Worker和Kali Runtime分权；生产数据服务可外置。两类任务Pod分别由各自所有者管理，不为每Task建立独立Helm release；本批不部署。
+目标部署按平台服务、Agent Worker和Kali Runtime分权；生产数据服务可外置。Task Pod由Task Runtime Controller唯一管理，不为每Task建立独立Helm release；本批不部署。
 
 第3节是目标边界，实际业务仍0.4.0。后续依赖改为控制面基础→调度适配→共享Runtime→产品接入→真实目标开放；配置/账本不能放到真实调度之后。未实现能力不注册为可执行工具。
 
