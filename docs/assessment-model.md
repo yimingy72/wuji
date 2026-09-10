@@ -15,6 +15,7 @@
 | ConfigSnapshot | 本次使用的场景、角色、知识、资料、规则及环境版本 | 指向随时变化的 latest |
 | CoveragePlanVersion / CoverageItem | 已定义测试范围、维度、身份及完成判据 | 扩大 Scope 或声称系统全覆盖 |
 | Intent | 准备推进的探索问题与依赖 | 已成立的漏洞结论 |
+| Hint | 带作者与来源的人工提示或 Agent 态势判断 | Fact、授权扩展或直接恢复/停止命令 |
 | AgentRun | 执行者的一次上下文、调度、用量和租约 | 验证结果本身 |
 | VerificationRun | 固定主张、方法、前提、身份、证据和结论的一次核实 | 单个 shell 命令或“又一个 Agent” |
 | ToolCall / ToolAttempt | 逻辑工具请求与实际执行尝试 | 证明目标安全或业务判据满足 |
@@ -52,7 +53,7 @@ ConfigSnapshot 保存上述版本 ID、内容摘要、initial_scope_version、Ru
 
 首个场景 `web-observation` 只组合已验收 HTTP 观察能力，起手维度包括入口可达性、响应配置和公开内容观察。登录、访问控制、源码和协议分析在相应输入与 Adapter 可用后增加；缺失维度记录 blocked 或 not_run，不直接隐藏。
 
-角色模板可从 Planner、Explorer、Verifier、CodeAuditor 开始。Phase 2 由同一 Agent 按步骤完成规划、探索和验证；Phase 3 再拆 Worker。Reporter 先为按规范生成草稿的逻辑角色，不必单独启动常驻 Agent。角色可配置，但模型能力、工具集合和网络操作仍受平台交集策略约束。
+采用用户明确要求的 [Cairn 风格黑板](cairn-blackboard-design.md)，由 Fact/Intent/Hint 的当前态势产生下一步工作，不固定 Planner→Explorer→Verifier 流水线。角色模板只表达模型、工具、方法和输出能力：Phase 2 用一个通用 Agent 读取黑板、规划和推进必要验证；Phase 3 才按可执行 Intent 与能力匹配分派 Worker。CodeAuditor 等专用配置在需要时匹配；Reporter 先为生成草稿的逻辑能力，不必启动常驻 Agent。模型能力、工具集合和网络操作始终受平台交集策略约束。
 
 ### 2.3 按需知识加载
 
@@ -218,11 +219,12 @@ ExportArtifact 绑定 commit、格式、渲染器版本、文件摘要、大小�
 
 ## 8. 模块命令与事件契约
 
-以下是待实现的逻辑命令，不是当前已有路由。所有写操作接受请求幂等键及 expected_version；幂等键按 tenant/project/主体/操作隔离，同键不同输入拒绝。
+以下是领域命令设计，不表示全部路由已交付。创建/控制任务复用 B2/B3 的主体/项目/幂等键共享命名空间，操作种类、目标和规范化完整输入进入请求摘要，不能按 create/start/cancel 分割键空间；同键不同输入拒绝。变更命令校验相关资源 expected_version，创建没有既有 Task 版本。先重新鉴权，再核对不可变回执，最后处理新命令版本与业务前提。其他领域命令在各自阶段固定资源/主体归属和幂等契约，不借本表绕过现有规则。
 
 | 命令 | 执行效果 | 授权/关键校验 |
 | --- | --- | --- |
-| `create_task` | 固定配置/Scope 快照，生成初始覆盖计划 | Operator；Scope、输入与可用 Adapter 预检 |
+| `create_task` | 固定配置/Scope 快照，进入待启动；按场景模板生成初始计划，不调用模型或目标 | Operator；Scope、完整输入与配置能力预检；待启动是产品已确认、尚未发布的契约增量 |
+| `start_task` | 显式接受启动，重新核验后排队执行 | 当前权限、预期版本、有效 Scope、未撤销配置、环境能力与预算；不能自动启动历史 queued |
 | `propose_coverage_change` | 保存计划增删提案，不扩大授权 | Agent/Operator 可提案；Assessment 验证策略和版本后提交 |
 | `request_verification` | 创建排队 Run，交 Dispatcher 调度 | 当前 Task 允许执行、预算、主张与方法固定 |
 | `submit_verification_result` | 接收候选结果，运行规则校验或待复核 | 活动 owner epoch；证据归属、完整性和执行账本 |

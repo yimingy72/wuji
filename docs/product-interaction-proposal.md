@@ -2,6 +2,8 @@
 
 状态：**approved for prototype / 用户已确认，进入原型**。日期：2026-09-10。代码核查基准：`381ae3a2205965ad6aab1ce787d490d2c02839f3`。
 
+确认后的补充要求：后端再核对[元刃参考](metablade-backend-review.md)，明确采用 [Cairn 黑板协作](cairn-blackboard-design.md)，并复用 LangGraph 已有共享状态/子图/Store 能力。完整 Agent 原型加入 Fact/Intent/Hint 关联与提示输入；角色是能力配置，不构成固定流水线。
+
 本文件是完整产品体验及分期建议，不是已实现功能清单。用户已确认方案并要求再核对元刃后端参考；现进入独立原型制作，业务开发仍待原型交互确认后更新阶段 Spec / Plan。历史文中的“本轮”指草案形成轮次；本次交付状态见 [原型阶段记录](stages/product-interaction/acceptance.md)。
 
 ## 1. 设计依据与取舍

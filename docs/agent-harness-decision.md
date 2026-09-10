@@ -112,3 +112,11 @@ Phase 1 继续实现无模型的受控 HTTP 闭环；本决策不把所有候选
 通过后只固定这一套默认 Harness。新增专用 Worker 的 SDK 必须通过同一适配契约；不将 SDK 返回的自然语言直接写成已确认漏洞。
 
 完整验收以 [H01–H10](architecture-acceptance.md) 为准，含真实触发压缩、压缩后核对原证据、辅助调用预算、打断恢复与持久/临时事件区分。当前接口 ping 结果不能替代这些验证。
+
+## 7. 元刃参考复核（2026-09-10）
+
+[元刃后端复核](metablade-backend-review.md)确认继续借鉴平台侧 Agent/容器工具分离、角色任务书、按需知识与后台完成交接。用户提供的原文混有环境观察、工具定义和模型自述；Claude Code 风格提示词、工具名称及模型枚举不能证明其使用某个 SDK，也不能确认其上下文压缩、检查点和取消机制。
+
+因此保留上述复用决策，不因相似性改选 SDK，也不自研通用 Harness。Wuji 补充 WorkerAssignment、AgentRunResult 和问题/回答领域归属，映射到既有 AgentDriver 与框架中断/恢复接口；不维护另一份可写会话或循环。框架是否真正具备受限工具、预算和恢复能力仍由 Phase 2 的单候选集成验证决定，本次静态复核不追加测试矩阵。
+
+LangGraph 同时具备共享 State/reducer、子图输入输出、跨 thread Store、动态 Send/Command；不能把本文件的“领域数据由平台管理”误解为框架没有共享能力。Wuji 复用这些机制，黑板只补 Fact/Intent/Hint、证据关系和结论接受等领域规则；共享状态以领域记录引用为主，避免与 PostgreSQL 维护两份可写事实。详见 [LangGraph 与黑板复用边界](cairn-blackboard-design.md#11-langgraph-已有共享能力与复用方式)。
