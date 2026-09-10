@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { randomUUID } from 'node:crypto';
 import {
   validateCommandReceipt,
   validateScopePage,
@@ -13,6 +14,7 @@ test('lost create response recovers by original key, lists the task, and cancels
   const run = await manifest();
   const user = run.seed_users.single_a;
   const projectId = user.project_ids[0]!;
+  const taskName = `Chrome 丢响应恢复 ${randomUUID()}`;
   await keycloakLogin(page, user, `/projects/${projectId}/tasks/new`);
 
   const scopeResponse = await page.request.get(`/api/v1/projects/${projectId}/scopes`);
@@ -30,7 +32,7 @@ test('lost create response recovers by original key, lists the task, and cancels
   await page.getByLabel('批准范围', { exact: true }).focus();
   await page.getByLabel('批准范围', { exact: true }).press('ArrowDown');
   await page.getByLabel('批准范围', { exact: true }).press('Enter');
-  await page.getByLabel('任务名称', { exact: true }).fill('Chrome 丢响应恢复');
+  await page.getByLabel('任务名称', { exact: true }).fill(taskName);
   await page.getByLabel('目标 URL', { exact: true }).fill(target.href);
   const previewResponse = page.waitForResponse(response =>
     response.request().method() === 'POST'
@@ -105,16 +107,16 @@ test('lost create response recovers by original key, lists the task, and cancels
     const body: unknown = await response.json();
     if (!validateTaskPage(body)) throw new Error('Task list violates the public contract');
     listedMatchingIds = body.items
-      .filter(item => item.name === 'Chrome 丢响应恢复')
+      .filter(item => item.name === taskName)
       .map(item => item.id);
   });
   await page.getByRole('link', { name: '返回任务列表', exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/tasks$`));
   await expect.poll(() => listedMatchingIds).toEqual([committedTaskId]);
-  await expect(page.getByText('Chrome 丢响应恢复', { exact: true })).toBeVisible();
+  await expect(page.getByText(taskName, { exact: true })).toBeVisible();
   await page.goto(`/projects/${projectId}/tasks/${recoveredTaskId}`);
   await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/tasks/${recoveredTaskId}$`));
-  await expect(page.getByText('Chrome 丢响应恢复', { exact: true })).toBeVisible();
+  await expect(page.getByText(taskName, { exact: true })).toBeVisible();
 
   const cancelResponse = page.waitForResponse(response =>
     response.request().method() === 'POST'
