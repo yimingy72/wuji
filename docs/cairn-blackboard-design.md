@@ -154,3 +154,8 @@ checkpoint 保存 thread 的执行状态；Store 支持跨 thread 共享数据�
 | 完成后重新打开有不同历史语义 | 所核查协议的 reopen 删除原完成边；Wuji 保留历史并创建关联新任务，不直接复制此行为。[协议](https://github.com/oritera/Cairn/blob/e0ef2f850e5805f824815ee38f049e066deeb7d1/docs/specs/server-protocol.md#L555-L570) |
 
 Wuji 已设计的 ToolCall/AgentRun 账本、租约 fencing、VerificationRun 和报告版本仍保留；黑板是协作知识的权威记录，通过受控关系引用执行与验证记录，不覆盖它们的状态职责。
+
+
+## 13. 用户补充：运行成果与凭据共享
+
+2026-09-10：Web 单点创建不预置账号。当前授权方法内获得的账号、会话和其他成果作为运行记录进入黑板；其他同任务 Agent 可通过受限引用使用。凭据实体加密保存，黑板记录来源、适用对象/权限、有效状态、credential_ref 和证据；不把明文 Secret 广播到所有模型上下文。运行成果追加不改变初始配置快照，也不要求为每份成果重建任务；目标范围和工具权限独立检查。详细契约留在后续 Agent 协作 Spec。
