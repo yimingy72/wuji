@@ -94,7 +94,8 @@ test('lost create response recovers by original key, lists the task, and cancels
   await expect.poll(() => recoveredTaskId).toMatch(/^[0-9a-f-]{36}$/i);
   expect(recoveredTaskId).toBe(committedTaskId);
 
-  await expect(page.getByRole('button', { name: '查看任务列表', exact: true })).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/tasks/${committedTaskId}$`));
+  await expect(page.getByRole('link', { name: '返回任务列表', exact: true })).toBeVisible();
   let listedMatchingIds: string[] | undefined;
   page.on('response', async response => {
     const parsed = new URL(response.url());
@@ -107,7 +108,7 @@ test('lost create response recovers by original key, lists the task, and cancels
       .filter(item => item.name === 'Chrome 丢响应恢复')
       .map(item => item.id);
   });
-  await page.getByRole('button', { name: '查看任务列表', exact: true }).click();
+  await page.getByRole('link', { name: '返回任务列表', exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/tasks$`));
   await expect.poll(() => listedMatchingIds).toEqual([committedTaskId]);
   await expect(page.getByText('Chrome 丢响应恢复', { exact: true })).toBeVisible();
