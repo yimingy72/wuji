@@ -1,6 +1,6 @@
 # Task / Cairn 桥接 Plan
 
-- 状态：in-progress / verification resumed；日期：2026-09-11；对应[Spec](spec.md)。
+- 状态：completed / 本批最小验证通过；日期：2026-09-11；对应[Spec](spec.md)。
 - 当前用户“继续开发”授权承接既定架构；本次不改变核心选型或实际运行环境。
 
 ## 1. 实现顺序与归属

@@ -1,56 +1,70 @@
 # Task / Cairn 桥接验收
 
-- 代码状态：已交付；阶段验收：partial / verification pending。
-- 日期：2026-09-11；基准7cfcf386ca0d0388b039d60a941bc2812e118d5a。
-- 代码提交：f5cffc295a420c57a759f627327fc0ebc3a2664d。本提交尚未执行定向测试，不能称为被测通过候选。
-- run_id：cairn-bridge-20260911；[Spec](spec.md)、[Plan](plan.md)。记录自身提交通过git log查询。
-- 主代理负责设计/客户端/桥接/集成；gpt-6-astra/low仅按固定接口实现持久日志及对应测试，未运行测试或设计架构。
+- 本批结论：accepted / 原生Server进程内最小验证通过；日期：2026-09-11。
+- 真实部署与任务执行链路：not-tested，尚未接正式API、Dispatcher、Pi或Kali。
+- 当前代码候选：`8e250f439ed50c7516a685a128dfb1ffc9281c50`。
+- 初轮被测候选：`fd10efbae3e53143b277483a43e1a046483925a1`，桥接源码来自`f5cffc295a420c57a759f627327fc0ebc3a2664d`。
+- run_id：`cairn-bridge-20260911-resumed`；[Spec](spec.md)、[Plan](plan.md)。本验收记录是后续文档提交，自身SHA由git log查询。
+- 主代理设计、修复并执行验证；gpt-6-astra/low子代理完成持久日志实现及另一次静态审查，未执行测试，不称为独立测试。
 
-## 1. 已交付内容
+## 1. 承接与范围
 
-固定依赖Cairn 8e7e0ea67552383851dfcabfba0c4e9c8d007878（包版本0.2.1），复用原生客户端、模型及Server；未修改Cairn核心。新增内部Task探索输入、平台持久操作日志、调度预选/再次准入、AgentRun归属检查、原生结论提交及已知Intent的只读核对。共用上一批ExecutionPermit校验函数，避免两处判定漂移。
+前轮依赖安装成功、预算守卫exit124而测试尚未运行的事实完整保存在[初次记录](acceptance-initial.md)。用户随后明确取消累计检查时间预算，本轮使用现有环境补跑必要检查，没有重复安装依赖。旧记录中的时间限制已不再生效；真实模型调用授权额度保持原约定。
 
-日志构造器不创建生产表，不读取DSN；临时SQLite建表只在测试夹具中定义。本包需要workspace和冻结uv.lock提供固定Git来源，不作为可从PyPI独立解析裸cairn包名的发行物使用。
+本批复用固定Cairn `8e7e0ea67552383851dfcabfba0c4e9c8d007878`（包0.2.1）的原生客户端、Pydantic模型和FastAPI Server，未修改黑板核心。Task绑定、操作日志和执行准入属于Wuji；平台配置不随原生Project输入写入黑板。
 
-## 2. 实际执行与未覆盖
+## 2. 验收证据
 
-| 操作 | 结果 | 证据 |
+| 编号 | 结果 | 实际依据 |
 | --- | --- | --- |
-| uv lock | exit0 | 固定Git提交解析成功，Cairn及桥接依赖写入锁文件；命令墙钟23.167秒 |
-| uv sync --frozen --group cairn-bridge | exit0 | 依赖及editable包安装成功；命令墙钟5.788秒 |
-| 后续命令前预算守卫 | exit124；命令未启动 | 检查窗口已耗尽，未继续解析/测试/构建 |
-| C01 原生创建/重放 | not-tested | 测试代码已写，未运行 |
-| C02 调度准入/撤销 | not-tested | 测试代码已写，未运行 |
-| C03 原生结论/响应丢失 | not-tested | 测试代码已写，未运行 |
-| C04 持久恢复/冲突 | not-tested | 测试代码已写，未运行 |
-| C05 取消与日志CAS | not-tested | 测试代码已写，未运行 |
-| 共用许可函数受影响回归 | not-tested | 上一批026457f证据保留，不冒称覆盖本次提取后的源码 |
-| 独立sdist/wheel构建 | not-run | 依赖安装中的editable构建不代替此项 |
+| C01 | passed | 初轮原生创建/查询/重放，仅向Core提交title/origin/goal/bootstrap_enabled；只创建一个Project |
+| C02 | passed | 初轮未启动不预选、有效上下文允许、读取期间取消后再次准入拒绝；5个共用许可相关用例通过 |
+| C03 | passed | 初轮及修复后均覆盖原生conclude、同操作重放、提交后丢失响应和按已知Intent/Fact只读核对，无第二次conclude |
+| C04 | passed | 初轮跨日志实例保持创建unknown、不猜Project或重新创建；Task归属/异输入/原生Project重复绑定冲突 |
+| C05 | passed | 初轮及修复后覆盖取消/未登记AgentRun拒绝、持久claim与状态核对；新增迟到拒绝不得覆盖另一请求sent状态的回归通过 |
+| 包构建 | passed | 当前候选生成sdist与wheel；安装来源仍要求workspace及冻结锁文件 |
 
-没有运行原生Server测试夹具，没有启动网络服务、Dispatcher、Pod或Agent；真实模型/集群/目标调用均为0。旧API/浏览器/主题矩阵未重跑。
+初轮11项通过；发现并发问题后，只执行直接受影响的4项检查（含1项新增回归），全部通过。初轮的创建、过滤与共用许可测试未重跑：修复只涉及结果拒绝/CAS，不修改对应实现、依赖、数据库模板或Runtime源码。历史Runtime候选`026457f`的其他未变范围仍引用其[原验收](../phase-1c-runtime-foundation/acceptance.md)。不将所有历史用例冒称为当前候选重新实测。
 
-## 3. 预算与组织限制
+## 3. 发现与修复
 
-起始已用508/600秒、剩92秒。依赖步骤在窗口开始约29秒时完成；之后候选准备和包元数据审查消耗剩余窗口，后续命令的执行前守卫返回124，没有启动该命令。
+静态审查发现：同一operation的两个调用都读到pending后，A已claim为sent，B此时失去准入会将A覆盖为rejected；A即使已写入Core，也无法登记成功或按图核对。
 
-守卫退出前未持久化精确最终结束时间，因此不能宣称完整窗口被精确验证为92秒或所有验证在该时限内完成。按剩余额度全额记为耗尽，**当前剩余检查预算为0**，不得换分支/批次/日志重置。日志记录见忽略的artifacts/phase-1c-cairn-bridge/validation.json及lock/sync.log。
+当前候选新增`reject_pending_result`：发送前拒绝仅CAS pending→rejected，竞争失败返回现态；已发送请求的原生响应处理仍单独进行。确定性用例固定“另一请求claim→取消→迟到拒绝→原生写入完成→只读核对”的顺序，验证sent不被覆盖、最后applied且只发生一次原生写入。核心Server与协议保持原样。
 
-包独立发行的来源声明在候选准备中被发现尚未固定，未在超时后继续解析；已恢复与成功解析锁文件一致的workspace来源，限制在README说明。未追加测试、不运行第二套框架。后续检查守卫必须在任何提前退出前先保存状态，避免再次缺失终点证据。
+## 4. 环境、命令及退出码
 
-## 4. 后续定向入口（本次未执行）
+Python3.13.15、uv0.12.11、SQLAlchemy2.0.52；使用已有工作树.venv。原生Server通过TestClient和requests进程内适配器连接，Cairn数据库及Wuji日志均在pytest临时目录。
 
-获得新的检查额度后，先使用现有环境运行：
+| 操作 | 退出码 | 用例结果 / 命令墙钟秒数 |
+| --- | --- | --- |
+| 初轮定向pytest（命令A） | 0 | 11 passed，3.535秒 |
+| 修复后相关pytest（命令B） | 0 | 4 passed，2.184秒 |
+| `uv build --package wuji-cairn-bridge --out-dir artifacts/phase-1c-cairn-bridge/dist` | 0 | sdist/wheel成功，1.201秒 |
 
+上述为命令墙钟记录，不是累计检查时间上限。两次pytest均有一条上游Starlette/AnyIO弃用告警，未造成失败，未因此升级依赖或扩大检查。
+
+命令A：
 ```sh
 .venv/bin/python -m pytest packages/cairn-bridge/tests packages/task-runtime/tests/test_controller.py::test_invalid_current_permission_never_creates packages/task-runtime/tests/test_controller.py::test_revocation_during_create_stops_only_returned_uid -q
 ```
 
-随后只构建wuji-cairn-bridge；若依赖或源码未变化，不重复安装/构建整个平台。测试夹具必须把原生Cairn数据库指向tmp_path，并使用进程内HTTP适配，不能写用户默认Core数据库或启动Agent。失败只修复并复测受影响项，仍按已批准的新额度计时。
+命令B：
+```sh
+.venv/bin/python -m pytest packages/cairn-bridge/tests/test_journal.py::test_durable_claim_and_identity packages/cairn-bridge/tests/test_native_bridge.py::test_native_conclusion_replay_and_lost_response_reconciliation packages/cairn-bridge/tests/test_native_bridge.py::test_cancelled_or_unregistered_agent_result_does_not_write_core packages/cairn-bridge/tests/test_native_bridge.py::test_late_rejection_preserves_inflight_result -q
+```
 
-## 5. 部署与业务边界
+原始证据在忽略目录`artifacts/phase-1c-cairn-bridge/`：`resumed-validation-initial.json`、`resumed-tests-initial.log`、`resumed-validation-final.json`、`resumed-tests-final.log`、`resumed-build.log`及dist产物。uv命令使用主目录工具链，--directory指向当前工作树；记录包含实际命令与SHA。
 
-公开API仍0.4.0，主业务HEAD/master/服务及数据库未切换；Cairn仅作为当前开发环境依赖安装，未部署。平台Task外键、生产迁移/RLS/服务角色、真实ControlSource、Dispatcher接线、动态Agent/Pi/MCP、镜像资源准备和真实出口均未接入。
+## 5. 部署与剩余工作
 
-原生Project创建结果不明时无法依赖新增回执恢复，因为Core不修改；本批明确不按名字猜绑定或自动再创建。Core数据实例重建需明确核对server_id和绑定；Task代码与原生ID相似不能证明数据连续性。
+公开API仍0.4.0，主业务HEAD/master/服务及数据库未切换；未部署Cairn，未运行Dispatcher、Pod、Agent或目标工具。本轮真实模型、Kubernetes集群和目标请求均为0。当前工作树没有CodeGraph索引，使用rg/直接读取；未用主业务旧索引冒充本分支源码。
 
-本批代码可供审查，但C01—C05缺少执行证据，不能标为accepted或开放真实任务执行。
+- 控制面：正式0.5契约、配置快照、ready/start、执行代次、权威ControlSource与AgentRun账本尚未接入；旧queued不自动执行。
+- 数据库：平台Task外键、生产迁移、RLS及服务角色待实施。本批内部日志不能直接暴露给外部身份调用。
+- 执行：真实Dispatcher所有入口的准入、agent容器动态Harness进程、Pi受限工具、Kali MCP、共享目录、镜像及资源准备待实现。
+- 开放：LiteLLM真实金额预算、出口和停止核对尚未联调，不能开放真实目标或把Pod就绪当成可执行证明。
+- 发行：当前包通过workspace与冻结uv.lock固定Git来源；独立wheel安装来源声明尚未完善，不从PyPI解析裸cairn包名。
+- 恢复：原生Project创建结果不明仍无法自动恢复绑定；不新增Core回执或按名称猜关联。Core数据实例替换必须核对server_id。
+
+本批通过后停止追加检查。下一实施依赖为控制面基础，先冻结新0.5具体接口/迁移和最小验证入口，再接真实调度；历史0.5草案不能直接复用为开发任务书。

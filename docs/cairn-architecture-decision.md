@@ -2,7 +2,7 @@
 
 - 日期：2026-09-10；状态：accepted / 用户已批准的目标架构，implementation pending。
 - 依据：用户批准《Wuji 架构复审修订版：Cairn 调度、平台侧 Agent 与共享 Kali》；用户明确Agent不运行在Kali中，整体架构由主代理独立设计。
-- 后续澄清：Task业务主体、每Task一个Agent Pod与核心不改边界见[修订记录](stages/cairn-architecture-baseline/clarification.md)；以下为修订后的现行决定。
+- 后续澄清：Task业务主体、单Task Pod双容器与核心不改边界见[修订记录](stages/cairn-architecture-baseline/clarification.md)；以下为修订后的现行决定。
 - 文档实施基准：codex/phase-1c-prep@6ee84b5268a5012c69ba4567d78eb18727b41ee1。
 - 本批范围：[Spec](stages/cairn-architecture-baseline/spec.md)、[Plan](stages/cairn-architecture-baseline/plan.md)、[文档验收](stages/cairn-architecture-baseline/acceptance.md)。公开API仍0.4.0，本文不是已发布接口或已验证部署的声明。
 
@@ -93,7 +93,7 @@ Cairn按原生语义记录探索完成，Wuji独立维护任务执行、停止�
 
 | 依赖 | 候选集成基线 | 状态 |
 | --- | --- | --- |
-| Cairn | 8e7e0ea67552383851dfcabfba0c4e9c8d007878 | 静态核对，所需适配/增量未实现；保留AGPL-3.0许可及上游来源 |
+| Cairn | 8e7e0ea67552383851dfcabfba0c4e9c8d007878 | 原生Server/客户端桥接最小验证已通过；实际Dispatcher尚未接线，见[桥接验收](stages/phase-1c-cairn-bridge/acceptance.md)；保留AGPL-3.0许可及上游来源 |
 | Pi coding-agent | 0.73.0 | 首个Harness接入方向，未在Wuji验收 |
 | LiteLLM Proxy | v1.100.0 | 网关选型已确认，未部署、未固定运行镜像digest或完成集成 |
 
