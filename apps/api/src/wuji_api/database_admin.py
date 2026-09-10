@@ -589,6 +589,7 @@ def change_membership(
 
     with management_transaction(database_url_value) as connection:
         with connection.cursor() as cursor:
+            _lock_user(cursor, user_id)
             if scope == "tenant":
                 cursor.execute(
                     "INSERT INTO tenant_memberships (tenant_id, user_id, role, enabled) "
@@ -633,6 +634,7 @@ def bump_permissions_version(
 ) -> int:
     with management_transaction(database_url_value) as connection:
         with connection.cursor() as cursor:
+            _lock_user(cursor, user_id)
             cursor.execute(
                 "UPDATE users SET permissions_version = permissions_version + 1, "
                 "updated_at = clock_timestamp() WHERE id = %s RETURNING permissions_version",
@@ -692,6 +694,9 @@ def inspect_authority(*, database_url_value: str, user_id: str | None = None) ->
                 "authorization_records",
                 "scope_policy_versions",
                 "task_previews",
+                "tasks",
+                "command_receipts",
+                "task_events",
             ):
                 cursor.execute(sql.SQL("SELECT count(*) FROM {}").format(sql.Identifier(table)))
                 counts[table] = int(cursor.fetchone()[0])

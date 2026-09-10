@@ -366,12 +366,11 @@ def evaluate_scope(
     if denied_reason is not None:
         blockers.append({"code": "SCOPE_DENIED", "message": denied_reason})
 
-    blockers.append({"code": "CREATION_UNAVAILABLE", "message": "任务创建尚未开放"})
     return {
         "draft": dict(normalized_draft),
         "input_digest": input_digest(normalized_draft),
         "effective_scope": effective_scope,
         "expires_at": min(current + timedelta(seconds=300), valid_until),
-        "can_create": False,
+        "can_create": not blockers,
         "blockers": blockers,
     }

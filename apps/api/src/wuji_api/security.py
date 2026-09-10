@@ -14,9 +14,12 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
+UUID_PATH = (
+    r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
+    r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
+)
 PROJECT_RETURN_PATH = re.compile(
-    r"^/projects(?:/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
-    r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12})(/tasks/new)?)?/?$"
+    rf"^/projects(?:/({UUID_PATH})(/tasks(?:/(new|{UUID_PATH}))?)?)?/?$"
 )
 
 
@@ -57,6 +60,12 @@ def normalize_return_path(value: str) -> str:
     if str(parsed) != project_id.lower():
         raise InvalidReturnPath("project path UUID is not canonical")
     suffix = match.group(2) or ""
+    task_component = match.group(3)
+    if task_component is not None and task_component != "new":
+        task_id = UUID(task_component)
+        if str(task_id) != task_component.lower():
+            raise InvalidReturnPath("task path UUID is not canonical")
+        suffix = suffix[: -len(task_component)] + str(task_id)
     return f"/projects/{parsed}{suffix}"
 
 
@@ -79,6 +88,17 @@ class ScopeCursorPosition:
     created_at: datetime
     policy_id: UUID
     version: int
+
+
+@dataclass(frozen=True)
+class TaskCursorPosition:
+    created_at: datetime
+    task_id: UUID
+
+
+@dataclass(frozen=True)
+class EventCursorPosition:
+    sequence: int
 
 
 class CursorCodec:
@@ -268,6 +288,190 @@ class CursorCodec:
         except ExpiredCursor:
             raise
         except InvalidCursor:
+            raise
+        except Exception as error:
+            raise InvalidCursor("cursor is malformed") from error
+
+    def encode_task(
+        self,
+        *,
+        user_id: UUID,
+        permissions_version: int,
+        project_id: UUID,
+        limit: int,
+        position: TaskCursorPosition,
+        now: int | None = None,
+    ) -> str:
+        issued_at = int(time.time() if now is None else now)
+        return self._signed(
+            {
+                "created_at": position.created_at.isoformat(),
+                "endpoint": "tasks",
+                "exp": issued_at + self._ttl_seconds,
+                "iat": issued_at,
+                "limit": limit,
+                "permissions_version": permissions_version,
+                "project_id": str(project_id),
+                "task_id": str(position.task_id),
+                "user_id": str(user_id),
+                "v": 1,
+            }
+        )
+
+    def decode_task(
+        self,
+        value: str,
+        *,
+        user_id: UUID,
+        permissions_version: int,
+        project_id: UUID,
+        limit: int,
+        now: int | None = None,
+    ) -> TaskCursorPosition:
+        payload = self._verified(value)
+        expected_keys = {
+            "created_at", "endpoint", "exp", "iat", "limit", "permissions_version",
+            "project_id", "task_id", "user_id", "v",
+        }
+        self._validate_context(
+            payload,
+            expected_keys=expected_keys,
+            endpoint="tasks",
+            user_id=user_id,
+            permissions_version=permissions_version,
+            project_id=project_id,
+            limit=limit,
+            now=now,
+        )
+        try:
+            created_at = datetime.fromisoformat(payload["created_at"])
+            if created_at.tzinfo is None:
+                raise InvalidCursor("cursor timestamp requires a timezone")
+            return TaskCursorPosition(created_at=created_at, task_id=UUID(payload["task_id"]))
+        except InvalidCursor:
+            raise
+        except Exception as error:
+            raise InvalidCursor("cursor is malformed") from error
+
+    def encode_event(
+        self,
+        *,
+        user_id: UUID,
+        permissions_version: int,
+        project_id: UUID,
+        task_id: UUID,
+        position: EventCursorPosition,
+        now: int | None = None,
+    ) -> str:
+        issued_at = int(time.time() if now is None else now)
+        return self._signed(
+            {
+                "endpoint": "task-events",
+                "exp": issued_at + self._ttl_seconds,
+                "iat": issued_at,
+                "permissions_version": permissions_version,
+                "project_id": str(project_id),
+                "sequence": position.sequence,
+                "task_id": str(task_id),
+                "user_id": str(user_id),
+                "v": 1,
+            }
+        )
+
+    def decode_event(
+        self,
+        value: str,
+        *,
+        user_id: UUID,
+        permissions_version: int,
+        project_id: UUID,
+        task_id: UUID,
+        now: int | None = None,
+    ) -> EventCursorPosition:
+        payload = self._verified(value)
+        expected_keys = {
+            "endpoint", "exp", "iat", "permissions_version", "project_id",
+            "sequence", "task_id", "user_id", "v",
+        }
+        self._validate_context(
+            payload,
+            expected_keys=expected_keys,
+            endpoint="task-events",
+            user_id=user_id,
+            permissions_version=permissions_version,
+            project_id=project_id,
+            task_id=task_id,
+            now=now,
+        )
+        try:
+            sequence = int(payload["sequence"])
+            if sequence < 0 or type(payload["sequence"]) is not int:
+                raise InvalidCursor("event cursor position is invalid")
+            return EventCursorPosition(sequence=sequence)
+        except InvalidCursor:
+            raise
+        except Exception as error:
+            raise InvalidCursor("cursor is malformed") from error
+
+    def _signed(self, payload: dict[str, Any]) -> str:
+        encoded = _b64encode(
+            json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
+        )
+        signature = _b64encode(hmac.digest(self._key, encoded.encode("ascii"), "sha256"))
+        cursor = f"{encoded}.{signature}"
+        if len(cursor) > 512:
+            raise ValueError("cursor exceeds the contract limit")
+        return cursor
+
+    def _verified(self, value: str) -> dict[str, Any]:
+        try:
+            encoded, supplied_signature = value.split(".", 1)
+            expected_signature = _b64encode(
+                hmac.digest(self._key, encoded.encode("ascii"), "sha256")
+            )
+            if not hmac.compare_digest(supplied_signature, expected_signature):
+                raise InvalidCursor("cursor signature is invalid")
+            payload = json.loads(_b64decode(encoded))
+            if not isinstance(payload, dict):
+                raise InvalidCursor("cursor shape is invalid")
+            return payload
+        except InvalidCursor:
+            raise
+        except Exception as error:
+            raise InvalidCursor("cursor is malformed") from error
+
+    def _validate_context(
+        self,
+        payload: dict[str, Any],
+        *,
+        expected_keys: set[str],
+        endpoint: str,
+        user_id: UUID,
+        permissions_version: int,
+        project_id: UUID,
+        limit: int | None = None,
+        task_id: UUID | None = None,
+        now: int | None = None,
+    ) -> None:
+        try:
+            if set(payload) != expected_keys or payload["v"] != 1 or payload["endpoint"] != endpoint:
+                raise InvalidCursor("cursor endpoint or shape is invalid")
+            issued_at = int(payload["iat"])
+            expires_at = int(payload["exp"])
+            current_time = int(time.time() if now is None else now)
+            if issued_at > current_time or expires_at <= issued_at or expires_at - issued_at > 900:
+                raise InvalidCursor("cursor timestamps are invalid")
+            if expires_at <= current_time:
+                raise ExpiredCursor("cursor has expired")
+            if payload["user_id"] != str(user_id) or payload["project_id"] != str(project_id):
+                raise InvalidCursor("cursor binding is invalid")
+            if limit is not None and payload["limit"] != limit:
+                raise InvalidCursor("cursor limit binding is invalid")
+            if task_id is not None and payload["task_id"] != str(task_id):
+                raise InvalidCursor("cursor task binding is invalid")
+            if payload["permissions_version"] != permissions_version:
+                raise ExpiredCursor("cursor authority version has changed")
+        except (ExpiredCursor, InvalidCursor):
             raise
         except Exception as error:
             raise InvalidCursor("cursor is malformed") from error
