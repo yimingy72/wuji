@@ -1,7 +1,7 @@
 openapi: 3.1.1
 info:
   title: Wuji Phase 1 Control API
-  version: 0.3.0
+  version: 0.4.0
   description: Reviewable contract baseline, not a running service. Authorized non-destructive HTTP observation
     only. All object reads/writes enforce caller/project/tenant ownership. Cookie authentication plus CSRF and Origin
     checks for writes. Limits and URL syntax validation do not replace server policy enforcement.
@@ -158,7 +158,7 @@ paths:
         schema:
           type: string
           maxLength: 2048
-          pattern: ^/projects(?:/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}(?:/tasks/new)?)?/?$
+          pattern: ^/projects(?:/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}(?:/tasks(?:/(?:new|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}))?)?)?/?$
           default: /projects
       responses:
         '302':
@@ -216,7 +216,7 @@ paths:
               required: true
               schema:
                 type: string
-                pattern: ^/(?:projects(?:/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}(?:/tasks/new)?)?/?|login\?error=(?:UNAUTHENTICATED|FORBIDDEN|SERVICE_UNAVAILABLE|INTERNAL_ERROR)&trace_id=[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$
+                pattern: ^/(?:projects(?:/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}(?:/tasks(?:/(?:new|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}))?)?)?/?|login\?error=(?:UNAUTHENTICATED|FORBIDDEN|SERVICE_UNAVAILABLE|INTERNAL_ERROR)&trace_id=[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$
             Cache-Control:
               required: true
               schema:
@@ -493,7 +493,7 @@ paths:
       summary: Read an authoritative task snapshot and consistent event cursor
       description: Snapshot and cursor use one consistent committed view. Every later committed change must be replayable
         after this cursor; database sequence allocation alone is not commit ordering. Task terminal states require
-        confirmed no active/unknown execution and revoked egress. Cleanup remains independent.
+        confirmed no active/unknown execution and egress revoked or never granted. Cleanup remains independent.
       tags:
       - Tasks
       responses:

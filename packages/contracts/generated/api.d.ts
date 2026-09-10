@@ -223,7 +223,7 @@ export interface paths {
         };
         /**
          * Read an authoritative task snapshot and consistent event cursor
-         * @description Snapshot and cursor use one consistent committed view. Every later committed change must be replayable after this cursor; database sequence allocation alone is not commit ordering. Task terminal states require confirmed no active/unknown execution and revoked egress. Cleanup remains independent.
+         * @description Snapshot and cursor use one consistent committed view. Every later committed change must be replayable after this cursor; database sequence allocation alone is not commit ordering. Task terminal states require confirmed no active/unknown execution and egress revoked or never granted. Cleanup remains independent.
          */
         get: operations["getTask"];
         put?: never;
