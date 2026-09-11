@@ -10,6 +10,14 @@ export const isTaskId = isProjectId;
 export function normalizeReturnTo(value: unknown): string {
   if (typeof value !== 'string') return '/projects';
   const [pathname, query = ''] = value.split('?', 2);
+  const draftMatch = /^\/projects\/([0-9a-f-]{36})\/drafts(?:\/([0-9a-f-]{36}))?\/?$/i.exec(pathname ?? '');
+  if (draftMatch && isProjectId(draftMatch[1]) && (!draftMatch[2] || isProjectId(draftMatch[2]))) {
+    const base = `/projects/${draftMatch[1]}/drafts${draftMatch[2] ? `/${draftMatch[2]}` : ''}`;
+    const step = new URLSearchParams(query).get('step');
+    return draftMatch[2] && step && /^[0-3]$/.test(step) ? `${base}?step=${step}` : base;
+  }
+  const tenantMatch = /^\/settings\/tenants\/([0-9a-f-]{36})\/models\/?$/i.exec(pathname ?? '');
+  if (tenantMatch && isProjectId(tenantMatch[1])) return `/settings/tenants/${tenantMatch[1]}/models`;
   const match = projectPathPattern.exec(pathname ?? '');
   if (!match) return '/projects';
   if (!match[1]) return '/projects';

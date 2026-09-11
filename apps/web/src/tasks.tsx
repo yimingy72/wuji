@@ -1,3 +1,4 @@
+import { AuthorizationSummary } from './features/task-creation/AuthorizationSummary';
 import { useEffect, useRef, useState } from 'react';
 import {
   ArrowLeftOutlined,
@@ -46,26 +47,22 @@ import styles from './workbench.module.css';
 
 const stateLabels: Record<Task['state'], string> = {
   queued: '排队中',
+  ready: '待启动',
   provisioning: '准备中',
   running: '运行中',
   completing: '收尾中',
   completed: '已完成',
-  pausing: '暂停中',
-  paused: '已暂停',
   cancelling: '取消中',
   cancelled: '已取消',
   reconciling: '核对中',
-  failed: '失败',
 };
 
-const terminalStates = new Set<Task['state']>(['completed', 'cancelled', 'failed']);
+const terminalStates = new Set<Task['state']>(['completed', 'cancelled']);
 
 function taskStateTag(task: Task) {
   const color = task.state === 'cancelled'
     ? 'default'
-    : task.state === 'failed'
-      ? 'error'
-      : task.state === 'completed'
+    : task.state === 'completed'
         ? 'success'
         : 'processing';
   return <Tag color={color}>{stateLabels[task.state]}</Tag>;
@@ -164,7 +161,8 @@ export function PendingCommandNotice({
   }, [listPage, pending]);
   if (!pending) return null;
 
-  const accept = (receipt: CommandReceipt) => {
+  const accept = async (receipt: CommandReceipt, signal: AbortSignal) => {
+    await readTaskSnapshot(session, projectId, receipt.task_id, signal);
     clearPendingCommand(pending);
     setError(null);
     setLookupMissing(false);
@@ -180,9 +178,9 @@ export function PendingCommandNotice({
     setError(null);
     setLookupMissing(false);
     try {
-      accept(assertReceipt(pending, await findCommand(
+      await accept(assertReceipt(pending, await findCommand(
         session, projectId, pending.idempotencyKey, controller.signal,
-      )));
+      )), controller.signal);
     } catch (nextError) {
       if (controller.signal.aborted || nextError instanceof StaleContextError) return;
       if (isApiError(nextError, 404)) setLookupMissing(true);
@@ -204,11 +202,14 @@ export function PendingCommandNotice({
     setChecking(true);
     setError(null);
     setLookupMissing(false);
+    let accepted = false;
     try {
-      accept(await sendFrozenCommand(session, pending, frozen, controller.signal));
+      const receipt = await sendFrozenCommand(session, pending, frozen, controller.signal);
+      accepted = true;
+      await accept(receipt, controller.signal);
     } catch (nextError) {
       if (controller.signal.aborted || nextError instanceof StaleContextError) return;
-      if (isExplicitCommandRejection(nextError)) clearPendingCommand(pending);
+      if (!accepted && isExplicitCommandRejection(nextError)) clearPendingCommand(pending);
       setError(nextError);
     } finally {
       if (active.current === controller) {
@@ -302,6 +303,7 @@ function TasksList({ session, projectId, canCreate }: { session: Session; projec
         <div><span className={styles.eyebrow}>TASKS</span><h1 id="tasks-title">任务列表</h1></div>
         {canCreate && <Button type="primary" disabled={pending !== null} onClick={() => navigate(`/projects/${projectId}/tasks/new`)}>新建任务</Button>}
       </header>
+      <Link to={`/projects/${projectId}/drafts`}>个人草稿</Link>
       <PendingCommandNotice session={session} projectId={projectId} listPage />
       <div className={styles.projectPanel}>
         <div className={styles.panelHeader}><h2>项目任务</h2><span>按创建时间排列</span></div>
@@ -607,13 +609,16 @@ function TaskDetail({ session, projectId, taskId, canControl, listCursor }: { se
     commandController.current?.abort();
     const controller = new AbortController();
     commandController.current = controller;
+    let accepted = false;
     try {
-      await sendFrozenCommand(session, command, frozen, controller.signal);
+      const receipt = await sendFrozenCommand(session, command, frozen, controller.signal);
+      accepted = true;
+      await readTaskSnapshot(session, projectId, receipt.task_id, controller.signal);
       clearPendingCommand(command);
       await refreshTaskLists(projectId);
       setSyncRevision((value) => value + 1);
     } catch (error) {
-      if (isExplicitCommandRejection(error)) clearPendingCommand(command);
+      if (!accepted && isExplicitCommandRejection(error)) clearPendingCommand(command);
       if (!(error instanceof StaleContextError)) setCommandError(error);
     } finally {
       if (commandController.current === controller) commandController.current = null;
@@ -673,6 +678,20 @@ function TaskDetail({ session, projectId, taskId, canControl, listCursor }: { se
             ]}
           />
         </section>
+        {'creation_config' in task && <section className={styles.taskSummaryPanel} aria-labelledby="creation-snapshot-title">
+          <header><h2 id="creation-snapshot-title">创建配置</h2></header>
+          <div style={{padding: 20}}>
+            <h3>任务目标</h3><p>{task.creation_config.objective}</p>
+            <h3>完成条件</h3><ul>{task.creation_config.completion_criteria.map((condition, index) => <li key={index}>{condition}</li>)}</ul>
+            <p>模板：{task.creation_config.goal_template ? `${task.creation_config.goal_template.id} · V${task.creation_config.goal_template.version}` : '自定义'}</p>
+            {task.creation_config.supplemental_hints && <><h3>补充线索</h3><p>{task.creation_config.supplemental_hints}</p></>}
+            <AuthorizationSummary authorization={task.creation_config.authorization} />
+            <h3>模型与金额</h3><p>{task.creation_config.model.name} · V{task.creation_config.model.number}</p>
+            {task.creation_config.model.config.pricing && <p>输入 {task.creation_config.model.config.pricing.input_per_million} / 输出 {task.creation_config.model.config.pricing.output_per_million} USD / 百万 token · {task.creation_config.model.config.pricing.source}</p>}
+            <p>金额上限：{task.creation_config.budget_usd} USD</p>
+            {task.start_blockers?.map((reason, index) => <Alert key={index} type="warning" title={reason} />)}
+          </div>
+        </section>}
         <TaskHistory events={events} />
       </div>
       <Modal
@@ -685,7 +704,7 @@ function TaskDetail({ session, projectId, taskId, canControl, listCursor }: { se
         onCancel={() => setCancelOpen(false)}
         onOk={() => void cancelTask()}
       >
-        <p>任务取消后不能恢复。当前任务尚未执行，可以安全结束排队。</p>
+        <p>任务取消后不能恢复。取消请求接受后会继续核对执行是否停止。</p>
       </Modal>
     </section>
   );

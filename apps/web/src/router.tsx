@@ -14,7 +14,8 @@ import {
   RootLayout,
   RouteErrorPage,
 } from './pages';
-import { TaskPreviewPage } from './taskPreview';
+import { ModelsPage } from './features/model-config/ModelsPage';
+import { CreationPage, DraftsPage, NewCreationPage } from './features/task-creation/CreationPage';
 import { TaskDetailPage, TasksPage } from './tasks';
 import {
   enterProject,
@@ -111,7 +112,7 @@ export const router = createBrowserRouter([
       {
         path: 'projects/:projectId/tasks/new',
         loader: projectLoader,
-        element: <TaskPreviewPage />,
+        element: <NewCreationPage />,
         errorElement: <RouteErrorPage />,
       },
       {
@@ -120,6 +121,9 @@ export const router = createBrowserRouter([
         element: <TaskDetailPage />,
         errorElement: <RouteErrorPage />,
       },
+      { path: 'projects/:projectId/drafts', loader: projectLoader, element: <DraftsPage />, errorElement: <RouteErrorPage /> },
+      { path: 'projects/:projectId/drafts/:draftId', loader: projectLoader, element: <CreationPage />, errorElement: <RouteErrorPage /> },
+      { path: 'settings/tenants/:tenantId/models', loader: async ({request}) => { await prepareProjectsRoute(); await requireSession(request); return null; }, element: <ModelsPage />, errorElement: <RouteErrorPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],
   },

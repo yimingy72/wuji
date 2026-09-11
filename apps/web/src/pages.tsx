@@ -1,3 +1,4 @@
+import { TenantModelsLinks } from './features/model-config/ModelsPage';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   ArrowLeftOutlined,
@@ -362,6 +363,7 @@ function ProjectsContent({ session }: { session: Session }) {
   return (
     <>
       <ProjectUnavailableNotice />
+      <TenantModelsLinks session={session} />
       <section className={styles.projectPage} aria-labelledby="projects-title">
         <header className={styles.pageHeading}>
         <div>

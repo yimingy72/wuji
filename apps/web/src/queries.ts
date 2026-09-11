@@ -25,6 +25,7 @@ import {
   type ProjectPage,
   type CommandReceipt,
   type CreateTask,
+  type NewCreateTaskRequest,
   type EventPage,
   type ScopePage,
   type Session,
@@ -317,7 +318,7 @@ export async function resetScopePages(session: Session, projectId: string) {
   });
 }
 
-async function projectRequest<T>(
+export async function projectRequest<T>(
   session: Session,
   projectId: string,
   request: () => Promise<T>,
@@ -405,7 +406,7 @@ export function findCommand(
 export function submitCreateTask(
   session: Session,
   projectId: string,
-  request: CreateTask,
+  request: CreateTask | NewCreateTaskRequest,
   idempotencyKey: string,
   signal: AbortSignal,
 ): Promise<CommandReceipt> {
@@ -561,5 +562,17 @@ export async function logout(): Promise<'complete' | 'failed'> {
     }
     failLogout();
     return 'failed';
+  }
+}
+
+export async function identityRequest<T>(session: Session, request: () => Promise<T>): Promise<T> {
+  const captured = getIdentitySnapshot();
+  try {
+    const result = await request();
+    const current = getIdentitySnapshot();
+    if (current.identityGeneration !== captured.identityGeneration || current.session?.user_id !== session.user_id || current.session.permissions_version !== session.permissions_version) throw new StaleContextError();
+    return result;
+  } catch (error) {
+    return handleReadError(error, {identityGeneration: captured.identityGeneration, userId: session.user_id, permissionsVersion: session.permissions_version});
   }
 }

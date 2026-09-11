@@ -1,5 +1,7 @@
 import type { components } from '@wuji/contracts/types';
 import {
+  validateSavedTaskDraft, validateSavedTaskDraftPage, validateScenarioProfilePage, validateTaskCreationPreview,
+  validateTenantPage, validateModelDefinitionPage, validateModelVersionPage, validateModelVersion, validateModelOperation,
   validateCommandReceipt,
   validateEventPage,
   validateScopePage,
@@ -138,11 +140,12 @@ async function postValidated<T>(
   signal: AbortSignal,
   idempotencyKey?: string,
   expectedStatus?: number,
+  method: 'POST' | 'PUT' = 'POST',
 ): Promise<T> {
   let response: Response;
   try {
     response = await fetch(path, {
-      method: 'POST',
+      method,
       mode: 'same-origin',
       credentials: 'same-origin',
       headers: {
@@ -282,7 +285,7 @@ export function getCommandByKey(
 
 export function postCreateTask(
   projectId: string,
-  request: CreateTask,
+  request: CreateTask | NewCreateTaskRequest,
   csrfToken: string,
   idempotencyKey: string,
   signal: AbortSignal,
@@ -350,3 +353,39 @@ export function shouldRetryRead(failureCount: number, error: Error): boolean {
 export function isApiError(error: unknown, status?: number): error is ApiRequestError {
   return error instanceof ApiRequestError && (status === undefined || error.status === status);
 }
+
+export type Tenant = components['schemas']['Tenant'];
+export type ModelVersion = components['schemas']['ModelVersion'];
+export type ModelOperation = components['schemas']['ModelOperation'];
+export type ServiceVersionRequest = components['schemas']['ServiceVersionRequest'];
+export type ProfileVersionRequest = components['schemas']['ProfileVersionRequest'];
+export type ModelKind = 'service' | 'profile';
+const tenantPath = (id: string) => `/api/v1/tenants/${encodeURIComponent(id)}`;
+const modelSegment = (kind: ModelKind) => kind === 'service' ? 'model-services' : 'model-profiles';
+const pageSearch = (cursor: string | null) => new URLSearchParams({limit: '50', ...(cursor ? {cursor} : {})});
+export const getTenants = (cursor: string | null, signal: AbortSignal) => getValidated(`/api/v1/tenants?${pageSearch(cursor)}`, validateTenantPage, signal);
+export const getModelDefinitions = (tenantId: string, kind: ModelKind, cursor: string | null, signal: AbortSignal) => getValidated(`${tenantPath(tenantId)}/${modelSegment(kind)}?${pageSearch(cursor)}`, validateModelDefinitionPage, signal);
+export const getModelVersions = (tenantId: string, kind: ModelKind, definitionId: string, cursor: string | null, signal: AbortSignal) => getValidated(`${tenantPath(tenantId)}/${modelSegment(kind)}/${encodeURIComponent(definitionId)}/versions?${pageSearch(cursor)}`, validateModelVersionPage, signal);
+export const getModelVersion = (tenantId: string, kind: ModelKind, versionId: string, signal: AbortSignal) => getValidated(`${tenantPath(tenantId)}/model-${kind}-versions/${encodeURIComponent(versionId)}`, validateModelVersion, signal);
+export const findModelOperation = (tenantId: string, key: string, signal: AbortSignal) => getValidated(`${tenantPath(tenantId)}/model-operation-keys/${encodeURIComponent(key)}`, validateModelOperation, signal);
+export const readModelOperation = (tenantId: string, id: string, signal: AbortSignal) => getValidated(`${tenantPath(tenantId)}/model-operations/${encodeURIComponent(id)}`, validateModelOperation, signal);
+export function saveModelVersion(tenantId: string, kind: ModelKind, definitionId: string | null, request: ServiceVersionRequest | ProfileVersionRequest, csrf: string, key: string, signal: AbortSignal) {
+  return postValidated(`${tenantPath(tenantId)}/${modelSegment(kind)}${definitionId ? `/${encodeURIComponent(definitionId)}/versions` : ''}`, request, csrf, validateModelOperation, signal, key);
+}
+export function actOnModel(tenantId: string, version: ModelVersion, action: 'check' | 'publish' | 'retire' | 'revoke', csrf: string, key: string, signal: AbortSignal) {
+  return postValidated(`${tenantPath(tenantId)}/model-profile-versions/${encodeURIComponent(version.id)}/${action === 'check' ? 'checks' : 'commands'}`, action === 'check' ? {} : {action, expected_version: version.state_revision}, csrf, validateModelOperation, signal, key);
+}
+export const getProjectModels = (projectId: string, cursor: string | null, signal: AbortSignal) => getValidated(`/api/v1/projects/${encodeURIComponent(projectId)}/model-profiles?${pageSearch(cursor)}`, validateModelVersionPage, signal);
+
+export type SavedTaskDraft = components['schemas']['SavedTaskDraft'];
+export type NewCreateTaskRequest = components['schemas']['NewCreateTaskRequest'];
+export type TaskCreationPreview = components['schemas']['TaskCreationPreview'];
+export type ScenarioProfile = components['schemas']['ScenarioProfilePage']['items'][number];
+export type DraftContent = SavedTaskDraft['content'];
+export type DraftContentV2 = Extract<DraftContent, {schema_version: '2.0'}>;
+export type WebDraftContentV2 = Extract<DraftContentV2, {scenario: 'web_single'}>;
+export const getScenarioProfiles = (projectId: string, signal: AbortSignal) => getValidated(`/api/v1/projects/${encodeURIComponent(projectId)}/scenario-profiles`, validateScenarioProfilePage, signal);
+export const getSavedDrafts = (projectId: string, cursor: string | null, signal: AbortSignal) => getValidated(`/api/v1/projects/${encodeURIComponent(projectId)}/task-drafts?${pageSearch(cursor)}`, validateSavedTaskDraftPage, signal);
+export const getSavedDraft = (projectId: string, draftId: string, signal: AbortSignal) => getValidated(`/api/v1/projects/${encodeURIComponent(projectId)}/task-drafts/${encodeURIComponent(draftId)}`, validateSavedTaskDraft, signal);
+export const saveDraft = (projectId: string, draftId: string, content: DraftContent, version: number, csrf: string, signal: AbortSignal) => postValidated(`/api/v1/projects/${encodeURIComponent(projectId)}/task-drafts/${encodeURIComponent(draftId)}`, {expected_version: version, content}, csrf, validateSavedTaskDraft, signal, undefined, undefined, 'PUT');
+export const previewCreation = (projectId: string, draft: SavedTaskDraft, csrf: string, signal: AbortSignal) => postValidated(`/api/v1/projects/${encodeURIComponent(projectId)}/task-creation-previews`, {draft_id: draft.id, draft_version: draft.version}, csrf, validateTaskCreationPreview, signal);

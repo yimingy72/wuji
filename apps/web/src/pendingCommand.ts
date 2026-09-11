@@ -1,5 +1,5 @@
 import { useMemo, useSyncExternalStore } from 'react';
-import type { CreateTask, TaskControl } from './api';
+import type { CreateTask, NewCreateTaskRequest, TaskControl } from './api';
 
 export type PendingCommandKind = 'create' | 'cancel';
 
@@ -14,7 +14,7 @@ export interface PendingCommand {
 }
 
 export type FrozenCommand =
-  | { readonly kind: 'create'; readonly request: Readonly<CreateTask> }
+  | { readonly kind: 'create'; readonly request: Readonly<CreateTask | NewCreateTaskRequest> }
   | { readonly kind: 'cancel'; readonly request: Readonly<TaskControl> };
 
 const prefix = 'wuji.pending-command.v1.';
