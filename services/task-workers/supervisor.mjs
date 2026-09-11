@@ -37,7 +37,9 @@ async function launch(id,b){
  let executable=process.execPath,args,env={PATH:process.env.PATH,HOME:dir,WUJI_CONFIG:configPath,WUJI_WORKSPACE:process.env.WUJI_WORKSPACE||'/workspace'};
  if(role==='agent'){
  const {tool_token,...clean}=b;await fs.writeFile(path.join(dir,'tool_token'),tool_token,{mode:0o600});await fs.writeFile(path.join(dir,'run.json'),JSON.stringify(clean),{mode:0o600});
- env={...env,PI_CODING_AGENT_DIR:path.join(dir,'pi'),WUJI_RUN_DIR:dir,WUJI_MODEL_KEY_FILE:path.join(creds,'model_key')};
+ const piDir=path.join(dir,'pi');await fs.mkdir(piDir,{mode:0o700});
+ await fs.writeFile(path.join(piDir,'settings.json'),JSON.stringify({retry:{enabled:false,maxRetries:0,provider:{maxRetries:0}}}),{mode:0o600});
+ env={...env,PI_CODING_AGENT_DIR:piDir,WUJI_RUN_DIR:dir,WUJI_MODEL_KEY_FILE:path.join(creds,'model_key')};
  executable=path.join(import.meta.dirname,'node_modules/.bin/pi');args=['--mode','json','--print','--no-extensions','--no-skills','--no-prompt-templates','--no-themes','--no-context-files','--no-builtin-tools','-e',path.join(import.meta.dirname,'trusted-extension.ts'),'--provider','wuji','--model',b.model.model_id,'--session',path.join(dir,'session.jsonl'),b.prompt];
  }else{await fs.writeFile(path.join(dir,'call.json'),JSON.stringify(b),{mode:0o600});args=[path.join(import.meta.dirname,'helper.mjs'),path.join(dir,'call.json')];}
  const out=await fs.open(path.join(dir,'output'),'a',0o600);const err=await fs.open(path.join(dir,'stderr'),'a',0o600);

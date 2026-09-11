@@ -822,6 +822,11 @@ def api_environment(run: Mapping[str, Any], *, profile: str, ttl: int = 900) -> 
             "WUJI_MODEL_GATEWAY_KEY": gateway["master_key"],
             "WUJI_MODEL_GATEWAY_INSTANCE_ID": gateway["instance_id"],
         })
+        if local_profile == "local-test":
+            # The approved core run uses a closed upstream fixture, never a company key.
+            environment["WUJI_MODEL_GATEWAY_ALLOWED_BASES"] = json.dumps(
+                ["http://wuji-core-fixtures:8000/v1"]
+            )
     if "WUJI_TEST_RUN_FILE" in environment:
         raise LifecycleError("API environment must not receive the test run file")
     return environment

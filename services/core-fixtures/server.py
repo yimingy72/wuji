@@ -47,7 +47,9 @@ def model_response(request):
     messages=request.get('messages',[])
     text='\n'.join(str(m.get('content','')) for m in messages if m.get('role') in ('system','user'))
     phase_match=re.search(r'"phase"\s*:\s*"(bootstrap|reason|explore)"',text)
-    if not phase_match: raise ValueError('fixture_stage_marker_required')
+    if not phase_match:
+        # Native LiteLLM's explicit connection check has no Wuji Agent assignment.
+        return {'role':'assistant','content':'fixture connection ok'}
     phase=phase_match.group(1)
     observations=tool_observations(messages)
     seen={name:unwrap(value) for name,value in observations}

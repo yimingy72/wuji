@@ -197,17 +197,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * List tasks with stable cursor pagination
-         * @description List tasks with stable cursor pagination
-         */
-        get: operations["listTasks"];
+        /** List Tasks */
+        get: operations["list_tasks_api_v1_projects__project_id__tasks_get"];
         put?: never;
-        /**
-         * Accept a task creation command
-         * @description Reauthorize, resolve idempotency, validate caller/project-bound unexpired preview and exact canonical draft/digest, then atomically create Task queued + command receipt + Outbox. Cannot grant scope or arbitrary tools. Limits may only narrow approved limits. Concurrent same-key requests return one task. Never contact a target in this transaction.
-         */
-        post: operations["createTask"];
+        /** Create Task */
+        post: operations["create_task_api_v1_projects__project_id__tasks_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -221,11 +215,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Read an authoritative task snapshot and consistent event cursor
-         * @description Snapshot and cursor use one consistent committed view. Every later committed change must be replayable after this cursor; database sequence allocation alone is not commit ordering. Task terminal states require confirmed no active/unknown execution and egress revoked or never granted. Cleanup remains independent.
-         */
-        get: operations["getTask"];
+        /** Get Task */
+        get: operations["get_task_api_v1_projects__project_id__tasks__task_id__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -243,11 +234,8 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /**
-         * Accept cancellation; reject unsupported pause or resume transitions
-         * @description Reauthorize first. Same-key replay resolves before expected_version checking and returns the original receipt. A new command atomically checks the task version, transitions intent/state, writes receipt and Outbox. This batch only transitions never-executed queued tasks directly to cancelled; pause and resume return INVALID_TRANSITION. Terminal tasks reject new controls.
-         */
-        post: operations["controlTask"];
+        /** Control Task */
+        post: operations["control_task_api_v1_projects__project_id__tasks__task_id__commands_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -301,11 +289,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Replay persisted task event notices
-         * @description Phase 1 read API; Phase 2 SSE is not yet exposed. Omitting after returns bounded initial history from task sequence zero; supplied after is exclusive. Stable replay cursor ordering must not skip late commits. Empty pages preserve cursor, has_more bounds catch-up. Expired cursor returns 410 CURSOR_EXPIRED. Every page reauthorizes. No raw credentials or evidence body in events.
-         */
-        get: operations["listTaskEvents"];
+        /** List Task Events */
+        get: operations["list_task_events_api_v1_projects__project_id__tasks__task_id__events_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -321,11 +306,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * List authorized artifact metadata
-         * @description List authorized artifact metadata
-         */
-        get: operations["listArtifacts"];
+        /** Get Task Artifacts */
+        get: operations["get_task_artifacts_api_v1_projects__project_id__tasks__task_id__artifacts_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -401,11 +383,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * listTaskDrafts
-         * @description User-owned incomplete task intent. Saving does not create a Task, grant Scope or contact any external service. PUT uses expected_version=0 for create; an immediate identical replay returns the saved version. Reads require current project access. Signed pagination binds user, permissions version, project, limit and task_drafts purpose.
-         */
-        get: operations["listTaskDrafts"];
+        /** List Drafts */
+        get: operations["list_drafts_api_v1_projects__project_id__task_drafts_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -421,16 +400,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * getTaskDraft
-         * @description User-owned incomplete task intent. Saving does not create a Task, grant Scope or contact any external service. PUT uses expected_version=0 for create; an immediate identical replay returns the saved version. Reads require current project access. Signed pagination binds user, permissions version, project, limit and task_drafts purpose.
-         */
-        get: operations["getTaskDraft"];
-        /**
-         * saveTaskDraft
-         * @description User-owned incomplete task intent. Saving does not create a Task, grant Scope or contact any external service. PUT uses expected_version=0 for create; an immediate identical replay returns the saved version. Reads require current project access. Signed pagination binds user, permissions version, project, limit and task_drafts purpose.
-         */
-        put: operations["saveTaskDraft"];
+        /** Get Draft */
+        get: operations["get_draft_api_v1_projects__project_id__task_drafts__draft_id__get"];
+        /** Save Draft */
+        put: operations["save_draft_api_v1_projects__project_id__task_drafts__draft_id__put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -694,6 +667,125 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/scenario-profiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Profiles */
+        get: operations["get_profiles_api_v1_projects__project_id__scenario_profiles_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/task-creation-previews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview */
+        post: operations["preview_api_v1_projects__project_id__task_creation_previews_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/tasks/{task_id}/agent-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Agent Runs */
+        get: operations["get_agent_runs_api_v1_projects__project_id__tasks__task_id__agent_runs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/tasks/{task_id}/tool-calls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Tool Calls */
+        get: operations["get_tool_calls_api_v1_projects__project_id__tasks__task_id__tool_calls_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/tasks/{task_id}/blackboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Blackboard */
+        get: operations["blackboard_api_v1_projects__project_id__tasks__task_id__blackboard_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/tasks/{task_id}/result": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Result */
+        get: operations["result_api_v1_projects__project_id__tasks__task_id__result_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/tasks/{task_id}/artifacts/{artifact_id}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download */
+        get: operations["download_api_v1_projects__project_id__tasks__task_id__artifacts__artifact_id__content_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -797,9 +889,15 @@ export interface components {
             input_digest: components["schemas"]["Sha256"];
             draft: components["schemas"]["TaskDraft"];
         };
+        /** TaskControlRequest */
         TaskControl: {
-            action: components["schemas"]["TaskAction"];
-            expected_version: components["schemas"]["Version"];
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "start" | "pause" | "resume" | "cancel";
+            /** Expected Version */
+            expected_version: number;
         };
         ExecutionSummary: {
             active_calls: number;
@@ -807,53 +905,55 @@ export interface components {
             /** @enum {string} */
             egress_state: "pending" | "active" | "frozen" | "revoked" | "not_granted" | "unknown";
         };
-        Task: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            tenant_id: string;
-            /** Format: uuid */
-            project_id: string;
-            name: string;
-            /** Format: uri */
-            target_url: string;
-            scope: components["schemas"]["ScopeBinding"];
-            version: components["schemas"]["Version"];
-            state: components["schemas"]["TaskState"];
-            /** @enum {string} */
-            cleanup_state: "not_required" | "pending" | "cleaning" | "cleaned" | "cleanup_pending";
-            execution: components["schemas"]["ExecutionSummary"];
-            allowed_actions: components["schemas"]["TaskAction"][];
-            /** @enum {string} */
-            assessment_outcome: "criteria_met" | "partial" | "inconclusive" | "not_assessed";
-            /** @enum {string|null} */
-            stop_reason: null | "criteria_met" | "plan_exhausted" | "budget_exhausted" | "deadline_exceeded" | "user_cancelled" | "runtime_error" | "authorization_expired";
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-        } & (unknown & unknown);
+        Task: components["schemas"]["LegacyTask"] | components["schemas"]["WebTask"];
+        /** TaskSnapshotResponse */
         TaskSnapshot: {
-            task: components["schemas"]["Task"];
-            event_cursor: components["schemas"]["Cursor"];
+            /** Task */
+            task: components["schemas"]["LegacyTask"] | components["schemas"]["WebTask"];
+            /** Event Cursor */
+            event_cursor: string;
         };
+        /** CommandReceiptResponse */
         CommandReceipt: {
-            /** Format: uuid */
+            /**
+             * Command Id
+             * Format: uuid
+             */
             command_id: string;
-            /** Format: uuid */
+            /**
+             * Idempotency Key
+             * Format: uuid
+             */
             idempotency_key: string;
-            /** @enum {string} */
-            kind: "create" | "pause" | "resume" | "cancel";
-            /** @constant */
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "create" | "start" | "cancel";
+            /**
+             * Disposition
+             * @constant
+             */
             disposition: "accepted";
-            /** Format: uuid */
+            /**
+             * Project Id
+             * Format: uuid
+             */
             project_id: string;
-            /** Format: uuid */
+            /**
+             * Task Id
+             * Format: uuid
+             */
             task_id: string;
-            /** Format: date-time */
+            /**
+             * Accepted At
+             * Format: date-time
+             */
             accepted_at: string;
-            accepted_task_version: components["schemas"]["Version"];
-            request_digest: components["schemas"]["Sha256"];
+            /** Accepted Task Version */
+            accepted_task_version: number;
+            /** Request Digest */
+            request_digest: string;
         };
         TaskEvent: {
             /** @constant */
@@ -876,26 +976,29 @@ export interface components {
             trace_id: string;
             summary: string;
         };
+        /** Artifact */
         Artifact: {
-            /** Format: uuid */
+            /**
+             * Id
+             * Format: uuid
+             */
             id: string;
-            /** Format: uuid */
-            tenant_id: string;
-            /** Format: uuid */
-            project_id: string;
-            /** Format: uuid */
-            task_id: string;
+            /** Kind */
+            kind: string;
+            /** Name */
             name: string;
-            media_type: string;
-            size_bytes: number;
-            sha256: components["schemas"]["Sha256"];
-            /** @enum {string} */
-            classification: "redacted" | "restricted";
-            /** @enum {string} */
-            availability: "available" | "expired" | "unavailable";
-            /** @enum {string} */
-            preview_kind: "text" | "download_only";
-            /** Format: date-time */
+            /** Mime */
+            mime: string;
+            /** Size */
+            size: number;
+            /** Sha256 */
+            sha256: string;
+            /** State */
+            state: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
             created_at: string;
         };
         ArtifactPreview: {
@@ -914,12 +1017,18 @@ export interface components {
             items: components["schemas"]["ApprovedScope"][];
             next_cursor: string | null;
         };
+        /** TaskPageResponse */
         TaskPage: {
-            items: components["schemas"]["Task"][];
+            /** Items */
+            items: (components["schemas"]["LegacyTask"] | components["schemas"]["WebTask"])[];
+            /** Next Cursor */
             next_cursor: string | null;
         };
+        /** ArtifactPage */
         ArtifactPage: {
+            /** Items */
             items: components["schemas"]["Artifact"][];
+            /** Next Cursor */
             next_cursor: string | null;
         };
         EventPage: {
@@ -1238,7 +1347,7 @@ export interface components {
             /** Expected Version */
             expected_version: number;
             /** Content */
-            content: components["schemas"]["CtfDraft"] | components["schemas"]["WebDraft"] | components["schemas"]["ComprehensiveDraft"] | components["schemas"]["ExerciseDraft"] | components["schemas"]["CodeAuditDraft"];
+            content: (components["schemas"]["CtfDraft"] | components["schemas"]["WebDraft"] | components["schemas"]["ComprehensiveDraft"] | components["schemas"]["ExerciseDraft"] | components["schemas"]["CodeAuditDraft"]) | (components["schemas"]["CtfDraftV2"] | components["schemas"]["WebDraftV2"] | components["schemas"]["ComprehensiveDraftV2"] | components["schemas"]["ExerciseDraftV2"] | components["schemas"]["CodeAuditDraftV2"]);
         };
         /** TaskDraftResponse */
         SavedTaskDraft: {
@@ -1265,7 +1374,19 @@ export interface components {
             /** Version */
             version: number;
             /** Content */
-            content: components["schemas"]["CtfDraft"] | components["schemas"]["WebDraft"] | components["schemas"]["ComprehensiveDraft"] | components["schemas"]["ExerciseDraft"] | components["schemas"]["CodeAuditDraft"];
+            content: (components["schemas"]["CtfDraft"] | components["schemas"]["WebDraft"] | components["schemas"]["ComprehensiveDraft"] | components["schemas"]["ExerciseDraft"] | components["schemas"]["CodeAuditDraft"]) | (components["schemas"]["CtfDraftV2"] | components["schemas"]["WebDraftV2"] | components["schemas"]["ComprehensiveDraftV2"] | components["schemas"]["ExerciseDraftV2"] | components["schemas"]["CodeAuditDraftV2"]);
+            /**
+             * Selected Model Summary
+             * @default null
+             */
+            selected_model_summary: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Last Created Task Id
+             * @default null
+             */
+            last_created_task_id: string | null;
             /**
              * Created At
              * Format: date-time
@@ -1374,10 +1495,16 @@ export interface components {
              * @enum {string}
              */
             cache_mode: "standard_input" | "separate";
-            /** Cache Read Per Million */
-            cache_read_per_million?: string | null;
-            /** Cache Creation Per Million */
-            cache_creation_per_million?: string | null;
+            /**
+             * Cache Read Per Million
+             * @default null
+             */
+            cache_read_per_million: string | null;
+            /**
+             * Cache Creation Per Million
+             * @default null
+             */
+            cache_creation_per_million: string | null;
         };
         /** ModelVersionCommand */
         ModelVersionCommand: {
@@ -1451,16 +1578,23 @@ export interface components {
             service_version_id: string;
             /** Model Id */
             model_id: string;
-            /** Context Window */
-            context_window?: number | null;
-            /** Max Output Tokens */
-            max_output_tokens?: number | null;
+            /**
+             * Context Window
+             * @default null
+             */
+            context_window: number | null;
+            /**
+             * Max Output Tokens
+             * @default null
+             */
+            max_output_tokens: number | null;
             /**
              * Timeout Seconds
              * @default 30
              */
             timeout_seconds: number;
-            pricing?: components["schemas"]["ModelPricing"] | null;
+            /** @default null */
+            pricing: components["schemas"]["ModelPricing"] | null;
         };
         /** ProfileVersionRequest */
         ProfileVersionRequest: {
@@ -1507,6 +1641,931 @@ export interface components {
             name: string;
             /** Permissions */
             permissions: ("model.config.read" | "model.config.write")[];
+        };
+        /** ExecutionSummaryResponse */
+        ExecutionSummaryResponse: {
+            /** Active Calls */
+            active_calls: number;
+            /** Unknown Calls */
+            unknown_calls: number;
+            /**
+             * Egress State
+             * @constant
+             */
+            egress_state: "not_granted";
+        };
+        /** ScopeBindingModel */
+        ScopeBindingModel: {
+            /**
+             * Policy Id
+             * Format: uuid
+             */
+            policy_id: string;
+            /** Version */
+            version: number;
+        };
+        /** TaskResponse */
+        LegacyTask: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Tenant Id
+             * Format: uuid
+             */
+            tenant_id: string;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /** Name */
+            name: string;
+            /** Target Url */
+            target_url: string;
+            scope: components["schemas"]["ScopeBindingModel"];
+            /** Version */
+            version: number;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "queued" | "cancelled";
+            /**
+             * Cleanup State
+             * @constant
+             */
+            cleanup_state: "not_required";
+            execution: components["schemas"]["ExecutionSummaryResponse"];
+            /** Allowed Actions */
+            allowed_actions: "cancel"[];
+            /**
+             * Assessment Outcome
+             * @constant
+             */
+            assessment_outcome: "not_assessed";
+            /** Stop Reason */
+            stop_reason: "user_cancelled" | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** CodeAuditDraftV2 */
+        CodeAuditDraftV2: {
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "2.0";
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+            /**
+             * Objective
+             * @default
+             */
+            objective: string;
+            /** @default null */
+            goal_template: components["schemas"]["GoalTemplateReference"] | null;
+            /** Completion Criteria */
+            completion_criteria?: string[];
+            /**
+             * Supplemental Hints
+             * @default
+             */
+            supplemental_hints: string;
+            /** Reference Ids */
+            reference_ids?: string[];
+            /**
+             * Model Profile Version Id
+             * @default null
+             */
+            model_profile_version_id: string | null;
+            /**
+             * Runtime Profile Version Id
+             * @default null
+             */
+            runtime_profile_version_id: string | null;
+            /**
+             * Budget Usd
+             * @default null
+             */
+            budget_usd: string | null;
+            /**
+             * Scenario
+             * @constant
+             */
+            scenario: "code_audit";
+            /**
+             * Repository Url
+             * @default null
+             */
+            repository_url: string | null;
+            /**
+             * Source Reference Id
+             * @default null
+             */
+            source_reference_id: string | null;
+            /**
+             * Revision
+             * @default null
+             */
+            revision: string | null;
+        };
+        /** ComprehensiveDraftV2 */
+        ComprehensiveDraftV2: {
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "2.0";
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+            /**
+             * Objective
+             * @default
+             */
+            objective: string;
+            /** @default null */
+            goal_template: components["schemas"]["GoalTemplateReference"] | null;
+            /** Completion Criteria */
+            completion_criteria?: string[];
+            /**
+             * Supplemental Hints
+             * @default
+             */
+            supplemental_hints: string;
+            /** Reference Ids */
+            reference_ids?: string[];
+            /**
+             * Model Profile Version Id
+             * @default null
+             */
+            model_profile_version_id: string | null;
+            /**
+             * Runtime Profile Version Id
+             * @default null
+             */
+            runtime_profile_version_id: string | null;
+            /**
+             * Budget Usd
+             * @default null
+             */
+            budget_usd: string | null;
+            /**
+             * Scenario
+             * @constant
+             */
+            scenario: "comprehensive";
+            /** Assets */
+            assets?: string[];
+            /**
+             * Access Notes
+             * @default
+             */
+            access_notes: string;
+        };
+        /** CreationConfigSnapshot */
+        CreationConfigSnapshot: {
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "1.0";
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Scenario
+             * @constant
+             */
+            scenario: "web_single";
+            goal_template: components["schemas"]["GoalTemplateReference"] | null;
+            /** Objective */
+            objective: string;
+            /** Completion Criteria */
+            completion_criteria: string[];
+            /** Supplemental Hints */
+            supplemental_hints: string;
+            /** Actual Input */
+            actual_input: components["schemas"]["CtfDraftV2"] | components["schemas"]["WebDraftV2"] | components["schemas"]["ComprehensiveDraftV2"] | components["schemas"]["ExerciseDraftV2"] | components["schemas"]["CodeAuditDraftV2"];
+            authorization: components["schemas"]["TaskAuthorization"];
+            /**
+             * Authorization Id
+             * Format: uuid
+             */
+            authorization_id: string;
+            /** Authorization Digest */
+            authorization_digest: string;
+            model: components["schemas"]["SelectedModelSnapshot"];
+            /** Budget Usd */
+            budget_usd: string;
+            /**
+             * Created By
+             * Format: uuid
+             */
+            created_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Digest */
+            digest: string;
+        };
+        /** CtfDraftV2 */
+        CtfDraftV2: {
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "2.0";
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+            /**
+             * Objective
+             * @default
+             */
+            objective: string;
+            /** @default null */
+            goal_template: components["schemas"]["GoalTemplateReference"] | null;
+            /** Completion Criteria */
+            completion_criteria?: string[];
+            /**
+             * Supplemental Hints
+             * @default
+             */
+            supplemental_hints: string;
+            /** Reference Ids */
+            reference_ids?: string[];
+            /**
+             * Model Profile Version Id
+             * @default null
+             */
+            model_profile_version_id: string | null;
+            /**
+             * Runtime Profile Version Id
+             * @default null
+             */
+            runtime_profile_version_id: string | null;
+            /**
+             * Budget Usd
+             * @default null
+             */
+            budget_usd: string | null;
+            /**
+             * Scenario
+             * @constant
+             */
+            scenario: "ctf";
+            /**
+             * Challenge
+             * @default
+             */
+            challenge: string;
+            /**
+             * Entry Url
+             * @default null
+             */
+            entry_url: string | null;
+        };
+        /** Endpoint */
+        Endpoint: {
+            /**
+             * Scheme
+             * @enum {string}
+             */
+            scheme: "http" | "https";
+            /** Port */
+            port: number;
+        };
+        /** ExcludeRule */
+        ExcludeRule: {
+            /** Host */
+            host: string;
+            /**
+             * Include Subdomains
+             * @default false
+             */
+            include_subdomains: boolean;
+            /**
+             * Endpoints
+             * @default all_included
+             */
+            endpoints: "all_included" | components["schemas"]["Endpoint"][];
+        };
+        /** ExerciseDraftV2 */
+        ExerciseDraftV2: {
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "2.0";
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+            /**
+             * Objective
+             * @default
+             */
+            objective: string;
+            /** @default null */
+            goal_template: components["schemas"]["GoalTemplateReference"] | null;
+            /** Completion Criteria */
+            completion_criteria?: string[];
+            /**
+             * Supplemental Hints
+             * @default
+             */
+            supplemental_hints: string;
+            /** Reference Ids */
+            reference_ids?: string[];
+            /**
+             * Model Profile Version Id
+             * @default null
+             */
+            model_profile_version_id: string | null;
+            /**
+             * Runtime Profile Version Id
+             * @default null
+             */
+            runtime_profile_version_id: string | null;
+            /**
+             * Budget Usd
+             * @default null
+             */
+            budget_usd: string | null;
+            /**
+             * Scenario
+             * @constant
+             */
+            scenario: "exercise";
+            /**
+             * Organization Name
+             * @default
+             */
+            organization_name: string;
+            /** Known Domains */
+            known_domains?: string[];
+        };
+        /** GoalTemplateReference */
+        GoalTemplateReference: {
+            /** Id */
+            id: string;
+            /** Version */
+            version: number;
+            /** Digest */
+            digest: string;
+        };
+        /** IncludeRule */
+        IncludeRule: {
+            /** Host */
+            host: string;
+            /**
+             * Include Subdomains
+             * @default false
+             */
+            include_subdomains: boolean;
+            endpoint: components["schemas"]["Endpoint"];
+        };
+        /** SelectedModelSnapshot */
+        SelectedModelSnapshot: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Definition Id
+             * Format: uuid
+             */
+            definition_id: string;
+            /** Number */
+            number: number;
+            /** Name */
+            name: string;
+            /** State Revision */
+            state_revision: number;
+            config: components["schemas"]["ProfileConfig"];
+        };
+        /** TaskAuthorization */
+        TaskAuthorization: {
+            /**
+             * Schema Version
+             * @default 1.0
+             * @constant
+             */
+            schema_version: "1.0";
+            /** Includes */
+            includes?: components["schemas"]["IncludeRule"][];
+            /** Excludes */
+            excludes?: components["schemas"]["ExcludeRule"][];
+            /**
+             * Valid Until
+             * @default null
+             */
+            valid_until: string | null;
+        };
+        /** TaskAuthorizationBindingResponse */
+        TaskAuthorizationBindingResponse: {
+            /**
+             * Authorization Id
+             * Format: uuid
+             */
+            authorization_id: string;
+            /** Version */
+            version: number;
+            /** Hash */
+            hash: string;
+        };
+        /** WebDraftV2 */
+        WebDraftV2: {
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "2.0";
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+            /**
+             * Objective
+             * @default
+             */
+            objective: string;
+            /** @default null */
+            goal_template: components["schemas"]["GoalTemplateReference"] | null;
+            /** Completion Criteria */
+            completion_criteria?: string[];
+            /**
+             * Supplemental Hints
+             * @default
+             */
+            supplemental_hints: string;
+            /** Reference Ids */
+            reference_ids?: string[];
+            /**
+             * Model Profile Version Id
+             * @default null
+             */
+            model_profile_version_id: string | null;
+            /**
+             * Runtime Profile Version Id
+             * @default null
+             */
+            runtime_profile_version_id: string | null;
+            /**
+             * Budget Usd
+             * @default null
+             */
+            budget_usd: string | null;
+            /**
+             * Scenario
+             * @constant
+             */
+            scenario: "web_single";
+            /**
+             * Entry Url
+             * @default null
+             */
+            entry_url: string | null;
+            /** @default null */
+            authorization: components["schemas"]["TaskAuthorization"] | null;
+        };
+        /** WebExecutionSummaryResponse */
+        WebExecutionSummaryResponse: {
+            /** Active Calls */
+            active_calls: number;
+            /** Unknown Calls */
+            unknown_calls: number;
+            /**
+             * Egress State
+             * @enum {string}
+             */
+            egress_state: "not_granted" | "fixture_only" | "revoking" | "revoked" | "unknown";
+        };
+        /** WebTaskResponse */
+        WebTask: {
+            /**
+             * Task Kind
+             * @default web_assessment
+             * @constant
+             */
+            task_kind: "web_assessment";
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Tenant Id
+             * Format: uuid
+             */
+            tenant_id: string;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /** Name */
+            name: string;
+            /** Target Url */
+            target_url: string;
+            scope: components["schemas"]["TaskAuthorizationBindingResponse"];
+            /** Version */
+            version: number;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "ready" | "provisioning" | "running" | "completing" | "completed" | "cancelling" | "cancelled" | "reconciling";
+            /**
+             * Cleanup State
+             * @enum {string}
+             */
+            cleanup_state: "not_required" | "pending" | "running" | "completed" | "failed" | "unknown";
+            execution: components["schemas"]["WebExecutionSummaryResponse"];
+            /** Allowed Actions */
+            allowed_actions: ("start" | "cancel")[];
+            /**
+             * Assessment Outcome
+             * @enum {string}
+             */
+            assessment_outcome: "not_assessed" | "complete" | "partial" | "inconclusive";
+            /** Stop Reason */
+            stop_reason: string | null;
+            creation_config: components["schemas"]["CreationConfigSnapshot"];
+            /** Start Blockers */
+            start_blockers?: string[];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** ScopeConfirmation */
+        ScopeConfirmation: {
+            /**
+             * Accepted
+             * @constant
+             */
+            accepted: true;
+            /** Authorization Digest */
+            authorization_digest: string;
+        };
+        /** NewCreateTaskRequest */
+        NewCreateTaskRequest: {
+            /**
+             * Draft Id
+             * Format: uuid
+             */
+            draft_id: string;
+            /** Draft Version */
+            draft_version: number;
+            /**
+             * Creation Kind
+             * @constant
+             */
+            creation_kind: "saved_web_draft";
+            /**
+             * Preview Id
+             * Format: uuid
+             */
+            preview_id: string;
+            /** Input Digest */
+            input_digest: string;
+            scope_confirmation: components["schemas"]["ScopeConfirmation"];
+        };
+        /** CreationBlocker */
+        CreationBlocker: {
+            /** Code */
+            code: string;
+            /** Message */
+            message: string;
+        };
+        /** TaskCreationPreview */
+        TaskCreationPreview: {
+            /**
+             * Preview Id
+             * Format: uuid
+             */
+            preview_id: string;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /**
+             * Start Available
+             * @default false
+             * @constant
+             */
+            start_available: false;
+            /**
+             * Draft Id
+             * Format: uuid
+             */
+            draft_id: string;
+            /** Draft Version */
+            draft_version: number;
+            /** Normalized Content */
+            normalized_content: (components["schemas"]["CtfDraft"] | components["schemas"]["WebDraft"] | components["schemas"]["ComprehensiveDraft"] | components["schemas"]["ExerciseDraft"] | components["schemas"]["CodeAuditDraft"]) | (components["schemas"]["CtfDraftV2"] | components["schemas"]["WebDraftV2"] | components["schemas"]["ComprehensiveDraftV2"] | components["schemas"]["ExerciseDraftV2"] | components["schemas"]["CodeAuditDraftV2"]);
+            model_snapshot: components["schemas"]["SelectedModelSnapshot"] | null;
+            /** Input Digest */
+            input_digest: string;
+            /** Authorization Digest */
+            authorization_digest: string;
+            /** Can Create */
+            can_create: boolean;
+            /** Blockers */
+            blockers: components["schemas"]["CreationBlocker"][];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+        };
+        /** ScenarioProfile */
+        ScenarioProfile: {
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "1.0";
+            /** Id */
+            id: string;
+            /** Version */
+            version: number;
+            /**
+             * Scenario
+             * @enum {string}
+             */
+            scenario: "ctf" | "web_single" | "comprehensive" | "exercise" | "code_audit";
+            /** Name */
+            name: string;
+            /** Objective */
+            objective: string;
+            /** Completion Criteria */
+            completion_criteria: string[];
+            /** Digest */
+            digest: string;
+            /** Can Create */
+            can_create: boolean;
+        };
+        /** ScenarioProfilePage */
+        ScenarioProfilePage: {
+            /** Items */
+            items: components["schemas"]["ScenarioProfile"][];
+        };
+        SaveTaskDraftRequest: components["schemas"]["SaveDraftRequest"];
+        DraftContentV2: components["schemas"]["CtfDraftV2"] | components["schemas"]["WebDraftV2"] | components["schemas"]["ComprehensiveDraftV2"] | components["schemas"]["ExerciseDraftV2"] | components["schemas"]["CodeAuditDraftV2"];
+        WebDraftContentV2: components["schemas"]["WebDraftV2"];
+        /** CreationPreviewRequest */
+        CreationPreviewRequest: {
+            /**
+             * Draft Id
+             * Format: uuid
+             */
+            draft_id: string;
+            /** Draft Version */
+            draft_version: number;
+        };
+        /** AgentRun */
+        AgentRun: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Phase
+             * @enum {string}
+             */
+            phase: "bootstrap" | "reason" | "explore";
+            /** Intent Id */
+            intent_id: string | null;
+            /** Worker Profile Id */
+            worker_profile_id: string;
+            /** State */
+            state: string;
+            /** Result State */
+            result_state: string;
+            /** Outcome */
+            outcome: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** AgentRunPage */
+        AgentRunPage: {
+            /** Items */
+            items: components["schemas"]["AgentRun"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /** ToolCall */
+        ToolCall: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Agent Run Id
+             * Format: uuid
+             */
+            agent_run_id: string;
+            /** Tool */
+            tool: string;
+            /** State */
+            state: string;
+            /** Args */
+            args: {
+                [key: string]: unknown;
+            };
+            /** Result */
+            result: {
+                [key: string]: unknown;
+            } | null;
+            /** Cancel Requested */
+            cancel_requested: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** ToolCallPage */
+        ToolCallPage: {
+            /** Items */
+            items: components["schemas"]["ToolCall"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /** GraphFact */
+        GraphFact: {
+            /** Id */
+            id: string;
+            /** Description */
+            description: string;
+        };
+        /** NativeGraph */
+        NativeGraph: {
+            /** Project */
+            project: {
+                [key: string]: unknown;
+            };
+            /** Facts */
+            facts: components["schemas"]["GraphFact"][];
+            /** Intents */
+            intents: {
+                [key: string]: unknown;
+            }[];
+            /** Hints */
+            hints: {
+                [key: string]: unknown;
+            }[];
+        };
+        /** BlackBoardSnapshot */
+        BlackBoardSnapshot: {
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "pending" | "available";
+            /** Native Project Id */
+            native_project_id: string | null;
+            graph: components["schemas"]["NativeGraph"] | null;
+            /** Captured At */
+            captured_at: string | null;
+            /** Digest */
+            digest: string | null;
+        };
+        /** TaskResult */
+        TaskResult: {
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "pending" | "available";
+            /**
+             * Goal Status
+             * @enum {string}
+             */
+            goal_status: "unknown" | "met" | "not_met";
+            /** Summary */
+            summary: string;
+            /** Limitations */
+            limitations: string[];
+            /** Artifact Ids */
+            artifact_ids: string[];
+            /** Model Spend */
+            model_spend: string | null;
+            /** Cost State */
+            cost_state: string;
+        };
+        /** EventPageResponse */
+        EventPageResponse: {
+            /** Items */
+            items: components["schemas"]["TaskEventResponse"][];
+            /** Next Cursor */
+            next_cursor: string;
+            /** Has More */
+            has_more: boolean;
+        };
+        /** TaskEventResponse */
+        TaskEventResponse: {
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "1.0";
+            /**
+             * Event Id
+             * Format: uuid
+             */
+            event_id: string;
+            /** Cursor */
+            cursor: string;
+            /**
+             * Tenant Id
+             * Format: uuid
+             */
+            tenant_id: string;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /**
+             * Task Id
+             * Format: uuid
+             */
+            task_id: string;
+            /** Aggregate Version */
+            aggregate_version: number;
+            /**
+             * Type
+             * @constant
+             */
+            type: "task.changed";
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /**
+             * Trace Id
+             * Format: uuid
+             */
+            trace_id: string;
+            /** Summary */
+            summary: string;
         };
     };
     responses: never;
@@ -2207,21 +3266,21 @@ export interface operations {
             };
         };
     };
-    listTasks: {
+    list_tasks_api_v1_projects__project_id__tasks_get: {
         parameters: {
             query?: {
-                limit?: components["parameters"]["PageSize"];
-                cursor?: components["parameters"]["PageCursor"];
+                limit?: number;
+                cursor?: string | null;
             };
             header?: never;
             path: {
-                project_id: components["parameters"]["ProjectId"];
+                project_id: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Successful response */
+            /** @description Successful Response */
             200: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -2231,7 +3290,7 @@ export interface operations {
                     "application/json": components["schemas"]["TaskPage"];
                 };
             };
-            /** @description Session missing or expired */
+            /** @description Unauthorized */
             401: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -2241,7 +3300,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Resource unavailable to this caller */
+            /** @description Not Found */
             404: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -2251,7 +3310,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Cursor or artifact expired */
+            /** @description Gone */
             410: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -2261,7 +3320,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Invalid structured input */
+            /** @description Unprocessable Content */
             422: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -2271,7 +3330,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Unexpected server error */
+            /** @description Internal Server Error */
             500: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -2281,7 +3340,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Authority unavailable; fail closed */
+            /** @description Service Unavailable */
             503: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -2293,25 +3352,25 @@ export interface operations {
             };
         };
     };
-    createTask: {
+    create_task_api_v1_projects__project_id__tasks_post: {
         parameters: {
             query?: never;
             header: {
-                /** @description Same key + same canonical request returns the original receipt after reauthorization. Reusing a key with a different request returns 409. */
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "Idempotency-Key": string;
+                "X-CSRF-Token": string | null;
             };
             path: {
-                project_id: components["parameters"]["ProjectId"];
+                project_id: string;
             };
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CreateTask"];
+                "application/json": components["schemas"]["CreateTask"] | components["schemas"]["NewCreateTaskRequest"];
             };
         };
         responses: {
-            /** @description Successful response */
+            /** @description Successful Response */
             202: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -2321,7 +3380,7 @@ export interface operations {
                     "application/json": components["schemas"]["CommandReceipt"];
                 };
             };
-            /** @description Session missing or expired */
+            /** @description Unauthorized */
             401: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -2331,7 +3390,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Insufficient permission or invalid CSRF/Origin */
+            /** @description Forbidden */
             403: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -2341,7 +3400,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Resource unavailable to this caller */
+            /** @description Not Found */
             404: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -2351,7 +3410,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Version, idempotency, transition or expired preview conflict */
+            /** @description Conflict */
             409: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -2361,7 +3420,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Invalid structured input */
+            /** @description Unprocessable Content */
             422: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -2371,7 +3430,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Unexpected server error */
+            /** @description Internal Server Error */
             500: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -2381,7 +3440,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Authority unavailable; fail closed */
+            /** @description Service Unavailable */
             503: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -2393,19 +3452,19 @@ export interface operations {
             };
         };
     };
-    getTask: {
+    get_task_api_v1_projects__project_id__tasks__task_id__get: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                project_id: components["parameters"]["ProjectId"];
-                task_id: components["parameters"]["TaskId"];
+                project_id: string;
+                task_id: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Successful response */
+            /** @description Successful Response */
             200: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -2415,7 +3474,7 @@ export interface operations {
                     "application/json": components["schemas"]["TaskSnapshot"];
                 };
             };
-            /** @description Session missing or expired */
+            /** @description Unauthorized */
             401: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -2425,7 +3484,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Resource unavailable to this caller */
+            /** @description Not Found */
             404: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -2435,7 +3494,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Invalid structured input */
+            /** @description Unprocessable Content */
             422: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -2445,7 +3504,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Unexpected server error */
+            /** @description Internal Server Error */
             500: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -2455,7 +3514,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Authority unavailable; fail closed */
+            /** @description Service Unavailable */
             503: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -2467,16 +3526,16 @@ export interface operations {
             };
         };
     };
-    controlTask: {
+    control_task_api_v1_projects__project_id__tasks__task_id__commands_post: {
         parameters: {
             query?: never;
             header: {
-                /** @description Same key + same canonical request returns the original receipt after reauthorization. Reusing a key with a different request returns 409. */
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "Idempotency-Key": string;
+                "X-CSRF-Token": string | null;
             };
             path: {
-                project_id: components["parameters"]["ProjectId"];
-                task_id: components["parameters"]["TaskId"];
+                project_id: string;
+                task_id: string;
             };
             cookie?: never;
         };
@@ -2486,7 +3545,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Successful response */
+            /** @description Successful Response */
             202: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -2496,7 +3555,7 @@ export interface operations {
                     "application/json": components["schemas"]["CommandReceipt"];
                 };
             };
-            /** @description Session missing or expired */
+            /** @description Unauthorized */
             401: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -2506,7 +3565,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Insufficient permission or invalid CSRF/Origin */
+            /** @description Forbidden */
             403: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -2516,7 +3575,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Resource unavailable to this caller */
+            /** @description Not Found */
             404: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -2526,7 +3585,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Version, idempotency, transition or expired preview conflict */
+            /** @description Conflict */
             409: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -2536,7 +3595,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Invalid structured input */
+            /** @description Unprocessable Content */
             422: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -2546,7 +3605,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Unexpected server error */
+            /** @description Internal Server Error */
             500: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -2556,7 +3615,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Authority unavailable; fail closed */
+            /** @description Service Unavailable */
             503: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -2716,33 +3775,32 @@ export interface operations {
             };
         };
     };
-    listTaskEvents: {
+    list_task_events_api_v1_projects__project_id__tasks__task_id__events_get: {
         parameters: {
             query?: {
-                /** @description Omit to read bounded initial history from task sequence zero. A supplied cursor is exclusive. */
-                after?: components["schemas"]["Cursor"];
-                limit?: components["parameters"]["PageSize"];
+                after?: string | null;
+                limit?: number;
             };
             header?: never;
             path: {
-                project_id: components["parameters"]["ProjectId"];
-                task_id: components["parameters"]["TaskId"];
+                project_id: string;
+                task_id: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Successful response */
+            /** @description Successful Response */
             200: {
                 headers: {
                     "Cache-Control"?: "no-store";
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["EventPage"];
+                    "application/json": components["schemas"]["EventPageResponse"];
                 };
             };
-            /** @description Session missing or expired */
+            /** @description Unauthorized */
             401: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -2752,7 +3810,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Resource unavailable to this caller */
+            /** @description Not Found */
             404: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -2762,7 +3820,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Cursor or artifact expired */
+            /** @description Gone */
             410: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -2772,7 +3830,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Invalid structured input */
+            /** @description Unprocessable Content */
             422: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -2782,7 +3840,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Unexpected server error */
+            /** @description Internal Server Error */
             500: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -2792,7 +3850,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Authority unavailable; fail closed */
+            /** @description Service Unavailable */
             503: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -2804,22 +3862,22 @@ export interface operations {
             };
         };
     };
-    listArtifacts: {
+    get_task_artifacts_api_v1_projects__project_id__tasks__task_id__artifacts_get: {
         parameters: {
             query?: {
-                limit?: components["parameters"]["PageSize"];
-                cursor?: components["parameters"]["PageCursor"];
+                limit?: number;
+                cursor?: string | null;
             };
             header?: never;
             path: {
-                project_id: components["parameters"]["ProjectId"];
-                task_id: components["parameters"]["TaskId"];
+                project_id: string;
+                task_id: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Successful response */
+            /** @description Successful Response */
             200: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -2829,7 +3887,7 @@ export interface operations {
                     "application/json": components["schemas"]["ArtifactPage"];
                 };
             };
-            /** @description Session missing or expired */
+            /** @description Unauthorized */
             401: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -2839,7 +3897,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Insufficient permission or invalid CSRF/Origin */
+            /** @description Forbidden */
             403: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -2849,7 +3907,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Resource unavailable to this caller */
+            /** @description Not Found */
             404: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -2859,7 +3917,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Version, idempotency, transition or expired preview conflict */
+            /** @description Conflict */
             409: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -2869,7 +3927,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Cursor or artifact expired */
+            /** @description Gone */
             410: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -2879,7 +3937,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Invalid structured input */
+            /** @description Unprocessable Content */
             422: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -2889,8 +3947,8 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Rate limited */
-            429: {
+            /** @description Internal Server Error */
+            500: {
                 headers: {
                     "Cache-Control"?: "no-store";
                     [name: string]: unknown;
@@ -2899,7 +3957,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Authority unavailable; fail closed */
+            /** @description Service Unavailable */
             503: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -3225,11 +4283,11 @@ export interface operations {
             };
         };
     };
-    listTaskDrafts: {
+    list_drafts_api_v1_projects__project_id__task_drafts_get: {
         parameters: {
             query?: {
-                limit?: components["parameters"]["PageSize"];
-                cursor?: components["parameters"]["PageCursor"];
+                limit?: number;
+                cursor?: string | null;
             };
             header?: never;
             path: {
@@ -3239,7 +4297,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Current user draft page */
+            /** @description Successful Response */
             200: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -3249,7 +4307,7 @@ export interface operations {
                     "application/json": components["schemas"]["SavedTaskDraftPage"];
                 };
             };
-            /** @description Session missing or expired */
+            /** @description Unauthorized */
             401: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -3259,7 +4317,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Insufficient permission or invalid CSRF/Origin */
+            /** @description Forbidden */
             403: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -3269,7 +4327,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Resource unavailable to this caller */
+            /** @description Not Found */
             404: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -3279,7 +4337,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Version, idempotency, transition or expired preview conflict */
+            /** @description Conflict */
             409: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -3289,7 +4347,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Cursor or artifact expired */
+            /** @description Gone */
             410: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -3299,7 +4357,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Invalid structured input */
+            /** @description Unprocessable Content */
             422: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -3309,7 +4367,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Unexpected server error */
+            /** @description Internal Server Error */
             500: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -3319,7 +4377,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Authority unavailable; fail closed */
+            /** @description Service Unavailable */
             503: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -3331,7 +4389,7 @@ export interface operations {
             };
         };
     };
-    getTaskDraft: {
+    get_draft_api_v1_projects__project_id__task_drafts__draft_id__get: {
         parameters: {
             query?: never;
             header?: never;
@@ -3343,7 +4401,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Saved draft */
+            /** @description Successful Response */
             200: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -3353,7 +4411,7 @@ export interface operations {
                     "application/json": components["schemas"]["SavedTaskDraft"];
                 };
             };
-            /** @description Session missing or expired */
+            /** @description Unauthorized */
             401: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -3363,7 +4421,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Insufficient permission or invalid CSRF/Origin */
+            /** @description Forbidden */
             403: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -3373,7 +4431,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Resource unavailable to this caller */
+            /** @description Not Found */
             404: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -3383,7 +4441,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Version, idempotency, transition or expired preview conflict */
+            /** @description Conflict */
             409: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -3393,7 +4451,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Cursor or artifact expired */
+            /** @description Gone */
             410: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -3403,7 +4461,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Invalid structured input */
+            /** @description Unprocessable Content */
             422: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -3413,7 +4471,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Unexpected server error */
+            /** @description Internal Server Error */
             500: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -3423,7 +4481,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Authority unavailable; fail closed */
+            /** @description Service Unavailable */
             503: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -3435,12 +4493,11 @@ export interface operations {
             };
         };
     };
-    saveTaskDraft: {
+    save_draft_api_v1_projects__project_id__task_drafts__draft_id__put: {
         parameters: {
             query?: never;
             header: {
-                /** @description Must equal the configured platform origin. */
-                Origin: string;
+                "X-CSRF-Token": string | null;
             };
             path: {
                 project_id: string;
@@ -3454,7 +4511,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Saved draft */
+            /** @description Successful Response */
             200: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -3464,7 +4521,7 @@ export interface operations {
                     "application/json": components["schemas"]["SavedTaskDraft"];
                 };
             };
-            /** @description Session missing or expired */
+            /** @description Unauthorized */
             401: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -3474,7 +4531,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Insufficient permission or invalid CSRF/Origin */
+            /** @description Forbidden */
             403: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -3484,7 +4541,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Resource unavailable to this caller */
+            /** @description Not Found */
             404: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -3494,7 +4551,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Version, idempotency, transition or expired preview conflict */
+            /** @description Conflict */
             409: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -3504,7 +4561,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Cursor or artifact expired */
+            /** @description Gone */
             410: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -3514,7 +4571,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Invalid structured input */
+            /** @description Unprocessable Content */
             422: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -3524,7 +4581,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Unexpected server error */
+            /** @description Internal Server Error */
             500: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -3534,7 +4591,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Authority unavailable; fail closed */
+            /** @description Service Unavailable */
             503: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -5243,6 +6300,715 @@ export interface operations {
                 };
             };
             /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    get_profiles_api_v1_projects__project_id__scenario_profiles_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScenarioProfilePage"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    preview_api_v1_projects__project_id__task_creation_previews_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string | null;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreationPreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskCreationPreview"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    get_agent_runs_api_v1_projects__project_id__tasks__task_id__agent_runs_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string | null;
+            };
+            header?: never;
+            path: {
+                project_id: string;
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentRunPage"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Gone */
+            410: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    get_tool_calls_api_v1_projects__project_id__tasks__task_id__tool_calls_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string | null;
+            };
+            header?: never;
+            path: {
+                project_id: string;
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ToolCallPage"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Gone */
+            410: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    blackboard_api_v1_projects__project_id__tasks__task_id__blackboard_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlackBoardSnapshot"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Gone */
+            410: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    result_api_v1_projects__project_id__tasks__task_id__result_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskResult"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Gone */
+            410: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    download_api_v1_projects__project_id__tasks__task_id__artifacts__artifact_id__content_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                task_id: string;
+                artifact_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation Error */
             422: {
                 headers: {
                     "Cache-Control"?: "no-store";

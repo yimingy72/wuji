@@ -7,6 +7,8 @@ import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
+from datetime import datetime, timezone
+from urllib.parse import urlsplit
 from typing import Final, Literal
 from uuid import UUID, uuid4
 
@@ -33,6 +35,9 @@ from wuji_api.database import (
     VersionConflict,
 )
 from wuji_api.model_gateway import ModelGateway
+from wuji_api.task_creation import NewCreateTaskRequest, CreationBlocked
+from wuji_api.task_creation_store import CreationStore
+from wuji_api.execution_store import ExecutionStore
 from wuji_api.oidc import OIDCClient, OIDCDependencyError, OIDCProtocolError
 from wuji_api.scope_policy import ScopePolicyError, normalize_task_draft
 from wuji_api.scopes import (
@@ -63,6 +68,7 @@ from wuji_api.tasks import (
     TaskEventResponse,
     TaskPageResponse,
     TaskResponse,
+    WebTaskResponse,
     TaskSnapshotResponse,
     command_request_digest,
 )
@@ -81,6 +87,7 @@ ERROR_MESSAGES = {
     "VERSION_CONFLICT": "资源版本已变化，请重新加载",
     "IDEMPOTENCY_CONFLICT": "幂等键已绑定到不同请求",
     "INVALID_TRANSITION": "当前任务状态不允许该操作",
+    "CREATION_BLOCKED": "创建条件已变化，请重新预览",
     "SERVICE_UNAVAILABLE": "平台依赖暂时不可用",
     "CURSOR_EXPIRED": "分页状态已过期，请重新加载",
     "INTERNAL_ERROR": "服务暂时无法处理请求",
@@ -238,9 +245,38 @@ def _scope_response(record) -> ApprovedScopeResponse:
     )
 
 
-def _task_response(record: dict, *, can_control: bool) -> TaskResponse:
+def _task_response(record: dict, *, can_control: bool) -> TaskResponse | WebTaskResponse:
     state = record["state"]
     draft = record["draft"]
+    if record.get("task_kind") == "web_assessment":
+        config = record["creation_config"]
+        blockers=[]
+        service=record.get("core_service_config")
+        if state=="ready":
+            if not service or service.get("ready") is not True: blockers.append("执行控制尚未就绪")
+            else:
+                if service.get("model_profile_version_id")!=config["model"]["id"]:blockers.append("当前环境仅支持登记的合成模型")
+                parsed=urlsplit(config["actual_input"]["entry_url"])
+                if parsed.scheme+"://"+parsed.netloc not in service.get("fixture_origins",[]):blockers.append("当前环境仅支持登记的测试夹具")
+            if not record.get("current_model_usable"):blockers.append("模型方案已不可用")
+            if datetime.fromisoformat(config["authorization"]["valid_until"].replace("Z","+00:00"))<=datetime.now(timezone.utc):
+                blockers.append("授权已过期")
+        actions=["cancel"] if can_control and state not in {"cancelled","completed","cancelling"} else []
+        if can_control and state=="ready" and not blockers:actions.insert(0,"start")
+        return WebTaskResponse.model_validate({
+            "task_kind":"web_assessment", "id":record["id"], "tenant_id":record["tenant_id"],
+            "project_id":record["project_id"],"name":draft["name"],
+            "target_url":draft.get("entry_url") or draft.get("target_url"),
+            "scope":{"authorization_id":record["task_authorization_id"],"version":1,
+                     "hash":config["authorization_digest"]},
+            "version":record["version"],"state":state,"cleanup_state":record["cleanup_state"],
+            "execution":{"active_calls":record["active_calls"],"unknown_calls":record["unknown_calls"],
+                         "egress_state":record["egress_state"]},
+            "allowed_actions":actions,
+            "assessment_outcome":record["assessment_outcome"],"stop_reason":record["stop_reason"],
+            "creation_config":config,"start_blockers":blockers,
+            "created_at":record["created_at"],"updated_at":record["updated_at"],
+        })
     return TaskResponse.model_validate(
         {
             "id": record["id"],
@@ -281,6 +317,8 @@ def _require_write(request: Request, runtime: Runtime, session, csrf_token: str 
 
 
 def _command_problem(error: Exception) -> ApiProblem:
+    if isinstance(error, AuthorityUnavailable):
+        return ApiProblem(503, "SERVICE_UNAVAILABLE")
     if isinstance(error, FreshAuthorityInvalid):
         return ApiProblem(401, "UNAUTHENTICATED", clear_session=True)
     if isinstance(error, CommandForbidden):
@@ -904,13 +942,29 @@ def create_app(
     async def create_task(
         request: Request,
         project_id: UUID,
-        command: CreateTaskRequest,
+        command: CreateTaskRequest | NewCreateTaskRequest,
         idempotency_key: UUID = Header(alias="Idempotency-Key"),
         csrf_token: str | None = Header(default=None, alias="X-CSRF-Token"),
     ) -> CommandReceiptResponse:
         current = _runtime(request)
         session = await _authenticated(request, current)
         _require_write(request, current, session, csrf_token)
+        if isinstance(command, NewCreateTaskRequest):
+            try:
+                receipt = await CreationStore(current.authority).create_command(
+                    user_id=session.user_id, permissions_version=session.permissions_version,
+                    project_id=project_id, idempotency_key=idempotency_key, body=command,
+                    request_digest=command_request_digest(kind="create", project_id=project_id,
+                        task_id=None, request=command.model_dump(mode="json")),
+                    trace_id=request.state.trace_id,
+                )
+            except CreationBlocked as error:
+                raise ApiProblem(409, "CREATION_BLOCKED") from error
+            except (CommandForbidden, CommandValidationFailed, FreshAuthorityInvalid,
+                    IdempotencyConflict, PreviewExpired, ResourceNotFound, ScopeDenied,
+                    VersionConflict, AuthorityUnavailable) as error:
+                raise _command_problem(error) from error
+            return CommandReceiptResponse.model_validate(receipt)
         try:
             normalized_draft = normalize_task_draft(command.draft.model_dump(mode="json"))
         except ScopePolicyError as error:
@@ -1021,7 +1075,15 @@ def create_app(
             request=request_payload,
         )
         try:
-            receipt = await current.authority.control_task_command(
+            if command.action == "start":
+                receipt = await ExecutionStore(current.authority).start_command(
+                    user_id=session.user_id, permissions_version=session.permissions_version,
+                    project_id=project_id,task_id=task_id,idempotency_key=idempotency_key,
+                    expected_version=command.expected_version,request_digest=digest,
+                    trace_id=request.state.trace_id,
+                )
+            else:
+                receipt = await current.authority.control_task_command(
                 user_id=session.user_id,
                 permissions_version=session.permissions_version,
                 project_id=project_id,
@@ -1189,6 +1251,12 @@ def create_app(
     register_draft_routes(application)
     from wuji_api.model_routes import register_model_routes
     register_model_routes(application)
+    from wuji_api.task_creation_routes import register_creation_routes
+    register_creation_routes(application)
+    from wuji_api.execution_routes import register_execution_routes
+    register_execution_routes(application)
+    from wuji_api.artifact_routes import register_artifact_routes
+    register_artifact_routes(application)
 
     return application
 

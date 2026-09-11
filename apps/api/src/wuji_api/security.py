@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 from uuid import UUID
+from urllib.parse import urlsplit, parse_qs, urlencode
 
 UUID_PATH = (
     r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
@@ -50,7 +51,22 @@ def pkce_challenge(verifier: str) -> str:
 
 
 def normalize_return_path(value: str) -> str:
-    match = PROJECT_RETURN_PATH.fullmatch(value)
+    parsed_url=urlsplit(value)
+    if parsed_url.scheme or parsed_url.netloc or parsed_url.fragment:
+        raise InvalidReturnPath("return path must remain local")
+    pathname=parsed_url.path
+    search=parse_qs(parsed_url.query)
+    tenant=re.fullmatch(rf"/settings/tenants/({UUID_PATH})/models/?",pathname)
+    if tenant:return f"/settings/tenants/{UUID(tenant.group(1))}/models"
+    draft=re.fullmatch(rf"/projects/({UUID_PATH})/drafts(?:/({UUID_PATH}))?/?",pathname)
+    if draft:
+        result=f"/projects/{UUID(draft.group(1))}/drafts"
+        if draft.group(2):
+            result+="/"+str(UUID(draft.group(2)))
+            step=search.get("step",[""])[0]
+            if re.fullmatch("[0-3]",step):result+="?"+urlencode({"step":step})
+        return result
+    match = PROJECT_RETURN_PATH.fullmatch(pathname)
     if match is None:
         raise InvalidReturnPath("return path is outside the allowed project routes")
     project_id = match.group(1)
@@ -66,7 +82,11 @@ def normalize_return_path(value: str) -> str:
         if str(task_id) != task_component.lower():
             raise InvalidReturnPath("task path UUID is not canonical")
         suffix = suffix[: -len(task_component)] + str(task_id)
-    return f"/projects/{parsed}{suffix}"
+    result=f"/projects/{parsed}{suffix}"
+    cursor_name="list_cursor" if task_component and task_component!="new" else "cursor" if suffix=="/tasks" else None
+    cursor=search.get(cursor_name,[""])[0] if cursor_name else ""
+    if cursor and len(cursor)<=4096:result+="?"+urlencode({cursor_name:cursor})
+    return result
 
 
 def _b64encode(value: bytes) -> str:

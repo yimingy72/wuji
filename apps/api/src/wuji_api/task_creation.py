@@ -1,4 +1,5 @@
 """Public creation requests and deterministic preview validation."""
+from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 from uuid import UUID
@@ -39,7 +40,7 @@ class TaskCreationPreview(BaseModel):
     draft_id: UUID
     draft_version: int
     normalized_content: DraftContent
-    model_snapshot: dict | None
+    model_snapshot: SelectedModelSnapshot | None
     input_digest: str
     authorization_digest: str
     can_create: bool

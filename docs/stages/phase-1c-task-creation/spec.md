@@ -1,6 +1,6 @@
 # D3-B 正式创建、任务授权与配置快照 Spec
 
-- 状态：**draft / 待阶段评审**；2026-09-11。本文具体化后续开发，不表示已批准迁移或已经实现。
+- 状态：**approved / in-progress**；2026-09-11。用户已批准完整核心闭环计划；本Spec为M1实施基础，最新执行顺序与对接字段见[实施合同](execution-contracts.md)，不代表已经实现或通过验收。
 - 起点：`codex/phase-1c-creation-prototype@276b6a8`，沿用 phase-1c-prep 工作树；已纳入同树尚未提交的架构交接，保留其来源与候选状态。
 - 当前应用为 Default 模式。按根 AGENTS 可准备下一阶段草案；没有自行切换 Plan 模式，没有把 D3-A 标成用户已确认。
 - 背景：[项目索引](../../project-context.md)、[D3-A Spec](../phase-1c-creation-prototype/spec.md)/[评审](../phase-1c-creation-prototype/acceptance.md)、[D1](../phase-1c-control-plane/spec.md)、[D2](../phase-1c-model-config/spec.md)、[安全场景交接](../../cairn-security-specialization-handoff.md)、[架构决策](../../cairn-architecture-decision.md)、[评估模型](../../assessment-model.md)。

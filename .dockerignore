@@ -1,0 +1,11 @@
+.git
+work
+artifacts
+**/.venv
+**/node_modules
+**/dist
+**/__pycache__
+**/*.pyc
+.env*
+**/.env*
+.codegraph

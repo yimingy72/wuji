@@ -15,6 +15,7 @@ from wuji_api.database import (AuthorityUnavailable, CommandForbidden, DatabaseA
                                IdempotencyConflict, InvalidTransition, ResourceNotFound,
                                VersionConflict)
 from wuji_api.security import TaskCursorPosition
+from wuji_api.model_selection import model_version_lock
 
 
 @dataclass(frozen=True)
@@ -175,6 +176,7 @@ class ModelStore:
             operation = await self._replay(connection, actor, key, request_digest, kind)
             if operation is not None:
                 return operation, await self._version(connection, actor, operation["version_id"])
+            await model_version_lock(connection, actor.tenant_id, version_id)
             version = await self._version(connection, actor, version_id, "profile", True)
             if kind == "check":
                 if version["sync_state"] != "synced" or version["state"] == "revoked":

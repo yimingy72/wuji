@@ -7,6 +7,8 @@ general_settings:
   background_health_checks: false
   disable_spend_logs: false
   store_prompts_in_spend_logs: false
+  disable_budget_reservation: false
+  fail_closed_budget_enforcement: true
 litellm_settings:
   telemetry: false
   num_retries: 0

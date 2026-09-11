@@ -460,6 +460,9 @@ class Core:
     def save_output(self,run_id,body):
         output=body.get("output")
         if not isinstance(output,str) or len(output.encode())>4_194_304:raise Denied("invalid run output")
+        receipt=body.get("receipt") or {}
+        if receipt.get("id")!=str(run_id) or receipt.get("state")!="exited":
+            raise Denied("output requires the matching exited process receipt")
         old=self.store.one("SELECT * FROM agent_runs WHERE id=:id",{"id":run_id})
         if not old:raise Denied("run not found")
         if old["output"] is not None:
@@ -564,6 +567,13 @@ class Core:
                 "limitations":["本次使用合成模型与固定夹具，不代表真实渗透能力或任意自定义目标已完成。"],
                 "artifact_ids":[str(a["id"]) for a in artifacts]}
         if cleanup=="pending":return
+        pending_results=self.store.rows("SELECT * FROM core_operations WHERE task_id=:id AND state IN ('sent','unknown')",
+                                        {"id":task_id})
+        for operation in pending_results:
+            if operation["kind"] in {"conclude","complete"}:
+                await self.reconcile_native(operation,ex,operation["kind"],operation["request"]["args"])
+        if self.store.one("SELECT 1 FROM core_operations WHERE task_id=:id AND state IN ('sent','unknown')",{"id":task_id}):
+            result["limitations"].append("部分黑板写回尚待核对；原始结果已保留，没有重新执行探索。")
         await self.graph_snapshot(ex)
         with self.store.tx() as c:
             current=c.execute(text("SELECT state,stop_reason,execution_epoch FROM tasks WHERE id=:id FOR UPDATE"),{"id":task_id}).mappings().one()

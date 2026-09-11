@@ -30,6 +30,13 @@ const validatorSchemas = {
   validateModelVersion: 'ModelVersion',
   validateModelVersionPage: 'ModelVersionPage',
   validateModelOperation: 'ModelOperation',
+  validateScenarioProfilePage: 'ScenarioProfilePage',
+  validateTaskCreationPreview: 'TaskCreationPreview',
+  validateAgentRunPage: 'AgentRunPage',
+  validateToolCallPage: 'ToolCallPage',
+  validateArtifactPage: 'ArtifactPage',
+  validateBlackBoardSnapshot: 'BlackBoardSnapshot',
+  validateTaskResult: 'TaskResult',
   validateError: 'Error',
 };
 
@@ -90,6 +97,13 @@ export declare const validateModelDefinitionPage: ContractValidator<components['
 export declare const validateModelVersion: ContractValidator<components['schemas']['ModelVersion']>;
 export declare const validateModelVersionPage: ContractValidator<components['schemas']['ModelVersionPage']>;
 export declare const validateModelOperation: ContractValidator<components['schemas']['ModelOperation']>;
+export declare const validateScenarioProfilePage: ContractValidator<components['schemas']['ScenarioProfilePage']>;
+export declare const validateTaskCreationPreview: ContractValidator<components['schemas']['TaskCreationPreview']>;
+export declare const validateAgentRunPage: ContractValidator<components['schemas']['AgentRunPage']>;
+export declare const validateToolCallPage: ContractValidator<components['schemas']['ToolCallPage']>;
+export declare const validateArtifactPage: ContractValidator<components['schemas']['ArtifactPage']>;
+export declare const validateBlackBoardSnapshot: ContractValidator<components['schemas']['BlackBoardSnapshot']>;
+export declare const validateTaskResult: ContractValidator<components['schemas']['TaskResult']>;
 export declare const validateError: ContractValidator<components['schemas']['Error']>;
 `;
 

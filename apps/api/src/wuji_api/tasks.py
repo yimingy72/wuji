@@ -11,6 +11,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from wuji_api.scopes import ScopeBindingModel, TaskDraftRequest
+from wuji_api.task_creation import CreationConfigSnapshot
 
 
 class CreateTaskRequest(BaseModel):
@@ -24,7 +25,7 @@ class CreateTaskRequest(BaseModel):
 class TaskControlRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    action: Literal["pause", "resume", "cancel"]
+    action: Literal["start", "pause", "resume", "cancel"]
     expected_version: int = Field(ge=1, le=9_007_199_254_740_991)
 
     @field_validator("expected_version", mode="before")
@@ -63,17 +64,53 @@ class TaskResponse(BaseModel):
     updated_at: datetime
 
 
+class TaskAuthorizationBindingResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    authorization_id: UUID
+    version: int = Field(ge=1)
+    hash: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+
+class WebExecutionSummaryResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    active_calls: int = Field(ge=0)
+    unknown_calls: int = Field(ge=0)
+    egress_state: Literal["not_granted", "fixture_only", "revoking", "revoked", "unknown"]
+
+
+class WebTaskResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    task_kind: Literal["web_assessment"] = "web_assessment"
+    id: UUID
+    tenant_id: UUID
+    project_id: UUID
+    name: str = Field(min_length=1,max_length=120)
+    target_url: str = Field(min_length=1,max_length=2048)
+    scope: TaskAuthorizationBindingResponse
+    version: int = Field(ge=1,le=9_007_199_254_740_991)
+    state: Literal["ready","provisioning","running","completing","completed","cancelling","cancelled","reconciling"]
+    cleanup_state: Literal["not_required","pending","running","completed","failed","unknown"]
+    execution: WebExecutionSummaryResponse
+    allowed_actions: list[Literal["start","cancel"]] = Field(max_length=2)
+    assessment_outcome: Literal["not_assessed","complete","partial","inconclusive"]
+    stop_reason: str | None
+    creation_config: CreationConfigSnapshot
+    start_blockers: list[str] = Field(default_factory=list,max_length=20)
+    created_at: datetime
+    updated_at: datetime
+
+
 class TaskPageResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    items: list[TaskResponse] = Field(max_length=100)
+    items: list[TaskResponse | WebTaskResponse] = Field(max_length=100)
     next_cursor: str | None
 
 
 class TaskSnapshotResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    task: TaskResponse
+    task: TaskResponse | WebTaskResponse
     event_cursor: str = Field(min_length=1, max_length=512)
 
 
@@ -82,7 +119,7 @@ class CommandReceiptResponse(BaseModel):
 
     command_id: UUID
     idempotency_key: UUID
-    kind: Literal["create", "cancel"]
+    kind: Literal["create", "start", "cancel"]
     disposition: Literal["accepted"]
     project_id: UUID
     task_id: UUID

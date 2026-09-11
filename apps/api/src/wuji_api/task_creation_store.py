@@ -72,6 +72,8 @@ class CreationStore:
                     content=draft['content']; model_id=content.get('model_profile_version_id')
                     if not model_id: raise ModelUnavailable
                     await model_version_lock(connection,project.tenant_id,model_id)
+                    now=await connection.scalar(text('SELECT clock_timestamp()'))
+                    if preview['expires_at'] <= now: raise PreviewExpired
                     model=await selectable_model(connection,project.tenant_id,model_id)
                     if model != preview['model_snapshot']: raise VersionConflict
                     blockers,auth_digest=evaluate_creation(content,model,now)

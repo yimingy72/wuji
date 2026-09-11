@@ -7,6 +7,7 @@ imports migration credentials and never changes PostgreSQL roles.
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import re
 from collections.abc import Mapping
@@ -51,6 +52,11 @@ def _psycopg_url(url: str) -> str:
     return url.replace("postgresql+psycopg://", "postgresql://", 1)
 
 
+def execution_role_name(project_role: str) -> str:
+    safe_identifier(project_role, kind="role")
+    return f"{project_role[:45]}_exec_{hashlib.sha256(project_role.encode()).hexdigest()[:8]}"
+
+
 def prepare_database(
     *,
     admin_database_url: str,
@@ -61,6 +67,7 @@ def prepare_database(
     auth_password: str,
     project_role: str,
     project_password: str,
+    execution_password: str | None = None,
 ) -> None:
     database = safe_identifier(database, kind="database")
     roles = (
@@ -90,6 +97,16 @@ def prepare_database(
                         sql.Literal(password),
                     )
                 )
+
+            execution_role = execution_role_name(project_role)
+            cursor.execute("SELECT 1 FROM pg_roles WHERE rolname=%s", (execution_role,))
+            if cursor.fetchone() is None:
+                cursor.execute(sql.SQL("CREATE ROLE {} NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB "
+                                      "NOCREATEROLE NOBYPASSRLS").format(sql.Identifier(execution_role)))
+            if execution_password is not None:
+                cursor.execute(sql.SQL("ALTER ROLE {} LOGIN NOINHERIT NOSUPERUSER NOCREATEDB "
+                                       "NOCREATEROLE NOBYPASSRLS PASSWORD {}").format(
+                    sql.Identifier(execution_role), sql.Literal(execution_password)))
 
             cursor.execute("SELECT 1 FROM pg_database WHERE datname = %s", (database,))
             if cursor.fetchone() is None:
@@ -122,6 +139,10 @@ def prepare_database(
                     sql.Identifier(project_role),
                 )
             )
+            cursor.execute(sql.SQL("GRANT CONNECT ON DATABASE {} TO {}").format(
+                sql.Identifier(database),sql.Identifier(execution_role)))
+            cursor.execute(sql.SQL("REVOKE CREATE,TEMPORARY ON DATABASE {} FROM {}").format(
+                sql.Identifier(database),sql.Identifier(execution_role)))
     target_admin_url = database_url(
         urlsplit(admin_database_url).hostname or "",
         urlsplit(admin_database_url).port or 5432,

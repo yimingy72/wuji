@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import re
+from wuji_api.database_admin import execution_role_name
 from logging.config import fileConfig
 
 from alembic import context
@@ -35,6 +36,7 @@ config.set_main_option(
 )
 config.attributes["auth_role"] = role_environment("WUJI_AUTH_DB_ROLE")
 config.attributes["project_role"] = role_environment("WUJI_PROJECT_DB_ROLE")
+config.attributes["execution_role"] = execution_role_name(config.attributes["project_role"])
 
 
 def run_migrations_offline() -> None:

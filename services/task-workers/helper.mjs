@@ -14,7 +14,7 @@ async function safe(name,write=false){
 try{
  const a=input.args||{};let result;
  switch(input.tool){
- case 'workspace_write':{if(typeof a.content!=='string'||Buffer.byteLength(a.content)>1048576)throw Error('invalid_content');const p=await safe(a.path,true);await fs.writeFile(p,a.content,{flag:'w',mode:0o600});result={path:a.path,bytes:Buffer.byteLength(a.content)};break;}
+ case 'workspace_write':{if(typeof a.content!=='string'||Buffer.byteLength(a.content)>1048576)throw Error('invalid_content');const p=await safe(a.path,true);const temporary=p+'.pending-'+process.pid;try{await fs.writeFile(temporary,a.content,{flag:'wx',mode:0o600});await fs.rename(temporary,p);}finally{await fs.unlink(temporary).catch(()=>{});}result={path:a.path,bytes:Buffer.byteLength(a.content)};break;}
  case 'workspace_read':{const p=await safe(a.path);if((await fs.stat(p)).size>1048576)throw Error('file_too_large');result={path:a.path,content:await fs.readFile(p,'utf8')};break;}
  case 'workspace_list':result={path:a.path,entries:(await fs.readdir(await safe(a.path))).slice(0,1000)};break;
  case 'fixture_wait':{const seconds=Number(a.seconds);if(!Number.isFinite(seconds)||seconds<0||seconds>60)throw Error('invalid_wait');await new Promise(r=>setTimeout(r,seconds*1000));result={waited_seconds:seconds};break;}

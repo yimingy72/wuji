@@ -26,7 +26,7 @@ from wuji_api.security import (
 )
 from wuji_api.settings import Settings
 
-EXPECTED_REVISION = "20260911_0005"
+EXPECTED_REVISION = "20260911_0007"
 
 
 class AuthorityUnavailable(RuntimeError):
@@ -792,7 +792,12 @@ class DatabaseAuthority:
             "t.id, t.tenant_id, t.project_id, t.draft, t.policy_id, t.policy_version, "
             "t.version, t.state, t.cleanup_state, t.active_calls, t.unknown_calls, "
             "t.egress_state, t.assessment_outcome, t.stop_reason, t.event_sequence, "
-            "t.created_at, t.updated_at"
+            "t.created_at, t.updated_at, t.task_kind, t.task_authorization_id, "
+            "t.creation_config_snapshot_id, t.creation_config, t.execution_epoch, "
+            "(SELECT config FROM execution_services WHERE id='core' AND heartbeat_at>"
+            "clock_timestamp()-interval '15 seconds') AS core_service_config, "
+            "EXISTS(SELECT 1 FROM model_versions m WHERE m.id=(t.creation_config->'model'->>'id')::uuid "
+            "AND m.tenant_id=t.tenant_id AND m.state IN ('published','retired') AND m.sync_state='synced') AS current_model_usable"
         )
 
     @staticmethod
@@ -1203,7 +1208,7 @@ class DatabaseAuthority:
                     task = (
                         await connection.execute(
                             text(
-                                "SELECT id, version, state, event_sequence FROM tasks "
+                                "SELECT id, version, state, event_sequence, task_kind, execution_epoch FROM tasks "
                                 "WHERE tenant_id = :tenant_id AND project_id = :project_id "
                                 "AND id = :task_id FOR UPDATE"
                             ),
@@ -1218,19 +1223,25 @@ class DatabaseAuthority:
                         raise ResourceNotFound
                     if task["version"] != expected_version:
                         raise VersionConflict
-                    if task["state"] != "queued" or action != "cancel":
+                    if action != "cancel" or task["state"] in {"cancelled", "completed"}:
+                        raise InvalidTransition
+                    executing = task["task_kind"] == "web_assessment" and task["state"] != "ready"
+                    if task["task_kind"] == "legacy_http" and task["state"] != "queued":
                         raise InvalidTransition
                     new_version = int(task["version"]) + 1
                     new_sequence = int(task["event_sequence"]) + 1
                     await connection.execute(
                         text(
-                            "UPDATE tasks SET state = 'cancelled', version = :version, "
+                            "UPDATE tasks SET state = :state, version = :version, "
+                            "execution_epoch = :epoch, "
                             "stop_reason = 'user_cancelled', event_sequence = :event_sequence, "
                             "updated_at = clock_timestamp() WHERE tenant_id = :tenant_id "
                             "AND project_id = :project_id AND id = :task_id"
                         ),
                         {
                             "version": new_version,
+                            "state": "cancelling" if executing else "cancelled",
+                            "epoch": int(task["execution_epoch"]) + (1 if executing else 0),
                             "event_sequence": new_sequence,
                             "tenant_id": project.tenant_id,
                             "project_id": project.id,
