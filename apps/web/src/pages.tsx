@@ -188,7 +188,7 @@ function AppShell({ children, session = null }: ShellProps) {
         <main id="main-content" tabIndex={-1} className={styles.main}>{children}</main>
         <footer className={styles.statusbar}>
           <span>工作区 <strong>PLATFORM</strong></span>
-          <span>AUTHORIZED ACCESS <span aria-hidden="true">/</span> v0.4</span>
+          <span>AUTHORIZED ACCESS <span aria-hidden="true">/</span> v0.5</span>
         </footer>
       </div>
     </div>

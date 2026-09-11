@@ -391,6 +391,14 @@ class Core:
             if not run:raise Denied("native worker identity")
         elif not (action=="create_intent" and actor=="dispatcher.bootstrap") and action!="stop":
             raise Denied("unknown native worker")
+        if action in {"create_intent","conclude","complete"}:
+            prior_id=uuid5(UUID(str(ex["id"])),action+":"+digest(args))
+            prior=self.store.one("SELECT * FROM core_operations WHERE id=:id",{"id":prior_id})
+            if prior:
+                async with self.cairn_lock:
+                    prior=self.store.one("SELECT * FROM core_operations WHERE id=:id",{"id":prior_id})
+                    if prior["state"] in {"succeeded","rejected"}:return prior["response"]
+                    return await self.reconcile_native(prior,ex,action,args)
         if action not in {"release","release_reason","stop"} and not self.store.permitted(task_id,ex["epoch"],1):
             return {"status_code":403,"data":None,"text":"execution permission closed"}
         if action in {"conclude","complete","create_intent"} and run and run["output"] is None:
@@ -436,7 +444,11 @@ class Core:
                 self.store.stop_requested(task_id,"result_sync_unknown")
             if status=="succeeded":
                 await self.graph_snapshot(ex)
-                if action=="complete":self.store.stop_requested(task_id,"exploration_completed")
+                if action=="complete":
+                    # Native completion is already durable; settle its producer before
+                    # the stop consumer can mistake this successful run for cancellation.
+                    if run:self.finish_run(run["id"],"success")
+                    self.store.stop_requested(task_id,"exploration_completed")
             return response
 
     async def reconcile_native(self,op,ex,action,args):
@@ -488,7 +500,15 @@ class Core:
             c.execute(text("UPDATE agent_runs SET state=:state,result_state=:result,outcome=:outcome,updated_at=clock_timestamp() WHERE id=:id"),
                       {"id":run_id,"state":state,"result":result_state,"outcome":outcome})
             self.store.event(c,run["task_id"],"Agent运行已核对")
-        if state=="unknown" or outcome not in {"success","cancelled"} or pending:self.store.stop_requested(run["task_id"],"agent_result_incomplete")
+        if state=="unknown" or outcome not in {"success","cancelled"} or pending:
+            reason="agent_result_incomplete"
+            for line in (run["output"] or "").splitlines():
+                try:
+                    message=json.loads(line).get("message",{})
+                    if message.get("stopReason")=="error" and "budget" in message.get("errorMessage","").lower():
+                        reason="budget_exhausted"
+                except (ValueError,AttributeError,TypeError):pass
+            self.store.stop_requested(run["task_id"],reason)
         return {"state":state,"result_state":result_state}
 
     async def stop(self,ex,task):
