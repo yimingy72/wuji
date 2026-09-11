@@ -22363,7 +22363,7 @@ validate97.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 
 export const validateArtifactPage = validate98;
 const schema110 = {"additionalProperties":false,"properties":{"items":{"items":{"$ref":"urn:wuji:contracts:0.5#/$defs/Artifact"},"maxItems":100,"title":"Items","type":"array"},"next_cursor":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Next Cursor"}},"required":["items","next_cursor"],"title":"ArtifactPage","type":"object"};
-const schema111 = {"additionalProperties":false,"properties":{"id":{"format":"uuid","title":"Id","type":"string"},"kind":{"title":"Kind","type":"string"},"name":{"title":"Name","type":"string"},"mime":{"title":"Mime","type":"string"},"size":{"minimum":0,"title":"Size","type":"integer"},"sha256":{"title":"Sha256","type":"string"},"state":{"title":"State","type":"string"},"created_at":{"format":"date-time","title":"Created At","type":"string"}},"required":["id","kind","name","mime","size","sha256","state","created_at"],"title":"Artifact","type":"object"};
+const schema111 = {"additionalProperties":false,"properties":{"id":{"format":"uuid","title":"Id","type":"string"},"tool_call_id":{"anyOf":[{"format":"uuid","type":"string"},{"type":"null"}],"title":"Tool Call Id"},"kind":{"title":"Kind","type":"string"},"name":{"title":"Name","type":"string"},"mime":{"title":"Mime","type":"string"},"size":{"minimum":0,"title":"Size","type":"integer"},"sha256":{"title":"Sha256","type":"string"},"state":{"title":"State","type":"string"},"created_at":{"format":"date-time","title":"Created At","type":"string"}},"required":["id","tool_call_id","kind","name","mime","size","sha256","state","created_at"],"title":"Artifact","type":"object"};
 
 function validate98(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
 let vErrors = null;
@@ -22435,8 +22435,8 @@ vErrors.push(err4);
 }
 errors++;
 }
-if(data1.kind === undefined){
-const err5 = {instancePath:instancePath+"/items/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/Artifact/required",keyword:"required",params:{missingProperty: "kind"},message:"must have required property '"+"kind"+"'"};
+if(data1.tool_call_id === undefined){
+const err5 = {instancePath:instancePath+"/items/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/Artifact/required",keyword:"required",params:{missingProperty: "tool_call_id"},message:"must have required property '"+"tool_call_id"+"'"};
 if(vErrors === null){
 vErrors = [err5];
 }
@@ -22445,8 +22445,8 @@ vErrors.push(err5);
 }
 errors++;
 }
-if(data1.name === undefined){
-const err6 = {instancePath:instancePath+"/items/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/Artifact/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'"};
+if(data1.kind === undefined){
+const err6 = {instancePath:instancePath+"/items/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/Artifact/required",keyword:"required",params:{missingProperty: "kind"},message:"must have required property '"+"kind"+"'"};
 if(vErrors === null){
 vErrors = [err6];
 }
@@ -22455,8 +22455,8 @@ vErrors.push(err6);
 }
 errors++;
 }
-if(data1.mime === undefined){
-const err7 = {instancePath:instancePath+"/items/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/Artifact/required",keyword:"required",params:{missingProperty: "mime"},message:"must have required property '"+"mime"+"'"};
+if(data1.name === undefined){
+const err7 = {instancePath:instancePath+"/items/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/Artifact/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'"};
 if(vErrors === null){
 vErrors = [err7];
 }
@@ -22465,8 +22465,8 @@ vErrors.push(err7);
 }
 errors++;
 }
-if(data1.size === undefined){
-const err8 = {instancePath:instancePath+"/items/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/Artifact/required",keyword:"required",params:{missingProperty: "size"},message:"must have required property '"+"size"+"'"};
+if(data1.mime === undefined){
+const err8 = {instancePath:instancePath+"/items/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/Artifact/required",keyword:"required",params:{missingProperty: "mime"},message:"must have required property '"+"mime"+"'"};
 if(vErrors === null){
 vErrors = [err8];
 }
@@ -22475,8 +22475,8 @@ vErrors.push(err8);
 }
 errors++;
 }
-if(data1.sha256 === undefined){
-const err9 = {instancePath:instancePath+"/items/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/Artifact/required",keyword:"required",params:{missingProperty: "sha256"},message:"must have required property '"+"sha256"+"'"};
+if(data1.size === undefined){
+const err9 = {instancePath:instancePath+"/items/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/Artifact/required",keyword:"required",params:{missingProperty: "size"},message:"must have required property '"+"size"+"'"};
 if(vErrors === null){
 vErrors = [err9];
 }
@@ -22485,8 +22485,8 @@ vErrors.push(err9);
 }
 errors++;
 }
-if(data1.state === undefined){
-const err10 = {instancePath:instancePath+"/items/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/Artifact/required",keyword:"required",params:{missingProperty: "state"},message:"must have required property '"+"state"+"'"};
+if(data1.sha256 === undefined){
+const err10 = {instancePath:instancePath+"/items/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/Artifact/required",keyword:"required",params:{missingProperty: "sha256"},message:"must have required property '"+"sha256"+"'"};
 if(vErrors === null){
 vErrors = [err10];
 }
@@ -22495,8 +22495,8 @@ vErrors.push(err10);
 }
 errors++;
 }
-if(data1.created_at === undefined){
-const err11 = {instancePath:instancePath+"/items/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/Artifact/required",keyword:"required",params:{missingProperty: "created_at"},message:"must have required property '"+"created_at"+"'"};
+if(data1.state === undefined){
+const err11 = {instancePath:instancePath+"/items/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/Artifact/required",keyword:"required",params:{missingProperty: "state"},message:"must have required property '"+"state"+"'"};
 if(vErrors === null){
 vErrors = [err11];
 }
@@ -22505,9 +22505,8 @@ vErrors.push(err11);
 }
 errors++;
 }
-for(const key1 in data1){
-if(!((((((((key1 === "id") || (key1 === "kind")) || (key1 === "name")) || (key1 === "mime")) || (key1 === "size")) || (key1 === "sha256")) || (key1 === "state")) || (key1 === "created_at"))){
-const err12 = {instancePath:instancePath+"/items/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/Artifact/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key1},message:"must NOT have additional properties"};
+if(data1.created_at === undefined){
+const err12 = {instancePath:instancePath+"/items/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/Artifact/required",keyword:"required",params:{missingProperty: "created_at"},message:"must have required property '"+"created_at"+"'"};
 if(vErrors === null){
 vErrors = [err12];
 }
@@ -22516,12 +22515,9 @@ vErrors.push(err12);
 }
 errors++;
 }
-}
-if(data1.id !== undefined){
-let data2 = data1.id;
-if(typeof data2 === "string"){
-if(!(formats0.test(data2))){
-const err13 = {instancePath:instancePath+"/items/" + i0+"/id",schemaPath:"urn:wuji:contracts:0.5#/$defs/Artifact/properties/id/format",keyword:"format",params:{format: "uuid"},message:"must match format \""+"uuid"+"\""};
+for(const key1 in data1){
+if(!(func22.call(schema111.properties, key1))){
+const err13 = {instancePath:instancePath+"/items/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/Artifact/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key1},message:"must NOT have additional properties"};
 if(vErrors === null){
 vErrors = [err13];
 }
@@ -22531,8 +22527,11 @@ vErrors.push(err13);
 errors++;
 }
 }
-else {
-const err14 = {instancePath:instancePath+"/items/" + i0+"/id",schemaPath:"urn:wuji:contracts:0.5#/$defs/Artifact/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data1.id !== undefined){
+let data2 = data1.id;
+if(typeof data2 === "string"){
+if(!(formats0.test(data2))){
+const err14 = {instancePath:instancePath+"/items/" + i0+"/id",schemaPath:"urn:wuji:contracts:0.5#/$defs/Artifact/properties/id/format",keyword:"format",params:{format: "uuid"},message:"must match format \""+"uuid"+"\""};
 if(vErrors === null){
 vErrors = [err14];
 }
@@ -22542,9 +22541,8 @@ vErrors.push(err14);
 errors++;
 }
 }
-if(data1.kind !== undefined){
-if(typeof data1.kind !== "string"){
-const err15 = {instancePath:instancePath+"/items/" + i0+"/kind",schemaPath:"urn:wuji:contracts:0.5#/$defs/Artifact/properties/kind/type",keyword:"type",params:{type: "string"},message:"must be string"};
+else {
+const err15 = {instancePath:instancePath+"/items/" + i0+"/id",schemaPath:"urn:wuji:contracts:0.5#/$defs/Artifact/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err15];
 }
@@ -22554,9 +22552,14 @@ vErrors.push(err15);
 errors++;
 }
 }
-if(data1.name !== undefined){
-if(typeof data1.name !== "string"){
-const err16 = {instancePath:instancePath+"/items/" + i0+"/name",schemaPath:"urn:wuji:contracts:0.5#/$defs/Artifact/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data1.tool_call_id !== undefined){
+let data3 = data1.tool_call_id;
+const _errs11 = errors;
+let valid5 = false;
+const _errs12 = errors;
+if(typeof data3 === "string"){
+if(!(formats0.test(data3))){
+const err16 = {instancePath:instancePath+"/items/" + i0+"/tool_call_id",schemaPath:"urn:wuji:contracts:0.5#/$defs/Artifact/properties/tool_call_id/anyOf/0/format",keyword:"format",params:{format: "uuid"},message:"must match format \""+"uuid"+"\""};
 if(vErrors === null){
 vErrors = [err16];
 }
@@ -22566,9 +22569,8 @@ vErrors.push(err16);
 errors++;
 }
 }
-if(data1.mime !== undefined){
-if(typeof data1.mime !== "string"){
-const err17 = {instancePath:instancePath+"/items/" + i0+"/mime",schemaPath:"urn:wuji:contracts:0.5#/$defs/Artifact/properties/mime/type",keyword:"type",params:{type: "string"},message:"must be string"};
+else {
+const err17 = {instancePath:instancePath+"/items/" + i0+"/tool_call_id",schemaPath:"urn:wuji:contracts:0.5#/$defs/Artifact/properties/tool_call_id/anyOf/0/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err17];
 }
@@ -22577,11 +22579,11 @@ vErrors.push(err17);
 }
 errors++;
 }
-}
-if(data1.size !== undefined){
-let data6 = data1.size;
-if(!(((typeof data6 == "number") && (!(data6 % 1) && !isNaN(data6))) && (isFinite(data6)))){
-const err18 = {instancePath:instancePath+"/items/" + i0+"/size",schemaPath:"urn:wuji:contracts:0.5#/$defs/Artifact/properties/size/type",keyword:"type",params:{type: "integer"},message:"must be integer"};
+var _valid0 = _errs12 === errors;
+valid5 = valid5 || _valid0;
+const _errs14 = errors;
+if(data3 !== null){
+const err18 = {instancePath:instancePath+"/items/" + i0+"/tool_call_id",schemaPath:"urn:wuji:contracts:0.5#/$defs/Artifact/properties/tool_call_id/anyOf/1/type",keyword:"type",params:{type: "null"},message:"must be null"};
 if(vErrors === null){
 vErrors = [err18];
 }
@@ -22590,9 +22592,10 @@ vErrors.push(err18);
 }
 errors++;
 }
-if((typeof data6 == "number") && (isFinite(data6))){
-if(data6 < 0 || isNaN(data6)){
-const err19 = {instancePath:instancePath+"/items/" + i0+"/size",schemaPath:"urn:wuji:contracts:0.5#/$defs/Artifact/properties/size/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
+var _valid0 = _errs14 === errors;
+valid5 = valid5 || _valid0;
+if(!valid5){
+const err19 = {instancePath:instancePath+"/items/" + i0+"/tool_call_id",schemaPath:"urn:wuji:contracts:0.5#/$defs/Artifact/properties/tool_call_id/anyOf",keyword:"anyOf",params:{},message:"must match a schema in anyOf"};
 if(vErrors === null){
 vErrors = [err19];
 }
@@ -22601,11 +22604,21 @@ vErrors.push(err19);
 }
 errors++;
 }
+else {
+errors = _errs11;
+if(vErrors !== null){
+if(_errs11){
+vErrors.length = _errs11;
+}
+else {
+vErrors = null;
 }
 }
-if(data1.sha256 !== undefined){
-if(typeof data1.sha256 !== "string"){
-const err20 = {instancePath:instancePath+"/items/" + i0+"/sha256",schemaPath:"urn:wuji:contracts:0.5#/$defs/Artifact/properties/sha256/type",keyword:"type",params:{type: "string"},message:"must be string"};
+}
+}
+if(data1.kind !== undefined){
+if(typeof data1.kind !== "string"){
+const err20 = {instancePath:instancePath+"/items/" + i0+"/kind",schemaPath:"urn:wuji:contracts:0.5#/$defs/Artifact/properties/kind/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err20];
 }
@@ -22615,9 +22628,9 @@ vErrors.push(err20);
 errors++;
 }
 }
-if(data1.state !== undefined){
-if(typeof data1.state !== "string"){
-const err21 = {instancePath:instancePath+"/items/" + i0+"/state",schemaPath:"urn:wuji:contracts:0.5#/$defs/Artifact/properties/state/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data1.name !== undefined){
+if(typeof data1.name !== "string"){
+const err21 = {instancePath:instancePath+"/items/" + i0+"/name",schemaPath:"urn:wuji:contracts:0.5#/$defs/Artifact/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err21];
 }
@@ -22627,11 +22640,9 @@ vErrors.push(err21);
 errors++;
 }
 }
-if(data1.created_at !== undefined){
-let data9 = data1.created_at;
-if(typeof data9 === "string"){
-if(!(formats2.validate(data9))){
-const err22 = {instancePath:instancePath+"/items/" + i0+"/created_at",schemaPath:"urn:wuji:contracts:0.5#/$defs/Artifact/properties/created_at/format",keyword:"format",params:{format: "date-time"},message:"must match format \""+"date-time"+"\""};
+if(data1.mime !== undefined){
+if(typeof data1.mime !== "string"){
+const err22 = {instancePath:instancePath+"/items/" + i0+"/mime",schemaPath:"urn:wuji:contracts:0.5#/$defs/Artifact/properties/mime/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err22];
 }
@@ -22641,8 +22652,10 @@ vErrors.push(err22);
 errors++;
 }
 }
-else {
-const err23 = {instancePath:instancePath+"/items/" + i0+"/created_at",schemaPath:"urn:wuji:contracts:0.5#/$defs/Artifact/properties/created_at/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data1.size !== undefined){
+let data7 = data1.size;
+if(!(((typeof data7 == "number") && (!(data7 % 1) && !isNaN(data7))) && (isFinite(data7)))){
+const err23 = {instancePath:instancePath+"/items/" + i0+"/size",schemaPath:"urn:wuji:contracts:0.5#/$defs/Artifact/properties/size/type",keyword:"type",params:{type: "integer"},message:"must be integer"};
 if(vErrors === null){
 vErrors = [err23];
 }
@@ -22651,10 +22664,9 @@ vErrors.push(err23);
 }
 errors++;
 }
-}
-}
-else {
-const err24 = {instancePath:instancePath+"/items/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/Artifact/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if((typeof data7 == "number") && (isFinite(data7))){
+if(data7 < 0 || isNaN(data7)){
+const err24 = {instancePath:instancePath+"/items/" + i0+"/size",schemaPath:"urn:wuji:contracts:0.5#/$defs/Artifact/properties/size/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
 if(vErrors === null){
 vErrors = [err24];
 }
@@ -22665,8 +22677,9 @@ errors++;
 }
 }
 }
-else {
-const err25 = {instancePath:instancePath+"/items",schemaPath:"#/properties/items/type",keyword:"type",params:{type: "array"},message:"must be array"};
+if(data1.sha256 !== undefined){
+if(typeof data1.sha256 !== "string"){
+const err25 = {instancePath:instancePath+"/items/" + i0+"/sha256",schemaPath:"urn:wuji:contracts:0.5#/$defs/Artifact/properties/sha256/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err25];
 }
@@ -22676,13 +22689,9 @@ vErrors.push(err25);
 errors++;
 }
 }
-if(data.next_cursor !== undefined){
-let data10 = data.next_cursor;
-const _errs25 = errors;
-let valid5 = false;
-const _errs26 = errors;
-if(typeof data10 !== "string"){
-const err26 = {instancePath:instancePath+"/next_cursor",schemaPath:"#/properties/next_cursor/anyOf/0/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data1.state !== undefined){
+if(typeof data1.state !== "string"){
+const err26 = {instancePath:instancePath+"/items/" + i0+"/state",schemaPath:"urn:wuji:contracts:0.5#/$defs/Artifact/properties/state/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err26];
 }
@@ -22691,11 +22700,12 @@ vErrors.push(err26);
 }
 errors++;
 }
-var _valid0 = _errs26 === errors;
-valid5 = valid5 || _valid0;
-const _errs28 = errors;
-if(data10 !== null){
-const err27 = {instancePath:instancePath+"/next_cursor",schemaPath:"#/properties/next_cursor/anyOf/1/type",keyword:"type",params:{type: "null"},message:"must be null"};
+}
+if(data1.created_at !== undefined){
+let data10 = data1.created_at;
+if(typeof data10 === "string"){
+if(!(formats2.validate(data10))){
+const err27 = {instancePath:instancePath+"/items/" + i0+"/created_at",schemaPath:"urn:wuji:contracts:0.5#/$defs/Artifact/properties/created_at/format",keyword:"format",params:{format: "date-time"},message:"must match format \""+"date-time"+"\""};
 if(vErrors === null){
 vErrors = [err27];
 }
@@ -22704,10 +22714,9 @@ vErrors.push(err27);
 }
 errors++;
 }
-var _valid0 = _errs28 === errors;
-valid5 = valid5 || _valid0;
-if(!valid5){
-const err28 = {instancePath:instancePath+"/next_cursor",schemaPath:"#/properties/next_cursor/anyOf",keyword:"anyOf",params:{},message:"must match a schema in anyOf"};
+}
+else {
+const err28 = {instancePath:instancePath+"/items/" + i0+"/created_at",schemaPath:"urn:wuji:contracts:0.5#/$defs/Artifact/properties/created_at/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err28];
 }
@@ -22716,11 +22725,76 @@ vErrors.push(err28);
 }
 errors++;
 }
+}
+}
 else {
-errors = _errs25;
+const err29 = {instancePath:instancePath+"/items/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/Artifact/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(vErrors === null){
+vErrors = [err29];
+}
+else {
+vErrors.push(err29);
+}
+errors++;
+}
+}
+}
+else {
+const err30 = {instancePath:instancePath+"/items",schemaPath:"#/properties/items/type",keyword:"type",params:{type: "array"},message:"must be array"};
+if(vErrors === null){
+vErrors = [err30];
+}
+else {
+vErrors.push(err30);
+}
+errors++;
+}
+}
+if(data.next_cursor !== undefined){
+let data11 = data.next_cursor;
+const _errs31 = errors;
+let valid6 = false;
+const _errs32 = errors;
+if(typeof data11 !== "string"){
+const err31 = {instancePath:instancePath+"/next_cursor",schemaPath:"#/properties/next_cursor/anyOf/0/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err31];
+}
+else {
+vErrors.push(err31);
+}
+errors++;
+}
+var _valid1 = _errs32 === errors;
+valid6 = valid6 || _valid1;
+const _errs34 = errors;
+if(data11 !== null){
+const err32 = {instancePath:instancePath+"/next_cursor",schemaPath:"#/properties/next_cursor/anyOf/1/type",keyword:"type",params:{type: "null"},message:"must be null"};
+if(vErrors === null){
+vErrors = [err32];
+}
+else {
+vErrors.push(err32);
+}
+errors++;
+}
+var _valid1 = _errs34 === errors;
+valid6 = valid6 || _valid1;
+if(!valid6){
+const err33 = {instancePath:instancePath+"/next_cursor",schemaPath:"#/properties/next_cursor/anyOf",keyword:"anyOf",params:{},message:"must match a schema in anyOf"};
+if(vErrors === null){
+vErrors = [err33];
+}
+else {
+vErrors.push(err33);
+}
+errors++;
+}
+else {
+errors = _errs31;
 if(vErrors !== null){
-if(_errs25){
-vErrors.length = _errs25;
+if(_errs31){
+vErrors.length = _errs31;
 }
 else {
 vErrors = null;
@@ -22730,12 +22804,12 @@ vErrors = null;
 }
 }
 else {
-const err29 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object"};
+const err34 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
-vErrors = [err29];
+vErrors = [err34];
 }
 else {
-vErrors.push(err29);
+vErrors.push(err34);
 }
 errors++;
 }
@@ -22746,8 +22820,10 @@ validate98.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 
 export const validateBlackBoardSnapshot = validate99;
 const schema112 = {"additionalProperties":false,"properties":{"state":{"enum":["pending","available"],"title":"State","type":"string"},"native_project_id":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Native Project Id"},"graph":{"anyOf":[{"$ref":"urn:wuji:contracts:0.5#/$defs/NativeGraph"},{"type":"null"}]},"captured_at":{"anyOf":[{"format":"date-time","type":"string"},{"type":"null"}],"title":"Captured At"},"digest":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Digest"}},"required":["state","native_project_id","graph","captured_at","digest"],"title":"BlackBoardSnapshot","type":"object"};
-const schema113 = {"additionalProperties":false,"properties":{"project":{"additionalProperties":true,"title":"Project","type":"object"},"facts":{"items":{"$ref":"urn:wuji:contracts:0.5#/$defs/GraphFact"},"title":"Facts","type":"array"},"intents":{"items":{"additionalProperties":true,"type":"object"},"title":"Intents","type":"array"},"hints":{"items":{"additionalProperties":true,"type":"object"},"title":"Hints","type":"array"}},"required":["project","facts","intents","hints"],"title":"NativeGraph","type":"object"};
+const schema113 = {"additionalProperties":false,"properties":{"project":{"additionalProperties":true,"title":"Project","type":"object"},"facts":{"items":{"$ref":"urn:wuji:contracts:0.5#/$defs/GraphFact"},"title":"Facts","type":"array"},"intents":{"items":{"$ref":"urn:wuji:contracts:0.5#/$defs/GraphIntent"},"title":"Intents","type":"array"},"hints":{"items":{"$ref":"urn:wuji:contracts:0.5#/$defs/GraphHint"},"title":"Hints","type":"array"}},"required":["project","facts","intents","hints"],"title":"NativeGraph","type":"object"};
 const schema114 = {"additionalProperties":false,"properties":{"id":{"title":"Id","type":"string"},"description":{"title":"Description","type":"string"}},"required":["id","description"],"title":"GraphFact","type":"object"};
+const schema115 = {"additionalProperties":false,"properties":{"id":{"title":"Id","type":"string"},"from":{"items":{"type":"string"},"title":"From","type":"array"},"to":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"To"},"description":{"title":"Description","type":"string"},"creator":{"title":"Creator","type":"string"},"worker":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Worker"},"last_heartbeat_at":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Last Heartbeat At"},"created_at":{"title":"Created At","type":"string"},"concluded_at":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Concluded At"}},"required":["id","from","to","description","creator","worker","last_heartbeat_at","created_at","concluded_at"],"title":"GraphIntent","type":"object"};
+const schema116 = {"additionalProperties":false,"properties":{"id":{"title":"Id","type":"string"},"content":{"title":"Content","type":"string"},"creator":{"title":"Creator","type":"string"},"created_at":{"title":"Created At","type":"string"}},"required":["id","content","creator","created_at"],"title":"GraphHint","type":"object"};
 
 function validate100(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
 let vErrors = null;
@@ -22921,9 +22997,8 @@ const len1 = data5.length;
 for(let i1=0; i1<len1; i1++){
 let data6 = data5[i1];
 if(data6 && typeof data6 == "object" && !Array.isArray(data6)){
-}
-else {
-const err13 = {instancePath:instancePath+"/intents/" + i1,schemaPath:"#/properties/intents/items/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(data6.id === undefined){
+const err13 = {instancePath:instancePath+"/intents/" + i1,schemaPath:"urn:wuji:contracts:0.5#/$defs/GraphIntent/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
 if(vErrors === null){
 vErrors = [err13];
 }
@@ -22932,10 +23007,8 @@ vErrors.push(err13);
 }
 errors++;
 }
-}
-}
-else {
-const err14 = {instancePath:instancePath+"/intents",schemaPath:"#/properties/intents/type",keyword:"type",params:{type: "array"},message:"must be array"};
+if(data6.from === undefined){
+const err14 = {instancePath:instancePath+"/intents/" + i1,schemaPath:"urn:wuji:contracts:0.5#/$defs/GraphIntent/required",keyword:"required",params:{missingProperty: "from"},message:"must have required property '"+"from"+"'"};
 if(vErrors === null){
 vErrors = [err14];
 }
@@ -22944,17 +23017,8 @@ vErrors.push(err14);
 }
 errors++;
 }
-}
-if(data.hints !== undefined){
-let data7 = data.hints;
-if(Array.isArray(data7)){
-const len2 = data7.length;
-for(let i2=0; i2<len2; i2++){
-let data8 = data7[i2];
-if(data8 && typeof data8 == "object" && !Array.isArray(data8)){
-}
-else {
-const err15 = {instancePath:instancePath+"/hints/" + i2,schemaPath:"#/properties/hints/items/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(data6.to === undefined){
+const err15 = {instancePath:instancePath+"/intents/" + i1,schemaPath:"urn:wuji:contracts:0.5#/$defs/GraphIntent/required",keyword:"required",params:{missingProperty: "to"},message:"must have required property '"+"to"+"'"};
 if(vErrors === null){
 vErrors = [err15];
 }
@@ -22963,10 +23027,8 @@ vErrors.push(err15);
 }
 errors++;
 }
-}
-}
-else {
-const err16 = {instancePath:instancePath+"/hints",schemaPath:"#/properties/hints/type",keyword:"type",params:{type: "array"},message:"must be array"};
+if(data6.description === undefined){
+const err16 = {instancePath:instancePath+"/intents/" + i1,schemaPath:"urn:wuji:contracts:0.5#/$defs/GraphIntent/required",keyword:"required",params:{missingProperty: "description"},message:"must have required property '"+"description"+"'"};
 if(vErrors === null){
 vErrors = [err16];
 }
@@ -22975,15 +23037,515 @@ vErrors.push(err16);
 }
 errors++;
 }
-}
-}
-else {
-const err17 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(data6.creator === undefined){
+const err17 = {instancePath:instancePath+"/intents/" + i1,schemaPath:"urn:wuji:contracts:0.5#/$defs/GraphIntent/required",keyword:"required",params:{missingProperty: "creator"},message:"must have required property '"+"creator"+"'"};
 if(vErrors === null){
 vErrors = [err17];
 }
 else {
 vErrors.push(err17);
+}
+errors++;
+}
+if(data6.worker === undefined){
+const err18 = {instancePath:instancePath+"/intents/" + i1,schemaPath:"urn:wuji:contracts:0.5#/$defs/GraphIntent/required",keyword:"required",params:{missingProperty: "worker"},message:"must have required property '"+"worker"+"'"};
+if(vErrors === null){
+vErrors = [err18];
+}
+else {
+vErrors.push(err18);
+}
+errors++;
+}
+if(data6.last_heartbeat_at === undefined){
+const err19 = {instancePath:instancePath+"/intents/" + i1,schemaPath:"urn:wuji:contracts:0.5#/$defs/GraphIntent/required",keyword:"required",params:{missingProperty: "last_heartbeat_at"},message:"must have required property '"+"last_heartbeat_at"+"'"};
+if(vErrors === null){
+vErrors = [err19];
+}
+else {
+vErrors.push(err19);
+}
+errors++;
+}
+if(data6.created_at === undefined){
+const err20 = {instancePath:instancePath+"/intents/" + i1,schemaPath:"urn:wuji:contracts:0.5#/$defs/GraphIntent/required",keyword:"required",params:{missingProperty: "created_at"},message:"must have required property '"+"created_at"+"'"};
+if(vErrors === null){
+vErrors = [err20];
+}
+else {
+vErrors.push(err20);
+}
+errors++;
+}
+if(data6.concluded_at === undefined){
+const err21 = {instancePath:instancePath+"/intents/" + i1,schemaPath:"urn:wuji:contracts:0.5#/$defs/GraphIntent/required",keyword:"required",params:{missingProperty: "concluded_at"},message:"must have required property '"+"concluded_at"+"'"};
+if(vErrors === null){
+vErrors = [err21];
+}
+else {
+vErrors.push(err21);
+}
+errors++;
+}
+for(const key2 in data6){
+if(!(func22.call(schema115.properties, key2))){
+const err22 = {instancePath:instancePath+"/intents/" + i1,schemaPath:"urn:wuji:contracts:0.5#/$defs/GraphIntent/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key2},message:"must NOT have additional properties"};
+if(vErrors === null){
+vErrors = [err22];
+}
+else {
+vErrors.push(err22);
+}
+errors++;
+}
+}
+if(data6.id !== undefined){
+if(typeof data6.id !== "string"){
+const err23 = {instancePath:instancePath+"/intents/" + i1+"/id",schemaPath:"urn:wuji:contracts:0.5#/$defs/GraphIntent/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err23];
+}
+else {
+vErrors.push(err23);
+}
+errors++;
+}
+}
+if(data6.from !== undefined){
+let data8 = data6.from;
+if(Array.isArray(data8)){
+const len2 = data8.length;
+for(let i2=0; i2<len2; i2++){
+if(typeof data8[i2] !== "string"){
+const err24 = {instancePath:instancePath+"/intents/" + i1+"/from/" + i2,schemaPath:"urn:wuji:contracts:0.5#/$defs/GraphIntent/properties/from/items/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err24];
+}
+else {
+vErrors.push(err24);
+}
+errors++;
+}
+}
+}
+else {
+const err25 = {instancePath:instancePath+"/intents/" + i1+"/from",schemaPath:"urn:wuji:contracts:0.5#/$defs/GraphIntent/properties/from/type",keyword:"type",params:{type: "array"},message:"must be array"};
+if(vErrors === null){
+vErrors = [err25];
+}
+else {
+vErrors.push(err25);
+}
+errors++;
+}
+}
+if(data6.to !== undefined){
+let data10 = data6.to;
+const _errs28 = errors;
+let valid11 = false;
+const _errs29 = errors;
+if(typeof data10 !== "string"){
+const err26 = {instancePath:instancePath+"/intents/" + i1+"/to",schemaPath:"urn:wuji:contracts:0.5#/$defs/GraphIntent/properties/to/anyOf/0/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err26];
+}
+else {
+vErrors.push(err26);
+}
+errors++;
+}
+var _valid0 = _errs29 === errors;
+valid11 = valid11 || _valid0;
+const _errs31 = errors;
+if(data10 !== null){
+const err27 = {instancePath:instancePath+"/intents/" + i1+"/to",schemaPath:"urn:wuji:contracts:0.5#/$defs/GraphIntent/properties/to/anyOf/1/type",keyword:"type",params:{type: "null"},message:"must be null"};
+if(vErrors === null){
+vErrors = [err27];
+}
+else {
+vErrors.push(err27);
+}
+errors++;
+}
+var _valid0 = _errs31 === errors;
+valid11 = valid11 || _valid0;
+if(!valid11){
+const err28 = {instancePath:instancePath+"/intents/" + i1+"/to",schemaPath:"urn:wuji:contracts:0.5#/$defs/GraphIntent/properties/to/anyOf",keyword:"anyOf",params:{},message:"must match a schema in anyOf"};
+if(vErrors === null){
+vErrors = [err28];
+}
+else {
+vErrors.push(err28);
+}
+errors++;
+}
+else {
+errors = _errs28;
+if(vErrors !== null){
+if(_errs28){
+vErrors.length = _errs28;
+}
+else {
+vErrors = null;
+}
+}
+}
+}
+if(data6.description !== undefined){
+if(typeof data6.description !== "string"){
+const err29 = {instancePath:instancePath+"/intents/" + i1+"/description",schemaPath:"urn:wuji:contracts:0.5#/$defs/GraphIntent/properties/description/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err29];
+}
+else {
+vErrors.push(err29);
+}
+errors++;
+}
+}
+if(data6.creator !== undefined){
+if(typeof data6.creator !== "string"){
+const err30 = {instancePath:instancePath+"/intents/" + i1+"/creator",schemaPath:"urn:wuji:contracts:0.5#/$defs/GraphIntent/properties/creator/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err30];
+}
+else {
+vErrors.push(err30);
+}
+errors++;
+}
+}
+if(data6.worker !== undefined){
+let data13 = data6.worker;
+const _errs38 = errors;
+let valid12 = false;
+const _errs39 = errors;
+if(typeof data13 !== "string"){
+const err31 = {instancePath:instancePath+"/intents/" + i1+"/worker",schemaPath:"urn:wuji:contracts:0.5#/$defs/GraphIntent/properties/worker/anyOf/0/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err31];
+}
+else {
+vErrors.push(err31);
+}
+errors++;
+}
+var _valid1 = _errs39 === errors;
+valid12 = valid12 || _valid1;
+const _errs41 = errors;
+if(data13 !== null){
+const err32 = {instancePath:instancePath+"/intents/" + i1+"/worker",schemaPath:"urn:wuji:contracts:0.5#/$defs/GraphIntent/properties/worker/anyOf/1/type",keyword:"type",params:{type: "null"},message:"must be null"};
+if(vErrors === null){
+vErrors = [err32];
+}
+else {
+vErrors.push(err32);
+}
+errors++;
+}
+var _valid1 = _errs41 === errors;
+valid12 = valid12 || _valid1;
+if(!valid12){
+const err33 = {instancePath:instancePath+"/intents/" + i1+"/worker",schemaPath:"urn:wuji:contracts:0.5#/$defs/GraphIntent/properties/worker/anyOf",keyword:"anyOf",params:{},message:"must match a schema in anyOf"};
+if(vErrors === null){
+vErrors = [err33];
+}
+else {
+vErrors.push(err33);
+}
+errors++;
+}
+else {
+errors = _errs38;
+if(vErrors !== null){
+if(_errs38){
+vErrors.length = _errs38;
+}
+else {
+vErrors = null;
+}
+}
+}
+}
+if(data6.last_heartbeat_at !== undefined){
+let data14 = data6.last_heartbeat_at;
+const _errs44 = errors;
+let valid13 = false;
+const _errs45 = errors;
+if(typeof data14 !== "string"){
+const err34 = {instancePath:instancePath+"/intents/" + i1+"/last_heartbeat_at",schemaPath:"urn:wuji:contracts:0.5#/$defs/GraphIntent/properties/last_heartbeat_at/anyOf/0/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err34];
+}
+else {
+vErrors.push(err34);
+}
+errors++;
+}
+var _valid2 = _errs45 === errors;
+valid13 = valid13 || _valid2;
+const _errs47 = errors;
+if(data14 !== null){
+const err35 = {instancePath:instancePath+"/intents/" + i1+"/last_heartbeat_at",schemaPath:"urn:wuji:contracts:0.5#/$defs/GraphIntent/properties/last_heartbeat_at/anyOf/1/type",keyword:"type",params:{type: "null"},message:"must be null"};
+if(vErrors === null){
+vErrors = [err35];
+}
+else {
+vErrors.push(err35);
+}
+errors++;
+}
+var _valid2 = _errs47 === errors;
+valid13 = valid13 || _valid2;
+if(!valid13){
+const err36 = {instancePath:instancePath+"/intents/" + i1+"/last_heartbeat_at",schemaPath:"urn:wuji:contracts:0.5#/$defs/GraphIntent/properties/last_heartbeat_at/anyOf",keyword:"anyOf",params:{},message:"must match a schema in anyOf"};
+if(vErrors === null){
+vErrors = [err36];
+}
+else {
+vErrors.push(err36);
+}
+errors++;
+}
+else {
+errors = _errs44;
+if(vErrors !== null){
+if(_errs44){
+vErrors.length = _errs44;
+}
+else {
+vErrors = null;
+}
+}
+}
+}
+if(data6.created_at !== undefined){
+if(typeof data6.created_at !== "string"){
+const err37 = {instancePath:instancePath+"/intents/" + i1+"/created_at",schemaPath:"urn:wuji:contracts:0.5#/$defs/GraphIntent/properties/created_at/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err37];
+}
+else {
+vErrors.push(err37);
+}
+errors++;
+}
+}
+if(data6.concluded_at !== undefined){
+let data16 = data6.concluded_at;
+const _errs52 = errors;
+let valid14 = false;
+const _errs53 = errors;
+if(typeof data16 !== "string"){
+const err38 = {instancePath:instancePath+"/intents/" + i1+"/concluded_at",schemaPath:"urn:wuji:contracts:0.5#/$defs/GraphIntent/properties/concluded_at/anyOf/0/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err38];
+}
+else {
+vErrors.push(err38);
+}
+errors++;
+}
+var _valid3 = _errs53 === errors;
+valid14 = valid14 || _valid3;
+const _errs55 = errors;
+if(data16 !== null){
+const err39 = {instancePath:instancePath+"/intents/" + i1+"/concluded_at",schemaPath:"urn:wuji:contracts:0.5#/$defs/GraphIntent/properties/concluded_at/anyOf/1/type",keyword:"type",params:{type: "null"},message:"must be null"};
+if(vErrors === null){
+vErrors = [err39];
+}
+else {
+vErrors.push(err39);
+}
+errors++;
+}
+var _valid3 = _errs55 === errors;
+valid14 = valid14 || _valid3;
+if(!valid14){
+const err40 = {instancePath:instancePath+"/intents/" + i1+"/concluded_at",schemaPath:"urn:wuji:contracts:0.5#/$defs/GraphIntent/properties/concluded_at/anyOf",keyword:"anyOf",params:{},message:"must match a schema in anyOf"};
+if(vErrors === null){
+vErrors = [err40];
+}
+else {
+vErrors.push(err40);
+}
+errors++;
+}
+else {
+errors = _errs52;
+if(vErrors !== null){
+if(_errs52){
+vErrors.length = _errs52;
+}
+else {
+vErrors = null;
+}
+}
+}
+}
+}
+else {
+const err41 = {instancePath:instancePath+"/intents/" + i1,schemaPath:"urn:wuji:contracts:0.5#/$defs/GraphIntent/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(vErrors === null){
+vErrors = [err41];
+}
+else {
+vErrors.push(err41);
+}
+errors++;
+}
+}
+}
+else {
+const err42 = {instancePath:instancePath+"/intents",schemaPath:"#/properties/intents/type",keyword:"type",params:{type: "array"},message:"must be array"};
+if(vErrors === null){
+vErrors = [err42];
+}
+else {
+vErrors.push(err42);
+}
+errors++;
+}
+}
+if(data.hints !== undefined){
+let data17 = data.hints;
+if(Array.isArray(data17)){
+const len3 = data17.length;
+for(let i3=0; i3<len3; i3++){
+let data18 = data17[i3];
+if(data18 && typeof data18 == "object" && !Array.isArray(data18)){
+if(data18.id === undefined){
+const err43 = {instancePath:instancePath+"/hints/" + i3,schemaPath:"urn:wuji:contracts:0.5#/$defs/GraphHint/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
+if(vErrors === null){
+vErrors = [err43];
+}
+else {
+vErrors.push(err43);
+}
+errors++;
+}
+if(data18.content === undefined){
+const err44 = {instancePath:instancePath+"/hints/" + i3,schemaPath:"urn:wuji:contracts:0.5#/$defs/GraphHint/required",keyword:"required",params:{missingProperty: "content"},message:"must have required property '"+"content"+"'"};
+if(vErrors === null){
+vErrors = [err44];
+}
+else {
+vErrors.push(err44);
+}
+errors++;
+}
+if(data18.creator === undefined){
+const err45 = {instancePath:instancePath+"/hints/" + i3,schemaPath:"urn:wuji:contracts:0.5#/$defs/GraphHint/required",keyword:"required",params:{missingProperty: "creator"},message:"must have required property '"+"creator"+"'"};
+if(vErrors === null){
+vErrors = [err45];
+}
+else {
+vErrors.push(err45);
+}
+errors++;
+}
+if(data18.created_at === undefined){
+const err46 = {instancePath:instancePath+"/hints/" + i3,schemaPath:"urn:wuji:contracts:0.5#/$defs/GraphHint/required",keyword:"required",params:{missingProperty: "created_at"},message:"must have required property '"+"created_at"+"'"};
+if(vErrors === null){
+vErrors = [err46];
+}
+else {
+vErrors.push(err46);
+}
+errors++;
+}
+for(const key3 in data18){
+if(!((((key3 === "id") || (key3 === "content")) || (key3 === "creator")) || (key3 === "created_at"))){
+const err47 = {instancePath:instancePath+"/hints/" + i3,schemaPath:"urn:wuji:contracts:0.5#/$defs/GraphHint/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key3},message:"must NOT have additional properties"};
+if(vErrors === null){
+vErrors = [err47];
+}
+else {
+vErrors.push(err47);
+}
+errors++;
+}
+}
+if(data18.id !== undefined){
+if(typeof data18.id !== "string"){
+const err48 = {instancePath:instancePath+"/hints/" + i3+"/id",schemaPath:"urn:wuji:contracts:0.5#/$defs/GraphHint/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err48];
+}
+else {
+vErrors.push(err48);
+}
+errors++;
+}
+}
+if(data18.content !== undefined){
+if(typeof data18.content !== "string"){
+const err49 = {instancePath:instancePath+"/hints/" + i3+"/content",schemaPath:"urn:wuji:contracts:0.5#/$defs/GraphHint/properties/content/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err49];
+}
+else {
+vErrors.push(err49);
+}
+errors++;
+}
+}
+if(data18.creator !== undefined){
+if(typeof data18.creator !== "string"){
+const err50 = {instancePath:instancePath+"/hints/" + i3+"/creator",schemaPath:"urn:wuji:contracts:0.5#/$defs/GraphHint/properties/creator/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err50];
+}
+else {
+vErrors.push(err50);
+}
+errors++;
+}
+}
+if(data18.created_at !== undefined){
+if(typeof data18.created_at !== "string"){
+const err51 = {instancePath:instancePath+"/hints/" + i3+"/created_at",schemaPath:"urn:wuji:contracts:0.5#/$defs/GraphHint/properties/created_at/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err51];
+}
+else {
+vErrors.push(err51);
+}
+errors++;
+}
+}
+}
+else {
+const err52 = {instancePath:instancePath+"/hints/" + i3,schemaPath:"urn:wuji:contracts:0.5#/$defs/GraphHint/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(vErrors === null){
+vErrors = [err52];
+}
+else {
+vErrors.push(err52);
+}
+errors++;
+}
+}
+}
+else {
+const err53 = {instancePath:instancePath+"/hints",schemaPath:"#/properties/hints/type",keyword:"type",params:{type: "array"},message:"must be array"};
+if(vErrors === null){
+vErrors = [err53];
+}
+else {
+vErrors.push(err53);
+}
+errors++;
+}
+}
+}
+else {
+const err54 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(vErrors === null){
+vErrors = [err54];
+}
+else {
+vErrors.push(err54);
 }
 errors++;
 }
@@ -23320,7 +23882,7 @@ return errors === 0;
 validate99.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 
 export const validateTaskResult = validate102;
-const schema115 = {"additionalProperties":false,"properties":{"state":{"enum":["pending","available"],"title":"State","type":"string"},"goal_status":{"enum":["unknown","met","not_met"],"title":"Goal Status","type":"string"},"summary":{"title":"Summary","type":"string"},"limitations":{"items":{"type":"string"},"title":"Limitations","type":"array"},"artifact_ids":{"items":{"format":"uuid","type":"string"},"title":"Artifact Ids","type":"array"},"model_spend":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Model Spend"},"cost_state":{"title":"Cost State","type":"string"}},"required":["state","goal_status","summary","limitations","artifact_ids","model_spend","cost_state"],"title":"TaskResult","type":"object"};
+const schema117 = {"additionalProperties":false,"properties":{"state":{"enum":["pending","available"],"title":"State","type":"string"},"goal_status":{"enum":["unknown","met","not_met"],"title":"Goal Status","type":"string"},"summary":{"title":"Summary","type":"string"},"limitations":{"items":{"type":"string"},"title":"Limitations","type":"array"},"artifact_ids":{"items":{"format":"uuid","type":"string"},"title":"Artifact Ids","type":"array"},"model_spend":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Model Spend"},"cost_state":{"title":"Cost State","type":"string"}},"required":["state","goal_status","summary","limitations","artifact_ids","model_spend","cost_state"],"title":"TaskResult","type":"object"};
 
 function validate102(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
 let vErrors = null;
@@ -23428,7 +23990,7 @@ vErrors.push(err8);
 errors++;
 }
 if(!((data0 === "pending") || (data0 === "available"))){
-const err9 = {instancePath:instancePath+"/state",schemaPath:"#/properties/state/enum",keyword:"enum",params:{allowedValues: schema115.properties.state.enum},message:"must be equal to one of the allowed values"};
+const err9 = {instancePath:instancePath+"/state",schemaPath:"#/properties/state/enum",keyword:"enum",params:{allowedValues: schema117.properties.state.enum},message:"must be equal to one of the allowed values"};
 if(vErrors === null){
 vErrors = [err9];
 }
@@ -23451,7 +24013,7 @@ vErrors.push(err10);
 errors++;
 }
 if(!(((data1 === "unknown") || (data1 === "met")) || (data1 === "not_met"))){
-const err11 = {instancePath:instancePath+"/goal_status",schemaPath:"#/properties/goal_status/enum",keyword:"enum",params:{allowedValues: schema115.properties.goal_status.enum},message:"must be equal to one of the allowed values"};
+const err11 = {instancePath:instancePath+"/goal_status",schemaPath:"#/properties/goal_status/enum",keyword:"enum",params:{allowedValues: schema117.properties.goal_status.enum},message:"must be equal to one of the allowed values"};
 if(vErrors === null){
 vErrors = [err11];
 }
@@ -23623,7 +24185,7 @@ return errors === 0;
 validate102.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 
 export const validateError = validate103;
-const schema116 = {"type":"object","additionalProperties":false,"required":["code","message","trace_id"],"properties":{"code":{"type":"string","enum":["UNAUTHENTICATED","FORBIDDEN","NOT_FOUND","VALIDATION_FAILED","SCOPE_DENIED","PREVIEW_EXPIRED","VERSION_CONFLICT","IDEMPOTENCY_CONFLICT","INVALID_TRANSITION","RATE_LIMITED","SERVICE_UNAVAILABLE","CURSOR_EXPIRED","INTERNAL_ERROR"]},"message":{"type":"string","minLength":1,"maxLength":500},"trace_id":{"type":"string","format":"uuid"},"field_errors":{"type":"array","maxItems":30,"items":{"type":"object","additionalProperties":false,"required":["field","message"],"properties":{"field":{"type":"string","minLength":1,"maxLength":128},"message":{"type":"string","minLength":1,"maxLength":300}}}}}};
+const schema118 = {"type":"object","additionalProperties":false,"required":["code","message","trace_id"],"properties":{"code":{"type":"string","enum":["UNAUTHENTICATED","FORBIDDEN","NOT_FOUND","VALIDATION_FAILED","SCOPE_DENIED","PREVIEW_EXPIRED","VERSION_CONFLICT","IDEMPOTENCY_CONFLICT","INVALID_TRANSITION","RATE_LIMITED","SERVICE_UNAVAILABLE","CURSOR_EXPIRED","INTERNAL_ERROR"]},"message":{"type":"string","minLength":1,"maxLength":500},"trace_id":{"type":"string","format":"uuid"},"field_errors":{"type":"array","maxItems":30,"items":{"type":"object","additionalProperties":false,"required":["field","message"],"properties":{"field":{"type":"string","minLength":1,"maxLength":128},"message":{"type":"string","minLength":1,"maxLength":300}}}}}};
 
 function validate103(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
 let vErrors = null;
@@ -23691,7 +24253,7 @@ vErrors.push(err4);
 errors++;
 }
 if(!(((((((((((((data0 === "UNAUTHENTICATED") || (data0 === "FORBIDDEN")) || (data0 === "NOT_FOUND")) || (data0 === "VALIDATION_FAILED")) || (data0 === "SCOPE_DENIED")) || (data0 === "PREVIEW_EXPIRED")) || (data0 === "VERSION_CONFLICT")) || (data0 === "IDEMPOTENCY_CONFLICT")) || (data0 === "INVALID_TRANSITION")) || (data0 === "RATE_LIMITED")) || (data0 === "SERVICE_UNAVAILABLE")) || (data0 === "CURSOR_EXPIRED")) || (data0 === "INTERNAL_ERROR"))){
-const err5 = {instancePath:instancePath+"/code",schemaPath:"#/properties/code/enum",keyword:"enum",params:{allowedValues: schema116.properties.code.enum},message:"must be equal to one of the allowed values"};
+const err5 = {instancePath:instancePath+"/code",schemaPath:"#/properties/code/enum",keyword:"enum",params:{allowedValues: schema118.properties.code.enum},message:"must be equal to one of the allowed values"};
 if(vErrors === null){
 vErrors = [err5];
 }

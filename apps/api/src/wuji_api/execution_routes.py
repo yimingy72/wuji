@@ -1,5 +1,6 @@
 """Read-only task execution HTTP routes reuse session, project, and cursor authority."""
 from uuid import UUID
+import hashlib
 from fastapi import Query, Request
 from wuji_api.database import AuthorityUnavailable, ResourceNotFound
 from wuji_api.execution_store import ExecutionStore
@@ -14,10 +15,17 @@ def register_execution_routes(application):
     def register_page(suffix, table, response_model):
         async def page(request: Request, project_id: UUID, task_id: UUID,
                        limit: int = Query(default=50,ge=1,le=100),
-                       cursor: str | None = Query(default=None,min_length=1,max_length=512)):
+                       cursor: str | None = Query(default=None,min_length=1,max_length=512),
+                       intent_id: str | None = Query(default=None,max_length=128,pattern=r"^[A-Za-z0-9_-]+$"),
+                       agent_run_id: UUID | None = None, tool_call_id: UUID | None = None):
             current = _runtime(request)
             session = await _authenticated(request,current)
             endpoint = f"{table}:{task_id}"
+            allowed_filter={"agent_runs":intent_id,"tool_calls":agent_run_id,"task_artifacts":tool_call_id}[table]
+            supplied=[v for v in (intent_id,agent_run_id,tool_call_id) if v is not None]
+            if len(supplied)>1 or (supplied and allowed_filter is None):raise ApiProblem(422,"VALIDATION_FAILED")
+            if allowed_filter is not None:
+                endpoint=f"{table}:"+hashlib.sha256(f"{task_id}:{allowed_filter}".encode()).hexdigest()[:24]
             position = None
             if cursor:
                 try:
@@ -27,7 +35,7 @@ def register_execution_routes(application):
                 except InvalidCursor as error: raise ApiProblem(422,"VALIDATION_FAILED") from error
             try:
                 rows = await ExecutionStore(current.authority).page(user_id=session.user_id,project_id=project_id,
-                    task_id=task_id,table=table,limit=limit,position=position)
+                    task_id=task_id,table=table,limit=limit,position=position,filter_value=allowed_filter)
             except ResourceNotFound as error: raise _command_problem(error) from error
             except AuthorityUnavailable as error: raise ApiProblem(503,"SERVICE_UNAVAILABLE") from error
             visible, next_cursor = rows[:limit], None

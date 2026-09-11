@@ -983,6 +983,8 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Tool Call Id */
+            tool_call_id: string | null;
             /** Kind */
             kind: string;
             /** Name */
@@ -2463,13 +2465,9 @@ export interface components {
             /** Facts */
             facts: components["schemas"]["GraphFact"][];
             /** Intents */
-            intents: {
-                [key: string]: unknown;
-            }[];
+            intents: components["schemas"]["GraphIntent"][];
             /** Hints */
-            hints: {
-                [key: string]: unknown;
-            }[];
+            hints: components["schemas"]["GraphHint"][];
         };
         /** BlackBoardSnapshot */
         BlackBoardSnapshot: {
@@ -2566,6 +2564,38 @@ export interface components {
             trace_id: string;
             /** Summary */
             summary: string;
+        };
+        /** GraphHint */
+        GraphHint: {
+            /** Id */
+            id: string;
+            /** Content */
+            content: string;
+            /** Creator */
+            creator: string;
+            /** Created At */
+            created_at: string;
+        };
+        /** GraphIntent */
+        GraphIntent: {
+            /** Id */
+            id: string;
+            /** From */
+            from: string[];
+            /** To */
+            to: string | null;
+            /** Description */
+            description: string;
+            /** Creator */
+            creator: string;
+            /** Worker */
+            worker: string | null;
+            /** Last Heartbeat At */
+            last_heartbeat_at: string | null;
+            /** Created At */
+            created_at: string;
+            /** Concluded At */
+            concluded_at: string | null;
         };
     };
     responses: never;
@@ -3868,6 +3898,9 @@ export interface operations {
             query?: {
                 limit?: number;
                 cursor?: string | null;
+                intent_id?: string | null;
+                agent_run_id?: string | null;
+                tool_call_id?: string | null;
             };
             header?: never;
             path: {
@@ -6529,6 +6562,9 @@ export interface operations {
             query?: {
                 limit?: number;
                 cursor?: string | null;
+                intent_id?: string | null;
+                agent_run_id?: string | null;
+                tool_call_id?: string | null;
             };
             header?: never;
             path: {
@@ -6636,6 +6672,9 @@ export interface operations {
             query?: {
                 limit?: number;
                 cursor?: string | null;
+                intent_id?: string | null;
+                agent_run_id?: string | null;
+                tool_call_id?: string | null;
             };
             header?: never;
             path: {

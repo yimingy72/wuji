@@ -47,3 +47,7 @@ Artifact用独立持久卷文件后端，原子落文件并校验摘要后标ava
 ## 验证与交付
 
 M1有限PostgreSQL/契约检查；M2/M3必要离线边界后统一实际夹具集成；M4真实浏览器一次。最终必须真实Cairn/Pi/LiteLLM/K8而非前端伪造，不跑旧完整回归。固定SHA和run_id，单个wuji-test串行管理。本阶段未完成前不标accepted；不设置累计检查预算，不额外增加真实模型调用额度。
+
+## M4 关系读取
+
+agent-runs支持intent_id，tool-calls支持agent_run_id，artifacts支持tool_call_id；同一请求只接受所属端点的一项筛选，误用422。过滤与Task/租户/项目条件共同生效；有界分页及签名游标绑定筛选。Artifact公开tool_call_id，不公开存储位置。NativeGraph的Intent和Hint使用原生字段的严格生成校验器，读取端不写图。

@@ -32,7 +32,7 @@
 公开创建/查询/事件复用 M1。start 只在当前候选具备实际消费者且运行配置有效时加入既有 task commands：
 - 请求 action=start、expected_version，使用与create/cancel相同用户/项目/UUID幂等键空间；先鉴权和查原回执，再处理新启动前提。
 - 仅新 web_assessment ready 可首次启动；历史queued明确拒绝。start持久写入命令、执行记录和epoch后返回202；没有消费者时不注册/不接受。
-- Task状态按现行架构 ready→queued/provisioning→running→completing→completed；取消进入cancelling，执行未知reconciling，已确认停止才cancelled。首个闭环不顺带开放pause/resume或自动重启恢复。
+- Task状态按现行架构 ready→provisioning→running→completing→completed；取消进入cancelling，执行未知reconciling，已确认停止才cancelled。首个闭环不顺带开放pause/resume或自动重启恢复。
 - completed只说明执行闭环已结束，assessment/Goal结果另外表达。没有漏洞不等于安全，预算结束不等于Goal达成。
 
 权威记录由 Wuji PostgreSQL 保存并提供真实 PermitSource/ControlSource，替换现有基础库的协议占位：
@@ -106,3 +106,9 @@ Supervisor必须提供实际调用与进程句柄、等待、停止、文件状�
 同一固定候选完成一次核心联合验收；前置模块仅做直接必要检查。通过后不扩张长压缩/故障/主题/压力矩阵，不为增加信心重复测试。真实模型能力、复杂漏洞效果和流量覆盖明确延期。
 
 交付记录绑定SHA、run_id、启动/结束对象、真实命令/退出码、实际请求次数及未覆盖项。M1完成可记录代码交付，但只有M4必要链路有证据才能说“核心闭环已完成”。
+
+## M4 实施补充：任务工作台（2026-09-11）
+
+按用户批准的参考工作台结构，在本轮交付黑板／时间线／工作区三视图和统一Task头部，配置折叠。黑板关系来自原生Intent.from/to；选Intent按intent_id读取AgentRun，选Run按agent_run_id读取ToolCall，选Tool按tool_call_id读取Artifact。分页游标签名绑定筛选条件，跨筛选拒绝使用；所有请求仍经过Wuji会话和项目权限。工具结构化路径连接现场文件与证据，不从描述文本猜关系，也不形成另一份可写Fact。
+
+采用简洁关系列表和详情侧栏，不引入图动画、全局资产或报告。参考仅用于信息结构，远端系统保持只读。当前工作树无CodeGraph索引，代码定位使用rg，不创建其他工作树索引。

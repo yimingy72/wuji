@@ -39,6 +39,7 @@ class ToolCallPage(Strict):
 
 class Artifact(Strict):
     id: UUID
+    tool_call_id: UUID | None
     kind: str
     name: str
     mime: str
@@ -55,11 +56,29 @@ class GraphFact(Strict):
     id: str
     description: str
 
+class GraphIntent(Strict):
+    model_config = ConfigDict(extra="forbid",populate_by_name=True)
+    id: str
+    from_: list[str] = Field(alias="from")
+    to: str | None
+    description: str
+    creator: str
+    worker: str | None
+    last_heartbeat_at: str | None
+    created_at: str
+    concluded_at: str | None
+
+class GraphHint(Strict):
+    id: str
+    content: str
+    creator: str
+    created_at: str
+
 class NativeGraph(Strict):
     project: dict
     facts: list[GraphFact]
-    intents: list[dict]
-    hints: list[dict]
+    intents: list[GraphIntent]
+    hints: list[GraphHint]
 
 class BlackBoardSnapshot(Strict):
     state: Literal["pending", "available"]

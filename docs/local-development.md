@@ -11,7 +11,7 @@ Phase 1A 功能已集成，完整验收当前为 partial：最近一次独立检
 | 开发 | http://127.0.0.1:4180 | http://127.0.0.1:8000 | http://127.0.0.1:18080 | 127.0.0.1:15432 | wuji-dev |
 | 独立测试 | http://127.0.0.1:4182 | http://127.0.0.1:8002 | http://127.0.0.1:18082 | 127.0.0.1:15434 | wuji-test |
 
-原型仍使用 `pnpm dev` 和 http://127.0.0.1:4173。正式工作台使用数据库中的身份与项目，保留登录、项目访问和五套主题。B2/B3新增任务创建、查询、取消和事件同步；交付状态见[B2/B3验收](stages/phase-1b/b23-acceptance.md)。任务执行与 Agent 在后续阶段实现。
+原型仍使用 `pnpm dev` 和 http://127.0.0.1:4173。正式工作台使用数据库中的身份与项目，保留登录、项目访问和五套主题。B2/B3新增任务创建、查询、取消和事件同步；交付状态见[B2/B3验收](stages/phase-1b/b23-acceptance.md)。381ae3a开发基线仍不执行任务；当前0.5候选在独立4182按文末封闭夹具流程运行Cairn/Pi/Kali。
 
 ## 首次准备
 
@@ -76,7 +76,7 @@ pnpm dev:down
 
 本批新任务状态为queued，取消后为cancelled，尚未接入实际执行。详情从服务端读取Scope版本、当前状态及变更记录，刷新可恢复。创建或取消结果不明时，页面保留“提交结果待确认”；刷新后点击“核对提交结果”按原键查询。404仍代表结果待确认。刷新已丢失原请求正文，不能直接重送；查看任务列表后，可明确放弃旧核对再发起新操作。标签页不保存目标URL、请求正文或凭据，关闭标签页会丢失核对标记；已创建任务仍保存在数据库中。
 
-`dev:seed` 会按顺序执行增量迁移至 `20260910_0003` 并幂等添加三个开发项目的范围，保留既有数据库、身份、范围和任务。管理侧导入使用当前私有运行文件与绝对 JSON 路径：
+B2/B3基线的`dev:seed`执行至`20260910_0003`；当前0.5候选执行至实际迁移头`20260911_0007`，管理命令返回实际版本。迁移 并幂等添加三个开发项目的范围，保留既有数据库、身份、范围和任务。管理侧导入使用当前私有运行文件与绝对 JSON 路径：
 
 ```sh
 ./scripts/platform/control.sh --run-file "$PWD/work/run/dev.json" scope import --file /absolute/path/scope.json
@@ -108,3 +108,49 @@ B2/B3的必要验证限定为`tests/api/test_phase1b_tasks.py`和`tests/platform
 网关命令不运行 Wuji 迁移、不重启 API。准备后按现有平台启动流程启动 API，它才会接收网关 URL、管理 key 和实例 ID，并在进程记录中添加 `model_gateway_management` scope。旧三项 scope 和没有网关的旧 schema v1 文件保持可读。上游 Base URL 使用 API Settings 的受限默认值；合成上游覆盖仅由显式 `local-test` 验证环境配置。本批原生部署的实际验证状态见 D2 验收记录。
 
 当前独立工作树已同步Python环境时，也可用`.venv/bin/python scripts/platform/gateway.py <action> --run-file ABS`运行同一入口；shell wrapper要求该检出已完成工具链bootstrap。TenantAdmin由可信管理CLI的`tenant-admin grant|revoke --user <seed-symbol> --tenant <seed-symbol>`显式设置，不自动提升Operator。
+
+## 核心闭环候选（wuji-test / 4182）
+
+在`codex/phase-1c-core-loop`所在检出执行；保留4180和开发数据库。当前入口只运行自建HTTP夹具，模型上游为合成协议服务，不产生公司模型费用。Task授权目标为`http://wuji-core-fixtures:8000/`，通过同版本检查并发布合成方案后才能启动；外部目标创建不等于获准在此执行。
+
+构建三个本地镜像（固定Pi/Cairn与基础摘要；首次准备需已同步锁定的Cairn依赖缓存）：
+
+```sh
+docker --context desktop-linux build -t wuji-task-agent:core-loop -f services/task-workers/Dockerfile.agent .
+docker --context desktop-linux build -t wuji-task-kali:core-loop -f services/task-workers/Dockerfile.kali .
+sh scripts/platform/build-core.sh
+```
+
+终端一保持前台，正常生命周期生成私有运行记录并完成0007迁移/种子/身份/工作台：
+
+```sh
+.venv/bin/python scripts/platform/lifecycle.py test-platform --serve-only --run-file-out "$PWD/work/run/core-final.json" --event-file "$PWD/artifacts/phase-1c-core-loop/lifecycle-final.jsonl"
+```
+
+终端二配置现有网关及测试身份；所有命令核对当前检出/提交，禁止手改run.source_sha：
+
+```sh
+.venv/bin/python scripts/platform/gateway.py up --run-file "$PWD/work/run/core-final.json"
+.venv/bin/python scripts/platform/control.py --run-file "$PWD/work/run/core-final.json" api restart --profile issuer_fixture
+.venv/bin/wuji-manage --run-file "$PWD/work/run/core-final.json" tenant-admin grant --user single_a --tenant tenant_a
+```
+
+通过正式模型页面保存OpenAI兼容服务`http://wuji-core-fixtures:8000/v1`（任意测试专用Key）和模型`wuji-fixture`方案，填写明确合成价格与容量。取方案版本ID，然后启动真实Core服务：
+
+```sh
+.venv/bin/python scripts/platform/core.py prepare --run-file "$PWD/work/run/core-final.json" --model-profile-version-id <方案版本UUID>
+.venv/bin/python scripts/platform/core.py up --run-file "$PWD/work/run/core-final.json"
+```
+
+此时模型页面显式检查并发布。4182使用组织登录进入测试fixture的single_a身份；创建Web任务、填写未来授权截止时间、选择合成模型和USD预算、确认范围，创建后显式启动。黑板、时间线、工作区展示实际执行记录，登记证据按项目权限读取。配置页的价格为合成检查规则，不能沿用到公司模型。
+
+停止先取消活动Task并等待真实停止状态，再依次运行`core.py down`、`gateway.py down`（同一--run-file），最后在serve-only终端Ctrl-C。保留测试数据库、身份、Cairn及Artifact PVC，停止不删除历史证据。更新代码前先停旧服务；新候选使用正常生命周期生成新run，不修改旧记录绕过版本核验。验收细节见[核心记录](stages/phase-1c-task-creation/acceptance.md)。
+
+
+上述D2保存、Core启动和一次显式合成检查/发布也可用单独入口完成：
+
+```sh
+.venv/bin/python scripts/platform/core-fixture-setup.py --run-file "$PWD/work/run/core-final.json"
+```
+
+该命令要求网关、issuer_fixture API和TenantAdmin已准备，固定自建合成上游；会保存0600原操作标识，结果不明只核对，不再次发起检查。浏览器登录前执行，避免同一测试用户新登录撤销原浏览器会话。

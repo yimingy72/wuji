@@ -647,7 +647,7 @@ function TaskDetail({ session, projectId, taskId, canControl, listCursor }: { se
     <section className={styles.taskPage} aria-labelledby="task-detail-title">
       <Link className={styles.backLink} to={listPath}><ArrowLeftOutlined aria-hidden="true" />返回任务列表</Link>
       <header className={styles.workspaceHeading}>
-        <div><span className={styles.eyebrow}>TASK DETAIL</span><h1 id="task-detail-title">{task.name}</h1><p>任务 {task.id}</p></div>
+        <div><span className={styles.eyebrow}>TASK DETAIL</span><h1 id="task-detail-title">{task.name}</h1><p>{taskStateTag(task)} <code>{task.target_url}</code></p><p>任务 {task.id} · 更新于 {new Date(task.updated_at).toLocaleString('zh-CN')}</p></div>
         <div className={styles.inlineActions}>{canControl && 'creation_config' in task && task.allowed_actions.includes('start') && <Button type="primary" loading={commandBusy} disabled={Boolean(pending)} onClick={() => void issueControl('start')}>启动任务</Button>}{canCancel && <Button danger loading={commandBusy} onClick={() => setCancelOpen(true)}>取消任务</Button>}</div>
       </header>
       <PendingCommandNotice session={session} projectId={projectId} onResolved={() => setSyncRevision((value) => value + 1)} />
@@ -663,7 +663,9 @@ function TaskDetail({ session, projectId, taskId, canControl, listCursor }: { se
         />
       )}
       {task.state === 'cancelling' && <Alert type="warning" showIcon title="正在取消并核对停止" description="取消请求已接受；进程与工具停止尚待实际回执确认。" />}
-      {'creation_config' in task && <ExecutionObservation session={session} projectId={projectId} task={task} />}
+      {'creation_config' in task && <ExecutionObservation session={session} projectId={projectId} task={task} timeline={<TaskHistory events={events} />} />}
+      <details>
+        <summary>任务配置与创建信息</summary>
       <div className={styles.taskDetailGrid}>
         <section className={styles.taskSummaryPanel} aria-labelledby="task-summary-title">
           <header><h2 id="task-summary-title">任务详情</h2>{taskStateTag(task)}</header>
@@ -695,8 +697,9 @@ function TaskDetail({ session, projectId, taskId, canControl, listCursor }: { se
             {task.start_blockers?.map((reason, index) => <Alert key={index} type="warning" title={reason} />)}
           </div>
         </section>}
-        <TaskHistory events={events} />
       </div>
+      </details>
+      {!('creation_config' in task) && <TaskHistory events={events} />}
       <Modal
         open={cancelOpen}
         title="确认取消任务"

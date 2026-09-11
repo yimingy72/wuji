@@ -15,7 +15,7 @@ from wuji_api.scope_policy import normalize_origin
 PAGE_COLUMNS = {
     "agent_runs": "id,phase,intent_id,worker_profile_id,state,result_state,outcome,created_at,updated_at",
     "tool_calls": "id,agent_run_id,tool,state,args,result,cancel_requested,created_at,updated_at",
-    "task_artifacts": "id,kind,name,mime,size,sha256,state,created_at",
+    "task_artifacts": "id,tool_call_id,kind,name,mime,size,sha256,state,created_at",
 }
 
 class ExecutionStore:
@@ -85,15 +85,19 @@ class ExecutionStore:
                     return dict(receipt)
         except SQLAlchemyError as error: raise AuthorityUnavailable from error
 
-    async def page(self, *, user_id, project_id, task_id, table, limit, position=None):
+    async def page(self, *, user_id, project_id, task_id, table, limit, position=None, filter_value=None):
         if table not in PAGE_COLUMNS or type(limit) is not int or not 1 <= limit <= 100: raise ValueError("invalid execution page")
         try:
             async with self.authority.project.begin() as connection:
                 _, _, params = await self._task(connection,user_id=user_id,project_id=project_id,task_id=task_id)
                 params["limit"] = limit+1
                 after = ""
+                if filter_value is not None:
+                    column={"agent_runs":"intent_id","tool_calls":"agent_run_id","task_artifacts":"tool_call_id"}[table]
+                    after=f" AND {column}=:filter_value"
+                    params["filter_value"]=filter_value
                 if position:
-                    after = " AND (created_at,id)<(:created_at,:after_id)"
+                    after += " AND (created_at,id)<(:created_at,:after_id)"
                     params.update(created_at=position.created_at,after_id=position.task_id)
                 rows = (await connection.execute(text(f"SELECT {PAGE_COLUMNS[table]} FROM {table} WHERE tenant_id=:tenant_id AND project_id=:project_id AND task_id=:task_id{after} ORDER BY created_at DESC,id DESC LIMIT :limit"),params)).mappings().all()
                 return [dict(row) for row in rows]

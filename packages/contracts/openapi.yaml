@@ -1094,6 +1094,34 @@ paths:
             maxLength: 512
           - type: 'null'
           title: Cursor
+      - name: intent_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 128
+            pattern: ^[A-Za-z0-9_-]+$
+          - type: 'null'
+          title: Intent Id
+      - name: agent_run_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Agent Run Id
+      - name: tool_call_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Tool Call Id
       responses:
         '200':
           description: Successful Response
@@ -4186,6 +4214,34 @@ paths:
             maxLength: 512
           - type: 'null'
           title: Cursor
+      - name: intent_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 128
+            pattern: ^[A-Za-z0-9_-]+$
+          - type: 'null'
+          title: Intent Id
+      - name: agent_run_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Agent Run Id
+      - name: tool_call_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Tool Call Id
       responses:
         '200':
           description: Successful Response
@@ -4326,6 +4382,34 @@ paths:
             maxLength: 512
           - type: 'null'
           title: Cursor
+      - name: intent_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 128
+            pattern: ^[A-Za-z0-9_-]+$
+          - type: 'null'
+          title: Intent Id
+      - name: agent_run_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Agent Run Id
+      - name: tool_call_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Tool Call Id
       responses:
         '200':
           description: Successful Response
@@ -5374,6 +5458,12 @@ components:
           format: uuid
           title: Id
           type: string
+        tool_call_id:
+          anyOf:
+          - format: uuid
+            type: string
+          - type: 'null'
+          title: Tool Call Id
         kind:
           title: Kind
           type: string
@@ -5399,6 +5489,7 @@ components:
           type: string
       required:
       - id
+      - tool_call_id
       - kind
       - name
       - mime
@@ -7859,14 +7950,12 @@ components:
           type: array
         intents:
           items:
-            additionalProperties: true
-            type: object
+            $ref: '#/components/schemas/GraphIntent'
           title: Intents
           type: array
         hints:
           items:
-            additionalProperties: true
-            type: object
+            $ref: '#/components/schemas/GraphHint'
           title: Hints
           type: array
       required:
@@ -8048,3 +8137,77 @@ components:
       - trace_id
       - summary
       title: TaskEventResponse
+    GraphHint:
+      additionalProperties: false
+      properties:
+        id:
+          title: Id
+          type: string
+        content:
+          title: Content
+          type: string
+        creator:
+          title: Creator
+          type: string
+        created_at:
+          title: Created At
+          type: string
+      required:
+      - id
+      - content
+      - creator
+      - created_at
+      title: GraphHint
+      type: object
+    GraphIntent:
+      additionalProperties: false
+      properties:
+        id:
+          title: Id
+          type: string
+        from:
+          items:
+            type: string
+          title: From
+          type: array
+        to:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: To
+        description:
+          title: Description
+          type: string
+        creator:
+          title: Creator
+          type: string
+        worker:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Worker
+        last_heartbeat_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Last Heartbeat At
+        created_at:
+          title: Created At
+          type: string
+        concluded_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Concluded At
+      required:
+      - id
+      - from
+      - to
+      - description
+      - creator
+      - worker
+      - last_heartbeat_at
+      - created_at
+      - concluded_at
+      title: GraphIntent
+      type: object

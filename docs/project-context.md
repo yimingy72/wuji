@@ -1,6 +1,6 @@
 # Wuji 项目背景与有效文档索引
 
-更新：2026-09-11；当前有效开发分支codex/phase-1c-creation-prototype（沿用phase-1c-prep工作树），架构收口起点6ee84b5。此页负责恢复背景与导航；设计正文、阶段验收各有独立权威来源，不在此复制完整架构。先读根 [AGENTS.md](../AGENTS.md)。
+更新：2026-09-11；当前有效开发分支codex/phase-1c-core-loop（沿用phase-1c-prep工作树），架构收口起点6ee84b5。此页负责恢复背景与导航；设计正文、阶段验收各有独立权威来源，不在此复制完整架构。先读根 [AGENTS.md](../AGENTS.md)。
 
 ## 1. 产品背景与当前决定
 
@@ -13,9 +13,9 @@ Wuji 是 Kubernetes 原生的授权安全验证平台。产品流程是创建任
 - 删除路径级授权，保留域名/子域及协议端口；外域资源正常加载不授予主动测试权限。流量控制细节与实现留待后续，不作为本次配置页面开发的前提。
 - Task模型预算改为金额USD，采用LiteLLM原生限制；组织模型配置不设置Task预算。主/子Agent、Reason、收尾和摘要共用，重启不重置；未知价格不按零计费，不承诺未经验证的并发零超支。
 - 没有可用模型方案时只能保存草稿，配置好模型后再创建任务；发布要求同版本显式连接检查成功，关闭自动付费探活。旧0.5 Spec/Plan已标superseded，不可直接实施。
-- 2026-09-11 用户确认：平台为五类场景提供默认Goal/完成条件模板，并允许创建任务时自定义；沿用版本化场景与快照，详见[评估配置契约](assessment-model.md#21-配置契约)。用户后续要求精简创建入口，补丁3094e6d已落实模板、无弹窗保留输入和补充线索。正式[D3-B方案](stages/phase-1c-task-creation/spec.md)仍为draft；Cairn记忆、覆盖、Reason补证和交接增强不因继续请求全部获批。
+- 2026-09-11 用户确认：平台为五类场景提供默认Goal/完成条件模板，并允许创建任务时自定义；沿用版本化场景与快照，详见[评估配置契约](assessment-model.md#21-配置契约)。用户后续要求精简创建入口，补丁3094e6d已落实模板、无弹窗保留输入和补充线索。正式[D3-B方案](stages/phase-1c-task-creation/spec.md)已随核心闭环计划获批。Reason只读已有证据，主动补证通过Intent交给Explore；其余长期记忆和覆盖增强仍按独立方案处理。
 - 直接复用Cairn Server/Dispatcher、Pi coding-agent与LiteLLM。一个Task对应一个Cairn Project；每个Task一个Pod，agent容器运行多个Agent，kali容器提供共享执行环境。Task统筹目标与外部工具/约束，Cairn黑板核心不改。Cairn是唯一可写探索图，Wuji保存任务、准入、执行账本及验证；结果先保存再同步。
-- LangGraph/LangChain/Deep Agents不再是目标必选依赖；P0仅为历史实验。候选版本及必要增量见[架构替代决策](cairn-architecture-decision.md)，尚未在Wuji集成验收。
+- LangGraph/LangChain/Deep Agents不再是目标必选依赖；P0仅为历史实验。候选版本及必要增量见[架构替代决策](cairn-architecture-decision.md)，已完成首轮真实封闭夹具联调，最终候选收口以本阶段验收为准；不代表生产出口或真实模型效果已验收。
 - 本次开发在当前会话，架构由主代理独立设计；可按需使用gpt-6-astra/low子代理，不再强制SOL/Luna、并发数、独立worktree或独立测试代理。历史报告中的实际模型不改写。
 - 2026-09-11用户最终确认单Task Pod双容器并授权开始开发。运行基础及Task/Cairn桥接基础库已完成最小验收；范围见[Task/Cairn桥接Spec](stages/phase-1c-cairn-bridge/spec.md)/[Plan](stages/phase-1c-cairn-bridge/plan.md)：原生客户端/Server复用、Task绑定、持久操作日志、调度预选及结果核对；不接正式API或启动真实模型/目标。完整0.5控制面和Cairn执行接入仍需具体后续Spec。
 
@@ -26,7 +26,8 @@ Wuji 是 Kubernetes 原生的授权安全验证平台。产品流程是创建任
 | 对象 | 已核对来源 | 含义 |
 | --- | --- | --- |
 | 主业务工作区 | `codex/phase-1b-b23`，`381ae3a2205965ad6aab1ce787d490d2c02839f3` | 正式业务 0.4.0；不是全部架构验收完成 |
-| 当前D3-A交互原型 | `codex/phase-1c-creation-prototype`，起点`5940d15` | 同一工作树继续；最新代码/验收用git log及当前阶段记录核对 |
+| 当前核心闭环开发 | `codex/phase-1c-core-loop`，起点`5631d80` | 0.5候选、0006/0007与真实框架闭环；最终SHA见阶段验收，4182测试环境 |
+| D3-A交互原型 | 原型代码保留于同工作树 `spikes/creation-workbench` | 4186独立演示，不代表真实Task状态 |
 | 历史设计来源 | `codex/product-interaction-plan@8dcf7ec`，此前修订起点`0051651047daeeee3b8741c460f182d42e755238` | 历史参考，不能覆盖后续用户确认 |
 | 产品原型 | `codex/product-interaction-prototype`，`2e35177` | 旧版两条模拟路径，未实现新版五场景与真实执行 |
 | master | `28fcd44eebc205a35735d3e7b60a308ce5f749bc` | 保留原阶段基线，不因文档或最小验收自动前移 |
@@ -52,8 +53,8 @@ Wuji 是 Kubernetes 原生的授权安全验证平台。产品流程是创建任
 | 控制面D1 | aa62b9a完成独立草稿API/迁移/权限，5项真实PostgreSQL与API检查、契约、构建通过；完整0.5仍未交付 | [Spec](stages/phase-1c-control-plane/spec.md)、[Plan](stages/phase-1c-control-plane/plan.md)、[验收](stages/phase-1c-control-plane/acceptance.md) |
 | D2模型配置 | 86f927f交付TenantAdmin/版本配置/原生检查/发布/选择；5项API+1项原生两协议重启+2项结构检查通过，真实K8生命周期未执行 | [Spec](stages/phase-1c-model-config/spec.md)、[验收](stages/phase-1c-model-config/acceptance.md) |
 | D3-A创建原型 | b6afc12原四组走查保留；3094e6d落实用户入口反馈，构建/浏览器及9a6b4ae上2项定向检查通过；完整用户通过未宣称，入口4186 | [Spec](stages/phase-1c-creation-prototype/spec.md)、[记录](stages/phase-1c-creation-prototype/acceptance.md)、[D3-B衔接](stages/phase-1c-creation-prototype/backend-handoff.md) |
-| 核心闭环与D3-B | 总计划draft：D3-B只是M1；终点为真实创建/启动→Cairn/Pi/共享Kali→Fact/证据/明确结果→停止核对。正式迁移/业务尚未实施 | [核心总计划](stages/phase-1c-task-creation/core-loop-plan.md)、[D3-B Spec](stages/phase-1c-task-creation/spec.md)/[Plan](stages/phase-1c-task-creation/plan.md)、[状态](stages/phase-1c-task-creation/acceptance.md) |
-| Cairn / Pi / LiteLLM / Runtime集成 | 目标选型已确认，完整接入/部署/黑板和流量采集尚未实现 | [架构替代决策](cairn-architecture-decision.md)及下节设计 |
+| 核心闭环与D3-B | approved / in-progress：M1—M4代码已实现，真实创建/启动→Cairn/Pi/共享Kali→Fact/证据/停止首轮已通过，工作台关系视图及最终候选收口中 | [核心总计划](stages/phase-1c-task-creation/core-loop-plan.md)、[D3-B Spec](stages/phase-1c-task-creation/spec.md)/[Plan](stages/phase-1c-task-creation/plan.md)、[状态](stages/phase-1c-task-creation/acceptance.md) |
+| Cairn / Pi / LiteLLM / Runtime集成 | 固定版本已通过真实K8封闭HTTP/合成模型路径；未开放外部目标、生产出口或全量流量采集 | [架构替代决策](cairn-architecture-decision.md)及下节设计 |
 
 表内测试是复用历史记录，未在本次文档提交重跑。B2/B3 测试代码基准为 `e76a265d445ae9548d7f56fdb85f9b8b5c005759`，具体 run 与限制以验收正文为准。架构验收目录的 80 项不是本次或每次开发必须执行的清单。
 
@@ -74,6 +75,8 @@ Wuji 是 Kubernetes 原生的授权安全验证平台。产品流程是创建任
 
 ## 5. 后续维护
 
+以下按日期保留决策历史，出现“尚未实施”等描述仅适用于当时提交；当前状态以上表及阶段验收为准。
+
 恢复工作先完成 AGENTS 的阅读流程，再报告需要用户判断的实质问题；已经记录的事实不重复询问。每次批准新决策同步权威设计与此索引，新阶段的 Plan 记录复用依据和兼容影响。旧阶段记录保留时间、SHA 和实际证据，过时段落加适用范围，不把历史失败改为通过。
 
 本次文档整理的范围与证据见 [背景收口记录](stages/context-baseline/acceptance.md)。已完成批准的 [Phase 1C 前置 P0](stages/phase-1c-prep-p0/spec.md)：统一基线与最小框架适配；不接正式Agent。P0历史检查窗口已用426秒；运行基础新增82秒后为508/600；桥接阶段剩余92秒窗口已耗尽，原记录中C01—C05未执行；2026-09-11用户取消检查时间预算，已补跑必要验证并通过本批最小验收，真实4次模型额度仍已用完；以[当前验收](stages/phase-1c-cairn-bridge/acceptance.md)为准。原文档验收见[记录](stages/cairn-architecture-baseline/acceptance.md)；后续澄清已选择单Pod双容器，原候选026457f完成首批[运行基础库](stages/phase-1c-runtime-foundation/spec.md)。基础库之后为控制面基础→调度适配→共享Runtime接入→产品接入→真实目标开放；0.5业务Spec与交互仍待冻结，不发布新接口或执行迁移。
@@ -89,3 +92,5 @@ Wuji 是 Kubernetes 原生的授权安全验证平台。产品流程是创建任
 2026-09-11：用户要求将 Cairn 调度、长任务记忆、覆盖、Fact 与文件交接结论发送主开发任务并继续下一步开发；见[开发交接](cairn-security-specialization-handoff.md)。默认可自定义 Goal 模板已确认，其他候选机制按交接说明收口，不将继续请求解释为全部技术细节已批准。
 
 2026-09-11 主开发已读取交接与实际代码，完成D3-B具体Spec/Plan、五模板和调度衔接草案，并纠正主架构残留“独立Agent Pod”措辞。随后收到用户真实创建评审反馈并直接完成原型修复；用户强调完整核心优先，已收敛为一个有明确终点的总计划。当前仍Default模式，已批准的原型修改已实施，尚未冻结的正式接口/调度不先施工；在应用Plan模式完成整体方案后按内部里程碑连续推进，不重复发起微批次审批。
+
+2026-09-11 核心闭环计划已获明确实施授权，分支codex/phase-1c-core-loop连续开发M1—M4。已实现0006/0007、D2正式模型页、v2任务创建、受控start、真实Cairn/Pi/LiteLLM/双容器Task Pod与Artifact持久卷。最新M4采用黑板/时间线/工作区及真实关系导航；不得将早期draft状态当成当前进度。最终候选与复用证据见[核心验收](stages/phase-1c-task-creation/acceptance.md)。主目录381ae3a、master28fcd44、4180保留。
