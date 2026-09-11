@@ -2,6 +2,8 @@
 
 更新：2026-09-11；当前有效开发分支codex/phase-2-web-assessment（独立phase-2-web-assessment工作树；旧交付检出phase-1c-prep保留），架构收口起点6ee84b5。此页负责恢复背景与导航；设计正文、阶段验收各有独立权威来源，不在此复制完整架构。先读根 [AGENTS.md](../AGENTS.md)。
 
+GitHub 克隆入口：默认分支 `codex/github-upload` 基于 W1 记录提交 `40472c6` 整理，本文档及阶段文档均在当前克隆内。下文工作树路径描述原开发机器的来源，不是克隆依赖；版本对应见[仓库交接说明](repository-handoff.md)。
+
 ## 1. 产品背景与当前决定
 
 Wuji 是 Kubernetes 原生的授权安全验证平台。产品流程是创建任务 → 执行观察 → 人工介入 → 查看结果，五类场景决定输入与流程。前端沿用 Ant Design 工作台、五套主题，表单表达用户意图，不直接照搬 API 字段。默认匿名测试；授权、执行、证据和预算由平台负责；Agent 框架复用成熟能力。
@@ -32,7 +34,7 @@ Wuji 是 Kubernetes 原生的授权安全验证平台。产品流程是创建任
 | 产品原型 | `codex/product-interaction-prototype`，`2e35177` | 旧版两条模拟路径，未实现新版五场景与真实执行 |
 | master | `28fcd44eebc205a35735d3e7b60a308ce5f749bc` | 保留原阶段基线，不因文档或最小验收自动前移 |
 
-当前开发与设计集成工作树为 `work/worktrees/phase-1c-prep/`；历史设计工作树位于仓库下 `work/worktrees/product-interaction/`，原型位于 `work/worktrees/product-interaction-prototype/`。这些位置是当前检索入口，执行时用 `git worktree list` 核对，不将历史路径当成永远有效。若新检出缺少最新文档，先查上述设计分支和 Git 历史，不在旧文档上重复决策。
+当前开发与设计集成工作树为 `work/worktrees/phase-2-web-assessment/`；历史设计工作树位于仓库下 `work/worktrees/product-interaction/`，原型位于 `work/worktrees/product-interaction-prototype/`。这些位置是当前检索入口，执行时用 `git worktree list` 核对，不将历史路径当成永远有效。若新检出缺少最新文档，先查上述设计分支和 Git 历史，不在旧文档上重复决策。
 
 文档独立提交期间不移动绑定运行 SHA 的主工作区 HEAD；主目录同步的规则/入口如暂未提交，应在交付中明确说明。后续正式集成按 [本地工作台](local-development.md) 流程处理旧进程与运行记录，不通过修改私有运行文件伪造版本一致。
 
