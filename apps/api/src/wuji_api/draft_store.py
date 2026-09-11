@@ -20,8 +20,9 @@ from wuji_api.database import (
     VersionConflict,
 )
 from wuji_api.security import TaskCursorPosition
+from wuji_api.model_selection import ModelUnavailable, selectable_model, model_summary
 
-_COLUMNS = "id, tenant_id, project_id, user_id, version, content, created_at, updated_at"
+_COLUMNS = "id, tenant_id, project_id, user_id, version, content, selected_model_summary, last_created_task_id, created_at, updated_at"
 _WHERE = "id = :id AND tenant_id = :tenant_id AND project_id = :project_id AND user_id = :user_id"
 
 
@@ -76,12 +77,18 @@ class DraftStore:
                         "project_id": project_id, "user_id": user_id,
                         "content": canonical.decode("utf-8"), "content_digest": digest,
                     }
+                    selected = None
+                    try:
+                        selected = model_summary(await selectable_model(connection, project.tenant_id, content.get("model_profile_version_id")))
+                    except ModelUnavailable:
+                        pass
+                    params["selected_model_summary"] = json.dumps(selected)
                     if expected_version == 0:
                         row = (await connection.execute(text(
                             "INSERT INTO task_drafts "
-                            "(id, tenant_id, project_id, user_id, content, content_digest, version) "
+                            "(id, tenant_id, project_id, user_id, content, content_digest, version, selected_model_summary) "
                             "VALUES (:id, :tenant_id, :project_id, :user_id, "
-                            "CAST(:content AS jsonb), :content_digest, 1) "
+                            "CAST(:content AS jsonb), :content_digest, 1, CAST(:selected_model_summary AS jsonb)) "
                             f"ON CONFLICT (id) DO NOTHING RETURNING {_COLUMNS}"
                         ), params)).mappings().one_or_none()
                         if row is not None:
@@ -98,9 +105,11 @@ class DraftStore:
                         return {key: value for key, value in row.items() if key != "content_digest"}
                     if row["version"] != expected_version:
                         raise VersionConflict
+                    if selected is None and row["content"].get("model_profile_version_id") == content.get("model_profile_version_id"):
+                        params["selected_model_summary"] = json.dumps(row["selected_model_summary"])
                     updated = (await connection.execute(text(
                         "UPDATE task_drafts SET content = CAST(:content AS jsonb), "
-                        "content_digest = :content_digest, version = version + 1, "
+                        "content_digest = :content_digest, version = version + 1, selected_model_summary = CAST(:selected_model_summary AS jsonb), "
                         "updated_at = clock_timestamp() "
                         f"WHERE {_WHERE} RETURNING {_COLUMNS}"
                     ), params)).mappings().one()

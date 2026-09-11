@@ -100,7 +100,64 @@ class CodeAuditDraft(DraftFields):
         return self
 
 
-DraftContent = Annotated[CtfDraft | WebDraft | ComprehensiveDraft | ExerciseDraft | CodeAuditDraft, Field(discriminator="scenario")]
+class GoalTemplateReference(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id: str = Field(min_length=1, max_length=120)
+    version: int = Field(ge=1, strict=True)
+    digest: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+
+class DraftFieldsV2(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    schema_version: Literal["2.0"]
+    name: str = Field(default="", max_length=120)
+    objective: str = Field(default="", max_length=8000)
+    goal_template: GoalTemplateReference | None = None
+    completion_criteria: list[Annotated[str, Field(max_length=1000)]] = Field(default_factory=list, max_length=20)
+    supplemental_hints: str = Field(default="", max_length=8000)
+    reference_ids: list[UUID] = Field(default_factory=list, max_length=20)
+    model_profile_version_id: UUID | None = None
+    runtime_profile_version_id: UUID | None = None
+    budget_usd: str | None = Field(default=None, pattern=r"^(0|[1-9][0-9]{0,11})(\.[0-9]{1,6})?$")
+    positive_money = field_validator("budget_usd")(classmethod(DraftFields.positive_money.__func__))
+
+
+from wuji_api.task_authorization import TaskAuthorization
+
+class CtfDraftV2(DraftFieldsV2):
+    scenario: Literal["ctf"]
+    challenge: str = Field(default="", max_length=8000)
+    entry_url: str | None = Field(default=None, max_length=2048)
+    valid_url = field_validator("entry_url")(classmethod(CtfDraft.valid_url.__func__))
+
+class WebDraftV2(DraftFieldsV2):
+    scenario: Literal["web_single"]
+    entry_url: str | None = Field(default=None, max_length=2048)
+    authorization: TaskAuthorization | None = None
+    valid_url = field_validator("entry_url")(classmethod(WebDraft.valid_url.__func__))
+
+class ComprehensiveDraftV2(DraftFieldsV2):
+    scenario: Literal["comprehensive"]
+    assets: list[ShortText] = Field(default_factory=list, max_length=100)
+    access_notes: str = Field(default="", max_length=4000)
+
+class ExerciseDraftV2(DraftFieldsV2):
+    scenario: Literal["exercise"]
+    organization_name: str = Field(default="", max_length=255)
+    known_domains: list[Annotated[str, Field(max_length=253)]] = Field(default_factory=list, max_length=100)
+
+class CodeAuditDraftV2(DraftFieldsV2):
+    scenario: Literal["code_audit"]
+    repository_url: str | None = Field(default=None, max_length=2048)
+    source_reference_id: UUID | None = None
+    revision: str | None = Field(default=None, max_length=255)
+    valid_url = field_validator("repository_url")(classmethod(CodeAuditDraft.valid_url.__func__))
+    one_source = model_validator(mode="after")(CodeAuditDraft.one_source)
+
+LegacyDraftContent = Annotated[CtfDraft | WebDraft | ComprehensiveDraft | ExerciseDraft | CodeAuditDraft, Field(discriminator="scenario")]
+NewDraftContent = Annotated[CtfDraftV2 | WebDraftV2 | ComprehensiveDraftV2 | ExerciseDraftV2 | CodeAuditDraftV2, Field(discriminator="scenario")]
+DraftContent = LegacyDraftContent | NewDraftContent
+
 
 
 def canonical_content(content: dict) -> bytes:
@@ -141,6 +198,8 @@ class TaskDraftResponse(BaseModel):
     user_id: UUID
     version: int = Field(ge=1, le=MAX_VERSION)
     content: DraftContent
+    selected_model_summary: dict | None = None
+    last_created_task_id: UUID | None = None
     created_at: datetime
     updated_at: datetime
 
