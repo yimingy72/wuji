@@ -1,8 +1,10 @@
 """Isolated native LiteLLM fixture; synthetic upstreams, no external network."""
 from __future__ import annotations
 
+import asyncio
 import json
 import os
+import httpx
 import secrets
 import socket
 import subprocess
@@ -150,17 +152,44 @@ class NativeGateway:
             "--mount", f"type=bind,source={ROOT / 'infra/kubernetes/model-gateway/config.yaml'},target=/etc/litellm/config.yaml,readonly"])
         self.wait_ready()
 
+    def request(self, method, path, headers=None, body="", timeout=30):
+        if not self.gateway_id:
+            raise RuntimeError("native gateway not created")
+        script = """import json,sys,urllib.request,urllib.error
+v=json.load(sys.stdin)
+r=urllib.request.Request('http://127.0.0.1:4000'+v['path'],data=v['body'].encode() if v['body'] else None,headers=v['headers'],method=v['method'])
+try:
+ with urllib.request.urlopen(r,timeout=v['timeout']) as response:
+  print(json.dumps({'status':response.status,'headers':dict(response.headers),'body':response.read().decode()}))
+except urllib.error.HTTPError as response:
+ print(json.dumps({'status':response.code,'headers':dict(response.headers),'body':response.read().decode()}))
+"""
+        response = subprocess.run(["docker", "exec", "-i", self.gateway_id, "python", "-c", script],
+            input=json.dumps({"method":method,"path":path,"headers":headers or {},"body":body,"timeout":timeout}),
+            capture_output=True,text=True,timeout=timeout+5)
+        if response.returncode:
+            raise RuntimeError("native HTTP request not available")
+        return json.loads(response.stdout)
+
+    def transport(self):
+        fixture = self
+        class NativeTransport(httpx.AsyncBaseTransport):
+            async def handle_async_request(self, request):
+                result = await asyncio.to_thread(fixture.request, request.method,
+                    request.url.raw_path.decode(), dict(request.headers), request.content.decode())
+                return httpx.Response(result['status'], headers=result['headers'], content=result['body'], request=request)
+        return NativeTransport()
+
     def wait_ready(self) -> None:
         deadline = time.monotonic() + 120
         while time.monotonic() < deadline:
             try:
-                with urlopen(self.url + "/health/readiness", timeout=2) as response:
-                    if response.status == 200:
-                        return
-            except (OSError, URLError):
+                if self.request("GET", "/health/readiness", timeout=2)['status'] == 200:
+                    return
+            except (RuntimeError, OSError, subprocess.TimeoutExpired):
                 pass
             time.sleep(.5)
-        raise RuntimeError("native gateway readiness timed out; no raw container logs collected")
+        raise RuntimeError("native gateway readiness timed out; redacted diagnostics will be retained")
 
     def restart(self) -> None:
         if not self.gateway_id or not self.owned("container", self.gateway_id):
@@ -182,7 +211,8 @@ class NativeGateway:
             for line in file.read_text().splitlines():
                 if "=" in line:
                     value = line.split("=", 1)[1]
-                    if value: redactions.append(value)
+                    if value and any(k in line.split("=", 1)[0] for k in ("KEY", "PASSWORD", "DATABASE_URL")):
+                        redactions.append(value)
         for identifier in self.container_ids:
             result = subprocess.run(["docker", "logs", "--tail", "50", identifier], capture_output=True, text=True, timeout=10)
             message = result.stdout + result.stderr

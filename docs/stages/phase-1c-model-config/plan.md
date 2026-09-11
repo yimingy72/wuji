@@ -35,3 +35,5 @@ API Settings字段（主代理实现）：model_gateway_url nullable、model_gat
 固定候选后先临时PostgreSQL+HTTP替身最小权限/操作流程，再一个真实LiteLLM实例+合成协议上游和重启检查；公司网关调用0。环境/真实实例统一主代理串行管理。实际原生依赖不兼容时如实记录，不能用替身宣称集成成功。契约检查/API构建通过即停，不跑旧浏览器矩阵。
 
 实现细化：原键查询新增get_operation_by_key(actor,key)和GET /model-operation-keys/{key}，不接触秘密；配置使用原生费用记录并关闭prompt正文记录。真实原生验证用已缓存Docker镜像和内部network，一套独立PostgreSQL非管理员应用角色及合成两协议上游；本批不改变运行中的Kubernetes工作台，仅交付Kubernetes生命周期入口及其定向结构检查。
+
+原生夹具首轮发现Docker internal网络无法从宿主映射端口到达已启动服务。保留internal网络，通过docker exec/stdin在容器内发真实HTTP并回传响应（不是MockTransport）；产品HTTP适配和原生协议不变。不把该夹具当Kubernetes端口转发验收。

@@ -20,7 +20,7 @@ def test_native_protocols_publish_and_restart(draft_case, monkeypatch):
         async def scenario():
             async with draft_case.client() as (client, app):
                 app.state.runtime.settings.model_gateway_allowed_bases = gateway.upstream_bases
-                app.state.runtime.model_gateway = ModelGateway(gateway.url, gateway.master_key, gateway.instance_id)
+                app.state.runtime.model_gateway = ModelGateway(gateway.url, gateway.master_key, gateway.instance_id, transport=gateway.transport())
                 prefix = f"/api/v1/tenants/{draft_case.tenant}"
                 async def post(path, body):
                     response = await client.post(prefix+path, json=body, headers={"Idempotency-Key": str(uuid4())})
