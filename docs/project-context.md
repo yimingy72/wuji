@@ -48,7 +48,7 @@ Wuji 是 Kubernetes 原生的授权安全验证平台。产品流程是创建任
 | Cairn架构收口 | 用户已批准，本批文档交付状态以验收为准；不代表业务实现 | [Spec](stages/cairn-architecture-baseline/spec.md)、[Plan](stages/cairn-architecture-baseline/plan.md)、[验收](stages/cairn-architecture-baseline/acceptance.md) |
 | Runtime基础库 | 026457f完成首批基础库，25个离线用例和包构建通过；未接真实执行 | [Spec](stages/phase-1c-runtime-foundation/spec.md)、[验收](stages/phase-1c-runtime-foundation/acceptance.md) |
 | Task/Cairn桥接 | 8e250f4修复结果拒绝竞态；初轮11项、相关复测4项和包构建通过，本批基础库accepted；未接正式调度 | [Spec](stages/phase-1c-cairn-bridge/spec.md)、[验收](stages/phase-1c-cairn-bridge/acceptance.md) |
-| 控制面D1 | 独立草稿API、迁移和权限开发中，尚未验收；0.5为开发候选 | [Spec](stages/phase-1c-control-plane/spec.md)、[Plan](stages/phase-1c-control-plane/plan.md)、[验收](stages/phase-1c-control-plane/acceptance.md) |
+| 控制面D1 | aa62b9a完成独立草稿API/迁移/权限，5项真实PostgreSQL与API检查、契约、构建通过；完整0.5仍未交付 | [Spec](stages/phase-1c-control-plane/spec.md)、[Plan](stages/phase-1c-control-plane/plan.md)、[验收](stages/phase-1c-control-plane/acceptance.md) |
 | Cairn / Pi / LiteLLM / Runtime集成 | 目标选型已确认，完整接入/部署/黑板和流量采集尚未实现 | [架构替代决策](cairn-architecture-decision.md)及下节设计 |
 
 表内测试是复用历史记录，未在本次文档提交重跑。B2/B3 测试代码基准为 `e76a265d445ae9548d7f56fdb85f9b8b5c005759`，具体 run 与限制以验收正文为准。架构验收目录的 80 项不是本次或每次开发必须执行的清单。

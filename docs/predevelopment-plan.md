@@ -1,6 +1,6 @@
 # Wuji 后续开发依赖与交付顺序
 
-- 日期：2026-09-11；状态：运行基础与桥接已完成；用户已授权开始控制面D1，完整0.5控制面尚未交付。
+- 日期：2026-09-11；状态：运行基础与桥接已完成；控制面D1独立草稿最小验收通过，完整0.5控制面尚未交付。
 - 当前入口：[背景索引](project-context.md)、[架构替代决策](cairn-architecture-decision.md)、[本批文档Spec](stages/cairn-architecture-baseline/spec.md)。
 - 本页替代6ee84b5中的旧HTTP优先/后置模型网关开发顺序；原Phase1A/B及P0验收保留，不能据此将后续能力标为完成。
 
@@ -13,13 +13,13 @@
 | B1/B2/B3 | 最小验证有效；现有Task只有queued/cancelled，执行调用数恒零 |
 | P0 a84716c | 原受限Deep Agents/原生客户端工具往返及取消等待实验通过；不是Pi/Cairn/LiteLLM证据 |
 | 新架构 | Cairn Server/Dispatcher、平台侧Pi、多Agent共享一个Kali、LiteLLM Task金额预算已确认，尚未集成 |
-| 当前批次 | [单Task Pod运行基础](stages/phase-1c-runtime-foundation/spec.md)：Python基础包、模板、许可/归属/停止和官方SDK适配；不接公开API、不迁移/部署/调用模型 |
+| 当前批次 | [控制面D1](stages/phase-1c-control-plane/spec.md)：独立草稿API/迁移/权限已验收；D2组织模型配置接续；未切换现有服务 |
 
 ## 2. 后续按依赖实施
 
 | 批次 | 必须交付 | 前置和边界 |
 | --- | --- | --- |
-| 运行基础（当前） | 独立基础包、单Pod双容器、许可/归属、UID条件停止、Kubernetes SDK适配 | 内部接口与离线验证；不等于Task API、实际调度或出口已接入 |
+| 运行基础（已验收离线切片） | 独立基础包、单Pod双容器、许可/归属、UID条件停止、Kubernetes SDK适配 | 内部接口与离线验证；不等于Task API、实际调度或出口已接入 |
 | 控制面基础 | 0.5契约、必要配置快照、ready/start、执行代次、AgentRun/工具账本、Task-Cairn绑定 | 先冻结Spec/Plan和迁移；组织模型配置/Task金额预算的必要后端不能后置到真实调度之后；旧queued不自动执行 |
 | 调度适配 | Wuji派发准入、agent进程执行后端、Pi受限工具、持久结果及原生查询核对 | 先合成工具夹具；Cairn active/stopped不代替许可，同步失败不重跑探索 |
 | 共享Runtime | 多Agent对接一个Kali、产物登记、命令句柄、取消与停止核对 | Task Runtime Controller唯一管理整个Pod；agent/kali分别镜像和容器；Cairn只管理动态Agent进程 |

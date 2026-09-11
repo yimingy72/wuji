@@ -1,6 +1,6 @@
 # 控制面 D1 Plan
 
-- 状态：in-progress；日期2026-09-11；对应[Spec](spec.md)；用户本轮继续已授权范围内实现。
+- 状态：completed / D1最小验收通过；日期2026-09-11；对应[Spec](spec.md)；用户本轮继续已授权范围内实现。
 - 工作树：/Users/yym/Documents/ChatGPT/Wuji 自动化渗透平台/work/worktrees/phase-1c-prep；基准1da3ec6。
 
 ## 冻结方案
@@ -17,7 +17,7 @@ DraftStore(authority)复用现有DatabaseAuthority实例：
 
 保存先用户锁、项目重新鉴权、核对permissions_version；INSERT ... ON CONFLICT DO NOTHING RETURNING先处理首次创建。冲突后只读取当前归属可见行FOR UPDATE。expected_version=当前version执行UPDATE version+1；expected_version+1=当前version且摘要一致为紧邻重放；其他409。初始version1，expected_version>0且不存在返回404。缺失归属的全局ID冲突返回404。SQLAlchemy错误脱敏转AuthorityUnavailable。
 
-迁移表task_drafts(id,tenant_id,project_id,user_id,content jsonb,content_digest char64,version bigint,created_at,updated_at)。内容digest以b'wuji-draft-v1\\n'+规范化sort_keys/separators/ensure_ascii=False JSON计算（标记包含实际换行，不是反斜杠n）。写/读RLS遵守Spec；更新列白名单不包括归属。不设默认/虚构模型方案、不写Cairn表。迁移编号由此子任务独占，根EXPECTED_REVISION由主代理更新。
+迁移表task_drafts(id,tenant_id,project_id,user_id,content jsonb,content_digest char64,version bigint,created_at,updated_at)。内容digest以`wuji-draft-v1`加一个换行字符+规范化sort_keys/separators/ensure_ascii=False JSON计算（标记包含实际换行，不是反斜杠n）。写/读RLS遵守Spec；更新列白名单不包括归属。不设默认/虚构模型方案、不写Cairn表。迁移编号由此子任务独占，根EXPECTED_REVISION由主代理更新。
 
 ## 执行顺序和验证
 

@@ -1,6 +1,6 @@
 # Phase 1C 控制面：独立草稿与后续接入 Spec
 
-- 日期：2026-09-11；D1状态approved / in-progress；D2—D4为待细化后续范围，不表示已经实现。
+- 日期：2026-09-11；D1状态approved / implementation accepted；D2—D4为待细化后续范围，不表示已经实现。
 - 承接用户确认的架构、无模型可保存草稿和本轮“继续开发”；当前为执行模式，未声称自行切换Plan模式。
 - 基准：1da3ec6d0bfec04a948ca5c6461cbac21c819db9，沿用phase-1c-prep工作树，分支codex/phase-1c-control-plane。
 - 来源：根AGENTS、project-context、PRODUCT、主架构、Cairn架构决策/黑板/Harness设计、场景交互、评估模型、Runtime和桥接验收；源代码实际Task仅queued/cancelled，TenantAdmin尚不存在。
