@@ -2,6 +2,8 @@
 
 状态：review draft，不授权直接迁移或业务开发。D3-A用户交互确认后再冻结D3-B Spec/Plan。
 
+2026-09-11 主开发续接：已形成[D3-B具体Spec](../phase-1c-task-creation/spec.md)、[Plan](../phase-1c-task-creation/plan.md)、[五场景Goal模板](../phase-1c-task-creation/goal-templates.md)及[调度合同提案](../phase-1c-task-creation/execution-handoff.md)。这些仍为draft，以下清单保留为来源；D3-A原验收不新增Goal能力，也未伪造用户通过。
+
 ## 已有能力
 
 D1 SavedTaskDraft支持五场景不完整输入与版本化保存；D2支持TenantAdmin、模型服务/方案版本、显式检查、发布/停止发布/安全撤销、原操作查询。正式Task目前只支持queued/cancelled。原型不连接这些接口，内存状态不能作为实现或验收证据。
@@ -22,6 +24,7 @@ D1 SavedTaskDraft支持五场景不完整输入与版本化保存；D2支持Tena
 - 迟到回调同时检查用户/项目代次和提交键；身份切换不能让旧回调覆盖后来同项目的新命令。
 - 增加ready并调整数据库/DTO/生成器/列表详情；历史queued无start记录不得自动执行。
 - 固定创建时目标/包含排除/期限/模型版本及计价/Task金额快照；模型后续变化不改历史。Runtime/工具版本未具备时不能填入虚构版本；执行快照和准入依赖须在D3-B方案中明确。
+- 2026-09-11 后续需求确认：平台按场景提供默认 Goal/完成条件模板，创建任务允许自定义，权威语义见[评估配置契约](../../assessment-model.md#21-配置契约)。D3-B 冻结时明确模板与任务实际目标的版本/快照关系及交互；这不是 D3-A 已验收能力，不据此直接修改原型或开放执行。
 
 ## 模型与权限
 

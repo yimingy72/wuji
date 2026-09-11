@@ -22,6 +22,8 @@ Task是Wuji完整业务主体：统筹场景、目标/起点/终点、授权范�
 
 原生Fact主要为描述文本，结构校验不验证真实性；原生worker字段及心跳也不等于平台身份/执行代次。[固定协议](https://github.com/oritera/Cairn/blob/8e7e0ea67552383851dfcabfba0c4e9c8d007878/docs/specs/server-protocol.md)
 
+2026-09-11原生行为复核：Reason标准返回complete/intents/noop，没有新增Fact写回分支，也没有固定逐Fact复核Worker。后续的补证、追加纠错、覆盖与共享文件规范见[执行衔接提案](stages/phase-1c-task-creation/execution-handoff.md)，仍为待冻结候选；不把修改提示词解释为Core已增加协议或证据真实性校验。
+
 Cairn SQLite是探索图唯一可写来源，首版单Server、单Dispatcher、持久卷。Wuji PostgreSQL保存Task/AgentRun/ToolCall、权限、验证和图引用/只读投影；原始Agent提交是交接证据，不能成为另一份可独立编辑的Fact。
 
 ## 2. Bridge与必要增量

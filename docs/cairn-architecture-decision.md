@@ -40,7 +40,7 @@ Wuji Project -> 多个Task
 | Platform API | 用户权限、Task命令、授权、配置、执行准入、验证与产物访问 |
 | Cairn Bridge | API内部适配模块，核对Task归属、登记平台操作、调用原生接口并核对结果；不选择下一探索方向 |
 | Cairn Server | 原生Project、Fact/Intent/Hint、探索关系与读写协议；不增改核心 |
-| Cairn Dispatcher | Bootstrap/Reason/Explore、Worker能力匹配与并发；通过平台准入后才派发 |
+| Cairn Dispatcher | Bootstrap/Reason/Explore、按Worker类型/容量/优先级选择及并发；通过平台准入后才派发，安全领域能力匹配须另行适配 |
 | Agent Worker后端 | agent容器内Harness进程、会话与进程回执；不创建/删除Pod |
 | Tool Router | 真实调用身份、工具权限、调用账本、有效epoch与Kali attempt路由 |
 | Runtime Controller | 整个Task Pod创建、重建、停止核对和回收；Cairn经执行后端启动Harness进程 |

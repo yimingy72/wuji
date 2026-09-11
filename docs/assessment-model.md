@@ -47,6 +47,10 @@ EvidenceLink 连接不可变 Observation/Artifact 版本与 Fact、VerificationR
 | ValidationRuleVersion | 输入证据 Schema、前提、可接受结论、检查条件、复核要求 | 校验结论能否被接受，不自行发送目标请求 |
 | VerificationTemplateVersion | 声明式步骤、Adapter 版本、目标变量、前提、期望观察和规则引用 | 通过 Tool 注册表和 Scope 预检后才可执行，不是任意代码入口 |
 
+2026-09-11 用户明确确认：平台按 Web 单点渗透、CTF 等五类场景提供默认 Goal 与完成条件模板，创建任务时允许自定义。沿用 ScenarioProfileVersion 与 ConfigSnapshot 的版本化设计；具体模板正文、编辑交互、数据字段和完成判定实现仍需对应阶段冻结，不把本次确认当成已实现能力。自定义目标不改变现有 Scope、平台禁止项及预算边界。已形成[D3-B模板正文提案](stages/phase-1c-task-creation/goal-templates.md)和[创建/执行快照分批方案](stages/phase-1c-task-creation/spec.md#6-快照与状态)，目前为draft，不覆盖尚未完成的交互评审。
+
+Reason是否受控补证、Fact与文件交接增强由主开发收口为[后续调度提案](stages/phase-1c-task-creation/execution-handoff.md)，其中首批经普通Intent/Explore补证是建议，不是用户要求Reason永远只读。所有候选保持Core协议不改、旧Fact不覆盖，不因“继续开发”将整份候选升级为已批准实现。
+
 平台预置配置也有发布版本。增加 ConfigPublisher、FindingReviewer、ReportPublisher 等权限点，由 TenantAdmin 在允许范围内分配；这些权限不自动包含 ScopeManager 或敏感证据导出权限。Agent 没有发布平台知识、修改规则和扩大工具权限的权限。
 
 ConfigSnapshot 保存上述版本 ID、内容摘要、initial_scope_version、RuntimeProfile、Prompt/Graph/Tool Schema、Harness/客户端版本及 ContextPolicy。Task 另存当前有效 Scope 绑定及其变更历史；后续合法 Scope 切换不改写初始配置快照，每次验证、调用和覆盖计划记录实际使用的 Scope 版本。绑定的旧配置版本被安全撤销时停止新派发，暂停受影响任务并按取消契约处理在途操作；普通更新不影响已运行任务。迁移到新知识、资料或方法配置创建关联新 Task，避免同一次评估悄悄改变依据；Scope 调整使用平台架构定义的版本切换链路。

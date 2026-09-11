@@ -80,7 +80,7 @@ Agent原始结果 -> Wuji保存操作 -> Cairn原生API提交/查询核对 -> �
 | LiteLLM | 模型、凭据、原生费用和Task金额限制 | 独立网关和数据库；上游Key不进入Agent/Kali |
 | Egress | 目标与操作出口约束、流量归属和停止 | 平台独立执行边界；具体方案待后续设计/验证 |
 
-单Task Pod的agent/kali容器分别挂载会话、工作区和凭据，不共享PID空间；网络是同一个Pod级边界。Cairn的ExecutionBackend只适配独立Agent Pod环境，其配置选择、执行上下文和cleanup需同步修改；不把原生Docker接口称为已支持Kubernetes。Agent通过工具接口访问目标，不能再宣称Pod策略可分别限制两个容器。Kali不持有平台数据库、Cairn管理或模型凭据。
+单Task Pod的agent/kali容器分别挂载会话、工作区和凭据，不共享PID空间；网络是同一个Pod级边界。Cairn的ExecutionBackend适配该Task Pod中agent容器的进程执行，其配置选择、执行上下文和cleanup需同步修改；不把原生Docker接口称为已支持Kubernetes。Agent通过工具接口访问目标，不能再宣称Pod策略可分别限制两个容器。Kali不持有平台数据库、Cairn管理或模型凭据。
 
 详细边界见[架构决策](cairn-architecture-decision.md)、[Harness](agent-harness-decision.md)与[黑板](cairn-blackboard-design.md)。新增服务均为目标设计，本批不部署。
 

@@ -1,6 +1,6 @@
 # Wuji 后续开发依赖与交付顺序
 
-- 日期：2026-09-11；状态：运行基础与桥接已完成；控制面D1独立草稿及D2模型配置最小验收通过，完整0.5控制面尚未交付。
+- 日期：2026-09-11；状态：运行基础与桥接已完成；控制面D1独立草稿及D2模型配置最小验收通过，D3-A原型待用户评审，D3-B具体方案draft；完整0.5控制面尚未交付。
 - 当前入口：[背景索引](project-context.md)、[架构替代决策](cairn-architecture-decision.md)、[本批文档Spec](stages/cairn-architecture-baseline/spec.md)。
 - 本页替代6ee84b5中的旧HTTP优先/后置模型网关开发顺序；原Phase1A/B及P0验收保留，不能据此将后续能力标为完成。
 
@@ -14,6 +14,7 @@
 | P0 a84716c | 原受限Deep Agents/原生客户端工具往返及取消等待实验通过；不是Pi/Cairn/LiteLLM证据 |
 | 新架构 | Cairn Server/Dispatcher、平台侧Pi、多Agent共享一个Kali、LiteLLM Task金额预算已确认，尚未集成 |
 | 当前批次 | [控制面D1](stages/phase-1c-control-plane/spec.md)：独立草稿API/迁移/权限已验收；D2组织模型配置已验收，D3快照/范围确认/ready-start接续；未切换现有服务 |
+| 当前待评审 | [D3-B Spec](stages/phase-1c-task-creation/spec.md)/[Plan](stages/phase-1c-task-creation/plan.md)：Web创建/授权/快照/ready和正式模型配置页面；五场景Goal可自定义，start待执行消费者与许可具备后再开放 |
 
 ## 2. 后续按依赖实施
 
@@ -28,6 +29,10 @@
 | 后续业务完善 | 覆盖/验证/资产/报告、资料导入、图查询和更多场景 | 按对应领域Spec逐批开放，不再建一套探索调度器 |
 
 任务创建、范围确认、模型配置等产品交互仍需先评审原型，再接正式前后端；隔离的调度适配可先用夹具，不能绕过交互确认发布新创建流程。
+
+当前细化顺序为D3-B创建与快照→D4权威执行账本→Cairn/Pi合成调度与共享Runtime。提示/Fact/文件交接的具体提案见[执行衔接](stages/phase-1c-task-creation/execution-handoff.md)，不新增固定角色流水线或修改Core。原生LiteLLM Task金额限制须在真实模型调用前接入，出口与停止须在真实目标访问前验证，不能借分批顺序后置。
+
+用户最新要求完整任务测试核心优先：[统一闭环计划](stages/phase-1c-task-creation/core-loop-plan.md)作为下一阶段评审总入口，ready只是M1内部里程碑。创建入口明确反馈已直接修复，不再用全量原型/视觉打磨阻塞执行链路；批准整体方案后按依赖连续开发，实质设计变化才重新收口。
 
 每批计划必须固定具体接口、迁移、变更范围、错误/恢复行为及最小验证入口。旧phase-1c-prep草案superseded，不能直接派发实施。本次不清理或删除P0包，不改变既有Cairn/Pi/Harness候选；运行基础通过可选workspace group新增官方Kubernetes客户端，避免挂入API启动路径。
 

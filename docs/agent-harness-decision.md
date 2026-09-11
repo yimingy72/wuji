@@ -10,6 +10,8 @@
 
 首个Harness以Pi 0.73.0为候选集成基线，复用Cairn现有Pi CLI驱动及JSON事件模式，不同时接入Claude/Codex/Pi多套实现。一个AgentRun绑定一个Harness版本及会话。未来更换SDK属于Worker适配变化，不能借此重写模型协议或压缩算法。
 
+2026-09-11复审续接：原生阶段输入可能经Pi压缩成为摘要，不能靠初始提示保证合同无损；[阶段合同/记忆/成果交接提案](stages/phase-1c-task-creation/execution-handoff.md)规定后续应在持久任务配置、调用记录和受限扩展上补充。提案未实施，不宣称仅放置镜像AGENTS文件就会被当前禁用自动加载的Pi驱动读取。
+
 Pi当前提供CLI、RPC与SDK入口，以及内置工具关闭、显式白名单和扩展能力。[固定版本文档](https://github.com/earendil-works/pi/blob/v0.73.0/packages/coding-agent/README.md) 这些是静态能力依据；MCP工具往返、取消、压缩等在Wuji的实际表现仍待分批验证。
 
 ## 2. Worker与Kali分别管理
