@@ -24,4 +24,6 @@ export declare const validateTaskPage: ContractValidator<components['schemas']['
 export declare const validateTaskSnapshot: ContractValidator<components['schemas']['TaskSnapshot']>;
 export declare const validateCommandReceipt: ContractValidator<components['schemas']['CommandReceipt']>;
 export declare const validateEventPage: ContractValidator<components['schemas']['EventPage']>;
+export declare const validateSavedTaskDraft: ContractValidator<components['schemas']['SavedTaskDraft']>;
+export declare const validateSavedTaskDraftPage: ContractValidator<components['schemas']['SavedTaskDraftPage']>;
 export declare const validateError: ContractValidator<components['schemas']['Error']>;

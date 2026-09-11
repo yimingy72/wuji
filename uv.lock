@@ -1801,7 +1801,7 @@ requires-dist = [
 
 [[package]]
 name = "wuji-api"
-version = "0.4.0"
+version = "0.5.0"
 source = { editable = "apps/api" }
 dependencies = [
     { name = "alembic" },
@@ -1860,7 +1860,7 @@ requires-dist = [{ name = "kubernetes", specifier = "==36.0.3" }]
 
 [[package]]
 name = "wuji-workspace"
-version = "0.4.0"
+version = "0.5.0"
 source = { virtual = "." }
 dependencies = [
     { name = "pyyaml" },

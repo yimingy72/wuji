@@ -301,12 +301,13 @@ class CursorCodec:
         limit: int,
         position: TaskCursorPosition,
         now: int | None = None,
+        endpoint: str = "tasks",
     ) -> str:
         issued_at = int(time.time() if now is None else now)
         return self._signed(
             {
                 "created_at": position.created_at.isoformat(),
-                "endpoint": "tasks",
+                "endpoint": endpoint,
                 "exp": issued_at + self._ttl_seconds,
                 "iat": issued_at,
                 "limit": limit,
@@ -327,6 +328,7 @@ class CursorCodec:
         project_id: UUID,
         limit: int,
         now: int | None = None,
+        endpoint: str = "tasks",
     ) -> TaskCursorPosition:
         payload = self._verified(value)
         expected_keys = {
@@ -336,7 +338,7 @@ class CursorCodec:
         self._validate_context(
             payload,
             expected_keys=expected_keys,
-            endpoint="tasks",
+            endpoint=endpoint,
             user_id=user_id,
             permissions_version=permissions_version,
             project_id=project_id,

@@ -1,6 +1,6 @@
 # Wuji 项目背景与有效文档索引
 
-更新：2026-09-11；当前有效开发分支codex/phase-1c-cairn-bridge（沿用phase-1c-prep工作树），架构收口起点6ee84b5。此页负责恢复背景与导航；设计正文、阶段验收各有独立权威来源，不在此复制完整架构。先读根 [AGENTS.md](../AGENTS.md)。
+更新：2026-09-11；当前有效开发分支codex/phase-1c-control-plane（沿用phase-1c-prep工作树），架构收口起点6ee84b5。此页负责恢复背景与导航；设计正文、阶段验收各有独立权威来源，不在此复制完整架构。先读根 [AGENTS.md](../AGENTS.md)。
 
 ## 1. 产品背景与当前决定
 
@@ -25,7 +25,7 @@ Wuji 是 Kubernetes 原生的授权安全验证平台。产品流程是创建任
 | 对象 | 已核对来源 | 含义 |
 | --- | --- | --- |
 | 主业务工作区 | `codex/phase-1b-b23`，`381ae3a2205965ad6aab1ce787d490d2c02839f3` | 正式业务 0.4.0；不是全部架构验收完成 |
-| 当前Task/Cairn桥接开发 | `codex/phase-1c-cairn-bridge`，起点`7cfcf386ca0d0388b039d60a941bc2812e118d5a` | 同一工作树继续；最新代码/验收用git log及当前阶段记录核对 |
+| 当前控制面D1开发 | `codex/phase-1c-control-plane`，起点`1da3ec6d0bfec04a948ca5c6461cbac21c819db9` | 同一工作树继续；最新代码/验收用git log及当前阶段记录核对 |
 | 历史设计来源 | `codex/product-interaction-plan@8dcf7ec`，此前修订起点`0051651047daeeee3b8741c460f182d42e755238` | 历史参考，不能覆盖后续用户确认 |
 | 产品原型 | `codex/product-interaction-prototype`，`2e35177` | 旧版两条模拟路径，未实现新版五场景与真实执行 |
 | master | `28fcd44eebc205a35735d3e7b60a308ce5f749bc` | 保留原阶段基线，不因文档或最小验收自动前移 |
@@ -48,6 +48,7 @@ Wuji 是 Kubernetes 原生的授权安全验证平台。产品流程是创建任
 | Cairn架构收口 | 用户已批准，本批文档交付状态以验收为准；不代表业务实现 | [Spec](stages/cairn-architecture-baseline/spec.md)、[Plan](stages/cairn-architecture-baseline/plan.md)、[验收](stages/cairn-architecture-baseline/acceptance.md) |
 | Runtime基础库 | 026457f完成首批基础库，25个离线用例和包构建通过；未接真实执行 | [Spec](stages/phase-1c-runtime-foundation/spec.md)、[验收](stages/phase-1c-runtime-foundation/acceptance.md) |
 | Task/Cairn桥接 | 8e250f4修复结果拒绝竞态；初轮11项、相关复测4项和包构建通过，本批基础库accepted；未接正式调度 | [Spec](stages/phase-1c-cairn-bridge/spec.md)、[验收](stages/phase-1c-cairn-bridge/acceptance.md) |
+| 控制面D1 | 独立草稿API、迁移和权限开发中，尚未验收；0.5为开发候选 | [Spec](stages/phase-1c-control-plane/spec.md)、[Plan](stages/phase-1c-control-plane/plan.md)、[验收](stages/phase-1c-control-plane/acceptance.md) |
 | Cairn / Pi / LiteLLM / Runtime集成 | 目标选型已确认，完整接入/部署/黑板和流量采集尚未实现 | [架构替代决策](cairn-architecture-decision.md)及下节设计 |
 
 表内测试是复用历史记录，未在本次文档提交重跑。B2/B3 测试代码基准为 `e76a265d445ae9548d7f56fdb85f9b8b5c005759`，具体 run 与限制以验收正文为准。架构验收目录的 80 项不是本次或每次开发必须执行的清单。
@@ -73,3 +74,5 @@ Wuji 是 Kubernetes 原生的授权安全验证平台。产品流程是创建任
 本次文档整理的范围与证据见 [背景收口记录](stages/context-baseline/acceptance.md)。已完成批准的 [Phase 1C 前置 P0](stages/phase-1c-prep-p0/spec.md)：统一基线与最小框架适配；不接正式Agent。P0历史检查窗口已用426秒；运行基础新增82秒后为508/600；桥接阶段剩余92秒窗口已耗尽，原记录中C01—C05未执行；2026-09-11用户取消检查时间预算，已补跑必要验证并通过本批最小验收，真实4次模型额度仍已用完；以[当前验收](stages/phase-1c-cairn-bridge/acceptance.md)为准。原文档验收见[记录](stages/cairn-architecture-baseline/acceptance.md)；后续澄清已选择单Pod双容器，原候选026457f完成首批[运行基础库](stages/phase-1c-runtime-foundation/spec.md)。基础库之后为控制面基础→调度适配→共享Runtime接入→产品接入→真实目标开放；0.5业务Spec与交互仍待冻结，不发布新接口或执行迁移。
 
 2026-09-11：用户取消开发检查的累计时间预算，继续最小必要验证、通过即停；产品Task金额预算及真实模型调用授权额度保持原约定。最新补跑结果以桥接阶段验收为准。
+
+2026-09-11本轮继续：先交付D1独立草稿，承接无模型可保存的用户决定；D2组织模型配置→D3快照/ready/start→D4权威执行账本按依赖实施。完整0.5和新版创建页面尚未交付。

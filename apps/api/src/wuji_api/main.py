@@ -204,9 +204,9 @@ async def _authenticated(request: Request, runtime: Runtime):
 
 
 def _project_response(record) -> ProjectResponse:
-    permissions = ["project.read"]
+    permissions = ["project.read", "task.draft.read"]
     if record.role == "operator":
-        permissions.extend(("task.preview", "task.read", "task.create", "task.control"))
+        permissions.extend(("task.preview", "task.read", "task.create", "task.control", "task.draft.write"))
     else:
         permissions.append("task.read")
     return ProjectResponse(
@@ -312,7 +312,7 @@ def create_app(
             if runtime is not None:
                 await runtime.close()
 
-    application = FastAPI(title="Wuji Platform API", version="0.4.0", lifespan=lifespan)
+    application = FastAPI(title="Wuji Platform API", version="0.5.0", lifespan=lifespan)
     application.state.runtime = runtime
 
     @application.middleware("http")
@@ -1178,6 +1178,9 @@ def create_app(
             for record in visible
         ]
         return EventPageResponse(items=items, next_cursor=next_cursor, has_more=has_more)
+
+    from wuji_api.draft_routes import register_draft_routes
+    register_draft_routes(application)
 
     return application
 

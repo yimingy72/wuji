@@ -26,7 +26,7 @@ from wuji_api.security import (
 )
 from wuji_api.settings import Settings
 
-EXPECTED_REVISION = "20260910_0003"
+EXPECTED_REVISION = "20260911_0004"
 
 
 class AuthorityUnavailable(RuntimeError):

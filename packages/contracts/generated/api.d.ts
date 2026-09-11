@@ -394,6 +394,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/task-drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * listTaskDrafts
+         * @description User-owned incomplete task intent. Saving does not create a Task, grant Scope or contact any external service. PUT uses expected_version=0 for create; an immediate identical replay returns the saved version. Reads require current project access. Signed pagination binds user, permissions version, project, limit and task_drafts purpose.
+         */
+        get: operations["listTaskDrafts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/task-drafts/{draft_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * getTaskDraft
+         * @description User-owned incomplete task intent. Saving does not create a Task, grant Scope or contact any external service. PUT uses expected_version=0 for create; an immediate identical replay returns the saved version. Reads require current project access. Signed pagination binds user, permissions version, project, limit and task_drafts purpose.
+         */
+        get: operations["getTaskDraft"];
+        /**
+         * saveTaskDraft
+         * @description User-owned incomplete task intent. Saving does not create a Task, grant Scope or contact any external service. PUT uses expected_version=0 for create; an immediate identical replay returns the saved version. Reads require current project access. Signed pagination binds user, permissions version, project, limit and task_drafts purpose.
+         */
+        put: operations["saveTaskDraft"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -406,7 +450,7 @@ export interface components {
         /** @enum {string} */
         TaskAction: "pause" | "resume" | "cancel";
         /** @enum {string} */
-        Permission: "project.read" | "task.preview" | "task.read" | "task.create" | "task.control" | "artifact.read" | "artifact.download_sensitive";
+        Permission: "project.read" | "task.draft.read" | "task.draft.write" | "task.preview" | "task.read" | "task.create" | "task.control" | "artifact.read" | "artifact.download_sensitive";
         Error: {
             /** @enum {string} */
             code: "UNAUTHENTICATED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "SCOPE_DENIED" | "PREVIEW_EXPIRED" | "VERSION_CONFLICT" | "IDEMPOTENCY_CONFLICT" | "INVALID_TRANSITION" | "RATE_LIMITED" | "SERVICE_UNAVAILABLE" | "CURSOR_EXPIRED" | "INTERNAL_ERROR";
@@ -626,6 +670,363 @@ export interface components {
             items: components["schemas"]["TaskEvent"][];
             next_cursor: components["schemas"]["Cursor"];
             has_more: boolean;
+        };
+        /** CodeAuditDraft */
+        CodeAuditDraft: {
+            /**
+             * Schema Version
+             * @default 1.0
+             * @constant
+             */
+            schema_version: "1.0";
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+            /**
+             * Objective
+             * @default
+             */
+            objective: string;
+            /**
+             * Starting Point
+             * @default
+             */
+            starting_point: string;
+            /**
+             * Constraints
+             * @default
+             */
+            constraints: string;
+            /** Reference Ids */
+            reference_ids?: string[];
+            /**
+             * Model Profile Version Id
+             * @default null
+             */
+            model_profile_version_id: string | null;
+            /**
+             * Runtime Profile Version Id
+             * @default null
+             */
+            runtime_profile_version_id: string | null;
+            /**
+             * Budget Usd
+             * @default null
+             */
+            budget_usd: string | null;
+            /**
+             * Scenario
+             * @constant
+             */
+            scenario: "code_audit";
+            /**
+             * Repository Url
+             * @default null
+             */
+            repository_url: string | null;
+            /**
+             * Source Reference Id
+             * @default null
+             */
+            source_reference_id: string | null;
+            /**
+             * Revision
+             * @default null
+             */
+            revision: string | null;
+        };
+        /** ComprehensiveDraft */
+        ComprehensiveDraft: {
+            /**
+             * Schema Version
+             * @default 1.0
+             * @constant
+             */
+            schema_version: "1.0";
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+            /**
+             * Objective
+             * @default
+             */
+            objective: string;
+            /**
+             * Starting Point
+             * @default
+             */
+            starting_point: string;
+            /**
+             * Constraints
+             * @default
+             */
+            constraints: string;
+            /** Reference Ids */
+            reference_ids?: string[];
+            /**
+             * Model Profile Version Id
+             * @default null
+             */
+            model_profile_version_id: string | null;
+            /**
+             * Runtime Profile Version Id
+             * @default null
+             */
+            runtime_profile_version_id: string | null;
+            /**
+             * Budget Usd
+             * @default null
+             */
+            budget_usd: string | null;
+            /**
+             * Scenario
+             * @constant
+             */
+            scenario: "comprehensive";
+            /** Assets */
+            assets?: string[];
+            /**
+             * Access Notes
+             * @default
+             */
+            access_notes: string;
+        };
+        /** CtfDraft */
+        CtfDraft: {
+            /**
+             * Schema Version
+             * @default 1.0
+             * @constant
+             */
+            schema_version: "1.0";
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+            /**
+             * Objective
+             * @default
+             */
+            objective: string;
+            /**
+             * Starting Point
+             * @default
+             */
+            starting_point: string;
+            /**
+             * Constraints
+             * @default
+             */
+            constraints: string;
+            /** Reference Ids */
+            reference_ids?: string[];
+            /**
+             * Model Profile Version Id
+             * @default null
+             */
+            model_profile_version_id: string | null;
+            /**
+             * Runtime Profile Version Id
+             * @default null
+             */
+            runtime_profile_version_id: string | null;
+            /**
+             * Budget Usd
+             * @default null
+             */
+            budget_usd: string | null;
+            /**
+             * Scenario
+             * @constant
+             */
+            scenario: "ctf";
+            /**
+             * Challenge
+             * @default
+             */
+            challenge: string;
+            /**
+             * Entry Url
+             * @default null
+             */
+            entry_url: string | null;
+        };
+        /** ExerciseDraft */
+        ExerciseDraft: {
+            /**
+             * Schema Version
+             * @default 1.0
+             * @constant
+             */
+            schema_version: "1.0";
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+            /**
+             * Objective
+             * @default
+             */
+            objective: string;
+            /**
+             * Starting Point
+             * @default
+             */
+            starting_point: string;
+            /**
+             * Constraints
+             * @default
+             */
+            constraints: string;
+            /** Reference Ids */
+            reference_ids?: string[];
+            /**
+             * Model Profile Version Id
+             * @default null
+             */
+            model_profile_version_id: string | null;
+            /**
+             * Runtime Profile Version Id
+             * @default null
+             */
+            runtime_profile_version_id: string | null;
+            /**
+             * Budget Usd
+             * @default null
+             */
+            budget_usd: string | null;
+            /**
+             * Scenario
+             * @constant
+             */
+            scenario: "exercise";
+            /**
+             * Organization Name
+             * @default
+             */
+            organization_name: string;
+            /** Known Domains */
+            known_domains?: string[];
+        };
+        /** WebDraft */
+        WebDraft: {
+            /**
+             * Schema Version
+             * @default 1.0
+             * @constant
+             */
+            schema_version: "1.0";
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+            /**
+             * Objective
+             * @default
+             */
+            objective: string;
+            /**
+             * Starting Point
+             * @default
+             */
+            starting_point: string;
+            /**
+             * Constraints
+             * @default
+             */
+            constraints: string;
+            /** Reference Ids */
+            reference_ids?: string[];
+            /**
+             * Model Profile Version Id
+             * @default null
+             */
+            model_profile_version_id: string | null;
+            /**
+             * Runtime Profile Version Id
+             * @default null
+             */
+            runtime_profile_version_id: string | null;
+            /**
+             * Budget Usd
+             * @default null
+             */
+            budget_usd: string | null;
+            /**
+             * Scenario
+             * @constant
+             */
+            scenario: "web_single";
+            /**
+             * Entry Url
+             * @default null
+             */
+            entry_url: string | null;
+            /**
+             * Include Subdomains
+             * @default false
+             */
+            include_subdomains: boolean;
+            /** Additional Origins */
+            additional_origins?: string[];
+        };
+        /** SaveDraftRequest */
+        SaveDraftRequest: {
+            /** Expected Version */
+            expected_version: number;
+            /** Content */
+            content: components["schemas"]["CtfDraft"] | components["schemas"]["WebDraft"] | components["schemas"]["ComprehensiveDraft"] | components["schemas"]["ExerciseDraft"] | components["schemas"]["CodeAuditDraft"];
+        };
+        /** TaskDraftResponse */
+        SavedTaskDraft: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Tenant Id
+             * Format: uuid
+             */
+            tenant_id: string;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /** Version */
+            version: number;
+            /** Content */
+            content: components["schemas"]["CtfDraft"] | components["schemas"]["WebDraft"] | components["schemas"]["ComprehensiveDraft"] | components["schemas"]["ExerciseDraft"] | components["schemas"]["CodeAuditDraft"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** TaskDraftPageResponse */
+        SavedTaskDraftPage: {
+            /** Items */
+            items: components["schemas"]["SavedTaskDraft"][];
+            /** Next Cursor */
+            next_cursor: string | null;
         };
     };
     responses: never;
@@ -2324,6 +2725,327 @@ export interface operations {
             };
             /** @description Rate limited */
             429: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Authority unavailable; fail closed */
+            503: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listTaskDrafts: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["PageSize"];
+                cursor?: components["parameters"]["PageCursor"];
+            };
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current user draft page */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedTaskDraftPage"];
+                };
+            };
+            /** @description Session missing or expired */
+            401: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Insufficient permission or invalid CSRF/Origin */
+            403: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Resource unavailable to this caller */
+            404: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Version, idempotency, transition or expired preview conflict */
+            409: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Cursor or artifact expired */
+            410: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Invalid structured input */
+            422: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unexpected server error */
+            500: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Authority unavailable; fail closed */
+            503: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getTaskDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Saved draft */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedTaskDraft"];
+                };
+            };
+            /** @description Session missing or expired */
+            401: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Insufficient permission or invalid CSRF/Origin */
+            403: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Resource unavailable to this caller */
+            404: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Version, idempotency, transition or expired preview conflict */
+            409: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Cursor or artifact expired */
+            410: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Invalid structured input */
+            422: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unexpected server error */
+            500: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Authority unavailable; fail closed */
+            503: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    saveTaskDraft: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Must equal the configured platform origin. */
+                Origin: string;
+            };
+            path: {
+                project_id: string;
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveDraftRequest"];
+            };
+        };
+        responses: {
+            /** @description Saved draft */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedTaskDraft"];
+                };
+            };
+            /** @description Session missing or expired */
+            401: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Insufficient permission or invalid CSRF/Origin */
+            403: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Resource unavailable to this caller */
+            404: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Version, idempotency, transition or expired preview conflict */
+            409: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Cursor or artifact expired */
+            410: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Invalid structured input */
+            422: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unexpected server error */
+            500: {
                 headers: {
                     "Cache-Control"?: "no-store";
                     [name: string]: unknown;

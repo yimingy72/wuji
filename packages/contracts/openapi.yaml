@@ -1,7 +1,7 @@
 openapi: 3.1.1
 info:
   title: Wuji Phase 1 Control API
-  version: 0.4.0
+  version: 0.5.0
   description: Reviewable contract baseline, not a running service. Authorized non-destructive HTTP observation
     only. All object reads/writes enforce caller/project/tenant ownership. Cookie authentication plus CSRF and Origin
     checks for writes. Limits and URL syntax validation do not replace server policy enforcement.
@@ -23,6 +23,8 @@ tags:
   description: Durable task commands and read models
 - name: Artifacts
   description: Authorized evidence metadata, preview and download
+- name: Drafts
+  description: User-owned incomplete task intent without execution
 paths:
   /session:
     get:
@@ -787,6 +789,228 @@ paths:
         '422': *id006
         '429': *id007
         '503': *id008
+  /projects/{project_id}/task-drafts:
+    get:
+      operationId: listTaskDrafts
+      summary: listTaskDrafts
+      description: User-owned incomplete task intent. Saving does not create a Task,
+        grant Scope or contact any external service. PUT uses expected_version=0 for
+        create; an immediate identical replay returns the saved version. Reads require
+        current project access. Signed pagination binds user, permissions version, project,
+        limit and task_drafts purpose.
+      tags:
+      - Drafts
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/PageCursor'
+      responses:
+        '200':
+          description: Current user draft page
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SavedTaskDraftPage'
+        '401': &draft_id001
+          description: Session missing or expired
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403': &draft_id002
+          description: Insufficient permission or invalid CSRF/Origin
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404': &draft_id003
+          description: Resource unavailable to this caller
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409': &draft_id004
+          description: Version, idempotency, transition or expired preview conflict
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '410': &draft_id005
+          description: Cursor or artifact expired
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422': &draft_id006
+          description: Invalid structured input
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500': &draft_id007
+          description: Unexpected server error
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503': &draft_id008
+          description: Authority unavailable; fail closed
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{project_id}/task-drafts/{draft_id}:
+    get:
+      operationId: getTaskDraft
+      summary: getTaskDraft
+      description: User-owned incomplete task intent. Saving does not create a Task,
+        grant Scope or contact any external service. PUT uses expected_version=0 for
+        create; an immediate identical replay returns the saved version. Reads require
+        current project access. Signed pagination binds user, permissions version, project,
+        limit and task_drafts purpose.
+      tags:
+      - Drafts
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: draft_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Saved draft
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SavedTaskDraft'
+        '401': *draft_id001
+        '403': *draft_id002
+        '404': *draft_id003
+        '409': *draft_id004
+        '410': *draft_id005
+        '422': *draft_id006
+        '500': *draft_id007
+        '503': *draft_id008
+    put:
+      operationId: saveTaskDraft
+      summary: saveTaskDraft
+      description: User-owned incomplete task intent. Saving does not create a Task,
+        grant Scope or contact any external service. PUT uses expected_version=0 for
+        create; an immediate identical replay returns the saved version. Reads require
+        current project access. Signed pagination binds user, permissions version, project,
+        limit and task_drafts purpose.
+      tags:
+      - Drafts
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: draft_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: Origin
+        in: header
+        required: true
+        schema:
+          type: string
+        description: Must equal the configured platform origin.
+      responses:
+        '200':
+          description: Saved draft
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SavedTaskDraft'
+        '401': *draft_id001
+        '403': *draft_id002
+        '404': *draft_id003
+        '409': *draft_id004
+        '410': *draft_id005
+        '422': *draft_id006
+        '500': *draft_id007
+        '503': *draft_id008
+      security:
+      - SessionCookie: []
+        CsrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveDraftRequest'
 components:
   securitySchemes:
     SessionCookie:
@@ -892,6 +1116,8 @@ components:
       type: string
       enum:
       - project.read
+      - task.draft.read
+      - task.draft.write
       - task.preview
       - task.read
       - task.create
@@ -1586,3 +1812,545 @@ components:
           $ref: '#/components/schemas/Cursor'
         has_more:
           type: boolean
+
+    CodeAuditDraft:
+      additionalProperties: false
+      not:
+        properties:
+          repository_url:
+            type: string
+          source_reference_id:
+            type: string
+        required:
+        - repository_url
+        - source_reference_id
+      properties:
+        schema_version:
+          const: '1.0'
+          default: '1.0'
+          title: Schema Version
+          type: string
+        name:
+          default: ''
+          maxLength: 120
+          title: Name
+          type: string
+        objective:
+          default: ''
+          maxLength: 8000
+          title: Objective
+          type: string
+        starting_point:
+          default: ''
+          maxLength: 8000
+          title: Starting Point
+          type: string
+        constraints:
+          default: ''
+          maxLength: 4000
+          title: Constraints
+          type: string
+        reference_ids:
+          items:
+            format: uuid
+            type: string
+          maxItems: 20
+          title: Reference Ids
+          type: array
+        model_profile_version_id:
+          anyOf:
+          - format: uuid
+            type: string
+          - type: 'null'
+          default: null
+          title: Model Profile Version Id
+        runtime_profile_version_id:
+          anyOf:
+          - format: uuid
+            type: string
+          - type: 'null'
+          default: null
+          title: Runtime Profile Version Id
+        budget_usd:
+          anyOf:
+          - pattern: ^(0|[1-9][0-9]{0,11})(\.[0-9]{1,6})?$
+            type: string
+          - type: 'null'
+          default: null
+          not:
+            enum:
+            - '0'
+            - '0.0'
+            - '0.00'
+            - '0.000'
+            - '0.0000'
+            - '0.00000'
+            - '0.000000'
+          title: Budget Usd
+        scenario:
+          const: code_audit
+          title: Scenario
+          type: string
+        repository_url:
+          anyOf:
+          - maxLength: 2048
+            type: string
+          - type: 'null'
+          default: null
+          title: Repository Url
+        source_reference_id:
+          anyOf:
+          - format: uuid
+            type: string
+          - type: 'null'
+          default: null
+          title: Source Reference Id
+        revision:
+          anyOf:
+          - maxLength: 255
+            type: string
+          - type: 'null'
+          default: null
+          title: Revision
+      required:
+      - scenario
+      title: CodeAuditDraft
+      type: object
+    ComprehensiveDraft:
+      additionalProperties: false
+      properties:
+        schema_version:
+          const: '1.0'
+          default: '1.0'
+          title: Schema Version
+          type: string
+        name:
+          default: ''
+          maxLength: 120
+          title: Name
+          type: string
+        objective:
+          default: ''
+          maxLength: 8000
+          title: Objective
+          type: string
+        starting_point:
+          default: ''
+          maxLength: 8000
+          title: Starting Point
+          type: string
+        constraints:
+          default: ''
+          maxLength: 4000
+          title: Constraints
+          type: string
+        reference_ids:
+          items:
+            format: uuid
+            type: string
+          maxItems: 20
+          title: Reference Ids
+          type: array
+        model_profile_version_id:
+          anyOf:
+          - format: uuid
+            type: string
+          - type: 'null'
+          default: null
+          title: Model Profile Version Id
+        runtime_profile_version_id:
+          anyOf:
+          - format: uuid
+            type: string
+          - type: 'null'
+          default: null
+          title: Runtime Profile Version Id
+        budget_usd:
+          anyOf:
+          - pattern: ^(0|[1-9][0-9]{0,11})(\.[0-9]{1,6})?$
+            type: string
+          - type: 'null'
+          default: null
+          not:
+            enum:
+            - '0'
+            - '0.0'
+            - '0.00'
+            - '0.000'
+            - '0.0000'
+            - '0.00000'
+            - '0.000000'
+          title: Budget Usd
+        scenario:
+          const: comprehensive
+          title: Scenario
+          type: string
+        assets:
+          items:
+            maxLength: 2048
+            type: string
+          maxItems: 100
+          title: Assets
+          type: array
+        access_notes:
+          default: ''
+          maxLength: 4000
+          title: Access Notes
+          type: string
+      required:
+      - scenario
+      title: ComprehensiveDraft
+      type: object
+    CtfDraft:
+      additionalProperties: false
+      properties:
+        schema_version:
+          const: '1.0'
+          default: '1.0'
+          title: Schema Version
+          type: string
+        name:
+          default: ''
+          maxLength: 120
+          title: Name
+          type: string
+        objective:
+          default: ''
+          maxLength: 8000
+          title: Objective
+          type: string
+        starting_point:
+          default: ''
+          maxLength: 8000
+          title: Starting Point
+          type: string
+        constraints:
+          default: ''
+          maxLength: 4000
+          title: Constraints
+          type: string
+        reference_ids:
+          items:
+            format: uuid
+            type: string
+          maxItems: 20
+          title: Reference Ids
+          type: array
+        model_profile_version_id:
+          anyOf:
+          - format: uuid
+            type: string
+          - type: 'null'
+          default: null
+          title: Model Profile Version Id
+        runtime_profile_version_id:
+          anyOf:
+          - format: uuid
+            type: string
+          - type: 'null'
+          default: null
+          title: Runtime Profile Version Id
+        budget_usd:
+          anyOf:
+          - pattern: ^(0|[1-9][0-9]{0,11})(\.[0-9]{1,6})?$
+            type: string
+          - type: 'null'
+          default: null
+          not:
+            enum:
+            - '0'
+            - '0.0'
+            - '0.00'
+            - '0.000'
+            - '0.0000'
+            - '0.00000'
+            - '0.000000'
+          title: Budget Usd
+        scenario:
+          const: ctf
+          title: Scenario
+          type: string
+        challenge:
+          default: ''
+          maxLength: 8000
+          title: Challenge
+          type: string
+        entry_url:
+          anyOf:
+          - maxLength: 2048
+            type: string
+          - type: 'null'
+          default: null
+          title: Entry Url
+      required:
+      - scenario
+      title: CtfDraft
+      type: object
+    ExerciseDraft:
+      additionalProperties: false
+      properties:
+        schema_version:
+          const: '1.0'
+          default: '1.0'
+          title: Schema Version
+          type: string
+        name:
+          default: ''
+          maxLength: 120
+          title: Name
+          type: string
+        objective:
+          default: ''
+          maxLength: 8000
+          title: Objective
+          type: string
+        starting_point:
+          default: ''
+          maxLength: 8000
+          title: Starting Point
+          type: string
+        constraints:
+          default: ''
+          maxLength: 4000
+          title: Constraints
+          type: string
+        reference_ids:
+          items:
+            format: uuid
+            type: string
+          maxItems: 20
+          title: Reference Ids
+          type: array
+        model_profile_version_id:
+          anyOf:
+          - format: uuid
+            type: string
+          - type: 'null'
+          default: null
+          title: Model Profile Version Id
+        runtime_profile_version_id:
+          anyOf:
+          - format: uuid
+            type: string
+          - type: 'null'
+          default: null
+          title: Runtime Profile Version Id
+        budget_usd:
+          anyOf:
+          - pattern: ^(0|[1-9][0-9]{0,11})(\.[0-9]{1,6})?$
+            type: string
+          - type: 'null'
+          default: null
+          not:
+            enum:
+            - '0'
+            - '0.0'
+            - '0.00'
+            - '0.000'
+            - '0.0000'
+            - '0.00000'
+            - '0.000000'
+          title: Budget Usd
+        scenario:
+          const: exercise
+          title: Scenario
+          type: string
+        organization_name:
+          default: ''
+          maxLength: 255
+          title: Organization Name
+          type: string
+        known_domains:
+          items:
+            maxLength: 253
+            type: string
+          maxItems: 100
+          title: Known Domains
+          type: array
+      required:
+      - scenario
+      title: ExerciseDraft
+      type: object
+    WebDraft:
+      additionalProperties: false
+      properties:
+        schema_version:
+          const: '1.0'
+          default: '1.0'
+          title: Schema Version
+          type: string
+        name:
+          default: ''
+          maxLength: 120
+          title: Name
+          type: string
+        objective:
+          default: ''
+          maxLength: 8000
+          title: Objective
+          type: string
+        starting_point:
+          default: ''
+          maxLength: 8000
+          title: Starting Point
+          type: string
+        constraints:
+          default: ''
+          maxLength: 4000
+          title: Constraints
+          type: string
+        reference_ids:
+          items:
+            format: uuid
+            type: string
+          maxItems: 20
+          title: Reference Ids
+          type: array
+        model_profile_version_id:
+          anyOf:
+          - format: uuid
+            type: string
+          - type: 'null'
+          default: null
+          title: Model Profile Version Id
+        runtime_profile_version_id:
+          anyOf:
+          - format: uuid
+            type: string
+          - type: 'null'
+          default: null
+          title: Runtime Profile Version Id
+        budget_usd:
+          anyOf:
+          - pattern: ^(0|[1-9][0-9]{0,11})(\.[0-9]{1,6})?$
+            type: string
+          - type: 'null'
+          default: null
+          not:
+            enum:
+            - '0'
+            - '0.0'
+            - '0.00'
+            - '0.000'
+            - '0.0000'
+            - '0.00000'
+            - '0.000000'
+          title: Budget Usd
+        scenario:
+          const: web_single
+          title: Scenario
+          type: string
+        entry_url:
+          anyOf:
+          - maxLength: 2048
+            type: string
+          - type: 'null'
+          default: null
+          title: Entry Url
+        include_subdomains:
+          default: false
+          title: Include Subdomains
+          type: boolean
+        additional_origins:
+          items:
+            maxLength: 2048
+            type: string
+          maxItems: 100
+          title: Additional Origins
+          type: array
+      required:
+      - scenario
+      title: WebDraft
+      type: object
+    SaveDraftRequest:
+      additionalProperties: false
+      properties:
+        expected_version:
+          exclusiveMaximum: 9007199254740991
+          minimum: 0
+          title: Expected Version
+          type: integer
+        content:
+          oneOf:
+          - $ref: '#/components/schemas/CtfDraft'
+          - $ref: '#/components/schemas/WebDraft'
+          - $ref: '#/components/schemas/ComprehensiveDraft'
+          - $ref: '#/components/schemas/ExerciseDraft'
+          - $ref: '#/components/schemas/CodeAuditDraft'
+          title: Content
+      required:
+      - expected_version
+      - content
+      title: SaveDraftRequest
+      type: object
+    SavedTaskDraft:
+      additionalProperties: false
+      properties:
+        id:
+          format: uuid
+          title: Id
+          type: string
+        tenant_id:
+          format: uuid
+          title: Tenant Id
+          type: string
+        project_id:
+          format: uuid
+          title: Project Id
+          type: string
+        user_id:
+          format: uuid
+          title: User Id
+          type: string
+        version:
+          maximum: 9007199254740991
+          minimum: 1
+          title: Version
+          type: integer
+        content:
+          oneOf:
+          - $ref: '#/components/schemas/CtfDraft'
+          - $ref: '#/components/schemas/WebDraft'
+          - $ref: '#/components/schemas/ComprehensiveDraft'
+          - $ref: '#/components/schemas/ExerciseDraft'
+          - $ref: '#/components/schemas/CodeAuditDraft'
+          title: Content
+        created_at:
+          format: date-time
+          title: Created At
+          type: string
+        updated_at:
+          format: date-time
+          title: Updated At
+          type: string
+      required:
+      - id
+      - tenant_id
+      - project_id
+      - user_id
+      - version
+      - content
+      - created_at
+      - updated_at
+      title: TaskDraftResponse
+      type: object
+    SavedTaskDraftPage:
+      additionalProperties: false
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/SavedTaskDraft'
+          maxItems: 100
+          title: Items
+          type: array
+        next_cursor:
+          anyOf:
+          - maxLength: 512
+            type: string
+          - type: 'null'
+          title: Next Cursor
+      required:
+      - items
+      - next_cursor
+      title: TaskDraftPageResponse
+      type: object
