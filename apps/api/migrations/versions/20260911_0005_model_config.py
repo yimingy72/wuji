@@ -49,7 +49,7 @@ def upgrade() -> None:
       kind varchar NOT NULL CHECK(kind IN ('create_service','create_profile','check','publish','retire','revoke')),
       version_id uuid NOT NULL, request_digest char(64) NOT NULL CHECK(request_digest ~ '^[a-f0-9]{64}$'),
       state varchar NOT NULL DEFAULT 'prepared' CHECK(state IN ('prepared','sent','succeeded','failed','unknown')),
-      result jsonb NOT NULL DEFAULT '{"error_code":null,"usage":null,"cost_usd":null}'::jsonb,
+      result jsonb NOT NULL DEFAULT '{}'::jsonb,
       sent_at timestamptz, created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
       updated_at timestamptz NOT NULL DEFAULT clock_timestamp(),
       FOREIGN KEY(tenant_id,version_id) REFERENCES model_versions(tenant_id,id),

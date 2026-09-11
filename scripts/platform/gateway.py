@@ -108,7 +108,13 @@ def prepare(path: Path) -> dict[str, Any]:
     if require_owned_resource("service", "postgres", namespace=run["namespace"]) is None:
         raise LifecycleError("owned PostgreSQL service is absent")
     if "model_gateway" not in run:
-        instance = str(uuid5(NAMESPACE_URL, f"{REPOSITORY_ROOT}:{run['namespace']}:{run['run_id']}:model-gateway"))
+        common_git = Path(run_command(["git", "rev-parse", "--git-common-dir"]).stdout.strip())
+        if not common_git.is_absolute():
+            common_git = (REPOSITORY_ROOT / common_git).resolve()
+        # Development restarts/new source runs retain the same native data identity.
+        # Tests use their run ID to keep fixtures independent.
+        scope = run["namespace"] + (":" + run["run_id"] if run["profile"] == "test" else "")
+        instance = str(uuid5(NAMESPACE_URL, f"{common_git}:{scope}:model-gateway"))
         suffix = instance.replace("-", "")
         gateway = {"instance_id": instance, "url": f"http://127.0.0.1:{18400 if run['profile'] == 'dev' else 18402}",
                    "database_name": f"wuji_gateway_{suffix}", "database_role": f"wg_{suffix}",
