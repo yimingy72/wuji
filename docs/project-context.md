@@ -1,6 +1,6 @@
 # Wuji 项目背景与有效文档索引
 
-更新：2026-09-11；当前有效开发分支codex/phase-1c-model-config（沿用phase-1c-prep工作树），架构收口起点6ee84b5。此页负责恢复背景与导航；设计正文、阶段验收各有独立权威来源，不在此复制完整架构。先读根 [AGENTS.md](../AGENTS.md)。
+更新：2026-09-11；当前有效开发分支codex/phase-1c-creation-prototype（沿用phase-1c-prep工作树），架构收口起点6ee84b5。此页负责恢复背景与导航；设计正文、阶段验收各有独立权威来源，不在此复制完整架构。先读根 [AGENTS.md](../AGENTS.md)。
 
 ## 1. 产品背景与当前决定
 
@@ -25,7 +25,7 @@ Wuji 是 Kubernetes 原生的授权安全验证平台。产品流程是创建任
 | 对象 | 已核对来源 | 含义 |
 | --- | --- | --- |
 | 主业务工作区 | `codex/phase-1b-b23`，`381ae3a2205965ad6aab1ce787d490d2c02839f3` | 正式业务 0.4.0；不是全部架构验收完成 |
-| 当前D2模型配置开发 | `codex/phase-1c-model-config`，起点`d84b2f5` | 同一工作树继续；最新代码/验收用git log及当前阶段记录核对 |
+| 当前D3-A交互原型 | `codex/phase-1c-creation-prototype`，起点`5940d15` | 同一工作树继续；最新代码/验收用git log及当前阶段记录核对 |
 | 历史设计来源 | `codex/product-interaction-plan@8dcf7ec`，此前修订起点`0051651047daeeee3b8741c460f182d42e755238` | 历史参考，不能覆盖后续用户确认 |
 | 产品原型 | `codex/product-interaction-prototype`，`2e35177` | 旧版两条模拟路径，未实现新版五场景与真实执行 |
 | master | `28fcd44eebc205a35735d3e7b60a308ce5f749bc` | 保留原阶段基线，不因文档或最小验收自动前移 |
@@ -50,6 +50,7 @@ Wuji 是 Kubernetes 原生的授权安全验证平台。产品流程是创建任
 | Task/Cairn桥接 | 8e250f4修复结果拒绝竞态；初轮11项、相关复测4项和包构建通过，本批基础库accepted；未接正式调度 | [Spec](stages/phase-1c-cairn-bridge/spec.md)、[验收](stages/phase-1c-cairn-bridge/acceptance.md) |
 | 控制面D1 | aa62b9a完成独立草稿API/迁移/权限，5项真实PostgreSQL与API检查、契约、构建通过；完整0.5仍未交付 | [Spec](stages/phase-1c-control-plane/spec.md)、[Plan](stages/phase-1c-control-plane/plan.md)、[验收](stages/phase-1c-control-plane/acceptance.md) |
 | D2模型配置 | 86f927f交付TenantAdmin/版本配置/原生检查/发布/选择；5项API+1项原生两协议重启+2项结构检查通过，真实K8生命周期未执行 | [Spec](stages/phase-1c-model-config/spec.md)、[验收](stages/phase-1c-model-config/acceptance.md) |
+| D3-A创建原型 | b6afc12实现新版Web创建/恢复/模型配置，四组浏览器走查、构建与定向竞态检查通过；用户评审待完成，入口4186 | [Spec](stages/phase-1c-creation-prototype/spec.md)、[记录](stages/phase-1c-creation-prototype/acceptance.md)、[D3-B衔接](stages/phase-1c-creation-prototype/backend-handoff.md) |
 | Cairn / Pi / LiteLLM / Runtime集成 | 目标选型已确认，完整接入/部署/黑板和流量采集尚未实现 | [架构替代决策](cairn-architecture-decision.md)及下节设计 |
 
 表内测试是复用历史记录，未在本次文档提交重跑。B2/B3 测试代码基准为 `e76a265d445ae9548d7f56fdb85f9b8b5c005759`，具体 run 与限制以验收正文为准。架构验收目录的 80 项不是本次或每次开发必须执行的清单。
@@ -79,3 +80,5 @@ Wuji 是 Kubernetes 原生的授权安全验证平台。产品流程是创建任
 2026-09-11本轮继续：先交付D1独立草稿，承接无模型可保存的用户决定；D2组织模型配置→D3快照/ready/start→D4权威执行账本按依赖实施。完整0.5和新版创建页面尚未交付。
 
 2026-09-11 D2已完成最小验收。管理员手填公司网关单价；LiteLLM原生配置/检查/重启已实测，完整Task预算/调度仍未接入。后续D3配置快照/范围确认/ready-start→D4账本与调度；不跳过创建交互评审。
+
+2026-09-11用户确认首批正式创建先Web单点，创建者填写授权截止时间。D3-A新增独立4186原型，不接API；排除优先/默认子域及全部包含端口、创建结果不明原键恢复、服务新版Key重输、显式缓存价格和平台/网关撤销状态已落入原型，仍待用户交互评审。
