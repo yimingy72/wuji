@@ -4,6 +4,8 @@
 
 ## 方案和分工
 
+2026-09-11评审反馈补丁：由当前会话直接修改domain/store/tasks/ui及内置goalTemplates。新增交互字段独立于D1生成DTO；按draft/scenario保留输入，不把inactive场景缓存塞入创建快照。真实Task恢复机制保持原实现；本轮仅构建、改动AntD检查、场景保持/快照两项定向用例和一条浏览器首步走查，不重跑原模型/范围故障矩阵。完整任务执行核心成为后续计划终点，ready只作内部里程碑。
+
 主代理维护spikes/creation-workbench全部代码和文档。复用@wuji/theme、Ant Design6.6.3、React19/React Router、D1/D2生成类型，依赖版本沿用现有锁定版本；不改共享主题或正式apps/web/API。State模块分客户端pending与服务端Map，通过独立上下文generation防迟到响应跨项目。领域模块实现纯本地host/协议端口与排除优先，不解析DNS。
 
 场景表单/Scope editor/摘要/详情复用相同范围展示组件；创建时deep clone快照，模型后续变化不改Task历史。模型页维护服务/方案不可变版本，Key不存模型记录，仅待提交表单和unknown冻结请求临时持有，成功或离开/换身份清理。未知检查重放只查记录；重新检查为显式新操作。

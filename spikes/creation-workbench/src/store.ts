@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { available, creationIssues, entry, type Draft, type DraftContent, type Profile, type Service, type Task, type Scenario } from './domain';
+import { criteriaText, goalTemplates } from './goalTemplates';
 const uid=()=>crypto.randomUUID();
 const tenant='10000000-0000-4000-8000-000000000001';
 export const projects=[{id:'a',name:'研发验证项目'},{id:'b',name:'业务评估项目'}];
@@ -17,6 +18,8 @@ let state=seed(); const listeners=new Set<()=>void>();
 // Simulated server records outlive client command bodies, but never a page reload.
 const serviceReceipts=new Map<string,Service>();
 const receipts=new Map<string,{taskId:string|null;rejected:boolean}>();
+type ScenarioInput = Pick<Draft,'content'|'goalTemplate'|'completionCriteria'|'includes'|'excludes'|'validUntil'>;
+const scenarioInputs=new Map<string,Partial<Record<Scenario,ScenarioInput>>>();
 const user=()=>`demo-${state.role}`;
 const commandScope=(project=state.project)=>`${user()}:${project}`;
 function patch(value:Partial<State>) { state={...state,...value,revision:state.revision+1}; listeners.forEach(f=>f()); }
@@ -29,16 +32,29 @@ export const currentUser=user;
 export const pending=()=>state.pending[commandScope()];
 export function configure(value:Partial<Pick<State,'createMode'|'serviceLost'|'checkUnknown'|'blockPending'|'queryMiss'>>) {patch(value);}
 export function changeContext(role:Role,project=state.project) { patch({role,project,generation:state.generation+1,pending:role!==state.role?{}:state.pending,servicePending:role!==state.role?null:state.servicePending,profiles:state.profiles.map(p=>p.check==='checking'?{...p,check:'unknown'}:p),outcome:null}); }
-export function reset() {const generation=state.generation+1;receipts.clear();serviceReceipts.clear();state={...seed(),generation};patch({});}
+export function reset() {const generation=state.generation+1;receipts.clear();serviceReceipts.clear();scenarioInputs.clear();state={...seed(),generation};patch({});}
 function baseContent(scenario:Scenario):DraftContent {
- const common={schema_version:'1.0' as const,scenario,name:'',objective:'',starting_point:'',constraints:'',reference_ids:[],model_profile_version_id:state.profiles.filter(available).length===1?state.profiles.find(available)!.id:null,runtime_profile_version_id:null,budget_usd:null};
+ const common={schema_version:'1.0' as const,scenario,name:'',objective:goalTemplates[scenario].objective,starting_point:'',constraints:'',reference_ids:[],model_profile_version_id:state.profiles.filter(available).length===1?state.profiles.find(available)!.id:null,runtime_profile_version_id:null,budget_usd:null};
  return {...common,...(scenario==='web_single'?{entry_url:null,include_subdomains:false,additional_origins:[]}:scenario==='ctf'?{challenge:'',entry_url:null}:scenario==='comprehensive'?{assets:[],access_notes:''}:scenario==='exercise'?{organization_name:'',known_domains:[]}:{repository_url:null,source_reference_id:null,revision:null})} as DraftContent;
 }
-export function newDraft(scenario:Scenario='web_single') {const d:Draft={id:uid(),userId:user(),projectId:state.project,content:baseContent(scenario),includes:[],excludes:[],validUntil:'',confirmed:false,savedAt:null,dirty:true};patch({drafts:[d,...state.drafts],outcome:null});return d;}
+export function newDraft(scenario:Scenario='web_single') {const d:Draft={id:uid(),userId:user(),projectId:state.project,content:baseContent(scenario),goalTemplate:structuredClone({...goalTemplates[scenario],scenario}),completionCriteria:criteriaText(scenario),supplementalHints:'',includes:[],excludes:[],validUntil:'',confirmed:false,savedAt:null,dirty:true};patch({drafts:[d,...state.drafts],outcome:null});return d;}
 export function updateDraft(id:string,value:Partial<Draft>,scopeChanged=false) {patch({drafts:state.drafts.map(d=>d.id===id&&d.userId===user()?{...d,...value,dirty:true,...(scopeChanged?{confirmed:false}:{})}:d),outcome:null});}
 export function updateContent(id:string,value:Record<string,unknown>) {const d=state.drafts.find(d=>d.id===id);if(d)updateDraft(id,{content:{...d.content,...value} as DraftContent});}
 export function setEntry(id:string,value:string) {const d=state.drafts.find(d=>d.id===id);if(!d)return;const e=entry(value);const old='entry_url' in d.content?entry(d.content.entry_url??''):null;let includes=d.includes; if(e&&(!includes.length||includes[0]?.host===old?.host)) {const first=includes[0]; includes=[{id:first?.id??uid(),host:e.host,scheme:e.scheme,port:e.port,descendants:e.host===old?.host?first?.descendants??false:false},...includes.slice(1)];}updateDraft(id,{content:{...d.content,entry_url:value,name:!d.content.name||d.content.name===`${old?.host} · Web 评估`?e?`${e.host} · Web 评估`:d.content.name:d.content.name} as DraftContent,includes},true);}
-export function switchScenario(id:string,scenario:Scenario) {const d=state.drafts.find(x=>x.id===id);if(!d)return;const c=baseContent(scenario);updateDraft(id,{content:{...c,name:d.content.name,objective:d.content.objective,starting_point:d.content.starting_point,constraints:d.content.constraints,budget_usd:d.content.budget_usd,model_profile_version_id:d.content.model_profile_version_id},includes:[],excludes:[],validUntil:'',confirmed:false});}
+export function switchScenario(id:string,scenario:Scenario) {
+ const d=state.drafts.find(x=>x.id===id&&x.userId===user()&&x.projectId===state.project);
+ if(!d||!canWrite()||pending()||d.content.scenario===scenario)return;
+ const saved=scenarioInputs.get(id)??{};
+ saved[d.content.scenario]=structuredClone({content:d.content,goalTemplate:d.goalTemplate,completionCriteria:d.completionCriteria,includes:d.includes,excludes:d.excludes,validUntil:d.validUntil});
+ scenarioInputs.set(id,saved);
+ const next=saved[scenario]??{content:baseContent(scenario),goalTemplate:{...goalTemplates[scenario],scenario},completionCriteria:criteriaText(scenario),includes:[],excludes:[],validUntil:''};
+ updateDraft(id,{...structuredClone(next),content:{...next.content,budget_usd:d.content.budget_usd,model_profile_version_id:d.content.model_profile_version_id},confirmed:false});
+}
+export function restoreGoal(id:string) {
+ const d=state.drafts.find(x=>x.id===id&&x.userId===user()&&x.projectId===state.project);
+ if(!d||!canWrite()||pending())return;
+ updateDraft(id,{content:{...d.content,objective:goalTemplates[d.content.scenario].objective},goalTemplate:structuredClone({...goalTemplates[d.content.scenario],scenario:d.content.scenario}),completionCriteria:criteriaText(d.content.scenario)});
+}
 export function saveDraft(id:string) {if(!canWrite())return;patch({drafts:state.drafts.map(d=>d.id===id&&d.userId===user()?{...d,savedAt:new Date().toISOString(),dirty:false}:d)});}
 const delay=()=>new Promise<void>(r=>setTimeout(r,500));
 export async function submit(id:string,retry=false):Promise<string|null> {

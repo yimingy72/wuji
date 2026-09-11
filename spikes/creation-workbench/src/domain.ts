@@ -15,7 +15,8 @@ export const scenarios: { value: Scenario; name: string; hint: string }[] = [
 export type Pair = `${'http'|'https'}:${number}`;
 export interface Include { id: string; host: string; descendants: boolean; scheme: 'http'|'https'; port: number }
 export interface Exclude { id: string; host: string; descendants: boolean; endpoints: 'all' | Pair[] }
-export interface Draft { id:string; userId:string; projectId:string; content:DraftContent; includes:Include[]; excludes:Exclude[]; validUntil:string; confirmed:boolean; savedAt:string|null; dirty:boolean }
+// New interaction fields stay outside the generated D1 content contract.
+export interface Draft { id:string; userId:string; projectId:string; content:DraftContent; goalTemplate:{scenario:Scenario;version:1;objective:string;criteria:readonly string[]}; completionCriteria:string; supplementalHints:string; includes:Include[]; excludes:Exclude[]; validUntil:string; confirmed:boolean; savedAt:string|null; dirty:boolean }
 export interface Service extends Omit<NativeVersion,'kind'|'config'> { kind:'service'; config:ServiceConfig; keyConfigured:boolean }
 export interface Profile extends Omit<NativeVersion,'kind'|'config'> { kind:'profile'; config:ProfileConfig; check:'never'|'checking'|'succeeded'|'failed'|'unknown'; block:'none'|'pending'|'confirmed' }
 export interface Task { id:string; projectId:string; createdAt:string; state:'ready'|'cancelled'; draft:Draft; model:Profile }
@@ -47,14 +48,14 @@ export function scopeIssues(d:Draft):string[] {
   const url='entry_url' in d.content ? entry(d.content.entry_url??'') : null;
   const includes=d.includes.map(r=>({...r,host:host(r.host)}));
   const excludes=d.excludes.map(r=>({...r,host:host(r.host)}));
-  if (!url) issues.push('请填写有效的 HTTP 或 HTTPS 系统入口');
+  if (!url) issues.push('请填写有效的 HTTP 或 HTTPS 测试地址');
   if (!includes.length) issues.push('请至少添加一个包含对象');
   if (includes.some(r=>!r.host||!Number.isInteger(r.port)||r.port<1||r.port>65535)) issues.push('请补全包含对象的主机和端口');
   if (excludes.some(r=>!r.host||(r.endpoints!=='all'&&!r.endpoints.length))) issues.push('请补全排除对象及适用协议／端口');
   const denied=(target:string,p:Pair)=>excludes.some(r=>r.host&&matches(r.host,r.descendants,target)&&(r.endpoints==='all'||r.endpoints.includes(p)));
   if (url) {
-    if (!includes.some(r=>r.host&&matches(r.host,r.descendants,url.host)&&r.scheme===url.scheme&&r.port===url.port)) issues.push('系统入口不在包含范围内');
-    else if (denied(url.host,`${url.scheme}:${url.port}`)) issues.push('系统入口已被排除，请修改排除规则');
+    if (!includes.some(r=>r.host&&matches(r.host,r.descendants,url.host)&&r.scheme===url.scheme&&r.port===url.port)) issues.push('测试地址不在包含范围内');
+    else if (denied(url.host,`${url.scheme}:${url.port}`)) issues.push('测试地址已被排除，请修改排除规则');
   }
   const nonempty=includes.some(r=>r.host&&!excludes.some(x=>x.host&&(x.endpoints==='all'||x.endpoints.includes(pair(r as Include)))&&
     matches(x.host,x.descendants,r.host!)&&(!r.descendants||isIP(r.host!)||x.descendants)));
@@ -66,7 +67,8 @@ export function creationIssues(d:Draft,profiles:Profile[]) {
   const issues=scopeIssues(d);
   if (d.content.scenario!=='web_single') issues.push('当前场景可保存草稿，暂不开放创建');
   if (!d.content.name?.trim()) issues.push('请填写任务名称');
-  if (!d.content.objective?.trim()) issues.push('请填写测试目标');
+  if (!d.content.objective?.trim()) issues.push('请填写任务目标');
+  if (!d.completionCriteria.trim()) issues.push('请填写完成条件');
   if (!d.validUntil || !Number.isFinite(Date.parse(d.validUntil)) || Date.parse(d.validUntil)<=Date.now()) issues.push('请选择尚未到期的授权截止时间');
   if (!profiles.some(p=>p.id===d.content.model_profile_version_id&&available(p))) issues.push('请选择可用的已发布模型方案');
   if (!d.content.budget_usd || !/^(0|[1-9]\d{0,11})(\.\d{1,6})?$/.test(d.content.budget_usd) || !/[1-9]/.test(d.content.budget_usd)) issues.push('请填写大于 0 的 USD 金额上限');
