@@ -56,6 +56,10 @@ for name,value in v2.pop("$defs",{}).items(): schemas[rename.get(name,name)]=rem
 schemas["DraftContentV2"]=remap(v2)
 schemas["WebDraftContentV2"]={"$ref":"#/components/schemas/WebDraftV2"}
 source=create_app().openapi()
+for parameter in api["paths"]["/auth/login"]["get"].get("parameters",[]):
+    if parameter.get("name")=="return_to":
+        parameter["schema"].pop("pattern",None)
+        parameter["description"]="Allowlisted local project/task/draft or tenant-model route; unsupported routes are rejected."
 for full,methods in source["paths"].items():
     if not full.startswith("/api/v1/projects/"):continue
     relative=full.removeprefix("/api/v1")

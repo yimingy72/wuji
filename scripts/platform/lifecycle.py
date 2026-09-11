@@ -310,13 +310,22 @@ def _start_web(run_path: Path, *, test: bool) -> dict[str, Any]:
         web_root = REPOSITORY_ROOT / "apps" / "web"
         vite_url = (web_root / "node_modules" / "vite" / "dist" / "node" / "index.js").as_uri()
         react_url = (web_root / "node_modules" / "@vitejs" / "plugin-react" / "dist" / "index.js").as_uri()
+        fault_path = Path(run["artifacts_dir"]) / "drop-next-created-response"
+        fault_evidence = Path(run["artifacts_dir"]) / "created-response-dropped.json"
         config = (
             f"import {{ defineConfig }} from {json.dumps(vite_url)};\n"
             f"import react from {json.dumps(react_url)};\n"
+            "import { existsSync, unlinkSync, writeFileSync } from 'node:fs';\n"
             "export default defineConfig({\n"
             f"  root: {json.dumps(str(web_root))}, plugins: [react()],\n"
             "  server: { host: '127.0.0.1', port: 4182, strictPort: true, "
-            "proxy: { '/api': 'http://127.0.0.1:8002' } },\n"
+            "proxy: { '/api': { target: 'http://127.0.0.1:8002', configure(proxy) {\n"
+            "proxy.on('proxyRes', (upstream, req, res) => {\n"
+            f"if (req.method === 'POST' && /\\/projects\\/[^/]+\\/tasks$/.test(req.url) && upstream.statusCode === 202 && existsSync({json.dumps(str(fault_path))})) {{\n"
+            f"unlinkSync({json.dumps(str(fault_path))});\n"
+            f"writeFileSync({json.dumps(str(fault_evidence))}, JSON.stringify({{path:req.url,upstream_status:202,at:new Date().toISOString()}}), {{mode:0o600}});\n"
+            "res.destroy();\n"
+            "} }); } } } },\n"
             "  build: { target: 'es2022' }\n"
             "});\n"
         )

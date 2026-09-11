@@ -54,7 +54,17 @@ def model_response(request):
     observations=tool_observations(messages)
     seen={name:unwrap(value) for name,value in observations}
     if phase=='bootstrap':
-        if 'fixture_http' not in seen: return tool('fixture_http',{'url':TARGET_ORIGIN+'/'})
+        target=TARGET_ORIGIN+'/'
+        marker='Wuji stage contract: '
+        if marker in text:
+            try:
+                contract,_=json.JSONDecoder().raw_decode(text.split(marker,1)[1])
+                supplied=urlparse(contract.get('origin',''))
+                allowed=urlparse(TARGET_ORIGIN)
+                if supplied.scheme==allowed.scheme and supplied.netloc==allowed.netloc:
+                    target=contract['origin']
+            except (ValueError,TypeError):pass
+        if 'fixture_http' not in seen: return tool('fixture_http',{'url':target})
         result=seen['fixture_http']
         if not isinstance(result,dict) or not result.get('ok') or 'WUJI_HTTP_FIXTURE_V1' not in result.get('body',''):
             return {'role':'assistant','content':json.dumps({'accepted':False})}

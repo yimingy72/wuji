@@ -2702,6 +2702,7 @@ export interface operations {
     beginLogin: {
         parameters: {
             query?: {
+                /** @description Allowlisted local project/task/draft or tenant-model route; unsupported routes are rejected. */
                 return_to?: string;
             };
             header?: never;
