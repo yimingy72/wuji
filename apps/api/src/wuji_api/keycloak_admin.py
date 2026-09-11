@@ -22,7 +22,8 @@ class KeycloakAdmin:
         credentials = run["credentials"]["oidc_keycloak"]
         self.username = credentials["admin_username"]
         self.password = credentials["admin_password"]
-        self.client = httpx2.Client(timeout=15.0)
+        # Local identity administration must not inherit a workstation proxy.
+        self.client = httpx2.Client(timeout=15.0, trust_env=False)
 
     def close(self) -> None:
         self.client.close()
