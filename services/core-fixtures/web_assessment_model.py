@@ -13,7 +13,6 @@ PROBES = ('https://probe-a.invalid','https://probe-b.invalid')
 SUMMARY_PREFIX = 'You are a context summarization assistant. Your task is to read a conversation between a user and an AI coding assistant, then produce a structured summary following the exact format specified.'
 _probe_lock = threading.Lock()
 _probe_used = False
-_probe_responses = 0
 
 
 def content(value):
@@ -39,15 +38,16 @@ def is_summary(request):
                for m in request.get('messages',[]))
 
 
-def prompt_tokens(request):
-    global _probe_used, _probe_responses
-    if os.environ.get('WUJI_W1_COMPACTION_PROBE')=='1' and contract(request) and not is_summary(request):
+def prompt_tokens(request,message=None):
+    global _probe_used
+    stage=contract(request)
+    if (os.environ.get('WUJI_W1_COMPACTION_PROBE')=='1' and stage and stage['phase']=='bootstrap'
+            and not is_summary(request) and isinstance(message,dict) and message.get('role')=='assistant'
+            and not message.get('tool_calls')):
         with _probe_lock:
             if not _probe_used:
-                _probe_responses += 1
-                if _probe_responses == 2:
-                    _probe_used=True
-                    return 20000
+                _probe_used=True
+                return 20000
     return 100
 
 
@@ -83,12 +83,26 @@ def model_response(request):
         if PROFILE not in serialized and not _probe_used:return None
         return {'role':'assistant','content':'## Goal\nContinue the assigned bounded Web assessment.\n## Progress\nConversation compacted; no verdict is asserted by this summary.\n## Next Steps\nCall task_read, assessment_read and graph_read to recover the current assignment, feedback and persisted observations. Reuse tool_call_ids from assessment_read before collecting evidence. Follow the current stage contract.'}
     if stage is None:return None
-    history=observations(request)
+    followup=None
+    for index,message in enumerate(request.get('messages',[])):
+        if message.get('role')=='user' and content(message.get('content')).startswith('Wuji compaction check:'):
+            followup=index
+    history=observations(request if followup is None else {'messages':request['messages'][followup+1:]})
     seen={name:unwrap(value) for name,value in history}
     phase=stage['phase']
     if 'task_read' not in seen:return tool('task_read',{})
     assignment=seen['task_read']
     if not isinstance(assignment,dict):return reject()
+    if phase=='bootstrap' and followup is not None:
+        if 'assessment_read' not in seen:return tool('assessment_read',{})
+        if 'graph_read' not in seen:return tool('graph_read',{})
+        stored=seen['assessment_read']
+        if not isinstance(stored,dict):return reject()
+        entry=assignment.get('origin',stage.get('origin'))
+        observed=next((row for row in stored.get('observations',[]) if row.get('target_url')==entry and row.get('method')=='GET'),None)
+        if not observed or not observed.get('id') or not observed.get('artifact_id'):return reject()
+        return answer({'fact':{'description':'Persisted entry observation recovered after native compaction: '+json.dumps(observed,ensure_ascii=False)},
+                       'complete':{'description':'初始观察已恢复，后续有限评估由平台决定。'}})
     if phase=='bootstrap':
         exchanges=[unwrap(value) for name,value in history if name=='http_request']
         if not exchanges:return tool('http_request',{'url':assignment.get('origin',stage.get('origin')),'method':'GET'})

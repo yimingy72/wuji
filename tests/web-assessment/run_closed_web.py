@@ -46,10 +46,11 @@ def compaction_counts(outputs):
             try:event=json.loads(line)
             except ValueError:continue
             if not isinstance(event,dict):continue
-            if event.get('type')=='auto_compaction_end' and event.get('result') and not event.get('aborted',False):
+            if event.get('type')=='compaction_end' and event.get('result') and not event.get('aborted',False):
                 ended+=1;compacted=True
-            if event.get('type')=='wuji_tool_table_verified' and event.get('stage')=='after_compaction':
-                tables.append(event.get('tool_names',[]))
+            if event.get('type')=='message_end' and event.get('message',{}).get('customType')=='wuji_tool_table_verified':
+                details=event['message'].get('details',{})
+                if details.get('stage')=='after_compaction':tables.append(details.get('tool_names',[]))
             if compacted and event.get('type') in {'tool_execution_start','tool_execution_end'} and event.get('toolName') in {'task_read','assessment_read','graph_read'}:
                 after+=1
     required={'task_read','assessment_read','evidence_read','graph_read'}
@@ -205,12 +206,12 @@ class Acceptance:
             reviews=connection.execute('SELECT decision,reason FROM completion_reviews WHERE '+where,params).fetchall()
             attempts=connection.execute('SELECT attempt FROM runtime_attempts WHERE '+where,params).fetchall()
             outputs=connection.execute('SELECT output FROM agent_runs WHERE '+where,params).fetchall()
-            failures=connection.execute("SELECT count(*) AS n FROM task_events WHERE "+where+" AND summary LIKE '%agent_result_incomplete%'",params).fetchone()['n']
+            failures=connection.execute("SELECT count(*) AS n FROM task_events WHERE "+where+" AND summary LIKE %s",params+('%agent_result_incomplete%',)).fetchone()['n']
         require(len(attempts)==1 and attempts[0]['attempt']==1,'Task must use exactly one runtime attempt')
         require(any(r['decision']=='needs_followup' for r in reviews),'persistent needs_followup review missing')
         require(failures==0,'unexpected Agent incomplete event')
         counts=compaction_counts([row['output'] for row in outputs])
-        require(counts['successful_compactions']>=1,'native auto_compaction_end result missing or aborted')
+        require(counts['successful_compactions']>=1,'native compaction_end result missing or aborted')
         require(counts['read_tool_events_after_compaction']>=1,'no actual persisted-record read tool after compaction')
         return {'ok':True,'source_sha':self.run['source_sha'],'run_id':self.run['run_id'],'task_id':self.record['task_id'],
             'task_url':self.setup.base+f'/projects/{self.project}/tasks/{self.record["task_id"]}','exit_code':0,

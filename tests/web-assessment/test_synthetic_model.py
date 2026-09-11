@@ -74,19 +74,22 @@ def test_bootstrap_and_anonymous_block_use_observations():
 
 
 def test_compaction_probe_does_not_consume_healthcheck_or_change_legacy(monkeypatch):
-    monkeypatch.setenv('WUJI_W1_COMPACTION_PROBE','1');monkeypatch.setattr(model,'_probe_used',False);monkeypatch.setattr(model,'_probe_responses',0)
+    monkeypatch.setenv('WUJI_W1_COMPACTION_PROBE','1');monkeypatch.setattr(model,'_probe_used',False)
     health={'messages':[{'role':'user','content':'health'}]}
     assert model.prompt_tokens(health)==100 and not model._probe_used
     assert server.model_response(health)['content']=='fixture connection ok'
     legacy={'messages':[{'role':'system','content':'Wuji stage contract: '+json.dumps({'phase':'bootstrap','origin':server.TARGET_ORIGIN+'/'})}]}
     assert tool_message(server.model_response(legacy))[0]=='fixture_http'
     assert model.prompt_tokens(legacy)==100 and not model._probe_used
-    req,_=request('bootstrap')
-    assert model.prompt_tokens(req)==100 and not model._probe_used
-    assert model.prompt_tokens(health)==100 and model._probe_responses==1
-    assert model.prompt_tokens(legacy)==100 and model._probe_responses==1
-    assert model.prompt_tokens(req)==20000
-    assert model.prompt_tokens(req)==100
+    req,assignment=request('bootstrap')
+    assert model.prompt_tokens(req,model.tool('task_read',{}))==100 and not model._probe_used
+    assert model.prompt_tokens(health,{'role':'assistant','content':'ok'})==100 and not model._probe_used
+    assert model.prompt_tokens(legacy,model.answer({'fact':{}}))==100 and not model._probe_used
+    reason,_=request('reason')
+    assert model.prompt_tokens(reason,model.answer({'complete':{}}))==100 and not model._probe_used
+    final=model.answer({'fact':{'description':'Observed'},'complete':{'description':'Request review'}})
+    assert model.prompt_tokens(req,final)==20000
+    assert model.prompt_tokens(req,final)==100
     summary={'messages':[{'role':'system','content':model.SUMMARY_PREFIX+'\n\nDo NOT continue the conversation.'},{'role':'user','content':model.PROFILE}]}
     reply=server.model_response(summary)
     assert 'tool_calls' not in reply and 'assessment_read' in reply['content']
@@ -108,3 +111,20 @@ def test_reason_does_not_duplicate_open_target_intents():
     payload=json.loads(server.model_response(req)['content'])
     assert payload['data']=={'intents':[]}
     assert validate_reason_payload(payload,open_intents_empty=False,max_intents=2)==('noop',None)
+
+
+def test_compaction_followup_reads_persisted_observation_without_http():
+    req,assignment=request('bootstrap')
+    observed(req,'task_read',assignment)
+    observed(req,'http_request',{'result':{'observation_id':str(uuid4()),'artifact_id':str(uuid4())}})
+    req['messages'].append({'role':'user','content':'Wuji compaction check: recover persisted records'})
+    assert tool_message(server.model_response(req))[0]=='task_read'
+    observed(req,'task_read',assignment)
+    assert tool_message(server.model_response(req))[0]=='assessment_read'
+    stored={'id':str(uuid4()),'artifact_id':str(uuid4()),'body_artifact_id':str(uuid4()),'target_url':assignment['origin'],'method':'GET'}
+    observed(req,'assessment_read',{'assessment':{},'observations':[stored]})
+    assert tool_message(server.model_response(req))[0]=='graph_read'
+    observed(req,'graph_read',{'graph':{'facts':[],'intents':[]}})
+    payload=json.loads(server.model_response(req)['content'])
+    kind,data=validate_bootstrap_execute_payload(payload)
+    assert kind=='complete' and stored['id'] in data['fact_description'] and stored['artifact_id'] in data['fact_description']

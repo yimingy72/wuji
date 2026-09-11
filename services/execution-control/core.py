@@ -225,7 +225,7 @@ class Core:
           "execution_epoch":ex["epoch"],"runtime_attempt":1,"phase":phase,"intent_id":intent,
           "profile_id":ex["execution_snapshot"]["profile_id"],
           "allowed_fact_ids":allowed_facts,
-          "context_policy":{"compaction":{"enabled":True,"reserveTokens":16384,"keepRecentTokens":512}} if ex["execution_snapshot"]["config"].get("compaction_probe") is True and self.web(task_id) else None,
+          "context_policy":{"compaction":{"enabled":True,"reserveTokens":16384,"keepRecentTokens":512}} if ex["execution_snapshot"]["config"].get("compaction_probe") is True and self.web(task_id) and phase=="bootstrap" else None,
           "goal":creation["objective"],"objective":creation["objective"],"completion_criteria":creation["completion_criteria"],
           "origin":creation["actual_input"]["entry_url"],"supplemental_hints":creation["supplemental_hints"],
           "graph_snapshot":graph["data"],"graph_reference":None if not captured else {

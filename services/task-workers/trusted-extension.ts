@@ -28,5 +28,5 @@ export default async function(pi:any){
  }});
  }
  pi.on('session_start',async()=>{const actual=pi.getActiveTools().slice().sort();if(JSON.stringify(actual)!==JSON.stringify(run.tool_names.slice().sort()))throw Error('tool_table_mismatch');});
- pi.on('session_compact',async()=>{const actual=pi.getActiveTools().slice().sort();if(JSON.stringify(actual)!==JSON.stringify(run.tool_names.slice().sort()))throw Error('tool_table_mismatch_after_compaction');console.log(JSON.stringify({type:'wuji_tool_table_verified',stage:'after_compaction',tool_names:actual}));});
+ pi.on('session_compact',async()=>{const actual=pi.getActiveTools().slice().sort();if(JSON.stringify(actual)!==JSON.stringify(run.tool_names.slice().sort()))throw Error('tool_table_mismatch_after_compaction');pi.sendMessage({customType:'wuji_tool_table_verified',content:'Tool permissions were verified after native compaction.',display:false,details:{stage:'after_compaction',tool_names:actual}},{triggerTurn:false});});
 }

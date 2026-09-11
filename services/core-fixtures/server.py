@@ -124,7 +124,7 @@ class Handler(BaseHTTPRequestHandler):
         identity='chatcmpl-'+uuid.uuid4().hex
         base={'id':identity,'created':int(time.time()),'model':request.get('model','wuji-fixture')}
         finish='tool_calls' if message.get('tool_calls') else 'stop'
-        prompt_tokens=web_assessment_model.prompt_tokens(request)
+        prompt_tokens=web_assessment_model.prompt_tokens(request,message)
         usage={'prompt_tokens':prompt_tokens,'completion_tokens':50,'total_tokens':prompt_tokens+50}
         if not request.get('stream'):
             return self.send_json(200,{**base,'object':'chat.completion','choices':[{'index':0,'message':message,'finish_reason':finish}],'usage':usage})

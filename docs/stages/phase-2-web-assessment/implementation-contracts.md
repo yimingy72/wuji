@@ -34,6 +34,8 @@ GET /internal/v1/dispatch/reason-requests/{native_project_id}提供持久待补�
 
 core prepare增加--profile，默认旧fixture；W1绑定实际Lab镜像/Deployment UID/Service UID到执行快照，Lab无Key/工作卷/SA令牌。副本/端口/模型网关及Task额度均沿用原约束。
 
---compaction-probe仅W1测试配置可用：合成上游第二个W1非摘要响应报告20000输入用量一次，Pi本次Run只使用原生compaction enabled=true/reserveTokens=16384/keepRecentTokens=512；便于小规模测试压缩已有完整turn。关闭标记时不改原生默认策略。D2检查、旧Profile及摘要不消费探针。摘要内容为合成，正式原生事件和压缩后权限/记录读取需实际联合验收，不代表记忆质量或真实模型效果。
+--compaction-probe仅W1测试配置可用：合成上游首个Bootstrap最终响应报告20000输入用量一次，Pi本次Run只使用原生compaction enabled=true/reserveTokens=16384/keepRecentTokens=512；便于小规模测试压缩已有完整turn。关闭标记时不改原生默认策略。D2检查、旧Profile及摘要不消费探针。摘要内容为合成，正式原生事件和压缩后权限/记录读取需实际联合验收，不代表记忆质量或真实模型效果。
 
 Bootstrap原生execute合同强制同时返回fact/complete；其complete只交平台评审，不代表Goal达成。允许引用同一AgentRun已成功原生conclude返回的新Fact，这是原生Bootstrap交接，不是任意刷新扩权。Reason合成夹具排除已开放Intent的资源，避免对在途检查另造重复Intent。
+
+压缩探针按Pi0.73源码修正：自动阈值检查在agent_end看最后响应，不在中途tool turn；原生事件compaction_end。仅探针Bootstrap以两个原生CLI positional messages运行同一会话，第二消息只读已存证据，不重发目标HTTP。工具白名单核验通过后用Pi原生custom message保存审计，无新推理轮次；不依赖被JSON模式拦截的console日志。
