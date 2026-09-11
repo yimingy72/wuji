@@ -86,7 +86,7 @@ export async function beginService(version:Service) {
  serviceReceipts.set(key,structuredClone(version));
  patch({servicePending:{key,userId:user(),state:'submitting'},serviceLost:false});
  await delay();
- if(gen!==state.generation||state.servicePending?.key!==key)return false;
+ if(gen!==state.generation||getState().servicePending?.key!==key)return false;
  if(lost){patch({servicePending:{key,userId:user(),state:'unknown'}});return false;}
  addService(version);patch({servicePending:null});return true;
 }
