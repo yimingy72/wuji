@@ -36,7 +36,7 @@ Wuji先保存原始Agent结果和本地操作记录，再通过原生Cairn API�
 
 ## 3. 创建、启动与派发
 
-草稿不创建Cairn Project。Task正式创建时由Wuji记录创建命令与执行配置，再调用原生Cairn创建并保存关联；原生Project可以是active，但所有未显式启动、未关联或许可不完整的Project均被改造后的Dispatcher拒绝派发。Task业务状态与Cairn探索状态分开，不要求核心支持ready或原子停止态创建。创建响应丢失则先核对；无法确认时保留结果不明，不按名称/时间猜关联，也不盲目再次创建。
+草稿不创建Cairn Project。Task正式创建时由Wuji记录目标、授权及模型/金额快照，保持ready；显式start接受后固定执行配置、准备受限模型凭据并核验Task Pod，再调用原生Cairn创建并保存关联；原生Project可以是active，但所有未显式启动、未关联或许可不完整的Project均被改造后的Dispatcher拒绝派发。Task业务状态与Cairn探索状态分开，不要求核心支持ready或原子停止态创建。创建响应丢失则先核对；无法确认时保留结果不明，不按名称/时间猜关联，也不盲目再次创建。
 
 只有显式start、有效配置/授权/预算、Worker及Kali Runtime就绪后才允许调度。Cairn active只是探索状态，Wuji仍在每次派发/工具调用检查许可。旧queued没有start记录，不得自动接管。
 

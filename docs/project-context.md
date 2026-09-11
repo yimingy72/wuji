@@ -53,7 +53,7 @@ Wuji 是 Kubernetes 原生的授权安全验证平台。产品流程是创建任
 | 控制面D1 | aa62b9a完成独立草稿API/迁移/权限，5项真实PostgreSQL与API检查、契约、构建通过；完整0.5仍未交付 | [Spec](stages/phase-1c-control-plane/spec.md)、[Plan](stages/phase-1c-control-plane/plan.md)、[验收](stages/phase-1c-control-plane/acceptance.md) |
 | D2模型配置 | 86f927f交付TenantAdmin/版本配置/原生检查/发布/选择；5项API+1项原生两协议重启+2项结构检查通过，真实K8生命周期未执行 | [Spec](stages/phase-1c-model-config/spec.md)、[验收](stages/phase-1c-model-config/acceptance.md) |
 | D3-A创建原型 | b6afc12原四组走查保留；3094e6d落实用户入口反馈，构建/浏览器及9a6b4ae上2项定向检查通过；完整用户通过未宣称，入口4186 | [Spec](stages/phase-1c-creation-prototype/spec.md)、[记录](stages/phase-1c-creation-prototype/acceptance.md)、[D3-B衔接](stages/phase-1c-creation-prototype/backend-handoff.md) |
-| 核心闭环与D3-B | approved / in-progress：M1—M4代码已实现，真实创建/启动→Cairn/Pi/共享Kali→Fact/证据/停止首轮已通过，工作台关系视图及最终候选收口中 | [核心总计划](stages/phase-1c-task-creation/core-loop-plan.md)、[D3-B Spec](stages/phase-1c-task-creation/spec.md)/[Plan](stages/phase-1c-task-creation/plan.md)、[状态](stages/phase-1c-task-creation/acceptance.md) |
+| 核心闭环与D3-B | accepted（封闭夹具）：6c5934c完成真实创建/启动、Cairn/Pi/共享Kali、Fact/证据/结果/停止及M4关系视图；未开放生产出口和真实外部目标 | [核心总计划](stages/phase-1c-task-creation/core-loop-plan.md)、[D3-B Spec](stages/phase-1c-task-creation/spec.md)/[Plan](stages/phase-1c-task-creation/plan.md)、[状态](stages/phase-1c-task-creation/acceptance.md) |
 | Cairn / Pi / LiteLLM / Runtime集成 | 固定版本已通过真实K8封闭HTTP/合成模型路径；未开放外部目标、生产出口或全量流量采集 | [架构替代决策](cairn-architecture-decision.md)及下节设计 |
 
 表内测试是复用历史记录，未在本次文档提交重跑。B2/B3 测试代码基准为 `e76a265d445ae9548d7f56fdb85f9b8b5c005759`，具体 run 与限制以验收正文为准。架构验收目录的 80 项不是本次或每次开发必须执行的清单。

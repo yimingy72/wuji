@@ -10,7 +10,7 @@
 - **Agent 执行层**：[Harness 职责与选型建议](agent-harness-decision.md)、[模型网关实测](model-gateway-validation.md)
 - **本次复审**：[已批准架构替代决策](cairn-architecture-decision.md)；[原v0.4复审](architecture-review.md)保留为历史
 - **参考复核补充（2026-09-10）**：[元刃后端复核](metablade-backend-review.md)、[已确认产品交互](product-interaction-proposal.md)；目标设计补充，公开 API 0.4.0 尚未升级
-- **黑板明确要求（2026-09-10）**：[Cairn 黑板适配设计](cairn-blackboard-design.md)；直接复用Cairn Server/Dispatcher，目标协议尚未实现
+- **黑板明确要求（2026-09-10）**：[Cairn 黑板适配设计](cairn-blackboard-design.md)；直接复用Cairn Server/Dispatcher，核心封闭夹具接入已实现，当前验收见[核心记录](stages/phase-1c-task-creation/acceptance.md)，不代表生产出口完成
 - **开工准备**：[依赖与交付顺序](predevelopment-plan.md)、[Phase 1 API 契约](phase1-api-contract.md)
 
 本次按用户批准的[架构复审修订](cairn-architecture-decision.md)更新目标设计：Cairn负责共享图和探索调度，Pi负责平台侧Agent循环与上下文，LiteLLM负责模型接入及Task金额预算。Wuji负责任务、执行准入、工具、证据和停止核对。LangGraph/LangChain/Deep Agents不再是该链路必选依赖；原P0实验与验收保留。本文不代表业务已实现；实际仍以[Phase1A](stages/phase-1a/acceptance.md)、[B1](stages/phase-1b/acceptance.md)、[B2/B3](stages/phase-1b/b23-acceptance.md)及[P0](stages/phase-1c-prep-p0/acceptance.md)记录为准。
@@ -244,7 +244,7 @@ Wuji PostgreSQL维护Task期望状态、授权、执行代次、AgentRun、Runti
 
 Task是Wuji完整业务主体：统筹场景、目标/起点/终点、授权范围、模型和金额预算、平台/目标工具、约束以及执行控制；Cairn Project是其中的探索上下文。保留Wuji Task及其现有标识，不把Task删成Cairn Project的简单别名，也不向用户提供两套独立任务创建/编辑流程。
 
-草稿不创建Cairn Project。Task正式创建时由Wuji记录创建命令与执行配置，再调用原生Cairn创建并保存关联；原生Project可以是active，但所有未显式启动、未关联或许可不完整的Project均被改造后的Dispatcher拒绝派发。Task业务状态与Cairn探索状态分开，不要求核心支持ready或原子停止态创建。创建响应丢失则先核对；无法确认时保留结果不明，不按名称/时间猜关联，也不盲目再次创建。 保持Cairn Server、数据库结构、Fact/Intent/Hint模型和黑板读写/complete/reopen协议原样。改造集中在Dispatcher的调度接入、Worker后端、模型/工具适配，以及Wuji侧业务控制；不再给Cairn增加外部Task字段、原子停止态创建、操作回执或事务事件。
+草稿不创建Cairn Project。Task正式创建时由Wuji记录目标、授权及模型/金额快照，保持ready；显式start接受后固定执行配置、准备受限模型凭据并核验Task Pod，再调用原生Cairn创建并保存关联；原生Project可以是active，但所有未显式启动、未关联或许可不完整的Project均被改造后的Dispatcher拒绝派发。Task业务状态与Cairn探索状态分开，不要求核心支持ready或原子停止态创建。创建响应丢失则先核对；无法确认时保留结果不明，不按名称/时间猜关联，也不盲目再次创建。 保持Cairn Server、数据库结构、Fact/Intent/Hint模型和黑板读写/complete/reopen协议原样。改造集中在Dispatcher的调度接入、Worker后端、模型/工具适配，以及Wuji侧业务控制；不再给Cairn增加外部Task字段、原子停止态创建、操作回执或事务事件。
 
 ### 7.2 Task与执行许可
 

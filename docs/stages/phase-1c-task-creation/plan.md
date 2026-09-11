@@ -1,6 +1,6 @@
 # D3-B 实施 Plan
 
-状态：**approved / in-progress**；2026-09-11。用户已在Plan模式完成整体方案评审并批准实施，当前Default模式执行；本Plan为M1，连续接M2—M4。以下原计划的待审批描述已被本状态替代，最新对接见[实施合同](execution-contracts.md)。对应[Spec](spec.md)。
+状态：**implemented / 本批验收见acceptance.md**；2026-09-11。用户已在Plan模式完成整体方案评审并批准实施，当前Default模式执行；本Plan为M1，连续接M2—M4。以下原计划的待审批描述已被本状态替代，最新对接见[实施合同](execution-contracts.md)。对应[Spec](spec.md)。
 
 ## 1. 开发来源与前置门槛
 

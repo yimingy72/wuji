@@ -65,7 +65,7 @@ Cairn ExecutionBackend定位已获准的Task Pod及agent容器，适配动态进
 
 ## 4. 任务、派发与结果
 
-草稿不创建Cairn Project。Task正式创建时由Wuji记录创建命令与执行配置，再调用原生Cairn创建并保存关联；原生Project可以是active，但所有未显式启动、未关联或许可不完整的Project均被改造后的Dispatcher拒绝派发。Task业务状态与Cairn探索状态分开，不要求核心支持ready或原子停止态创建。创建响应丢失则先核对；无法确认时保留结果不明，不按名称/时间猜关联，也不盲目再次创建。显式start接受后，只有配置、授权、预算、Worker和Kali Runtime均满足条件才允许调度。旧queued没有启动记录，永远不能被新执行器自动接管。
+草稿不创建Cairn Project。Task正式创建时由Wuji记录目标、授权及模型/金额快照，保持ready；显式start接受后固定执行配置、准备受限模型凭据并核验Task Pod，再调用原生Cairn创建并保存关联；原生Project可以是active，但所有未显式启动、未关联或许可不完整的Project均被改造后的Dispatcher拒绝派发。Task业务状态与Cairn探索状态分开，不要求核心支持ready或原子停止态创建。创建响应丢失则先核对；无法确认时保留结果不明，不按名称/时间猜关联，也不盲目再次创建。显式start接受后，只有配置、授权、预算、Worker和Kali Runtime均满足条件才允许调度。旧queued没有启动记录，永远不能被新执行器自动接管。
 
 Dispatcher选择Worker配置后先申请AgentRun，再启动进程。worker_profile_id表达能力和容量；agent_run_id表达真实执行、认领、会话、日志与结果；execution_epoch和runtime_attempt限定当前许可。Intent仍有运行、停止核对或结果同步中的AgentRun时拒绝重复派发。Cairn的active/stopped及内存Future均不是执行许可或持久恢复依据。[上游调度状态](https://github.com/oritera/Cairn/blob/8e7e0ea67552383851dfcabfba0c4e9c8d007878/cairn/src/cairn/dispatcher/scheduler/loop.py)
 
@@ -93,7 +93,7 @@ Cairn按原生语义记录探索完成，Wuji独立维护任务执行、停止�
 
 | 依赖 | 候选集成基线 | 状态 |
 | --- | --- | --- |
-| Cairn | 8e7e0ea67552383851dfcabfba0c4e9c8d007878 | 原生Server/客户端桥接最小验证已通过；实际Dispatcher尚未接线，见[桥接验收](stages/phase-1c-cairn-bridge/acceptance.md)；保留AGPL-3.0许可及上游来源 |
+| Cairn | 8e7e0ea67552383851dfcabfba0c4e9c8d007878 | 原生Server/客户端桥接最小验证已通过；原生Dispatcher/Pi/双容器Task闭环已通过封闭夹具验收，见[核心记录](stages/phase-1c-task-creation/acceptance.md)；保留AGPL-3.0许可及上游来源 |
 | Pi coding-agent | 0.73.0 | 首个Harness接入方向，未在Wuji验收 |
 | LiteLLM Proxy | v1.100.0 | 固定镜像digest及D2原生配置/检查/重启最小链路已验证；Task预算及真实K8生命周期未验收，见[D2记录](stages/phase-1c-model-config/acceptance.md) |
 

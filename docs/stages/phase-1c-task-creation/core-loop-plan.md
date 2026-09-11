@@ -1,6 +1,6 @@
 # 核心任务闭环：统一终点与连续实施计划
 
-状态：**approved / in-progress**；2026-09-11。用户在Plan模式确认封闭夹具闭环、Reason主动补证交Explore，并以PLEASE IMPLEMENT THIS PLAN批准完整核心计划。当前已切回Default执行模式。以下历史草案由用户批准版及[实施合同](execution-contracts.md)具体化：交付wuji-test/4182，开发专用Artifact持久卷，原生框架不替换；M1—M4连续实施，不再重复索要小切片批准。
+状态：**implemented / 本批验收见acceptance.md**；2026-09-11。用户在Plan模式确认封闭夹具闭环、Reason主动补证交Explore，并以PLEASE IMPLEMENT THIS PLAN批准完整核心计划。当前已切回Default执行模式。以下历史草案由用户批准版及[实施合同](execution-contracts.md)具体化：交付wuji-test/4182，开发专用Artifact持久卷，原生框架不替换；M1—M4连续实施，不再重复索要小切片批准。
 
 本文件是后续计划的总入口。[D3-B Spec](spec.md)/[Plan](plan.md)是其中 M1 的详细任务书，[调度合同](execution-handoff.md)是 M2/M3 的设计输入。ready 是内部开发里程碑；后续按依赖连续实施，不在每个小提交后重新发起同内容的方案审批或扩大测试。
 

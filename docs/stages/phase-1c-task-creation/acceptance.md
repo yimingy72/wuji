@@ -1,6 +1,6 @@
 # 核心闭环验收记录
 
-日期：2026-09-11；状态：**in-progress，首轮真实夹具闭环通过，最终候选与M4关系视图收口中**。开发与验收由当前会话主代理负责，按明确范围使用gpt-6-astra/low开发子代理；不称为独立测试。起点5631d80，分支codex/phase-1c-core-loop。
+日期：2026-09-11；状态：**accepted：本批封闭夹具核心闭环；完整生产能力仍未验收**。开发与验收由当前会话主代理负责，按明确范围使用gpt-6-astra/low开发子代理；不称为独立测试。起点5631d80，分支codex/phase-1c-core-loop。
 
 ## 已实现
 
@@ -23,9 +23,26 @@ M1真实v2草稿/授权/模型价格配置快照/ready；M2持久start消费者�
 - 日期输入未保持，改为Ant Design DatePicker并实测预览的时区和截止时间；相关构建通过。
 - 最终Reason原生完成回写后与停止核对竞态，使成功结果被显示为取消：e3f8357先登记成功结果，再触发收尾，旧原生回执先核对再检查新执行许可。该项及M4关系读取在最终候选上复核。
 
-## 剩余最小检查
+## 最终定向验收
 
-固定包含M4的最终候选，真实正常链路复核最终Reason成功状态、严格图DTO、Fact→Intent→Run→Tool→Artifact筛选及浏览器导航。模拟一次原生结果写回后的本地journal持久记录缺失，用原始参数只读核对；记录为模拟持久化缺口，不冒称真实网络故障。按需复核金额耗尽原因分类，未变的取消/权限/创建恢复沿用上述证据。
+业务候选：**6c5934c33df8bd4ac9e8f32be9ae9c3e979342b8**；run_id：**p1a20260911t080823ff8011**；Docker Desktop、wuji-test、4182；代码与实际镜像摘要见本机`artifacts/phase-1c-core-loop/final-check.json`。合成配置辅助脚本将context_window设为32768，避免本轮夹具无意触发Pi默认16384保留空间下的压缩；这不是生产默认或压缩能力验收。API/控制器/工具/Dispatcher与候选一致。
+
+| 检查 | 实际结果与证据 |
+| --- | --- |
+| 契约和构建 | 包含M4的候选内容上contracts:check、正式web build、core image build均退出0；contracts-m4.log、web-m4-build.log、core-m4-image.log。契约11条既有warning、web大chunk提示保留，无错误。 |
+| 真实正常执行 | Task e6abfc7a-aa48-41f5-928b-521abfe9f46e：6个AgentRun全部exited/synced/success；3个实际工具、3份Artifact、3个结果Fact，加origin/goal共5个Fact；1个runtime_attempt；Task completed、清理completed。 |
+| 关系与证据 | 按intent_id、agent_run_id、tool_call_id筛选均对应真实对象；跨筛选游标及错误筛选422；3份证据内容SHA-256均核对一致。 |
+| 结果核对 | 模拟原生conclude已提交、平台journal响应未持久的缺口；保留同操作参数只读核对成功，AgentRun/ToolCall/Fact数量均不增长。结束后原回执仍可读取；模拟记录随后恢复。 |
+| 金额结束原因 | Task 3c99fe15-ea62-416b-9dd9-2984ac95c942由真实原生预算拒绝后结束，stop_reason=budget_exhausted。原生累计和超支边界复用首轮native-budget-stop证据。 |
+| Codex浏览器 | 真实登录→Intent i003→AgentRun 9bc00f7e-a8b0-4481-b243-e6488c661f2e→workspace_read→Artifact 9324399c-8b97-5868-bbc9-0a33f98c2881；时间线完整显示创建至已核对停止，结果费用0.0028 USD、目标未判定、限制和资源清理分别展示。 |
+
+命令：`.venv/bin/python artifacts/phase-1c-core-loop/final_check.py --run-file ABS`首次退出1，原因仅为检查脚本误连PostgreSQL管理库；此前正常执行/关系/证据检查已通过。修正为本次隔离业务数据库后，用`--existing-task e6abfc7a-aa48-41f5-928b-521abfe9f46e`继续原任务，退出0；没有重新运行正常探索。同类脚本问题只修正这一轮。对应final-check.log、final-recheck.log及final-check.json。
+
+浏览器截图`browser-workspace-m4.png`、`browser-result-m4.png`。走查时修正主视图标题下过宽的span样式选择器，使已选按钮继续使用Ant Design原有文字对比；只复核页面，不重跑后端。最终记录提交仅包含文档、这一CSS修复和上述合成配置参数，不将其声称为一轮新全量实测。
+
+## 交付运行与版本
+
+验收记录提交与被测代码SHA分别记录，不预写记录自身SHA。交付前通过原生命周期停止验收进程和Core/网关，保留测试数据及PVC；提交记录后用正常serve-only创建当前HEAD的新运行记录。新的交付入口保持4182，私有记录`work/run/core-delivery.json`，公开ID/状态写入`artifacts/phase-1c-core-loop/delivery.json`。该运行可准备一条实际演示Task；沿用已通过的同版本执行代码，不再运行取消/故障/预算矩阵。主目录381ae3a、master28fcd44和4180始终保留。
 
 ## 限制
 

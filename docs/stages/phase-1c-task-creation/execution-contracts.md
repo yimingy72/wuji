@@ -1,6 +1,6 @@
 # 核心闭环执行合同（已批准计划的实施细化）
 
-状态：approved / in-progress；2026-09-11，起点5631d80，分支codex/phase-1c-core-loop。对应用户本轮《Wuji核心任务闭环实施计划》；本次为Default执行模式，不再为M1—M4重复审批。主代理冻结以下接入合同，实现可调整代码组织，不改变行为或Core协议。
+状态：implemented / 本批验收见acceptance.md；2026-09-11，起点5631d80，分支codex/phase-1c-core-loop。对应用户本轮《Wuji核心任务闭环实施计划》；本次为Default执行模式，不再为M1—M4重复审批。主代理冻结以下接入合同，实现可调整代码组织，不改变行为或Core协议。
 
 ## 执行范围与固定配置
 

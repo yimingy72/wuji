@@ -172,7 +172,7 @@ class Setup:
             'api_key':'wuji-synthetic-fixture-only'})
         model = self.operation('create_profile',prefix+'/model-profiles',{
             'name':'Core synthetic fixture','config':{'service_version_id':service,'model_id':MODEL,
-                'context_window':8192,'max_output_tokens':1024,'timeout_seconds':30,'pricing':PRICE}})
+                'context_window':32768,'max_output_tokens':1024,'timeout_seconds':30,'pricing':PRICE}})
         self.record.update(service_version_id=service,model_profile_version_id=model,
                            tenant_id=self.tenant,project_id=self.project)
         self.save()

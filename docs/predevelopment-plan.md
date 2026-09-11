@@ -12,7 +12,7 @@
 | Phase1A | 完整验收partial，三个真实回调场景仍延期 |
 | B1/B2/B3 | 最小验证有效；现有Task只有queued/cancelled，执行调用数恒零 |
 | P0 a84716c | 原受限Deep Agents/原生客户端工具往返及取消等待实验通过；不是Pi/Cairn/LiteLLM证据 |
-| 新架构 | Cairn Server/Dispatcher、平台侧Pi、多Agent共享一个Kali、LiteLLM Task金额预算已确认，尚未集成 |
+| 新架构 | Cairn Server/Dispatcher、独立agent容器内Pi、多Agent共享同Pod Kali、LiteLLM Task金额预算已完成封闭夹具集成；见核心闭环验收，生产出口及真实模型效果仍待验证 |
 | 当前批次 | [控制面D1](stages/phase-1c-control-plane/spec.md)：独立草稿API/迁移/权限已验收；D2组织模型配置已验收，D3快照/范围确认/ready-start接续；未切换现有服务 |
 | 当前待评审 | [D3-B Spec](stages/phase-1c-task-creation/spec.md)/[Plan](stages/phase-1c-task-creation/plan.md)：Web创建/授权/快照/ready和正式模型配置页面；五场景Goal可自定义，start待执行消费者与许可具备后再开放 |
 
