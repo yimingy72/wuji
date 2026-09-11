@@ -1,0 +1,23 @@
+server: http://wuji-cairn:8000
+runtime:
+  execution: local
+  worker_healthcheck: disabled
+  max_workers: 2
+  max_running_projects: 1
+  max_project_workers: 2
+  interval: 2
+  healthcheck_timeout: 5
+  prompt_group: default
+local:
+  workspace_root: /tmp/wuji-dispatcher-construction
+  completed_action: keep
+tasks:
+  bootstrap: {timeout: 90, conclude_timeout: 10}
+  reason: {timeout: 90, max_intents: 2}
+  explore: {timeout: 90, conclude_timeout: 10}
+workers:
+  - name: fixture-pi
+    type: pi
+    task_types: [bootstrap, reason, explore]
+    max_running: 2
+    priority: 1

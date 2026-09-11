@@ -1,0 +1,9 @@
+{
+  "cairn/dispatcher/scheduler/loop.py": "d25c8e783706537937bef69e0a02f8a0e810d2fa04628175c9011b070bd77235",
+  "cairn/dispatcher/tasks/bootstrap.py": "8e363b23dcf376b5ad8fe07d53240d2e604210b11d056a78b4bab3d6d0410b30",
+  "cairn/dispatcher/tasks/explore.py": "43b55b7fd1473eb9aa82d8b64cc55d5792a64a247cda1ced0f73a4f15625a712",
+  "cairn/dispatcher/tasks/reason.py": "bc1bfd8130233538759fbde50783c4491abe8fab4a4f3e23e6eea2c4dad8ca28",
+  "cairn/dispatcher/tasks/common.py": "90ed1d3eace428c346152350646378f3da668eafec23d08766ccb869b757a94d",
+  "cairn/dispatcher/contracts.py": "a13b2b0fd3548ee645c720f80a30299c7f2f0a4d0fc71925854124e3e9b72ca8",
+  "cairn/dispatcher/workers/adapters/pi.py": "9e8fbbc22161278b0b899d186036fd48cb8afcdf0ad44ea3f9f2e11278aa7cc5"
+}
