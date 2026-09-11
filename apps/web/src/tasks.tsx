@@ -1,3 +1,4 @@
+import { ExecutionObservation } from './features/task-execution/ExecutionObservation';
 import { AuthorizationSummary } from './features/task-creation/AuthorizationSummary';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -95,7 +96,7 @@ function assertReceipt(pending: PendingCommand, receipt: CommandReceipt): Comman
     receipt.project_id !== pending.projectId
     || receipt.idempotency_key !== pending.idempotencyKey
     || receipt.kind !== pending.kind
-    || (pending.kind === 'cancel' && pending.resourceId !== null && receipt.task_id !== pending.resourceId)
+    || (pending.kind !== 'create' && pending.resourceId !== null && receipt.task_id !== pending.resourceId)
   ) {
     throw new ApiRequestError({
       status: 200,
@@ -118,7 +119,7 @@ export async function sendFrozenCommand(
       session, pending.projectId, frozen.request, pending.idempotencyKey, signal,
     ));
   }
-  if (pending.kind === 'cancel' && frozen.kind === 'cancel' && pending.resourceId) {
+  if (pending.kind !== 'create' && frozen.kind === pending.kind && pending.resourceId) {
     return assertReceipt(pending, await submitTaskControl(
       session,
       pending.projectId,
@@ -233,7 +234,7 @@ export function PendingCommandNotice({
         title={copy?.title ?? '提交结果待确认'}
         description={(
           <div className={styles.pendingBody}>
-            <p>{copy?.body ?? `正在核对${pending.kind === 'create' ? '任务创建' : '任务取消'}结果。`}</p>
+            <p>{copy?.body ?? `正在核对${pending.kind === 'create' ? '任务创建' : pending.kind === 'start' ? '任务启动' : '任务取消'}结果。`}</p>
             <code>提交标记 {pending.idempotencyKey}</code>
             <div className={styles.inlineActions}>
               <Button type="primary" loading={checking} onClick={() => void reconcile()}>核对提交结果</Button>
@@ -589,15 +590,15 @@ function TaskDetail({ session, projectId, taskId, canControl, listCursor }: { se
     };
   }, [projectId, session, syncRevision, taskId]);
 
-  const cancelTask = async () => {
+  const issueControl = async (action: 'start' | 'cancel') => {
     if (!snapshot) return;
     setCancelOpen(false);
     setCommandBusy(true);
     setCommandError(null);
     let command: PendingCommand;
     try {
-      command = beginCommand(session.user_id, projectId, 'cancel', taskId, {
-        kind: 'cancel', request: { action: 'cancel', expected_version: snapshot.task.version },
+      command = beginCommand(session.user_id, projectId, action, taskId, {
+        kind: action, request: { action, expected_version: snapshot.task.version },
       });
     } catch (error) {
       setCommandBusy(false);
@@ -647,7 +648,7 @@ function TaskDetail({ session, projectId, taskId, canControl, listCursor }: { se
       <Link className={styles.backLink} to={listPath}><ArrowLeftOutlined aria-hidden="true" />返回任务列表</Link>
       <header className={styles.workspaceHeading}>
         <div><span className={styles.eyebrow}>TASK DETAIL</span><h1 id="task-detail-title">{task.name}</h1><p>任务 {task.id}</p></div>
-        {canCancel && <Button danger loading={commandBusy} onClick={() => setCancelOpen(true)}>取消任务</Button>}
+        <div className={styles.inlineActions}>{canControl && 'creation_config' in task && task.allowed_actions.includes('start') && <Button type="primary" loading={commandBusy} disabled={Boolean(pending)} onClick={() => void issueControl('start')}>启动任务</Button>}{canCancel && <Button danger loading={commandBusy} onClick={() => setCancelOpen(true)}>取消任务</Button>}</div>
       </header>
       <PendingCommandNotice session={session} projectId={projectId} onResolved={() => setSyncRevision((value) => value + 1)} />
       {commandCopy && <Alert className={styles.commandNotice} type="error" showIcon title={commandCopy.title} description={commandCopy.body} />}
@@ -661,6 +662,8 @@ function TaskDetail({ session, projectId, taskId, canControl, listCursor }: { se
           action={manualRetry ? <Button onClick={() => setSyncRevision((value) => value + 1)}>重新同步</Button> : undefined}
         />
       )}
+      {task.state === 'cancelling' && <Alert type="warning" showIcon title="正在取消并核对停止" description="取消请求已接受；进程与工具停止尚待实际回执确认。" />}
+      {'creation_config' in task && <ExecutionObservation session={session} projectId={projectId} task={task} />}
       <div className={styles.taskDetailGrid}>
         <section className={styles.taskSummaryPanel} aria-labelledby="task-summary-title">
           <header><h2 id="task-summary-title">任务详情</h2>{taskStateTag(task)}</header>
@@ -702,7 +705,7 @@ function TaskDetail({ session, projectId, taskId, canControl, listCursor }: { se
         okButtonProps={{ danger: true }}
         confirmLoading={commandBusy}
         onCancel={() => setCancelOpen(false)}
-        onOk={() => void cancelTask()}
+        onOk={() => void issueControl('cancel')}
       >
         <p>任务取消后不能恢复。取消请求接受后会继续核对执行是否停止。</p>
       </Modal>

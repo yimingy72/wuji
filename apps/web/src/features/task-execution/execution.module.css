@@ -1,0 +1,11 @@
+.panel { margin-block: 18px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); min-width: 0; }
+.heading { display: flex; justify-content: space-between; gap: 16px; padding: 16px; border-bottom: 1px solid var(--line); }
+.heading span, .record time { color: var(--muted); font-size: 11px; }
+.tabs { display: flex; flex-wrap: wrap; gap: 8px; padding: 16px; }
+.body { padding: 0 16px 16px; }
+.record { padding: 16px 0; border-bottom: 1px solid var(--line); display: grid; gap: 7px; min-width: 0; }
+.record header { display: flex; justify-content: space-between; gap: 12px; }
+.record code { overflow-wrap: anywhere; }
+.record pre { max-height: 220px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--canvas); padding: 12px; }
+.pagination { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.summary { white-space: pre-wrap; overflow-wrap: anywhere; }

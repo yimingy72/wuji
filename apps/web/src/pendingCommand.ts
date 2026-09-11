@@ -1,7 +1,7 @@
 import { useMemo, useSyncExternalStore } from 'react';
 import type { CreateTask, NewCreateTaskRequest, TaskControl } from './api';
 
-export type PendingCommandKind = 'create' | 'cancel';
+export type PendingCommandKind = 'create' | 'cancel' | 'start';
 
 export interface PendingCommand {
   readonly userId: string;
@@ -15,7 +15,7 @@ export interface PendingCommand {
 
 export type FrozenCommand =
   | { readonly kind: 'create'; readonly request: Readonly<CreateTask | NewCreateTaskRequest> }
-  | { readonly kind: 'cancel'; readonly request: Readonly<TaskControl> };
+  | { readonly kind: 'cancel' | 'start'; readonly request: Readonly<TaskControl> };
 
 const prefix = 'wuji.pending-command.v1.';
 const listeners = new Set<() => void>();
@@ -42,7 +42,7 @@ function isPendingCommand(value: unknown): value is PendingCommand {
   return typeof item.userId === 'string'
     && typeof item.projectId === 'string'
     && typeof item.idempotencyKey === 'string'
-    && (item.kind === 'create' || item.kind === 'cancel')
+    && (item.kind === 'create' || item.kind === 'cancel' || item.kind === 'start')
     && (item.resourceId === null || typeof item.resourceId === 'string')
     && typeof item.createdAt === 'string'
     && (item.listInspectedAt === null || typeof item.listInspectedAt === 'string');

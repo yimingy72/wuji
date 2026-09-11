@@ -1,5 +1,6 @@
 import type { components } from '@wuji/contracts/types';
 import {
+  validateAgentRunPage, validateToolCallPage, validateArtifactPage, validateBlackBoardSnapshot, validateTaskResult,
   validateSavedTaskDraft, validateSavedTaskDraftPage, validateScenarioProfilePage, validateTaskCreationPreview,
   validateTenantPage, validateModelDefinitionPage, validateModelVersionPage, validateModelVersion, validateModelOperation,
   validateCommandReceipt,
@@ -389,3 +390,11 @@ export const getSavedDrafts = (projectId: string, cursor: string | null, signal:
 export const getSavedDraft = (projectId: string, draftId: string, signal: AbortSignal) => getValidated(`/api/v1/projects/${encodeURIComponent(projectId)}/task-drafts/${encodeURIComponent(draftId)}`, validateSavedTaskDraft, signal);
 export const saveDraft = (projectId: string, draftId: string, content: DraftContent, version: number, csrf: string, signal: AbortSignal) => postValidated(`/api/v1/projects/${encodeURIComponent(projectId)}/task-drafts/${encodeURIComponent(draftId)}`, {expected_version: version, content}, csrf, validateSavedTaskDraft, signal, undefined, undefined, 'PUT');
 export const previewCreation = (projectId: string, draft: SavedTaskDraft, csrf: string, signal: AbortSignal) => postValidated(`/api/v1/projects/${encodeURIComponent(projectId)}/task-creation-previews`, {draft_id: draft.id, draft_version: draft.version}, csrf, validateTaskCreationPreview, signal);
+
+const observationPath = (projectId: string, taskId: string) => `/api/v1/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}`;
+export const getAgentRuns = (projectId: string, taskId: string, cursor: string | null, signal: AbortSignal) => getValidated(`${observationPath(projectId, taskId)}/agent-runs?${pageSearch(cursor)}`, validateAgentRunPage, signal);
+export const getToolCalls = (projectId: string, taskId: string, cursor: string | null, signal: AbortSignal) => getValidated(`${observationPath(projectId, taskId)}/tool-calls?${pageSearch(cursor)}`, validateToolCallPage, signal);
+export const getArtifacts = (projectId: string, taskId: string, cursor: string | null, signal: AbortSignal) => getValidated(`${observationPath(projectId, taskId)}/artifacts?${pageSearch(cursor)}`, validateArtifactPage, signal);
+export const getBlackboard = (projectId: string, taskId: string, signal: AbortSignal) => getValidated(`${observationPath(projectId, taskId)}/blackboard`, validateBlackBoardSnapshot, signal);
+export const getTaskResult = (projectId: string, taskId: string, signal: AbortSignal) => getValidated(`${observationPath(projectId, taskId)}/result`, validateTaskResult, signal);
+export const artifactContentPath = (projectId: string, taskId: string, artifactId: string) => `${observationPath(projectId, taskId)}/artifacts/${encodeURIComponent(artifactId)}/content`;
