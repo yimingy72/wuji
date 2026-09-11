@@ -1,6 +1,6 @@
 # W1 实施 Plan
 
-状态：**approved / in-progress**；起点b79efa6。用户已批准实施。新工作树codex/phase-2-web-assessment从b79efa6建立，旧交付检出保留；合成链路前不切换4182。精确数据/工具合同见implementation-contracts.md。
+状态：**implemented / 机制验收通过，见acceptance.md**；起点b79efa6。用户已批准实施。新工作树codex/phase-2-web-assessment从b79efa6建立，旧交付检出保留；合成链路前不切换4182。精确数据/工具合同见implementation-contracts.md。
 
 ## 1. 已复核来源与框架能力
 

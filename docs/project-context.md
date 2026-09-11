@@ -55,7 +55,7 @@ Wuji 是 Kubernetes 原生的授权安全验证平台。产品流程是创建任
 | D3-A创建原型 | b6afc12原四组走查保留；3094e6d落实用户入口反馈，构建/浏览器及9a6b4ae上2项定向检查通过；完整用户通过未宣称，入口4186 | [Spec](stages/phase-1c-creation-prototype/spec.md)、[记录](stages/phase-1c-creation-prototype/acceptance.md)、[D3-B衔接](stages/phase-1c-creation-prototype/backend-handoff.md) |
 | 核心闭环与D3-B | accepted（封闭夹具）：6c5934c完成真实创建/启动、Cairn/Pi/共享Kali、Fact/证据/结果/停止及M4关系视图；未开放生产出口和真实外部目标 | [核心总计划](stages/phase-1c-task-creation/core-loop-plan.md)、[D3-B Spec](stages/phase-1c-task-creation/spec.md)/[Plan](stages/phase-1c-task-creation/plan.md)、[状态](stages/phase-1c-task-creation/acceptance.md) |
 | Cairn / Pi / LiteLLM / Runtime集成 | 固定版本已通过真实K8封闭HTTP/合成模型路径；未开放外部目标、生产出口或全量流量采集 | [架构替代决策](cairn-architecture-decision.md)及下节设计 |
-| W1封闭Web评估 | approved / in-progress：用户已批准W1；有限HTTP方法、验证/覆盖/证据、完成缺口反馈；真实模型验证待明确新增USD授权 | [Spec](stages/phase-2-web-assessment/spec.md)、[Plan](stages/phase-2-web-assessment/plan.md)、[状态](stages/phase-2-web-assessment/acceptance.md) |
+| W1封闭Web评估 | accepted（机制）：f12a46f真实合成闭环及Pi原生压缩通过；4资源三类结果、证据和Reason补充反馈已交付；真实模型自主效果待明确新增USD授权 | [Spec](stages/phase-2-web-assessment/spec.md)、[Plan](stages/phase-2-web-assessment/plan.md)、[状态](stages/phase-2-web-assessment/acceptance.md) |
 
 表内测试是复用历史记录，未在本次文档提交重跑。B2/B3 测试代码基准为 `e76a265d445ae9548d7f56fdb85f9b8b5c005759`，具体 run 与限制以验收正文为准。架构验收目录的 80 项不是本次或每次开发必须执行的清单。
 
@@ -99,3 +99,5 @@ Wuji 是 Kubernetes 原生的授权安全验证平台。产品流程是创建任
 2026-09-11 核心交付后：主代理依据实际b79efa6及分析交接准备[W1 Spec/Plan](stages/phase-2-web-assessment/spec.md)，目标是有限自建Web评估，先A层机制、后明确授权的B层真实模型效果。草案不是新业务或付费批准；当前4182保持运行，文档暂未提交以保留其绑定HEAD。
 
 2026-09-11：W1已获PLEASE IMPLEMENT THIS PLAN授权；当前在独立phase-2-web-assessment工作树实施，仅机制与合成模型，真实效果等待明确新增USD授权。
+
+2026-09-11 W1机制已验收，具体事实与限制见[W1验收](stages/phase-2-web-assessment/acceptance.md)。不再按旧草案将评估接口/有限覆盖/原生压缩机制称为未实现；真实模型效果仍未验收。

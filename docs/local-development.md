@@ -154,3 +154,26 @@ sh scripts/platform/build-core.sh
 ```
 
 该命令要求网关、issuer_fixture API和TenantAdmin已准备，固定自建合成上游；会保存0600原操作标识，结果不明只核对，不再次发起检查。浏览器登录前执行，避免同一测试用户新登录撤销原浏览器会话。
+
+
+## W1 有限Web评估
+
+有效开发检出为`work/worktrees/phase-2-web-assessment`。沿用上面的test-platform --serve-only、gateway up、issuer_fixture API restart及TenantAdmin grant顺序；迁移头为0008。固定4182串行使用，不能与旧测试run并行占用端口。开发4180保持原样。
+
+额外构建独立站点镜像：
+
+```sh
+docker --context desktop-linux build -t wuji-web-assessment-lab:w1 -f services/web-assessment-lab/Dockerfile .
+```
+
+现有Agent/Kali/Core镜像仍用前述命令。准备已注册站点与合成模型：
+
+```sh
+.venv/bin/python scripts/platform/core-fixture-setup.py --run-file "$PWD/work/run/w1-delivery.json" --profile closed-web-assessment-v1
+```
+
+这会显式执行一次合成连接检查和发布，不调用公司模型。创建Web任务入口填`http://wuji-web-assessment-lab:8000/`，设置授权期限、合成模型方案和Task USD上限；启动后进入工作区→评估，查看条件、验证和证据。方法不访问外部目标，总Goal保持尚未判定。根页面第一层资源仅作为有限评估清单，不是路径ACL。
+
+压缩探针仅在安排定向验收时为setup追加`--compaction-probe`，普通交付不加。探针复用Pi原生阈值压缩与同会话下一条只读消息，不是新的Agent循环；它不能证明真实模型记忆质量。
+
+停止仍先核对Task结束，再core down、gateway down、serve-only Ctrl-C，均使用当前合法run-file；保留数据/PVC。当前实际交付入口与Task见artifacts/phase-2-web-assessment/delivery.json，验收事实见W1阶段acceptance.md。

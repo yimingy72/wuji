@@ -1,6 +1,6 @@
 # W1：封闭 Web 自主验证与评估 Spec
 
-状态：**approved / in-progress**。2026-09-11，起点`b79efa6e65a0d976c43c66588630fea7eb5a22ca`。用户已在Plan模式确认并以PLEASE IMPLEMENT THIS PLAN批准W1实施，当前Default执行模式。只交付机制和合成链路，不新增真实模型费用或外部目标。最新接口细化见[实施合同](implementation-contracts.md)。
+状态：**implemented / 机制验收通过，见acceptance.md**。2026-09-11，起点`b79efa6e65a0d976c43c66588630fea7eb5a22ca`。用户已在Plan模式确认并以PLEASE IMPLEMENT THIS PLAN批准W1实施，当前Default执行模式。只交付机制和合成链路，不新增真实模型费用或外部目标。最新接口细化见[实施合同](implementation-contracts.md)。
 
 ## 1. 背景与本次终点
 
