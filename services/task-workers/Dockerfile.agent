@@ -1,0 +1,9 @@
+FROM node:24-bookworm-slim
+WORKDIR /opt/wuji-workers
+COPY services/task-workers/package.json services/task-workers/pnpm-lock.yaml ./
+RUN corepack enable && pnpm install --prod --frozen-lockfile --ignore-scripts
+COPY services/task-workers/supervisor.mjs services/task-workers/trusted-extension.ts ./
+RUN mkdir -p /var/lib/wuji/agent && chown -R node:node /var/lib/wuji/agent
+USER node
+EXPOSE 8001
+ENTRYPOINT ["node", "supervisor.mjs", "agent"]

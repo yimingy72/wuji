@@ -1,0 +1,6 @@
+FROM kalilinux/kali-rolling:latest
+RUN apt-get update && apt-get install -y --no-install-recommends nodejs ca-certificates && rm -rf /var/lib/apt/lists/*
+WORKDIR /opt/wuji-workers
+COPY services/task-workers/supervisor.mjs services/task-workers/helper.mjs ./
+EXPOSE 8003
+ENTRYPOINT ["node", "supervisor.mjs", "kali"]
