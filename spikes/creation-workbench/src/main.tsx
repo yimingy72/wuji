@@ -2,6 +2,9 @@ import { StrictMode, useEffect, useLayoutEffect, useMemo, useState, type ReactNo
 import { createRoot } from 'react-dom/client';
 import { App, Button, Checkbox, ConfigProvider, Drawer, Select, Tag, Tooltip } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
+import dayjs from 'dayjs';
+import 'dayjs/locale/zh-cn';
+dayjs.locale('zh-cn');
 import { ApartmentOutlined, ExperimentOutlined, SettingOutlined, UserOutlined, ControlOutlined } from '@ant-design/icons';
 import { BrowserRouter, Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { getPalette, isPaletteId, makeWorkbenchTheme, palettes, type PaletteId } from '@wuji/theme';

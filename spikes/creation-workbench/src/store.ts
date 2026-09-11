@@ -55,7 +55,7 @@ export async function submit(id:string,retry=false):Promise<string|null> {
   else {const task:Task={id:uid(),projectId:record.projectId,createdAt:new Date().toISOString(),state:'ready',draft:structuredClone(record.frozen!),model:structuredClone(record.model)};receipts.set(record.key,{taskId:task.id,rejected:false});patch({tasks:[task,...state.tasks]});}
  }
  await delay();
- if(generation!==state.generation||!state.pending[scope]) {if(state.pending[scope])patch({pending:{...state.pending,[scope]:{...state.pending[scope]!,state:'unknown'}}});return null;}
+ if(generation!==state.generation||state.pending[scope]?.key!==record.key) {if(state.pending[scope]?.key===record.key)patch({pending:{...state.pending,[scope]:{...state.pending[scope]!,state:'unknown'}}});return null;}
  if(mode==='lost'){patch({pending:{...state.pending,[scope]:{...record,state:'unknown'}}});return null;}
  return finishReceipt(scope,record);
 }
