@@ -87,3 +87,22 @@ JSON 顶层为 `authorization` 与 `scope`：前者包含 `id`、`tenant_id`、`
 B1 定向验证入口为 `tests/unit/test_scope_policy.py`、`tests/api/test_phase1b_scopes.py` 和 `tests/platform-browser/05-scope-preview.spec.ts`。真实 API / 浏览器检查共用 `test-platform.sh --serve-only` 创建的隔离环境；不自动运行 Phase 1A 全量用例。当前交付状态以 [B1 验收记录](stages/phase-1b/acceptance.md) 为准。
 
 B2/B3的必要验证限定为`tests/api/test_phase1b_tasks.py`和`tests/platform-browser/06-task-management.spec.ts`，加一次契约检查与正式构建。通过即停止，不串行补跑旧全套。实际候选、命令、预算和延期项见[B2/B3验收](stages/phase-1b/b23-acceptance.md)。
+
+## 组织模型网关（D2）
+
+网关固定使用 LiteLLM v1.100.0 `ghcr.io/berriai/litellm@sha256:c8756e7b9a61fe45df2ccb5b781d388c3b2f3a21ef9e4956630caef20f9f03aa` 及原生迁移，依赖现有已启动的专属 PostgreSQL、可用数据库转发、项目 Python 依赖与 Docker Desktop Kubernetes。它单独保存 native 数据库，使用无平台角色成员关系的专属登录角色。开发端口为 `18400`，测试端口为 `18402`。
+
+使用当前工作树、当前提交创建的私有 run 文件：
+
+```sh
+./scripts/platform/gateway.sh prepare --run-file "$PWD/work/run/dev.json"
+./scripts/platform/gateway.sh up --run-file "$PWD/work/run/dev.json"
+./scripts/platform/gateway.sh status --run-file "$PWD/work/run/dev.json"
+./scripts/platform/gateway.sh down --run-file "$PWD/work/run/dev.json"
+```
+
+`prepare` 增加 schema v1 可选的 `model_gateway`，创建并复用三个持久 Secret：管理 key、加密 salt 和数据库密码。只有管理 key 写入 0600 run 文件；salt、数据库密码只存 Kubernetes Secret。中断后使用相同 run 重试，已有配置缺 Secret 时拒绝自动轮换。禁止手改旧 run 的 source SHA 来绕过版本核验。
+
+`up` 包含准备、单副本 Deployment/Service/ConfigMap 和自有 loopback 转发，等待 `/health/readiness`。探针只使用原生 liveliness/readiness，关闭重试、fallback、缓存、后台模型健康检查和外部遥测，不导入上游凭据或请求付费模型。`down` 只停止可核验的自有转发，并以 UID/resourceVersion 前置条件删除该实例 Deployment，保留 Secret、数据库、PVC、Service 和 ConfigMap；删除被接受时返回 `state=stopping`，随后 `status` 确认 Deployment 不存在且转发进程组已结束，才返回 `state=stopped`。平台停止前先停止网关。
+
+网关命令不运行 Wuji 迁移、不重启 API。准备后按现有平台启动流程启动 API，它才会接收网关 URL、管理 key 和实例 ID，并在进程记录中添加 `model_gateway_management` scope。旧三项 scope 和没有网关的旧 schema v1 文件保持可读。上游 Base URL 使用 API Settings 的受限默认值；合成上游覆盖仅由显式 `local-test` 验证环境配置。本批原生部署的实际验证状态见 D2 验收记录。

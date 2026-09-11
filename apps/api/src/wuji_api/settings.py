@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Literal
+from uuid import UUID
 from urllib.parse import urlsplit
 
 from pydantic import Field, SecretStr, ValidationError, model_validator
@@ -21,6 +22,32 @@ class Settings(BaseSettings):
     oidc_client_secret: SecretStr
     cursor_signing_key: SecretStr
     cursor_ttl_seconds: int = Field(default=900, ge=1, le=900)
+    model_gateway_url: str | None = None
+    model_gateway_key: SecretStr | None = None
+    model_gateway_instance_id: UUID | None = None
+    model_gateway_allowed_bases: list[str] = Field(default_factory=lambda: [
+        "https://ai-api-gateway.app.baizhi.cloud/api/openai",
+        "https://ai-api-gateway.app.baizhi.cloud/api/anthropic",
+    ])
+
+    @model_validator(mode="after")
+    def validate_model_gateway(self):
+        from wuji_api.model_config import normalize_base
+        supplied = (self.model_gateway_url, self.model_gateway_key, self.model_gateway_instance_id)
+        if any(v is not None for v in supplied) and not all(v is not None for v in supplied):
+            raise ValueError("model gateway URL, key and instance must be configured together")
+        if self.model_gateway_url:
+            self.model_gateway_url = normalize_base(self.model_gateway_url)
+            parsed = urlsplit(self.model_gateway_url)
+            if parsed.path:
+                raise ValueError("gateway management URL must be an origin")
+            if not self.model_gateway_key.get_secret_value().startswith("sk-"):
+                raise ValueError("gateway management key must be a native key")
+        self.model_gateway_allowed_bases = list(dict.fromkeys(normalize_base(v) for v in self.model_gateway_allowed_bases))
+        if self.profile != "local-test" and any(not v.startswith("https://") for v in self.model_gateway_allowed_bases):
+            raise ValueError("upstream model services require HTTPS")
+        return self
+
 
     @model_validator(mode="after")
     def validate_security_profile(self) -> "Settings":

@@ -21,6 +21,7 @@ from wuji_api.database_admin import (
     seed_database,
     set_session_times,
     set_user_enabled,
+    set_tenant_admin,
 )
 from wuji_api.keycloak_admin import provision_keycloak
 from wuji_api.run_file import load_run_file
@@ -57,6 +58,13 @@ def _parser() -> argparse.ArgumentParser:
         command.add_argument("--project")
         command.add_argument("--role", choices=("operator", "viewer"), required=True)
         command.add_argument("--simulate-audit-failure", action="store_true")
+
+    admin = commands.add_parser("tenant-admin")
+    admin_actions = admin.add_subparsers(dest="admin_action", required=True)
+    for action in ("grant", "revoke"):
+        admin_command = admin_actions.add_parser(action)
+        admin_command.add_argument("--user", required=True)
+        admin_command.add_argument("--tenant", required=True)
 
     user = commands.add_parser("user")
     user_actions = user.add_subparsers(dest="user_action", required=True)
@@ -148,7 +156,11 @@ def _migrate(run: dict[str, Any]) -> dict[str, Any]:
         auth_role=run["database"]["roles"]["auth"],
         project_role=run["database"]["roles"]["project"],
     )
-    return {"migrated": True, "revision": "20260910_0003"}
+    dsn = credentials["management_dsn"].replace("postgresql+psycopg://", "postgresql://", 1)
+    with psycopg.connect(dsn) as connection, connection.cursor() as cursor:
+        cursor.execute("SELECT version_num FROM alembic_version")
+        revision = cursor.fetchone()[0]
+    return {"migrated": True, "revision": revision}
 
 
 def _import_scope(run: dict[str, Any], value: str) -> dict[str, Any]:
@@ -235,6 +247,13 @@ def execute(args: argparse.Namespace, run_path, run: dict[str, Any]) -> dict[str
             simulate_failure=args.simulate_audit_failure,
         )
         return {"changed": changed}
+    if args.command == "tenant-admin":
+        return {"changed": set_tenant_admin(
+            database_url_value=credentials["management_dsn"],
+            user_id=_resolve_user(run, args.user),
+            tenant_id=_resolve_tenant(run, args.tenant),
+            enabled=args.admin_action == "grant",
+        )}
     if args.command == "user":
         return {
             "changed": set_user_enabled(

@@ -178,6 +178,30 @@ def _validate_platform_identity(path: Path, payload: Mapping[str, Any]) -> None:
         if name == "database" and parsed.path != f"/{database_name}":
             raise ValueError("run database URL does not match its database name")
 
+    gateway = payload.get("model_gateway")
+    if gateway is not None:
+        parsed = urlsplit(gateway["url"])
+        if (
+            parsed.scheme != "http" or parsed.hostname != "127.0.0.1"
+            or parsed.port != (18400 if profile == "dev" else 18402)
+            or parsed.path not in {"", "/"} or parsed.username or parsed.password
+            or parsed.query or parsed.fragment
+        ):
+            raise ValueError("gateway URL does not match its assigned loopback endpoint")
+        suffix = gateway["instance_id"].replace("-", "")
+        if gateway["database_name"] != f"wuji_gateway_{suffix}" or gateway["database_role"] != f"wg_{suffix}":
+            raise ValueError("gateway database authority does not match its instance")
+        for kind in ("master", "salt", "database"):
+            if gateway[f"{kind}_secret_name"] != f"wg-{suffix}-{kind}":
+                raise ValueError("gateway Secret does not match its instance")
+    for record in payload["processes"].values():
+        scopes = record.get("credential_scopes")
+        if scopes is not None:
+            expected = {"auth_dsn", "project_dsn", "oidc_client"}
+            actual = set(scopes)
+            if not expected <= actual or ("model_gateway_management" in actual and gateway is None):
+                raise ValueError("API credential scopes do not match its run authority")
+
     credentials = payload["credentials"]["database"]
     roles = payload["database"]["roles"]
     expected_databases = {

@@ -25,6 +25,8 @@ tags:
   description: Authorized evidence metadata, preview and download
 - name: Drafts
   description: User-owned incomplete task intent without execution
+- name: Models
+  description: Organization model services, published profiles and explicit checks
 paths:
   /session:
     get:
@@ -1011,6 +1013,2245 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/SaveDraftRequest'
+  /tenants:
+    get:
+      tags:
+      - Models
+      summary: Tenants
+      operationId: tenants_api_v1_tenants_get
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 50
+          title: Limit
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 512
+          - type: 'null'
+          title: Cursor
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantPage'
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unauthorized
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Forbidden
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Not Found
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Conflict
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '410':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Gone
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unprocessable Content
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Internal Server Error
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Service Unavailable
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+      security:
+      - SessionCookie: []
+      description: Tenant-scoped versioned model configuration. No inference is performed
+        except an explicit connection check. Unknown operations are reconciled without
+        resending checks. Writes use stable Idempotency-Key and current authority.
+  /tenants/{tenant_id}/model-services:
+    get:
+      tags:
+      - Models
+      summary: List Definitions
+      operationId: list_service_definitions
+      parameters:
+      - name: tenant_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Tenant Id
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 50
+          title: Limit
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 512
+          - type: 'null'
+          title: Cursor
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelDefinitionPage'
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unauthorized
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Forbidden
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Not Found
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Conflict
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '410':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Gone
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unprocessable Content
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Internal Server Error
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Service Unavailable
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+      security:
+      - SessionCookie: []
+      description: Tenant-scoped versioned model configuration. No inference is performed
+        except an explicit connection check. Unknown operations are reconciled without
+        resending checks. Writes use stable Idempotency-Key and current authority.
+    post:
+      tags:
+      - Models
+      summary: Create Definition
+      operationId: create_service_definition
+      parameters:
+      - name: tenant_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Tenant Id
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Idempotency-Key
+      - name: X-CSRF-Token
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Csrf-Token
+      - name: Origin
+        in: header
+        required: true
+        schema:
+          type: string
+        description: Must equal the configured platform origin.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceVersionRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelOperation'
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unauthorized
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Forbidden
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Not Found
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Conflict
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '410':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Gone
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unprocessable Content
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Internal Server Error
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Service Unavailable
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+      security:
+      - SessionCookie: []
+        CsrfToken: []
+      description: Tenant-scoped versioned model configuration. No inference is performed
+        except an explicit connection check. Unknown operations are reconciled without
+        resending checks. Writes use stable Idempotency-Key and current authority.
+  /tenants/{tenant_id}/model-services/{definition_id}/versions:
+    get:
+      tags:
+      - Models
+      summary: Versions
+      operationId: list_service_versions
+      parameters:
+      - name: tenant_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Tenant Id
+      - name: definition_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Definition Id
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 50
+          title: Limit
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 512
+          - type: 'null'
+          title: Cursor
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelVersionPage'
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unauthorized
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Forbidden
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Not Found
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Conflict
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '410':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Gone
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unprocessable Content
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Internal Server Error
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Service Unavailable
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+      security:
+      - SessionCookie: []
+      description: Tenant-scoped versioned model configuration. No inference is performed
+        except an explicit connection check. Unknown operations are reconciled without
+        resending checks. Writes use stable Idempotency-Key and current authority.
+    post:
+      tags:
+      - Models
+      summary: Create Version
+      operationId: create_service_version
+      parameters:
+      - name: tenant_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Tenant Id
+      - name: definition_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Definition Id
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Idempotency-Key
+      - name: X-CSRF-Token
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Csrf-Token
+      - name: Origin
+        in: header
+        required: true
+        schema:
+          type: string
+        description: Must equal the configured platform origin.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceVersionRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelOperation'
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unauthorized
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Forbidden
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Not Found
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Conflict
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '410':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Gone
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unprocessable Content
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Internal Server Error
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Service Unavailable
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+      security:
+      - SessionCookie: []
+        CsrfToken: []
+      description: Tenant-scoped versioned model configuration. No inference is performed
+        except an explicit connection check. Unknown operations are reconciled without
+        resending checks. Writes use stable Idempotency-Key and current authority.
+  /tenants/{tenant_id}/model-service-versions/{version_id}:
+    get:
+      tags:
+      - Models
+      summary: Version
+      operationId: get_service_version
+      parameters:
+      - name: tenant_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Tenant Id
+      - name: version_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Version Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelVersion'
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unauthorized
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Forbidden
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Not Found
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Conflict
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '410':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Gone
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unprocessable Content
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Internal Server Error
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Service Unavailable
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+      security:
+      - SessionCookie: []
+      description: Tenant-scoped versioned model configuration. No inference is performed
+        except an explicit connection check. Unknown operations are reconciled without
+        resending checks. Writes use stable Idempotency-Key and current authority.
+  /tenants/{tenant_id}/model-profiles:
+    get:
+      tags:
+      - Models
+      summary: List Definitions
+      operationId: list_profile_definitions
+      parameters:
+      - name: tenant_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Tenant Id
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 50
+          title: Limit
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 512
+          - type: 'null'
+          title: Cursor
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelDefinitionPage'
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unauthorized
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Forbidden
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Not Found
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Conflict
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '410':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Gone
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unprocessable Content
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Internal Server Error
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Service Unavailable
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+      security:
+      - SessionCookie: []
+      description: Tenant-scoped versioned model configuration. No inference is performed
+        except an explicit connection check. Unknown operations are reconciled without
+        resending checks. Writes use stable Idempotency-Key and current authority.
+    post:
+      tags:
+      - Models
+      summary: Create Definition
+      operationId: create_profile_definition
+      parameters:
+      - name: tenant_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Tenant Id
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Idempotency-Key
+      - name: X-CSRF-Token
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Csrf-Token
+      - name: Origin
+        in: header
+        required: true
+        schema:
+          type: string
+        description: Must equal the configured platform origin.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileVersionRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelOperation'
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unauthorized
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Forbidden
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Not Found
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Conflict
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '410':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Gone
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unprocessable Content
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Internal Server Error
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Service Unavailable
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+      security:
+      - SessionCookie: []
+        CsrfToken: []
+      description: Tenant-scoped versioned model configuration. No inference is performed
+        except an explicit connection check. Unknown operations are reconciled without
+        resending checks. Writes use stable Idempotency-Key and current authority.
+  /tenants/{tenant_id}/model-profiles/{definition_id}/versions:
+    get:
+      tags:
+      - Models
+      summary: Versions
+      operationId: list_profile_versions
+      parameters:
+      - name: tenant_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Tenant Id
+      - name: definition_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Definition Id
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 50
+          title: Limit
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 512
+          - type: 'null'
+          title: Cursor
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelVersionPage'
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unauthorized
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Forbidden
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Not Found
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Conflict
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '410':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Gone
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unprocessable Content
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Internal Server Error
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Service Unavailable
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+      security:
+      - SessionCookie: []
+      description: Tenant-scoped versioned model configuration. No inference is performed
+        except an explicit connection check. Unknown operations are reconciled without
+        resending checks. Writes use stable Idempotency-Key and current authority.
+    post:
+      tags:
+      - Models
+      summary: Create Version
+      operationId: create_profile_version
+      parameters:
+      - name: tenant_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Tenant Id
+      - name: definition_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Definition Id
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Idempotency-Key
+      - name: X-CSRF-Token
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Csrf-Token
+      - name: Origin
+        in: header
+        required: true
+        schema:
+          type: string
+        description: Must equal the configured platform origin.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileVersionRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelOperation'
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unauthorized
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Forbidden
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Not Found
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Conflict
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '410':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Gone
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unprocessable Content
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Internal Server Error
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Service Unavailable
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+      security:
+      - SessionCookie: []
+        CsrfToken: []
+      description: Tenant-scoped versioned model configuration. No inference is performed
+        except an explicit connection check. Unknown operations are reconciled without
+        resending checks. Writes use stable Idempotency-Key and current authority.
+  /tenants/{tenant_id}/model-profile-versions/{version_id}:
+    get:
+      tags:
+      - Models
+      summary: Version
+      operationId: get_profile_version
+      parameters:
+      - name: tenant_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Tenant Id
+      - name: version_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Version Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelVersion'
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unauthorized
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Forbidden
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Not Found
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Conflict
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '410':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Gone
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unprocessable Content
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Internal Server Error
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Service Unavailable
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+      security:
+      - SessionCookie: []
+      description: Tenant-scoped versioned model configuration. No inference is performed
+        except an explicit connection check. Unknown operations are reconciled without
+        resending checks. Writes use stable Idempotency-Key and current authority.
+  /tenants/{tenant_id}/model-profile-versions/{version_id}/checks:
+    post:
+      tags:
+      - Models
+      summary: Check Model
+      operationId: check_model_api_v1_tenants__tenant_id__model_profile_versions__version_id__checks_post
+      parameters:
+      - name: tenant_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Tenant Id
+      - name: version_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Version Id
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Idempotency-Key
+      - name: X-CSRF-Token
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Csrf-Token
+      - name: Origin
+        in: header
+        required: true
+        schema:
+          type: string
+        description: Must equal the configured platform origin.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModelCheckRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelOperation'
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unauthorized
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Forbidden
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Not Found
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Conflict
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '410':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Gone
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unprocessable Content
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Internal Server Error
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Service Unavailable
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+      security:
+      - SessionCookie: []
+        CsrfToken: []
+      description: Tenant-scoped versioned model configuration. No inference is performed
+        except an explicit connection check. Unknown operations are reconciled without
+        resending checks. Writes use stable Idempotency-Key and current authority.
+  /tenants/{tenant_id}/model-profile-versions/{version_id}/commands:
+    post:
+      tags:
+      - Models
+      summary: Command Model
+      operationId: command_model_api_v1_tenants__tenant_id__model_profile_versions__version_id__commands_post
+      parameters:
+      - name: tenant_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Tenant Id
+      - name: version_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Version Id
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Idempotency-Key
+      - name: X-CSRF-Token
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Csrf-Token
+      - name: Origin
+        in: header
+        required: true
+        schema:
+          type: string
+        description: Must equal the configured platform origin.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModelVersionCommand'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelOperation'
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unauthorized
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Forbidden
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Not Found
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Conflict
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '410':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Gone
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unprocessable Content
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Internal Server Error
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Service Unavailable
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+      security:
+      - SessionCookie: []
+        CsrfToken: []
+      description: Tenant-scoped versioned model configuration. No inference is performed
+        except an explicit connection check. Unknown operations are reconciled without
+        resending checks. Writes use stable Idempotency-Key and current authority.
+  /tenants/{tenant_id}/model-operations/{operation_id}:
+    get:
+      tags:
+      - Models
+      summary: Operation
+      operationId: operation_api_v1_tenants__tenant_id__model_operations__operation_id__get
+      parameters:
+      - name: tenant_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Tenant Id
+      - name: operation_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Operation Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelOperation'
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unauthorized
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Forbidden
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Not Found
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Conflict
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '410':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Gone
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unprocessable Content
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Internal Server Error
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Service Unavailable
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+      security:
+      - SessionCookie: []
+      description: Tenant-scoped versioned model configuration. No inference is performed
+        except an explicit connection check. Unknown operations are reconciled without
+        resending checks. Writes use stable Idempotency-Key and current authority.
+  /tenants/{tenant_id}/model-operation-keys/{key}:
+    get:
+      tags:
+      - Models
+      summary: Operation Key
+      operationId: operation_key_api_v1_tenants__tenant_id__model_operation_keys__key__get
+      parameters:
+      - name: tenant_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Tenant Id
+      - name: key
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Key
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelOperation'
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unauthorized
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Forbidden
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Not Found
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Conflict
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '410':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Gone
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unprocessable Content
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Internal Server Error
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Service Unavailable
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+      security:
+      - SessionCookie: []
+      description: Tenant-scoped versioned model configuration. No inference is performed
+        except an explicit connection check. Unknown operations are reconciled without
+        resending checks. Writes use stable Idempotency-Key and current authority.
+  /projects/{project_id}/model-profiles:
+    get:
+      tags:
+      - Models
+      summary: Project Models
+      operationId: project_models_api_v1_projects__project_id__model_profiles_get
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Project Id
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 50
+          title: Limit
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 512
+          - type: 'null'
+          title: Cursor
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelVersionPage'
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unauthorized
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Forbidden
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Not Found
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Conflict
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '410':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Gone
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unprocessable Content
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Internal Server Error
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Service Unavailable
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+      security:
+      - SessionCookie: []
+      description: Tenant-scoped versioned model configuration. No inference is performed
+        except an explicit connection check. Unknown operations are reconciled without
+        resending checks. Writes use stable Idempotency-Key and current authority.
 components:
   securitySchemes:
     SessionCookie:
@@ -1116,6 +3357,7 @@ components:
       type: string
       enum:
       - project.read
+      - model.profile.read
       - task.draft.read
       - task.draft.write
       - task.preview
@@ -2354,3 +4596,421 @@ components:
       - next_cursor
       title: TaskDraftPageResponse
       type: object
+
+    ModelCheckRequest:
+      properties: {}
+      additionalProperties: false
+      type: object
+      title: ModelCheckRequest
+    ModelDefinitionPage:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/ModelDefinition'
+          type: array
+          maxItems: 100
+          title: Items
+        next_cursor:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Next Cursor
+      additionalProperties: false
+      type: object
+      required:
+      - items
+      - next_cursor
+      title: ModelDefinitionPage
+    ModelDefinition:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        tenant_id:
+          type: string
+          format: uuid
+          title: Tenant Id
+        kind:
+          type: string
+          enum:
+          - service
+          - profile
+          title: Kind
+        name:
+          type: string
+          title: Name
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - tenant_id
+      - kind
+      - name
+      - created_at
+      title: ModelDefinitionResponse
+    ModelOperation:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        kind:
+          type: string
+          enum:
+          - create_service
+          - create_profile
+          - check
+          - publish
+          - retire
+          - revoke
+          title: Kind
+        version_id:
+          type: string
+          format: uuid
+          title: Version Id
+        state:
+          type: string
+          enum:
+          - prepared
+          - sent
+          - succeeded
+          - failed
+          - unknown
+          title: State
+        result:
+          $ref: '#/components/schemas/ModelOperationResult'
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - kind
+      - version_id
+      - state
+      - result
+      - created_at
+      - updated_at
+      title: ModelOperationResponse
+    ModelOperationResult:
+      properties:
+        error_code:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Error Code
+        usage:
+          type: 'null'
+          title: Usage
+        cost_usd:
+          type: 'null'
+          title: Cost Usd
+      additionalProperties: false
+      type: object
+      title: ModelOperationResult
+    ModelPricing:
+      properties:
+        source:
+          type: string
+          maxLength: 500
+          minLength: 1
+          title: Source
+        input_per_million:
+          type: string
+          pattern: ^(0|[1-9][0-9]{0,11})(\.[0-9]{1,12})?$
+          title: Input Per Million
+        output_per_million:
+          type: string
+          pattern: ^(0|[1-9][0-9]{0,11})(\.[0-9]{1,12})?$
+          title: Output Per Million
+        cache_mode:
+          type: string
+          enum:
+          - standard_input
+          - separate
+          title: Cache Mode
+        cache_read_per_million:
+          anyOf:
+          - type: string
+            pattern: ^(0|[1-9][0-9]{0,11})(\.[0-9]{1,12})?$
+          - type: 'null'
+          title: Cache Read Per Million
+        cache_creation_per_million:
+          anyOf:
+          - type: string
+            pattern: ^(0|[1-9][0-9]{0,11})(\.[0-9]{1,12})?$
+          - type: 'null'
+          title: Cache Creation Per Million
+      additionalProperties: false
+      type: object
+      required:
+      - source
+      - input_per_million
+      - output_per_million
+      - cache_mode
+      title: ModelPricing
+    ModelVersionCommand:
+      properties:
+        action:
+          type: string
+          enum:
+          - publish
+          - retire
+          - revoke
+          title: Action
+        expected_version:
+          type: integer
+          maximum: 9007199254740991.0
+          minimum: 1.0
+          title: Expected Version
+      additionalProperties: false
+      type: object
+      required:
+      - action
+      - expected_version
+      title: ModelVersionCommand
+    ModelVersionPage:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/ModelVersion'
+          type: array
+          maxItems: 100
+          title: Items
+        next_cursor:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Next Cursor
+      additionalProperties: false
+      type: object
+      required:
+      - items
+      - next_cursor
+      title: ModelVersionPage
+    ModelVersion:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        tenant_id:
+          type: string
+          format: uuid
+          title: Tenant Id
+        definition_id:
+          type: string
+          format: uuid
+          title: Definition Id
+        kind:
+          type: string
+          enum:
+          - service
+          - profile
+          title: Kind
+        number:
+          type: integer
+          maximum: 9007199254740991.0
+          minimum: 1.0
+          title: Number
+        name:
+          type: string
+          title: Name
+        config:
+          anyOf:
+          - $ref: '#/components/schemas/ServiceConfig'
+          - $ref: '#/components/schemas/ProfileConfig'
+          title: Config
+        state:
+          type: string
+          enum:
+          - draft
+          - published
+          - retired
+          - revoked
+          title: State
+        state_revision:
+          type: integer
+          maximum: 9007199254740991.0
+          minimum: 1.0
+          title: State Revision
+        sync_state:
+          type: string
+          enum:
+          - pending
+          - synced
+          - failed
+          - unknown
+          title: Sync State
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - tenant_id
+      - definition_id
+      - kind
+      - number
+      - name
+      - config
+      - state
+      - state_revision
+      - sync_state
+      - created_at
+      title: ModelVersionResponse
+    ProfileConfig:
+      properties:
+        service_version_id:
+          type: string
+          format: uuid
+          title: Service Version Id
+        model_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          pattern: ^[A-Za-z0-9][A-Za-z0-9_.:-]*$
+          title: Model Id
+        context_window:
+          anyOf:
+          - type: integer
+            maximum: 9007199254740991.0
+            minimum: 1.0
+          - type: 'null'
+          title: Context Window
+        max_output_tokens:
+          anyOf:
+          - type: integer
+            maximum: 9007199254740991.0
+            minimum: 1.0
+          - type: 'null'
+          title: Max Output Tokens
+        timeout_seconds:
+          type: integer
+          maximum: 60.0
+          minimum: 1.0
+          title: Timeout Seconds
+          default: 30
+        pricing:
+          anyOf:
+          - $ref: '#/components/schemas/ModelPricing'
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - service_version_id
+      - model_id
+      title: ProfileConfig
+    ProfileVersionRequest:
+      properties:
+        name:
+          type: string
+          maxLength: 120
+          minLength: 1
+          title: Name
+        config:
+          $ref: '#/components/schemas/ProfileConfig'
+      additionalProperties: false
+      type: object
+      required:
+      - name
+      - config
+      title: ProfileVersionRequest
+    ServiceConfig:
+      properties:
+        protocol:
+          type: string
+          enum:
+          - openai
+          - anthropic
+          title: Protocol
+        base_url:
+          type: string
+          maxLength: 2048
+          minLength: 1
+          title: Base Url
+      additionalProperties: false
+      type: object
+      required:
+      - protocol
+      - base_url
+      title: ServiceConfig
+    ServiceVersionRequest:
+      properties:
+        name:
+          type: string
+          maxLength: 120
+          minLength: 1
+          title: Name
+        config:
+          $ref: '#/components/schemas/ServiceConfig'
+        api_key:
+          type: string
+          maxLength: 4096
+          minLength: 1
+          format: password
+          title: Api Key
+          writeOnly: true
+      additionalProperties: false
+      type: object
+      required:
+      - name
+      - config
+      - api_key
+      title: ServiceVersionRequest
+    TenantPage:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/Tenant'
+          type: array
+          maxItems: 100
+          title: Items
+        next_cursor:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Next Cursor
+      additionalProperties: false
+      type: object
+      required:
+      - items
+      - next_cursor
+      title: TenantPage
+    Tenant:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        name:
+          type: string
+          title: Name
+        permissions:
+          items:
+            type: string
+            enum:
+            - model.config.read
+            - model.config.write
+          type: array
+          title: Permissions
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - name
+      - permissions
+      title: TenantResponse

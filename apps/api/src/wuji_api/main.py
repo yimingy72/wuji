@@ -32,6 +32,7 @@ from wuji_api.database import (
     ScopeDenied,
     VersionConflict,
 )
+from wuji_api.model_gateway import ModelGateway
 from wuji_api.oidc import OIDCClient, OIDCDependencyError, OIDCProtocolError
 from wuji_api.scope_policy import ScopePolicyError, normalize_task_draft
 from wuji_api.scopes import (
@@ -128,9 +129,12 @@ class Runtime:
     authority: DatabaseAuthority
     oidc: OIDCClient
     cursors: CursorCodec
+    model_gateway: ModelGateway | None = None
 
     async def close(self) -> None:
         await self.authority.close()
+        if self.model_gateway is not None:
+            await self.model_gateway.close()
 
 
 class ApiProblem(RuntimeError):
@@ -148,6 +152,8 @@ def _configured_runtime(settings: Settings | None) -> Runtime | None:
         settings=settings,
         authority=DatabaseAuthority(settings),
         oidc=OIDCClient(settings),
+        model_gateway=(ModelGateway(settings.model_gateway_url, settings.model_gateway_key.get_secret_value(), settings.model_gateway_instance_id)
+                       if settings.model_gateway_url else None),
         cursors=CursorCodec(
             settings.cursor_signing_key.get_secret_value(), ttl_seconds=settings.cursor_ttl_seconds
         ),
@@ -204,7 +210,7 @@ async def _authenticated(request: Request, runtime: Runtime):
 
 
 def _project_response(record) -> ProjectResponse:
-    permissions = ["project.read", "task.draft.read"]
+    permissions = ["project.read", "task.draft.read", "model.profile.read"]
     if record.role == "operator":
         permissions.extend(("task.preview", "task.read", "task.create", "task.control", "task.draft.write"))
     else:
@@ -1181,6 +1187,8 @@ def create_app(
 
     from wuji_api.draft_routes import register_draft_routes
     register_draft_routes(application)
+    from wuji_api.model_routes import register_model_routes
+    register_model_routes(application)
 
     return application
 

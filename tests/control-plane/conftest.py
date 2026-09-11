@@ -15,6 +15,7 @@ import httpx
 import psycopg
 import pytest
 
+from wuji_api.database import EXPECTED_REVISION
 from wuji_api.database_admin import database_url, migrate_database, prepare_database
 from wuji_api.main import create_app
 from wuji_api.security import token_hash
@@ -74,7 +75,7 @@ def draft_database():
             database_url("127.0.0.1", port, "draft_test", "draft_project", passwords["project"]),
         )
         with database.connect() as connection:
-            assert connection.execute("SELECT version_num FROM alembic_version").fetchone()[0] == "20260911_0004"
+            assert connection.execute("SELECT version_num FROM alembic_version").fetchone()[0] == EXPECTED_REVISION
             roles = connection.execute(
                 "SELECT rolsuper, rolbypassrls, rolcreaterole, rolcreatedb FROM pg_roles "
                 "WHERE rolname IN ('draft_auth', 'draft_project')"

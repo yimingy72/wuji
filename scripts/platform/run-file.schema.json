@@ -22,6 +22,51 @@
     "control"
   ],
   "properties": {
+    "model_gateway": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "instance_id",
+        "url",
+        "database_name",
+        "database_role",
+        "master_key",
+        "salt_secret_name",
+        "database_secret_name",
+        "master_secret_name"
+      ],
+      "properties": {
+        "instance_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "database_name": {
+          "$ref": "#/$defs/role"
+        },
+        "database_role": {
+          "$ref": "#/$defs/role"
+        },
+        "master_key": {
+          "$ref": "#/$defs/secretString"
+        },
+        "salt_secret_name": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
+        },
+        "database_secret_name": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
+        },
+        "master_secret_name": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
+        }
+      }
+    },
     "schema_version": { "const": 1 },
     "run_id": { "type": "string", "pattern": "^[a-z0-9]+$" },
     "source_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
@@ -233,9 +278,9 @@
         "reads_run_file": { "const": false },
         "credential_scopes": {
           "type": "array",
-          "items": { "enum": ["auth_dsn", "project_dsn", "oidc_client"] },
+          "items": { "enum": ["auth_dsn", "project_dsn", "oidc_client", "model_gateway_management"] },
           "minItems": 3,
-          "maxItems": 3,
+          "maxItems": 4,
           "uniqueItems": true
         },
         "pid": { "type": "integer", "minimum": 1 },

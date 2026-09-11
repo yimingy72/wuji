@@ -713,3 +713,40 @@ def inspect_authority(*, database_url_value: str, user_id: str | None = None) ->
                 )
                 output["audit_counts"] = {action: count for action, count in cursor.fetchall()}
             return output
+
+
+def set_tenant_admin(
+    *, database_url_value: str, user_id: str, tenant_id: str, enabled: bool,
+    actor: str = "platform-control",
+) -> bool:
+    """Explicit trusted grant; never changes membership or project access."""
+    with management_transaction(database_url_value) as connection:
+        with connection.cursor() as cursor:
+            _lock_user(cursor, user_id)
+            if enabled:
+                cursor.execute(
+                    "SELECT 1 FROM tenant_memberships tm JOIN tenants t ON t.id=tm.tenant_id "
+                    "JOIN users u ON u.id=tm.user_id WHERE tm.tenant_id=%s AND tm.user_id=%s "
+                    "AND tm.enabled AND t.enabled AND u.enabled", (tenant_id, user_id),
+                )
+                if cursor.fetchone() is None:
+                    raise ValueError("enabled tenant membership required")
+                cursor.execute(
+                    "INSERT INTO tenant_admin_grants(tenant_id,user_id,enabled) VALUES(%s,%s,true) "
+                    "ON CONFLICT(tenant_id,user_id) DO UPDATE SET enabled=true,updated_at=clock_timestamp() "
+                    "WHERE NOT tenant_admin_grants.enabled RETURNING 1", (tenant_id, user_id),
+                )
+            else:
+                cursor.execute(
+                    "UPDATE tenant_admin_grants SET enabled=false,updated_at=clock_timestamp() "
+                    "WHERE tenant_id=%s AND user_id=%s AND enabled RETURNING 1", (tenant_id, user_id),
+                )
+            changed = cursor.fetchone() is not None
+            if changed:
+                cursor.execute(
+                    "UPDATE users SET permissions_version=permissions_version+1,updated_at=clock_timestamp() "
+                    "WHERE id=%s", (user_id,),
+                )
+                _audit(cursor, user_id, "tenant_admin.granted" if enabled else "tenant_admin.revoked",
+                       actor, {"tenant_id": tenant_id})
+            return changed

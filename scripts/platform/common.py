@@ -815,6 +815,13 @@ def api_environment(run: Mapping[str, Any], *, profile: str, ttl: int = 900) -> 
             "WUJI_API_PORT": str(urlsplit(run["urls"]["api"]).port),
         }
     )
+    gateway = run.get("model_gateway")
+    if gateway is not None:
+        environment.update({
+            "WUJI_MODEL_GATEWAY_URL": gateway["url"],
+            "WUJI_MODEL_GATEWAY_KEY": gateway["master_key"],
+            "WUJI_MODEL_GATEWAY_INSTANCE_ID": gateway["instance_id"],
+        })
     if "WUJI_TEST_RUN_FILE" in environment:
         raise LifecycleError("API environment must not receive the test run file")
     return environment
@@ -864,7 +871,8 @@ def start_api(
             "profile": profile,
             "cursor_ttl_seconds": ttl,
             "reads_run_file": False,
-            "credential_scopes": ["auth_dsn", "project_dsn", "oidc_client"],
+            "credential_scopes": ["auth_dsn", "project_dsn", "oidc_client"]
+            + (["model_gateway_management"] if "model_gateway" in api_run else []),
         },
     )
     return record
