@@ -4868,6 +4868,509 @@ paths:
               schema:
                 type: string
                 const: no-store
+  /projects/{project_id}/tasks/{task_id}/assessment:
+    get:
+      tags:
+      - Assessments
+      summary: Assessment
+      operationId: assessment_api_v1_projects__project_id__tasks__task_id__assessment_get
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Project Id
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Task Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentView'
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unauthorized
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Forbidden
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Not Found
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '410':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Gone
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unprocessable Content
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Internal Server Error
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Service Unavailable
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+  /projects/{project_id}/tasks/{task_id}/observations:
+    get:
+      tags:
+      - Assessments
+      summary: Observations
+      operationId: observations_api_v1_projects__project_id__tasks__task_id__observations_get
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Project Id
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Task Id
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 50
+          title: Limit
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            minLength: 1
+            maxLength: 512
+          - type: 'null'
+          title: Cursor
+      - name: observation_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Observation Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ObservationPage'
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unauthorized
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Forbidden
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Not Found
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '410':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Gone
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unprocessable Content
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Internal Server Error
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Service Unavailable
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+  /projects/{project_id}/tasks/{task_id}/verifications:
+    get:
+      tags:
+      - Assessments
+      summary: Verifications
+      operationId: verifications_api_v1_projects__project_id__tasks__task_id__verifications_get
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Project Id
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Task Id
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 50
+          title: Limit
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            minLength: 1
+            maxLength: 512
+          - type: 'null'
+          title: Cursor
+      - name: coverage_item_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Coverage Item Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationPage'
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unauthorized
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Forbidden
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Not Found
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '410':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Gone
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unprocessable Content
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Internal Server Error
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Service Unavailable
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+  /projects/{project_id}/tasks/{task_id}/verifications/{verification_id}:
+    get:
+      tags:
+      - Assessments
+      summary: Verification
+      operationId: verification_api_v1_projects__project_id__tasks__task_id__verifications__verification_id__get
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Project Id
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Task Id
+      - name: verification_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Verification Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationDetail'
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unauthorized
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Forbidden
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Not Found
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '410':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Gone
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unprocessable Content
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Internal Server Error
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Service Unavailable
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
 components:
   securitySchemes:
     SessionCookie:
@@ -8040,6 +8543,11 @@ components:
         cost_state:
           title: Cost State
           type: string
+        assessment:
+          anyOf:
+          - $ref: '#/components/schemas/AssessmentReference'
+          - type: 'null'
+          default: null
       required:
       - state
       - goal_status
@@ -8210,4 +8718,469 @@ components:
       - created_at
       - concluded_at
       title: GraphIntent
+      type: object
+    AssessmentReference:
+      additionalProperties: false
+      properties:
+        plan_id:
+          format: uuid
+          title: Plan Id
+          type: string
+        revision:
+          minimum: 1
+          title: Revision
+          type: integer
+        outcome:
+          enum:
+          - not_assessed
+          - complete
+          - partial
+          - inconclusive
+          title: Outcome
+          type: string
+      required:
+      - plan_id
+      - revision
+      - outcome
+      title: AssessmentReference
+      type: object
+    CoverageItem:
+      additionalProperties: false
+      properties:
+        id:
+          format: uuid
+          title: Id
+          type: string
+        target_url:
+          title: Target Url
+          type: string
+        rule_id:
+          const: cors-reflection-v1
+          default: cors-reflection-v1
+          title: Rule Id
+          type: string
+        state:
+          enum:
+          - pending
+          - evaluated
+          - blocked
+          - inconclusive
+          - not_run
+          title: State
+          type: string
+        verdict:
+          anyOf:
+          - enum:
+            - unassessed
+            - confirmed
+            - not_reproduced
+            - inconclusive
+            type: string
+          - type: 'null'
+          default: null
+          title: Verdict
+        verification_run_id:
+          anyOf:
+          - format: uuid
+            type: string
+          - type: 'null'
+          default: null
+          title: Verification Run Id
+        result_id:
+          anyOf:
+          - format: uuid
+            type: string
+          - type: 'null'
+          default: null
+          title: Result Id
+        reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          default: null
+          title: Reason
+      required:
+      - id
+      - target_url
+      - state
+      title: CoverageItem
+      type: object
+    AssessmentView:
+      additionalProperties: false
+      properties:
+        state:
+          enum:
+          - not_assessed
+          - available
+          title: State
+          type: string
+        profile_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          default: null
+          title: Profile Id
+        plan_id:
+          anyOf:
+          - format: uuid
+            type: string
+          - type: 'null'
+          default: null
+          title: Plan Id
+        revision:
+          default: 0
+          minimum: 0
+          title: Revision
+          type: integer
+        progress_digest:
+          anyOf:
+          - type: string
+          - type: 'null'
+          default: null
+          title: Progress Digest
+        outcome:
+          default: not_assessed
+          enum:
+          - not_assessed
+          - complete
+          - partial
+          - inconclusive
+          title: Outcome
+          type: string
+        discovery_state:
+          default: pending
+          enum:
+          - pending
+          - complete
+          - incomplete
+          title: Discovery State
+          type: string
+        items:
+          items:
+            $ref: '#/components/schemas/CoverageItem'
+          maxItems: 11
+          title: Items
+          type: array
+        limitations:
+          items:
+            type: string
+          maxItems: 30
+          title: Limitations
+          type: array
+      required:
+      - state
+      title: AssessmentView
+      type: object
+    Observation:
+      additionalProperties: false
+      properties:
+        id:
+          format: uuid
+          title: Id
+          type: string
+        tool_call_id:
+          format: uuid
+          title: Tool Call Id
+          type: string
+        agent_run_id:
+          format: uuid
+          title: Agent Run Id
+          type: string
+        target_url:
+          title: Target Url
+          type: string
+        method:
+          enum:
+          - GET
+          - HEAD
+          - OPTIONS
+          title: Method
+          type: string
+        request_headers:
+          additionalProperties:
+            type: string
+          title: Request Headers
+          type: object
+        response_status:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Response Status
+        response_headers:
+          additionalProperties:
+            type: string
+          title: Response Headers
+          type: object
+        complete:
+          title: Complete
+          type: boolean
+        termination:
+          enum:
+          - complete
+          - size_limit
+          - timeout
+          - cancelled
+          - network_error
+          title: Termination
+          type: string
+        body_bytes:
+          maximum: 1048576
+          minimum: 0
+          title: Body Bytes
+          type: integer
+        body_sha256:
+          title: Body Sha256
+          type: string
+        body_encoding:
+          const: client-decoded
+          title: Body Encoding
+          type: string
+        redacted_headers:
+          items:
+            type: string
+          title: Redacted Headers
+          type: array
+        artifact_id:
+          format: uuid
+          title: Artifact Id
+          type: string
+        body_artifact_id:
+          format: uuid
+          title: Body Artifact Id
+          type: string
+        started_at:
+          format: date-time
+          title: Started At
+          type: string
+        finished_at:
+          format: date-time
+          title: Finished At
+          type: string
+        created_at:
+          format: date-time
+          title: Created At
+          type: string
+      required:
+      - id
+      - tool_call_id
+      - agent_run_id
+      - target_url
+      - method
+      - request_headers
+      - response_status
+      - response_headers
+      - complete
+      - termination
+      - body_bytes
+      - body_sha256
+      - body_encoding
+      - redacted_headers
+      - artifact_id
+      - body_artifact_id
+      - started_at
+      - finished_at
+      - created_at
+      title: Observation
+      type: object
+    ObservationPage:
+      additionalProperties: false
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/Observation'
+          maxItems: 100
+          title: Items
+          type: array
+        next_cursor:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Next Cursor
+      required:
+      - items
+      - next_cursor
+      title: ObservationPage
+      type: object
+    VerificationResult:
+      additionalProperties: false
+      properties:
+        id:
+          format: uuid
+          title: Id
+          type: string
+        verification_run_id:
+          format: uuid
+          title: Verification Run Id
+          type: string
+        revision:
+          minimum: 1
+          title: Revision
+          type: integer
+        verdict:
+          enum:
+          - unassessed
+          - confirmed
+          - not_reproduced
+          - inconclusive
+          title: Verdict
+          type: string
+        reason:
+          title: Reason
+          type: string
+        limitations:
+          items:
+            type: string
+          title: Limitations
+          type: array
+        supersedes_result_id:
+          anyOf:
+          - format: uuid
+            type: string
+          - type: 'null'
+          title: Supersedes Result Id
+        created_at:
+          format: date-time
+          title: Created At
+          type: string
+      required:
+      - id
+      - verification_run_id
+      - revision
+      - verdict
+      - reason
+      - limitations
+      - supersedes_result_id
+      - created_at
+      title: VerificationResult
+      type: object
+    VerificationRun:
+      additionalProperties: false
+      properties:
+        id:
+          format: uuid
+          title: Id
+          type: string
+        coverage_item_id:
+          format: uuid
+          title: Coverage Item Id
+          type: string
+        target_url:
+          title: Target Url
+          type: string
+        rule_id:
+          const: cors-reflection-v1
+          title: Rule Id
+          type: string
+        claim:
+          title: Claim
+          type: string
+        agent_run_id:
+          format: uuid
+          title: Agent Run Id
+          type: string
+        intent_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Intent Id
+        created_at:
+          format: date-time
+          title: Created At
+          type: string
+        latest_result:
+          anyOf:
+          - $ref: '#/components/schemas/VerificationResult'
+          - type: 'null'
+          default: null
+      required:
+      - id
+      - coverage_item_id
+      - target_url
+      - rule_id
+      - claim
+      - agent_run_id
+      - intent_id
+      - created_at
+      title: VerificationRun
+      type: object
+    VerificationPage:
+      additionalProperties: false
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/VerificationRun'
+          maxItems: 100
+          title: Items
+          type: array
+        next_cursor:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Next Cursor
+      required:
+      - items
+      - next_cursor
+      title: VerificationPage
+      type: object
+    EvidenceLink:
+      additionalProperties: false
+      properties:
+        id:
+          format: uuid
+          title: Id
+          type: string
+        verification_result_id:
+          format: uuid
+          title: Verification Result Id
+          type: string
+        observation_id:
+          format: uuid
+          title: Observation Id
+          type: string
+        artifact_id:
+          format: uuid
+          title: Artifact Id
+          type: string
+        relation:
+          enum:
+          - supports
+          - refutes
+          - limits
+          title: Relation
+          type: string
+        selector:
+          additionalProperties: true
+          title: Selector
+          type: object
+      required:
+      - id
+      - verification_result_id
+      - observation_id
+      - artifact_id
+      - relation
+      - selector
+      title: EvidenceLink
+      type: object
+    VerificationDetail:
+      additionalProperties: false
+      properties:
+        verification:
+          $ref: '#/components/schemas/VerificationRun'
+        results:
+          items:
+            $ref: '#/components/schemas/VerificationResult'
+          maxItems: 100
+          title: Results
+          type: array
+        evidence:
+          items:
+            $ref: '#/components/schemas/EvidenceLink'
+          maxItems: 200
+          title: Evidence
+          type: array
+      required:
+      - verification
+      - results
+      - evidence
+      title: VerificationDetail
       type: object

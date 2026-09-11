@@ -13,6 +13,7 @@ from wuji_api.tasks import TaskResponse, WebTaskResponse, TaskPageResponse, Task
 from wuji_api.task_creation import NewCreateTaskRequest, TaskCreationPreview, CreationConfigSnapshot
 from wuji_api.scenario_profiles import ScenarioProfilePage
 from wuji_api.executions import AgentRunPage, ToolCallPage, ArtifactPage, BlackBoardSnapshot, TaskResult
+from wuji_api.assessments import AssessmentView, ObservationPage, VerificationPage, VerificationDetail
 from wuji_api.tasks import TaskControlRequest, CommandReceiptResponse
 
 root=Path(__file__).resolve().parents[1]
@@ -44,6 +45,8 @@ schemas=api["components"]["schemas"]
 models.update(AgentRunPage=AgentRunPage,ToolCallPage=ToolCallPage,ArtifactPage=ArtifactPage,
               BlackBoardSnapshot=BlackBoardSnapshot,TaskResult=TaskResult,TaskControl=TaskControlRequest,
               CommandReceipt=CommandReceiptResponse)
+models.update(AssessmentView=AssessmentView, ObservationPage=ObservationPage,
+              VerificationPage=VerificationPage, VerificationDetail=VerificationDetail)
 for public,model in models.items():
     schema=model.model_json_schema(ref_template="#/components/schemas/{model}")
     for name,value in schema.pop("$defs",{}).items():

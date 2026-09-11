@@ -1255,6 +1255,8 @@ def create_app(
     register_creation_routes(application)
     from wuji_api.execution_routes import register_execution_routes
     register_execution_routes(application)
+    from wuji_api.assessment_routes import register_assessment_routes
+    register_assessment_routes(application)
     from wuji_api.artifact_routes import register_artifact_routes
     register_artifact_routes(application)
 

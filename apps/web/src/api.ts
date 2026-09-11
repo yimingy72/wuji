@@ -1,5 +1,6 @@
 import type { components } from '@wuji/contracts/types';
 import {
+  validateAssessmentView, validateObservationPage, validateVerificationPage, validateVerificationDetail,
   validateAgentRunPage, validateToolCallPage, validateArtifactPage, validateBlackBoardSnapshot, validateTaskResult,
   validateSavedTaskDraft, validateSavedTaskDraftPage, validateScenarioProfilePage, validateTaskCreationPreview,
   validateTenantPage, validateModelDefinitionPage, validateModelVersionPage, validateModelVersion, validateModelOperation,
@@ -398,3 +399,11 @@ export const getArtifacts = (projectId: string, taskId: string, cursor: string |
 export const getBlackboard = (projectId: string, taskId: string, signal: AbortSignal) => getValidated(`${observationPath(projectId, taskId)}/blackboard`, validateBlackBoardSnapshot, signal);
 export const getTaskResult = (projectId: string, taskId: string, signal: AbortSignal) => getValidated(`${observationPath(projectId, taskId)}/result`, validateTaskResult, signal);
 export const artifactContentPath = (projectId: string, taskId: string, artifactId: string) => `${observationPath(projectId, taskId)}/artifacts/${encodeURIComponent(artifactId)}/content`;
+
+export type AssessmentView = components['schemas']['AssessmentView'];
+export type Observation = components['schemas']['Observation'];
+export type VerificationDetail = components['schemas']['VerificationDetail'];
+export const getAssessment = (projectId: string, taskId: string, signal: AbortSignal) => getValidated(`${observationPath(projectId, taskId)}/assessment`, validateAssessmentView, signal);
+export const getObservations = (projectId: string, taskId: string, cursor: string | null, signal: AbortSignal, observationId?: string) => getValidated(`${observationPath(projectId, taskId)}/observations?${new URLSearchParams({...Object.fromEntries(pageSearch(cursor)), ...(observationId ? {observation_id: observationId} : {})})}`, validateObservationPage, signal);
+export const getVerifications = (projectId: string, taskId: string, cursor: string | null, signal: AbortSignal, coverageItemId?: string) => getValidated(`${observationPath(projectId, taskId)}/verifications?${new URLSearchParams({...Object.fromEntries(pageSearch(cursor)), ...(coverageItemId ? {coverage_item_id: coverageItemId} : {})})}`, validateVerificationPage, signal);
+export const getVerification = (projectId: string, taskId: string, verificationId: string, signal: AbortSignal) => getValidated(`${observationPath(projectId, taskId)}/verifications/${encodeURIComponent(verificationId)}`, validateVerificationDetail, signal);

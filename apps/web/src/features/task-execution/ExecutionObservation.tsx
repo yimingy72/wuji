@@ -1,3 +1,4 @@
+import { AssessmentPanel } from './AssessmentPanel';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Alert, Button } from 'antd';
@@ -9,13 +10,13 @@ type Context = {session: Session; projectId: string; task: Task; visible: boolea
 type ToolCall = Awaited<ReturnType<typeof getToolCalls>>['items'][number];
 type Selection = {kind: 'fact' | 'intent'; id: string} | null;
 type MainView = 'blackboard' | 'timeline' | 'workspace';
-type WorkspaceView = 'agents' | 'tools' | 'artifacts' | 'result';
+type WorkspaceView = 'agents' | 'tools' | 'artifacts' | 'result' | 'assessment';
 const phases = {bootstrap: '任务初始化', reason: '证据推理', explore: '探索执行'};
 const knownStates: Record<string, string> = {
   pending: '待处理', registered: '已登记', running: '运行中', exited: '已退出',
   unknown: '待核对', succeeded: '成功', failed: '失败', cancelled: '已取消',
   cancelling: '取消核对中', persisted: '已保存', synced: '已同步', available: '可读取',
-  not_required: '无需清理', completed: '已完成',
+  not_required: '无需清理', completed: '已完成', reviewed: '已评审', needs_followup: '待补充证据',
 };
 const label = (state: string) => knownStates[state] ?? state;
 const isActive = (task: Task) => !['ready', 'queued', 'completed', 'cancelled'].includes(task.state);
@@ -55,7 +56,7 @@ function Agents({intentId, onSelectRun, ...context}: Context & {intentId?: strin
     {query.data?.items.map(run => <article key={run.id} className={styles.record}>
       <header><strong>{phases[run.phase]}</strong><span>{label(run.state)}</span></header>
       <code>{run.id}</code><p>结果同步：{label(run.result_state)}</p>
-      {run.outcome && <p>{run.outcome}</p>}
+      {run.outcome && <p>{label(run.outcome)}</p>}
       <time dateTime={run.updated_at}>{new Date(run.updated_at).toLocaleString('zh-CN')}</time>
       <Button onClick={() => onSelectRun(run.id)}>查看此次执行的工具与文件</Button>
     </article>)}
@@ -141,10 +142,11 @@ function Blackboard({selection, onSelect, onSelectRun, ...context}: Context & {s
     </div>}
   </Resource>;
 }
-function Result(context: Context) {
+function Result({onAssessment, ...context}: Context & {onAssessment: () => void}) {
   const query = useObservation(context, 'result', null, signal => getTaskResult(context.projectId, context.task.id, signal));
   return <Resource pending={query.isPending} error={query.error} refresh={() => void query.refetch()}>
     {query.data && <>
+      {query.data.assessment && <Button onClick={onAssessment}>查看有限计划评估 · 修订 {query.data.assessment.revision}</Button>}
       <h3>目标状态：{{unknown: '尚未判定', met: '已达成', not_met: '未达成'}[query.data.goal_status]}</h3>
       {query.data.state === 'pending' && <p>结果仍待同步。</p>}
       <p className={styles.summary}>{query.data.summary || '尚无结果摘要。'}</p>
@@ -183,12 +185,13 @@ export function ExecutionObservation({session, projectId, task, timeline}: Omit<
       {view === 'blackboard' && <Blackboard {...context} selection={selection} onSelect={setSelection} onSelectRun={selectRun} />}
       {view === 'timeline' && <><p className={styles.muted}>已读取的真实任务事件；历史查看不会重新执行。</p>{timeline}</>}
       {view === 'workspace' && <>
-        <nav className={styles.tabs} aria-label="工作区记录">{([{id: 'agents', label: '执行记录'}, {id: 'tools', label: '工具与文件'}, {id: 'artifacts', label: '登记证据'}, {id: 'result', label: '结果'}] as const).map(item => <Button key={item.id} type={item.id === workspaceView ? 'primary' : 'default'} aria-pressed={item.id === workspaceView} onClick={() => setWorkspaceView(item.id)}>{item.label}</Button>)}</nav>
+        <nav className={styles.tabs} aria-label="工作区记录">{([{id: 'agents', label: '执行记录'}, {id: 'tools', label: '工具与文件'}, {id: 'artifacts', label: '登记证据'}, {id: 'result', label: '结果'}, {id: 'assessment', label: '评估'}] as const).map(item => <Button key={item.id} type={item.id === workspaceView ? 'primary' : 'default'} aria-pressed={item.id === workspaceView} onClick={() => setWorkspaceView(item.id)}>{item.label}</Button>)}</nav>
         {agentRunId && workspaceView === 'tools' && <div className={styles.filter}><span>当前 AgentRun：<code>{agentRunId}</code></span><Button onClick={() => setAgentRunId(undefined)}>查看全部工具调用</Button></div>}
         {workspaceView === 'agents' && <Agents {...context} onSelectRun={selectRun} />}
         {workspaceView === 'tools' && <Tools key={agentRunId ?? 'all'} {...context} agentRunId={agentRunId} />}
         {workspaceView === 'artifacts' && <Artifacts {...context} />}
-        {workspaceView === 'result' && <Result {...context} />}
+        {workspaceView === 'result' && <Result {...context} onAssessment={() => setWorkspaceView('assessment')} />}
+        {workspaceView === 'assessment' && <AssessmentPanel {...context} />}
       </>}
     </div>
   </section>;

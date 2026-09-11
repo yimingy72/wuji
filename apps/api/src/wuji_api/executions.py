@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
+from wuji_api.assessments import AssessmentReference
 
 class Strict(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -95,3 +96,4 @@ class TaskResult(Strict):
     artifact_ids: list[UUID]
     model_spend: str | None
     cost_state: str
+    assessment: AssessmentReference | None = None

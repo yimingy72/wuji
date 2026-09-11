@@ -11,6 +11,7 @@ import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 import yaml
+import web_assessment_model
 
 TARGET_ORIGIN = os.environ.get('WUJI_FIXTURE_ORIGIN', 'http://wuji-core-fixtures:8000').rstrip('/')
 SHARED_PATH = '/workspace/shared/handoff.txt'
@@ -44,6 +45,8 @@ def answer(data):
     return {'role':'assistant','content':json.dumps({'accepted':True,'data':data},ensure_ascii=False)}
 
 def model_response(request):
+    w1=web_assessment_model.model_response(request)
+    if w1 is not None:return w1
     messages=request.get('messages',[])
     text='\n'.join(str(m.get('content','')) for m in messages if m.get('role') in ('system','user'))
     phase_match=re.search(r'"phase"\s*:\s*"(bootstrap|reason|explore)"',text)
@@ -121,7 +124,8 @@ class Handler(BaseHTTPRequestHandler):
         identity='chatcmpl-'+uuid.uuid4().hex
         base={'id':identity,'created':int(time.time()),'model':request.get('model','wuji-fixture')}
         finish='tool_calls' if message.get('tool_calls') else 'stop'
-        usage={'prompt_tokens':100,'completion_tokens':50,'total_tokens':150}
+        prompt_tokens=web_assessment_model.prompt_tokens(request)
+        usage={'prompt_tokens':prompt_tokens,'completion_tokens':50,'total_tokens':prompt_tokens+50}
         if not request.get('stream'):
             return self.send_json(200,{**base,'object':'chat.completion','choices':[{'index':0,'message':message,'finish_reason':finish}],'usage':usage})
         self.send_response(200);self.send_header('Content-Type','text/event-stream');self.send_header('Cache-Control','no-cache');self.end_headers()

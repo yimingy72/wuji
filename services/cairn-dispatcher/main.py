@@ -7,16 +7,49 @@ import json
 import os
 from pathlib import Path
 import time
+from uuid import UUID
+from urllib.parse import quote
 import requests
 from cairn.dispatcher.scheduler.loop import DispatcherLoop
+from cairn.dispatcher.scheduler import loop as scheduler_loop
 from cairn.dispatcher.protocol.client import CairnClient, ApiResult
 from cairn.dispatcher.runtime.process import ProcessResult
 from cairn.dispatcher.workers.adapters.pi import PiDriver
 from cairn.dispatcher.workers.base import DriverResult
 from cairn.dispatcher.workers import registry
-from cairn.dispatcher.tasks import common, explore, reason
+from cairn.dispatcher.tasks import bootstrap, common, explore, reason
 
 PIN = '8e7e0ea67552383851dfcabfba0c4e9c8d007878'
+
+# Bootstrap catches Exception internally. This private control signal bypasses that
+# failure branch while still unwinding the native runner's finally/lease cleanup.
+class CompletionHandled(BaseException):
+    def __init__(self, decision):
+        if (not isinstance(decision, dict) or decision.get('kind') not in
+                {'needs_followup', 'stop_with_results'} or not isinstance(decision.get('review_id'), str)):
+            raise ValueError('invalid platform completion decision')
+        self.kind = decision['kind']
+        self.review_id = str(UUID(decision['review_id']))
+        super().__init__('platform completion proposal handled')
+
+
+_native_run_reason = reason.run_reason_task
+_native_run_bootstrap = bootstrap.run_bootstrap_task
+
+
+def run_reason(*args, **kwargs):
+    try:
+        return _native_run_reason(*args, **kwargs)
+    except CompletionHandled:
+        # Scheduler stage handling only; the native graph was not completed here.
+        return 'success'
+
+
+def run_bootstrap(*args, **kwargs):
+    try:
+        return _native_run_bootstrap(*args, **kwargs)
+    except CompletionHandled:
+        return 'success'
 
 def verify_upstream():
     dist = importlib.metadata.distribution('cairn')
@@ -56,6 +89,8 @@ class ControlledClient(CairnClient):
         if name in object.__getattribute__(self, 'WRITES'):
             def write(project_id, *args):
                 body = self.control.request('POST', f'/internal/v1/cairn/{project_id}/{name}', {'args': list(args)})
+                if 'platform_decision' in body:
+                    raise CompletionHandled(body['platform_decision'])
                 return ApiResult(status_code=body['status_code'], data=body.get('data'), text=body.get('text', ''))
             return write
         return super().__getattribute__(name)
@@ -158,6 +193,8 @@ class WujiDispatcher(DispatcherLoop):
         self.profiles = {}
         self.blocked_admits = set()
         self.dispatch_context = None
+        scheduler_loop.run_reason_task = run_reason
+        scheduler_loop.run_bootstrap_task = run_bootstrap
         registry.LOCAL_DRIVERS['pi'] = ManagedPi(local=True)
         common.write_graph_snapshot_reference = graph_reference
         explore.write_graph_snapshot_reference = graph_reference
@@ -183,7 +220,8 @@ class WujiDispatcher(DispatcherLoop):
         self.blocked_admits.add(key)
         try:
             a = self.control.request('POST', '/internal/v1/dispatch/admit',
-                {'native_project_id':project_id,'phase':task_type,'intent_id':intent_id,'worker_profile_id':profile.name})
+                {'native_project_id':project_id,'phase':task_type,'intent_id':intent_id,'worker_profile_id':profile.name,
+                 'allowed_fact_ids':[fact.id for fact in self.dispatch_project.facts if fact.id!='goal']})
         except requests.HTTPError as exc:
             if exc.response is not None and exc.response.status_code in (403,409):
                 self.blocked_admits.discard(key)
@@ -198,6 +236,7 @@ class WujiDispatcher(DispatcherLoop):
         return selection
     def _dispatch(self, parent, project, intent_id, *args):
         self.dispatch_context = intent_id
+        self.dispatch_project = project
         self.current_admission = None
         result = parent(project, *args)
         if self.current_admission and not result:
@@ -211,6 +250,21 @@ class WujiDispatcher(DispatcherLoop):
         return self._dispatch(super()._dispatch_explore, project, intent.id, export_yaml, intent)
     def _dispatch_reason(self, project, export_yaml, trigger):
         return self._dispatch(super()._dispatch_reason, project, None, export_yaml, trigger)
+    def _reason_trigger(self, project):
+        trigger = super()._reason_trigger(project)
+        if trigger is not None:
+            return trigger
+        native_id = quote(project.project.id, safe='')
+        request = self.control.request('GET', '/internal/v1/dispatch/reason-requests/' + native_id)
+        if request.get('pending') is True:
+            review_id = request.get('review_id')
+            if not isinstance(review_id, str):
+                raise ValueError('pending assessment review identity required')
+            return 'wuji-assessment:' + str(UUID(review_id))
+        if request.get('pending') is not False:
+            raise ValueError('invalid assessment reason request')
+        return None
+
     def _reap_futures(self):
         for future, task in list(self.futures.items()):
             if not future.done(): continue

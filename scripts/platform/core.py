@@ -21,6 +21,15 @@ from common import (KUBECTL_CONTEXT, OWNER_LABEL, REPOSITORY_ROOT, LifecycleErro
 
 LABEL = 'wuji.dev/core-run'
 NAMES = ['wuji-core-control', 'wuji-core-cairn', 'wuji-core-fixtures', 'wuji-core-dispatcher']
+PROFILES = ('fixture-web-v1', 'closed-web-assessment-v1')
+LAB_NAME = 'wuji-web-assessment-lab'
+LAB_ORIGIN = 'http://' + LAB_NAME + ':8000'
+
+def is_web_assessment(core):
+    return core['config']['profile_id'] == 'closed-web-assessment-v1'
+
+def deployment_names(core):
+    return NAMES + ([LAB_NAME] if is_web_assessment(core) else [])
 
 def side_path(path, run): return path.with_name('core-' + run['run_id'] + '.json')
 
@@ -80,10 +89,14 @@ def image_reference(name):
     if not matching:raise LifecycleError('image digest repository mismatch')
     return matching[0]
 
-def prepare(path, model_version, image):
+def prepare(path, model_version, image, profile='fixture-web-v1', compaction_probe=False):
+    if compaction_probe and profile != 'closed-web-assessment-v1':raise LifecycleError('compaction probe requires closed-web-assessment-v1')
+    if profile not in PROFILES:raise LifecycleError('unsupported core profile')
     run=validate_run(path)
     if side_path(path,run).exists():
         core=load_core(path,run)
+        if core['config']['profile_id'] != profile:raise LifecycleError('prepared core profile differs; use its original run')
+        if core['config'].get('compaction_probe',False) != compaction_probe:raise LifecycleError('prepared core compaction probe differs; use its original run')
         if model_version and core['config']['model_profile_version_id'] != str(UUID(model_version)):
             raise LifecycleError('prepared core model snapshot differs; use its original run')
         return core
@@ -99,7 +112,10 @@ def prepare(path, model_version, image):
     core['config']={'namespace':'wuji-test','control_url':'http://wuji-core-control:8000','public_control_url':'http://127.0.0.1:18502',
         'cairn_url':'http://wuji-core-cairn:8000','model_base_url':f'http://{gateway_name}:4000/v1','gateway_url':f'http://{gateway_name}:4000',
         'agent_image':image_reference('wuji-task-agent:core-loop'),'kali_image':image_reference('wuji-task-kali:core-loop'),
-        'fixture_origins':['http://wuji-core-fixtures:8000'],'artifact_root':'/artifacts','model_profile_version_id':model_version,'profile_id':'fixture-web-v1'}
+        'fixture_origins':['http://wuji-core-fixtures:8000'],'artifact_root':'/artifacts','model_profile_version_id':model_version,'profile_id':profile,'compaction_probe':compaction_probe}
+    if profile == 'closed-web-assessment-v1':
+        core['config']['fixture_origins']=[LAB_ORIGIN]
+        core['config']['target_image']=image_reference('wuji-web-assessment-lab:w1')
     existing=owned(run,'Secret',core['secret_name'])
     role=execution_role_name(run['database']['roles']['project'])
     if existing:
@@ -124,9 +140,35 @@ def prepare(path, model_version, image):
     atomic_write_json(side_path(path,run),core)
     return core
 
+def target_resources(run, core):
+    if not is_web_assessment(core):return []
+    labels=metadata(run,LAB_NAME)['labels']|{'app':LAB_NAME}
+    container={'name':'lab','image':core['config']['target_image'],'imagePullPolicy':'IfNotPresent',
+        'ports':[{'containerPort':8000}],
+        'readinessProbe':{'tcpSocket':{'port':8000},'initialDelaySeconds':2,'periodSeconds':3},
+        'resources':{'requests':{'cpu':'50m','memory':'32Mi'},'limits':{'cpu':'250m','memory':'128Mi'}}}
+    # Use the image's default process; no Core credentials or Task workspace are mounted.
+    deployment={'apiVersion':'apps/v1','kind':'Deployment','metadata':metadata(run,LAB_NAME),
+        'spec':{'replicas':1,'strategy':{'type':'Recreate'},'selector':{'matchLabels':{'app':LAB_NAME}},
+            'template':{'metadata':{'labels':labels},'spec':{'automountServiceAccountToken':False,
+                'containers':[container],'terminationGracePeriodSeconds':10}}}}
+    service={'apiVersion':'v1','kind':'Service','metadata':metadata(run,LAB_NAME),
+        'spec':{'selector':{'app':LAB_NAME},'ports':[{'port':8000,'targetPort':8000}]}}
+    return [deployment,service]
+
+def target_registration(run, core):
+    deployment=owned(run,'Deployment',LAB_NAME,core)
+    service=owned(run,'Service',LAB_NAME,core)
+    if deployment is None or service is None:raise LifecycleError('lab registration requires observed resources')
+    actual_image=deployment['spec']['template']['spec']['containers'][0]['image']
+    if actual_image != core['config']['target_image']:raise LifecycleError('lab image differs from prepared target')
+    return {'origin':LAB_ORIGIN,'image':actual_image,'namespace':'wuji-test',
+        'deployment_name':LAB_NAME,'deployment_uid':deployment['metadata']['uid'],
+        'service_name':LAB_NAME,'service_uid':service['metadata']['uid']}
+
 def resources(run, core):
     config=core['config']
-    output=[]
+    output=target_resources(run,core)
     for value in yaml.safe_load_all((REPOSITORY_ROOT/'infra/kubernetes/core/rbac.yaml').read_text()):
         value['metadata']=metadata(run,value['metadata']['name']);output.append(value)
     for pvc in (core['artifact_pvc'],core['cairn_pvc']):
@@ -149,7 +191,9 @@ def resources(run, core):
             volumes.append({'name':'cairn-data','persistentVolumeClaim':{'claimName':core['cairn_pvc']}});mounts.append({'name':'cairn-data','mountPath':'/var/lib/wuji/.local/share/cairn'})
         elif name==NAMES[3]:
             keys=['service_token','cairn_token'];env.update(WUJI_CONTROL_URL=config['control_url'],WUJI_SERVICE_TOKEN_FILE='/run/wuji/credentials/service_token',WUJI_CAIRN_TOKEN_FILE='/run/wuji/credentials/cairn_token')
-        else:env.update(WUJI_FIXTURE_ORIGIN=config['fixture_origins'][0],PORT='8000')
+        else:
+            env.update(WUJI_FIXTURE_ORIGIN=config['fixture_origins'][0],PORT='8000')
+            if is_web_assessment(core) and config.get('compaction_probe',False):env['WUJI_W1_COMPACTION_PROBE']='1'
         if keys:
             volumes.append({'name':'credentials','secret':{'secretName':core['secret_name'],'defaultMode':0o400,'items':[{'key':key,'path':key} for key in keys]}})
             mounts.append({'name':'credentials','mountPath':'/run/wuji/credentials','readOnly':True})
@@ -168,9 +212,16 @@ def up(path):
     for value in desired:owned(run,value['kind'],value['metadata']['name'],core)
     existing=run['processes'].get('core_forward',{})
     if not record_is_owned(existing):preflight_ports([18502])
+    if is_web_assessment(core):
+        for value in target_resources(run,core):
+            write(run,core,value);atomic_write_json(side_path(path,run),core)
+        core['config']['target_registration']=target_registration(run,core)
+        atomic_write_json(side_path(path,run),core)
+        # Render the ConfigMap only after both real target UIDs have been verified.
+        desired=[value for value in resources(run,core) if value['metadata']['name'] != LAB_NAME]
     for value in desired:
         write(run,core,value);atomic_write_json(side_path(path,run),core)
-    for name in NAMES:
+    for name in deployment_names(core):
         run_command(['kubectl','--context',KUBECTL_CONTEXT,'-n','wuji-test','rollout','status','deployment/'+name,'--timeout=180s'],timeout=190)
     if not record_is_owned(existing):
         command=['kubectl','--context',KUBECTL_CONTEXT,'-n','wuji-test','port-forward','--address','127.0.0.1','service/wuji-core-control','18502:8000']
@@ -187,7 +238,7 @@ def status(path):
     if not side_path(path,run).exists():return {'configured':False}
     core=load_core(path,run)
     deployments={}
-    for name in NAMES:
+    for name in deployment_names(core):
         value=owned(run,'Deployment',name,core)
         deployments[name]={'present':value is not None,'ready_replicas':(value or {}).get('status',{}).get('readyReplicas',0)}
     return {'configured':True,'run_id':run['run_id'],'source_sha':run['source_sha'],'url':core['config']['public_control_url'],'deployments':deployments,'forward_owned':record_is_owned(run['processes'].get('core_forward',{})),'persistent_data_retained':True}
@@ -204,12 +255,15 @@ def down(path):
         if value:
             run_command(['kubectl','--context',KUBECTL_CONTEXT,'delete','--raw',endpoints[kind]+name,'-f','-'],input_text=json.dumps({'apiVersion':'v1','kind':'DeleteOptions','propagationPolicy':'Foreground','preconditions':{'uid':value['metadata']['uid'],'resourceVersion':value['metadata']['resourceVersion']}}))
         core['resources'].pop(key,None)
+        if name==LAB_NAME:core['config'].pop('target_registration',None)
         atomic_write_json(side_path(path,run),core)
     return status(path)
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action',choices=['prepare','up','status','down']);parser.add_argument('--run-file',type=Path,required=True)
+    parser.add_argument('--profile',choices=PROFILES,default='fixture-web-v1')
+    parser.add_argument('--compaction-probe',action='store_true')
     parser.add_argument('--model-profile-version-id');parser.add_argument('--image',default='wuji-core:core-loop')
     args=parser.parse_args()
     try:
@@ -217,7 +271,7 @@ def main():
         with exclusive_lock(args.run_file.with_name('.'+args.run_file.name+'.core.lock')):
             require_context()
             if args.action=='prepare':
-                core=prepare(args.run_file,args.model_profile_version_id,args.image);result={'prepared':True,'run_id':core['run_id'],'core_file':str(side_path(args.run_file,core))}
+                core=prepare(args.run_file,args.model_profile_version_id,args.image,args.profile,args.compaction_probe);result={'prepared':True,'run_id':core['run_id'],'core_file':str(side_path(args.run_file,core))}
             else:result=globals()[args.action](args.run_file)
         print(json_output(result));return 0
     except Exception as error:

@@ -23882,7 +23882,8 @@ return errors === 0;
 validate99.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 
 export const validateTaskResult = validate102;
-const schema117 = {"additionalProperties":false,"properties":{"state":{"enum":["pending","available"],"title":"State","type":"string"},"goal_status":{"enum":["unknown","met","not_met"],"title":"Goal Status","type":"string"},"summary":{"title":"Summary","type":"string"},"limitations":{"items":{"type":"string"},"title":"Limitations","type":"array"},"artifact_ids":{"items":{"format":"uuid","type":"string"},"title":"Artifact Ids","type":"array"},"model_spend":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Model Spend"},"cost_state":{"title":"Cost State","type":"string"}},"required":["state","goal_status","summary","limitations","artifact_ids","model_spend","cost_state"],"title":"TaskResult","type":"object"};
+const schema117 = {"additionalProperties":false,"properties":{"state":{"enum":["pending","available"],"title":"State","type":"string"},"goal_status":{"enum":["unknown","met","not_met"],"title":"Goal Status","type":"string"},"summary":{"title":"Summary","type":"string"},"limitations":{"items":{"type":"string"},"title":"Limitations","type":"array"},"artifact_ids":{"items":{"format":"uuid","type":"string"},"title":"Artifact Ids","type":"array"},"model_spend":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Model Spend"},"cost_state":{"title":"Cost State","type":"string"},"assessment":{"anyOf":[{"$ref":"urn:wuji:contracts:0.5#/$defs/AssessmentReference"},{"type":"null"}],"default":null}},"required":["state","goal_status","summary","limitations","artifact_ids","model_spend","cost_state"],"title":"TaskResult","type":"object"};
+const schema118 = {"additionalProperties":false,"properties":{"plan_id":{"format":"uuid","title":"Plan Id","type":"string"},"revision":{"minimum":1,"title":"Revision","type":"integer"},"outcome":{"enum":["not_assessed","complete","partial","inconclusive"],"title":"Outcome","type":"string"}},"required":["plan_id","revision","outcome"],"title":"AssessmentReference","type":"object"};
 
 function validate102(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
 let vErrors = null;
@@ -23966,7 +23967,7 @@ vErrors.push(err6);
 errors++;
 }
 for(const key0 in data){
-if(!(((((((key0 === "state") || (key0 === "goal_status")) || (key0 === "summary")) || (key0 === "limitations")) || (key0 === "artifact_ids")) || (key0 === "model_spend")) || (key0 === "cost_state"))){
+if(!((((((((key0 === "state") || (key0 === "goal_status")) || (key0 === "summary")) || (key0 === "limitations")) || (key0 === "artifact_ids")) || (key0 === "model_spend")) || (key0 === "cost_state")) || (key0 === "assessment"))){
 const err7 = {instancePath,schemaPath:"#/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key0},message:"must NOT have additional properties"};
 if(vErrors === null){
 vErrors = [err7];
@@ -24168,9 +24169,14 @@ vErrors.push(err21);
 errors++;
 }
 }
-}
-else {
-const err22 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(data.assessment !== undefined){
+let data9 = data.assessment;
+const _errs25 = errors;
+let valid6 = false;
+const _errs26 = errors;
+if(data9 && typeof data9 == "object" && !Array.isArray(data9)){
+if(data9.plan_id === undefined){
+const err22 = {instancePath:instancePath+"/assessment",schemaPath:"urn:wuji:contracts:0.5#/$defs/AssessmentReference/required",keyword:"required",params:{missingProperty: "plan_id"},message:"must have required property '"+"plan_id"+"'"};
 if(vErrors === null){
 vErrors = [err22];
 }
@@ -24179,18 +24185,3305 @@ vErrors.push(err22);
 }
 errors++;
 }
+if(data9.revision === undefined){
+const err23 = {instancePath:instancePath+"/assessment",schemaPath:"urn:wuji:contracts:0.5#/$defs/AssessmentReference/required",keyword:"required",params:{missingProperty: "revision"},message:"must have required property '"+"revision"+"'"};
+if(vErrors === null){
+vErrors = [err23];
+}
+else {
+vErrors.push(err23);
+}
+errors++;
+}
+if(data9.outcome === undefined){
+const err24 = {instancePath:instancePath+"/assessment",schemaPath:"urn:wuji:contracts:0.5#/$defs/AssessmentReference/required",keyword:"required",params:{missingProperty: "outcome"},message:"must have required property '"+"outcome"+"'"};
+if(vErrors === null){
+vErrors = [err24];
+}
+else {
+vErrors.push(err24);
+}
+errors++;
+}
+for(const key1 in data9){
+if(!(((key1 === "plan_id") || (key1 === "revision")) || (key1 === "outcome"))){
+const err25 = {instancePath:instancePath+"/assessment",schemaPath:"urn:wuji:contracts:0.5#/$defs/AssessmentReference/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key1},message:"must NOT have additional properties"};
+if(vErrors === null){
+vErrors = [err25];
+}
+else {
+vErrors.push(err25);
+}
+errors++;
+}
+}
+if(data9.plan_id !== undefined){
+let data10 = data9.plan_id;
+if(typeof data10 === "string"){
+if(!(formats0.test(data10))){
+const err26 = {instancePath:instancePath+"/assessment/plan_id",schemaPath:"urn:wuji:contracts:0.5#/$defs/AssessmentReference/properties/plan_id/format",keyword:"format",params:{format: "uuid"},message:"must match format \""+"uuid"+"\""};
+if(vErrors === null){
+vErrors = [err26];
+}
+else {
+vErrors.push(err26);
+}
+errors++;
+}
+}
+else {
+const err27 = {instancePath:instancePath+"/assessment/plan_id",schemaPath:"urn:wuji:contracts:0.5#/$defs/AssessmentReference/properties/plan_id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err27];
+}
+else {
+vErrors.push(err27);
+}
+errors++;
+}
+}
+if(data9.revision !== undefined){
+let data11 = data9.revision;
+if(!(((typeof data11 == "number") && (!(data11 % 1) && !isNaN(data11))) && (isFinite(data11)))){
+const err28 = {instancePath:instancePath+"/assessment/revision",schemaPath:"urn:wuji:contracts:0.5#/$defs/AssessmentReference/properties/revision/type",keyword:"type",params:{type: "integer"},message:"must be integer"};
+if(vErrors === null){
+vErrors = [err28];
+}
+else {
+vErrors.push(err28);
+}
+errors++;
+}
+if((typeof data11 == "number") && (isFinite(data11))){
+if(data11 < 1 || isNaN(data11)){
+const err29 = {instancePath:instancePath+"/assessment/revision",schemaPath:"urn:wuji:contracts:0.5#/$defs/AssessmentReference/properties/revision/minimum",keyword:"minimum",params:{comparison: ">=", limit: 1},message:"must be >= 1"};
+if(vErrors === null){
+vErrors = [err29];
+}
+else {
+vErrors.push(err29);
+}
+errors++;
+}
+}
+}
+if(data9.outcome !== undefined){
+let data12 = data9.outcome;
+if(typeof data12 !== "string"){
+const err30 = {instancePath:instancePath+"/assessment/outcome",schemaPath:"urn:wuji:contracts:0.5#/$defs/AssessmentReference/properties/outcome/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err30];
+}
+else {
+vErrors.push(err30);
+}
+errors++;
+}
+if(!((((data12 === "not_assessed") || (data12 === "complete")) || (data12 === "partial")) || (data12 === "inconclusive"))){
+const err31 = {instancePath:instancePath+"/assessment/outcome",schemaPath:"urn:wuji:contracts:0.5#/$defs/AssessmentReference/properties/outcome/enum",keyword:"enum",params:{allowedValues: schema118.properties.outcome.enum},message:"must be equal to one of the allowed values"};
+if(vErrors === null){
+vErrors = [err31];
+}
+else {
+vErrors.push(err31);
+}
+errors++;
+}
+}
+}
+else {
+const err32 = {instancePath:instancePath+"/assessment",schemaPath:"urn:wuji:contracts:0.5#/$defs/AssessmentReference/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(vErrors === null){
+vErrors = [err32];
+}
+else {
+vErrors.push(err32);
+}
+errors++;
+}
+var _valid1 = _errs26 === errors;
+valid6 = valid6 || _valid1;
+const _errs36 = errors;
+if(data9 !== null){
+const err33 = {instancePath:instancePath+"/assessment",schemaPath:"#/properties/assessment/anyOf/1/type",keyword:"type",params:{type: "null"},message:"must be null"};
+if(vErrors === null){
+vErrors = [err33];
+}
+else {
+vErrors.push(err33);
+}
+errors++;
+}
+var _valid1 = _errs36 === errors;
+valid6 = valid6 || _valid1;
+if(!valid6){
+const err34 = {instancePath:instancePath+"/assessment",schemaPath:"#/properties/assessment/anyOf",keyword:"anyOf",params:{},message:"must match a schema in anyOf"};
+if(vErrors === null){
+vErrors = [err34];
+}
+else {
+vErrors.push(err34);
+}
+errors++;
+}
+else {
+errors = _errs25;
+if(vErrors !== null){
+if(_errs25){
+vErrors.length = _errs25;
+}
+else {
+vErrors = null;
+}
+}
+}
+}
+}
+else {
+const err35 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(vErrors === null){
+vErrors = [err35];
+}
+else {
+vErrors.push(err35);
+}
+errors++;
+}
 validate102.errors = vErrors;
 return errors === 0;
 }
 validate102.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 
-export const validateError = validate103;
-const schema118 = {"type":"object","additionalProperties":false,"required":["code","message","trace_id"],"properties":{"code":{"type":"string","enum":["UNAUTHENTICATED","FORBIDDEN","NOT_FOUND","VALIDATION_FAILED","SCOPE_DENIED","PREVIEW_EXPIRED","VERSION_CONFLICT","IDEMPOTENCY_CONFLICT","INVALID_TRANSITION","RATE_LIMITED","SERVICE_UNAVAILABLE","CURSOR_EXPIRED","INTERNAL_ERROR"]},"message":{"type":"string","minLength":1,"maxLength":500},"trace_id":{"type":"string","format":"uuid"},"field_errors":{"type":"array","maxItems":30,"items":{"type":"object","additionalProperties":false,"required":["field","message"],"properties":{"field":{"type":"string","minLength":1,"maxLength":128},"message":{"type":"string","minLength":1,"maxLength":300}}}}}};
+export const validateAssessmentView = validate103;
+const schema119 = {"additionalProperties":false,"properties":{"state":{"enum":["not_assessed","available"],"title":"State","type":"string"},"profile_id":{"anyOf":[{"type":"string"},{"type":"null"}],"default":null,"title":"Profile Id"},"plan_id":{"anyOf":[{"format":"uuid","type":"string"},{"type":"null"}],"default":null,"title":"Plan Id"},"revision":{"default":0,"minimum":0,"title":"Revision","type":"integer"},"progress_digest":{"anyOf":[{"type":"string"},{"type":"null"}],"default":null,"title":"Progress Digest"},"outcome":{"default":"not_assessed","enum":["not_assessed","complete","partial","inconclusive"],"title":"Outcome","type":"string"},"discovery_state":{"default":"pending","enum":["pending","complete","incomplete"],"title":"Discovery State","type":"string"},"items":{"items":{"$ref":"urn:wuji:contracts:0.5#/$defs/CoverageItem"},"maxItems":11,"title":"Items","type":"array"},"limitations":{"items":{"type":"string"},"maxItems":30,"title":"Limitations","type":"array"}},"required":["state"],"title":"AssessmentView","type":"object"};
+const schema120 = {"additionalProperties":false,"properties":{"id":{"format":"uuid","title":"Id","type":"string"},"target_url":{"title":"Target Url","type":"string"},"rule_id":{"const":"cors-reflection-v1","default":"cors-reflection-v1","title":"Rule Id","type":"string"},"state":{"enum":["pending","evaluated","blocked","inconclusive","not_run"],"title":"State","type":"string"},"verdict":{"anyOf":[{"enum":["unassessed","confirmed","not_reproduced","inconclusive"],"type":"string"},{"type":"null"}],"default":null,"title":"Verdict"},"verification_run_id":{"anyOf":[{"format":"uuid","type":"string"},{"type":"null"}],"default":null,"title":"Verification Run Id"},"result_id":{"anyOf":[{"format":"uuid","type":"string"},{"type":"null"}],"default":null,"title":"Result Id"},"reason":{"anyOf":[{"type":"string"},{"type":"null"}],"default":null,"title":"Reason"}},"required":["id","target_url","state"],"title":"CoverageItem","type":"object"};
 
 function validate103(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
 let vErrors = null;
 let errors = 0;
 const evaluated0 = validate103.evaluated;
+if(evaluated0.dynamicProps){
+evaluated0.props = undefined;
+}
+if(evaluated0.dynamicItems){
+evaluated0.items = undefined;
+}
+if(data && typeof data == "object" && !Array.isArray(data)){
+if(data.state === undefined){
+const err0 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "state"},message:"must have required property '"+"state"+"'"};
+if(vErrors === null){
+vErrors = [err0];
+}
+else {
+vErrors.push(err0);
+}
+errors++;
+}
+for(const key0 in data){
+if(!(func22.call(schema119.properties, key0))){
+const err1 = {instancePath,schemaPath:"#/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key0},message:"must NOT have additional properties"};
+if(vErrors === null){
+vErrors = [err1];
+}
+else {
+vErrors.push(err1);
+}
+errors++;
+}
+}
+if(data.state !== undefined){
+let data0 = data.state;
+if(typeof data0 !== "string"){
+const err2 = {instancePath:instancePath+"/state",schemaPath:"#/properties/state/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err2];
+}
+else {
+vErrors.push(err2);
+}
+errors++;
+}
+if(!((data0 === "not_assessed") || (data0 === "available"))){
+const err3 = {instancePath:instancePath+"/state",schemaPath:"#/properties/state/enum",keyword:"enum",params:{allowedValues: schema119.properties.state.enum},message:"must be equal to one of the allowed values"};
+if(vErrors === null){
+vErrors = [err3];
+}
+else {
+vErrors.push(err3);
+}
+errors++;
+}
+}
+if(data.profile_id !== undefined){
+let data1 = data.profile_id;
+const _errs5 = errors;
+let valid1 = false;
+const _errs6 = errors;
+if(typeof data1 !== "string"){
+const err4 = {instancePath:instancePath+"/profile_id",schemaPath:"#/properties/profile_id/anyOf/0/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err4];
+}
+else {
+vErrors.push(err4);
+}
+errors++;
+}
+var _valid0 = _errs6 === errors;
+valid1 = valid1 || _valid0;
+const _errs8 = errors;
+if(data1 !== null){
+const err5 = {instancePath:instancePath+"/profile_id",schemaPath:"#/properties/profile_id/anyOf/1/type",keyword:"type",params:{type: "null"},message:"must be null"};
+if(vErrors === null){
+vErrors = [err5];
+}
+else {
+vErrors.push(err5);
+}
+errors++;
+}
+var _valid0 = _errs8 === errors;
+valid1 = valid1 || _valid0;
+if(!valid1){
+const err6 = {instancePath:instancePath+"/profile_id",schemaPath:"#/properties/profile_id/anyOf",keyword:"anyOf",params:{},message:"must match a schema in anyOf"};
+if(vErrors === null){
+vErrors = [err6];
+}
+else {
+vErrors.push(err6);
+}
+errors++;
+}
+else {
+errors = _errs5;
+if(vErrors !== null){
+if(_errs5){
+vErrors.length = _errs5;
+}
+else {
+vErrors = null;
+}
+}
+}
+}
+if(data.plan_id !== undefined){
+let data2 = data.plan_id;
+const _errs11 = errors;
+let valid2 = false;
+const _errs12 = errors;
+if(typeof data2 === "string"){
+if(!(formats0.test(data2))){
+const err7 = {instancePath:instancePath+"/plan_id",schemaPath:"#/properties/plan_id/anyOf/0/format",keyword:"format",params:{format: "uuid"},message:"must match format \""+"uuid"+"\""};
+if(vErrors === null){
+vErrors = [err7];
+}
+else {
+vErrors.push(err7);
+}
+errors++;
+}
+}
+else {
+const err8 = {instancePath:instancePath+"/plan_id",schemaPath:"#/properties/plan_id/anyOf/0/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err8];
+}
+else {
+vErrors.push(err8);
+}
+errors++;
+}
+var _valid1 = _errs12 === errors;
+valid2 = valid2 || _valid1;
+const _errs14 = errors;
+if(data2 !== null){
+const err9 = {instancePath:instancePath+"/plan_id",schemaPath:"#/properties/plan_id/anyOf/1/type",keyword:"type",params:{type: "null"},message:"must be null"};
+if(vErrors === null){
+vErrors = [err9];
+}
+else {
+vErrors.push(err9);
+}
+errors++;
+}
+var _valid1 = _errs14 === errors;
+valid2 = valid2 || _valid1;
+if(!valid2){
+const err10 = {instancePath:instancePath+"/plan_id",schemaPath:"#/properties/plan_id/anyOf",keyword:"anyOf",params:{},message:"must match a schema in anyOf"};
+if(vErrors === null){
+vErrors = [err10];
+}
+else {
+vErrors.push(err10);
+}
+errors++;
+}
+else {
+errors = _errs11;
+if(vErrors !== null){
+if(_errs11){
+vErrors.length = _errs11;
+}
+else {
+vErrors = null;
+}
+}
+}
+}
+if(data.revision !== undefined){
+let data3 = data.revision;
+if(!(((typeof data3 == "number") && (!(data3 % 1) && !isNaN(data3))) && (isFinite(data3)))){
+const err11 = {instancePath:instancePath+"/revision",schemaPath:"#/properties/revision/type",keyword:"type",params:{type: "integer"},message:"must be integer"};
+if(vErrors === null){
+vErrors = [err11];
+}
+else {
+vErrors.push(err11);
+}
+errors++;
+}
+if((typeof data3 == "number") && (isFinite(data3))){
+if(data3 < 0 || isNaN(data3)){
+const err12 = {instancePath:instancePath+"/revision",schemaPath:"#/properties/revision/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
+if(vErrors === null){
+vErrors = [err12];
+}
+else {
+vErrors.push(err12);
+}
+errors++;
+}
+}
+}
+if(data.progress_digest !== undefined){
+let data4 = data.progress_digest;
+const _errs19 = errors;
+let valid3 = false;
+const _errs20 = errors;
+if(typeof data4 !== "string"){
+const err13 = {instancePath:instancePath+"/progress_digest",schemaPath:"#/properties/progress_digest/anyOf/0/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err13];
+}
+else {
+vErrors.push(err13);
+}
+errors++;
+}
+var _valid2 = _errs20 === errors;
+valid3 = valid3 || _valid2;
+const _errs22 = errors;
+if(data4 !== null){
+const err14 = {instancePath:instancePath+"/progress_digest",schemaPath:"#/properties/progress_digest/anyOf/1/type",keyword:"type",params:{type: "null"},message:"must be null"};
+if(vErrors === null){
+vErrors = [err14];
+}
+else {
+vErrors.push(err14);
+}
+errors++;
+}
+var _valid2 = _errs22 === errors;
+valid3 = valid3 || _valid2;
+if(!valid3){
+const err15 = {instancePath:instancePath+"/progress_digest",schemaPath:"#/properties/progress_digest/anyOf",keyword:"anyOf",params:{},message:"must match a schema in anyOf"};
+if(vErrors === null){
+vErrors = [err15];
+}
+else {
+vErrors.push(err15);
+}
+errors++;
+}
+else {
+errors = _errs19;
+if(vErrors !== null){
+if(_errs19){
+vErrors.length = _errs19;
+}
+else {
+vErrors = null;
+}
+}
+}
+}
+if(data.outcome !== undefined){
+let data5 = data.outcome;
+if(typeof data5 !== "string"){
+const err16 = {instancePath:instancePath+"/outcome",schemaPath:"#/properties/outcome/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err16];
+}
+else {
+vErrors.push(err16);
+}
+errors++;
+}
+if(!((((data5 === "not_assessed") || (data5 === "complete")) || (data5 === "partial")) || (data5 === "inconclusive"))){
+const err17 = {instancePath:instancePath+"/outcome",schemaPath:"#/properties/outcome/enum",keyword:"enum",params:{allowedValues: schema119.properties.outcome.enum},message:"must be equal to one of the allowed values"};
+if(vErrors === null){
+vErrors = [err17];
+}
+else {
+vErrors.push(err17);
+}
+errors++;
+}
+}
+if(data.discovery_state !== undefined){
+let data6 = data.discovery_state;
+if(typeof data6 !== "string"){
+const err18 = {instancePath:instancePath+"/discovery_state",schemaPath:"#/properties/discovery_state/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err18];
+}
+else {
+vErrors.push(err18);
+}
+errors++;
+}
+if(!(((data6 === "pending") || (data6 === "complete")) || (data6 === "incomplete"))){
+const err19 = {instancePath:instancePath+"/discovery_state",schemaPath:"#/properties/discovery_state/enum",keyword:"enum",params:{allowedValues: schema119.properties.discovery_state.enum},message:"must be equal to one of the allowed values"};
+if(vErrors === null){
+vErrors = [err19];
+}
+else {
+vErrors.push(err19);
+}
+errors++;
+}
+}
+if(data.items !== undefined){
+let data7 = data.items;
+if(Array.isArray(data7)){
+if(data7.length > 11){
+const err20 = {instancePath:instancePath+"/items",schemaPath:"#/properties/items/maxItems",keyword:"maxItems",params:{limit: 11},message:"must NOT have more than 11 items"};
+if(vErrors === null){
+vErrors = [err20];
+}
+else {
+vErrors.push(err20);
+}
+errors++;
+}
+const len0 = data7.length;
+for(let i0=0; i0<len0; i0++){
+let data8 = data7[i0];
+if(data8 && typeof data8 == "object" && !Array.isArray(data8)){
+if(data8.id === undefined){
+const err21 = {instancePath:instancePath+"/items/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/CoverageItem/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
+if(vErrors === null){
+vErrors = [err21];
+}
+else {
+vErrors.push(err21);
+}
+errors++;
+}
+if(data8.target_url === undefined){
+const err22 = {instancePath:instancePath+"/items/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/CoverageItem/required",keyword:"required",params:{missingProperty: "target_url"},message:"must have required property '"+"target_url"+"'"};
+if(vErrors === null){
+vErrors = [err22];
+}
+else {
+vErrors.push(err22);
+}
+errors++;
+}
+if(data8.state === undefined){
+const err23 = {instancePath:instancePath+"/items/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/CoverageItem/required",keyword:"required",params:{missingProperty: "state"},message:"must have required property '"+"state"+"'"};
+if(vErrors === null){
+vErrors = [err23];
+}
+else {
+vErrors.push(err23);
+}
+errors++;
+}
+for(const key1 in data8){
+if(!((((((((key1 === "id") || (key1 === "target_url")) || (key1 === "rule_id")) || (key1 === "state")) || (key1 === "verdict")) || (key1 === "verification_run_id")) || (key1 === "result_id")) || (key1 === "reason"))){
+const err24 = {instancePath:instancePath+"/items/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/CoverageItem/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key1},message:"must NOT have additional properties"};
+if(vErrors === null){
+vErrors = [err24];
+}
+else {
+vErrors.push(err24);
+}
+errors++;
+}
+}
+if(data8.id !== undefined){
+let data9 = data8.id;
+if(typeof data9 === "string"){
+if(!(formats0.test(data9))){
+const err25 = {instancePath:instancePath+"/items/" + i0+"/id",schemaPath:"urn:wuji:contracts:0.5#/$defs/CoverageItem/properties/id/format",keyword:"format",params:{format: "uuid"},message:"must match format \""+"uuid"+"\""};
+if(vErrors === null){
+vErrors = [err25];
+}
+else {
+vErrors.push(err25);
+}
+errors++;
+}
+}
+else {
+const err26 = {instancePath:instancePath+"/items/" + i0+"/id",schemaPath:"urn:wuji:contracts:0.5#/$defs/CoverageItem/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err26];
+}
+else {
+vErrors.push(err26);
+}
+errors++;
+}
+}
+if(data8.target_url !== undefined){
+if(typeof data8.target_url !== "string"){
+const err27 = {instancePath:instancePath+"/items/" + i0+"/target_url",schemaPath:"urn:wuji:contracts:0.5#/$defs/CoverageItem/properties/target_url/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err27];
+}
+else {
+vErrors.push(err27);
+}
+errors++;
+}
+}
+if(data8.rule_id !== undefined){
+let data11 = data8.rule_id;
+if(typeof data11 !== "string"){
+const err28 = {instancePath:instancePath+"/items/" + i0+"/rule_id",schemaPath:"urn:wuji:contracts:0.5#/$defs/CoverageItem/properties/rule_id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err28];
+}
+else {
+vErrors.push(err28);
+}
+errors++;
+}
+if("cors-reflection-v1" !== data11){
+const err29 = {instancePath:instancePath+"/items/" + i0+"/rule_id",schemaPath:"urn:wuji:contracts:0.5#/$defs/CoverageItem/properties/rule_id/const",keyword:"const",params:{allowedValue: "cors-reflection-v1"},message:"must be equal to constant"};
+if(vErrors === null){
+vErrors = [err29];
+}
+else {
+vErrors.push(err29);
+}
+errors++;
+}
+}
+if(data8.state !== undefined){
+let data12 = data8.state;
+if(typeof data12 !== "string"){
+const err30 = {instancePath:instancePath+"/items/" + i0+"/state",schemaPath:"urn:wuji:contracts:0.5#/$defs/CoverageItem/properties/state/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err30];
+}
+else {
+vErrors.push(err30);
+}
+errors++;
+}
+if(!(((((data12 === "pending") || (data12 === "evaluated")) || (data12 === "blocked")) || (data12 === "inconclusive")) || (data12 === "not_run"))){
+const err31 = {instancePath:instancePath+"/items/" + i0+"/state",schemaPath:"urn:wuji:contracts:0.5#/$defs/CoverageItem/properties/state/enum",keyword:"enum",params:{allowedValues: schema120.properties.state.enum},message:"must be equal to one of the allowed values"};
+if(vErrors === null){
+vErrors = [err31];
+}
+else {
+vErrors.push(err31);
+}
+errors++;
+}
+}
+if(data8.verdict !== undefined){
+let data13 = data8.verdict;
+const _errs43 = errors;
+let valid8 = false;
+const _errs44 = errors;
+if(typeof data13 !== "string"){
+const err32 = {instancePath:instancePath+"/items/" + i0+"/verdict",schemaPath:"urn:wuji:contracts:0.5#/$defs/CoverageItem/properties/verdict/anyOf/0/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err32];
+}
+else {
+vErrors.push(err32);
+}
+errors++;
+}
+if(!((((data13 === "unassessed") || (data13 === "confirmed")) || (data13 === "not_reproduced")) || (data13 === "inconclusive"))){
+const err33 = {instancePath:instancePath+"/items/" + i0+"/verdict",schemaPath:"urn:wuji:contracts:0.5#/$defs/CoverageItem/properties/verdict/anyOf/0/enum",keyword:"enum",params:{allowedValues: schema120.properties.verdict.anyOf[0].enum},message:"must be equal to one of the allowed values"};
+if(vErrors === null){
+vErrors = [err33];
+}
+else {
+vErrors.push(err33);
+}
+errors++;
+}
+var _valid3 = _errs44 === errors;
+valid8 = valid8 || _valid3;
+const _errs46 = errors;
+if(data13 !== null){
+const err34 = {instancePath:instancePath+"/items/" + i0+"/verdict",schemaPath:"urn:wuji:contracts:0.5#/$defs/CoverageItem/properties/verdict/anyOf/1/type",keyword:"type",params:{type: "null"},message:"must be null"};
+if(vErrors === null){
+vErrors = [err34];
+}
+else {
+vErrors.push(err34);
+}
+errors++;
+}
+var _valid3 = _errs46 === errors;
+valid8 = valid8 || _valid3;
+if(!valid8){
+const err35 = {instancePath:instancePath+"/items/" + i0+"/verdict",schemaPath:"urn:wuji:contracts:0.5#/$defs/CoverageItem/properties/verdict/anyOf",keyword:"anyOf",params:{},message:"must match a schema in anyOf"};
+if(vErrors === null){
+vErrors = [err35];
+}
+else {
+vErrors.push(err35);
+}
+errors++;
+}
+else {
+errors = _errs43;
+if(vErrors !== null){
+if(_errs43){
+vErrors.length = _errs43;
+}
+else {
+vErrors = null;
+}
+}
+}
+}
+if(data8.verification_run_id !== undefined){
+let data14 = data8.verification_run_id;
+const _errs49 = errors;
+let valid9 = false;
+const _errs50 = errors;
+if(typeof data14 === "string"){
+if(!(formats0.test(data14))){
+const err36 = {instancePath:instancePath+"/items/" + i0+"/verification_run_id",schemaPath:"urn:wuji:contracts:0.5#/$defs/CoverageItem/properties/verification_run_id/anyOf/0/format",keyword:"format",params:{format: "uuid"},message:"must match format \""+"uuid"+"\""};
+if(vErrors === null){
+vErrors = [err36];
+}
+else {
+vErrors.push(err36);
+}
+errors++;
+}
+}
+else {
+const err37 = {instancePath:instancePath+"/items/" + i0+"/verification_run_id",schemaPath:"urn:wuji:contracts:0.5#/$defs/CoverageItem/properties/verification_run_id/anyOf/0/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err37];
+}
+else {
+vErrors.push(err37);
+}
+errors++;
+}
+var _valid4 = _errs50 === errors;
+valid9 = valid9 || _valid4;
+const _errs52 = errors;
+if(data14 !== null){
+const err38 = {instancePath:instancePath+"/items/" + i0+"/verification_run_id",schemaPath:"urn:wuji:contracts:0.5#/$defs/CoverageItem/properties/verification_run_id/anyOf/1/type",keyword:"type",params:{type: "null"},message:"must be null"};
+if(vErrors === null){
+vErrors = [err38];
+}
+else {
+vErrors.push(err38);
+}
+errors++;
+}
+var _valid4 = _errs52 === errors;
+valid9 = valid9 || _valid4;
+if(!valid9){
+const err39 = {instancePath:instancePath+"/items/" + i0+"/verification_run_id",schemaPath:"urn:wuji:contracts:0.5#/$defs/CoverageItem/properties/verification_run_id/anyOf",keyword:"anyOf",params:{},message:"must match a schema in anyOf"};
+if(vErrors === null){
+vErrors = [err39];
+}
+else {
+vErrors.push(err39);
+}
+errors++;
+}
+else {
+errors = _errs49;
+if(vErrors !== null){
+if(_errs49){
+vErrors.length = _errs49;
+}
+else {
+vErrors = null;
+}
+}
+}
+}
+if(data8.result_id !== undefined){
+let data15 = data8.result_id;
+const _errs55 = errors;
+let valid10 = false;
+const _errs56 = errors;
+if(typeof data15 === "string"){
+if(!(formats0.test(data15))){
+const err40 = {instancePath:instancePath+"/items/" + i0+"/result_id",schemaPath:"urn:wuji:contracts:0.5#/$defs/CoverageItem/properties/result_id/anyOf/0/format",keyword:"format",params:{format: "uuid"},message:"must match format \""+"uuid"+"\""};
+if(vErrors === null){
+vErrors = [err40];
+}
+else {
+vErrors.push(err40);
+}
+errors++;
+}
+}
+else {
+const err41 = {instancePath:instancePath+"/items/" + i0+"/result_id",schemaPath:"urn:wuji:contracts:0.5#/$defs/CoverageItem/properties/result_id/anyOf/0/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err41];
+}
+else {
+vErrors.push(err41);
+}
+errors++;
+}
+var _valid5 = _errs56 === errors;
+valid10 = valid10 || _valid5;
+const _errs58 = errors;
+if(data15 !== null){
+const err42 = {instancePath:instancePath+"/items/" + i0+"/result_id",schemaPath:"urn:wuji:contracts:0.5#/$defs/CoverageItem/properties/result_id/anyOf/1/type",keyword:"type",params:{type: "null"},message:"must be null"};
+if(vErrors === null){
+vErrors = [err42];
+}
+else {
+vErrors.push(err42);
+}
+errors++;
+}
+var _valid5 = _errs58 === errors;
+valid10 = valid10 || _valid5;
+if(!valid10){
+const err43 = {instancePath:instancePath+"/items/" + i0+"/result_id",schemaPath:"urn:wuji:contracts:0.5#/$defs/CoverageItem/properties/result_id/anyOf",keyword:"anyOf",params:{},message:"must match a schema in anyOf"};
+if(vErrors === null){
+vErrors = [err43];
+}
+else {
+vErrors.push(err43);
+}
+errors++;
+}
+else {
+errors = _errs55;
+if(vErrors !== null){
+if(_errs55){
+vErrors.length = _errs55;
+}
+else {
+vErrors = null;
+}
+}
+}
+}
+if(data8.reason !== undefined){
+let data16 = data8.reason;
+const _errs61 = errors;
+let valid11 = false;
+const _errs62 = errors;
+if(typeof data16 !== "string"){
+const err44 = {instancePath:instancePath+"/items/" + i0+"/reason",schemaPath:"urn:wuji:contracts:0.5#/$defs/CoverageItem/properties/reason/anyOf/0/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err44];
+}
+else {
+vErrors.push(err44);
+}
+errors++;
+}
+var _valid6 = _errs62 === errors;
+valid11 = valid11 || _valid6;
+const _errs64 = errors;
+if(data16 !== null){
+const err45 = {instancePath:instancePath+"/items/" + i0+"/reason",schemaPath:"urn:wuji:contracts:0.5#/$defs/CoverageItem/properties/reason/anyOf/1/type",keyword:"type",params:{type: "null"},message:"must be null"};
+if(vErrors === null){
+vErrors = [err45];
+}
+else {
+vErrors.push(err45);
+}
+errors++;
+}
+var _valid6 = _errs64 === errors;
+valid11 = valid11 || _valid6;
+if(!valid11){
+const err46 = {instancePath:instancePath+"/items/" + i0+"/reason",schemaPath:"urn:wuji:contracts:0.5#/$defs/CoverageItem/properties/reason/anyOf",keyword:"anyOf",params:{},message:"must match a schema in anyOf"};
+if(vErrors === null){
+vErrors = [err46];
+}
+else {
+vErrors.push(err46);
+}
+errors++;
+}
+else {
+errors = _errs61;
+if(vErrors !== null){
+if(_errs61){
+vErrors.length = _errs61;
+}
+else {
+vErrors = null;
+}
+}
+}
+}
+}
+else {
+const err47 = {instancePath:instancePath+"/items/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/CoverageItem/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(vErrors === null){
+vErrors = [err47];
+}
+else {
+vErrors.push(err47);
+}
+errors++;
+}
+}
+}
+else {
+const err48 = {instancePath:instancePath+"/items",schemaPath:"#/properties/items/type",keyword:"type",params:{type: "array"},message:"must be array"};
+if(vErrors === null){
+vErrors = [err48];
+}
+else {
+vErrors.push(err48);
+}
+errors++;
+}
+}
+if(data.limitations !== undefined){
+let data17 = data.limitations;
+if(Array.isArray(data17)){
+if(data17.length > 30){
+const err49 = {instancePath:instancePath+"/limitations",schemaPath:"#/properties/limitations/maxItems",keyword:"maxItems",params:{limit: 30},message:"must NOT have more than 30 items"};
+if(vErrors === null){
+vErrors = [err49];
+}
+else {
+vErrors.push(err49);
+}
+errors++;
+}
+const len1 = data17.length;
+for(let i1=0; i1<len1; i1++){
+if(typeof data17[i1] !== "string"){
+const err50 = {instancePath:instancePath+"/limitations/" + i1,schemaPath:"#/properties/limitations/items/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err50];
+}
+else {
+vErrors.push(err50);
+}
+errors++;
+}
+}
+}
+else {
+const err51 = {instancePath:instancePath+"/limitations",schemaPath:"#/properties/limitations/type",keyword:"type",params:{type: "array"},message:"must be array"};
+if(vErrors === null){
+vErrors = [err51];
+}
+else {
+vErrors.push(err51);
+}
+errors++;
+}
+}
+}
+else {
+const err52 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(vErrors === null){
+vErrors = [err52];
+}
+else {
+vErrors.push(err52);
+}
+errors++;
+}
+validate103.errors = vErrors;
+return errors === 0;
+}
+validate103.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
+
+export const validateObservationPage = validate104;
+const schema121 = {"additionalProperties":false,"properties":{"items":{"items":{"$ref":"urn:wuji:contracts:0.5#/$defs/Observation"},"maxItems":100,"title":"Items","type":"array"},"next_cursor":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Next Cursor"}},"required":["items","next_cursor"],"title":"ObservationPage","type":"object"};
+const schema122 = {"additionalProperties":false,"properties":{"id":{"format":"uuid","title":"Id","type":"string"},"tool_call_id":{"format":"uuid","title":"Tool Call Id","type":"string"},"agent_run_id":{"format":"uuid","title":"Agent Run Id","type":"string"},"target_url":{"title":"Target Url","type":"string"},"method":{"enum":["GET","HEAD","OPTIONS"],"title":"Method","type":"string"},"request_headers":{"additionalProperties":{"type":"string"},"title":"Request Headers","type":"object"},"response_status":{"anyOf":[{"type":"integer"},{"type":"null"}],"title":"Response Status"},"response_headers":{"additionalProperties":{"type":"string"},"title":"Response Headers","type":"object"},"complete":{"title":"Complete","type":"boolean"},"termination":{"enum":["complete","size_limit","timeout","cancelled","network_error"],"title":"Termination","type":"string"},"body_bytes":{"maximum":1048576,"minimum":0,"title":"Body Bytes","type":"integer"},"body_sha256":{"title":"Body Sha256","type":"string"},"body_encoding":{"const":"client-decoded","title":"Body Encoding","type":"string"},"redacted_headers":{"items":{"type":"string"},"title":"Redacted Headers","type":"array"},"artifact_id":{"format":"uuid","title":"Artifact Id","type":"string"},"body_artifact_id":{"format":"uuid","title":"Body Artifact Id","type":"string"},"started_at":{"format":"date-time","title":"Started At","type":"string"},"finished_at":{"format":"date-time","title":"Finished At","type":"string"},"created_at":{"format":"date-time","title":"Created At","type":"string"}},"required":["id","tool_call_id","agent_run_id","target_url","method","request_headers","response_status","response_headers","complete","termination","body_bytes","body_sha256","body_encoding","redacted_headers","artifact_id","body_artifact_id","started_at","finished_at","created_at"],"title":"Observation","type":"object"};
+
+function validate104(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
+let vErrors = null;
+let errors = 0;
+const evaluated0 = validate104.evaluated;
+if(evaluated0.dynamicProps){
+evaluated0.props = undefined;
+}
+if(evaluated0.dynamicItems){
+evaluated0.items = undefined;
+}
+if(data && typeof data == "object" && !Array.isArray(data)){
+if(data.items === undefined){
+const err0 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "items"},message:"must have required property '"+"items"+"'"};
+if(vErrors === null){
+vErrors = [err0];
+}
+else {
+vErrors.push(err0);
+}
+errors++;
+}
+if(data.next_cursor === undefined){
+const err1 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "next_cursor"},message:"must have required property '"+"next_cursor"+"'"};
+if(vErrors === null){
+vErrors = [err1];
+}
+else {
+vErrors.push(err1);
+}
+errors++;
+}
+for(const key0 in data){
+if(!((key0 === "items") || (key0 === "next_cursor"))){
+const err2 = {instancePath,schemaPath:"#/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key0},message:"must NOT have additional properties"};
+if(vErrors === null){
+vErrors = [err2];
+}
+else {
+vErrors.push(err2);
+}
+errors++;
+}
+}
+if(data.items !== undefined){
+let data0 = data.items;
+if(Array.isArray(data0)){
+if(data0.length > 100){
+const err3 = {instancePath:instancePath+"/items",schemaPath:"#/properties/items/maxItems",keyword:"maxItems",params:{limit: 100},message:"must NOT have more than 100 items"};
+if(vErrors === null){
+vErrors = [err3];
+}
+else {
+vErrors.push(err3);
+}
+errors++;
+}
+const len0 = data0.length;
+for(let i0=0; i0<len0; i0++){
+let data1 = data0[i0];
+if(data1 && typeof data1 == "object" && !Array.isArray(data1)){
+if(data1.id === undefined){
+const err4 = {instancePath:instancePath+"/items/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
+if(vErrors === null){
+vErrors = [err4];
+}
+else {
+vErrors.push(err4);
+}
+errors++;
+}
+if(data1.tool_call_id === undefined){
+const err5 = {instancePath:instancePath+"/items/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/required",keyword:"required",params:{missingProperty: "tool_call_id"},message:"must have required property '"+"tool_call_id"+"'"};
+if(vErrors === null){
+vErrors = [err5];
+}
+else {
+vErrors.push(err5);
+}
+errors++;
+}
+if(data1.agent_run_id === undefined){
+const err6 = {instancePath:instancePath+"/items/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/required",keyword:"required",params:{missingProperty: "agent_run_id"},message:"must have required property '"+"agent_run_id"+"'"};
+if(vErrors === null){
+vErrors = [err6];
+}
+else {
+vErrors.push(err6);
+}
+errors++;
+}
+if(data1.target_url === undefined){
+const err7 = {instancePath:instancePath+"/items/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/required",keyword:"required",params:{missingProperty: "target_url"},message:"must have required property '"+"target_url"+"'"};
+if(vErrors === null){
+vErrors = [err7];
+}
+else {
+vErrors.push(err7);
+}
+errors++;
+}
+if(data1.method === undefined){
+const err8 = {instancePath:instancePath+"/items/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/required",keyword:"required",params:{missingProperty: "method"},message:"must have required property '"+"method"+"'"};
+if(vErrors === null){
+vErrors = [err8];
+}
+else {
+vErrors.push(err8);
+}
+errors++;
+}
+if(data1.request_headers === undefined){
+const err9 = {instancePath:instancePath+"/items/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/required",keyword:"required",params:{missingProperty: "request_headers"},message:"must have required property '"+"request_headers"+"'"};
+if(vErrors === null){
+vErrors = [err9];
+}
+else {
+vErrors.push(err9);
+}
+errors++;
+}
+if(data1.response_status === undefined){
+const err10 = {instancePath:instancePath+"/items/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/required",keyword:"required",params:{missingProperty: "response_status"},message:"must have required property '"+"response_status"+"'"};
+if(vErrors === null){
+vErrors = [err10];
+}
+else {
+vErrors.push(err10);
+}
+errors++;
+}
+if(data1.response_headers === undefined){
+const err11 = {instancePath:instancePath+"/items/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/required",keyword:"required",params:{missingProperty: "response_headers"},message:"must have required property '"+"response_headers"+"'"};
+if(vErrors === null){
+vErrors = [err11];
+}
+else {
+vErrors.push(err11);
+}
+errors++;
+}
+if(data1.complete === undefined){
+const err12 = {instancePath:instancePath+"/items/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/required",keyword:"required",params:{missingProperty: "complete"},message:"must have required property '"+"complete"+"'"};
+if(vErrors === null){
+vErrors = [err12];
+}
+else {
+vErrors.push(err12);
+}
+errors++;
+}
+if(data1.termination === undefined){
+const err13 = {instancePath:instancePath+"/items/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/required",keyword:"required",params:{missingProperty: "termination"},message:"must have required property '"+"termination"+"'"};
+if(vErrors === null){
+vErrors = [err13];
+}
+else {
+vErrors.push(err13);
+}
+errors++;
+}
+if(data1.body_bytes === undefined){
+const err14 = {instancePath:instancePath+"/items/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/required",keyword:"required",params:{missingProperty: "body_bytes"},message:"must have required property '"+"body_bytes"+"'"};
+if(vErrors === null){
+vErrors = [err14];
+}
+else {
+vErrors.push(err14);
+}
+errors++;
+}
+if(data1.body_sha256 === undefined){
+const err15 = {instancePath:instancePath+"/items/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/required",keyword:"required",params:{missingProperty: "body_sha256"},message:"must have required property '"+"body_sha256"+"'"};
+if(vErrors === null){
+vErrors = [err15];
+}
+else {
+vErrors.push(err15);
+}
+errors++;
+}
+if(data1.body_encoding === undefined){
+const err16 = {instancePath:instancePath+"/items/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/required",keyword:"required",params:{missingProperty: "body_encoding"},message:"must have required property '"+"body_encoding"+"'"};
+if(vErrors === null){
+vErrors = [err16];
+}
+else {
+vErrors.push(err16);
+}
+errors++;
+}
+if(data1.redacted_headers === undefined){
+const err17 = {instancePath:instancePath+"/items/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/required",keyword:"required",params:{missingProperty: "redacted_headers"},message:"must have required property '"+"redacted_headers"+"'"};
+if(vErrors === null){
+vErrors = [err17];
+}
+else {
+vErrors.push(err17);
+}
+errors++;
+}
+if(data1.artifact_id === undefined){
+const err18 = {instancePath:instancePath+"/items/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/required",keyword:"required",params:{missingProperty: "artifact_id"},message:"must have required property '"+"artifact_id"+"'"};
+if(vErrors === null){
+vErrors = [err18];
+}
+else {
+vErrors.push(err18);
+}
+errors++;
+}
+if(data1.body_artifact_id === undefined){
+const err19 = {instancePath:instancePath+"/items/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/required",keyword:"required",params:{missingProperty: "body_artifact_id"},message:"must have required property '"+"body_artifact_id"+"'"};
+if(vErrors === null){
+vErrors = [err19];
+}
+else {
+vErrors.push(err19);
+}
+errors++;
+}
+if(data1.started_at === undefined){
+const err20 = {instancePath:instancePath+"/items/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/required",keyword:"required",params:{missingProperty: "started_at"},message:"must have required property '"+"started_at"+"'"};
+if(vErrors === null){
+vErrors = [err20];
+}
+else {
+vErrors.push(err20);
+}
+errors++;
+}
+if(data1.finished_at === undefined){
+const err21 = {instancePath:instancePath+"/items/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/required",keyword:"required",params:{missingProperty: "finished_at"},message:"must have required property '"+"finished_at"+"'"};
+if(vErrors === null){
+vErrors = [err21];
+}
+else {
+vErrors.push(err21);
+}
+errors++;
+}
+if(data1.created_at === undefined){
+const err22 = {instancePath:instancePath+"/items/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/required",keyword:"required",params:{missingProperty: "created_at"},message:"must have required property '"+"created_at"+"'"};
+if(vErrors === null){
+vErrors = [err22];
+}
+else {
+vErrors.push(err22);
+}
+errors++;
+}
+for(const key1 in data1){
+if(!(func22.call(schema122.properties, key1))){
+const err23 = {instancePath:instancePath+"/items/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key1},message:"must NOT have additional properties"};
+if(vErrors === null){
+vErrors = [err23];
+}
+else {
+vErrors.push(err23);
+}
+errors++;
+}
+}
+if(data1.id !== undefined){
+let data2 = data1.id;
+if(typeof data2 === "string"){
+if(!(formats0.test(data2))){
+const err24 = {instancePath:instancePath+"/items/" + i0+"/id",schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/properties/id/format",keyword:"format",params:{format: "uuid"},message:"must match format \""+"uuid"+"\""};
+if(vErrors === null){
+vErrors = [err24];
+}
+else {
+vErrors.push(err24);
+}
+errors++;
+}
+}
+else {
+const err25 = {instancePath:instancePath+"/items/" + i0+"/id",schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err25];
+}
+else {
+vErrors.push(err25);
+}
+errors++;
+}
+}
+if(data1.tool_call_id !== undefined){
+let data3 = data1.tool_call_id;
+if(typeof data3 === "string"){
+if(!(formats0.test(data3))){
+const err26 = {instancePath:instancePath+"/items/" + i0+"/tool_call_id",schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/properties/tool_call_id/format",keyword:"format",params:{format: "uuid"},message:"must match format \""+"uuid"+"\""};
+if(vErrors === null){
+vErrors = [err26];
+}
+else {
+vErrors.push(err26);
+}
+errors++;
+}
+}
+else {
+const err27 = {instancePath:instancePath+"/items/" + i0+"/tool_call_id",schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/properties/tool_call_id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err27];
+}
+else {
+vErrors.push(err27);
+}
+errors++;
+}
+}
+if(data1.agent_run_id !== undefined){
+let data4 = data1.agent_run_id;
+if(typeof data4 === "string"){
+if(!(formats0.test(data4))){
+const err28 = {instancePath:instancePath+"/items/" + i0+"/agent_run_id",schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/properties/agent_run_id/format",keyword:"format",params:{format: "uuid"},message:"must match format \""+"uuid"+"\""};
+if(vErrors === null){
+vErrors = [err28];
+}
+else {
+vErrors.push(err28);
+}
+errors++;
+}
+}
+else {
+const err29 = {instancePath:instancePath+"/items/" + i0+"/agent_run_id",schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/properties/agent_run_id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err29];
+}
+else {
+vErrors.push(err29);
+}
+errors++;
+}
+}
+if(data1.target_url !== undefined){
+if(typeof data1.target_url !== "string"){
+const err30 = {instancePath:instancePath+"/items/" + i0+"/target_url",schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/properties/target_url/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err30];
+}
+else {
+vErrors.push(err30);
+}
+errors++;
+}
+}
+if(data1.method !== undefined){
+let data6 = data1.method;
+if(typeof data6 !== "string"){
+const err31 = {instancePath:instancePath+"/items/" + i0+"/method",schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/properties/method/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err31];
+}
+else {
+vErrors.push(err31);
+}
+errors++;
+}
+if(!(((data6 === "GET") || (data6 === "HEAD")) || (data6 === "OPTIONS"))){
+const err32 = {instancePath:instancePath+"/items/" + i0+"/method",schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/properties/method/enum",keyword:"enum",params:{allowedValues: schema122.properties.method.enum},message:"must be equal to one of the allowed values"};
+if(vErrors === null){
+vErrors = [err32];
+}
+else {
+vErrors.push(err32);
+}
+errors++;
+}
+}
+if(data1.request_headers !== undefined){
+let data7 = data1.request_headers;
+if(data7 && typeof data7 == "object" && !Array.isArray(data7)){
+for(const key2 in data7){
+if(typeof data7[key2] !== "string"){
+const err33 = {instancePath:instancePath+"/items/" + i0+"/request_headers/" + key2.replace(/~/g, "~0").replace(/\//g, "~1"),schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/properties/request_headers/additionalProperties/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err33];
+}
+else {
+vErrors.push(err33);
+}
+errors++;
+}
+}
+}
+else {
+const err34 = {instancePath:instancePath+"/items/" + i0+"/request_headers",schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/properties/request_headers/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(vErrors === null){
+vErrors = [err34];
+}
+else {
+vErrors.push(err34);
+}
+errors++;
+}
+}
+if(data1.response_status !== undefined){
+let data9 = data1.response_status;
+const _errs24 = errors;
+let valid6 = false;
+const _errs25 = errors;
+if(!(((typeof data9 == "number") && (!(data9 % 1) && !isNaN(data9))) && (isFinite(data9)))){
+const err35 = {instancePath:instancePath+"/items/" + i0+"/response_status",schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/properties/response_status/anyOf/0/type",keyword:"type",params:{type: "integer"},message:"must be integer"};
+if(vErrors === null){
+vErrors = [err35];
+}
+else {
+vErrors.push(err35);
+}
+errors++;
+}
+var _valid0 = _errs25 === errors;
+valid6 = valid6 || _valid0;
+const _errs27 = errors;
+if(data9 !== null){
+const err36 = {instancePath:instancePath+"/items/" + i0+"/response_status",schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/properties/response_status/anyOf/1/type",keyword:"type",params:{type: "null"},message:"must be null"};
+if(vErrors === null){
+vErrors = [err36];
+}
+else {
+vErrors.push(err36);
+}
+errors++;
+}
+var _valid0 = _errs27 === errors;
+valid6 = valid6 || _valid0;
+if(!valid6){
+const err37 = {instancePath:instancePath+"/items/" + i0+"/response_status",schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/properties/response_status/anyOf",keyword:"anyOf",params:{},message:"must match a schema in anyOf"};
+if(vErrors === null){
+vErrors = [err37];
+}
+else {
+vErrors.push(err37);
+}
+errors++;
+}
+else {
+errors = _errs24;
+if(vErrors !== null){
+if(_errs24){
+vErrors.length = _errs24;
+}
+else {
+vErrors = null;
+}
+}
+}
+}
+if(data1.response_headers !== undefined){
+let data10 = data1.response_headers;
+if(data10 && typeof data10 == "object" && !Array.isArray(data10)){
+for(const key3 in data10){
+if(typeof data10[key3] !== "string"){
+const err38 = {instancePath:instancePath+"/items/" + i0+"/response_headers/" + key3.replace(/~/g, "~0").replace(/\//g, "~1"),schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/properties/response_headers/additionalProperties/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err38];
+}
+else {
+vErrors.push(err38);
+}
+errors++;
+}
+}
+}
+else {
+const err39 = {instancePath:instancePath+"/items/" + i0+"/response_headers",schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/properties/response_headers/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(vErrors === null){
+vErrors = [err39];
+}
+else {
+vErrors.push(err39);
+}
+errors++;
+}
+}
+if(data1.complete !== undefined){
+if(typeof data1.complete !== "boolean"){
+const err40 = {instancePath:instancePath+"/items/" + i0+"/complete",schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/properties/complete/type",keyword:"type",params:{type: "boolean"},message:"must be boolean"};
+if(vErrors === null){
+vErrors = [err40];
+}
+else {
+vErrors.push(err40);
+}
+errors++;
+}
+}
+if(data1.termination !== undefined){
+let data13 = data1.termination;
+if(typeof data13 !== "string"){
+const err41 = {instancePath:instancePath+"/items/" + i0+"/termination",schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/properties/termination/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err41];
+}
+else {
+vErrors.push(err41);
+}
+errors++;
+}
+if(!(((((data13 === "complete") || (data13 === "size_limit")) || (data13 === "timeout")) || (data13 === "cancelled")) || (data13 === "network_error"))){
+const err42 = {instancePath:instancePath+"/items/" + i0+"/termination",schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/properties/termination/enum",keyword:"enum",params:{allowedValues: schema122.properties.termination.enum},message:"must be equal to one of the allowed values"};
+if(vErrors === null){
+vErrors = [err42];
+}
+else {
+vErrors.push(err42);
+}
+errors++;
+}
+}
+if(data1.body_bytes !== undefined){
+let data14 = data1.body_bytes;
+if(!(((typeof data14 == "number") && (!(data14 % 1) && !isNaN(data14))) && (isFinite(data14)))){
+const err43 = {instancePath:instancePath+"/items/" + i0+"/body_bytes",schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/properties/body_bytes/type",keyword:"type",params:{type: "integer"},message:"must be integer"};
+if(vErrors === null){
+vErrors = [err43];
+}
+else {
+vErrors.push(err43);
+}
+errors++;
+}
+if((typeof data14 == "number") && (isFinite(data14))){
+if(data14 > 1048576 || isNaN(data14)){
+const err44 = {instancePath:instancePath+"/items/" + i0+"/body_bytes",schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/properties/body_bytes/maximum",keyword:"maximum",params:{comparison: "<=", limit: 1048576},message:"must be <= 1048576"};
+if(vErrors === null){
+vErrors = [err44];
+}
+else {
+vErrors.push(err44);
+}
+errors++;
+}
+if(data14 < 0 || isNaN(data14)){
+const err45 = {instancePath:instancePath+"/items/" + i0+"/body_bytes",schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/properties/body_bytes/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
+if(vErrors === null){
+vErrors = [err45];
+}
+else {
+vErrors.push(err45);
+}
+errors++;
+}
+}
+}
+if(data1.body_sha256 !== undefined){
+if(typeof data1.body_sha256 !== "string"){
+const err46 = {instancePath:instancePath+"/items/" + i0+"/body_sha256",schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/properties/body_sha256/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err46];
+}
+else {
+vErrors.push(err46);
+}
+errors++;
+}
+}
+if(data1.body_encoding !== undefined){
+let data16 = data1.body_encoding;
+if(typeof data16 !== "string"){
+const err47 = {instancePath:instancePath+"/items/" + i0+"/body_encoding",schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/properties/body_encoding/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err47];
+}
+else {
+vErrors.push(err47);
+}
+errors++;
+}
+if("client-decoded" !== data16){
+const err48 = {instancePath:instancePath+"/items/" + i0+"/body_encoding",schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/properties/body_encoding/const",keyword:"const",params:{allowedValue: "client-decoded"},message:"must be equal to constant"};
+if(vErrors === null){
+vErrors = [err48];
+}
+else {
+vErrors.push(err48);
+}
+errors++;
+}
+}
+if(data1.redacted_headers !== undefined){
+let data17 = data1.redacted_headers;
+if(Array.isArray(data17)){
+const len1 = data17.length;
+for(let i1=0; i1<len1; i1++){
+if(typeof data17[i1] !== "string"){
+const err49 = {instancePath:instancePath+"/items/" + i0+"/redacted_headers/" + i1,schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/properties/redacted_headers/items/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err49];
+}
+else {
+vErrors.push(err49);
+}
+errors++;
+}
+}
+}
+else {
+const err50 = {instancePath:instancePath+"/items/" + i0+"/redacted_headers",schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/properties/redacted_headers/type",keyword:"type",params:{type: "array"},message:"must be array"};
+if(vErrors === null){
+vErrors = [err50];
+}
+else {
+vErrors.push(err50);
+}
+errors++;
+}
+}
+if(data1.artifact_id !== undefined){
+let data19 = data1.artifact_id;
+if(typeof data19 === "string"){
+if(!(formats0.test(data19))){
+const err51 = {instancePath:instancePath+"/items/" + i0+"/artifact_id",schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/properties/artifact_id/format",keyword:"format",params:{format: "uuid"},message:"must match format \""+"uuid"+"\""};
+if(vErrors === null){
+vErrors = [err51];
+}
+else {
+vErrors.push(err51);
+}
+errors++;
+}
+}
+else {
+const err52 = {instancePath:instancePath+"/items/" + i0+"/artifact_id",schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/properties/artifact_id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err52];
+}
+else {
+vErrors.push(err52);
+}
+errors++;
+}
+}
+if(data1.body_artifact_id !== undefined){
+let data20 = data1.body_artifact_id;
+if(typeof data20 === "string"){
+if(!(formats0.test(data20))){
+const err53 = {instancePath:instancePath+"/items/" + i0+"/body_artifact_id",schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/properties/body_artifact_id/format",keyword:"format",params:{format: "uuid"},message:"must match format \""+"uuid"+"\""};
+if(vErrors === null){
+vErrors = [err53];
+}
+else {
+vErrors.push(err53);
+}
+errors++;
+}
+}
+else {
+const err54 = {instancePath:instancePath+"/items/" + i0+"/body_artifact_id",schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/properties/body_artifact_id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err54];
+}
+else {
+vErrors.push(err54);
+}
+errors++;
+}
+}
+if(data1.started_at !== undefined){
+let data21 = data1.started_at;
+if(typeof data21 === "string"){
+if(!(formats2.validate(data21))){
+const err55 = {instancePath:instancePath+"/items/" + i0+"/started_at",schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/properties/started_at/format",keyword:"format",params:{format: "date-time"},message:"must match format \""+"date-time"+"\""};
+if(vErrors === null){
+vErrors = [err55];
+}
+else {
+vErrors.push(err55);
+}
+errors++;
+}
+}
+else {
+const err56 = {instancePath:instancePath+"/items/" + i0+"/started_at",schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/properties/started_at/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err56];
+}
+else {
+vErrors.push(err56);
+}
+errors++;
+}
+}
+if(data1.finished_at !== undefined){
+let data22 = data1.finished_at;
+if(typeof data22 === "string"){
+if(!(formats2.validate(data22))){
+const err57 = {instancePath:instancePath+"/items/" + i0+"/finished_at",schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/properties/finished_at/format",keyword:"format",params:{format: "date-time"},message:"must match format \""+"date-time"+"\""};
+if(vErrors === null){
+vErrors = [err57];
+}
+else {
+vErrors.push(err57);
+}
+errors++;
+}
+}
+else {
+const err58 = {instancePath:instancePath+"/items/" + i0+"/finished_at",schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/properties/finished_at/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err58];
+}
+else {
+vErrors.push(err58);
+}
+errors++;
+}
+}
+if(data1.created_at !== undefined){
+let data23 = data1.created_at;
+if(typeof data23 === "string"){
+if(!(formats2.validate(data23))){
+const err59 = {instancePath:instancePath+"/items/" + i0+"/created_at",schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/properties/created_at/format",keyword:"format",params:{format: "date-time"},message:"must match format \""+"date-time"+"\""};
+if(vErrors === null){
+vErrors = [err59];
+}
+else {
+vErrors.push(err59);
+}
+errors++;
+}
+}
+else {
+const err60 = {instancePath:instancePath+"/items/" + i0+"/created_at",schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/properties/created_at/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err60];
+}
+else {
+vErrors.push(err60);
+}
+errors++;
+}
+}
+}
+else {
+const err61 = {instancePath:instancePath+"/items/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/Observation/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(vErrors === null){
+vErrors = [err61];
+}
+else {
+vErrors.push(err61);
+}
+errors++;
+}
+}
+}
+else {
+const err62 = {instancePath:instancePath+"/items",schemaPath:"#/properties/items/type",keyword:"type",params:{type: "array"},message:"must be array"};
+if(vErrors === null){
+vErrors = [err62];
+}
+else {
+vErrors.push(err62);
+}
+errors++;
+}
+}
+if(data.next_cursor !== undefined){
+let data24 = data.next_cursor;
+const _errs59 = errors;
+let valid10 = false;
+const _errs60 = errors;
+if(typeof data24 !== "string"){
+const err63 = {instancePath:instancePath+"/next_cursor",schemaPath:"#/properties/next_cursor/anyOf/0/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err63];
+}
+else {
+vErrors.push(err63);
+}
+errors++;
+}
+var _valid1 = _errs60 === errors;
+valid10 = valid10 || _valid1;
+const _errs62 = errors;
+if(data24 !== null){
+const err64 = {instancePath:instancePath+"/next_cursor",schemaPath:"#/properties/next_cursor/anyOf/1/type",keyword:"type",params:{type: "null"},message:"must be null"};
+if(vErrors === null){
+vErrors = [err64];
+}
+else {
+vErrors.push(err64);
+}
+errors++;
+}
+var _valid1 = _errs62 === errors;
+valid10 = valid10 || _valid1;
+if(!valid10){
+const err65 = {instancePath:instancePath+"/next_cursor",schemaPath:"#/properties/next_cursor/anyOf",keyword:"anyOf",params:{},message:"must match a schema in anyOf"};
+if(vErrors === null){
+vErrors = [err65];
+}
+else {
+vErrors.push(err65);
+}
+errors++;
+}
+else {
+errors = _errs59;
+if(vErrors !== null){
+if(_errs59){
+vErrors.length = _errs59;
+}
+else {
+vErrors = null;
+}
+}
+}
+}
+}
+else {
+const err66 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(vErrors === null){
+vErrors = [err66];
+}
+else {
+vErrors.push(err66);
+}
+errors++;
+}
+validate104.errors = vErrors;
+return errors === 0;
+}
+validate104.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
+
+export const validateVerificationPage = validate105;
+const schema123 = {"additionalProperties":false,"properties":{"items":{"items":{"$ref":"urn:wuji:contracts:0.5#/$defs/VerificationRun"},"maxItems":100,"title":"Items","type":"array"},"next_cursor":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Next Cursor"}},"required":["items","next_cursor"],"title":"VerificationPage","type":"object"};
+const schema124 = {"additionalProperties":false,"properties":{"id":{"format":"uuid","title":"Id","type":"string"},"coverage_item_id":{"format":"uuid","title":"Coverage Item Id","type":"string"},"target_url":{"title":"Target Url","type":"string"},"rule_id":{"const":"cors-reflection-v1","title":"Rule Id","type":"string"},"claim":{"title":"Claim","type":"string"},"agent_run_id":{"format":"uuid","title":"Agent Run Id","type":"string"},"intent_id":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Intent Id"},"created_at":{"format":"date-time","title":"Created At","type":"string"},"latest_result":{"anyOf":[{"$ref":"urn:wuji:contracts:0.5#/$defs/VerificationResult"},{"type":"null"}],"default":null}},"required":["id","coverage_item_id","target_url","rule_id","claim","agent_run_id","intent_id","created_at"],"title":"VerificationRun","type":"object"};
+const schema125 = {"additionalProperties":false,"properties":{"id":{"format":"uuid","title":"Id","type":"string"},"verification_run_id":{"format":"uuid","title":"Verification Run Id","type":"string"},"revision":{"minimum":1,"title":"Revision","type":"integer"},"verdict":{"enum":["unassessed","confirmed","not_reproduced","inconclusive"],"title":"Verdict","type":"string"},"reason":{"title":"Reason","type":"string"},"limitations":{"items":{"type":"string"},"title":"Limitations","type":"array"},"supersedes_result_id":{"anyOf":[{"format":"uuid","type":"string"},{"type":"null"}],"title":"Supersedes Result Id"},"created_at":{"format":"date-time","title":"Created At","type":"string"}},"required":["id","verification_run_id","revision","verdict","reason","limitations","supersedes_result_id","created_at"],"title":"VerificationResult","type":"object"};
+
+function validate106(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
+let vErrors = null;
+let errors = 0;
+const evaluated0 = validate106.evaluated;
+if(evaluated0.dynamicProps){
+evaluated0.props = undefined;
+}
+if(evaluated0.dynamicItems){
+evaluated0.items = undefined;
+}
+if(data && typeof data == "object" && !Array.isArray(data)){
+if(data.id === undefined){
+const err0 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
+if(vErrors === null){
+vErrors = [err0];
+}
+else {
+vErrors.push(err0);
+}
+errors++;
+}
+if(data.coverage_item_id === undefined){
+const err1 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "coverage_item_id"},message:"must have required property '"+"coverage_item_id"+"'"};
+if(vErrors === null){
+vErrors = [err1];
+}
+else {
+vErrors.push(err1);
+}
+errors++;
+}
+if(data.target_url === undefined){
+const err2 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "target_url"},message:"must have required property '"+"target_url"+"'"};
+if(vErrors === null){
+vErrors = [err2];
+}
+else {
+vErrors.push(err2);
+}
+errors++;
+}
+if(data.rule_id === undefined){
+const err3 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "rule_id"},message:"must have required property '"+"rule_id"+"'"};
+if(vErrors === null){
+vErrors = [err3];
+}
+else {
+vErrors.push(err3);
+}
+errors++;
+}
+if(data.claim === undefined){
+const err4 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "claim"},message:"must have required property '"+"claim"+"'"};
+if(vErrors === null){
+vErrors = [err4];
+}
+else {
+vErrors.push(err4);
+}
+errors++;
+}
+if(data.agent_run_id === undefined){
+const err5 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "agent_run_id"},message:"must have required property '"+"agent_run_id"+"'"};
+if(vErrors === null){
+vErrors = [err5];
+}
+else {
+vErrors.push(err5);
+}
+errors++;
+}
+if(data.intent_id === undefined){
+const err6 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "intent_id"},message:"must have required property '"+"intent_id"+"'"};
+if(vErrors === null){
+vErrors = [err6];
+}
+else {
+vErrors.push(err6);
+}
+errors++;
+}
+if(data.created_at === undefined){
+const err7 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "created_at"},message:"must have required property '"+"created_at"+"'"};
+if(vErrors === null){
+vErrors = [err7];
+}
+else {
+vErrors.push(err7);
+}
+errors++;
+}
+for(const key0 in data){
+if(!(func22.call(schema124.properties, key0))){
+const err8 = {instancePath,schemaPath:"#/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key0},message:"must NOT have additional properties"};
+if(vErrors === null){
+vErrors = [err8];
+}
+else {
+vErrors.push(err8);
+}
+errors++;
+}
+}
+if(data.id !== undefined){
+let data0 = data.id;
+if(typeof data0 === "string"){
+if(!(formats0.test(data0))){
+const err9 = {instancePath:instancePath+"/id",schemaPath:"#/properties/id/format",keyword:"format",params:{format: "uuid"},message:"must match format \""+"uuid"+"\""};
+if(vErrors === null){
+vErrors = [err9];
+}
+else {
+vErrors.push(err9);
+}
+errors++;
+}
+}
+else {
+const err10 = {instancePath:instancePath+"/id",schemaPath:"#/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err10];
+}
+else {
+vErrors.push(err10);
+}
+errors++;
+}
+}
+if(data.coverage_item_id !== undefined){
+let data1 = data.coverage_item_id;
+if(typeof data1 === "string"){
+if(!(formats0.test(data1))){
+const err11 = {instancePath:instancePath+"/coverage_item_id",schemaPath:"#/properties/coverage_item_id/format",keyword:"format",params:{format: "uuid"},message:"must match format \""+"uuid"+"\""};
+if(vErrors === null){
+vErrors = [err11];
+}
+else {
+vErrors.push(err11);
+}
+errors++;
+}
+}
+else {
+const err12 = {instancePath:instancePath+"/coverage_item_id",schemaPath:"#/properties/coverage_item_id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err12];
+}
+else {
+vErrors.push(err12);
+}
+errors++;
+}
+}
+if(data.target_url !== undefined){
+if(typeof data.target_url !== "string"){
+const err13 = {instancePath:instancePath+"/target_url",schemaPath:"#/properties/target_url/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err13];
+}
+else {
+vErrors.push(err13);
+}
+errors++;
+}
+}
+if(data.rule_id !== undefined){
+let data3 = data.rule_id;
+if(typeof data3 !== "string"){
+const err14 = {instancePath:instancePath+"/rule_id",schemaPath:"#/properties/rule_id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err14];
+}
+else {
+vErrors.push(err14);
+}
+errors++;
+}
+if("cors-reflection-v1" !== data3){
+const err15 = {instancePath:instancePath+"/rule_id",schemaPath:"#/properties/rule_id/const",keyword:"const",params:{allowedValue: "cors-reflection-v1"},message:"must be equal to constant"};
+if(vErrors === null){
+vErrors = [err15];
+}
+else {
+vErrors.push(err15);
+}
+errors++;
+}
+}
+if(data.claim !== undefined){
+if(typeof data.claim !== "string"){
+const err16 = {instancePath:instancePath+"/claim",schemaPath:"#/properties/claim/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err16];
+}
+else {
+vErrors.push(err16);
+}
+errors++;
+}
+}
+if(data.agent_run_id !== undefined){
+let data5 = data.agent_run_id;
+if(typeof data5 === "string"){
+if(!(formats0.test(data5))){
+const err17 = {instancePath:instancePath+"/agent_run_id",schemaPath:"#/properties/agent_run_id/format",keyword:"format",params:{format: "uuid"},message:"must match format \""+"uuid"+"\""};
+if(vErrors === null){
+vErrors = [err17];
+}
+else {
+vErrors.push(err17);
+}
+errors++;
+}
+}
+else {
+const err18 = {instancePath:instancePath+"/agent_run_id",schemaPath:"#/properties/agent_run_id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err18];
+}
+else {
+vErrors.push(err18);
+}
+errors++;
+}
+}
+if(data.intent_id !== undefined){
+let data6 = data.intent_id;
+const _errs15 = errors;
+let valid1 = false;
+const _errs16 = errors;
+if(typeof data6 !== "string"){
+const err19 = {instancePath:instancePath+"/intent_id",schemaPath:"#/properties/intent_id/anyOf/0/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err19];
+}
+else {
+vErrors.push(err19);
+}
+errors++;
+}
+var _valid0 = _errs16 === errors;
+valid1 = valid1 || _valid0;
+const _errs18 = errors;
+if(data6 !== null){
+const err20 = {instancePath:instancePath+"/intent_id",schemaPath:"#/properties/intent_id/anyOf/1/type",keyword:"type",params:{type: "null"},message:"must be null"};
+if(vErrors === null){
+vErrors = [err20];
+}
+else {
+vErrors.push(err20);
+}
+errors++;
+}
+var _valid0 = _errs18 === errors;
+valid1 = valid1 || _valid0;
+if(!valid1){
+const err21 = {instancePath:instancePath+"/intent_id",schemaPath:"#/properties/intent_id/anyOf",keyword:"anyOf",params:{},message:"must match a schema in anyOf"};
+if(vErrors === null){
+vErrors = [err21];
+}
+else {
+vErrors.push(err21);
+}
+errors++;
+}
+else {
+errors = _errs15;
+if(vErrors !== null){
+if(_errs15){
+vErrors.length = _errs15;
+}
+else {
+vErrors = null;
+}
+}
+}
+}
+if(data.created_at !== undefined){
+let data7 = data.created_at;
+if(typeof data7 === "string"){
+if(!(formats2.validate(data7))){
+const err22 = {instancePath:instancePath+"/created_at",schemaPath:"#/properties/created_at/format",keyword:"format",params:{format: "date-time"},message:"must match format \""+"date-time"+"\""};
+if(vErrors === null){
+vErrors = [err22];
+}
+else {
+vErrors.push(err22);
+}
+errors++;
+}
+}
+else {
+const err23 = {instancePath:instancePath+"/created_at",schemaPath:"#/properties/created_at/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err23];
+}
+else {
+vErrors.push(err23);
+}
+errors++;
+}
+}
+if(data.latest_result !== undefined){
+let data8 = data.latest_result;
+const _errs23 = errors;
+let valid2 = false;
+const _errs24 = errors;
+if(data8 && typeof data8 == "object" && !Array.isArray(data8)){
+if(data8.id === undefined){
+const err24 = {instancePath:instancePath+"/latest_result",schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
+if(vErrors === null){
+vErrors = [err24];
+}
+else {
+vErrors.push(err24);
+}
+errors++;
+}
+if(data8.verification_run_id === undefined){
+const err25 = {instancePath:instancePath+"/latest_result",schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/required",keyword:"required",params:{missingProperty: "verification_run_id"},message:"must have required property '"+"verification_run_id"+"'"};
+if(vErrors === null){
+vErrors = [err25];
+}
+else {
+vErrors.push(err25);
+}
+errors++;
+}
+if(data8.revision === undefined){
+const err26 = {instancePath:instancePath+"/latest_result",schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/required",keyword:"required",params:{missingProperty: "revision"},message:"must have required property '"+"revision"+"'"};
+if(vErrors === null){
+vErrors = [err26];
+}
+else {
+vErrors.push(err26);
+}
+errors++;
+}
+if(data8.verdict === undefined){
+const err27 = {instancePath:instancePath+"/latest_result",schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/required",keyword:"required",params:{missingProperty: "verdict"},message:"must have required property '"+"verdict"+"'"};
+if(vErrors === null){
+vErrors = [err27];
+}
+else {
+vErrors.push(err27);
+}
+errors++;
+}
+if(data8.reason === undefined){
+const err28 = {instancePath:instancePath+"/latest_result",schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/required",keyword:"required",params:{missingProperty: "reason"},message:"must have required property '"+"reason"+"'"};
+if(vErrors === null){
+vErrors = [err28];
+}
+else {
+vErrors.push(err28);
+}
+errors++;
+}
+if(data8.limitations === undefined){
+const err29 = {instancePath:instancePath+"/latest_result",schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/required",keyword:"required",params:{missingProperty: "limitations"},message:"must have required property '"+"limitations"+"'"};
+if(vErrors === null){
+vErrors = [err29];
+}
+else {
+vErrors.push(err29);
+}
+errors++;
+}
+if(data8.supersedes_result_id === undefined){
+const err30 = {instancePath:instancePath+"/latest_result",schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/required",keyword:"required",params:{missingProperty: "supersedes_result_id"},message:"must have required property '"+"supersedes_result_id"+"'"};
+if(vErrors === null){
+vErrors = [err30];
+}
+else {
+vErrors.push(err30);
+}
+errors++;
+}
+if(data8.created_at === undefined){
+const err31 = {instancePath:instancePath+"/latest_result",schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/required",keyword:"required",params:{missingProperty: "created_at"},message:"must have required property '"+"created_at"+"'"};
+if(vErrors === null){
+vErrors = [err31];
+}
+else {
+vErrors.push(err31);
+}
+errors++;
+}
+for(const key1 in data8){
+if(!((((((((key1 === "id") || (key1 === "verification_run_id")) || (key1 === "revision")) || (key1 === "verdict")) || (key1 === "reason")) || (key1 === "limitations")) || (key1 === "supersedes_result_id")) || (key1 === "created_at"))){
+const err32 = {instancePath:instancePath+"/latest_result",schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key1},message:"must NOT have additional properties"};
+if(vErrors === null){
+vErrors = [err32];
+}
+else {
+vErrors.push(err32);
+}
+errors++;
+}
+}
+if(data8.id !== undefined){
+let data9 = data8.id;
+if(typeof data9 === "string"){
+if(!(formats0.test(data9))){
+const err33 = {instancePath:instancePath+"/latest_result/id",schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/properties/id/format",keyword:"format",params:{format: "uuid"},message:"must match format \""+"uuid"+"\""};
+if(vErrors === null){
+vErrors = [err33];
+}
+else {
+vErrors.push(err33);
+}
+errors++;
+}
+}
+else {
+const err34 = {instancePath:instancePath+"/latest_result/id",schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err34];
+}
+else {
+vErrors.push(err34);
+}
+errors++;
+}
+}
+if(data8.verification_run_id !== undefined){
+let data10 = data8.verification_run_id;
+if(typeof data10 === "string"){
+if(!(formats0.test(data10))){
+const err35 = {instancePath:instancePath+"/latest_result/verification_run_id",schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/properties/verification_run_id/format",keyword:"format",params:{format: "uuid"},message:"must match format \""+"uuid"+"\""};
+if(vErrors === null){
+vErrors = [err35];
+}
+else {
+vErrors.push(err35);
+}
+errors++;
+}
+}
+else {
+const err36 = {instancePath:instancePath+"/latest_result/verification_run_id",schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/properties/verification_run_id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err36];
+}
+else {
+vErrors.push(err36);
+}
+errors++;
+}
+}
+if(data8.revision !== undefined){
+let data11 = data8.revision;
+if(!(((typeof data11 == "number") && (!(data11 % 1) && !isNaN(data11))) && (isFinite(data11)))){
+const err37 = {instancePath:instancePath+"/latest_result/revision",schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/properties/revision/type",keyword:"type",params:{type: "integer"},message:"must be integer"};
+if(vErrors === null){
+vErrors = [err37];
+}
+else {
+vErrors.push(err37);
+}
+errors++;
+}
+if((typeof data11 == "number") && (isFinite(data11))){
+if(data11 < 1 || isNaN(data11)){
+const err38 = {instancePath:instancePath+"/latest_result/revision",schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/properties/revision/minimum",keyword:"minimum",params:{comparison: ">=", limit: 1},message:"must be >= 1"};
+if(vErrors === null){
+vErrors = [err38];
+}
+else {
+vErrors.push(err38);
+}
+errors++;
+}
+}
+}
+if(data8.verdict !== undefined){
+let data12 = data8.verdict;
+if(typeof data12 !== "string"){
+const err39 = {instancePath:instancePath+"/latest_result/verdict",schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/properties/verdict/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err39];
+}
+else {
+vErrors.push(err39);
+}
+errors++;
+}
+if(!((((data12 === "unassessed") || (data12 === "confirmed")) || (data12 === "not_reproduced")) || (data12 === "inconclusive"))){
+const err40 = {instancePath:instancePath+"/latest_result/verdict",schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/properties/verdict/enum",keyword:"enum",params:{allowedValues: schema125.properties.verdict.enum},message:"must be equal to one of the allowed values"};
+if(vErrors === null){
+vErrors = [err40];
+}
+else {
+vErrors.push(err40);
+}
+errors++;
+}
+}
+if(data8.reason !== undefined){
+if(typeof data8.reason !== "string"){
+const err41 = {instancePath:instancePath+"/latest_result/reason",schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/properties/reason/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err41];
+}
+else {
+vErrors.push(err41);
+}
+errors++;
+}
+}
+if(data8.limitations !== undefined){
+let data14 = data8.limitations;
+if(Array.isArray(data14)){
+const len0 = data14.length;
+for(let i0=0; i0<len0; i0++){
+if(typeof data14[i0] !== "string"){
+const err42 = {instancePath:instancePath+"/latest_result/limitations/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/properties/limitations/items/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err42];
+}
+else {
+vErrors.push(err42);
+}
+errors++;
+}
+}
+}
+else {
+const err43 = {instancePath:instancePath+"/latest_result/limitations",schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/properties/limitations/type",keyword:"type",params:{type: "array"},message:"must be array"};
+if(vErrors === null){
+vErrors = [err43];
+}
+else {
+vErrors.push(err43);
+}
+errors++;
+}
+}
+if(data8.supersedes_result_id !== undefined){
+let data16 = data8.supersedes_result_id;
+const _errs43 = errors;
+let valid7 = false;
+const _errs44 = errors;
+if(typeof data16 === "string"){
+if(!(formats0.test(data16))){
+const err44 = {instancePath:instancePath+"/latest_result/supersedes_result_id",schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/properties/supersedes_result_id/anyOf/0/format",keyword:"format",params:{format: "uuid"},message:"must match format \""+"uuid"+"\""};
+if(vErrors === null){
+vErrors = [err44];
+}
+else {
+vErrors.push(err44);
+}
+errors++;
+}
+}
+else {
+const err45 = {instancePath:instancePath+"/latest_result/supersedes_result_id",schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/properties/supersedes_result_id/anyOf/0/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err45];
+}
+else {
+vErrors.push(err45);
+}
+errors++;
+}
+var _valid2 = _errs44 === errors;
+valid7 = valid7 || _valid2;
+const _errs46 = errors;
+if(data16 !== null){
+const err46 = {instancePath:instancePath+"/latest_result/supersedes_result_id",schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/properties/supersedes_result_id/anyOf/1/type",keyword:"type",params:{type: "null"},message:"must be null"};
+if(vErrors === null){
+vErrors = [err46];
+}
+else {
+vErrors.push(err46);
+}
+errors++;
+}
+var _valid2 = _errs46 === errors;
+valid7 = valid7 || _valid2;
+if(!valid7){
+const err47 = {instancePath:instancePath+"/latest_result/supersedes_result_id",schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/properties/supersedes_result_id/anyOf",keyword:"anyOf",params:{},message:"must match a schema in anyOf"};
+if(vErrors === null){
+vErrors = [err47];
+}
+else {
+vErrors.push(err47);
+}
+errors++;
+}
+else {
+errors = _errs43;
+if(vErrors !== null){
+if(_errs43){
+vErrors.length = _errs43;
+}
+else {
+vErrors = null;
+}
+}
+}
+}
+if(data8.created_at !== undefined){
+let data17 = data8.created_at;
+if(typeof data17 === "string"){
+if(!(formats2.validate(data17))){
+const err48 = {instancePath:instancePath+"/latest_result/created_at",schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/properties/created_at/format",keyword:"format",params:{format: "date-time"},message:"must match format \""+"date-time"+"\""};
+if(vErrors === null){
+vErrors = [err48];
+}
+else {
+vErrors.push(err48);
+}
+errors++;
+}
+}
+else {
+const err49 = {instancePath:instancePath+"/latest_result/created_at",schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/properties/created_at/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err49];
+}
+else {
+vErrors.push(err49);
+}
+errors++;
+}
+}
+}
+else {
+const err50 = {instancePath:instancePath+"/latest_result",schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(vErrors === null){
+vErrors = [err50];
+}
+else {
+vErrors.push(err50);
+}
+errors++;
+}
+var _valid1 = _errs24 === errors;
+valid2 = valid2 || _valid1;
+const _errs50 = errors;
+if(data8 !== null){
+const err51 = {instancePath:instancePath+"/latest_result",schemaPath:"#/properties/latest_result/anyOf/1/type",keyword:"type",params:{type: "null"},message:"must be null"};
+if(vErrors === null){
+vErrors = [err51];
+}
+else {
+vErrors.push(err51);
+}
+errors++;
+}
+var _valid1 = _errs50 === errors;
+valid2 = valid2 || _valid1;
+if(!valid2){
+const err52 = {instancePath:instancePath+"/latest_result",schemaPath:"#/properties/latest_result/anyOf",keyword:"anyOf",params:{},message:"must match a schema in anyOf"};
+if(vErrors === null){
+vErrors = [err52];
+}
+else {
+vErrors.push(err52);
+}
+errors++;
+}
+else {
+errors = _errs23;
+if(vErrors !== null){
+if(_errs23){
+vErrors.length = _errs23;
+}
+else {
+vErrors = null;
+}
+}
+}
+}
+}
+else {
+const err53 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(vErrors === null){
+vErrors = [err53];
+}
+else {
+vErrors.push(err53);
+}
+errors++;
+}
+validate106.errors = vErrors;
+return errors === 0;
+}
+validate106.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
+
+
+function validate105(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
+let vErrors = null;
+let errors = 0;
+const evaluated0 = validate105.evaluated;
+if(evaluated0.dynamicProps){
+evaluated0.props = undefined;
+}
+if(evaluated0.dynamicItems){
+evaluated0.items = undefined;
+}
+if(data && typeof data == "object" && !Array.isArray(data)){
+if(data.items === undefined){
+const err0 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "items"},message:"must have required property '"+"items"+"'"};
+if(vErrors === null){
+vErrors = [err0];
+}
+else {
+vErrors.push(err0);
+}
+errors++;
+}
+if(data.next_cursor === undefined){
+const err1 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "next_cursor"},message:"must have required property '"+"next_cursor"+"'"};
+if(vErrors === null){
+vErrors = [err1];
+}
+else {
+vErrors.push(err1);
+}
+errors++;
+}
+for(const key0 in data){
+if(!((key0 === "items") || (key0 === "next_cursor"))){
+const err2 = {instancePath,schemaPath:"#/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key0},message:"must NOT have additional properties"};
+if(vErrors === null){
+vErrors = [err2];
+}
+else {
+vErrors.push(err2);
+}
+errors++;
+}
+}
+if(data.items !== undefined){
+let data0 = data.items;
+if(Array.isArray(data0)){
+if(data0.length > 100){
+const err3 = {instancePath:instancePath+"/items",schemaPath:"#/properties/items/maxItems",keyword:"maxItems",params:{limit: 100},message:"must NOT have more than 100 items"};
+if(vErrors === null){
+vErrors = [err3];
+}
+else {
+vErrors.push(err3);
+}
+errors++;
+}
+const len0 = data0.length;
+for(let i0=0; i0<len0; i0++){
+if(!(validate106(data0[i0], {instancePath:instancePath+"/items/" + i0,parentData:data0,parentDataProperty:i0,rootData,dynamicAnchors}))){
+vErrors = vErrors === null ? validate106.errors : vErrors.concat(validate106.errors);
+errors = vErrors.length;
+}
+}
+}
+else {
+const err4 = {instancePath:instancePath+"/items",schemaPath:"#/properties/items/type",keyword:"type",params:{type: "array"},message:"must be array"};
+if(vErrors === null){
+vErrors = [err4];
+}
+else {
+vErrors.push(err4);
+}
+errors++;
+}
+}
+if(data.next_cursor !== undefined){
+let data2 = data.next_cursor;
+const _errs6 = errors;
+let valid3 = false;
+const _errs7 = errors;
+if(typeof data2 !== "string"){
+const err5 = {instancePath:instancePath+"/next_cursor",schemaPath:"#/properties/next_cursor/anyOf/0/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err5];
+}
+else {
+vErrors.push(err5);
+}
+errors++;
+}
+var _valid0 = _errs7 === errors;
+valid3 = valid3 || _valid0;
+const _errs9 = errors;
+if(data2 !== null){
+const err6 = {instancePath:instancePath+"/next_cursor",schemaPath:"#/properties/next_cursor/anyOf/1/type",keyword:"type",params:{type: "null"},message:"must be null"};
+if(vErrors === null){
+vErrors = [err6];
+}
+else {
+vErrors.push(err6);
+}
+errors++;
+}
+var _valid0 = _errs9 === errors;
+valid3 = valid3 || _valid0;
+if(!valid3){
+const err7 = {instancePath:instancePath+"/next_cursor",schemaPath:"#/properties/next_cursor/anyOf",keyword:"anyOf",params:{},message:"must match a schema in anyOf"};
+if(vErrors === null){
+vErrors = [err7];
+}
+else {
+vErrors.push(err7);
+}
+errors++;
+}
+else {
+errors = _errs6;
+if(vErrors !== null){
+if(_errs6){
+vErrors.length = _errs6;
+}
+else {
+vErrors = null;
+}
+}
+}
+}
+}
+else {
+const err8 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(vErrors === null){
+vErrors = [err8];
+}
+else {
+vErrors.push(err8);
+}
+errors++;
+}
+validate105.errors = vErrors;
+return errors === 0;
+}
+validate105.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
+
+export const validateVerificationDetail = validate108;
+const schema126 = {"additionalProperties":false,"properties":{"verification":{"$ref":"urn:wuji:contracts:0.5#/$defs/VerificationRun"},"results":{"items":{"$ref":"urn:wuji:contracts:0.5#/$defs/VerificationResult"},"maxItems":100,"title":"Results","type":"array"},"evidence":{"items":{"$ref":"urn:wuji:contracts:0.5#/$defs/EvidenceLink"},"maxItems":200,"title":"Evidence","type":"array"}},"required":["verification","results","evidence"],"title":"VerificationDetail","type":"object"};
+const schema128 = {"additionalProperties":false,"properties":{"id":{"format":"uuid","title":"Id","type":"string"},"verification_result_id":{"format":"uuid","title":"Verification Result Id","type":"string"},"observation_id":{"format":"uuid","title":"Observation Id","type":"string"},"artifact_id":{"format":"uuid","title":"Artifact Id","type":"string"},"relation":{"enum":["supports","refutes","limits"],"title":"Relation","type":"string"},"selector":{"additionalProperties":true,"title":"Selector","type":"object"}},"required":["id","verification_result_id","observation_id","artifact_id","relation","selector"],"title":"EvidenceLink","type":"object"};
+
+function validate108(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
+let vErrors = null;
+let errors = 0;
+const evaluated0 = validate108.evaluated;
+if(evaluated0.dynamicProps){
+evaluated0.props = undefined;
+}
+if(evaluated0.dynamicItems){
+evaluated0.items = undefined;
+}
+if(data && typeof data == "object" && !Array.isArray(data)){
+if(data.verification === undefined){
+const err0 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "verification"},message:"must have required property '"+"verification"+"'"};
+if(vErrors === null){
+vErrors = [err0];
+}
+else {
+vErrors.push(err0);
+}
+errors++;
+}
+if(data.results === undefined){
+const err1 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "results"},message:"must have required property '"+"results"+"'"};
+if(vErrors === null){
+vErrors = [err1];
+}
+else {
+vErrors.push(err1);
+}
+errors++;
+}
+if(data.evidence === undefined){
+const err2 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "evidence"},message:"must have required property '"+"evidence"+"'"};
+if(vErrors === null){
+vErrors = [err2];
+}
+else {
+vErrors.push(err2);
+}
+errors++;
+}
+for(const key0 in data){
+if(!(((key0 === "verification") || (key0 === "results")) || (key0 === "evidence"))){
+const err3 = {instancePath,schemaPath:"#/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key0},message:"must NOT have additional properties"};
+if(vErrors === null){
+vErrors = [err3];
+}
+else {
+vErrors.push(err3);
+}
+errors++;
+}
+}
+if(data.verification !== undefined){
+if(!(validate106(data.verification, {instancePath:instancePath+"/verification",parentData:data,parentDataProperty:"verification",rootData,dynamicAnchors}))){
+vErrors = vErrors === null ? validate106.errors : vErrors.concat(validate106.errors);
+errors = vErrors.length;
+}
+}
+if(data.results !== undefined){
+let data1 = data.results;
+if(Array.isArray(data1)){
+if(data1.length > 100){
+const err4 = {instancePath:instancePath+"/results",schemaPath:"#/properties/results/maxItems",keyword:"maxItems",params:{limit: 100},message:"must NOT have more than 100 items"};
+if(vErrors === null){
+vErrors = [err4];
+}
+else {
+vErrors.push(err4);
+}
+errors++;
+}
+const len0 = data1.length;
+for(let i0=0; i0<len0; i0++){
+let data2 = data1[i0];
+if(data2 && typeof data2 == "object" && !Array.isArray(data2)){
+if(data2.id === undefined){
+const err5 = {instancePath:instancePath+"/results/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
+if(vErrors === null){
+vErrors = [err5];
+}
+else {
+vErrors.push(err5);
+}
+errors++;
+}
+if(data2.verification_run_id === undefined){
+const err6 = {instancePath:instancePath+"/results/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/required",keyword:"required",params:{missingProperty: "verification_run_id"},message:"must have required property '"+"verification_run_id"+"'"};
+if(vErrors === null){
+vErrors = [err6];
+}
+else {
+vErrors.push(err6);
+}
+errors++;
+}
+if(data2.revision === undefined){
+const err7 = {instancePath:instancePath+"/results/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/required",keyword:"required",params:{missingProperty: "revision"},message:"must have required property '"+"revision"+"'"};
+if(vErrors === null){
+vErrors = [err7];
+}
+else {
+vErrors.push(err7);
+}
+errors++;
+}
+if(data2.verdict === undefined){
+const err8 = {instancePath:instancePath+"/results/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/required",keyword:"required",params:{missingProperty: "verdict"},message:"must have required property '"+"verdict"+"'"};
+if(vErrors === null){
+vErrors = [err8];
+}
+else {
+vErrors.push(err8);
+}
+errors++;
+}
+if(data2.reason === undefined){
+const err9 = {instancePath:instancePath+"/results/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/required",keyword:"required",params:{missingProperty: "reason"},message:"must have required property '"+"reason"+"'"};
+if(vErrors === null){
+vErrors = [err9];
+}
+else {
+vErrors.push(err9);
+}
+errors++;
+}
+if(data2.limitations === undefined){
+const err10 = {instancePath:instancePath+"/results/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/required",keyword:"required",params:{missingProperty: "limitations"},message:"must have required property '"+"limitations"+"'"};
+if(vErrors === null){
+vErrors = [err10];
+}
+else {
+vErrors.push(err10);
+}
+errors++;
+}
+if(data2.supersedes_result_id === undefined){
+const err11 = {instancePath:instancePath+"/results/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/required",keyword:"required",params:{missingProperty: "supersedes_result_id"},message:"must have required property '"+"supersedes_result_id"+"'"};
+if(vErrors === null){
+vErrors = [err11];
+}
+else {
+vErrors.push(err11);
+}
+errors++;
+}
+if(data2.created_at === undefined){
+const err12 = {instancePath:instancePath+"/results/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/required",keyword:"required",params:{missingProperty: "created_at"},message:"must have required property '"+"created_at"+"'"};
+if(vErrors === null){
+vErrors = [err12];
+}
+else {
+vErrors.push(err12);
+}
+errors++;
+}
+for(const key1 in data2){
+if(!((((((((key1 === "id") || (key1 === "verification_run_id")) || (key1 === "revision")) || (key1 === "verdict")) || (key1 === "reason")) || (key1 === "limitations")) || (key1 === "supersedes_result_id")) || (key1 === "created_at"))){
+const err13 = {instancePath:instancePath+"/results/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key1},message:"must NOT have additional properties"};
+if(vErrors === null){
+vErrors = [err13];
+}
+else {
+vErrors.push(err13);
+}
+errors++;
+}
+}
+if(data2.id !== undefined){
+let data3 = data2.id;
+if(typeof data3 === "string"){
+if(!(formats0.test(data3))){
+const err14 = {instancePath:instancePath+"/results/" + i0+"/id",schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/properties/id/format",keyword:"format",params:{format: "uuid"},message:"must match format \""+"uuid"+"\""};
+if(vErrors === null){
+vErrors = [err14];
+}
+else {
+vErrors.push(err14);
+}
+errors++;
+}
+}
+else {
+const err15 = {instancePath:instancePath+"/results/" + i0+"/id",schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err15];
+}
+else {
+vErrors.push(err15);
+}
+errors++;
+}
+}
+if(data2.verification_run_id !== undefined){
+let data4 = data2.verification_run_id;
+if(typeof data4 === "string"){
+if(!(formats0.test(data4))){
+const err16 = {instancePath:instancePath+"/results/" + i0+"/verification_run_id",schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/properties/verification_run_id/format",keyword:"format",params:{format: "uuid"},message:"must match format \""+"uuid"+"\""};
+if(vErrors === null){
+vErrors = [err16];
+}
+else {
+vErrors.push(err16);
+}
+errors++;
+}
+}
+else {
+const err17 = {instancePath:instancePath+"/results/" + i0+"/verification_run_id",schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/properties/verification_run_id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err17];
+}
+else {
+vErrors.push(err17);
+}
+errors++;
+}
+}
+if(data2.revision !== undefined){
+let data5 = data2.revision;
+if(!(((typeof data5 == "number") && (!(data5 % 1) && !isNaN(data5))) && (isFinite(data5)))){
+const err18 = {instancePath:instancePath+"/results/" + i0+"/revision",schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/properties/revision/type",keyword:"type",params:{type: "integer"},message:"must be integer"};
+if(vErrors === null){
+vErrors = [err18];
+}
+else {
+vErrors.push(err18);
+}
+errors++;
+}
+if((typeof data5 == "number") && (isFinite(data5))){
+if(data5 < 1 || isNaN(data5)){
+const err19 = {instancePath:instancePath+"/results/" + i0+"/revision",schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/properties/revision/minimum",keyword:"minimum",params:{comparison: ">=", limit: 1},message:"must be >= 1"};
+if(vErrors === null){
+vErrors = [err19];
+}
+else {
+vErrors.push(err19);
+}
+errors++;
+}
+}
+}
+if(data2.verdict !== undefined){
+let data6 = data2.verdict;
+if(typeof data6 !== "string"){
+const err20 = {instancePath:instancePath+"/results/" + i0+"/verdict",schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/properties/verdict/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err20];
+}
+else {
+vErrors.push(err20);
+}
+errors++;
+}
+if(!((((data6 === "unassessed") || (data6 === "confirmed")) || (data6 === "not_reproduced")) || (data6 === "inconclusive"))){
+const err21 = {instancePath:instancePath+"/results/" + i0+"/verdict",schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/properties/verdict/enum",keyword:"enum",params:{allowedValues: schema125.properties.verdict.enum},message:"must be equal to one of the allowed values"};
+if(vErrors === null){
+vErrors = [err21];
+}
+else {
+vErrors.push(err21);
+}
+errors++;
+}
+}
+if(data2.reason !== undefined){
+if(typeof data2.reason !== "string"){
+const err22 = {instancePath:instancePath+"/results/" + i0+"/reason",schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/properties/reason/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err22];
+}
+else {
+vErrors.push(err22);
+}
+errors++;
+}
+}
+if(data2.limitations !== undefined){
+let data8 = data2.limitations;
+if(Array.isArray(data8)){
+const len1 = data8.length;
+for(let i1=0; i1<len1; i1++){
+if(typeof data8[i1] !== "string"){
+const err23 = {instancePath:instancePath+"/results/" + i0+"/limitations/" + i1,schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/properties/limitations/items/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err23];
+}
+else {
+vErrors.push(err23);
+}
+errors++;
+}
+}
+}
+else {
+const err24 = {instancePath:instancePath+"/results/" + i0+"/limitations",schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/properties/limitations/type",keyword:"type",params:{type: "array"},message:"must be array"};
+if(vErrors === null){
+vErrors = [err24];
+}
+else {
+vErrors.push(err24);
+}
+errors++;
+}
+}
+if(data2.supersedes_result_id !== undefined){
+let data10 = data2.supersedes_result_id;
+const _errs24 = errors;
+let valid7 = false;
+const _errs25 = errors;
+if(typeof data10 === "string"){
+if(!(formats0.test(data10))){
+const err25 = {instancePath:instancePath+"/results/" + i0+"/supersedes_result_id",schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/properties/supersedes_result_id/anyOf/0/format",keyword:"format",params:{format: "uuid"},message:"must match format \""+"uuid"+"\""};
+if(vErrors === null){
+vErrors = [err25];
+}
+else {
+vErrors.push(err25);
+}
+errors++;
+}
+}
+else {
+const err26 = {instancePath:instancePath+"/results/" + i0+"/supersedes_result_id",schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/properties/supersedes_result_id/anyOf/0/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err26];
+}
+else {
+vErrors.push(err26);
+}
+errors++;
+}
+var _valid0 = _errs25 === errors;
+valid7 = valid7 || _valid0;
+const _errs27 = errors;
+if(data10 !== null){
+const err27 = {instancePath:instancePath+"/results/" + i0+"/supersedes_result_id",schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/properties/supersedes_result_id/anyOf/1/type",keyword:"type",params:{type: "null"},message:"must be null"};
+if(vErrors === null){
+vErrors = [err27];
+}
+else {
+vErrors.push(err27);
+}
+errors++;
+}
+var _valid0 = _errs27 === errors;
+valid7 = valid7 || _valid0;
+if(!valid7){
+const err28 = {instancePath:instancePath+"/results/" + i0+"/supersedes_result_id",schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/properties/supersedes_result_id/anyOf",keyword:"anyOf",params:{},message:"must match a schema in anyOf"};
+if(vErrors === null){
+vErrors = [err28];
+}
+else {
+vErrors.push(err28);
+}
+errors++;
+}
+else {
+errors = _errs24;
+if(vErrors !== null){
+if(_errs24){
+vErrors.length = _errs24;
+}
+else {
+vErrors = null;
+}
+}
+}
+}
+if(data2.created_at !== undefined){
+let data11 = data2.created_at;
+if(typeof data11 === "string"){
+if(!(formats2.validate(data11))){
+const err29 = {instancePath:instancePath+"/results/" + i0+"/created_at",schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/properties/created_at/format",keyword:"format",params:{format: "date-time"},message:"must match format \""+"date-time"+"\""};
+if(vErrors === null){
+vErrors = [err29];
+}
+else {
+vErrors.push(err29);
+}
+errors++;
+}
+}
+else {
+const err30 = {instancePath:instancePath+"/results/" + i0+"/created_at",schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/properties/created_at/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err30];
+}
+else {
+vErrors.push(err30);
+}
+errors++;
+}
+}
+}
+else {
+const err31 = {instancePath:instancePath+"/results/" + i0,schemaPath:"urn:wuji:contracts:0.5#/$defs/VerificationResult/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(vErrors === null){
+vErrors = [err31];
+}
+else {
+vErrors.push(err31);
+}
+errors++;
+}
+}
+}
+else {
+const err32 = {instancePath:instancePath+"/results",schemaPath:"#/properties/results/type",keyword:"type",params:{type: "array"},message:"must be array"};
+if(vErrors === null){
+vErrors = [err32];
+}
+else {
+vErrors.push(err32);
+}
+errors++;
+}
+}
+if(data.evidence !== undefined){
+let data12 = data.evidence;
+if(Array.isArray(data12)){
+if(data12.length > 200){
+const err33 = {instancePath:instancePath+"/evidence",schemaPath:"#/properties/evidence/maxItems",keyword:"maxItems",params:{limit: 200},message:"must NOT have more than 200 items"};
+if(vErrors === null){
+vErrors = [err33];
+}
+else {
+vErrors.push(err33);
+}
+errors++;
+}
+const len2 = data12.length;
+for(let i2=0; i2<len2; i2++){
+let data13 = data12[i2];
+if(data13 && typeof data13 == "object" && !Array.isArray(data13)){
+if(data13.id === undefined){
+const err34 = {instancePath:instancePath+"/evidence/" + i2,schemaPath:"urn:wuji:contracts:0.5#/$defs/EvidenceLink/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
+if(vErrors === null){
+vErrors = [err34];
+}
+else {
+vErrors.push(err34);
+}
+errors++;
+}
+if(data13.verification_result_id === undefined){
+const err35 = {instancePath:instancePath+"/evidence/" + i2,schemaPath:"urn:wuji:contracts:0.5#/$defs/EvidenceLink/required",keyword:"required",params:{missingProperty: "verification_result_id"},message:"must have required property '"+"verification_result_id"+"'"};
+if(vErrors === null){
+vErrors = [err35];
+}
+else {
+vErrors.push(err35);
+}
+errors++;
+}
+if(data13.observation_id === undefined){
+const err36 = {instancePath:instancePath+"/evidence/" + i2,schemaPath:"urn:wuji:contracts:0.5#/$defs/EvidenceLink/required",keyword:"required",params:{missingProperty: "observation_id"},message:"must have required property '"+"observation_id"+"'"};
+if(vErrors === null){
+vErrors = [err36];
+}
+else {
+vErrors.push(err36);
+}
+errors++;
+}
+if(data13.artifact_id === undefined){
+const err37 = {instancePath:instancePath+"/evidence/" + i2,schemaPath:"urn:wuji:contracts:0.5#/$defs/EvidenceLink/required",keyword:"required",params:{missingProperty: "artifact_id"},message:"must have required property '"+"artifact_id"+"'"};
+if(vErrors === null){
+vErrors = [err37];
+}
+else {
+vErrors.push(err37);
+}
+errors++;
+}
+if(data13.relation === undefined){
+const err38 = {instancePath:instancePath+"/evidence/" + i2,schemaPath:"urn:wuji:contracts:0.5#/$defs/EvidenceLink/required",keyword:"required",params:{missingProperty: "relation"},message:"must have required property '"+"relation"+"'"};
+if(vErrors === null){
+vErrors = [err38];
+}
+else {
+vErrors.push(err38);
+}
+errors++;
+}
+if(data13.selector === undefined){
+const err39 = {instancePath:instancePath+"/evidence/" + i2,schemaPath:"urn:wuji:contracts:0.5#/$defs/EvidenceLink/required",keyword:"required",params:{missingProperty: "selector"},message:"must have required property '"+"selector"+"'"};
+if(vErrors === null){
+vErrors = [err39];
+}
+else {
+vErrors.push(err39);
+}
+errors++;
+}
+for(const key2 in data13){
+if(!((((((key2 === "id") || (key2 === "verification_result_id")) || (key2 === "observation_id")) || (key2 === "artifact_id")) || (key2 === "relation")) || (key2 === "selector"))){
+const err40 = {instancePath:instancePath+"/evidence/" + i2,schemaPath:"urn:wuji:contracts:0.5#/$defs/EvidenceLink/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key2},message:"must NOT have additional properties"};
+if(vErrors === null){
+vErrors = [err40];
+}
+else {
+vErrors.push(err40);
+}
+errors++;
+}
+}
+if(data13.id !== undefined){
+let data14 = data13.id;
+if(typeof data14 === "string"){
+if(!(formats0.test(data14))){
+const err41 = {instancePath:instancePath+"/evidence/" + i2+"/id",schemaPath:"urn:wuji:contracts:0.5#/$defs/EvidenceLink/properties/id/format",keyword:"format",params:{format: "uuid"},message:"must match format \""+"uuid"+"\""};
+if(vErrors === null){
+vErrors = [err41];
+}
+else {
+vErrors.push(err41);
+}
+errors++;
+}
+}
+else {
+const err42 = {instancePath:instancePath+"/evidence/" + i2+"/id",schemaPath:"urn:wuji:contracts:0.5#/$defs/EvidenceLink/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err42];
+}
+else {
+vErrors.push(err42);
+}
+errors++;
+}
+}
+if(data13.verification_result_id !== undefined){
+let data15 = data13.verification_result_id;
+if(typeof data15 === "string"){
+if(!(formats0.test(data15))){
+const err43 = {instancePath:instancePath+"/evidence/" + i2+"/verification_result_id",schemaPath:"urn:wuji:contracts:0.5#/$defs/EvidenceLink/properties/verification_result_id/format",keyword:"format",params:{format: "uuid"},message:"must match format \""+"uuid"+"\""};
+if(vErrors === null){
+vErrors = [err43];
+}
+else {
+vErrors.push(err43);
+}
+errors++;
+}
+}
+else {
+const err44 = {instancePath:instancePath+"/evidence/" + i2+"/verification_result_id",schemaPath:"urn:wuji:contracts:0.5#/$defs/EvidenceLink/properties/verification_result_id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err44];
+}
+else {
+vErrors.push(err44);
+}
+errors++;
+}
+}
+if(data13.observation_id !== undefined){
+let data16 = data13.observation_id;
+if(typeof data16 === "string"){
+if(!(formats0.test(data16))){
+const err45 = {instancePath:instancePath+"/evidence/" + i2+"/observation_id",schemaPath:"urn:wuji:contracts:0.5#/$defs/EvidenceLink/properties/observation_id/format",keyword:"format",params:{format: "uuid"},message:"must match format \""+"uuid"+"\""};
+if(vErrors === null){
+vErrors = [err45];
+}
+else {
+vErrors.push(err45);
+}
+errors++;
+}
+}
+else {
+const err46 = {instancePath:instancePath+"/evidence/" + i2+"/observation_id",schemaPath:"urn:wuji:contracts:0.5#/$defs/EvidenceLink/properties/observation_id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err46];
+}
+else {
+vErrors.push(err46);
+}
+errors++;
+}
+}
+if(data13.artifact_id !== undefined){
+let data17 = data13.artifact_id;
+if(typeof data17 === "string"){
+if(!(formats0.test(data17))){
+const err47 = {instancePath:instancePath+"/evidence/" + i2+"/artifact_id",schemaPath:"urn:wuji:contracts:0.5#/$defs/EvidenceLink/properties/artifact_id/format",keyword:"format",params:{format: "uuid"},message:"must match format \""+"uuid"+"\""};
+if(vErrors === null){
+vErrors = [err47];
+}
+else {
+vErrors.push(err47);
+}
+errors++;
+}
+}
+else {
+const err48 = {instancePath:instancePath+"/evidence/" + i2+"/artifact_id",schemaPath:"urn:wuji:contracts:0.5#/$defs/EvidenceLink/properties/artifact_id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err48];
+}
+else {
+vErrors.push(err48);
+}
+errors++;
+}
+}
+if(data13.relation !== undefined){
+let data18 = data13.relation;
+if(typeof data18 !== "string"){
+const err49 = {instancePath:instancePath+"/evidence/" + i2+"/relation",schemaPath:"urn:wuji:contracts:0.5#/$defs/EvidenceLink/properties/relation/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err49];
+}
+else {
+vErrors.push(err49);
+}
+errors++;
+}
+if(!(((data18 === "supports") || (data18 === "refutes")) || (data18 === "limits"))){
+const err50 = {instancePath:instancePath+"/evidence/" + i2+"/relation",schemaPath:"urn:wuji:contracts:0.5#/$defs/EvidenceLink/properties/relation/enum",keyword:"enum",params:{allowedValues: schema128.properties.relation.enum},message:"must be equal to one of the allowed values"};
+if(vErrors === null){
+vErrors = [err50];
+}
+else {
+vErrors.push(err50);
+}
+errors++;
+}
+}
+if(data13.selector !== undefined){
+let data19 = data13.selector;
+if(data19 && typeof data19 == "object" && !Array.isArray(data19)){
+}
+else {
+const err51 = {instancePath:instancePath+"/evidence/" + i2+"/selector",schemaPath:"urn:wuji:contracts:0.5#/$defs/EvidenceLink/properties/selector/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(vErrors === null){
+vErrors = [err51];
+}
+else {
+vErrors.push(err51);
+}
+errors++;
+}
+}
+}
+else {
+const err52 = {instancePath:instancePath+"/evidence/" + i2,schemaPath:"urn:wuji:contracts:0.5#/$defs/EvidenceLink/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(vErrors === null){
+vErrors = [err52];
+}
+else {
+vErrors.push(err52);
+}
+errors++;
+}
+}
+}
+else {
+const err53 = {instancePath:instancePath+"/evidence",schemaPath:"#/properties/evidence/type",keyword:"type",params:{type: "array"},message:"must be array"};
+if(vErrors === null){
+vErrors = [err53];
+}
+else {
+vErrors.push(err53);
+}
+errors++;
+}
+}
+}
+else {
+const err54 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(vErrors === null){
+vErrors = [err54];
+}
+else {
+vErrors.push(err54);
+}
+errors++;
+}
+validate108.errors = vErrors;
+return errors === 0;
+}
+validate108.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
+
+export const validateError = validate110;
+const schema129 = {"type":"object","additionalProperties":false,"required":["code","message","trace_id"],"properties":{"code":{"type":"string","enum":["UNAUTHENTICATED","FORBIDDEN","NOT_FOUND","VALIDATION_FAILED","SCOPE_DENIED","PREVIEW_EXPIRED","VERSION_CONFLICT","IDEMPOTENCY_CONFLICT","INVALID_TRANSITION","RATE_LIMITED","SERVICE_UNAVAILABLE","CURSOR_EXPIRED","INTERNAL_ERROR"]},"message":{"type":"string","minLength":1,"maxLength":500},"trace_id":{"type":"string","format":"uuid"},"field_errors":{"type":"array","maxItems":30,"items":{"type":"object","additionalProperties":false,"required":["field","message"],"properties":{"field":{"type":"string","minLength":1,"maxLength":128},"message":{"type":"string","minLength":1,"maxLength":300}}}}}};
+
+function validate110(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
+let vErrors = null;
+let errors = 0;
+const evaluated0 = validate110.evaluated;
 if(evaluated0.dynamicProps){
 evaluated0.props = undefined;
 }
@@ -24253,7 +27546,7 @@ vErrors.push(err4);
 errors++;
 }
 if(!(((((((((((((data0 === "UNAUTHENTICATED") || (data0 === "FORBIDDEN")) || (data0 === "NOT_FOUND")) || (data0 === "VALIDATION_FAILED")) || (data0 === "SCOPE_DENIED")) || (data0 === "PREVIEW_EXPIRED")) || (data0 === "VERSION_CONFLICT")) || (data0 === "IDEMPOTENCY_CONFLICT")) || (data0 === "INVALID_TRANSITION")) || (data0 === "RATE_LIMITED")) || (data0 === "SERVICE_UNAVAILABLE")) || (data0 === "CURSOR_EXPIRED")) || (data0 === "INTERNAL_ERROR"))){
-const err5 = {instancePath:instancePath+"/code",schemaPath:"#/properties/code/enum",keyword:"enum",params:{allowedValues: schema118.properties.code.enum},message:"must be equal to one of the allowed values"};
+const err5 = {instancePath:instancePath+"/code",schemaPath:"#/properties/code/enum",keyword:"enum",params:{allowedValues: schema129.properties.code.enum},message:"must be equal to one of the allowed values"};
 if(vErrors === null){
 vErrors = [err5];
 }
@@ -24477,7 +27770,7 @@ vErrors.push(err23);
 }
 errors++;
 }
-validate103.errors = vErrors;
+validate110.errors = vErrors;
 return errors === 0;
 }
-validate103.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
+validate110.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};

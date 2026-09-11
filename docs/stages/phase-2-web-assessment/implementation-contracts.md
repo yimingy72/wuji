@@ -1,0 +1,39 @@
+# W1 实施合同
+
+用户批准计划的落盘细化；主代理负责，状态in-progress。本文件定义当前实现合同，不将开发代码预先标为验收通过。
+
+## 数据与API
+
+迁移20260911_0008接0007，仅六表：assessment_plans、verification_runs、verification_result_revisions、observations、evidence_links、completion_reviews。CoverageItem保存在≤11项的严格JSON不可变计划快照中，按Task/资源/方法派生稳定ID。计划内容或有效证据进展变化才生成新revision；重复读和同内容观察不重置无进展计数。ToolCall保存候选输入/原摘要/回执，平台工具结束用completed而非伪造子进程回执。
+
+公开DTO权威定义apps/api/src/wuji_api/assessments.py；OpenAPI候选0.5.0和生成validator同步。GET /assessment、/verifications及/{id}、/observations；verification分页支持coverage_item_id，observation分页支持observation_id精确定位，均绑定游标过滤和Task权限。结果接口可选assessment={plan_id,revision,outcome}；不补算旧Task。
+
+验证方法固定cors-reflection-v1，身份匿名，候选工具参数为rule_id、1—2个已结束tool_call_ids、可选limitations和supersedes_result_id；主张文本由可信规则固定，模型不提交生效verdict。两组不同Origin的完整2xx GET才能判confirmed/not_reproduced；401/403记录unassessed/blocked，缺证据为inconclusive。纠错追加新VerificationRun及结果revision，引用原result；未被明确替代的强结论矛盾时覆盖项inconclusive，不能最后写者覆盖。
+
+## HTTP与证据
+
+http_request={url,method:GET|HEAD|OPTIONS,headers?:{Accept?,Origin?}}。Router正规化URL/头并核对Task授权与注册origin；Kali独立再校验，无redirect、代理或任意认证头。30秒、8KiB请求头、1MiB客户端解码正文；响应头名小写，敏感头值移除并记录名称。
+
+Helper返回exchange：schema_version=http.exchange.v1、url/method/request_headers、status/response_headers、body_base64/body_bytes/body_sha256/body_encoding=client-decoded、started_at/finished_at、complete、termination=complete|size_limit|timeout|cancelled|network_error、redacted_headers。验证回执内容与原请求及字节摘要一致后才登记Observation。
+
+沿用Artifact单对象1MiB限制：每次HTTP交换有元数据Artifact(artifact_id)及独立正文Artifact(body_artifact_id)，不把base64膨胀后的大JSON硬塞或放宽旧限制。Observation固定两者引用及元数据；EvidenceLink明确头/状态/完整性选择范围。模型只收≤8KiB正文摘录和引用，正文为工具观测字节，不是PCAP或TLS原包。
+
+## 平台工具与原生调度
+
+graph_read保留分配快照；W1返回snapshot_id/captured_at/digest/graph，旧fixture仍返回原结构。graph_refresh显式原生只读查询，失败不替换旧快照。assessment_read返回assessment与最多50条Observation摘要，供压缩后复用真实调用。evidence_read={observation_id,offset?,limit?≤8192}，按Task校验并校对双Artifact摘要；读取不访问目标。
+
+平台工具同样记录ToolCall/ToolAttempt，receipt.kind=platform，没有PID；Reason只读。明确输入/证据拒绝形成稳定失败结果，不能重新执行目标。verification_submit的结果、验证与证据关系在同一DB事务登记；重复原ToolCall读取原结果。
+
+Assignment绑定profile_id、明确allowed_fact_ids、不可变图引用及completion_feedback；刷新发现的新Fact不能扩大本轮from集合。Dispatcher传入其原生阶段实际看到的Fact集合，Core再次校验，不向Cairn Core添加字段。
+
+complete由平台评审后返回platform_decision={kind:needs_followup|stop_with_results,review_id}，这是平台控制信号，不是原生Core成功回执。Wuji包装完整调用原生Reason/Bootstrap，专用信号越过原生通用异常处理并经过finally释放租约；本地阶段返回已处理，Wuji的Run结果记录reviewed/needs_followup等真实语义。普通Core失败/unknown不转换。
+
+GET /internal/v1/dispatch/reason-requests/{native_project_id}提供持久待补充Reason触发；admit在Task锁内认领。第一次缺证据反馈，第二次同进展指纹无进展部分结束；有其他活动或unknown时只等待核对，不计为无进展。总Goal始终unknown，W1最终停原生Project而非写goal完成边。
+
+## 运行与压缩探针
+
+core prepare增加--profile，默认旧fixture；W1绑定实际Lab镜像/Deployment UID/Service UID到执行快照，Lab无Key/工作卷/SA令牌。副本/端口/模型网关及Task额度均沿用原约束。
+
+--compaction-probe仅W1测试配置可用：合成上游第二个W1非摘要响应报告20000输入用量一次，Pi本次Run只使用原生compaction enabled=true/reserveTokens=16384/keepRecentTokens=512；便于小规模测试压缩已有完整turn。关闭标记时不改原生默认策略。D2检查、旧Profile及摘要不消费探针。摘要内容为合成，正式原生事件和压缩后权限/记录读取需实际联合验收，不代表记忆质量或真实模型效果。
+
+Bootstrap原生execute合同强制同时返回fact/complete；其complete只交平台评审，不代表Goal达成。允许引用同一AgentRun已成功原生conclude返回的新Fact，这是原生Bootstrap交接，不是任意刷新扩权。Reason合成夹具排除已开放Intent的资源，避免对在途检查另造重复Intent。

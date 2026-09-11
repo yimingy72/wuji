@@ -68,7 +68,7 @@ class ExecutionStore:
                         raise InvalidTransition
                     authorization = await connection.scalar(text("SELECT valid_until FROM task_authorizations WHERE tenant_id=:tenant_id AND project_id=:project_id AND task_id=:task_id AND id=:id"),dict(params,id=creation["authorization_id"]))
                     if authorization is None or authorization <= now: raise InvalidTransition
-                    snapshot = dict(id=str(uuid4()),creation_config_id=str(task["creation_config_snapshot_id"]),profile_id=config["profile_id"],config={key:config[key] for key in ("profile_id","ready","namespace","agent_image","kali_image","fixture_origins","model_profile_version_id","model_base_url","control_url","max_agents","max_task_seconds","max_agent_turns","max_tool_calls") if key in config})
+                    snapshot = dict(id=str(uuid4()),creation_config_id=str(task["creation_config_snapshot_id"]),profile_id=config["profile_id"],config={key:config[key] for key in ("profile_id","ready","namespace","agent_image","kali_image","fixture_origins","model_profile_version_id","model_base_url","control_url","max_agents","max_task_seconds","max_agent_turns","max_tool_calls","assessment_profile","target_registration","target_image","compaction_probe") if key in config})
                     snapshot["config_digest"] = hashlib.sha256(json.dumps(snapshot,sort_keys=True,separators=(",",":"),ensure_ascii=False).encode()).hexdigest()
                     params.update(command_id=uuid4(),request_digest=request_digest,version=expected_version+1,
                         execution_id=uuid4(),epoch=task["execution_epoch"]+1,instance_id=service["instance_id"],snapshot=json.dumps(snapshot),
@@ -119,5 +119,5 @@ class ExecutionStore:
                 row = (await connection.execute(text("SELECT result,model_spend,cost_state FROM task_executions WHERE tenant_id=:tenant_id AND project_id=:project_id AND task_id=:task_id"),params)).mappings().one_or_none()
                 result = {} if row is None or row["result"] is None else row["result"]
                 return dict(state="available" if result else "pending",goal_status=result.get("goal_status","unknown"),summary=result.get("summary",""),limitations=result.get("limitations",[]),artifact_ids=result.get("artifact_ids",[]),
-                    model_spend=None if row is None or row["model_spend"] is None else str(row["model_spend"]),cost_state="unknown" if row is None else row["cost_state"])
+                    model_spend=None if row is None or row["model_spend"] is None else str(row["model_spend"]),cost_state="unknown" if row is None else row["cost_state"],assessment=result.get("assessment"))
         except SQLAlchemyError as error: raise AuthorityUnavailable from error

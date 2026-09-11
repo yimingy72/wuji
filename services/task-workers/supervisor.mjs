@@ -20,17 +20,32 @@ async function cancel(e){e.record.cancel_requested=true;await save(e.record);if(
 async function lease(){if(leaseBusy)return;leaseBusy=true;try{const u=new URL('/internal/v1/runtime/lease',cfg.control_url);for(const k of ['task_id','runtime_attempt','execution_epoch'])u.searchParams.set(k,String(cfg[k]));const r=await fetch(u,{headers:{Authorization:`Bearer ${leaseToken}`},signal:AbortSignal.timeout(3000)});const body=await r.json();if(r.ok&&body.allowed===true)leaseUntil=Math.min(Date.parse(body.expires_at),Date.now()+15000);else leaseUntil=0;}catch{}finally{leaseBusy=false;}}
 await lease();setInterval(lease,5000).unref();
 setInterval(()=>{for(const e of entries.values())if(e.child&&!e.record.cancel_requested&&(Date.now()>=leaseUntil||Date.now()>=e.deadline))void cancel(e);},250).unref();
-const allowed=['fixture_http','workspace_read','workspace_write','workspace_list','fixture_wait','task_read','graph_read','tool_wait','tool_cancel'];
+const kaliTools=['http_request','fixture_http','workspace_read','workspace_write','workspace_list','fixture_wait'];
+const allowed=['http_request','fixture_http','workspace_read','workspace_write','workspace_list','fixture_wait','task_read','graph_read','tool_wait','tool_cancel'];
+if(cfg.profile_id==='closed-web-assessment-v1')allowed.push('graph_refresh','assessment_read','evidence_read','verification_submit');
 const publicRecord=r=>({...r});
+function nativeSettings(assignment){
+ const settings={retry:{enabled:false,maxRetries:0,provider:{maxRetries:0}}};
+ const policy=assignment.context_policy;
+ if(policy===null||policy===undefined)return settings;
+ const exactKeys=(value,keys)=>value!==null&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value).sort().join(',')===keys.slice().sort().join(',');
+ if(cfg.profile_id!=='closed-web-assessment-v1'||assignment.profile_id!=='closed-web-assessment-v1'||!exactKeys(policy,['compaction'])||!exactKeys(policy.compaction,['enabled','reserveTokens','keepRecentTokens']))throw Error('context_policy_denied');
+ const compact=policy.compaction;
+ if(compact.enabled!==true||compact.reserveTokens!==16384||compact.keepRecentTokens!==512)throw Error('context_policy_denied');
+ settings.compaction={enabled:true,reserveTokens:16384,keepRecentTokens:512};
+ return settings;
+}
 async function launch(id,b){
  const identity=role==='agent'?b.assignment:b;
  for(const key of ['task_id','execution_epoch','runtime_attempt'])if(identity?.[key]!==cfg[key])throw Error('binding_mismatch');
  if(role==='agent')for(const key of ['tenant_id','project_id'])if(identity?.[key]!==cfg[key])throw Error('binding_mismatch');
+ if(role==='agent'&&('settings' in b||'settings' in identity))throw Error('dynamic_settings_denied');
+ const settings=role==='agent'?nativeSettings(identity):null;
  const hash=digest(JSON.stringify(b));const old=entries.get(id);if(old){if(old.record.request_digest!==hash)throw Error('id_conflict');return old;}
  if(Date.now()>=leaseUntil)throw Error('permit_expired');
  if(!b.operation_id)throw Error('operation_required');
  if(role==='agent'&&(!['bootstrap','reason','explore'].includes(b.phase)||!Array.isArray(b.tool_names)||b.tool_names.some(x=>!allowed.includes(x))||!b.tool_token))throw Error('invalid_run');
- if(role==='kali'&&!allowed.slice(0,5).includes(b.tool))throw Error('invalid_tool');
+ if(role==='kali'&&!kaliTools.includes(b.tool))throw Error('invalid_tool');
  const deadline=Math.min(Date.parse(role==='agent'?b.deadline:b.expires_at),Date.now()+(role==='agent'?90000:60000));if(!Number.isFinite(deadline)||deadline<=Date.now())throw Error('expired');
  const dir=path.join(state,id);await fs.mkdir(dir,{mode:0o700});
  const r={id,state:'registered',returncode:null,pid:null,started_at:null,finished_at:null,cancel_requested:false,output_digest:null,request_digest:hash};const e={record:r,deadline};entries.set(id,e);await save(r);
@@ -38,7 +53,7 @@ async function launch(id,b){
  if(role==='agent'){
  const {tool_token,...clean}=b;await fs.writeFile(path.join(dir,'tool_token'),tool_token,{mode:0o600});await fs.writeFile(path.join(dir,'run.json'),JSON.stringify(clean),{mode:0o600});
  const piDir=path.join(dir,'pi');await fs.mkdir(piDir,{mode:0o700});
- await fs.writeFile(path.join(piDir,'settings.json'),JSON.stringify({retry:{enabled:false,maxRetries:0,provider:{maxRetries:0}}}),{mode:0o600});
+ await fs.writeFile(path.join(piDir,'settings.json'),JSON.stringify(settings),{mode:0o600});
  env={...env,PI_CODING_AGENT_DIR:piDir,WUJI_RUN_DIR:dir,WUJI_MODEL_KEY_FILE:path.join(creds,'model_key')};
  executable=path.join(import.meta.dirname,'node_modules/.bin/pi');args=['--mode','json','--print','--no-extensions','--no-skills','--no-prompt-templates','--no-themes','--no-context-files','--no-builtin-tools','-e',path.join(import.meta.dirname,'trusted-extension.ts'),'--provider','wuji','--model',b.model.model_id,'--session',path.join(dir,'session.jsonl'),b.prompt];
  }else{await fs.writeFile(path.join(dir,'call.json'),JSON.stringify(b),{mode:0o600});args=[path.join(import.meta.dirname,'helper.mjs'),path.join(dir,'call.json')];}

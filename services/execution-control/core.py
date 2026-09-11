@@ -19,6 +19,11 @@ from artifacts import ArtifactFileStore
 from model_budget import TaskModelGateway,GatewayUnknown,GatewayRejected
 from store import Store,dump,utcnow
 from grants import issue,verify
+from assessment import WebAssessment,AssessmentError
+from assessment_rules import FixtureEvidenceEvaluator,PROFILE_ID,PROFILE,canonical_url
+from wuji_api.assessments import HttpRequest,VerificationSubmit
+
+PLATFORM_TOOLS={"graph_refresh","assessment_read","evidence_read","verification_submit"}
 
 def digest(value):return hashlib.sha256(dump(value).encode()).hexdigest()
 def parse_time(value):return datetime.fromisoformat(value.replace("Z","+00:00")) if isinstance(value,str) else value
@@ -33,6 +38,7 @@ class Core:
         self.creds={p.name:p.read_text().strip() for p in Path(credentials).iterdir() if p.is_file()}
         self.store=Store(self.creds["execution_dsn"])
         self.artifacts=ArtifactFileStore(cfg["artifact_root"])
+        self.assessment=WebAssessment(self)
         self.http=httpx.AsyncClient(timeout=10,transport=httpx.AsyncHTTPTransport(retries=0),trust_env=False)
         self.gateway=TaskModelGateway(cfg["gateway_url"],self.creds["gateway_management_key"])
         configuration=client.Configuration()
@@ -47,8 +53,13 @@ class Core:
         self.agent_locks={}
         self.tasks=set()
         self.service_config={k:v for k,v in cfg.items() if k in
-            {"profile_id","namespace","agent_image","kali_image","fixture_origins","model_profile_version_id","model_base_url","control_url","public_control_url"}}
+            {"profile_id","namespace","agent_image","kali_image","fixture_origins","model_profile_version_id","model_base_url","control_url","public_control_url","target_registration","target_image","compaction_probe"}}
+        if cfg["profile_id"]==PROFILE_ID:self.service_config["assessment_profile"]=PROFILE
         self.service_config.update(max_agents=2,max_task_seconds=900,max_agent_turns=12,max_tool_calls=64,ready=False)
+
+    def web(self,task_id):
+        value=getattr(self,"assessment",None)
+        return value if value and value.enabled(task_id) else None
 
     async def native(self,method,path,body=None):
         try:
@@ -145,7 +156,7 @@ class Core:
             self.store.execute("UPDATE task_executions SET model_state='ready' WHERE id=:id",{"id":ex["id"]})
         binding={**{k:str(t[k]) for k in ("tenant_id","project_id")},"task_id":str(task_id),
                  "runtime_attempt":1,"execution_epoch":ex["epoch"],"control_url":self.cfg["control_url"],
-                 "fixture_origins":runtime["fixture_origins"]}
+                 "fixture_origins":runtime["fixture_origins"],"profile_id":runtime["profile_id"]}
         for role in ("agent","kali"):
             self.ensure_resource(rc,"ConfigMap",rc.resource_names[role+"_config"],{"data":{"binding.json":dump(binding)}})
             self.ensure_resource(rc,"PersistentVolumeClaim",rc.resource_names["agent_state" if role=="agent" else "kali_work"],
@@ -173,6 +184,7 @@ class Core:
             if row!="provisioning":return
             c.execute(text("UPDATE task_executions SET state='running',updated_at=clock_timestamp() WHERE id=:id"),{"id":ex["id"]})
             self.store.event(c,task_id,"执行环境已就绪，开始探索",{"state":"running","egress_state":"fixture_only"})
+            if self.web(task_id):self.assessment.refresh(c,task_id)
 
     def worker_endpoints(self,task_id):
         ex=self.store.execution(task_id);t=self.store.task(task_id)
@@ -204,11 +216,22 @@ class Core:
         model={"base_url":self.cfg["model_base_url"],"model_id":"wuji_"+UUID(str(t["tenant_id"])).hex+"_"+UUID(creation["model"]["id"]).hex,
                "context_window":profile["context_window"],"max_output_tokens":profile["max_output_tokens"],
                "timeout_seconds":profile["timeout_seconds"],"pricing":profile["pricing"]}
+        captured=await self.graph_snapshot(ex,graph["data"])
+        allowed_facts=body.get("allowed_fact_ids",[fact["id"] for fact in graph["data"]["facts"] if fact["id"]!="goal"])
+        if not isinstance(allowed_facts,list) or not set(allowed_facts)<={fact["id"] for fact in graph["data"]["facts"] if fact["id"]!="goal"}:
+            raise Denied("invalid assigned fact set")
+        feedback=self.assessment.pending_review(task_id) if self.web(task_id) and phase=="reason" else None
         assignment={**{k:str(v) for k,v in identity(t).items()},"agent_run_id":str(run_id),
           "execution_epoch":ex["epoch"],"runtime_attempt":1,"phase":phase,"intent_id":intent,
+          "profile_id":ex["execution_snapshot"]["profile_id"],
+          "allowed_fact_ids":allowed_facts,
+          "context_policy":{"compaction":{"enabled":True,"reserveTokens":16384,"keepRecentTokens":512}} if ex["execution_snapshot"]["config"].get("compaction_probe") is True and self.web(task_id) else None,
           "goal":creation["objective"],"objective":creation["objective"],"completion_criteria":creation["completion_criteria"],
           "origin":creation["actual_input"]["entry_url"],"supplemental_hints":creation["supplemental_hints"],
-          "graph_snapshot":graph["data"]}
+          "graph_snapshot":graph["data"],"graph_reference":None if not captured else {
+              "snapshot_id":str(captured["id"]),"captured_at":captured["created_at"].isoformat(),"digest":captured["digest"]},
+          "completion_feedback":None if not feedback else {k:str(feedback[k]) if k=="id" else feedback[k]
+              for k in ("id","reason","missing","attempt_number")}}
         with self.store.tx() as c:
             current=c.execute(text("SELECT state,execution_epoch FROM tasks WHERE id=:id FOR UPDATE"),{"id":task_id}).mappings().one()
             if current["state"]!="running" or current["execution_epoch"]!=ex["epoch"]:raise Denied("execution changed")
@@ -225,10 +248,16 @@ class Core:
                 {**identity(t),"id":run_id,"execution":ex["id"],"epoch":ex["epoch"],"phase":phase,"intent":intent,
                  "profile":body["worker_profile_id"],"worker":"run-"+str(run_id),"assignment":dump(assignment)})
             self.store.event(c,task_id,"Agent已获准执行")
+            if feedback:
+                c.execute(text("UPDATE completion_reviews SET trigger_state='claimed',claimed_run_id=:run WHERE id=:id AND trigger_state='pending'"),
+                          {"run":run_id,"id":feedback["id"]})
         token=issue(self.creds["runtime_signing_key"],{"role":"agent","task_id":str(task_id),"run_id":str(run_id),
                     "epoch":ex["epoch"],"attempt":1},deadline.timestamp())
         tools=["task_read","graph_read","workspace_read","workspace_list"]
         if phase!="reason":tools+=["fixture_http","workspace_write","fixture_wait","tool_wait","tool_cancel"]
+        if self.web(task_id):
+            tools=["task_read","graph_read","graph_refresh","assessment_read","evidence_read","workspace_read","workspace_list"]
+            if phase!="reason":tools+=["http_request","verification_submit","workspace_write","tool_wait","tool_cancel"]
         return {"agent_run_id":str(run_id),"worker_name":"run-"+str(run_id),"task_id":str(task_id),
                 "tenant_id":str(t["tenant_id"]),"project_id":str(t["project_id"]),"native_project_id":ex["native_project_id"],
                 "assignment":assignment,"model":model,"tool_names":tools,"deadline":deadline.isoformat(),
@@ -243,19 +272,30 @@ class Core:
 
     async def create_call(self,claims,run,body):
         task_id=run["task_id"];tool=body["tool"];args=body.get("args",{});request_id=body["request_id"]
-        if tool not in {"fixture_http","workspace_read","workspace_write","workspace_list","fixture_wait"}:raise Denied("tool not registered")
-        if run["phase"]=="reason" and tool not in {"workspace_read","workspace_list"}:raise Denied("reason cannot actively collect")
+        if tool not in {"fixture_http","workspace_read","workspace_write","workspace_list","fixture_wait","http_request"}|PLATFORM_TOOLS:raise Denied("tool not registered")
+        if tool in PLATFORM_TOOLS|{"http_request"} and not self.web(task_id):raise Denied("tool outside execution profile")
+        if tool in {"fixture_http","fixture_wait"} and self.web(task_id):raise Denied("fixture tool outside W1 profile")
+        if run["phase"]=="reason" and tool not in {"workspace_read","workspace_list","graph_refresh","assessment_read","evidence_read"}:raise Denied("reason cannot actively collect")
         if not isinstance(args,dict) or len(dump(args).encode())>1_060_000 or not isinstance(request_id,str) or len(request_id)>200:raise Denied("tool input")
+        if tool=="http_request":
+            args=HttpRequest.model_validate(args).model_dump(mode="json")
+            args["url"]=canonical_url(args["url"])
+        if tool=="verification_submit":args=VerificationSubmit.model_validate(args).model_dump(mode="json")
+        if tool in {"graph_refresh","assessment_read"} and args:raise Denied("unexpected read parameters")
+        call_id=uuid5(UUID(str(run["id"])),request_id)
+        request_hash=digest({"tool":tool,"args":args})
+        old=self.store.one("SELECT * FROM tool_calls WHERE id=:id AND task_id=:task",{"id":call_id,"task":task_id})
+        if old:
+            if old["request_digest"]!=request_hash:raise Denied("tool request conflict")
+            return self.call_public(old)
         if not self.store.permitted(task_id,claims["epoch"],claims["attempt"]):raise Denied("execution denied")
         task=self.store.task(task_id)
-        if tool=="fixture_http":
+        if tool in {"fixture_http","http_request"}:
             url=args.get("url")
             if not isinstance(url,str) or not permits_url(task["creation_config"]["authorization"],url):raise Denied("scope denied")
             from urllib.parse import urlsplit
             u=urlsplit(url)
-            if (u.scheme+"://"+u.netloc) not in self.cfg["fixture_origins"] or u.username or u.password:raise Denied("fixture destination denied")
-        call_id=uuid5(UUID(str(run["id"])),request_id)
-        request_hash=digest({"tool":tool,"args":args})
+            if (u.scheme+"://"+u.netloc) not in self.cfg["fixture_origins"] or u.username or u.password or (tool=="http_request" and u.fragment):raise Denied("fixture destination denied")
         with self.store.tx() as c:
             current=c.execute(text("SELECT state,execution_epoch FROM tasks WHERE id=:id FOR UPDATE"),{"id":task_id}).mappings().one()
             if current["state"]!="running" or current["execution_epoch"]!=claims["epoch"]:raise Denied("execution changed")
@@ -282,6 +322,8 @@ class Core:
                 " VALUES(:id,:tenant_id,:project_id,:task_id,:call,CAST(:request AS jsonb),'sent')"),
                 {**identity(task),"id":uuid4(),"call":call_id,"request":dump(payload)})
             self.store.event(c,task_id,"工具调用已登记",{"active_calls":self._active_count(c,task_id)})
+        if tool in PLATFORM_TOOLS:
+            return await self.platform_call(self.store.one("SELECT * FROM tool_calls WHERE id=:id",{"id":call_id}),run)
         try:
             _,_,kali_url,_,credentials=self.worker_endpoints(task_id)
             r=await self.http.put(kali_url+"/calls/"+str(call_id),json=payload,
@@ -292,11 +334,35 @@ class Core:
         except (httpx.HTTPError,Denied,ValueError):
             with self.store.tx() as c:
                 c.execute(text("SELECT id FROM tasks WHERE id=:id FOR UPDATE"),{"id":task_id})
-                c.execute(text("UPDATE tool_calls SET state='unknown',updated_at=clock_timestamp() WHERE id=:id AND state<>'exited'"),{"id":call_id})
-                c.execute(text("UPDATE tool_attempts SET state='unknown',updated_at=clock_timestamp() WHERE tool_call_id=:id AND state<>'exited'"),{"id":call_id})
+                c.execute(text("UPDATE tool_calls SET state='unknown',updated_at=clock_timestamp() WHERE id=:id AND state NOT IN ('exited','completed')"),{"id":call_id})
+                c.execute(text("UPDATE tool_attempts SET state='unknown',updated_at=clock_timestamp() WHERE tool_call_id=:id AND state NOT IN ('exited','completed')"),{"id":call_id})
                 unknown=c.execute(text("SELECT count(*) FROM tool_calls WHERE task_id=:task AND state='unknown'"),{"task":task_id}).scalar_one()
                 self.store.event(c,task_id,"工具启动结果待核对",{"active_calls":self._active_count(c,task_id),"unknown_calls":unknown})
         return self.call_public(self.store.one("SELECT * FROM tool_calls WHERE id=:id",{"id":call_id}))
+
+    async def platform_call(self,call,run):
+        tool,args=call["tool"],call["args"]
+        try:
+            if tool=="assessment_read":result=self.assessment.read_tool(call["task_id"])
+            elif tool=="evidence_read":result=self.assessment.evidence(call["task_id"],args)
+            elif tool=="verification_submit":result=self.assessment.submit(call,run,args)
+            else:
+                ex=self.store.execution(call["task_id"])
+                captured=await self.graph_snapshot(ex)
+                if not captured:raise AssessmentError("graph refresh unavailable; keep original snapshot")
+                result={"snapshot_id":str(captured["id"]),"captured_at":captured["created_at"].isoformat(),
+                        "digest":captured["digest"],"graph":captured["graph"]}
+        except ValueError:
+            result={"ok":False,"error":"platform_input_or_evidence_rejected","original_snapshot_retained":tool=="graph_refresh"}
+        with self.store.tx() as c:
+            c.execute(text("SELECT id FROM tasks WHERE id=:task FOR UPDATE"),{"task":call["task_id"]})
+            receipt={"kind":"platform","state":"completed","result_digest":digest(result)}
+            c.execute(text("UPDATE tool_calls SET state='completed',result=CAST(:result AS jsonb),receipt=CAST(:receipt AS jsonb),updated_at=clock_timestamp() WHERE id=:id"),
+                      {"id":call["id"],"result":dump(result),"receipt":dump(receipt)})
+            c.execute(text("UPDATE tool_attempts SET state='completed',receipt=CAST(:receipt AS jsonb),updated_at=clock_timestamp() WHERE tool_call_id=:id"),
+                      {"id":call["id"],"receipt":dump(receipt)})
+            self.store.event(c,call["task_id"],"平台工具已完成",{"active_calls":self._active_count(c,call["task_id"])})
+        return self.call_public(self.store.one("SELECT * FROM tool_calls WHERE id=:id",{"id":call["id"]}))
 
     @staticmethod
     def _active_count(c,task_id):
@@ -308,7 +374,7 @@ class Core:
         return {k:call[k] for k in ("id","state","tool","result","cancel_requested")}
 
     async def poll_call(self,call):
-        if call["state"]=="exited":return self.call_public(call)
+        if call["state"] in {"exited","completed"} or call["tool"] in PLATFORM_TOOLS:return self.call_public(call)
         try:
             _,_,url,_,creds=self.worker_endpoints(call["task_id"])
             response=await self.http.get(url+"/calls/"+str(call["id"]),headers={"Authorization":"Bearer "+creds["router_token"]})
@@ -317,6 +383,9 @@ class Core:
         except (httpx.HTTPError,Denied):return self.call_public(call)
         if receipt.get("state")!="exited":return self.call_public(call)
         result=receipt.get("result") or {"ok":False,"error":"result_missing"}
+        if call["tool"]=="http_request" and result.get("exchange"):
+            try:result=self.assessment.capture(call,result)
+            except ValueError:result={"ok":False,"error":"observation_integrity_or_schema_failed"}
         if result.get("ok") is True and call["tool"] in {"fixture_http","workspace_write","workspace_read"}:
             data=dump({"tool_call_id":str(call["id"]),"tool":call["tool"],"args":call["args"],"result":result}).encode()
             artifact_id=uuid5(UUID(str(call["id"])),"observation")
@@ -343,6 +412,7 @@ class Core:
 
     async def cancel_call(self,call):
         self.store.execute("UPDATE tool_calls SET cancel_requested=true WHERE id=:id",{"id":call["id"]})
+        if call["tool"] in PLATFORM_TOOLS:return self.call_public(self.store.one("SELECT * FROM tool_calls WHERE id=:id",{"id":call["id"]}))
         try:
             _,_,url,_,creds=self.worker_endpoints(call["task_id"])
             await self.http.post(url+"/calls/"+str(call["id"])+"/cancel",headers={"Authorization":"Bearer "+creds["router_token"]})
@@ -351,30 +421,24 @@ class Core:
 
     def evidence_complete(self,task_id):
         calls=self.store.rows("SELECT * FROM tool_calls WHERE task_id=:id AND state='exited'",{"id":task_id})
-        http=any(c["tool"]=="fixture_http" and (c["result"] or {}).get("ok") is True
-                 and "WUJI_HTTP_FIXTURE_V1" in (c["result"] or {}).get("body","")
-                 and (c["result"] or {}).get("artifact_id") for c in calls)
-        writes=[c for c in calls if c["tool"]=="workspace_write" and (c["result"] or {}).get("ok") is True]
-        reads=[c for c in calls if c["tool"]=="workspace_read" and (c["result"] or {}).get("ok") is True]
-        shared=any(w["agent_run_id"]!=r["agent_run_id"] and w["args"].get("path")==r["args"].get("path")
-            and w["args"].get("content")==r["result"].get("content")
-            and str(w["args"].get("path","")).startswith("/workspace/shared/")
-            and w["result"].get("artifact_id") and r["result"].get("artifact_id")
-            for w in writes for r in reads)
-        return bool(http and shared)
+        return FixtureEvidenceEvaluator.complete(calls)
 
-    async def graph_snapshot(self,ex):
+    async def graph_snapshot(self,ex,value=None):
         if not ex.get("native_project_id"):return
-        response=await self.native("GET","/projects/"+ex["native_project_id"])
-        if response["status_code"]!=200:return
-        value=response["data"];hashed=digest(value)
-        old=self.store.one("SELECT digest FROM task_graph_snapshots WHERE task_id=:id ORDER BY created_at DESC LIMIT 1",{"id":ex["task_id"]})
-        if old and old["digest"]==hashed:return
+        if value is None:
+            response=await self.native("GET","/projects/"+ex["native_project_id"])
+            if response["status_code"]!=200:return
+            value=response["data"]
+        hashed=digest(value)
+        old=self.store.one("SELECT * FROM task_graph_snapshots WHERE task_id=:id ORDER BY created_at DESC,id DESC LIMIT 1",{"id":ex["task_id"]})
+        if old and old["digest"]==hashed:return old
+        snapshot_id=uuid4()
         with self.store.tx() as c:
             c.execute(text("INSERT INTO task_graph_snapshots(id,tenant_id,project_id,task_id,native_project_id,graph,digest)"
                 " VALUES(:id,:tenant_id,:project_id,:task_id,:native,CAST(:graph AS jsonb),:digest)"),
-                {**identity(ex),"id":uuid4(),"native":ex["native_project_id"],"graph":dump(value),"digest":hashed})
+                {**identity(ex),"id":snapshot_id,"native":ex["native_project_id"],"graph":dump(value),"digest":hashed})
             self.store.event(c,ex["task_id"],"黑板观察已更新")
+        return self.store.one("SELECT * FROM task_graph_snapshots WHERE id=:id",{"id":snapshot_id})
 
     async def core_action(self,native_id,action,args):
         if action not in {"create_intent","heartbeat","release","claim_reason","reason_heartbeat","release_reason","conclude","complete","stop"}:
@@ -391,6 +455,21 @@ class Core:
             if not run:raise Denied("native worker identity")
         elif not (action=="create_intent" and actor=="dispatcher.bootstrap") and action!="stop":
             raise Denied("unknown native worker")
+        if run and self.web(task_id) and action in {"create_intent","complete"}:
+            allowed=list(run["assignment"].get("allowed_fact_ids",[]))
+            if run["phase"]=="bootstrap" and action=="complete":
+                for operation in self.store.rows("SELECT response FROM core_operations WHERE agent_run_id=:run AND task_id=:task AND kind='conclude' AND state='succeeded'",
+                                                 {"run":run["id"],"task":task_id}):
+                    fact_id=((operation["response"] or {}).get("data") or {}).get("fact",{}).get("id")
+                    if fact_id:allowed.append(fact_id)
+            if not isinstance(args[0],list) or not set(args[0])<=set(allowed):raise Denied("fact reference outside assignment")
+        if action=="complete" and run and self.web(task_id):
+            review=self.assessment.review(ex,run,args)
+            if review["decision"]=="stop_with_results":
+                self.finish_run(run["id"],"success")
+                self.store.stop_requested(task_id,review["reason"])
+            return {"status_code":409,"data":None,"text":"platform assessment handled",
+                    "platform_decision":{"kind":review["decision"],"review_id":str(review["id"])}}
         if action in {"create_intent","conclude","complete"}:
             prior_id=uuid5(UUID(str(ex["id"])),action+":"+digest(args))
             prior=self.store.one("SELECT * FROM core_operations WHERE id=:id",{"id":prior_id})
@@ -496,9 +575,15 @@ class Core:
         not_started=outcome=="rejected" and run["output"] is None and not receipt
         state="exited" if exited else "not_started" if not_started else "unknown"
         result_state="unknown" if pending or outcome=="unknown" or (outcome=="success" and run["output"] is None) else "synced" if outcome=="success" else "rejected"
+        recorded_outcome=outcome
+        if self.web(run["task_id"]) and outcome=="success" and exited and not pending:
+            review=self.store.one("SELECT decision FROM completion_reviews WHERE agent_run_id=:id ORDER BY created_at DESC LIMIT 1",{"id":run_id})
+            if review:
+                result_state="reviewed"
+                if review["decision"]=="needs_followup":recorded_outcome="needs_followup"
         with self.store.tx() as c:
             c.execute(text("UPDATE agent_runs SET state=:state,result_state=:result,outcome=:outcome,updated_at=clock_timestamp() WHERE id=:id"),
-                      {"id":run_id,"state":state,"result":result_state,"outcome":outcome})
+                      {"id":run_id,"state":state,"result":result_state,"outcome":recorded_outcome})
             self.store.event(c,run["task_id"],"Agent运行已核对")
         if state=="unknown" or outcome not in {"success","cancelled"} or pending:
             reason="agent_result_incomplete"
@@ -550,7 +635,7 @@ class Core:
                     self.store.execute("UPDATE runtime_attempts SET state='unknown' WHERE id=:id",{"id":rt["id"]})
                     with self.store.tx() as c:self.store.event(c,task_id,"执行环境仍待核对",{"state":"reconciling","cleanup_state":"unknown"})
                     return
-        calls=self.store.rows("SELECT * FROM tool_calls WHERE task_id=:id AND state<>'exited'",{"id":task_id})
+        calls=self.store.rows("SELECT * FROM tool_calls WHERE task_id=:id AND state NOT IN ('exited','completed')",{"id":task_id})
         for call in calls:await self.cancel_call(call)
         runs=self.store.rows("SELECT * FROM agent_runs WHERE task_id=:id AND state NOT IN ('exited','not_started')",{"id":task_id})
         for run in runs:
@@ -566,7 +651,7 @@ class Core:
             except (Denied,httpx.HTTPError):pass
         if ex.get("native_project_id"):await self.native("PUT","/projects/"+ex["native_project_id"]+"/status",{"status":"stopped"})
         pending=self.store.one("SELECT 1 FROM agent_runs WHERE task_id=:id AND state NOT IN ('exited','not_started') UNION ALL "
-            "SELECT 1 FROM tool_calls WHERE task_id=:id AND state<>'exited' LIMIT 1",{"id":task_id})
+            "SELECT 1 FROM tool_calls WHERE task_id=:id AND state NOT IN ('exited','completed') LIMIT 1",{"id":task_id})
         if pending:
             if (utcnow()-task["updated_at"]).total_seconds()>20 and task["state"]!="reconciling":
                 with self.store.tx() as c:self.store.event(c,task_id,"执行停止尚待核对",{"state":"reconciling","unknown_calls":len(calls)})
@@ -587,6 +672,7 @@ class Core:
                 "limitations":["本次使用合成模型与固定夹具，不代表真实渗透能力或任意自定义目标已完成。"],
                 "artifact_ids":[str(a["id"]) for a in artifacts]}
         if cleanup=="pending":return
+        if self.web(task_id):result=self.assessment.final_result(task_id)
         pending_results=self.store.rows("SELECT * FROM core_operations WHERE task_id=:id AND state IN ('sent','unknown')",
                                         {"id":task_id})
         for operation in pending_results:
@@ -604,7 +690,7 @@ class Core:
                       {"id":ex["id"],"result":dump(result)})
             final="cancelled" if current["stop_reason"]=="user_cancelled" or current["state"]=="cancelling" else "completed"
             self.store.event(c,task_id,"任务执行已停止并完成核对",{"state":final,"active_calls":0,"unknown_calls":0,
-                  "egress_state":"revoked","cleanup_state":cleanup,"assessment_outcome":"complete" if met else "partial"})
+                  "egress_state":"revoked","cleanup_state":cleanup,"assessment_outcome":result["assessment"]["outcome"] if result.get("assessment") else "complete" if met else "partial"})
 
     async def tick(self):
         ready=False
@@ -630,7 +716,7 @@ class Core:
                 if task["state"]=="provisioning":await self.provision(ex)
                 elif task["state"]=="running":
                     if not self.current(task["id"]):self.store.stop_requested(task["id"],"authorization_or_model_unavailable")
-                    for call in self.store.rows("SELECT * FROM tool_calls WHERE task_id=:id AND state<>'exited'",{"id":task["id"]}):
+                    for call in self.store.rows("SELECT * FROM tool_calls WHERE task_id=:id AND state NOT IN ('exited','completed')",{"id":task["id"]}):
                         await self.poll_call(call)
                 elif task["state"] in {"cancelling","completing","reconciling"}:await self.stop(ex,task)
             except Exception as error:

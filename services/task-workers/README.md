@@ -2,7 +2,7 @@
 
 Build from repository root with Dockerfile.agent / Dockerfile.kali. Agent is Node 24, native Pi CLI exactly 0.73.0; CLI flags verified against v0.73.0 source. No custom model loop.
 
-`WUJI_CONFIG=/config/binding.json`: JSON `task_id,tenant_id,project_id,execution_epoch` (integer), `runtime_attempt` (string), `control_url`, `fixture_origins` (exact origins array). `WUJI_CREDENTIALS=/run/wuji/credentials`: agent reads backend_token, lease_token, model_key; Kali reads router_token, lease_token. `WUJI_STATE` defaults /var/lib/wuji/agent or /workspace/.wuji. `WUJI_WORKSPACE=/workspace`; PORT defaults 8001/8003.
+`WUJI_CONFIG=/config/binding.json`: JSON `task_id,tenant_id,project_id,execution_epoch` (integer), `runtime_attempt` (integer), `control_url`, `fixture_origins` (exact origins array). `WUJI_CREDENTIALS=/run/wuji/credentials`: agent reads backend_token, lease_token, model_key; Kali reads router_token, lease_token. `WUJI_STATE` defaults /var/lib/wuji/agent or /workspace/.wuji. `WUJI_WORKSPACE=/workspace`; PORT defaults 8001/8003.
 
 All routes require role-specific Bearer token. Agent PUT /runs/{id} accepts execution-contract body plus top-level write-only tool_token, stored in per-run 0600 file. GET /runs/{id} returns receipt. GET /runs/{id}/output returns receipt plus output (raw Pi JSONL string). POST /runs/{id}/cancel requests TERM followed by KILL after five seconds. Kali: PUT /calls/{id}, GET /calls/{id}, POST /calls/{id}/cancel. Same ID and digest returns existing receipt, mismatched request returns 409, missing ID 404. Restarted nonterminal records become unknown, never rerun.
 

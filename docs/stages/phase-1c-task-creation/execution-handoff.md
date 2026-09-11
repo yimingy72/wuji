@@ -1,6 +1,8 @@
 # D3-B → 执行账本与安全场景调度衔接提案
 
-状态：**design proposal / 未授权实施**。来源为[架构分析交接](../../cairn-security-specialization-handoff.md)、[Harness](../../agent-harness-decision.md)、[黑板](../../cairn-blackboard-design.md)与[评估模型](../../assessment-model.md)。Cairn 固定 0.2.1 / 8e7e0ea，Pi 固定 0.73.0；这里提出接入合同，不修改或声称原生已支持新增能力。
+状态：**历史提案**。2026-09-11后续更新：其中运行/调度基础、单Task双容器、Reason只读/Explore补证已被核心计划批准实施；以[核心验收](acceptance.md)为准。未实现的验证/覆盖增强转入[W1草案](../phase-2-web-assessment/spec.md)。以下“未授权/建议”保留当时语境，不覆盖后续明确决定。
+
+原来源：来源为[架构分析交接](../../cairn-security-specialization-handoff.md)、[Harness](../../agent-harness-decision.md)、[黑板](../../cairn-blackboard-design.md)与[评估模型](../../assessment-model.md)。Cairn 固定 0.2.1 / 8e7e0ea，Pi 固定 0.73.0；这里提出接入合同，不修改或声称原生已支持新增能力。
 
 ## 1. 保持的架构与本次新增职责
 

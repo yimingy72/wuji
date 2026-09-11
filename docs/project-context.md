@@ -1,6 +1,6 @@
 # Wuji 项目背景与有效文档索引
 
-更新：2026-09-11；当前有效开发分支codex/phase-1c-core-loop（沿用phase-1c-prep工作树），架构收口起点6ee84b5。此页负责恢复背景与导航；设计正文、阶段验收各有独立权威来源，不在此复制完整架构。先读根 [AGENTS.md](../AGENTS.md)。
+更新：2026-09-11；当前有效开发分支codex/phase-2-web-assessment（独立phase-2-web-assessment工作树；旧交付检出phase-1c-prep保留），架构收口起点6ee84b5。此页负责恢复背景与导航；设计正文、阶段验收各有独立权威来源，不在此复制完整架构。先读根 [AGENTS.md](../AGENTS.md)。
 
 ## 1. 产品背景与当前决定
 
@@ -55,6 +55,7 @@ Wuji 是 Kubernetes 原生的授权安全验证平台。产品流程是创建任
 | D3-A创建原型 | b6afc12原四组走查保留；3094e6d落实用户入口反馈，构建/浏览器及9a6b4ae上2项定向检查通过；完整用户通过未宣称，入口4186 | [Spec](stages/phase-1c-creation-prototype/spec.md)、[记录](stages/phase-1c-creation-prototype/acceptance.md)、[D3-B衔接](stages/phase-1c-creation-prototype/backend-handoff.md) |
 | 核心闭环与D3-B | accepted（封闭夹具）：6c5934c完成真实创建/启动、Cairn/Pi/共享Kali、Fact/证据/结果/停止及M4关系视图；未开放生产出口和真实外部目标 | [核心总计划](stages/phase-1c-task-creation/core-loop-plan.md)、[D3-B Spec](stages/phase-1c-task-creation/spec.md)/[Plan](stages/phase-1c-task-creation/plan.md)、[状态](stages/phase-1c-task-creation/acceptance.md) |
 | Cairn / Pi / LiteLLM / Runtime集成 | 固定版本已通过真实K8封闭HTTP/合成模型路径；未开放外部目标、生产出口或全量流量采集 | [架构替代决策](cairn-architecture-decision.md)及下节设计 |
+| W1封闭Web评估 | approved / in-progress：用户已批准W1；有限HTTP方法、验证/覆盖/证据、完成缺口反馈；真实模型验证待明确新增USD授权 | [Spec](stages/phase-2-web-assessment/spec.md)、[Plan](stages/phase-2-web-assessment/plan.md)、[状态](stages/phase-2-web-assessment/acceptance.md) |
 
 表内测试是复用历史记录，未在本次文档提交重跑。B2/B3 测试代码基准为 `e76a265d445ae9548d7f56fdb85f9b8b5c005759`，具体 run 与限制以验收正文为准。架构验收目录的 80 项不是本次或每次开发必须执行的清单。
 
@@ -66,7 +67,7 @@ Wuji 是 Kubernetes 原生的授权安全验证平台。产品流程是创建任
 | 任务创建、范围、配置与交互 | [交互提案](product-interaction-proposal.md)、[场景设计](scenario-execution-design.md)、[前端架构](frontend-architecture.md)、[视觉规则](../DESIGN.md) | 最新用户确认覆盖旧提案；创建与启动分离；旧路径 Scope 兼容需单独处理 |
 | 模型与 Agent 执行 | [Harness 决策](agent-harness-decision.md)、[网关实测](model-gateway-validation.md)、主架构中的LiteLLM / Task金额预算 / ConfigSnapshot | 成熟框架复用、候选集成验证和业务凭据/预算边界分别说明；普通协议通不证明完整 Harness 可用 |
 | 多 Agent 与证据共享 | [Cairn 黑板](cairn-blackboard-design.md)、[评估模型](assessment-model.md) | Cairn为唯一可写探索图；Wuji保存准入/账本/验证，原生查询核对、不盲重投；动态分派、证据和受限凭据引用 |
-| 场景Goal、阶段提示与成果交接 | [架构分析交接](cairn-security-specialization-handoff.md)、[Goal模板提案](stages/phase-1c-task-creation/goal-templates.md)、[执行衔接提案](stages/phase-1c-task-creation/execution-handoff.md) | 默认可自定义模板已确认；具体正文和Reason补证/校验方案待阶段评审，不把计划当实现 |
+| 场景Goal、阶段提示与成果交接 | [架构分析交接](cairn-security-specialization-handoff.md)、[Goal模板提案](stages/phase-1c-task-creation/goal-templates.md)、[执行衔接提案](stages/phase-1c-task-creation/execution-handoff.md) | 默认可自定义模板及Reason只读/Explore补证已确认并纳入核心实现；完整验证/覆盖按W1草案评审 |
 | 工具、容器、出口与流量 | [元刃复核](metablade-backend-review.md)、[场景设计](scenario-execution-design.md)、[流量证据设计](traffic-evidence-design.md)、主架构 | 后两份含待评审方案；网络控制延期不等于取消平台约束 |
 | 接口与历史兼容 | [API 契约说明](phase1-api-contract.md)、当前阶段 Spec / Plan、实际契约及实现 | 公共 API 0.4.0 的已有行为与下一版草案分开；不改写历史回执/事件 |
 | 开发、验证、交付 | [协作流程](development-workflow.md)、[本地启动](local-development.md)、当前阶段 acceptance / deferred-tests | Docker Desktop 集群可用不证明隔离能力通过；不设累计检查时间预算，最小验证通过即停，文档不跑业务测试 |
@@ -94,3 +95,7 @@ Wuji 是 Kubernetes 原生的授权安全验证平台。产品流程是创建任
 2026-09-11 主开发已读取交接与实际代码，完成D3-B具体Spec/Plan、五模板和调度衔接草案，并纠正主架构残留“独立Agent Pod”措辞。随后收到用户真实创建评审反馈并直接完成原型修复；用户强调完整核心优先，已收敛为一个有明确终点的总计划。当前仍Default模式，已批准的原型修改已实施，尚未冻结的正式接口/调度不先施工；在应用Plan模式完成整体方案后按内部里程碑连续推进，不重复发起微批次审批。
 
 2026-09-11 核心闭环计划已获明确实施授权，分支codex/phase-1c-core-loop连续开发M1—M4。已实现0006/0007、D2正式模型页、v2任务创建、受控start、真实Cairn/Pi/LiteLLM/双容器Task Pod与Artifact持久卷。最新M4采用黑板/时间线/工作区及真实关系导航；不得将早期draft状态当成当前进度。最终候选与复用证据见[核心验收](stages/phase-1c-task-creation/acceptance.md)。主目录381ae3a、master28fcd44、4180保留。
+
+2026-09-11 核心交付后：主代理依据实际b79efa6及分析交接准备[W1 Spec/Plan](stages/phase-2-web-assessment/spec.md)，目标是有限自建Web评估，先A层机制、后明确授权的B层真实模型效果。草案不是新业务或付费批准；当前4182保持运行，文档暂未提交以保留其绑定HEAD。
+
+2026-09-11：W1已获PLEASE IMPLEMENT THIS PLAN授权；当前在独立phase-2-web-assessment工作树实施，仅机制与合成模型，真实效果等待明确新增USD授权。

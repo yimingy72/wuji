@@ -1,6 +1,6 @@
 # Agent Harness 与平台侧 Worker 接入
 
-- 日期：2026-09-10；状态：目标架构已确认，业务适配未实现。
+- 日期：2026-09-10；2026-09-11状态更新：核心Cairn/Pi/LiteLLM/双容器Task已通过封闭夹具验收，见[记录](stages/phase-1c-task-creation/acceptance.md)。下文未集成描述保留原阶段范围；长期压缩与真实模型效果仍未通过。
 - 权威取舍：[架构替代决策](cairn-architecture-decision.md)；完整部署见[主架构](architecture.md)，共享图协议见[黑板设计](cairn-blackboard-design.md)。
 - 历史：6ee84b5中的LangGraph/Deep Agents首选方案已被替代。[P0验收](stages/phase-1c-prep-p0/acceptance.md)仍只证明原受限Deep Agents/客户端实验，不证明Pi、Cairn或LiteLLM已可用。
 
@@ -66,7 +66,9 @@ Dispatcher/Worker重启后先冻结相关派发，核对持久AgentRun、进程�
 
 会话/日志/快照按Task数据分类保存；原始事件不直接作为公开Task事件，不公开隐藏推理。首版执行观察可显示Agent状态、工具调用、产物和最终结果；完整逐Token流和协议矩阵不属于本批文档验收。
 
-## 7. 证据与后续
+## 7. 原文档阶段证据与后续（历史范围）
+
+本节“未集成/0.4”适用于2026-09-10文档阶段，已被2026-09-11核心集成记录更新；新的效果/评估工作见[W1草案](stages/phase-2-web-assessment/spec.md)，不能据此重新判断Pi尚未接通。
 
 候选版本Cairn 8e7e0ea、Pi 0.73.0、LiteLLM v1.100.0均未在本批集成。P0被测a84716c仅限历史Deep Agents切片，其4次真实调用和预算记录继续有效，不复用为Pi验收。
 

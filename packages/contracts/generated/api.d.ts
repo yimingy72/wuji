@@ -786,6 +786,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/tasks/{task_id}/assessment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Assessment */
+        get: operations["assessment_api_v1_projects__project_id__tasks__task_id__assessment_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/tasks/{task_id}/observations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Observations */
+        get: operations["observations_api_v1_projects__project_id__tasks__task_id__observations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/tasks/{task_id}/verifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Verifications */
+        get: operations["verifications_api_v1_projects__project_id__tasks__task_id__verifications_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/tasks/{task_id}/verifications/{verification_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Verification */
+        get: operations["verification_api_v1_projects__project_id__tasks__task_id__verifications__verification_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2506,6 +2574,8 @@ export interface components {
             model_spend: string | null;
             /** Cost State */
             cost_state: string;
+            /** @default null */
+            assessment: components["schemas"]["AssessmentReference"] | null;
         };
         /** EventPageResponse */
         EventPageResponse: {
@@ -2596,6 +2666,305 @@ export interface components {
             created_at: string;
             /** Concluded At */
             concluded_at: string | null;
+        };
+        /** AssessmentReference */
+        AssessmentReference: {
+            /**
+             * Plan Id
+             * Format: uuid
+             */
+            plan_id: string;
+            /** Revision */
+            revision: number;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "not_assessed" | "complete" | "partial" | "inconclusive";
+        };
+        /** CoverageItem */
+        CoverageItem: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Target Url */
+            target_url: string;
+            /**
+             * Rule Id
+             * @default cors-reflection-v1
+             * @constant
+             */
+            rule_id: "cors-reflection-v1";
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "pending" | "evaluated" | "blocked" | "inconclusive" | "not_run";
+            /**
+             * Verdict
+             * @default null
+             */
+            verdict: ("unassessed" | "confirmed" | "not_reproduced" | "inconclusive") | null;
+            /**
+             * Verification Run Id
+             * @default null
+             */
+            verification_run_id: string | null;
+            /**
+             * Result Id
+             * @default null
+             */
+            result_id: string | null;
+            /**
+             * Reason
+             * @default null
+             */
+            reason: string | null;
+        };
+        /** AssessmentView */
+        AssessmentView: {
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "not_assessed" | "available";
+            /**
+             * Profile Id
+             * @default null
+             */
+            profile_id: string | null;
+            /**
+             * Plan Id
+             * @default null
+             */
+            plan_id: string | null;
+            /**
+             * Revision
+             * @default 0
+             */
+            revision: number;
+            /**
+             * Progress Digest
+             * @default null
+             */
+            progress_digest: string | null;
+            /**
+             * Outcome
+             * @default not_assessed
+             * @enum {string}
+             */
+            outcome: "not_assessed" | "complete" | "partial" | "inconclusive";
+            /**
+             * Discovery State
+             * @default pending
+             * @enum {string}
+             */
+            discovery_state: "pending" | "complete" | "incomplete";
+            /** Items */
+            items?: components["schemas"]["CoverageItem"][];
+            /** Limitations */
+            limitations?: string[];
+        };
+        /** Observation */
+        Observation: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Tool Call Id
+             * Format: uuid
+             */
+            tool_call_id: string;
+            /**
+             * Agent Run Id
+             * Format: uuid
+             */
+            agent_run_id: string;
+            /** Target Url */
+            target_url: string;
+            /**
+             * Method
+             * @enum {string}
+             */
+            method: "GET" | "HEAD" | "OPTIONS";
+            /** Request Headers */
+            request_headers: {
+                [key: string]: string;
+            };
+            /** Response Status */
+            response_status: number | null;
+            /** Response Headers */
+            response_headers: {
+                [key: string]: string;
+            };
+            /** Complete */
+            complete: boolean;
+            /**
+             * Termination
+             * @enum {string}
+             */
+            termination: "complete" | "size_limit" | "timeout" | "cancelled" | "network_error";
+            /** Body Bytes */
+            body_bytes: number;
+            /** Body Sha256 */
+            body_sha256: string;
+            /**
+             * Body Encoding
+             * @constant
+             */
+            body_encoding: "client-decoded";
+            /** Redacted Headers */
+            redacted_headers: string[];
+            /**
+             * Artifact Id
+             * Format: uuid
+             */
+            artifact_id: string;
+            /**
+             * Body Artifact Id
+             * Format: uuid
+             */
+            body_artifact_id: string;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /**
+             * Finished At
+             * Format: date-time
+             */
+            finished_at: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** ObservationPage */
+        ObservationPage: {
+            /** Items */
+            items: components["schemas"]["Observation"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /** VerificationResult */
+        VerificationResult: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Verification Run Id
+             * Format: uuid
+             */
+            verification_run_id: string;
+            /** Revision */
+            revision: number;
+            /**
+             * Verdict
+             * @enum {string}
+             */
+            verdict: "unassessed" | "confirmed" | "not_reproduced" | "inconclusive";
+            /** Reason */
+            reason: string;
+            /** Limitations */
+            limitations: string[];
+            /** Supersedes Result Id */
+            supersedes_result_id: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** VerificationRun */
+        VerificationRun: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Coverage Item Id
+             * Format: uuid
+             */
+            coverage_item_id: string;
+            /** Target Url */
+            target_url: string;
+            /**
+             * Rule Id
+             * @constant
+             */
+            rule_id: "cors-reflection-v1";
+            /** Claim */
+            claim: string;
+            /**
+             * Agent Run Id
+             * Format: uuid
+             */
+            agent_run_id: string;
+            /** Intent Id */
+            intent_id: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** @default null */
+            latest_result: components["schemas"]["VerificationResult"] | null;
+        };
+        /** VerificationPage */
+        VerificationPage: {
+            /** Items */
+            items: components["schemas"]["VerificationRun"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /** EvidenceLink */
+        EvidenceLink: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Verification Result Id
+             * Format: uuid
+             */
+            verification_result_id: string;
+            /**
+             * Observation Id
+             * Format: uuid
+             */
+            observation_id: string;
+            /**
+             * Artifact Id
+             * Format: uuid
+             */
+            artifact_id: string;
+            /**
+             * Relation
+             * @enum {string}
+             */
+            relation: "supports" | "refutes" | "limits";
+            /** Selector */
+            selector: {
+                [key: string]: unknown;
+            };
+        };
+        /** VerificationDetail */
+        VerificationDetail: {
+            verification: components["schemas"]["VerificationRun"];
+            /** Results */
+            results: components["schemas"]["VerificationResult"][];
+            /** Evidence */
+            evidence: components["schemas"]["EvidenceLink"][];
         };
     };
     responses: never;
@@ -7049,6 +7418,391 @@ export interface operations {
                 };
             };
             /** @description Validation Error */
+            422: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    assessment_api_v1_projects__project_id__tasks__task_id__assessment_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssessmentView"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Gone */
+            410: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    observations_api_v1_projects__project_id__tasks__task_id__observations_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string | null;
+                observation_id?: string | null;
+            };
+            header?: never;
+            path: {
+                project_id: string;
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ObservationPage"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Gone */
+            410: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    verifications_api_v1_projects__project_id__tasks__task_id__verifications_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string | null;
+                coverage_item_id?: string | null;
+            };
+            header?: never;
+            path: {
+                project_id: string;
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerificationPage"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Gone */
+            410: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    verification_api_v1_projects__project_id__tasks__task_id__verifications__verification_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                task_id: string;
+                verification_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerificationDetail"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Gone */
+            410: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
             422: {
                 headers: {
                     "Cache-Control"?: "no-store";

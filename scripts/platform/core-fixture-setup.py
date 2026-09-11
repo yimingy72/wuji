@@ -49,7 +49,9 @@ def private_record(path):
 
 
 class Setup:
-    def __init__(self, path):
+    def __init__(self, path, profile="fixture-web-v1", compaction_probe=False):
+        self.profile=profile
+        self.compaction_probe=compaction_probe
         self.path = path
         self.run = load_manifest(path)
         assert_run_ownership(self.run)
@@ -59,6 +61,7 @@ class Setup:
             raise LifecycleError('operator must prepare and start the gateway first')
         self.record_path = path.with_name('core-fixture-setup-' + self.run['run_id'] + '.json')
         self.owner = {k:self.run[k] for k in ('run_id','source_sha','repository_root')}
+        self.owner.update(profile_id=profile,compaction_probe=compaction_probe)
         if self.record_path.exists() or self.record_path.is_symlink():
             self.record = private_record(self.record_path)
             if any(self.record.get(k) != v for k,v in self.owner.items()):
@@ -150,7 +153,9 @@ class Setup:
         self.save()
         arguments = [sys.executable,str(REPOSITORY_ROOT/'scripts/platform/core.py'),action,
                      '--run-file',str(self.path)]
-        if action == 'prepare': arguments += ['--model-profile-version-id',model_version]
+        if action == 'prepare':
+            arguments += ['--model-profile-version-id',model_version,'--profile',self.profile]
+            if self.compaction_probe:arguments += ['--compaction-probe']
         result = subprocess.run(arguments,cwd=REPOSITORY_ROOT,stdin=subprocess.DEVNULL,
                                 capture_output=True,text=True,timeout=850,check=False)
         if result.returncode:
@@ -192,13 +197,15 @@ class Setup:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--run-file',type=Path,required=True)
+    parser.add_argument('--profile',choices=['fixture-web-v1','closed-web-assessment-v1'],default='fixture-web-v1')
+    parser.add_argument('--compaction-probe',action='store_true')
     arguments = parser.parse_args()
     if not arguments.run_file.is_absolute():
         parser.error('--run-file must be absolute')
     setup = None
     try:
         with exclusive_lock(arguments.run_file.with_name('.'+arguments.run_file.name+'.fixture-setup.lock')):
-            setup = Setup(arguments.run_file)
+            setup = Setup(arguments.run_file,arguments.profile,arguments.compaction_probe)
             setup.run_setup()
             print(json.dumps({'ok':True,'run_id':setup.run['run_id'],
                               'model_profile_version_id':setup.record['model_profile_version_id'],'published':True}))

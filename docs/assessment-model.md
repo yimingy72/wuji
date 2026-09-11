@@ -47,9 +47,9 @@ EvidenceLink 连接不可变 Observation/Artifact 版本与 Fact、VerificationR
 | ValidationRuleVersion | 输入证据 Schema、前提、可接受结论、检查条件、复核要求 | 校验结论能否被接受，不自行发送目标请求 |
 | VerificationTemplateVersion | 声明式步骤、Adapter 版本、目标变量、前提、期望观察和规则引用 | 通过 Tool 注册表和 Scope 预检后才可执行，不是任意代码入口 |
 
-2026-09-11 用户明确确认：平台按 Web 单点渗透、CTF 等五类场景提供默认 Goal 与完成条件模板，创建任务时允许自定义。沿用 ScenarioProfileVersion 与 ConfigSnapshot 的版本化设计；具体模板正文、编辑交互、数据字段和完成判定实现仍需对应阶段冻结，不把本次确认当成已实现能力。自定义目标不改变现有 Scope、平台禁止项及预算边界。已形成[D3-B模板正文提案](stages/phase-1c-task-creation/goal-templates.md)和[创建/执行快照分批方案](stages/phase-1c-task-creation/spec.md#6-快照与状态)，目前为draft，不覆盖尚未完成的交互评审。
+2026-09-11 用户明确确认：平台按 Web 单点渗透、CTF 等五类场景提供默认 Goal 与完成条件模板，创建任务时允许自定义。沿用 ScenarioProfileVersion 与 ConfigSnapshot 的版本化设计；具体模板正文、编辑交互、数据字段和完成判定实现仍需对应阶段冻结，不把本次确认当成已实现能力。自定义目标不改变现有 Scope、平台禁止项及预算边界。已形成[D3-B模板正文提案](stages/phase-1c-task-creation/goal-templates.md)和[创建/执行快照分批方案](stages/phase-1c-task-creation/spec.md#6-快照与状态)，现已随核心闭环批准实施；模板文本持久化不表示任意自定义Goal已能自动判定。
 
-Reason是否受控补证、Fact与文件交接增强由主开发收口为[后续调度提案](stages/phase-1c-task-creation/execution-handoff.md)，其中首批经普通Intent/Explore补证是建议，不是用户要求Reason永远只读。所有候选保持Core协议不改、旧Fact不覆盖，不因“继续开发”将整份候选升级为已批准实现。
+2026-09-11更新：用户已批准并在核心链路落实Reason读取既有证据、主动补证交普通Intent/Explore；不再作为本阶段未决项。原[调度提案](stages/phase-1c-task-creation/execution-handoff.md)保留历史，未实现的完整验证/覆盖/Goal评估按[W1草案](stages/phase-2-web-assessment/spec.md)收口；Core协议和旧Fact保持不改。
 
 平台预置配置也有发布版本。增加 ConfigPublisher、FindingReviewer、ReportPublisher 等权限点，由 TenantAdmin 在允许范围内分配；这些权限不自动包含 ScopeManager 或敏感证据导出权限。Agent 没有发布平台知识、修改规则和扩大工具权限的权限。
 

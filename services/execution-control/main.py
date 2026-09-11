@@ -72,6 +72,15 @@ async def projects(request:Request):
 @app.post("/internal/v1/dispatch/admit")
 async def admit(request:Request):return await service(request).admit(await body(request))
 
+@app.get("/internal/v1/dispatch/reason-requests/{native_project_id}")
+async def reason_requests(request:Request,native_project_id:str):
+    c=service(request)
+    execution=c.store.one("SELECT * FROM task_executions WHERE native_project_id=:id",{"id":native_project_id})
+    if not execution or not c.web(execution["task_id"]) or not c.store.permitted(execution["task_id"],execution["epoch"],1):
+        return {"pending":False,"review_id":None}
+    pending=c.assessment.pending_review(execution["task_id"])
+    return {"pending":bool(pending),"review_id":str(pending["id"]) if pending else None}
+
 @app.get("/internal/v1/dispatch/runs/{run_id}")
 async def get_run(request:Request,run_id:UUID):
     c=service(request);run=c.store.one("SELECT * FROM agent_runs WHERE id=:id",{"id":run_id})
@@ -124,7 +133,8 @@ async def artifact(request:Request,artifact_id:UUID):
     data=c.artifacts.read(row["storage_key"])
     import hashlib
     if len(data)!=row["size"] or hashlib.sha256(data).hexdigest()!=row["sha256"]:raise HTTPException(409,"artifact integrity")
+    extension=".json" if row["mime"]=="application/json" else ".bin"
     return Response(data,media_type=row["mime"],headers={"Cache-Control":"no-store","X-Content-Type-Options":"nosniff",
-                     "Content-Disposition":'attachment; filename="'+str(artifact_id)+'.json"'})
+                     "Content-Disposition":'attachment; filename="'+str(artifact_id)+extension+'"'})
 
 if __name__=="__main__":uvicorn.run(app,host="0.0.0.0",port=8000,access_log=False)

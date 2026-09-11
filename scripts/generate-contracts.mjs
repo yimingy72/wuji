@@ -37,6 +37,10 @@ const validatorSchemas = {
   validateArtifactPage: 'ArtifactPage',
   validateBlackBoardSnapshot: 'BlackBoardSnapshot',
   validateTaskResult: 'TaskResult',
+  validateAssessmentView: 'AssessmentView',
+  validateObservationPage: 'ObservationPage',
+  validateVerificationPage: 'VerificationPage',
+  validateVerificationDetail: 'VerificationDetail',
   validateError: 'Error',
 };
 
@@ -104,6 +108,10 @@ export declare const validateToolCallPage: ContractValidator<components['schemas
 export declare const validateArtifactPage: ContractValidator<components['schemas']['ArtifactPage']>;
 export declare const validateBlackBoardSnapshot: ContractValidator<components['schemas']['BlackBoardSnapshot']>;
 export declare const validateTaskResult: ContractValidator<components['schemas']['TaskResult']>;
+export declare const validateAssessmentView: ContractValidator<components['schemas']['AssessmentView']>;
+export declare const validateObservationPage: ContractValidator<components['schemas']['ObservationPage']>;
+export declare const validateVerificationPage: ContractValidator<components['schemas']['VerificationPage']>;
+export declare const validateVerificationDetail: ContractValidator<components['schemas']['VerificationDetail']>;
 export declare const validateError: ContractValidator<components['schemas']['Error']>;
 `;
 
