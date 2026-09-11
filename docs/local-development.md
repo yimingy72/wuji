@@ -106,3 +106,5 @@ B2/B3的必要验证限定为`tests/api/test_phase1b_tasks.py`和`tests/platform
 `up` 包含准备、单副本 Deployment/Service/ConfigMap 和自有 loopback 转发，等待 `/health/readiness`。探针只使用原生 liveliness/readiness，关闭重试、fallback、缓存、后台模型健康检查和外部遥测，不导入上游凭据或请求付费模型。`down` 只停止可核验的自有转发，并以 UID/resourceVersion 前置条件删除该实例 Deployment，保留 Secret、数据库、PVC、Service 和 ConfigMap；删除被接受时返回 `state=stopping`，随后 `status` 确认 Deployment 不存在且转发进程组已结束，才返回 `state=stopped`。平台停止前先停止网关。
 
 网关命令不运行 Wuji 迁移、不重启 API。准备后按现有平台启动流程启动 API，它才会接收网关 URL、管理 key 和实例 ID，并在进程记录中添加 `model_gateway_management` scope。旧三项 scope 和没有网关的旧 schema v1 文件保持可读。上游 Base URL 使用 API Settings 的受限默认值；合成上游覆盖仅由显式 `local-test` 验证环境配置。本批原生部署的实际验证状态见 D2 验收记录。
+
+当前独立工作树已同步Python环境时，也可用`.venv/bin/python scripts/platform/gateway.py <action> --run-file ABS`运行同一入口；shell wrapper要求该检出已完成工具链bootstrap。TenantAdmin由可信管理CLI的`tenant-admin grant|revoke --user <seed-symbol> --tenant <seed-symbol>`显式设置，不自动提升Operator。

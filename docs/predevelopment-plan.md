@@ -1,6 +1,6 @@
 # Wuji 后续开发依赖与交付顺序
 
-- 日期：2026-09-11；状态：运行基础与桥接已完成；控制面D1独立草稿最小验收通过，完整0.5控制面尚未交付。
+- 日期：2026-09-11；状态：运行基础与桥接已完成；控制面D1独立草稿及D2模型配置最小验收通过，完整0.5控制面尚未交付。
 - 当前入口：[背景索引](project-context.md)、[架构替代决策](cairn-architecture-decision.md)、[本批文档Spec](stages/cairn-architecture-baseline/spec.md)。
 - 本页替代6ee84b5中的旧HTTP优先/后置模型网关开发顺序；原Phase1A/B及P0验收保留，不能据此将后续能力标为完成。
 
@@ -13,7 +13,7 @@
 | B1/B2/B3 | 最小验证有效；现有Task只有queued/cancelled，执行调用数恒零 |
 | P0 a84716c | 原受限Deep Agents/原生客户端工具往返及取消等待实验通过；不是Pi/Cairn/LiteLLM证据 |
 | 新架构 | Cairn Server/Dispatcher、平台侧Pi、多Agent共享一个Kali、LiteLLM Task金额预算已确认，尚未集成 |
-| 当前批次 | [控制面D1](stages/phase-1c-control-plane/spec.md)：独立草稿API/迁移/权限已验收；D2组织模型配置接续；未切换现有服务 |
+| 当前批次 | [控制面D1](stages/phase-1c-control-plane/spec.md)：独立草稿API/迁移/权限已验收；D2组织模型配置已验收，D3快照/范围确认/ready-start接续；未切换现有服务 |
 
 ## 2. 后续按依赖实施
 

@@ -1,6 +1,6 @@
 # D2 组织模型配置与 LiteLLM Spec
 
-状态approved / in-progress；2026-09-11，用户明确批准D2实施。基准d84b2f5，沿用phase-1c-prep工作树。主代理独立设计；本树无CodeGraph索引，使用rg/直接读取。背景来源：AGENTS、项目索引、D1 Spec/验收、Cairn架构决策、Harness设计及本轮已批准计划；上游固定LiteLLM v1.100.0的credentials/model management/health源码和官方价格文档已核对。
+状态approved / implementation accepted；2026-09-11，用户明确批准D2实施。基准d84b2f5，沿用phase-1c-prep工作树。主代理独立设计；本树无CodeGraph索引，使用rg/直接读取。背景来源：AGENTS、项目索引、D1 Spec/验收、Cairn架构决策、Harness设计及本轮已批准计划；上游固定LiteLLM v1.100.0的credentials/model management/health源码和官方价格文档已核对。
 
 ## 目标与边界
 

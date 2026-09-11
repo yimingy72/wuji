@@ -95,7 +95,7 @@ Cairn按原生语义记录探索完成，Wuji独立维护任务执行、停止�
 | --- | --- | --- |
 | Cairn | 8e7e0ea67552383851dfcabfba0c4e9c8d007878 | 原生Server/客户端桥接最小验证已通过；实际Dispatcher尚未接线，见[桥接验收](stages/phase-1c-cairn-bridge/acceptance.md)；保留AGPL-3.0许可及上游来源 |
 | Pi coding-agent | 0.73.0 | 首个Harness接入方向，未在Wuji验收 |
-| LiteLLM Proxy | v1.100.0 | 网关选型已确认，未部署、未固定运行镜像digest或完成集成 |
+| LiteLLM Proxy | v1.100.0 | 固定镜像digest及D2原生配置/检查/重启最小链路已验证；Task预算及真实K8生命周期未验收，见[D2记录](stages/phase-1c-model-config/acceptance.md) |
 
 Dispatcher/执行后端的必要适配保留明确归属，Cairn黑板核心不打补丁，不重写搜索策略、厂商协议或Pi上下文机制。候选失败报告具体原因，不静默换框架。
 
