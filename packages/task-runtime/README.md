@@ -1,16 +1,16 @@
 # Wuji Task Runtime Foundation
 
-A production-oriented infrastructure library for one Task Pod with two containers (`agent`, `kali`). It does not start a service or load kubeconfig on import. It is not connected to the public 0.4.0 API, Cairn or real task execution yet.
+A production-oriented infrastructure library for one Task Pod with two containers (`agent`, `kali`). It does not start a service or load kubeconfig on import. The 0.5 execution-control service now integrates this foundation into the closed Task/Cairn/Pi lifecycle; see [core acceptance](../../docs/stages/phase-1c-task-creation/acceptance.md). Production egress isolation remains unverified.
 
 ## Responsibility
 
-`TaskRuntimeController` is the only caller that creates/deletes the Task Pod. Future Cairn execution adapters launch AgentRun processes inside `agent`; they must not independently delete the Pod or launch models/tools just because infrastructure reports `ready`.
+`TaskRuntimeController` is the only caller that creates/deletes the Task Pod. Cairn execution adapters launch AgentRun processes inside `agent`; they must not independently delete the Pod or launch models/tools just because infrastructure reports `ready`.
 
 The library provides immutable execution configuration, manifest/ownership validation, permission-aware create/reuse, explicit stop observations, and an adapter over the official Kubernetes Python SDK. Platform storage must supply an authenticated, current start permit and an exclusive execution lease; this package does not replace those database transactions. Kubernetes list/check/create is not a cross-store atomic transaction.
 
 ## Resource contract
 
-Images are separate digest references. The administrator-controlled `agent` image must idle until a managed AgentRun launch; the `kali` image must expose its managed tool/MCP entrypoint without starting target work. Image building, the agent launcher and MCP integration are later work.
+Images are separate digest references. The administrator-controlled `agent` image must idle until a managed AgentRun launch; the `kali` image must expose its managed tool/MCP entrypoint without starting target work. The current images and managed launcher live in [task-workers](../../services/task-workers/README.md); only registered fixture capabilities are enabled, not arbitrary MCP or shell execution.
 
 ConfigMap, Secret and PVC names are derived from the Task UUID. They must already exist in the authorized namespace with the `app.kubernetes.io/managed-by`, `wuji.dev/task-id` and `wuji.dev/tenant-id` ownership labels. The controller verifies metadata and never returns Secret data from preflight. Agent credentials and state are not mounted in Kali; Kali working files are not mounted in Agent. Runtime/control credentials are Task-scoped, never upstream model or cluster administration keys.
 
@@ -26,4 +26,4 @@ A different config/image does not silently patch an active Pod. Other generation
 
 ## Local checks
 
-Use the workspace `task-runtime` dependency group and run only `packages/task-runtime/tests`. Tests use synthetic config and API/permit substitutes and make no cluster/model calls. Resource values in test fixtures are examples, not product defaults. See the [Spec](../../docs/stages/phase-1c-runtime-foundation/spec.md), [Plan](../../docs/stages/phase-1c-runtime-foundation/plan.md) and [acceptance](../../docs/stages/phase-1c-runtime-foundation/acceptance.md) for historical checks and deferred live integration. Development verification has no aggregate time budget; run only necessary checks and stop when they pass.
+Use the workspace `task-runtime` dependency group and run only `packages/task-runtime/tests`. Tests use synthetic config and API/permit substitutes and make no cluster/model calls. Resource values in test fixtures are examples, not product defaults. See the [Spec](../../docs/stages/phase-1c-runtime-foundation/spec.md), [Plan](../../docs/stages/phase-1c-runtime-foundation/plan.md) and [acceptance](../../docs/stages/phase-1c-runtime-foundation/acceptance.md) for the original foundation checks; subsequent live integration is recorded in core acceptance, not retroactively counted as a foundation test. Development verification has no aggregate time budget; run only necessary checks and stop when they pass.

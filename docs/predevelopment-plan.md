@@ -1,40 +1,29 @@
-# Wuji 后续开发依赖与交付顺序
+# Wuji 实现进度与后续交付
 
-- 日期：2026-09-11；状态：运行基础与桥接已完成；控制面D1独立草稿及D2模型配置最小验收通过，D3-A原型待用户评审，D3-B具体方案draft；完整0.5控制面尚未交付。
-- 当前入口：[背景索引](project-context.md)、[架构替代决策](cairn-architecture-decision.md)、[本批文档Spec](stages/cairn-architecture-baseline/spec.md)。
-- 本页替代6ee84b5中的旧HTTP优先/后置模型网关开发顺序；原Phase1A/B及P0验收保留，不能据此将后续能力标为完成。
+更新：2026-09-11。当前业务来源为W1记录提交40472c6，文档与GitHub入口为codex/github-upload。以下区分已交付机制与待授权/待验证能力，不将路线图作为新业务开发指令。
 
 ## 1. 当前实际基线
 
-| 对象 | 状态 |
-| --- | --- |
-| 主业务381ae3a | 正式FastAPI/前端/身份/项目/范围预览/任务创建查询取消/幂等回执/事件，API0.4.0 |
-| Phase1A | 完整验收partial，三个真实回调场景仍延期 |
-| B1/B2/B3 | 最小验证有效；现有Task只有queued/cancelled，执行调用数恒零 |
-| P0 a84716c | 原受限Deep Agents/原生客户端工具往返及取消等待实验通过；不是Pi/Cairn/LiteLLM证据 |
-| 新架构 | Cairn Server/Dispatcher、独立agent容器内Pi、多Agent共享同Pod Kali、LiteLLM Task金额预算已完成封闭夹具集成；见核心闭环验收，生产出口及真实模型效果仍待验证 |
-| 当前批次 | [控制面D1](stages/phase-1c-control-plane/spec.md)：独立草稿API/迁移/权限已验收；D2组织模型配置已验收，D3快照/范围确认/ready-start接续；未切换现有服务 |
-| 当前待评审 | [D3-B Spec](stages/phase-1c-task-creation/spec.md)/[Plan](stages/phase-1c-task-creation/plan.md)：Web创建/授权/快照/ready和正式模型配置页面；五场景Goal可自定义，start待执行消费者与许可具备后再开放 |
-
-## 2. 后续按依赖实施
-
-| 批次 | 必须交付 | 前置和边界 |
+| 范围 | 当前结论 | 依据 |
 | --- | --- | --- |
-| 运行基础（已验收离线切片） | 独立基础包、单Pod双容器、许可/归属、UID条件停止、Kubernetes SDK适配 | 内部接口与离线验证；不等于Task API、实际调度或出口已接入 |
-| 控制面基础 | 0.5契约、必要配置快照、ready/start、执行代次、AgentRun/工具账本、Task-Cairn绑定 | 先冻结Spec/Plan和迁移；组织模型配置/Task金额预算的必要后端不能后置到真实调度之后；旧queued不自动执行 |
-| 调度适配 | Wuji派发准入、agent进程执行后端、Pi受限工具、持久结果及原生查询核对 | 先合成工具夹具；Cairn active/stopped不代替许可，同步失败不重跑探索 |
-| 共享Runtime | 多Agent对接一个Kali、产物登记、命令句柄、取消与停止核对 | Task Runtime Controller唯一管理整个Pod；agent/kali分别镜像和容器；Cairn只管理动态Agent进程 |
-| 产品接入 | 原型评审后接正式创建与执行观察页面 | 复用上述契约、现有会话/权限/命令恢复及五主题；没有模型只能存草稿 |
-| 真实目标开放 | 启用已验证工具与场景 | 先有受控出口、授权与停止证据；详细流量方案仍待独立设计 |
-| 后续业务完善 | 覆盖/验证/资产/报告、资料导入、图查询和更多场景 | 按对应领域Spec逐批开放，不再建一套探索调度器 |
+| 平台基础 | 身份/项目/五主题与任务管理已集成；Phase1A完整验收partial | [Phase1A](stages/phase-1a/acceptance.md) |
+| 模型与创建 | 管理员模型配置、同版本检查/发布、五场景草稿、Web正式创建、快照与ready/start已交付 | [核心验收](stages/phase-1c-task-creation/acceptance.md) |
+| 执行核心 | Cairn/Pi/LiteLLM、单Task双容器、多个AgentRun、账本、证据和停止核对通过封闭夹具验收 | [核心验收](stages/phase-1c-task-creation/acceptance.md) |
+| W1评估 | 有限HTTP、验证/覆盖、双Artifact、Reason补证反馈与Pi原生压缩机制通过 | [W1验收](stages/phase-2-web-assessment/acceptance.md) |
+| API与数据库 | OpenAPI 0.5.0，迁移头0008；旧Scope/queued保留历史语义 | [API说明](phase1-api-contract.md) |
+| 运行边界 | 自建站点、合成上游；真实模型自主效果、外部目标和生产出口未验收 | [背景索引](project-context.md) |
 
-任务创建、范围确认、模型配置等产品交互仍需先评审原型，再接正式前后端；隔离的调度适配可先用夹具，不能绕过交互确认发布新创建流程。
+## 2. 后续方向与前置条件
 
-当前细化顺序为D3-B创建与快照→D4权威执行账本→Cairn/Pi合成调度与共享Runtime。提示/Fact/文件交接的具体提案见[执行衔接](stages/phase-1c-task-creation/execution-handoff.md)，不新增固定角色流水线或修改Core。原生LiteLLM Task金额限制须在真实模型调用前接入，出口与停止须在真实目标访问前验证，不能借分批顺序后置。
+| 方向 | 前置条件 / 范围 |
+| --- | --- |
+| W1真实模型效果 | 明确已发布模型版本、公司单价与新增USD授权；机制通过不能代替效果层 |
+| 生产出口与外部目标 | 独立Spec/Plan，验证授权、DNS/重定向、撤销和停止边界后逐项开放工具 |
+| 关系画布 | 评审React Flow与当前数据关系；现有真实黑板/时间线/工作区继续保留 |
+| 完整评估交付 | 通用Goal映射、Finding/报告/资料和更多场景分别冻结契约；不重建探索调度器 |
+| 既有延期 | [Phase1A待测](stages/phase-1a/deferred-tests.md)及W1验收限制按需集中安排，不因文档更新全量重测 |
 
-用户最新要求完整任务测试核心优先：[统一闭环计划](stages/phase-1c-task-creation/core-loop-plan.md)作为下一阶段评审总入口，ready只是M1内部里程碑。创建入口明确反馈已直接修复，不再用全量原型/视觉打磨阻塞执行链路；批准整体方案后按依赖连续开发，实质设计变化才重新收口。
-
-每批计划必须固定具体接口、迁移、变更范围、错误/恢复行为及最小验证入口。旧phase-1c-prep草案superseded，不能直接派发实施。本次不清理或删除P0包，不改变既有Cairn/Pi/Harness候选；运行基础通过可选workspace group新增官方Kubernetes客户端，避免挂入API启动路径。
+D1/D2/D3-B、执行账本与Cairn/Pi接入不再列为未开工任务。原架构草案与P0保留历史，不能覆盖后续accepted记录。后续新阶段仍先在应用Plan模式完成具体规划；草案不自动授权实施。
 
 ## 3. 依赖基线及选择依据
 
@@ -52,25 +41,14 @@
 | Ajv / ajv-formats / YAML | 8.20.0 / 3.0.1 / 2.9.0 | JSON Schema 2020 校验、格式和文档解析 |
 | Vitest / Playwright | 5.0.0 / 1.63.0 | 本地契约与浏览器验证 |
 
-精确元数据以 npm registry 和锁文件为依据，开启严格 peer dependency 检查；所列不是“全部最新版”承诺。Node 24 的发布维护状态见 [Node 发布计划](https://nodejs.org/en/about/previous-releases)，类型生成器的 peer 要求见 [openapi-typescript 7.13.0 元数据](https://registry.npmjs.org/openapi-typescript/7.13.0)。直接依赖的登记许可证为 MIT、Apache-2.0、ISC 或 OFL-1.1；完整传递依赖清单、漏洞审计及组织许可要求需在生产依赖冻结前完成。
+精确元数据以 npm registry 和锁文件为依据，开启严格 peer dependency 检查；所列不是“全部最新版”承诺。Node 24 的发布维护状态见 [Node 发布计划](https://nodejs.org/en/about/previous-releases)，类型生成器的 peer 要求见 [openapi-typescript 7.13.0 元数据](https://registry.npmjs.org/openapi-typescript/7.13.0)。上述前端依赖的登记许可证为 MIT、Apache-2.0、ISC 或 OFL-1.1；Cairn另保留AGPL-3.0及上游来源，见[架构决策](cairn-architecture-decision.md)；完整传递依赖清单、漏洞审计及组织许可要求需在生产依赖冻结前完成。
 
 以后升级依赖必须同时检查 peer、类型生成差异、构建和浏览器测试，不通过简单修改“最新版本”说明完成升级。
 
-## 4. 下一份控制面Spec必须落实
+## 4. 开发与交付约束
 
-- 组织TenantAdmin模型配置与同版本显式连接检查，LiteLLM原生管理边界；禁止隐式付费探活。
-- 独立草稿、创建者范围确认、版本化ConfigSnapshot、Task USD金额预算和无模型行为；不从P0复制测试限额作为产品默认。
-- 0.5 DTO、生成校验器、数据库约束及迁移；Task/回执/事件兼容，历史queued不自动执行。
-- Task-Cairn绑定与Wuji侧操作日志；原生active创建后由平台拒绝未启动派发，结果不明按已知引用核对、每次派发真实AgentRun身份与执行代次。
-- 原始结果先保存再同步；原生Fact ID、结果待同步和只读投影；跨库不假定原子事务。
-- 完成提案、资源所有权、未知执行与未知结果区分；明确本批实际开放的命令，不能只有202入口而无消费者。
+沿用[AGENTS](../AGENTS.md)及[协作流程](development-workflow.md)：当前会话连续开发，主代理负责架构，按需使用指定子代理。按影响选择最小检查，不设置累计检查时间预算；通过即停，未覆盖如实记录。
 
-## 5. Git、验证与交付
+已有运行工作树和master保持其历史SHA。新运行按[本地工作台](local-development.md)正常生成run-file，不手改记录绕过版本核验。GitHub当前版本见[仓库交接](repository-handoff.md)；后续推送仍依用户授权，不因已配置远端自动发布每次工作。
 
-继续使用当前会话和已有phase-1c-prep工作树，架构由主代理独立设计；可选子代理按根AGENTS的最新gpt-6-astra/low设置执行明确任务，不强制独立worktree或独立测试者。
-
-文档提交不移动主业务HEAD或master，不修改私有运行文件绕过SHA检查。业务交付时才按[本地启动流程](local-development.md)切换服务、增量迁移/seed并保留数据；代码集成后再同步CodeGraph。
-
-当前运行基础批次按其Spec执行有限依赖准备、定向离线单元检查和包构建；不运行浏览器、Kubernetes或模型。历史耗时按原验收保留；用户于2026-09-11取消累计检查时间预算，继续最小必要检查、通过即停。真实4次模型调用额度仍已耗尽；缺少证据如实待测，不把代码或文档交付冒充完整验收。
-
-后续最小场景仅为未启动不派发、两个独立AgentRun共用一个Runtime、结果重投不重跑、工具越权拒绝、取消与迟到派发、旧queued不执行。长上下文、长时间断线、压力和完整协议矩阵保留到明确安排的集中验证；通过即停止。
+本次仅文档同步，不修改锁文件、依赖、代码或验收SHA，不运行模型或目标请求；真实模型的历史已用额度不能因整理文档重置。

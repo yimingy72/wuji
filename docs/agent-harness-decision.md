@@ -1,6 +1,6 @@
 # Agent Harness 与平台侧 Worker 接入
 
-- 日期：2026-09-10；2026-09-11状态更新：核心Cairn/Pi/LiteLLM/双容器Task已通过封闭夹具验收，见[记录](stages/phase-1c-task-creation/acceptance.md)。下文未集成描述保留原阶段范围；长期压缩与真实模型效果仍未通过。
+- 日期：2026-09-10；2026-09-11状态更新：核心Cairn/Pi/LiteLLM/双容器Task已通过封闭夹具验收，见[记录](stages/phase-1c-task-creation/acceptance.md)。W1已通过真实Pi原生压缩及压缩后持久记录读取，见[W1验收](stages/phase-2-web-assessment/acceptance.md)；长期记忆质量与真实模型效果仍待验收。
 - 权威取舍：[架构替代决策](cairn-architecture-decision.md)；完整部署见[主架构](architecture.md)，共享图协议见[黑板设计](cairn-blackboard-design.md)。
 - 历史：6ee84b5中的LangGraph/Deep Agents首选方案已被替代。[P0验收](stages/phase-1c-prep-p0/acceptance.md)仍只证明原受限Deep Agents/客户端实验，不证明Pi、Cairn或LiteLLM已可用。
 
@@ -8,11 +8,11 @@
 
 目标链路使用Cairn Dispatcher + Pi coding-agent + LiteLLM。Pi提供模型客户端、Agent循环、上下文控制、会话和摘要；Cairn提供探索调度，Wuji补执行准入、工具接入、身份、持久交接与停止核对。LangGraph/LangChain/Deep Agents不再是必选依赖，不运行第二套探索调度器。
 
-首个Harness以Pi 0.73.0为候选集成基线，复用Cairn现有Pi CLI驱动及JSON事件模式，不同时接入Claude/Codex/Pi多套实现。一个AgentRun绑定一个Harness版本及会话。未来更换SDK属于Worker适配变化，不能借此重写模型协议或压缩算法。
+首个Harness以Pi 0.73.0为固定集成基线，复用Cairn现有Pi CLI驱动及JSON事件模式，不同时接入Claude/Codex/Pi多套实现。一个AgentRun绑定一个Harness版本及会话。未来更换SDK属于Worker适配变化，不能借此重写模型协议或压缩算法。
 
-2026-09-11复审续接：原生阶段输入可能经Pi压缩成为摘要，不能靠初始提示保证合同无损；[阶段合同/记忆/成果交接提案](stages/phase-1c-task-creation/execution-handoff.md)规定后续应在持久任务配置、调用记录和受限扩展上补充。提案未实施，不宣称仅放置镜像AGENTS文件就会被当前禁用自动加载的Pi驱动读取。
+2026-09-11复审续接：原生阶段输入可能经Pi压缩成为摘要，不能靠初始提示保证合同无损；[阶段合同/记忆/成果交接提案](stages/phase-1c-task-creation/execution-handoff.md)的持久配置、调用记录和受限扩展已按核心/W1合同落实；graph_refresh、assessment_read和evidence_read读取受鉴权记录。不能宣称仅放置镜像AGENTS文件就会被禁用自动加载的Pi驱动读取。
 
-Pi当前提供CLI、RPC与SDK入口，以及内置工具关闭、显式白名单和扩展能力。[固定版本文档](https://github.com/earendil-works/pi/blob/v0.73.0/packages/coding-agent/README.md) 这些是静态能力依据；MCP工具往返、取消、压缩等在Wuji的实际表现仍待分批验证。
+Pi当前提供CLI、RPC与SDK入口，以及内置工具关闭、显式白名单和扩展能力。[固定版本文档](https://github.com/earendil-works/pi/blob/v0.73.0/packages/coding-agent/README.md) 这些是静态能力依据；Wuji已验收受限工具往返、取消核对及原生压缩机制，通用MCP/浏览器、多模型与完整恢复矩阵不在该证据范围。
 
 ## 2. Worker与Kali分别管理
 
@@ -66,10 +66,10 @@ Dispatcher/Worker重启后先冻结相关派发，核对持久AgentRun、进程�
 
 会话/日志/快照按Task数据分类保存；原始事件不直接作为公开Task事件，不公开隐藏推理。首版执行观察可显示Agent状态、工具调用、产物和最终结果；完整逐Token流和协议矩阵不属于本批文档验收。
 
-## 7. 原文档阶段证据与后续（历史范围）
+## 7. 当前证据与后续边界
 
-本节“未集成/0.4”适用于2026-09-10文档阶段，已被2026-09-11核心集成记录更新；新的效果/评估工作见[W1草案](stages/phase-2-web-assessment/spec.md)，不能据此重新判断Pi尚未接通。
+- [核心验收](stages/phase-1c-task-creation/acceptance.md)：真实Cairn/Pi/LiteLLM、双容器Task、跨Agent文件交接、结果核对、取消及原生金额拒绝；被测候选及复用证据分别记录。
+- [W1验收](stages/phase-2-web-assessment/acceptance.md)：被测f12a46f，真实Pi compaction_end及压缩后受限持久记录读取；使用合成上游，不证明自主推理或长期记忆质量。
+- [P0验收](stages/phase-1c-prep-p0/acceptance.md)：原Deep Agents实验及4次真实调用的历史事实，不能作为Pi验收。
 
-候选版本Cairn 8e7e0ea、Pi 0.73.0、LiteLLM v1.100.0均未在本批集成。P0被测a84716c仅限历史Deep Agents切片，其4次真实调用和预算记录继续有效，不复用为Pi验收。
-
-后续只按对应阶段验证明确工具表、合成工具往返、任务归属、结果重投和停止。长上下文、完整流式/恢复、多模型矩阵留待集中验证；不因本文件重写而安装、构建或请求模型。当前业务仍0.4.0，下一批Spec/Plan未批准，见[开发顺序](predevelopment-plan.md)。
+本次文档不重跑业务验证。完整流式/恢复、多模型、长上下文质量与生产运行按[后续清单](predevelopment-plan.md)另行安排；真实模型效果须有明确新增USD授权。

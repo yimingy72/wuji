@@ -1,10 +1,10 @@
 # 架构替代决策：Cairn 调度、平台侧 Agent 与共享 Kali
 
-- 日期：2026-09-10；状态：accepted / 用户已批准的目标架构，implementation pending。
+- 日期：2026-09-10；状态：accepted；2026-09-11更新：核心执行与W1机制已通过封闭夹具验收，生产目标能力按下文边界分开。
 - 依据：用户批准《Wuji 架构复审修订版：Cairn 调度、平台侧 Agent 与共享 Kali》；用户明确Agent不运行在Kali中，整体架构由主代理独立设计。
 - 后续澄清：Task业务主体、单Task Pod双容器与核心不改边界见[修订记录](stages/cairn-architecture-baseline/clarification.md)；以下为修订后的现行决定。
 - 文档实施基准：codex/phase-1c-prep@6ee84b5268a5012c69ba4567d78eb18727b41ee1。
-- 本批范围：[Spec](stages/cairn-architecture-baseline/spec.md)、[Plan](stages/cairn-architecture-baseline/plan.md)、[文档验收](stages/cairn-architecture-baseline/acceptance.md)。公开API仍0.4.0，本文不是已发布接口或已验证部署的声明。
+- 本批范围：[Spec](stages/cairn-architecture-baseline/spec.md)、[Plan](stages/cairn-architecture-baseline/plan.md)、[文档验收](stages/cairn-architecture-baseline/acceptance.md)。此处为原文档阶段范围；当前OpenAPI为0.5.0，具体实现与部署证据见[核心验收](stages/phase-1c-task-creation/acceptance.md)及[W1验收](stages/phase-2-web-assessment/acceptance.md)。
 
 ## 1. 替代哪些旧决定
 
@@ -50,7 +50,7 @@ Wuji Project -> 多个Task
 
 用户最终确认：每Task一个Pod，固定agent与kali两个容器；agent容器动态运行多个Harness进程，kali容器承载工具/MCP及共享目录。各容器独立镜像、工作卷、凭据挂载和进程空间；它们共享Pod网络，不承诺按容器分配不同NetworkPolicy。Kali同任务目录/浏览器Context划分用于避免污染，不宣称隔离相互恶意的执行者。
 
-Cairn ExecutionBackend定位已获准的Task Pod及agent容器，适配动态进程执行；后端选择、执行上下文和cleanup调用均需改造，不是已有Kubernetes支持。[上游接口](https://github.com/oritera/Cairn/blob/8e7e0ea67552383851dfcabfba0c4e9c8d007878/cairn/src/cairn/dispatcher/runtime/backend.py)
+Cairn ExecutionBackend定位已获准的Task Pod及agent容器，适配动态进程执行；后端选择、执行上下文和cleanup由Wuji外围适配接入，已随核心闭环验证，不是上游原生Kubernetes支持。[上游接口](https://github.com/oritera/Cairn/blob/8e7e0ea67552383851dfcabfba0c4e9c8d007878/cairn/src/cairn/dispatcher/runtime/backend.py)
 
 ## 3. 数据权威和跨库一致性
 
@@ -94,11 +94,11 @@ Cairn按原生语义记录探索完成，Wuji独立维护任务执行、停止�
 | 依赖 | 候选集成基线 | 状态 |
 | --- | --- | --- |
 | Cairn | 8e7e0ea67552383851dfcabfba0c4e9c8d007878 | 原生Server/客户端桥接最小验证已通过；原生Dispatcher/Pi/双容器Task闭环已通过封闭夹具验收，见[核心记录](stages/phase-1c-task-creation/acceptance.md)；保留AGPL-3.0许可及上游来源 |
-| Pi coding-agent | 0.73.0 | 首个Harness接入方向，未在Wuji验收 |
-| LiteLLM Proxy | v1.100.0 | 固定镜像digest及D2原生配置/检查/重启最小链路已验证；Task预算及真实K8生命周期未验收，见[D2记录](stages/phase-1c-model-config/acceptance.md) |
+| Pi coding-agent | 0.73.0 | 已通过核心真实CLI/受限工具链路及W1原生压缩机制验收；真实模型记忆质量待测 |
+| LiteLLM Proxy | v1.100.0 | 固定镜像digest及D2原生配置/检查/重启最小链路已验证；后续核心验收已覆盖真实K8链路、Task预算累计/拒绝及Key停止；不保证零超支，D2历史范围见[D2记录](stages/phase-1c-model-config/acceptance.md) |
 
 Dispatcher/执行后端的必要适配保留明确归属，Cairn黑板核心不打补丁，不重写搜索策略、厂商协议或Pi上下文机制。候选失败报告具体原因，不静默换框架。
 
-后续依赖顺序：控制面基础（0.5契约、配置快照、ready/start、epoch、AgentRun/工具账本、Task绑定）→调度适配（先合成工具）→共享Runtime→原型评审后的正式产品接入→真实目标开放。具体API、迁移和验证入口由对应Spec/Plan冻结；旧0.5草案不能直接施工。
+实施顺序已按控制面→调度适配→共享Runtime→产品接入完成核心闭环，W1进一步交付有限匿名HTTP验证、覆盖/证据和完成缺口反馈。具体接口以0.5.0契约、0006—0008迁移和阶段实施合同为准，旧0.5草案不作为执行依据。
 
-原架构收口只更新文档；2026-09-11用户授权并完成[运行基础库离线验收](stages/phase-1c-runtime-foundation/acceptance.md)，完整执行尚未接入。Phase1A保持partial，P0仅限原实验，业务仍0.4.0。用户于2026-09-11取消累计检查时间预算，历史检查记录保留；真实4次模型调用额度仍已用完。文档仅diff/链接检查；后续最小场景为未启动不派发、同一Task Pod的agent容器内两个AgentRun共用kali容器、结果核对不重跑、工具越权拒绝、取消与迟到派发、旧queued不执行；缺少证据则待测，不预先标集成通过。
+本次仅同步文档，不启动服务或模型。Phase1A保持partial；P0保留其原实验、费用和历史证据。后续真实模型效果需要明确新增USD授权，生产出口、任意工具/外部目标、通用Goal与完整Finding/报告仍待独立方案和验收。W1不将总Goal自动标为达成，当前Artifact使用开发PVC；目标架构中的对象存储和完整安全控制不能视为已部署。

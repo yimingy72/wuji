@@ -37,7 +37,7 @@
 
 ## 分支、worktree 与本地 Git
 
-- `master` 保存阶段基线；阶段分支命名为 `codex/<stage>`，子任务分支命名为 `codex/<stage>-<task>`。
+- GitHub当前默认入口为 `codex/github-upload`，业务来源与历史SHA见[仓库交接](repository-handoff.md)。`master` 保存历史阶段基线；阶段分支命名为 `codex/<stage>`，子任务分支命名为 `codex/<stage>-<task>`。
 - 按需新增的 worktree 放在被忽略的 `work/worktrees/`；不强制另建。共享工作树时明确唯一文件 owner；执行者只修改分配范围，避免影响绑定运行 SHA 的主目录。
 - 仓库使用本地身份 `Wuji Development <wuji-dev@localhost>`，不得修改全局 Git 身份。
 - 执行仓库脚本时优先使用 `packageManager` 固定的 `pnpm` 入口和 `pnpm exec`。终端默认 Node 与项目版本不同时，通过该入口使用项目 Node，无需也不得为此全局切换版本。

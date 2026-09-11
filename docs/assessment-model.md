@@ -1,9 +1,11 @@
-# Wuji v0.4 评估、知识与交付模型
+# Wuji 评估、知识与交付模型
 
-> 当前架构适用说明（2026-09-10）：验证/覆盖/证据/报告语义保留，但Fact/Intent/Hint与探索图由Cairn唯一维护，Wuji保存原始提交、引用及验证记录，见[架构替代决策](cairn-architecture-decision.md)。跨库关联通过Bridge核对归属和版本，不能声称PostgreSQL外键或单次事务覆盖Cairn；Task预算改为LiteLLM原生USD金额。下文均为领域目标设计，不是已实现接口。
+W1实际范围：`closed-web-assessment-v1` 使用固定 `cors-reflection-v1` 方法与匿名HTTP证据；响应元数据和正文分别登记Artifact。验证修订与有限计划不等于完整漏洞生命周期，`confirmed`只确认该方法的条件，Task总Goal保持unknown。具体字段和判据见[实施合同](stages/phase-2-web-assessment/implementation-contracts.md)，实际证据见[验收](stages/phase-2-web-assessment/acceptance.md)。
+
+> 当前架构适用说明（2026-09-10）：验证/覆盖/证据/报告语义保留，但Fact/Intent/Hint与探索图由Cairn唯一维护，Wuji保存原始提交、引用及验证记录，见[架构替代决策](cairn-architecture-decision.md)。跨库关联通过Bridge核对归属和版本，不能声称PostgreSQL外键或单次事务覆盖Cairn；Task预算改为LiteLLM原生USD金额。下文保留完整领域目标；当前仅交付核心快照与W1有限评估子集，字段与接口以阶段实施合同为准。
 
 - **日期**：2026-09-09
-- **状态**：待实现业务契约；示例不是已部署 API 或已通过验收的能力
+- **状态**：2026-09-11更新；W1有限计划、VerificationRun、结果修订、Observation、EvidenceLink和CompletionReview已验收；通用Goal、完整Finding/Report/知识发布仍是目标设计
 - **上层约束**：[平台架构](architecture.md)
 - **验证方式**：[架构验收清单](architecture-acceptance.md)
 
@@ -47,9 +49,9 @@ EvidenceLink 连接不可变 Observation/Artifact 版本与 Fact、VerificationR
 | ValidationRuleVersion | 输入证据 Schema、前提、可接受结论、检查条件、复核要求 | 校验结论能否被接受，不自行发送目标请求 |
 | VerificationTemplateVersion | 声明式步骤、Adapter 版本、目标变量、前提、期望观察和规则引用 | 通过 Tool 注册表和 Scope 预检后才可执行，不是任意代码入口 |
 
-2026-09-11 用户明确确认：平台按 Web 单点渗透、CTF 等五类场景提供默认 Goal 与完成条件模板，创建任务时允许自定义。沿用 ScenarioProfileVersion 与 ConfigSnapshot 的版本化设计；具体模板正文、编辑交互、数据字段和完成判定实现仍需对应阶段冻结，不把本次确认当成已实现能力。自定义目标不改变现有 Scope、平台禁止项及预算边界。已形成[D3-B模板正文提案](stages/phase-1c-task-creation/goal-templates.md)和[创建/执行快照分批方案](stages/phase-1c-task-creation/spec.md#6-快照与状态)，现已随核心闭环批准实施；模板文本持久化不表示任意自定义Goal已能自动判定。
+2026-09-11 用户明确确认：平台按 Web 单点渗透、CTF 等五类场景提供默认 Goal 与完成条件模板，创建任务时允许自定义。沿用 ScenarioProfileVersion 与 ConfigSnapshot 的版本化设计；模板正文、编辑交互和配置快照已按D3-B合同实现；通用完成判定并未随模板存储自动实现。自定义目标不改变现有 Scope、平台禁止项及预算边界。已形成[D3-B模板正文提案](stages/phase-1c-task-creation/goal-templates.md)和[创建/执行快照分批方案](stages/phase-1c-task-creation/spec.md#6-快照与状态)，现已随核心闭环批准实施；模板文本持久化不表示任意自定义Goal已能自动判定。
 
-2026-09-11更新：用户已批准并在核心链路落实Reason读取既有证据、主动补证交普通Intent/Explore；不再作为本阶段未决项。原[调度提案](stages/phase-1c-task-creation/execution-handoff.md)保留历史，未实现的完整验证/覆盖/Goal评估按[W1草案](stages/phase-2-web-assessment/spec.md)收口；Core协议和旧Fact保持不改。
+2026-09-11更新：用户已批准并在核心链路落实Reason读取既有证据、主动补证交普通Intent/Explore；不再作为本阶段未决项。原[调度提案](stages/phase-1c-task-creation/execution-handoff.md)保留历史，有限验证/覆盖按[W1 Spec](stages/phase-2-web-assessment/spec.md)交付，总Goal保持unknown，完整评估仍待后续阶段；Core协议和旧Fact保持不改。
 
 平台预置配置也有发布版本。增加 ConfigPublisher、FindingReviewer、ReportPublisher 等权限点，由 TenantAdmin 在允许范围内分配；这些权限不自动包含 ScopeManager 或敏感证据导出权限。Agent 没有发布平台知识、修改规则和扩大工具权限的权限。
 
@@ -61,7 +63,7 @@ ConfigSnapshot 保存上述版本 ID、内容摘要、initial_scope_version、Ru
 
 首个场景 `web-observation` 只组合已验收 HTTP 观察能力，起手维度包括入口可达性、响应配置和公开内容观察。登录、访问控制、源码和协议分析在相应输入与 Adapter 可用后增加；缺失维度记录 blocked 或 not_run，不直接隐藏。
 
-采用用户明确要求的 [Cairn 风格黑板](cairn-blackboard-design.md)，由 Fact/Intent/Hint 的当前态势产生下一步工作，不固定 Planner→Explorer→Verifier 流水线。角色模板只表达模型、工具、方法和输出能力：Phase 2 用一个通用 Agent 读取黑板、规划和推进必要验证；Phase 3 才按可执行 Intent 与能力匹配分派 Worker。CodeAuditor 等专用配置在需要时匹配；Reporter 先为生成草稿的逻辑能力，不必启动常驻 Agent。模型能力、工具集合和网络操作始终受平台交集策略约束。
+采用用户明确要求的 [Cairn 风格黑板](cairn-blackboard-design.md)，由 Fact/Intent/Hint 的当前态势产生下一步工作，不固定 Planner→Explorer→Verifier 流水线。角色模板只表达模型、工具、方法和输出能力：核心闭环已由原生Bootstrap/Reason/Explore动态分派多个独立AgentRun，W1复用该机制；不再沿用早期“Phase 3才多Agent”的批次假设。CodeAuditor 等专用配置在需要时匹配；Reporter 先为生成草稿的逻辑能力，不必启动常驻 Agent。模型能力、工具集合和网络操作始终受平台交集策略约束。
 
 ### 2.3 按需知识加载
 
@@ -231,7 +233,7 @@ ExportArtifact 绑定 commit、格式、渲染器版本、文件摘要、大小�
 
 | 命令 | 执行效果 | 授权/关键校验 |
 | --- | --- | --- |
-| `create_task` | 固定配置/Scope 快照，进入待启动；按场景模板生成初始计划，不调用模型或目标 | Operator；Scope、完整输入与配置能力预检；待启动是产品已确认、尚未发布的契约增量 |
+| `create_task` | 固定配置/Scope 快照，进入待启动；按场景模板生成初始计划，不调用模型或目标 | Operator；Scope、完整输入与配置能力预检；ready/start已随0.5核心交付；W1有限计划按注册Profile生成，不能据通用模板自动判Goal |
 | `start_task` | 显式接受启动，重新核验后排队执行 | 当前权限、预期版本、有效 Scope、未撤销配置、环境能力与预算；不能自动启动历史 queued |
 | `propose_coverage_change` | 保存计划增删提案，不扩大授权 | Agent/Operator 可提案；Assessment 验证策略和版本后提交 |
 | `request_verification` | 创建排队 Run，交 Dispatcher 调度 | 当前 Task 允许执行、预算、主张与方法固定 |
@@ -246,7 +248,7 @@ ExportArtifact 绑定 commit、格式、渲染器版本、文件摘要、大小�
 
 结论更新和 Outbox 同事务写入。异步覆盖、搜索和报告列表是可重建投影，消费者按事件 ID 去重、按聚合版本防止倒退；断线后从持久记录恢复。发布报告必须读取权威快照，不能以可能滞后的搜索索引为依据。Agent 完成通知的丢失不会导致重新执行已结束的验证。
 
-## 9. 实施顺序与新增验收映射
+## 9. 历史实施顺序与长期验收映射
 
 | 阶段 | 最小交付 | 新增验收 |
 | --- | --- | --- |

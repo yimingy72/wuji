@@ -1,8 +1,8 @@
 # Cairn 黑板与 Wuji 任务的接入设计
 
-- 日期：2026-09-10；状态：目标架构已确认，implementation pending。
+- 日期：2026-09-10；状态：架构已确认；2026-09-11核心闭环与W1已完成封闭夹具集成，生产扩展仍待验证。
 - 权威取舍：[架构替代决策](cairn-architecture-decision.md)；本页负责共享图与生命周期，Worker/工具边界见[Harness设计](agent-harness-decision.md)。
-- 旧6ee84b5中“仅借鉴Cairn领域模型、PostgreSQL自建黑板、LangGraph持久编排”的方案已被替代。公开API0.4.0尚无黑板，task_events不能当成Fact/Intent/Hint实现证明。
+- 旧6ee84b5中“仅借鉴Cairn领域模型、PostgreSQL自建黑板、LangGraph持久编排”的方案已被替代。当前0.5.0已有任务黑板只读接口与关系导航，见[核心验收](stages/phase-1c-task-creation/acceptance.md)；旧task_events本身不构成黑板实现证明。
 
 ## 1. 直接复用及唯一图来源
 
@@ -22,7 +22,7 @@ Task是Wuji完整业务主体：统筹场景、目标/起点/终点、授权范�
 
 原生Fact主要为描述文本，结构校验不验证真实性；原生worker字段及心跳也不等于平台身份/执行代次。[固定协议](https://github.com/oritera/Cairn/blob/8e7e0ea67552383851dfcabfba0c4e9c8d007878/docs/specs/server-protocol.md)
 
-2026-09-11原生行为复核：Reason标准返回complete/intents/noop，没有新增Fact写回分支，也没有固定逐Fact复核Worker。后续的补证、追加纠错、覆盖与共享文件规范见[执行衔接提案](stages/phase-1c-task-creation/execution-handoff.md)，仍为待冻结候选；不把修改提示词解释为Core已增加协议或证据真实性校验。
+2026-09-11原生行为复核：Reason标准返回complete/intents/noop，没有新增Fact写回分支，也没有固定逐Fact复核Worker。后续的补证、追加纠错、覆盖与共享文件规范见[执行衔接提案](stages/phase-1c-task-creation/execution-handoff.md)，已按核心与[W1实施合同](stages/phase-2-web-assessment/implementation-contracts.md)落实有限范围；Wuji保存完成缺口并通过普通Reason/Intent补证，不增加Core协议或由提示词承担真实性校验。
 
 Cairn SQLite是探索图唯一可写来源，首版单Server、单Dispatcher、持久卷。Wuji PostgreSQL保存Task/AgentRun/ToolCall、权限、验证和图引用/只读投影；原始Agent提交是交接证据，不能成为另一份可独立编辑的Fact。
 
@@ -32,7 +32,7 @@ Cairn Bridge作为Platform API内部模块，负责Task映射、真实调用归�
 
 保持Cairn Server、数据库结构、Fact/Intent/Hint模型和黑板读写/complete/reopen协议原样。改造集中在Dispatcher的调度接入、Worker后端、模型/工具适配，以及Wuji侧业务控制；不再给Cairn增加外部Task字段、原子停止态创建、操作回执或事务事件。
 
-Wuji先保存原始Agent结果和本地操作记录，再通过原生Cairn API提交，成功后记录返回的原生ID及观察结果。请求失败需区分明确未发送与可能已提交；响应丢失按已知Project/Intent及原生读接口核对，能确认已提交则记录完成，不能确认则保持待核对。不得宣称原生API提供新增幂等回执、图版本或事务事件；不盲目重投写入，更不能重跑模型或目标。 具体平台接口/DTO由后续控制面Spec冻结，不要求改Cairn数据库。
+Wuji先保存原始Agent结果和本地操作记录，再通过原生Cairn API提交，成功后记录返回的原生ID及观察结果。请求失败需区分明确未发送与可能已提交；响应丢失按已知Project/Intent及原生读接口核对，能确认已提交则记录完成，不能确认则保持待核对。不得宣称原生API提供新增幂等回执、图版本或事务事件；不盲目重投写入，更不能重跑模型或目标。 具体平台接口/DTO见0.5.0契约和核心实施合同，不要求改Cairn数据库。
 
 ## 3. 创建、启动与派发
 
@@ -70,6 +70,6 @@ Hint、回答问题和控制/授权命令分别处理：Hint保留作者/来源�
 
 任务详情关联黑板、AgentRun、共享环境、工具记录、证据和结果。点Fact查看其受限证据，点Intent查看依据、认领及结果，Hint显示作者和生效上下文。页面只读权威记录/投影，不直接修改Cairn或通过原生界面绕过Wuji权限。
 
-先完成0.5控制面必要契约与持久记录，再接入调度和合成工具，随后共享Kali及正式产品页面。真实目标开放以出口和停止证据为前提；详细流量控制仍待后续设计。
+0.5控制面、调度、共享Kali、正式关系视图已通过[核心验收](stages/phase-1c-task-creation/acceptance.md)；W1完成缺口反馈、评估与证据刷新见[W1验收](stages/phase-2-web-assessment/acceptance.md)。真实目标开放仍以生产出口和停止边界证据为前提。
 
-本次只改文档，不启动Cairn、不调用模型；旧P0预算及事实保持。后续最小场景为一个Fact→Intent→结果链、结果核对不重跑、同一Task Pod的agent容器内两个AgentRun共用kali容器、未启动/失权不派发和取消边界。完整图、长断线、压力与模型矩阵不成为本轮检查要求。
+本次只同步文档，不启动Cairn或模型。完整图布局、长断线、压力与模型矩阵保持后续范围；本机历史证据与业务被测SHA不因文档提交变化。

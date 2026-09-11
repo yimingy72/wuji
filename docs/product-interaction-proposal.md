@@ -1,5 +1,7 @@
 # Wuji 产品交互方案：从创建到结果
 
+历史提案阅读说明（2026-09-11）：本文保留旧原型和分期思路。当前模型配置、Web创建/启动、真实执行与黑板/时间线/工作区已按[核心合同](stages/phase-1c-task-creation/execution-contracts.md)交付，有限评估与证据见[W1验收](stages/phase-2-web-assessment/acceptance.md)。下面“待接正式前后端”等语句仅适用于原提案阶段；当前入口见[产品说明](../PRODUCT.md)。
+
 > 当前适用范围（2026-09-10）：五场景与匿名/范围/创建启动分离需求保留；旧“两条HTTP/Agent路径”与历史原型证据不能作为新版体验验收。模型/黑板/调度按[架构替代决策](cairn-architecture-decision.md)，原型评审后再接正式前后端。
 
 > 2026-09-10 阅读提示：本页保留初版交互提案；五场景、创建者确认范围、组织共享模型配置等最新决定见 [场景设计](scenario-execution-design.md) 和 [背景索引](project-context.md)。旧原型验收不覆盖这些新行为。

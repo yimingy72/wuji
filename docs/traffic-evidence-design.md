@@ -1,5 +1,7 @@
 # Kali 工具流量与漏洞证据关联方案
 
+W1对照（2026-09-11）：已交付受控HTTP请求及元数据/正文双Artifact，见[W1合同](stages/phase-2-web-assessment/implementation-contracts.md)。这些是客户端解码后的观察，不是全量流量捕获、TLS原包或通用代理；本页详细流量路线继续保持待评审。
+
 > 适用范围更新（2026-09-10）：本页流量技术路线仍为后续待评审设计，不因[架构替代决策](cairn-architecture-decision.md)而自动获准实现；当前只固定平台侧Agent、一个共享Kali及平台出口/证据责任，不宣称流量能力已部署。
 
 状态：review-draft，2026-09-10。基于用户明确保留的“平台 Agent + Kali MCP 执行环境”，补齐可评审后端设计。架构主线不变，不运行任何渗透工具、不部署代理、不做测试。

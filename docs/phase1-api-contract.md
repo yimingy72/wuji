@@ -1,12 +1,42 @@
-# Phase 1 API 契约说明
+# Wuji API 契约说明（0.5.0）
 
-- **契约版本**：0.4.0；OpenAPI 3.1.1
-- **状态**：身份、健康、项目、范围、预览、任务创建/取消/回执/事件已实现，实际交付见[B2/B3验收](stages/phase-1b/b23-acceptance.md)。证据接口仍是后续设计。
-- **权威文件**：[openapi.yaml](../packages/contracts/openapi.yaml)
-- **生成类型**：[api.d.ts](../packages/contracts/generated/api.d.ts)
-- **响应校验器**：[@wuji/contracts/validators](../packages/contracts/generated/validators.js)，从同一 Schema 生成的 standalone ESM
-- **共享夹具**：[phase1.json](../packages/contracts/fixtures/phase1.json)
-- **Phase 1A 夹具**：[phase1a.json](../packages/contracts/fixtures/phase1a.json)，与原型含未实现权限的夹具分开
+- **当前契约**：OpenAPI 0.5.0 / OpenAPI 3.1.1；路径版本仍为 `/api/v1`，不随文档版本改成 `/api/v2`。
+- **权威文件**：[openapi.yaml](../packages/contracts/openapi.yaml)、[生成类型](../packages/contracts/generated/api.d.ts)、[响应校验器](../packages/contracts/generated/validators.js)。
+- **实际交付**：核心创建/执行见[核心验收](stages/phase-1c-task-creation/acceptance.md)，有限评估见[W1验收](stages/phase-2-web-assessment/acceptance.md)。契约存在不代表生产能力全量验收。
+
+## 当前接口导航
+
+以下 `P` 表示 `/projects/{project_id}`，`T` 表示 `P/tasks/{task_id}`，`N` 表示 `/tenants/{tenant_id}`；均相对 `/api/v1`。HTTP方法、请求字段、响应及错误码以OpenAPI为准。
+
+| 领域 | 入口 | 当前用途 |
+| --- | --- | --- |
+| 会话与项目 | `/session`、`/auth/*`、`/projects`、`P` | 同源会话、权限和项目访问 |
+| 独立草稿 | `P/task-drafts`、`P/task-drafts/{draft_id}` | 私有草稿、版本冲突与1.0/2.0兼容 |
+| 场景与新建预览 | `P/scenario-profiles`、`P/task-creation-previews` | 五场景模板、Web正式创建的授权/配置预览 |
+| 可选模型 | `P/model-profiles` | 项目创建可用的已发布模型方案 |
+| 组织模型配置 | `N/model-services`、`N/model-profiles`及版本资源 | TenantAdmin保存模型服务/方案与价格 |
+| 显式模型操作 | `N/model-profile-versions/{version_id}/checks`、`N/model-profile-versions/{version_id}/commands`；`N/model-operations/{operation_id}`、`N/model-operation-keys/{key}` | 同版本连接检查、发布/撤销和原操作核对 |
+| 任务与命令 | `P/tasks`、`T`、`T/commands`、`P/commands/{command_id}`、`P/command-keys/{idempotency_key}` | 新旧任务、显式start/cancel与幂等回执；可用动作按权威状态返回 |
+| 执行观察 | `T/agent-runs`、`T/tool-calls`、`T/blackboard`、`T/result`、`T/events` | 实际执行、原生图查询、结果与持久事件 |
+| Artifact | `T/artifacts`、`T/artifacts/{artifact_id}/content` | 元数据、关系筛选与当前受限内容读取；旧Artifact设计路径以具体路由实现为准 |
+| W1评估 | `T/assessment`、`T/observations`、`T/verifications`、`T/verifications/{verification_id}` | 有限计划、观察、验证修订与EvidenceLink |
+
+组织入口另有 `/tenants`；健康探针位于根 `/health/live` 和 `/health/ready`。公开接口不提供通用Shell或直接调用Cairn/Pi/Kubernetes；Worker内部工具和调度接口不属于浏览器契约。
+
+## 当前创建、执行与兼容规则
+
+- 无可用模型可保存草稿；正式Web创建固定授权、Goal/完成条件模板与自定义内容、模型版本/价格及USD预算。预览和创建不请求目标或模型，创建进入ready，显式start才由持久消费者准备执行。
+- 组织模型保存不隐式探活，发布需要同版本显式检查成功和已填写价格；任务预算与组织配置分别管理。全部Agent及辅助调用共享Task预算，不保证并发零超支。
+- 新旧任务共用原命令幂等键空间；同键不同输入拒绝。结果不明先核对原操作，不从超时或404推断未执行，不自动换键重跑。
+- 旧0.4路径Scope保持历史含义，不扩为全域；旧queued没有start记录，不被新Runtime自动接管。新Task范围采用域名/子域、协议端口和批准资产，路径只是入口/线索。
+- 任务执行、资源清理、Cairn探索与评估分别表示；取消接受不等于停止完成。W1只评估已注册自建站点，Task总Goal保持unknown。
+- W1读接口每次核对Task及项目权限；Observation固定元数据/正文双Artifact。候选验证由平台规则结合真实证据接纳，模型不能直接指定生效结论。
+
+当前数据库迁移头为0008；0004草稿、0005模型配置、0006创建、0007执行和0008评估的合同及验收见对应阶段。OpenAPI版本0.5.0并不授权自动迁移原运行数据库。
+
+## 旧版0.4及以前的兼容说明
+
+以下保留Phase1原说明和限制，适用于原阶段，不是当前全部接口清单。旧21个设计操作、queued/cancelled、证据尚未接入等字样仅描述当时版本；当前增量以上文、OpenAPI和阶段实施合同为准。历史夹具见[phase1.json](../packages/contracts/fixtures/phase1.json)与[phase1a.json](../packages/contracts/fixtures/phase1a.json)。
 
 ## 1. 首版范围
 

@@ -1,5 +1,7 @@
 # Task workers
 
+Current scope (2026-09-11): the tool list below describes the original `fixture-web-v1` profile. W1 `closed-web-assessment-v1` adds `http_request` (GET/HEAD/OPTIONS), `graph_refresh`, `assessment_read`, `evidence_read`, and `verification_submit`; Reason remains read-only. Exact schemas, limits and dual-Artifact handling are in the [W1 contract](../../docs/stages/phase-2-web-assessment/implementation-contracts.md). Native Pi compaction and post-compaction reads passed with synthetic upstream responses; see [W1 acceptance](../../docs/stages/phase-2-web-assessment/acceptance.md).
+
 Build from repository root with Dockerfile.agent / Dockerfile.kali. Agent is Node 24, native Pi CLI exactly 0.73.0; CLI flags verified against v0.73.0 source. No custom model loop.
 
 `WUJI_CONFIG=/config/binding.json`: JSON `task_id,tenant_id,project_id,execution_epoch` (integer), `runtime_attempt` (integer), `control_url`, `fixture_origins` (exact origins array). `WUJI_CREDENTIALS=/run/wuji/credentials`: agent reads backend_token, lease_token, model_key; Kali reads router_token, lease_token. `WUJI_STATE` defaults /var/lib/wuji/agent or /workspace/.wuji. `WUJI_WORKSPACE=/workspace`; PORT defaults 8001/8003.

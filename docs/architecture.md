@@ -1,21 +1,23 @@
 # Wuji 自动化渗透平台架构
 
-- **版本**：Cairn 架构修订（公开 API 仍为0.4.0）
-- **日期**：2026-09-10
-- **状态**：目标架构基线；身份/项目、范围预览、B2/B3任务管理与事件同步已实现并通过最小验证，完整执行闭环尚未实现
+实现对照：当前交付包括任务/模型配置、受控start、Cairn/Pi/共享Kali、调用账本、Artifact及有限验证/覆盖。本文的通用代理出网、对象存储、完整Finding/报告、暂停恢复和多集群等段落继续作为目标设计；W1实际Artifact为开发PVC，HTTP证据为客户端解码字节，不能据目标图推断生产能力已验收。
+
+- **版本**：Cairn 架构修订 / W1 交付对照（OpenAPI 0.5.0）
+- **日期**：2026-09-11
+- **状态**：目标架构与实现边界；核心闭环及W1机制已通过封闭夹具验收，生产出口、真实模型效果及完整平台能力仍未验收
 - **适用范围**：已获授权的非破坏性安全验证；禁止目标数据破坏、目标持久化和越权扩散
-- **验收依据**：[架构验收清单](architecture-acceptance.md)
+- **验收依据**：[核心闭环](stages/phase-1c-task-creation/acceptance.md)、[W1机制](stages/phase-2-web-assessment/acceptance.md)；[架构验收清单](architecture-acceptance.md)为长期目标参考
 - **评估业务契约**：[评估、知识与交付模型](assessment-model.md)
 - **前端实施设计**：[前端架构与技术选型](frontend-architecture.md)
 - **Agent 执行层**：[Harness 职责与选型建议](agent-harness-decision.md)、[模型网关实测](model-gateway-validation.md)
 - **本次复审**：[已批准架构替代决策](cairn-architecture-decision.md)；[原v0.4复审](architecture-review.md)保留为历史
-- **参考复核补充（2026-09-10）**：[元刃后端复核](metablade-backend-review.md)、[已确认产品交互](product-interaction-proposal.md)；目标设计补充，公开 API 0.4.0 尚未升级
+- **参考复核补充（2026-09-10）**：[元刃后端复核](metablade-backend-review.md)、[已确认产品交互](product-interaction-proposal.md)；历史目标设计补充；当前API增量以0.5.0契约及阶段实施合同为准
 - **黑板明确要求（2026-09-10）**：[Cairn 黑板适配设计](cairn-blackboard-design.md)；直接复用Cairn Server/Dispatcher，核心封闭夹具接入已实现，当前验收见[核心记录](stages/phase-1c-task-creation/acceptance.md)，不代表生产出口完成
 - **开工准备**：[依赖与交付顺序](predevelopment-plan.md)、[Phase 1 API 契约](phase1-api-contract.md)
 
-本次按用户批准的[架构复审修订](cairn-architecture-decision.md)更新目标设计：Cairn负责共享图和探索调度，Pi负责平台侧Agent循环与上下文，LiteLLM负责模型接入及Task金额预算。Wuji负责任务、执行准入、工具、证据和停止核对。LangGraph/LangChain/Deep Agents不再是该链路必选依赖；原P0实验与验收保留。本文不代表业务已实现；实际仍以[Phase1A](stages/phase-1a/acceptance.md)、[B1](stages/phase-1b/acceptance.md)、[B2/B3](stages/phase-1b/b23-acceptance.md)及[P0](stages/phase-1c-prep-p0/acceptance.md)记录为准。
+本次按用户批准的[架构复审修订](cairn-architecture-decision.md)更新目标设计：Cairn负责共享图和探索调度，Pi负责平台侧Agent循环与上下文，LiteLLM负责模型接入及Task金额预算。Wuji负责任务、执行准入、工具、证据和停止核对。LangGraph/LangChain/Deep Agents不再是该链路必选依赖；原P0实验与验收保留。本文保留生产目标设计，不代表所有章节均已实现；当前闭环与评估见上述验收，早期阶段事实见[Phase1A](stages/phase-1a/acceptance.md)、[B1](stages/phase-1b/acceptance.md)、[B2/B3](stages/phase-1b/b23-acceptance.md)及[P0](stages/phase-1c-prep-p0/acceptance.md)记录为准。
 
-2026-09-10 场景与流量补充设计见 [场景、执行边界与流量工作台](scenario-execution-design.md)。任务场景与 HTTP/Agent 实现能力分离；新增阶段授权、受管代理/MCP 出网资格与请求级流量视图的拟议契约。最新补充：Web 默认不配账号，成果凭据通过黑板受限引用共享；已批准阶段自动推进。外域页面资源可正常加载但不可主动测试，目标测试、依赖加载和候选核验采用不同执行许可。流量证据细化见 [Kali 流量方案](traffic-evidence-design.md)。该修订为待评审设计，不代表当前 0.4.0 已实现。
+2026-09-10 场景与流量补充设计见 [场景、执行边界与流量工作台](scenario-execution-design.md)。任务场景与 HTTP/Agent 实现能力分离；新增阶段授权、受管代理/MCP 出网资格与请求级流量视图的拟议契约。最新补充：Web 默认不配账号，成果凭据通过黑板受限引用共享；已批准阶段自动推进。外域页面资源可正常加载但不可主动测试，目标测试、依赖加载和候选核验采用不同执行许可。流量证据细化见 [Kali 流量方案](traffic-evidence-design.md)。该修订为待评审设计，不代表W1已交付全量流量能力。
 
 ## 1. 目标与架构原则
 
@@ -40,7 +42,7 @@ Wuji 在 Kubernetes 中管理独立任务执行环境，由 Platform 中的 Agen
 | 任务主体 | Task统筹目标/场景/工具/约束/预算及外部控制，包含一个Cairn Project探索上下文 | 保留Task业务对象；原生Project未关联或未获start许可不派发，旧queued不自动执行 |
 | Agent | 单Task Pod双容器，agent容器内动态运行多个Agent/Harness进程 | 各容器独立镜像/工作卷/凭据，共享Pod网络；不嵌入API/Dispatcher |
 | 探索 | 复用Cairn Bootstrap/Reason/Explore及Worker选择 | Cairn状态不是许可；派发前经Wuji准入，不加第二个探索调度器 |
-| 上下文 | Pi coding-agent独占会话、压缩和工作记忆 | 不自研循环/压缩/模型协议；候选版本未集成验收 |
+| 上下文 | Pi coding-agent独占会话、压缩和工作记忆 | 不自研循环/压缩/模型协议；固定版本已通过合成链路及原生压缩机制验收，真实模型质量待测 |
 | 黑板 | Cairn Server唯一可写Fact/Intent/Hint与探索图 | 首版单Server、单Dispatcher、持久化SQLite；Wuji只保存引用/投影与原始提交 |
 | 目标环境 | 同Task多个Agent共用一个Kali容器，一个获准Runtime attempt | Task Runtime Controller独占整个Pod；Worker后端只管理agent进程 |
 | 工具 | 受信Pi扩展、Tool Router、Runtime MCP/受管能力 | 快照/工作记忆/业务/目标工具分权；默认本地执行工具关闭 |
@@ -48,7 +50,7 @@ Wuji 在 Kubernetes 中管理独立任务执行环境，由 Platform 中的 Agen
 | 执行恢复 | PostgreSQL执行记录、原结果、进程回执和幂等操作 | 先核对再恢复；结果不明先核对，不盲目重投或重跑探索 |
 | 评估 | VerificationRun、CoveragePlan、Finding与报告版本 | 保留Cairn探索完成语义；Wuji独立核对执行与评估，不直接等同于全部通过 |
 | 事件 | Wuji保存操作审计与原生查询快照；Cairn核心保持原样 | 不承诺新增Cairn事务事件/幂等回执；不假定跨库原子性 |
-| 前端 | React/TypeScript/Vite/Ant Design，五主题 | Task是入口；公开API仍0.4.0，业务页面按已实现能力开放 |
+| 前端 | React/TypeScript/Vite/Ant Design，五主题 | Task是入口；OpenAPI 0.5.0，业务页面按已实现能力开放 |
 
 ## 3. 逻辑链路与部署边界
 
@@ -156,7 +158,7 @@ Router 同时签发接收方为出口的调用许可，绑定 call/attempt、Wor
 
 Task 和 Worker 必须配置最大运行时间、工具调用数、Agent 并发/深度和产物大小；模型接入后还须配置Task金额上限（USD），Token用于统计和上下文容量。子级截止时间和配额不能超过父级；到期执行取消链路，预算耗尽停止新派发并按策略进入暂停或停止流程。
 
-当前0.4.0不开放目标执行。原HTTP观察切片使用 `http_observe` 的设想保留为候选；新增Kali工具按后续Spec和出口能力逐项开放。后续 `browser_observe`、`network_probe` 只有在各自出口约束通过验收后才能启用；浏览器子请求、WebSocket、下载和后台请求同样受控，不支持的通道拒绝。
+旧0.4任务不开放目标执行。当前W1通过 `http_request` 对已注册自建站点执行GET/HEAD/OPTIONS，Router与Kali双层核对目的地；不开放任意Shell、MCP或外部目标。原 `http_observe` 仅保留历史语义；其他工具按后续Spec和出口能力逐项开放。后续 `browser_observe`、`network_probe` 只有在各自出口约束通过验收后才能启用；浏览器子请求、WebSocket、下载和后台请求同样受控，不支持的通道拒绝。
 
 HTTP 观察是第一个可验收切片，不是长期产品能力上限。后续可并行建设离线源码审计、浏览器与协议分析 Profile；源码审计优先使用只读输入快照和离线解析 Adapter。需要构建或执行输入代码时必须单独设计沙箱和验证契约，不能借“代码审计”默认获得任意代码执行或网络权限。
 
@@ -257,7 +259,7 @@ Cairn探索结束/平台决定停止 -> completing -> completed（执行已停�
 执行仍否继续未知 -> reconciling（禁止重新派发）
 ```
 
-这是目标状态机，不是当前0.4.0 DTO。现有迁移限定queued/cancelled、活动调用恒零；ready/start、执行状态、代次和账本须随0.5契约及迁移同步实现。旧queued没有启动记录，不能自动接管，也不能伪造曾经ready/start的历史。
+这是完整目标状态机，不表示每个动作均已开放。当前0.5已通过0006/0007实现ready/start、执行代次及账本，W1通过0008补充评估；实际可用动作以DTO和allowed_actions为准。旧0.4任务仍保留queued/cancelled语义；旧queued没有启动记录，不能自动接管，也不能伪造曾经ready/start的历史。
 
 每次Agent派发和工具请求重新检查Task、真实身份、当前epoch、有效授权/配置、预算及runtime_attempt。Cairn active/stopped不能代替执行许可。worker_profile_id表达能力和容量，agent_run_id表达本次真实执行/认领/会话；Intent有运行、停止核对或结果同步中AgentRun时拒绝重复派发。
 
@@ -315,7 +317,7 @@ Wuji查询投影引用原生ID和本地观察记录，标明采集时间/摘要�
 
 Model Gateway采用LiteLLM Proxy，候选v1.100.0。组织共享模型配置由TenantAdmin维护，Task选择已发布版本；平台模型配置不设置Task预算。模型单价由管理员按公司网关价目填写，缺价可保存和检查但不可发布，不自动套用官方参考价。发布要求管理员显式触发的同版本连接检查成功，保存配置不隐式请求模型。无可用方案时只能保存草稿。
 
-Pi原生模型客户端接LiteLLM，再路由到已配置上游。上游Key只在网关；平台侧Agent仅使用Task限定凭据，无管理权限，Kali不接收模型凭据。LiteLLM使用独立数据库与原生迁移，密钥保存/运行镜像和实际兼容性由后续Spec固定验证；P0的私有文件/ProviderSession/IPC/次数账本不作为生产网关。
+Pi原生模型客户端接LiteLLM，再路由到已配置上游。上游Key只在网关；平台侧Agent仅使用Task限定凭据，无管理权限，Kali不接收模型凭据。LiteLLM使用独立数据库与原生迁移，密钥保存、固定镜像和基础兼容已按D2/核心验收；更多协议与生产兼容仍需后续Spec验证；P0的私有文件/ProviderSession/IPC/次数账本不作为生产网关。
 
 ### 9.2 金额与辅助调用
 
@@ -423,29 +425,28 @@ Phase 1 先交付登录/项目、任务列表、基本范围预览、任务详�
 
 ## 12. 部署与演进
 
-目标部署按平台服务、Agent Worker和Kali Runtime分权；生产数据服务可外置。Task Pod由Task Runtime Controller唯一管理，不为每Task建立独立Helm release；本批不部署。
+目标部署按平台服务、Agent Worker和Kali Runtime分权；生产数据服务可外置。Task Pod由Task Runtime Controller唯一管理，不为每Task建立独立Helm release；当前已在Docker Desktop Kubernetes完成封闭夹具部署验收。
 
-第3节是目标边界，实际业务仍0.4.0。后续依赖改为控制面基础→调度适配→共享Runtime→产品接入→真实目标开放；配置/账本不能放到真实调度之后。未实现能力不注册为可执行工具。
+第3节是目标边界。当前0.5已完成控制面、调度适配、共享Runtime和产品接入，并增加W1评估；生产出口和真实目标开放仍需独立方案与证据。未实现能力不注册为可执行工具。
 
 控制台由独立 web 容器提供静态文件，与 API 共用浏览器访问入口；SSE 关闭代理缓冲并配置连接超时。SPA fallback 不接管 API、证据和事件响应。入口 HTML/公开运行配置与带摘要静态资源分别配置缓存，业务数据不进入共享静态缓存。构建产物不包含凭据，详情见前端设计第 8 节。
 
-建议目录（尚未实现）：
+当前受跟踪目录（部署职责并不要求各自独立进程或目录）：
 
 ```text
-apps/web/
-apps/api/                    # 已有，后续含 Cairn Bridge / Policy / Assessment / Artifact
-services/cairn-server/        # 候选部署配置，不在本批实现
-services/cairn-dispatcher/
-services/agent-worker/
-services/mcp-router/
-deploy/litellm/              # 使用上游原生网关
-services/runtime-controller/
-services/egress-gateway/
-packages/contracts/          # API / policy / event / tool schema
-runtime/control/
-runtime/adapters/
-deploy/helm/wuji-platform/
-docs/
+apps/web/                         # 正式任务与模型配置工作台
+apps/api/                         # 业务API、权限、迁移和只读执行/评估接口
+services/execution-control/       # 执行准入、Task生命周期、工具、评估与Cairn服务接入
+services/cairn-dispatcher/         # 原生Dispatcher外围适配
+services/task-workers/            # agent/kali镜像及受限扩展
+services/core-fixtures/           # 合成模型与核心夹具
+services/web-assessment-lab/       # W1自建站点
+packages/contracts/              # OpenAPI与生成类型/校验器
+packages/task-runtime/           # Pod控制基础库
+packages/cairn-bridge/           # 原生客户端与持久核对适配
+infra/kubernetes/               # 身份、数据库、网关和核心部署配置
+scripts/platform/               # 生命周期、构建与操作入口
+docs/                           # 当前说明、设计与阶段证据
 ```
 
 升级固定镜像 digest、工具 Schema、Cairn/Pi/Prompt 和策略版本；保留活动任务的兼容执行版本，无法兼容的检查点暂停并显式迁移，不能用新图静默重放旧操作。配置和 Schema 变更有迁移策略，平台启动不得因依赖未就绪而绕过鉴权或策略检查。
@@ -463,27 +464,26 @@ docs/
 
 ## 13. 开发依赖与准入门槛
 
-本批只做[架构文档收口](stages/cairn-architecture-baseline/spec.md)，实际开发进度见[背景索引](project-context.md)。Phase1A保持partial，B1/B2/B3原证据及P0实验不改写。
+核心闭环与W1机制已交付，具体状态以[背景索引](project-context.md)和阶段验收为准。Phase1A保持partial，旧B1/B2/B3及P0证据不改写。
 
-| 后续批次 | 必须交付 |
+| 后续方向 | 准入条件与边界 |
 | --- | --- |
-| 控制面基础 | 0.5契约、必要配置快照、ready/start、执行代次、AgentRun/工具账本、Task与Cairn绑定 |
-| 调度适配 | 派发准入、平台Worker后端、Pi受限工具、持久结果回写；先合成工具夹具 |
-| 共享Runtime | 多Agent对接一个Kali、产物登记、取消和停止核对 |
-| 产品接入 | 原型评审后接正式创建与执行观察页面，复用已冻结接口和五主题 |
-| 真实目标开放 | 出口和停止边界有证据后启用，详细流量设计仍需单独收口 |
-| 后续平台完善 | VerificationRun/覆盖、Finding、报告、资料、图查询按对应业务Spec推进，不重新开发调度引擎 |
+| 真实模型自主效果 | 明确已发布模型版本、公司价格与新增USD授权，按W1效果层验收 |
+| 真实目标与生产出口 | 先冻结出口方案，验证授权、DNS/重定向、撤销与停止；不因支持创建外部URL而自动开放 |
+| 关系画布演进 | React Flow为后续候选；现有真实关系视图保留 |
+| 完整平台业务 | 通用Goal映射、Finding/报告、资料与更多场景按独立Spec推进 |
+| 既有延期项 | Phase1A回调等沿用原待测清单；不因文档更新全量重测 |
 
 每批先冻结具体Spec/Plan、API与迁移、归属及最小验证入口；上述依赖表不是已批准业务任务书。旧0.5草案superseded，不直接施工。配置和框架不能满足所需能力时记录阻断，不能悄悄换框架或扩大测试。
 
 后续最小验证只覆盖未启动不派发、独立AgentRun共用Runtime、结果重投不重跑、工具越权拒绝、取消与迟到派发、历史queued不执行。用户于2026-09-11取消累计检查时间预算；原P0及运行基础的历史耗时见各验收记录，真实4次模型调用额度仍已用完。只补跑必要检查，缺少证据的场景保持待测。架构验收目录是历史场景参考，不是每次全量执行清单。
 
-## 14. 待实现验证的选型
+## 14. 固定集成版本与待验证选型
 
-以下选型不改变前述契约，也不代表已有可用实现：
+以下区分已集成基础与待验证扩展，不改变前述契约：
 
 1. Egress Gateway 实现及 CNI 组合：验证规范化、DNS、IPv6、TLS、长连接撤销和聚合限流。
-2. Cairn 8e7e0ea、Pi 0.73.0、LiteLLM v1.100.0为候选集成基线；适配、实际工具表、金额计量与停止待验证，未验证不称可用，不静默换框架。
+2. Cairn 8e7e0ea、Pi 0.73.0、LiteLLM v1.100.0为已验收封闭链路的固定版本；金额累计/拒绝和停止见核心验收，原生压缩见W1验收。真实模型效果与生产容量仍待验证，不静默换框架。
 3. Runtime 镜像与沙箱：验证 Kali 工具在 Restricted 配置下可运行；不兼容工具先不提供。
 4. 容量参数：后续集中容量验证再确定，不能借本次文档修改启动压测。
 

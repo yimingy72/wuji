@@ -25,7 +25,7 @@ Wuji 是 Kubernetes 原生的 AI 授权安全验证平台。以 Task 组织授�
 | `apps/` | 平台 API 与正式 Web 工作台 |
 | `services/` | 执行控制、Cairn 适配、Agent/Kali Worker 及自建夹具 |
 | `packages/` | API 契约、生成类型和共享包 |
-| `deploy/`、`infra/`、`runtime/` | 部署、基础设施及运行环境定义 |
+| `infra/kubernetes/` | 数据库、身份、网关和核心执行的 Kubernetes 配置 |
 | `scripts/`、`toolchain/` | 生命周期、构建与锁定工具链 |
 | `tests/` | 契约、单元和集成验证入口 |
 | `spikes/` | 历史实验与交互原型 |
@@ -36,8 +36,9 @@ Wuji 是 Kubernetes 原生的 AI 授权安全验证平台。以 Task 组织授�
 运行要求与初始化步骤见[本地工作台](docs/local-development.md)。先按说明准备固定 Node、pnpm、Python/uv 及 Docker Desktop Kubernetes 环境；正式平台需要数据库、身份、模型网关与执行服务，不能仅靠启动前端运行。
 
 ```sh
+./scripts/bootstrap-toolchain.sh
 pnpm install --frozen-lockfile
-pnpm python:sync
+./scripts/uv.sh sync --frozen --group task-runtime --group cairn-bridge
 pnpm build:platform
 ```
 

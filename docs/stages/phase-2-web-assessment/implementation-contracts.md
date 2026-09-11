@@ -1,12 +1,12 @@
 # W1 实施合同
 
-用户批准计划的落盘细化；主代理负责，状态in-progress。本文件定义当前实现合同，不将开发代码预先标为验收通过。
+用户批准计划的落盘细化；主代理负责，状态implemented（2026-09-11）。机制验收已通过，业务被测f12a46f，具体结果和未覆盖范围见[验收记录](acceptance.md)；真实模型自主效果仍待验收。
 
 ## 数据与API
 
 迁移20260911_0008接0007，仅六表：assessment_plans、verification_runs、verification_result_revisions、observations、evidence_links、completion_reviews。CoverageItem保存在≤11项的严格JSON不可变计划快照中，按Task/资源/方法派生稳定ID。计划内容或有效证据进展变化才生成新revision；重复读和同内容观察不重置无进展计数。ToolCall保存候选输入/原摘要/回执，平台工具结束用completed而非伪造子进程回执。
 
-公开DTO权威定义apps/api/src/wuji_api/assessments.py；OpenAPI候选0.5.0和生成validator同步。GET /assessment、/verifications及/{id}、/observations；verification分页支持coverage_item_id，observation分页支持observation_id精确定位，均绑定游标过滤和Task权限。结果接口可选assessment={plan_id,revision,outcome}；不补算旧Task。
+公开DTO权威定义apps/api/src/wuji_api/assessments.py；OpenAPI 0.5.0和生成validator同步。GET /assessment、/verifications及/{id}、/observations；verification分页支持coverage_item_id，observation分页支持observation_id精确定位，均绑定游标过滤和Task权限。结果接口可选assessment={plan_id,revision,outcome}；不补算旧Task。
 
 验证方法固定cors-reflection-v1，身份匿名，候选工具参数为rule_id、1—2个已结束tool_call_ids、可选limitations和supersedes_result_id；主张文本由可信规则固定，模型不提交生效verdict。两组不同Origin的完整2xx GET才能判confirmed/not_reproduced；401/403记录unassessed/blocked，缺证据为inconclusive。纠错追加新VerificationRun及结果revision，引用原result；未被明确替代的强结论矛盾时覆盖项inconclusive，不能最后写者覆盖。
 

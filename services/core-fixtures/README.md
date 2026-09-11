@@ -1,5 +1,7 @@
 # Closed fixtures
 
+W1 update (2026-09-11): `web_assessment_model.py` implements the synthetic `closed-web-assessment-v1` model path, paired with the separate `services/web-assessment-lab` target. The fixed usage and flow below describe the original core fixture; the optional W1 compaction probe deliberately uses different synthetic usage. See [W1 contract](../../docs/stages/phase-2-web-assessment/implementation-contracts.md) and [acceptance](../../docs/stages/phase-2-web-assessment/acceptance.md). Neither path measures real model reasoning quality.
+
 Run `python services/core-fixtures/server.py` with PyYAML installed. PORT defaults 8000. `WUJI_FIXTURE_ORIGIN` defaults http://wuji-core-fixtures:8000 and must match the tool server's trusted origin registry. This single HTTP server exposes `/`, `/api/marker`, and `/delay?seconds=30` (bounded sixty seconds), plus `/v1/models` and `/v1/chat/completions`. It performs no outgoing requests. `/delay` is a target for the same controlled fixture_http route used in cancellation validation.
 
 Chat completion supports native Pi OpenAI-compatible JSON and streaming SSE tool_calls, stop/tool_calls finish reasons, final usage chunk and [DONE]. Synthetic usage is exactly 100 prompt + 50 completion tokens per upstream request. Company prices and Task budget remain LiteLLM's concern. Responses require the explicit Wuji phase marker emitted by the trusted extension.

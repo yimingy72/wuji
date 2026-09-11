@@ -1,5 +1,7 @@
 # Wuji 场景、执行边界与流量工作台修订方案
 
+当前实现对照（2026-09-11）：五场景草稿/Goal模板、Web正式创建与启动已随[核心闭环](stages/phase-1c-task-creation/acceptance.md)交付，有限自建站点评估见[W1验收](stages/phase-2-web-assessment/acceptance.md)。以下review-draft状态继续适用于未冻结的阶段关口、代理和完整流量设计；不表示所有场景已可执行，也不覆盖后续已实施合同。
+
 > 当前边界（2026-09-10）：[新架构](cairn-architecture-decision.md)已确认Cairn调度、平台侧Pi和共享Kali；本页的流量/代理细节仍待后续评审，不能当作已选或已实现技术。
 
 状态：**review-draft**。2026-09-10 用户反馈后的设计修订；需求已明确，具体工程选型、契约及分批 Spec / Plan 待评审。本文件优先替代旧交互方案中“HTTP 首批闭环 / Agent 完整体验”的产品入口设计，不宣称五类场景已开发。
