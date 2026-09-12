@@ -1,0 +1,65 @@
+{
+  "schema_version": "wuji.result-envelope.v2",
+  "submission_id": "submission-17",
+  "identity": {
+    "tenant_id": "tenant-fixture",
+    "project_id": "project-fixture",
+    "task_id": "task-fixture",
+    "work_item_id": "work-17",
+    "agent_run_id": "run-17",
+    "execution_epoch": "1",
+    "run_epoch": "1",
+    "runtime_attempt": "1",
+    "receiver_id": "receiver-fixture"
+  },
+  "snapshot_id": "snapshot-17",
+  "read_set": [
+    {
+      "entity_type": "observation",
+      "id": "observation-17",
+      "revision": "1"
+    }
+  ],
+  "raw_output_ref": {
+    "id": "artifact-17",
+    "version": "1",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "raw_output_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "payload": {
+    "schema_version": "wuji.agent-payload.v2",
+    "claims": [
+      {
+        "client_ref": "candidate-17",
+        "kind": "observation-summary",
+        "assertion_role": "candidate_fact",
+        "text": "记录 A 中 version 字段等于 17。",
+        "basis_refs": [
+          {
+            "entity_type": "observation",
+            "id": "observation-17",
+            "revision": "1"
+          }
+        ],
+        "limitations": [
+          "只描述给定文件版本，不推断整个系统状态。"
+        ]
+      },
+      {
+        "client_ref": "hypothesis-1",
+        "kind": "hypothesis",
+        "assertion_role": "hypothesis",
+        "text": "两份记录的差异可能来自版本不一致。",
+        "basis_refs": [],
+        "limitations": [
+          "尚无足够证据；只作为下一步核对方向。"
+        ]
+      }
+    ],
+    "intent_proposals": [],
+    "limitations": [
+      "示例未声明 Task 成功。"
+    ]
+  },
+  "producer_version": "wuji-worker-example-v2"
+}

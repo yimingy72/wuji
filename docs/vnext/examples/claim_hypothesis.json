@@ -1,0 +1,10 @@
+{
+  "client_ref": "hypothesis-1",
+  "kind": "hypothesis",
+  "assertion_role": "hypothesis",
+  "text": "两份记录的差异可能来自版本不一致。",
+  "basis_refs": [],
+  "limitations": [
+    "尚无足够证据；只作为下一步核对方向。"
+  ]
+}

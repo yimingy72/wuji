@@ -1,0 +1,29 @@
+{
+  "session_id": "session-17",
+  "work_item_id": "work-17",
+  "checkpoint_revision": "2",
+  "owner_run_id": "run-17",
+  "run_epoch": "1",
+  "history_root": {
+    "id": "artifact-17",
+    "version": "1",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "message_end": "4",
+  "provider_state_ref": {
+    "id": "state-17",
+    "version": "2",
+    "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "memory_manifest_ref": {
+    "id": "memory-17",
+    "version": "2",
+    "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  },
+  "pending_operation_refs": [
+    "tool-op-17"
+  ],
+  "lock_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "recovery_class": "approval_boundary",
+  "saved_at": "2026-09-13T08:00:00+09:00"
+}

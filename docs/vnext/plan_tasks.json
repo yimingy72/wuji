@@ -1,0 +1,811 @@
+[
+  {
+    "id": "P00",
+    "title": "核对实际基线与变更授权",
+    "depends_on": [],
+    "files": [
+      "docs/vnext/implementation-baseline.md",
+      "docs/vnext/decision-register.md"
+    ],
+    "interfaces": "输入：本包 source 原件、用户实际仓库和只读部署清单。产出：BaselineRecord（HEAD、未提交差异、实际依赖、TopologyFlowCanvas位置、历史运行状态、批准范围）。",
+    "work": "只读核查本地HEAD、工作区、现有画布props及新旧迁移头；将“用户确定技术路线”与“批准停机/付费/删除”分开。旧公开SHA只列为历史参考。核对原稿中五场景、主题、Task主体等要求，不把不相关重写塞进本轮。",
+    "testpath": "",
+    "code": "git status --short\ngit rev-parse HEAD\ngit ls-files '*TopologyFlowCanvas*'\ngit grep -n '@xyflow/react'\n",
+    "extra": "grep无匹配的退出码1表示未发现，不能据此断言本地没有未跟踪组件。此任务只产出基线记录。",
+    "acceptance": [
+      "AC-001",
+      "AC-072"
+    ],
+    "requirements": [
+      "REQ-001",
+      "REQ-029",
+      "REQ-030",
+      "REQ-040"
+    ]
+  },
+  {
+    "id": "P01",
+    "title": "隔离依赖与真实 MAF 公开能力探针",
+    "depends_on": [
+      "P00"
+    ],
+    "files": [
+      "packages/wuji-core/pyproject.toml",
+      "packages/maf-worker/pyproject.toml",
+      "scripts/vnext/probe_maf.py",
+      "tests/vnext/test_dependency_probe.py",
+      "docs/vnext/capability-record.json"
+    ],
+    "interfaces": "输入：BaselineRecord。产出：CapabilityRecord（发行包/lock摘要、inspect签名、SDK运行原始记录、工具广告表、支持/不支持的边界）；不产出虚构的 sdk_was_real 布尔证明。",
+    "work": "先安装隔离的已发布包，记录发行文件与传递依赖，不用移动main替代发布锁。通过真实SDK+合成服务验证函数往返、默认工具配置、Session导出/恢复和审批返回。探针对审批跨进程所需状态做可行性验证，完整持久产品合同由P08/P11完成。核心公开API不满足时阻断而非私有补丁。",
+    "testpath": "tests/vnext/test_dependency_probe.py",
+    "code": "from importlib.metadata import distribution\nimport inspect\nfrom agent_framework import create_harness_agent\n\ndef test_factory_is_from_installed_distribution():\n    dist = distribution(\"agent-framework-core\")\n    assert dist.version\n    assert dist.files\n    assert \"client\" in inspect.signature(create_harness_agent).parameters\n",
+    "extra": "这段只验证安装与签名。必须另附真实模型请求/函数计数/Session往返记录才能通过AC-003，不能以此smoke代替。",
+    "acceptance": [
+      "AC-002",
+      "AC-003",
+      "AC-004",
+      "AC-037",
+      "AC-040"
+    ],
+    "requirements": [
+      "REQ-001",
+      "REQ-012",
+      "REQ-014",
+      "REQ-017",
+      "REQ-030",
+      "REQ-031",
+      "REQ-035",
+      "REQ-039"
+    ]
+  },
+  {
+    "id": "P02",
+    "title": "版本化合同与可审计测试底座",
+    "depends_on": [
+      "P01"
+    ],
+    "files": [
+      "packages/wuji-core/src/wuji_core/contracts/knowledge.py",
+      "packages/wuji-core/src/wuji_core/contracts/execution.py",
+      "packages/wuji-core/src/wuji_core/contracts/envelopes.py",
+      "packages/wuji-core/src/wuji_core/contracts/views.py",
+      "packages/contracts/openapi-v2.yaml",
+      "scripts/vnext/generate_contracts.py",
+      "tests/vnext/conftest.py",
+      "tests/vnext/test_contract_shapes.py",
+      "tests/vnext/support/http_capture.py",
+      "tests/vnext/support/identity_provider.py"
+    ],
+    "interfaces": "输入：Spec S03–S13、contracts.json和examples。产出：ClaimProposal、ResultEnvelope、RunIdentity、ViewEventBatch及各枚举；OpenAPI生成Python/TS的明确产物；测试夹具只管理真实连接和身份，不实现被测业务。",
+    "work": "把本包required字段与枚举转为完整JSON/OpenAPI schema，禁止额外权威字段。生成脚本明确输出packages/contracts/src/v2/generated.ts和验证模型，更新contracts:check:v2。定义api_client为真实ASGI测试客户端、db_conn为独立PostgreSQL连接、test_tokens为独立签名身份服务生成的令牌；禁止测试专用“跳过权限”生产开关。测试清单显式包含tests/vnext与Node/browser路径。",
+    "testpath": "tests/vnext/test_contract_shapes.py",
+    "code": "import pytest\nfrom pydantic import ValidationError\nfrom wuji_core.contracts.knowledge import ClaimProposal\n\ndef test_candidate_cannot_supply_its_assessment():\n    payload = {\"client_ref\":\"c1\", \"kind\":\"observation-summary\",\n               \"assertion_role\":\"candidate_fact\", \"text\":\"version 为 17\",\n               \"basis_refs\":[], \"limitations\":[], \"evidence_state\":\"supported\"}\n    with pytest.raises(ValidationError):\n        ClaimProposal.model_validate(payload)\n",
+    "extra": "fixture均需记录实际请求/SQL/签名主体，不提供 world.send 任意操作字符串解释器；P17从实际测试清单收集结果。",
+    "acceptance": [
+      "AC-019",
+      "AC-075"
+    ],
+    "requirements": [
+      "REQ-007",
+      "REQ-031",
+      "REQ-039",
+      "REQ-040"
+    ]
+  },
+  {
+    "id": "P03",
+    "title": "PostgreSQL领域版本与独立原始证据",
+    "depends_on": [
+      "P02"
+    ],
+    "files": [
+      "packages/wuji-core/src/wuji_core/persistence/schema.py",
+      "packages/wuji-core/src/wuji_core/persistence/uow.py",
+      "packages/wuji-core/src/wuji_core/persistence/snapshots.py",
+      "packages/wuji-core/src/wuji_core/evidence/artifacts.py",
+      "packages/wuji-core/src/wuji_core/evidence/observations.py",
+      "tests/vnext/test_capture_transactions.py",
+      "tests/vnext/test_rls.py",
+      "ops/vnext/migrations/README.md"
+    ],
+    "interfaces": "输入：CaptureEnvelope/KnowledgeRef。产出：EvidenceService.ingest(authenticated_collector,envelope)->EvidenceReceipt；SnapshotRepository.create(task_id,access)->SnapshotManifest；新独立迁移head。",
+    "work": "创建claim_revision/observation/artifact/assessment/entity_revision_registry、Task聚合计数与Outbox；确保复合FK和原子registry写。采集先封存真实字节，再登记Observation；没有抽取器时也成功。用非owner无BYPASSRLS应用角色和真实两连接测试；RR快照必须持久manifest，不能保持跨HTTP长事务。",
+    "testpath": "tests/vnext/test_capture_transactions.py",
+    "code": "def test_agent_cannot_use_capture_endpoint(api_client, test_tokens, capture_envelope, db_conn):\n    response = api_client.post(\"/internal/v2/evidence\", json=capture_envelope,\n                               headers={\"Authorization\": \"Bearer \" + test_tokens.agent})\n    assert response.status_code == 403\n    assert response.json()[\"code\"] == \"FORBIDDEN_COLLECTOR\"\n    count = db_conn.execute(\"SELECT count(*) FROM vnext.observation\").fetchone()[0]\n    assert count == 0\n",
+    "extra": "capture_envelope由真实夹具字节和摘要构成；本测试独立空数据库。另测合法collector正向入账、重复/冲突、partial内容和GC提交租约。",
+    "acceptance": [
+      "AC-008",
+      "AC-011",
+      "AC-012",
+      "AC-013",
+      "AC-016",
+      "AC-054",
+      "AC-065",
+      "AC-066"
+    ],
+    "requirements": [
+      "REQ-003",
+      "REQ-005",
+      "REQ-009",
+      "REQ-010",
+      "REQ-013",
+      "REQ-018",
+      "REQ-026",
+      "REQ-028",
+      "REQ-031",
+      "REQ-036",
+      "REQ-038"
+    ]
+  },
+  {
+    "id": "P04",
+    "title": "候选知识、Fact视图与版本化评估",
+    "depends_on": [
+      "P03"
+    ],
+    "files": [
+      "packages/wuji-core/src/wuji_core/blackboard/claims.py",
+      "packages/wuji-core/src/wuji_core/blackboard/assessments.py",
+      "packages/wuji-core/src/wuji_core/blackboard/fact_view.py",
+      "packages/wuji-core/src/wuji_core/blackboard/relations.py",
+      "packages/wuji-core/src/wuji_core/blackboard/committer.py",
+      "tests/vnext/test_knowledge_admission.py"
+    ],
+    "interfaces": "输入：ClaimProposal、ResultEnvelope、FactAssessment。产出：ClaimService.propose(...)->ComponentReceipt；AssessmentService.record(...)->AssessmentReceipt；fact_view_eligible(claim_kind,grounding,evidence,applicability,method)->bool。",
+    "work": "先实现Agent候选正向共享，ClaimRevision只有一份正文；FactLedger为评估视图，不另写Fact正文。实现引用存在/内容支持/适用性独立检查；模型review保留意见，不自升等级。支持无解析器文本、未验证假设驱动Intent；按版本追加，反证/环境变化失效相关评估，旧关系不迁移新版本。",
+    "testpath": "tests/vnext/test_knowledge_admission.py",
+    "code": "from wuji_core.blackboard.fact_view import fact_view_eligible\n\ndef test_origin_of_words_does_not_decide_fact_status():\n    assert fact_view_eligible(\"observation-summary\", \"content_checked\",\n                              \"supported\", \"current\", \"deterministic\")\n    assert not fact_view_eligible(\"observation-summary\", \"linked\",\n                                  \"unassessed\", \"current\", \"model_review\")\n",
+    "extra": "此纯规则接口刻意不把producer=agent当拒绝原因。AC-005必须通过实际API创建候选、独立重读证据后查投影视图，不能仅用该布尔单测证明接纳链。",
+    "acceptance": [
+      "AC-005",
+      "AC-006",
+      "AC-007",
+      "AC-009",
+      "AC-010",
+      "AC-011",
+      "AC-012",
+      "AC-014",
+      "AC-016",
+      "AC-017"
+    ],
+    "requirements": [
+      "REQ-003",
+      "REQ-004",
+      "REQ-005",
+      "REQ-009",
+      "REQ-010",
+      "REQ-018",
+      "REQ-019",
+      "REQ-033",
+      "REQ-034",
+      "REQ-036"
+    ]
+  },
+  {
+    "id": "P05",
+    "title": "WorkItem/Run控制状态与依赖守卫",
+    "depends_on": [
+      "P02",
+      "P03"
+    ],
+    "files": [
+      "packages/wuji-core/src/wuji_core/execution/states.py",
+      "packages/wuji-core/src/wuji_core/execution/control.py",
+      "packages/wuji-core/src/wuji_core/execution/dependencies.py",
+      "packages/wuji-core/src/wuji_core/execution/capacity.py",
+      "tests/vnext/test_work_state_guards.py"
+    ],
+    "interfaces": "输入：固定枚举、控制命令、观察回执。产出：can_settle_done(result_accepted,process_exited,operations_settled)->bool；ControlService.apply(command)->CommandReceipt；WorkDependency固定条件。",
+    "work": "实现所有S05转移，initial ready未start不得派发；结果accepted不释放进程容量。Work desired与suspension_causes分开；Task pause只增加task_pause，resume不解除user_hold。依赖按settled/accepted_result/criterion判定，取消和失败不当成功。单事务循环检查防并发成环。",
+    "testpath": "tests/vnext/test_work_state_guards.py",
+    "code": "from wuji_core.execution.states import can_settle_done\n\ndef test_accepted_result_is_not_process_exit():\n    assert not can_settle_done(True, False, True)\n    assert not can_settle_done(True, True, False)\n    assert can_settle_done(True, True, True)\n",
+    "extra": "真实进程与数据库联动在P10/P11；该纯函数单测只证明规则。必须枚举hold/pause嵌套、input未答和未定义superseded状态。",
+    "acceptance": [
+      "AC-008",
+      "AC-015",
+      "AC-018",
+      "AC-019",
+      "AC-020",
+      "AC-021",
+      "AC-022",
+      "AC-023",
+      "AC-033",
+      "AC-034",
+      "AC-035",
+      "AC-052"
+    ],
+    "requirements": [
+      "REQ-003",
+      "REQ-005",
+      "REQ-006",
+      "REQ-007",
+      "REQ-008",
+      "REQ-009",
+      "REQ-014",
+      "REQ-015",
+      "REQ-017",
+      "REQ-018",
+      "REQ-026",
+      "REQ-036",
+      "REQ-037",
+      "REQ-039"
+    ]
+  },
+  {
+    "id": "P06",
+    "title": "模型/工具准入与累计账本",
+    "depends_on": [
+      "P03",
+      "P05"
+    ],
+    "files": [
+      "packages/wuji-core/src/wuji_core/admission/models.py",
+      "packages/wuji-core/src/wuji_core/admission/tools.py",
+      "packages/wuji-core/src/wuji_core/admission/ledger.py",
+      "services/execution-control/v2_model_gate.py",
+      "services/execution-control/v2_tool_gate.py",
+      "tests/vnext/test_run_admission.py"
+    ],
+    "interfaces": "输入：RunIdentity、冻结Profile、当前控制状态。产出：ModelAdmission.authorize(...)->ModelPermit；ToolAdmission.authorize(...)->ToolPermit；ModelCall/ToolCall/ToolAttempt账本。",
+    "work": "只持Run凭据到Worker，Task网关Key留准入层。维护模型发送/响应/费用分轴，隐式重试明确关闭或计额。工具身份跨恢复稳定，同operation同摘要回执、不同摘要409；新ID同参数是新操作。函数/MCP共用服务端策略；工具结果在Fact抽取前可返回。",
+    "testpath": "tests/vnext/test_run_admission.py",
+    "code": "def test_revoked_run_cannot_request_model(api_client, test_tokens, revoked_run_request, model_capture):\n    before = len(model_capture.requests)\n    response = api_client.post(\"/internal/v2/model/chat/completions\",\n        json=revoked_run_request, headers={\"Authorization\":\"Bearer \" + test_tokens.revoked_run})\n    assert response.status_code == 409\n    assert response.json()[\"code\"] == \"STALE_EXECUTION\"\n    assert len(model_capture.requests) == before\n",
+    "extra": "model/chat/completions为薄准入协议入口，P02将其纳入完整合同；本例只观测受控模型夹具，不访问真实Provider。",
+    "acceptance": [
+      "AC-025",
+      "AC-032",
+      "AC-036",
+      "AC-044",
+      "AC-045",
+      "AC-068"
+    ],
+    "requirements": [
+      "REQ-008",
+      "REQ-015",
+      "REQ-016",
+      "REQ-017",
+      "REQ-021",
+      "REQ-022",
+      "REQ-026",
+      "REQ-027"
+    ]
+  },
+  {
+    "id": "P07",
+    "title": "MAF Worker与受限上下文工厂",
+    "depends_on": [
+      "P01",
+      "P02",
+      "P04",
+      "P06"
+    ],
+    "files": [
+      "packages/maf-worker/src/wuji_maf_worker/factory.py",
+      "packages/maf-worker/src/wuji_maf_worker/runtime.py",
+      "packages/maf-worker/src/wuji_maf_worker/context.py",
+      "packages/maf-worker/src/wuji_maf_worker/tools.py",
+      "packages/maf-worker/src/wuji_maf_worker/entrypoint.py",
+      "tests/vnext/test_maf_runtime.py"
+    ],
+    "interfaces": "输入：WorkerAssignment/ContextBundle。产出：AgentRuntimePort.execute/cancel/deliver_input；build_context_bundle(records,read_set)->ContextBundle；SDK原始观测证据。",
+    "work": "将MAF类型限制在适配包，按Reason/Explore/Report配置公开factory。以实际工具广告表和真实函数执行确认默认工具裁剪。Context保留反证/来源/状态；有限模型循环与输出体积。Worker自己消费stream，与UI断开无关。应用不得实现第二套工具循环或修改SDK私有函数。",
+    "testpath": "tests/vnext/test_maf_runtime.py",
+    "code": "def test_sdk_advertises_only_profile_tools(maf_invocation, published_profile, model_capture, tool_capture):\n    maf_invocation.run(published_profile.profile_id)\n    advertised = {t[\"function\"][\"name\"] for req in model_capture.requests\n                  for t in req.get(\"tools\", [])}\n    assert advertised\n    assert \"read_record\" in advertised\n    assert advertised <= set(published_profile.tool_names)\n    assert tool_capture.count(\"read_record\") == 1\n    assert len(model_capture.requests) >= 2\n",
+    "extra": "published_profile从独立发布配置读取，不从本次advertised反向生成白名单；原生Todo工具名由P01实际SDK核验后固定到配置，不猜测框架工具名。真实工具表非空且实际调用read_record，避免空集合测试通过。",
+    "acceptance": [
+      "AC-003",
+      "AC-036",
+      "AC-037",
+      "AC-043"
+    ],
+    "requirements": [
+      "REQ-012",
+      "REQ-013",
+      "REQ-017",
+      "REQ-019",
+      "REQ-026",
+      "REQ-035",
+      "REQ-039"
+    ]
+  },
+  {
+    "id": "P08",
+    "title": "SessionManifest与指定调用审批",
+    "depends_on": [
+      "P05",
+      "P06",
+      "P07"
+    ],
+    "files": [
+      "packages/maf-worker/src/wuji_maf_worker/sessions.py",
+      "packages/maf-worker/src/wuji_maf_worker/history.py",
+      "packages/maf-worker/src/wuji_maf_worker/approvals.py",
+      "packages/wuji-core/src/wuji_core/execution/inputs.py",
+      "packages/wuji-core/src/wuji_core/execution/approvals.py",
+      "tests/vnext/test_session_approval.py"
+    ],
+    "interfaces": "输入：SDK序列化数据、原生待批调用、可信持久对象。产出：SessionRepository.publish(manifest,expected_revision)->SessionReceipt；ApprovalService.decide(...)/bind_operation(...)->ApprovalReceipt。",
+    "work": "完整history/state/memory固定版本后CAS；检测半提交和单写者。真实原生审批返回后退出Run，重启同工作可批准/拒绝原调用。批准消费与唯一ToolOperation+Outbox同一事务，恢复沿用逻辑call身份。pending input不是模型可伪造控制标志。",
+    "testpath": "tests/vnext/test_session_approval.py",
+    "code": "def test_partial_manifest_does_not_mix_new_memory(session_repository, complete_manifest, staged_manifest):\n    first = session_repository.publish(complete_manifest, expected_revision=0)\n    session_repository.stage_objects(staged_manifest)\n    restored = session_repository.load_published(first.session_id)\n    assert restored.checkpoint_revision == first.checkpoint_revision\n    assert restored.memory_manifest_ref == complete_manifest.memory_manifest_ref\n    assert restored.history_root == complete_manifest.history_root\n",
+    "extra": "session_repository为真实持久实现fixture，stage_objects不发布manifest。另须真实SDK跨进程审批与ToolOperation故障事务测试，不把revision不变单断言当完整恢复证据。",
+    "acceptance": [
+      "AC-023",
+      "AC-035",
+      "AC-038",
+      "AC-039",
+      "AC-040",
+      "AC-041",
+      "AC-042",
+      "AC-043",
+      "AC-066"
+    ],
+    "requirements": [
+      "REQ-012",
+      "REQ-013",
+      "REQ-014",
+      "REQ-015",
+      "REQ-017",
+      "REQ-019",
+      "REQ-035",
+      "REQ-038"
+    ]
+  },
+  {
+    "id": "P09",
+    "title": "持久Scheduler、generation与等待",
+    "depends_on": [
+      "P04",
+      "P05",
+      "P06"
+    ],
+    "files": [
+      "packages/wuji-core/src/wuji_core/scheduling/policy.py",
+      "packages/wuji-core/src/wuji_core/scheduling/triggers.py",
+      "packages/wuji-core/src/wuji_core/scheduling/waiters.py",
+      "packages/wuji-core/src/wuji_core/scheduling/claims.py",
+      "services/wuji-scheduler/main.py",
+      "tests/vnext/test_scheduler_generations.py"
+    ],
+    "interfaces": "输入：候选WorkItem、SchedulingSnapshot和真实容量。产出：SchedulerPolicy.select(...)->SelectionProposal[]；TriggerRepository.record/consume；Scheduler.tick()->TickReceipt。",
+    "work": "纯策略不授予permit；原子准入重验全局/租户/Task容量。触发独立generation防同board_revision漏依赖事件，领取/结算水位分离；wait登记与谓词检查原子，避免丢唤醒。Reason自建Intent不立即自触发；有限失败重试、精确key与有限hard limits防无限运行。",
+    "testpath": "tests/vnext/test_scheduler_generations.py",
+    "code": "def test_new_trigger_survives_inflight_reason(trigger_repository, task_id):\n    first = trigger_repository.record(task_id, \"input_received\")\n    lease = trigger_repository.begin_reason(task_id)\n    second = trigger_repository.record(task_id, \"dependency_settled\")\n    trigger_repository.consume(task_id, lease.processing_generation)\n    state = trigger_repository.read(task_id)\n    assert first < second\n    assert state.pending_generation == second\n    assert state.consumed_generation < second\n",
+    "extra": "repository使用真实DB。必须另以两连接并发容量、依赖环、事件先到/后到顺序验证；进展规则不得依靠模型声明new_info。",
+    "acceptance": [
+      "AC-007",
+      "AC-015",
+      "AC-018",
+      "AC-024",
+      "AC-025",
+      "AC-026",
+      "AC-027",
+      "AC-028",
+      "AC-029"
+    ],
+    "requirements": [
+      "REQ-004",
+      "REQ-006",
+      "REQ-007",
+      "REQ-008",
+      "REQ-009",
+      "REQ-020",
+      "REQ-021",
+      "REQ-033"
+    ]
+  },
+  {
+    "id": "P10",
+    "title": "新Supervisor、Outbox与prepared故障窗口",
+    "depends_on": [
+      "P05",
+      "P07",
+      "P09"
+    ],
+    "files": [
+      "services/maf-supervisor/main.mjs",
+      "packages/wuji-core/src/wuji_core/execution/dispatch_outbox.py",
+      "packages/wuji-core/src/wuji_core/execution/reconcile.py",
+      "tests/task-workers/maf-supervisor.test.mjs",
+      "tests/vnext/test_dispatch_crash_windows.py"
+    ],
+    "interfaces": "输入：稳定start_operation与RunIdentity。产出：Supervisor PUT/control/query回执；Reconciler.inspect(run)->ObservedExecution。新文件独立，不提前改旧生产Supervisor。",
+    "work": "持久prepared后spawn，再running回执。覆盖prepared前、prepared后spawn前、spawn后running前、running后响应前四窗口；不明则unknown禁止重启同操作。真实无害子进程记录出生/退出和独立计数，不能用PID存在当所有权。撤销后仍可能在运行则占容量/资源。",
+    "testpath": "tests/vnext/test_dispatch_crash_windows.py",
+    "code": "def test_ambiguous_spawn_window_is_not_replayed(supervisor_harness):\n    op = supervisor_harness.prepare_record_reader()\n    supervisor_harness.fail_once(\"after_spawn_before_running_receipt\")\n    supervisor_harness.start(op)\n    supervisor_harness.restart_receiver()\n    receipt = supervisor_harness.query(op.operation_id)\n    assert receipt.state in {\"running\", \"exited\", \"unknown\"}\n    supervisor_harness.redeliver(op)\n    assert supervisor_harness.actual_start_count(op.operation_id) <= 1\n",
+    "extra": "harness管理真实独立Node进程与无害子进程，count读文件或可信进程回执，不由模拟返回。额外执行 node --test tests/task-workers/maf-supervisor.test.mjs。",
+    "acceptance": [
+      "AC-020",
+      "AC-030",
+      "AC-031",
+      "AC-032"
+    ],
+    "requirements": [
+      "REQ-007",
+      "REQ-008",
+      "REQ-015",
+      "REQ-022"
+    ]
+  },
+  {
+    "id": "P11",
+    "title": "控制操作、恢复和失败域联调",
+    "depends_on": [
+      "P08",
+      "P10"
+    ],
+    "files": [
+      "packages/wuji-core/src/wuji_core/execution/control_api.py",
+      "apps/api/src/wuji_api/v2/commands.py",
+      "apps/api/src/wuji_api/v2/approvals.py",
+      "tests/vnext/test_control_integration.py"
+    ],
+    "interfaces": "输入：Task/Work控制命令、ApprovalDecision。产出：真实暂停/恢复/取消回执与被限定失败域的Incident；API路由符合Spec。",
+    "work": "联通hold→撤销→停止核对，不因tick重新ready。Task.pause保持工作原desired与wait，resume只解除task_pause。费用unknown不一概锁住全部资源；副作用unknown仍核对。真实审批消费、跨Run移交与当前版本授权重验，旧结果可historical_only。",
+    "testpath": "tests/vnext/test_control_integration.py",
+    "code": "def test_task_resume_preserves_work_hold(control_service, task_with_held_work):\n    task, work = task_with_held_work\n    control_service.pause_task(task.id)\n    control_service.resume_task(task.id)\n    current = control_service.read_work(work.id)\n    assert current.desired_state == \"hold\"\n    assert \"user_hold\" in current.suspension_causes\n    assert current.state == \"suspended\"\n",
+    "extra": "fixture通过真实API/数据库建立状态，不直接mockread返回。取消接受与进程退出必须分别观测，不能仅看HTTP状态。",
+    "acceptance": [
+      "AC-021",
+      "AC-022",
+      "AC-023",
+      "AC-032",
+      "AC-040",
+      "AC-041",
+      "AC-042",
+      "AC-044",
+      "AC-046",
+      "AC-049"
+    ],
+    "requirements": [
+      "REQ-011",
+      "REQ-014",
+      "REQ-015",
+      "REQ-016",
+      "REQ-022",
+      "REQ-035"
+    ]
+  },
+  {
+    "id": "P12",
+    "title": "可信完成评审、关闭与报告冻结",
+    "depends_on": [
+      "P04",
+      "P09",
+      "P11"
+    ],
+    "files": [
+      "packages/wuji-core/src/wuji_core/completion/criteria.py",
+      "packages/wuji-core/src/wuji_core/completion/precheck.py",
+      "packages/wuji-core/src/wuji_core/completion/settlement.py",
+      "packages/wuji-core/src/wuji_core/completion/reports.py",
+      "tests/vnext/test_completion_protocol.py"
+    ],
+    "interfaces": "输入：GoalContractRevision、CompletionProposal、当前证据/执行状态。产出：CompletionReview、CompletionEpoch、ReportCommit/ReportDelivery、AssessmentAmendment。",
+    "work": "precheck在可信服务不绑定提出者Run，必要工作未完返回wait，不提前冻结。进入quiescing后新动作禁止但查询/上传/退出可结算，有界终止不要求付费总结。新反证使旧决定失效；abort-close保留user_hold。终态剩余工作cancelled+reason，结果轴独立，迟到反证补充报告不改原正文不重启。",
+    "testpath": "tests/vnext/test_completion_protocol.py",
+    "code": "def test_required_work_prevents_early_quiesce(completion_service, task_with_required_work):\n    task = task_with_required_work\n    review = completion_service.precheck(task.id)\n    assert review.decision == \"wait\"\n    assert completion_service.read_task(task.id).observed_state == \"running\"\n",
+    "extra": "必须另用并发DB证明关闭最后校验不覆盖新反证；空Goal测试应通过持久Goal版本创建，不允许测试请求直接覆盖required列表。",
+    "acceptance": [
+      "AC-007",
+      "AC-046",
+      "AC-047",
+      "AC-048",
+      "AC-049",
+      "AC-050",
+      "AC-051",
+      "AC-052",
+      "AC-053",
+      "AC-069"
+    ],
+    "requirements": [
+      "REQ-004",
+      "REQ-006",
+      "REQ-007",
+      "REQ-011",
+      "REQ-015",
+      "REQ-016",
+      "REQ-022",
+      "REQ-028",
+      "REQ-033",
+      "REQ-034",
+      "REQ-037"
+    ]
+  },
+  {
+    "id": "P13",
+    "title": "受权图投影、持久快照与视图身份",
+    "depends_on": [
+      "P03",
+      "P04",
+      "P05"
+    ],
+    "files": [
+      "packages/wuji-core/src/wuji_core/projection/builder.py",
+      "packages/wuji-core/src/wuji_core/projection/snapshots.py",
+      "packages/wuji-core/src/wuji_core/projection/access.py",
+      "apps/api/src/wuji_api/v2/topology.py",
+      "tests/vnext/test_view_snapshots.py"
+    ],
+    "interfaces": "输入：SnapshotManifest、AccessContext、ViewQuery。产出：TopologySnapshot、固定revision节点/边、可回放历史快照目录；不输出内部task_event_seq。",
+    "work": "Fact/Claim共用claim节点身份，评估只是display_kind；@revision端点不可迁移。保存真实snapshot状态/关系引用后分页。过滤节点、边、摘要及计数，派生内容默认继承严格权限。历史只列存在的manifest，未保存时间点返回明确错误；查询digest与权限绑定。",
+    "testpath": "tests/vnext/test_view_snapshots.py",
+    "code": "def test_fact_projection_keeps_statement_identity(project_claim, claim_v1, supported_assessment):\n    before = project_claim(claim_v1, assessment=None)\n    after = project_claim(claim_v1, assessment=supported_assessment)\n    assert before.node_id == after.node_id\n    assert before.display_kind == \"claim\"\n    assert after.display_kind == \"fact\"\n",
+    "extra": "project_claim是P13生成的纯投影函数fixture引用，不重写逻辑；真实权限和分页在API/DB用例运行。",
+    "acceptance": [
+      "AC-054",
+      "AC-055",
+      "AC-056",
+      "AC-059",
+      "AC-060",
+      "AC-063"
+    ],
+    "requirements": [
+      "REQ-002",
+      "REQ-003",
+      "REQ-009",
+      "REQ-010",
+      "REQ-023",
+      "REQ-025",
+      "REQ-026"
+    ]
+  },
+  {
+    "id": "P14",
+    "title": "TopologyFlowCanvas与独立布局",
+    "depends_on": [
+      "P13"
+    ],
+    "files": [
+      "apps/web/src/features/topology/TopologyFlowCanvas.tsx",
+      "apps/web/src/features/topology/TopologyContainer.tsx",
+      "apps/web/src/features/topology/toFlowElements.ts",
+      "apps/web/src/features/topology/layout.ts",
+      "apps/web/src/features/topology/TopologyListView.tsx",
+      "tests/topology/projection.test.ts",
+      "tests/topology/fixtures.ts"
+    ],
+    "interfaces": "输入：固定TopologySnapshot/LayoutPreference。产出：受控ReactFlow组件、toFlowElements、逻辑LayoutAnchor与revision布局、列表视图。",
+    "work": "沿用用户组件或单一新建；受控nodes/edges，不自动fitView或覆盖pinned。禁用自由连接/重连与业务删除；稳定回调和完整节点类型。Fact角色变化不多出节点；新revision默认位置可继承但旧关系不迁移。五主题/键盘/列表均支持。",
+    "testpath": "tests/topology/projection.test.ts",
+    "code": "import { expect, test } from 'vitest';\nimport { toFlowElements } from '../../apps/web/src/features/topology/toFlowElements';\nimport { snapshot, layout } from './fixtures';\ntest('layout edits preserve business references', () => {\n  const a = toFlowElements(snapshot, layout);\n  const b = toFlowElements(snapshot, { ...layout, positions: {} });\n  expect(b.nodes.map(n => n.id)).toEqual(a.nodes.map(n => n.id));\n  expect(b.nodes.map(n => n.data.ref)).toEqual(a.nodes.map(n => n.data.ref));\n});\n",
+    "extra": "若需ELK，先记录候选和实测后锁定；简单确定布局即可完成核心，不为UI选择重构后端。",
+    "acceptance": [
+      "AC-055",
+      "AC-056",
+      "AC-057",
+      "AC-058",
+      "AC-064"
+    ],
+    "requirements": [
+      "REQ-002",
+      "REQ-003",
+      "REQ-009",
+      "REQ-023",
+      "REQ-024",
+      "REQ-032"
+    ]
+  },
+  {
+    "id": "P15",
+    "title": "ViewStream、重连、历史与浏览器验证",
+    "depends_on": [
+      "P13",
+      "P14"
+    ],
+    "files": [
+      "packages/wuji-core/src/wuji_core/projection/view_stream.py",
+      "apps/web/src/features/topology/topologyReducer.ts",
+      "apps/web/src/features/topology/useTopologyStream.ts",
+      "apps/web/src/features/topology/panels/RecordPanel.tsx",
+      "tests/topology/view-stream.test.ts",
+      "tests/e2e/topology/topology.spec.ts",
+      "playwright.vnext.config.ts"
+    ],
+    "interfaces": "输入：ViewStreamSpec、受权快照、内部Outbox。产出：外部ViewEventBatch、applyViewBatch、当前/历史查询隔离和浏览器证据。",
+    "work": "外部view_revision只随可见数据变化；不发送全局空白水位批。cursor不透明绑定query/access/view；视图切换/权限变更关闭旧流，丢流reset。整批原子应用、缺base resync、BigInt安全比较。历史视图不执行，新数据不影响已保存历史。",
+    "testpath": "tests/topology/view-stream.test.ts",
+    "code": "import { expect, test } from 'vitest';\nimport { applyViewBatch } from '../../apps/web/src/features/topology/topologyReducer';\nimport { stateA, batchFromB } from './fixtures';\ntest('another query stream cannot mutate this view', () => {\n  const next = applyViewBatch(stateA, batchFromB);\n  expect(next.state).toEqual(stateA);\n  expect(next.reason).toBe('VIEW_MISMATCH');\n});\n",
+    "extra": "真实浏览器测试包含隐藏事件流量、权限变化、duplicate/gap、大水位、两组规模、五主题和证据面板。目标p95不是事先通过。",
+    "acceptance": [
+      "AC-058",
+      "AC-060",
+      "AC-061",
+      "AC-062",
+      "AC-063",
+      "AC-064"
+    ],
+    "requirements": [
+      "REQ-010",
+      "REQ-023",
+      "REQ-024",
+      "REQ-025",
+      "REQ-026",
+      "REQ-032"
+    ]
+  },
+  {
+    "id": "P16",
+    "title": "数据保留、衍生权限、交付与观测",
+    "depends_on": [
+      "P06",
+      "P08",
+      "P12",
+      "P15"
+    ],
+    "files": [
+      "packages/wuji-core/src/wuji_core/audit/redaction.py",
+      "packages/wuji-core/src/wuji_core/audit/retention.py",
+      "packages/wuji-core/src/wuji_core/audit/delivery.py",
+      "packages/maf-worker/src/wuji_maf_worker/telemetry.py",
+      "tests/vnext/test_retention_and_delivery.py"
+    ],
+    "interfaces": "输入：DataRetentionProfile、Artifact引用、ReportCommit、访问政策。产出：GC/purge/tombstone、脱敏派生件审查、AuditRecord、Trace/Metric导出和ReportDelivery。",
+    "work": "临时对象GC尊重提交租约；已发布引用不能普通回收，显式purge留下失效与报告提示。派生摘要不能自动降密；下载有TTL或可撤销网关。审计不可依赖Trace采样；Metric不默认用TaskID高基数标签。按媒介要求交付，缺必需资料明确incomplete。",
+    "testpath": "tests/vnext/test_retention_and_delivery.py",
+    "code": "def test_purge_leaves_an_explicit_evidence_tombstone(artifact_service, retained_artifact):\n    artifact_service.purge(retained_artifact.id, reason=\"approved_retention_action\")\n    meta = artifact_service.read_metadata(retained_artifact.id)\n    assert meta.state == \"tombstoned\"\n    assert meta.content_available is False\n    assert meta.purge_reason == \"approved_retention_action\"\n",
+    "extra": "purge需具资格身份，测试只能无敏感夹具。另检引用报告是否显示缺失；仅对象404不足以证明审计闭环。",
+    "acceptance": [
+      "AC-053",
+      "AC-059",
+      "AC-065",
+      "AC-066",
+      "AC-067",
+      "AC-068",
+      "AC-069"
+    ],
+    "requirements": [
+      "REQ-013",
+      "REQ-026",
+      "REQ-027",
+      "REQ-028",
+      "REQ-034",
+      "REQ-037",
+      "REQ-038"
+    ]
+  },
+  {
+    "id": "P17",
+    "title": "核心端到端与故障矩阵",
+    "depends_on": [
+      "P04",
+      "P05",
+      "P06",
+      "P07",
+      "P08",
+      "P09",
+      "P10",
+      "P11",
+      "P12",
+      "P15",
+      "P16"
+    ],
+    "files": [
+      "scripts/vnext/run_acceptance.py",
+      "tests/vnext/test_end_to_end.py",
+      "tests/vnext/test_fault_matrix.py",
+      ".github/workflows/vnext.yml",
+      "docs/vnext/acceptance-results.md"
+    ],
+    "interfaces": "输入：所有AC定义、实际服务版本和夹具。产出：逐AC EvidenceResult与GateReport；空项/not_run/blocked不得计pass。",
+    "work": "真实SDK、真实PG、真实受控Supervisor与工具读取，合成模型答案驱动多个正负路径：Agent候选→独立核验→Fact视图、假设→Intent、无Fact抽取、控制与完成、画布。注入prepared/spawn、半Session、结果提交丢响应、授权撤销、反证和旧流等故障。",
+    "testpath": "tests/vnext/test_end_to_end.py",
+    "code": "def test_every_required_case_has_runtime_evidence(acceptance_report):\n    required = acceptance_report.required_core_case_ids\n    assert required\n    assert set(required) <= set(acceptance_report.results)\n    for case_id in required:\n        result = acceptance_report.results[case_id]\n        assert result.status == \"pass\", case_id\n        assert result.command and result.exit_code == 0\n        assert result.evidence_refs, case_id\n",
+    "extra": "该汇总只验结果结构；测试结果必须从实际命令生成，不能手写pass。逐AC行为仍由对应模块测试证明，不能用汇总自身作为执行证据。",
+    "acceptance": [
+      "AC-045",
+      "AC-070",
+      "AC-075"
+    ],
+    "requirements": [
+      "REQ-016",
+      "REQ-021",
+      "REQ-028",
+      "REQ-031",
+      "REQ-039",
+      "REQ-040"
+    ]
+  },
+  {
+    "id": "P18",
+    "title": "真实效果评测工具与单Harness对照",
+    "depends_on": [
+      "P07",
+      "P09",
+      "P17"
+    ],
+    "files": [
+      "scripts/vnext/run_evaluation.py",
+      "tests/vnext/test_evaluation_accounting.py",
+      "docs/vnext/evaluation-protocol.md",
+      "packages/wuji-core/src/wuji_core/evaluation/accounting.py"
+    ],
+    "interfaces": "输入：受控数据集、明确计分规则、同模型/工具/预算；真实调用需批准。产出：EvaluationRun逐次结果、失败分类、费用/延迟与独立评分记录。",
+    "work": "先离线验证评测运行器和预算汇总。A单Harness/B黑板配置都含相同总额度，B的Reason/摘要/核验计入。模型自述不计成功；重复试验保留每次结果，禁止只展示最佳一次。真实模型试验未批准标not_run，不阻断机制代码交付但阻断自主效果宣传。",
+    "testpath": "tests/vnext/test_evaluation_accounting.py",
+    "code": "from decimal import Decimal\nfrom wuji_core.evaluation.accounting import total_cost\n\ndef test_reason_and_summary_are_part_of_total_budget():\n    calls = [{\"cost\":\"0.02\", \"role\":\"reason\"},\n             {\"cost\":\"0.03\", \"role\":\"explore\"},\n             {\"cost\":\"0.01\", \"role\":\"summary\"}]\n    assert total_cost(calls) == Decimal(\"0.06\")\n",
+    "extra": "实现路径同时新增 packages/wuji-core/src/wuji_core/evaluation/accounting.py；这里汇总网关已记录费用，不实现第二套单价计价器。",
+    "acceptance": [
+      "AC-013",
+      "AC-070",
+      "AC-071"
+    ],
+    "requirements": [
+      "REQ-005",
+      "REQ-021",
+      "REQ-028",
+      "REQ-031",
+      "REQ-039"
+    ]
+  },
+  {
+    "id": "P19",
+    "title": "离线历史归档与切换演练",
+    "depends_on": [
+      "P03",
+      "P12",
+      "P13"
+    ],
+    "files": [
+      "scripts/vnext/export_legacy_readonly.py",
+      "scripts/vnext/import_archive.py",
+      "packages/wuji-core/src/wuji_core/archive/importer.py",
+      "apps/api/src/wuji_api/v2/archives.py",
+      "tests/vnext/test_archive_roundtrip.py",
+      "docs/vnext/cutover-checklist.md"
+    ],
+    "interfaces": "输入：离线副本、原始ID和权限/产物manifest。产出：ArchiveImporter.import_archive(manifest)->ArchiveReceipt；归档查询无Cairn服务。",
+    "work": "先只在副本开发dry-run，不停生产。新库独立head与旧库读取分开，读取SQLite归档不要求启动Cairn。保留LegacyClaim标签和原关系；后续有新核验可追加新评估但不改来源。真实切换须P20授权和旧执行核对。",
+    "testpath": "tests/vnext/test_archive_roundtrip.py",
+    "code": "def test_archive_import_does_not_create_executable_work(archive_importer, archive_manifest, db_conn):\n    receipt = archive_importer.import_archive(archive_manifest)\n    assert receipt.imported_records > 0\n    count = db_conn.execute(\"SELECT count(*) FROM vnext.work_item WHERE source_archive_id=%s\",\n                            (receipt.archive_id,)).fetchone()[0]\n    assert count == 0\n",
+    "extra": "采用import_archive合法Python名称，不用v1文本中的ArchiveImporter.import。测试输入不可有活动身份或可用凭据。",
+    "acceptance": [
+      "AC-013",
+      "AC-072",
+      "AC-073",
+      "AC-074"
+    ],
+    "requirements": [
+      "REQ-001",
+      "REQ-005",
+      "REQ-028",
+      "REQ-029",
+      "REQ-030",
+      "REQ-031"
+    ]
+  },
+  {
+    "id": "P20",
+    "title": "新发布物、最终合同检查与显式切换",
+    "depends_on": [
+      "P17",
+      "P19"
+    ],
+    "files": [
+      "scripts/vnext/assert_release_inventory.py",
+      "scripts/vnext/check_all.sh",
+      "ops/vnext/release.yaml",
+      "tests/vnext/test_release_inventory.py",
+      "docs/vnext/release-evidence.md"
+    ],
+    "interfaces": "输入：G0–G4实际证据、离线迁移演练、独立停机批准。产出：ReleaseEvidence、保留数据的切换回执；没有运行中legacy回退枚举。",
+    "work": "扫描实际Python/npm传递依赖、镜像命令、Cairn挂载/读接口、健康检查与归档启动。新库和历史副本都验证。先停止并核对旧执行，再切入口；失败维护只读，不自动启动旧引擎。删除旧数据单独批准。最终文档标明哪些用户本地实现已复用与哪些Gate未运行。",
+    "testpath": "tests/vnext/test_release_inventory.py",
+    "code": "def test_inventory_excludes_legacy_execution(release_inventory):\n    assert \"cairn\" not in release_inventory.python_distributions\n    assert \"@mariozechner/pi-coding-agent\" not in release_inventory.npm_packages\n    assert not release_inventory.legacy_runtime_entrypoints\n    assert not release_inventory.cairn_service_dependencies\n    assert release_inventory.source_artifact_hashes\n",
+    "extra": "inventory来自lock、镜像与部署清单实际解析，不可写死空集合。历史文档文字和离线SQLite导出本身不视为旧运行依赖。",
+    "acceptance": [
+      "AC-004",
+      "AC-074",
+      "AC-075"
+    ],
+    "requirements": [
+      "REQ-001",
+      "REQ-029",
+      "REQ-030",
+      "REQ-031",
+      "REQ-039",
+      "REQ-040"
+    ]
+  }
+]

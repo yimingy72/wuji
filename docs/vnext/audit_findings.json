@@ -1,0 +1,844 @@
+[
+  {
+    "id": "REV-01",
+    "title": "把Fact来源限制成确定性规则",
+    "classification": "过度约束",
+    "severity": "P0",
+    "source_file": "V1_SPEC.md",
+    "lines": [
+      35
+    ],
+    "source_excerpt": "| REQ-003 | Agent 不能直接写 Fact；Fact 只能由可信采集/规则抽取路径生成。 |",
+    "issue": "v1新增约束将作者和事实接纳混为一谈；虽然允许Claim保存，但没有把Agent提炼的候选事实作为明确正向合同。不是原稿自身已存在的错误。",
+    "revision": "允许候选事实；ClaimRevision统一正文，FactLedger为有证据评估的视图；作者身份保留。",
+    "sections": [
+      "S03"
+    ],
+    "tasks": [
+      "P04"
+    ],
+    "tests": [
+      "AC-005",
+      "AC-006"
+    ]
+  },
+  {
+    "id": "REV-02",
+    "title": "线性记录链误导为强制工作流",
+    "classification": "过度约束",
+    "severity": "P1",
+    "source_file": "V1_SPEC.md",
+    "lines": [
+      114
+    ],
+    "source_excerpt": "    O --> F[Fact / 规则抽取的有条件断言]",
+    "issue": "图与P16贯通路径强调逐级转换，容易要求每条记录都过Fact和Verification。",
+    "revision": "改为分支关系；Observation可直接支持Claim；没有Fact也能完成合法工作。",
+    "sections": [
+      "S03",
+      "S08"
+    ],
+    "tasks": [
+      "P04",
+      "P05",
+      "P17"
+    ],
+    "tests": [
+      "AC-034",
+      "AC-007"
+    ]
+  },
+  {
+    "id": "REV-03",
+    "title": "内容支持、使用目的与来源身份未贯通",
+    "classification": "欠明确",
+    "severity": "P0",
+    "source_file": "V1_SPEC.md",
+    "lines": [
+      159
+    ],
+    "source_excerpt": "ClaimRevision 保留 kind（observation-summary / hypothesis / derived-conclusion）、正文、依据、作者、来源 Run 和 supersedes。评估状态 unassessed / supported / contradicted / inconclusive 独立于正文版本，由验证结果或明确人审产生。",
+    "issue": "v1只有基本证据状态，未充分规定linked与content_checked、候选使用和Goal接纳差别。",
+    "revision": "加入四个独立轴和使用政策；保留原kind，模型复核不单独认证。",
+    "sections": [
+      "S03",
+      "S11"
+    ],
+    "tasks": [
+      "P04",
+      "P12"
+    ],
+    "tests": [
+      "AC-010",
+      "AC-009"
+    ]
+  },
+  {
+    "id": "REV-04",
+    "title": "事实入账阻塞工具结果",
+    "classification": "过度约束",
+    "severity": "P1",
+    "source_file": "V1_SPEC.md",
+    "lines": [
+      377
+    ],
+    "source_excerpt": "Tool Router 登记 → 执行端保存启动回执 → 实际工具运行 → 可信采集端封存 Artifact/Observation → 确定性抽取 Fact → 原子公布 evidence receipt → 向 Agent 返回受限摘要及引用。",
+    "issue": "v1把抽取放进向Agent返回之前；缺解析器可能阻断真实证据交付。",
+    "revision": "原始Capture先独立接受；抽取/评估可选有界异步处理，可信采集不能省略。",
+    "sections": [
+      "S08"
+    ],
+    "tasks": [
+      "P03",
+      "P05"
+    ],
+    "tests": [
+      "AC-034",
+      "AC-033"
+    ]
+  },
+  {
+    "id": "REV-05",
+    "title": "失效只保存字段，未充分传播到引用者",
+    "classification": "欠明确",
+    "severity": "P1",
+    "source_file": "V1_SPEC.md",
+    "lines": [
+      153
+    ],
+    "source_excerpt": "Fact 正文不更新。撤回、过期、冲突使用独立 `FactAssessment` 追加记录：effective / disputed / stale / retracted，注明依据和规则；历史报告保留当时状态。相互矛盾的 Fact 可同时存在，因为时间、环境、工具可信度可能不同。",
+    "issue": "没有完整交代新正文revision、环境重置、旧关系和继承状态的相互作用。",
+    "revision": "评估固定ClaimRevision和环境；新版本不继承supported，反证失效关联待执行与完成决定。",
+    "sections": [
+      "S03",
+      "S04",
+      "S10"
+    ],
+    "tasks": [
+      "P04",
+      "P12"
+    ],
+    "tests": [
+      "AC-014",
+      "AC-056"
+    ]
+  },
+  {
+    "id": "REV-06",
+    "title": "WorkItem使用了未定义superseded状态",
+    "classification": "内部矛盾",
+    "severity": "P0",
+    "source_file": "V1_SPEC.md",
+    "lines": [
+      509
+    ],
+    "source_excerpt": "最终关闭还必须明确结算剩余 ready/blocked/waiting 工作：记录 cancelled/superseded 及 Task 结束原因，而不是把未执行工作改成 done。撤销具体待批操作；保留其原始请求供审计。",
+    "issue": "状态表不含WorkItem.superseded，但最终关闭要求写它。",
+    "revision": "WorkItem统一cancelled+reason=intent_superseded；Intent自己的superseded独立。",
+    "sections": [
+      "S05",
+      "S11"
+    ],
+    "tasks": [
+      "P02",
+      "P05"
+    ],
+    "tests": [
+      "AC-019"
+    ]
+  },
+  {
+    "id": "REV-07",
+    "title": "Task关闭原因与结果混在同一枚举",
+    "classification": "模型歧义",
+    "severity": "P1",
+    "source_file": "V1_SPEC.md",
+    "lines": [
+      223
+    ],
+    "source_excerpt": "| Task.close_reason | completed / partial / inconclusive / cancelled / failed / budget_exhausted / time_limit / no_progress，未关闭为空 |",
+    "issue": "completed/partial/inconclusive和budget/time/user_cancel混成互斥值，难表达取消但保留部分结果。",
+    "revision": "close_trigger与result_outcome分轴；UI独立展示Goal、执行、交付、费用。",
+    "sections": [
+      "S05",
+      "S11"
+    ],
+    "tasks": [
+      "P05",
+      "P12"
+    ],
+    "tests": [
+      "AC-052"
+    ]
+  },
+  {
+    "id": "REV-08",
+    "title": "Result接受可能被误当进程结束",
+    "classification": "欠明确",
+    "severity": "P0",
+    "source_file": "V1_SPEC.md",
+    "lines": [
+      486
+    ],
+    "source_excerpt": "先认证并查相同 submission_id 的原回执 → 保存原始正文/摘要 → 对不可变引用解析与校验 → 短事务核对状态和依赖 → 接纳 Claim/Intent 提案、结算 WorkItem/Run、追加事件及回执。",
+    "issue": "描述接纳与结算相邻，但没给出接受早于exit时释放容量的明确守卫。",
+    "revision": "result_state、process_state、workstate分开；确认退出前不done，不释放可能占用容量。",
+    "sections": [
+      "S05",
+      "S07"
+    ],
+    "tasks": [
+      "P05",
+      "P10"
+    ],
+    "tests": [
+      "AC-020"
+    ]
+  },
+  {
+    "id": "REV-09",
+    "title": "Task暂停与单工作hold的叠加缺合同",
+    "classification": "欠明确",
+    "severity": "P0",
+    "source_file": "V1_SPEC.md",
+    "lines": [
+      297
+    ],
+    "source_excerpt": "UI 的“停止这个 Agent”默认操作是 `hold WorkItem + revoke run_epoch + stop Run`。不能自动重新 ready。只有显式 ResumeWork 或新的受权工作提案才能继续。Task pause/cancel 则撤销 execution_epoch，并影响全部相关 Run。",
+    "issue": "整Task恢复如何保留原先user_hold和wait_ref不明确。",
+    "revision": "suspension_causes区分user_hold/task_pause/completion；恢复只解除自身原因。",
+    "sections": [
+      "S05",
+      "S09"
+    ],
+    "tasks": [
+      "P05",
+      "P11"
+    ],
+    "tests": [
+      "AC-022",
+      "AC-023"
+    ]
+  },
+  {
+    "id": "REV-10",
+    "title": "Intent DAG和执行依赖满足条件不充分",
+    "classification": "欠明确",
+    "severity": "P1",
+    "source_file": "V1_SPEC.md",
+    "lines": [
+      180
+    ],
+    "source_excerpt": "| depends_on | IntentRevision → IntentRevision | 前者等待后者指定结算条件 | 是，必须无环 |",
+    "issue": "声明依赖无环但没有完整定义前驱failed/cancelled/done如何满足不同需求，也容易在WorkItem重复实现。",
+    "revision": "唯一WorkDependency图，条件settled/accepted_result/criterion_satisfied，Task锁内并发查环。",
+    "sections": [
+      "S04",
+      "S06"
+    ],
+    "tasks": [
+      "P04",
+      "P05",
+      "P09"
+    ],
+    "tests": [
+      "AC-015",
+      "AC-016"
+    ]
+  },
+  {
+    "id": "REV-11",
+    "title": "Reason触发只看board水位会丢其他变化",
+    "classification": "设计缺口",
+    "severity": "P0",
+    "source_file": "V1_SPEC.md",
+    "lines": [
+      277
+    ],
+    "source_excerpt": "每 Task 保存 TriggerAccumulator：pending_reasons、highest_pending_board_revision、consumed_revision、inflight_work_item_id。初始化、新有效 Fact/验证、依赖结算、有效 Hint、完成反馈和明确阻断解除可以触发；Token、心跳、布局、工具轮询不触发。",
+    "issue": "依赖、控制和人工事件可能没有board增长；仅board水位不能覆盖所有触发。",
+    "revision": "独立trigger_generation，领取/消费水位分开，失败有界，自身Intent不自激。",
+    "sections": [
+      "S06"
+    ],
+    "tasks": [
+      "P09"
+    ],
+    "tests": [
+      "AC-026",
+      "AC-027"
+    ]
+  },
+  {
+    "id": "REV-12",
+    "title": "wait登记没有防丢唤醒协议",
+    "classification": "设计缺口",
+    "severity": "P0",
+    "source_file": "V1_SPEC.md",
+    "lines": [
+      281
+    ],
+    "source_excerpt": "ReasonResult 是判别联合：propose_intents / wait / propose_completion / blocked。wait 必须携带已登记 dependency/question/event；没有这些条件的“再等一会儿”拒绝为 INVALID_WAIT。blocked 要有 reason_code、解除动作和责任人。",
+    "issue": "仅引用一个事件不处理事件在waiter登记前已发生。",
+    "revision": "事务登记+检查谓词，事件到达原子标ready，重启补偿扫描。",
+    "sections": [
+      "S06"
+    ],
+    "tasks": [
+      "P09"
+    ],
+    "tests": [
+      "AC-028"
+    ]
+  },
+  {
+    "id": "REV-13",
+    "title": "精确去重、语义相似和进展不能互替",
+    "classification": "欠明确",
+    "severity": "P1",
+    "source_file": "V1_SPEC.md",
+    "lines": [
+      285
+    ],
+    "source_excerpt": "`ExactExecutionKey` 由规范化工作目标、方法族与版本、身份条件、相关依据版本、预期输出组成；不能仅用自然语言标题，也不能仅用参数 hash 猜测某外部操作已经执行。文本相似只提示合并。",
+    "issue": "v1原则有价值，但Plan容易把语义去重/进展算作现成算法；缺不同问题同参数和等价问题换标题的反例。",
+    "revision": "限定确定性key，语义相似只提示；hard limits独立；增加双向反例和公平性容量测试。",
+    "sections": [
+      "S06"
+    ],
+    "tasks": [
+      "P09"
+    ],
+    "tests": [
+      "AC-029",
+      "AC-024"
+    ]
+  },
+  {
+    "id": "REV-14",
+    "title": "prepared到spawn的崩溃窗口未验",
+    "classification": "设计缺口",
+    "severity": "P0",
+    "source_file": "V1_PLAN.md",
+    "lines": [
+      414
+    ],
+    "source_excerpt": "- [ ] **3. 实现最小功能。** 启动回执先持久化再启动进程；同operation/query复用，不重新spawn。撤销/hold先落控制状态，再发停止信号；单工作hold不影响其他Run。环境UID/代次不一致拒绝。",
+    "issue": "v1主要测响应丢失，无法证明回执与spawn之间无重复；持久化不能让进程spawn与DB原子。",
+    "revision": "四窗口故障矩阵；不明则reconciling，查询同operation，不能自动spawn。",
+    "sections": [
+      "S07"
+    ],
+    "tasks": [
+      "P10"
+    ],
+    "tests": [
+      "AC-030",
+      "AC-031"
+    ]
+  },
+  {
+    "id": "REV-15",
+    "title": "单活动Scheduler不等于重启没有旧执行者",
+    "classification": "设计缺口",
+    "severity": "P1",
+    "source_file": "V1_SPEC.md",
+    "lines": [
+      104
+    ],
+    "source_excerpt": "部署可复用镜像，调度入口必须独立于 HTTP 请求生命周期。首版一个活动 Scheduler；数据库约束不因单实例而取消。LISTEN/NOTIFY 或其他唤醒仅为优化，持久扫描负责补偿。",
+    "issue": "单实例声明未定义重启/分区时旧实例仍投递的责任，容量仅有效写者也可能漏旧进程。",
+    "revision": "leader_epoch、Inbox与执行端检查；unknown仍占可能在运行容量；不声称零残余窗口。",
+    "sections": [
+      "S02",
+      "S05",
+      "S07"
+    ],
+    "tasks": [
+      "P09",
+      "P10"
+    ],
+    "tests": [
+      "AC-032",
+      "AC-024"
+    ]
+  },
+  {
+    "id": "REV-16",
+    "title": "会话manifest遗漏记忆的确定版本",
+    "classification": "设计缺口",
+    "severity": "P0",
+    "source_file": "V1_SPEC.md",
+    "lines": [
+      347
+    ],
+    "source_excerpt": "持久化流程：写不可变状态/历史对象 → 校验完整性 → 短事务 CAS 发布 manifest 和消息终点 → 才允许下一项需持久保障的动作。历史单独存储时 manifest 固定终点；不能用“最后一个文件名”拼出未提交状态。文件记忆也需要受控写入及版本关联。",
+    "issue": "文字提到关联，但manifest字段未要求memory根，恢复可混旧历史与新笔记。",
+    "revision": "memory_manifest_ref必填或显式空根；CAS绑定完整history/state/memory。",
+    "sections": [
+      "S09"
+    ],
+    "tasks": [
+      "P08"
+    ],
+    "tests": [
+      "AC-038",
+      "AC-066"
+    ]
+  },
+  {
+    "id": "REV-17",
+    "title": "核心审批能力可被Profile关闭绕过",
+    "classification": "发布歧义",
+    "severity": "P0",
+    "source_file": "V1_SPEC.md",
+    "lines": [
+      337
+    ],
+    "source_excerpt": "不以源码 HEAD 的版本号当 wheel 兼容证明。若某个持久化边界或审批续接不能通过公开 API 实现，发布该 Profile 前选择：仅支持已结算工作段恢复，或停止发布并提交明确差异；不能静默改用 Pi/Cairn，也不能直接修改 MAF 私有实现。",
+    "issue": "v1对必要审批恢复和可选细粒度checkpoint降级没有区分；可能全部关闭后宣称重构完成。",
+    "revision": "核心审批跨进程为必要Gate；只有运行中自由注入/细粒度恢复可选关闭。",
+    "sections": [
+      "S01",
+      "S09",
+      "S17"
+    ],
+    "tasks": [
+      "P01",
+      "P08",
+      "P11"
+    ],
+    "tests": [
+      "AC-040",
+      "AC-043"
+    ]
+  },
+  {
+    "id": "REV-18",
+    "title": "审批消费与ToolOperation创建非原子",
+    "classification": "设计缺口",
+    "severity": "P0",
+    "source_file": "V1_SPEC.md",
+    "lines": [
+      361
+    ],
+    "source_excerpt": "ApprovalRequest 绑定 task/work/session、checkpoint、原 call_id、参数摘要、tool/profile/scope version、请求 Run、审批人资格和 expires_at。批准与消费分开去重；批准后再准入。恢复由新 Run 显式继承原操作，不给未知旧 ToolCall 新建执行 ID。[E3]",
+    "issue": "批准和消费分别去重仍有消费后未派发的崩溃窗。",
+    "revision": "当前准入与批准绑定唯一ToolOperation/Outbox同事务；重复恢复原操作。",
+    "sections": [
+      "S09"
+    ],
+    "tasks": [
+      "P08",
+      "P11"
+    ],
+    "tests": [
+      "AC-041"
+    ]
+  },
+  {
+    "id": "REV-19",
+    "title": "工具与模型unknown一概阻断会伤可用性",
+    "classification": "欠明确",
+    "severity": "P1",
+    "source_file": "V1_SPEC.md",
+    "lines": [
+      498
+    ],
+    "source_excerpt": "    Q --> R[结算所有已登记Run/Tool/Model/结果]",
+    "issue": "不同unknown状态可能影响不同资源；费用晚到不等于仍有副作用。",
+    "revision": "分本地进程/副作用/响应/费用轴，相关失败域冻结；费用pending可本地关闭。",
+    "sections": [
+      "S06",
+      "S08",
+      "S11"
+    ],
+    "tasks": [
+      "P06",
+      "P11",
+      "P12"
+    ],
+    "tests": [
+      "AC-046",
+      "AC-044"
+    ]
+  },
+  {
+    "id": "REV-20",
+    "title": "quiescing冻结动作却期待必要工作继续",
+    "classification": "内部矛盾",
+    "severity": "P0",
+    "source_file": "V1_SPEC.md",
+    "lines": [
+      505
+    ],
+    "source_excerpt": "CompletionReview 检查必须排除“已经结算的发起 Reason”本身，不能等待自己的未结算记录造成死锁。quiescing 后不发新模型/工具许可；已持久操作允许补交结果。新反证到达使旧完成依据失效，最终关闭前重读 board/assessment/goal/policy 版本并在 Task 锁内再次检查。",
+    "issue": "必要工作可能仍需下一次调用才能退出成功；若不规定stop边界，收敛可能死锁。",
+    "revision": "先precheck必要工作，未完不冻结；真正quiescing只结算既有操作并有界停止。",
+    "sections": [
+      "S11"
+    ],
+    "tasks": [
+      "P11",
+      "P12"
+    ],
+    "tests": [
+      "AC-048",
+      "AC-049"
+    ]
+  },
+  {
+    "id": "REV-21",
+    "title": "abort-close和迟到反证缺用户可见后果",
+    "classification": "欠明确",
+    "severity": "P1",
+    "source_file": "V1_SPEC.md",
+    "lines": [
+      500
+    ],
+    "source_excerpt": "    C -->|仍有缺口且可继续| OPEN[记录反馈后重新running]",
+    "issue": "重新running未说明恢复哪些工作；closed历史反证只存historical_only会让旧报告继续误导。",
+    "revision": "CompletionEpoch撤销仅解除自己暂挂；报告追加争议/补充，不改正文、不自动重跑。",
+    "sections": [
+      "S10",
+      "S11"
+    ],
+    "tasks": [
+      "P12",
+      "P16"
+    ],
+    "tests": [
+      "AC-050",
+      "AC-053"
+    ]
+  },
+  {
+    "id": "REV-22",
+    "title": "短RR读不足以支撑多请求历史",
+    "classification": "设计缺口",
+    "severity": "P0",
+    "source_file": "V1_SPEC.md",
+    "lines": [
+      580
+    ],
+    "source_excerpt": "子图查询和分页固定 snapshot_id；不在第二页切换 latest。快照过期返回 410；无法保留增量时返回 resync_required。初始节点/边上限防止巨图卡死，展开必须受权。内容补取时固定记录 revision；不能让旧 patch 混入新正文。",
+    "issue": "要求固定snapshot_id但没完整定义状态/关系快照如何持久化，可能第二页或历史混latest。",
+    "revision": "持久SnapshotManifest固定状态和引用；首版历史限真实保存快照，缺失明确报错。",
+    "sections": [
+      "S04",
+      "S12"
+    ],
+    "tasks": [
+      "P03",
+      "P13"
+    ],
+    "tests": [
+      "AC-054",
+      "AC-063"
+    ]
+  },
+  {
+    "id": "REV-23",
+    "title": "禁止隐藏计数泄漏却发送全局空事件水位",
+    "classification": "内部矛盾",
+    "severity": "P0",
+    "source_file": "V1_SPEC.md",
+    "lines": [
+      578
+    ],
+    "source_excerpt": "前端只接受连续且更高版本的批；重复批丢弃，过期批不回退状态；缺口/游标过期/access_scope_digest 改变则 resync。服务端若过滤事件，返回不含敏感内容的水位批，不要求客户端通过猜缺失序号读取隐藏数据。SSE 断开只影响观察，worker 继续按持久控制状态工作。",
+    "issue": "内部seq和空批本身暴露隐藏变更次数，与禁止隐藏计数不一致。",
+    "revision": "独立受权ViewStream版本，不透明cursor，固定keepalive；内部序号不发受限用户。",
+    "sections": [
+      "S12"
+    ],
+    "tasks": [
+      "P13",
+      "P15"
+    ],
+    "tests": [
+      "AC-060"
+    ]
+  },
+  {
+    "id": "REV-24",
+    "title": "视图切换和节点revision身份未定义完整",
+    "classification": "设计缺口",
+    "severity": "P1",
+    "source_file": "V1_SPEC.md",
+    "lines": [
+      542
+    ],
+    "source_excerpt": "NodeDTO 包含稳定 node_id、KnowledgeRef、kind、标题与脱敏摘要、执行/证据状态、render_version、allowed_actions。node_id 由实体身份确定，不能用数组下标或随机渲染 ID。",
+    "issue": "同实体多revision和Fact/Claim展示切换未消歧；SSE未明确不同查询流隔离。",
+    "revision": "node_id固定entity:id@revision，display_kind不改ID；view/query/access分别绑定。",
+    "sections": [
+      "S12"
+    ],
+    "tasks": [
+      "P13",
+      "P14",
+      "P15"
+    ],
+    "tests": [
+      "AC-055",
+      "AC-061",
+      "AC-056"
+    ]
+  },
+  {
+    "id": "REV-25",
+    "title": "派生摘要与撤回能力容易过度承诺",
+    "classification": "设计缺口",
+    "severity": "P0",
+    "source_file": "V1_SPEC.md",
+    "lines": [
+      544
+    ],
+    "source_excerpt": "EdgeDTO 包含稳定 edge_id、source/target node_id、edge_type、关系 revision、脱敏理由。隐藏任一端点就不返回该边；不得泄露隐藏节点的名字、数量、布局位置或关系解释。",
+    "issue": "仅隐藏节点/边不足以保护由受限证据形成的摘要；已送出数据不能回收。",
+    "revision": "派生默认继承严格权限；审核脱敏另存；当前鉴权/有界下载TTL，明确残余披露边界。",
+    "sections": [
+      "S14"
+    ],
+    "tasks": [
+      "P13",
+      "P16"
+    ],
+    "tests": [
+      "AC-059",
+      "AC-067"
+    ]
+  },
+  {
+    "id": "REV-26",
+    "title": "永久引用保护与合法保留删除缺处理",
+    "classification": "设计缺口",
+    "severity": "P1",
+    "source_file": "V1_SPEC.md",
+    "lines": [
+      770
+    ],
+    "source_excerpt": "7. 原始staged对象尚未封存不参与事实生成/报告；manifest发布后引用对象不被垃圾回收。外部存储失败时保留pending，不伪装完整成功。",
+    "issue": "普通GC保护与授权purge不是一回事；v1未交代删除后证据和报告如何显示。",
+    "revision": "正常GC保引用/提交租约；显式purge留tombstone与报告不可用提示。",
+    "sections": [
+      "S09",
+      "S14"
+    ],
+    "tasks": [
+      "P03",
+      "P08",
+      "P16"
+    ],
+    "tests": [
+      "AC-066",
+      "AC-067"
+    ]
+  },
+  {
+    "id": "REV-27",
+    "title": "Result示例与附录类型不一致、身份边界不明",
+    "classification": "内部不一致",
+    "severity": "P1",
+    "source_file": "V1_SPEC.md",
+    "lines": [
+      738
+    ],
+    "source_excerpt": "ResultSubmission 包含 schema_version、submission_id、raw_response_ref/digest、snapshot_id、read_refs、outcome、claims、intent_proposals、reason_decision、limitations。归属从认证上下文派生；Agent自行填写的身份不改变归属。",
+    "issue": "正文示例缺附录必需原文ref/read_refs等；submission元数据似由模型填写；input_required和failed语义混执行。",
+    "revision": "可信ResultEnvelope与AgentPayload分离；原生审批/执行状态不能靠模型字段决定；统一examples/schema。",
+    "sections": [
+      "S10",
+      "S13"
+    ],
+    "tasks": [
+      "P02",
+      "P04",
+      "P08"
+    ],
+    "tests": [
+      "AC-075",
+      "AC-009"
+    ]
+  },
+  {
+    "id": "REV-28",
+    "title": "错误说明与回执状态混用",
+    "classification": "内部不一致",
+    "severity": "P1",
+    "source_file": "V1_SPEC.md",
+    "lines": [
+      455
+    ],
+    "source_excerpt": "内部可信采集入口的身份禁止用 FORBIDDEN_COLLECTOR（HTTP 403）；成功回执 code 可用 ADMITTED、ACCEPTED、ACCEPTED_AS_OPINION，业务状态仍以 data 中的固定枚举为准。",
+    "issue": "句子有明显歧义；EvidenceReceipt把sealed混进接纳状态；正文与附录值不一致。",
+    "revision": "明确403/FORBIDDEN_COLLECTOR；Artifact封存和Receipt接纳独立；contracts.json统一枚举。",
+    "sections": [
+      "S13"
+    ],
+    "tasks": [
+      "P02",
+      "P03"
+    ],
+    "tests": [
+      "AC-019",
+      "AC-008"
+    ]
+  },
+  {
+    "id": "REV-29",
+    "title": "Plan验收条件依赖尚未完成后续任务",
+    "classification": "计划不可验证",
+    "severity": "P0",
+    "source_file": "V1_PLAN.md",
+    "lines": [
+      355
+    ],
+    "source_excerpt": "**退出条件：** A17,A18,A19,A20,A21 的相关机制有实际测试证据；任何未通过的权限、去重、恢复或持久化条件阻断下游发布，不由文档豁免。",
+    "issue": "P06把端到端审批/Session列出口但持久化在P10；P08还缺P06依赖，局部/最终Gate混同。",
+    "revision": "重排P00–P20；P01探针、P08持久化、P11控制联调、P17完整Gate分别标证据。",
+    "sections": [
+      "S17"
+    ],
+    "tasks": [
+      "P01",
+      "P08",
+      "P10",
+      "P11",
+      "P17"
+    ],
+    "tests": [
+      "AC-040",
+      "AC-075"
+    ]
+  },
+  {
+    "id": "REV-30",
+    "title": "测试夹具可能代演被测产品",
+    "classification": "测试薄弱",
+    "severity": "P0",
+    "source_file": "V1_PLAN.md",
+    "lines": [
+      338
+    ],
+    "source_excerpt": "    assert result.sdk_was_real is True",
+    "issue": "world/maf_probe抽象和布尔标志容易空通过；缺真实正向候选路径，只有拒绝伪造。",
+    "revision": "实际ASGI/PG/子进程/协议捕获；对应AC定义可见结果和反例，不以布尔自报作为验收。",
+    "sections": [
+      "S17"
+    ],
+    "tasks": [
+      "P02",
+      "P04",
+      "P07",
+      "P17"
+    ],
+    "tests": [
+      "AC-005",
+      "AC-003",
+      "AC-075"
+    ]
+  },
+  {
+    "id": "REV-31",
+    "title": "计划路径、接口和最终命令有遗漏",
+    "classification": "计划不完整",
+    "severity": "P1",
+    "source_file": "V1_PLAN.md",
+    "lines": [
+      110,
+      694
+    ],
+    "source_excerpt": "| import_archive | ArchiveImporter.import，不创建执行WorkItem |",
+    "issue": "import是Python关键字；最终命令漏Node Supervisor测试；v2合同生成命令未明确，根旧testpaths可能漏新增。",
+    "revision": "改import_archive；显式v2生成与全套收集、Node/正式web/browser、依赖清单检查。",
+    "sections": [
+      "S13",
+      "S17"
+    ],
+    "tasks": [
+      "P02",
+      "P19",
+      "P20"
+    ],
+    "tests": [
+      "AC-075",
+      "AC-073"
+    ]
+  },
+  {
+    "id": "REV-32",
+    "title": "新开发提前改旧Supervisor与隔离切换相冲突",
+    "classification": "迁移矛盾",
+    "severity": "P0",
+    "source_file": "V1_PLAN.md",
+    "lines": [
+      392
+    ],
+    "source_excerpt": "**文件：** 修改 `services/task-workers/supervisor.mjs` 以只启动受控Python入口；新增 `wuji_core/scheduling/dispatch_outbox.py`、`wuji_maf_worker/entrypoint.py`、`tests/vnext/test_dispatch_recovery.py`、`tests/task-workers/maf-supervisor.test.mjs`。",
+    "issue": "v1说最后才退出旧引擎，但中期任务直接移除旧Supervisor启动分支；测试与生产迁移边界不清。",
+    "revision": "新Supervisor/迁移在独立位置先验证；P19只dry-run；P20独立批准再切换。",
+    "sections": [
+      "S16"
+    ],
+    "tasks": [
+      "P00",
+      "P10",
+      "P19",
+      "P20"
+    ],
+    "tests": [
+      "AC-072",
+      "AC-074"
+    ]
+  },
+  {
+    "id": "REV-33",
+    "title": "架构效果没有公平验证任务",
+    "classification": "范围缺口",
+    "severity": "P1",
+    "source_file": "V1_PLAN.md",
+    "lines": [
+      790
+    ],
+    "source_excerpt": "`effectiveness_real_model`：明确模型/数据/费用授权后的独立效果实验，本计划默认不执行。",
+    "issue": "v1仅说真实效果另需授权，但没有同预算单Harness对照的可执行测量工作。",
+    "revision": "P18交付评测工具和独立评分协议；真实收费不自动运行；机制结果不冒充任务能力。",
+    "sections": [
+      "S15"
+    ],
+    "tasks": [
+      "P18"
+    ],
+    "tests": [
+      "AC-070",
+      "AC-071"
+    ]
+  },
+  {
+    "id": "REV-34",
+    "title": "上一轮Review把自身设计偏好写成草案必改缺陷",
+    "classification": "审查方法问题",
+    "severity": "P0",
+    "source_file": "V1_REVIEW.md",
+    "lines": [
+      29
+    ],
+    "source_excerpt": "| R03 | P0 | §4 L92–106 | 已把 Observation 与 Claim 分开，但未定义用户要求的“真实 Fact”写入路径。 | 保留原名并新增 Fact：由可信采集服务按规则从不可变调用证据抽取的有条件断言；Agent 只提交 Claim/IntentProposal。 |",
+    "issue": "原稿已区分Observation与Claim；我新增确定性Fact层，却以“缺真实Fact”为P0表述并未充分做正向场景检验。",
+    "revision": "复审明确三类来源和v1自身责任；保留原稿思想，逐条列v1位置与修改，不将文档计数自检称为语义正确。",
+    "sections": [
+      "S01",
+      "S18"
+    ],
+    "tasks": [
+      "P00",
+      "P20"
+    ],
+    "tests": [
+      "AC-001",
+      "AC-075"
+    ]
+  }
+]

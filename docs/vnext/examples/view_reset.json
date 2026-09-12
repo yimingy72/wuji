@@ -1,0 +1,6 @@
+{
+  "schema_version": "wuji.view-reset.v2",
+  "view_id": "view-fixture-1",
+  "reason": "access_changed",
+  "action": "resnapshot"
+}

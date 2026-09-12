@@ -1,0 +1,36 @@
+{
+  "schema_version": "wuji.assignment.v2",
+  "operation_id": "start-17",
+  "identity": {
+    "tenant_id": "tenant-fixture",
+    "project_id": "project-fixture",
+    "task_id": "task-fixture",
+    "work_item_id": "work-17",
+    "agent_run_id": "run-17",
+    "execution_epoch": "1",
+    "run_epoch": "1",
+    "runtime_attempt": "1",
+    "receiver_id": "receiver-fixture"
+  },
+  "work_kind": "explore",
+  "snapshot_id": "snapshot-17",
+  "profile_refs": [
+    "closed-records-v2"
+  ],
+  "session_manifest_ref": null,
+  "tool_definition_refs": [
+    "read_record:v1"
+  ],
+  "limits": {
+    "max_work_items": 24,
+    "max_reason_runs": 6,
+    "max_model_requests": 32,
+    "max_tool_calls": 48,
+    "max_single_output_bytes": 1048576,
+    "max_total_output_bytes": 8388608,
+    "max_elapsed_seconds": 600,
+    "max_attempts_per_work": 2,
+    "repair_attempts": 0
+  },
+  "resume_reason": null
+}

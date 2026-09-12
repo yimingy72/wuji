@@ -1,0 +1,32 @@
+{
+  "schema_version": "wuji.capture.v2",
+  "capture_id": "capture-17",
+  "identity": {
+    "tenant_id": "tenant-fixture",
+    "project_id": "project-fixture",
+    "task_id": "task-fixture",
+    "work_item_id": "work-17",
+    "agent_run_id": "run-17",
+    "execution_epoch": "1",
+    "run_epoch": "1",
+    "runtime_attempt": "1",
+    "receiver_id": "receiver-fixture"
+  },
+  "tool_call_id": "tool-op-17",
+  "tool_attempt_id": "tool-attempt-17",
+  "artifact_refs": [
+    {
+      "id": "artifact-17",
+      "version": "1",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ],
+  "capture_layer": "fixture_file_bytes",
+  "observed_at": "2026-09-13T07:59:00+09:00",
+  "received_at": "2026-09-13T07:59:01+09:00",
+  "evidence_origin": "fixture_capture",
+  "conditions": [
+    "离线无敏感记录"
+  ],
+  "completeness": "complete"
+}

@@ -1,0 +1,25 @@
+{
+  "assessment_id": "assessment-17",
+  "claim_ref": {
+    "entity_type": "claim",
+    "id": "claim-17",
+    "revision": "1"
+  },
+  "input_refs": [
+    {
+      "entity_type": "observation",
+      "id": "observation-17",
+      "revision": "1"
+    }
+  ],
+  "grounding_state": "content_checked",
+  "evidence_state": "supported",
+  "applicability_state": "current",
+  "method_kind": "model_review",
+  "method_version": "fixture-json-pointer-v1",
+  "reviewer_ref": "service:record-checker",
+  "conditions": [
+    "固定文件摘要与 /version 字段，版本 1"
+  ],
+  "reason": "重新读取已封存夹具确认该字段值为整数 17。"
+}

@@ -1,0 +1,497 @@
+{
+  "document_version": "2.0-review",
+  "wire_versions": {
+    "assignment": "wuji.assignment.v2",
+    "result_envelope": "wuji.result-envelope.v2",
+    "agent_payload": "wuji.agent-payload.v2",
+    "view_event": "wuji.view-event.v2",
+    "view_reset": "wuji.view-reset.v2",
+    "capture": "wuji.capture.v2"
+  },
+  "enums": {
+    "claim_kind": [
+      "observation-summary",
+      "hypothesis",
+      "derived-conclusion"
+    ],
+    "assertion_role": [
+      "candidate_fact",
+      "explanation",
+      "hypothesis"
+    ],
+    "producer_kind": [
+      "agent",
+      "human",
+      "extractor",
+      "import"
+    ],
+    "grounding_state": [
+      "unchecked",
+      "linked",
+      "content_checked",
+      "invalid"
+    ],
+    "evidence_state": [
+      "unassessed",
+      "supported",
+      "contradicted",
+      "inconclusive"
+    ],
+    "applicability_state": [
+      "current",
+      "stale",
+      "disputed",
+      "retracted"
+    ],
+    "assessment_method": [
+      "deterministic",
+      "reproduced_check",
+      "human_attestation",
+      "model_review"
+    ],
+    "work_kind": [
+      "reason",
+      "explore",
+      "report"
+    ],
+    "intent_acceptance": [
+      "proposed",
+      "admitted",
+      "rejected",
+      "superseded"
+    ],
+    "work_desired": [
+      "run",
+      "hold",
+      "cancel"
+    ],
+    "work_state": [
+      "ready",
+      "leased",
+      "running",
+      "waiting_input",
+      "blocked",
+      "stopping",
+      "suspended",
+      "reconciling",
+      "done",
+      "failed",
+      "cancelled"
+    ],
+    "run_process": [
+      "registered",
+      "starting",
+      "running",
+      "stopping",
+      "exited",
+      "unknown"
+    ],
+    "run_result": [
+      "none",
+      "received",
+      "accepted",
+      "rejected",
+      "historical_only",
+      "incomplete"
+    ],
+    "task_desired": [
+      "run",
+      "pause",
+      "cancel",
+      "finish"
+    ],
+    "task_observed": [
+      "ready",
+      "running",
+      "quiescing",
+      "paused",
+      "reconciling",
+      "closed"
+    ],
+    "close_trigger": [
+      "goal_satisfied",
+      "user_cancel",
+      "budget_exhausted",
+      "time_limit",
+      "no_progress",
+      "system_failure",
+      "operator_finish"
+    ],
+    "result_outcome": [
+      "complete",
+      "partial",
+      "inconclusive",
+      "not_assessed"
+    ],
+    "goal_status": [
+      "met",
+      "not_met",
+      "unknown",
+      "not_applicable"
+    ],
+    "dependency_condition": [
+      "settled",
+      "accepted_result",
+      "criterion_satisfied"
+    ],
+    "recovery_class": [
+      "settled_boundary",
+      "approval_boundary",
+      "non_resumable"
+    ],
+    "result_receipt_status": [
+      "received",
+      "accepted",
+      "rejected",
+      "historical_only"
+    ],
+    "component_receipt_status": [
+      "accepted_shared",
+      "accepted_for_check",
+      "rejected"
+    ],
+    "evidence_receipt_status": [
+      "pending",
+      "accepted",
+      "rejected",
+      "historical_only"
+    ],
+    "artifact_state": [
+      "staged",
+      "sealed",
+      "tombstoned"
+    ],
+    "evidence_origin": [
+      "live_capture",
+      "fixture_capture",
+      "imported_unverified"
+    ],
+    "model_mode": [
+      "synthetic",
+      "real",
+      "unknown"
+    ],
+    "node_entity_type": [
+      "origin",
+      "goal",
+      "observation",
+      "artifact",
+      "claim",
+      "intent",
+      "work_item",
+      "agent_run",
+      "verification",
+      "completion_review",
+      "finding",
+      "report"
+    ],
+    "reason_decision": [
+      "propose_intents",
+      "wait",
+      "propose_completion",
+      "blocked"
+    ],
+    "test_result": [
+      "pass",
+      "fail",
+      "not_run",
+      "blocked"
+    ],
+    "suspension_cause": [
+      "user_hold",
+      "task_pause",
+      "completion_epoch",
+      "scope_revoked"
+    ],
+    "report_delivery": [
+      "delivery_pending",
+      "ready",
+      "incomplete",
+      "failed"
+    ]
+  },
+  "fact_view_predicate": {
+    "allowed_claim_kinds": [
+      "observation-summary",
+      "derived-conclusion"
+    ],
+    "grounding_state": "content_checked",
+    "evidence_state": "supported",
+    "applicability_state": "current",
+    "not_sole_method": "model_review",
+    "canonical_ref_entity_type": "claim"
+  },
+  "work_transitions": [
+    [
+      "ready",
+      "leased"
+    ],
+    [
+      "leased",
+      "running"
+    ],
+    [
+      "leased",
+      "reconciling"
+    ],
+    [
+      "leased",
+      "stopping"
+    ],
+    [
+      "running",
+      "waiting_input"
+    ],
+    [
+      "running",
+      "done"
+    ],
+    [
+      "running",
+      "failed"
+    ],
+    [
+      "running",
+      "stopping"
+    ],
+    [
+      "running",
+      "reconciling"
+    ],
+    [
+      "ready",
+      "blocked"
+    ],
+    [
+      "blocked",
+      "ready"
+    ],
+    [
+      "ready",
+      "cancelled"
+    ],
+    [
+      "blocked",
+      "cancelled"
+    ],
+    [
+      "waiting_input",
+      "cancelled"
+    ],
+    [
+      "suspended",
+      "cancelled"
+    ],
+    [
+      "waiting_input",
+      "ready"
+    ],
+    [
+      "suspended",
+      "ready"
+    ],
+    [
+      "stopping",
+      "suspended"
+    ],
+    [
+      "stopping",
+      "cancelled"
+    ],
+    [
+      "stopping",
+      "reconciling"
+    ],
+    [
+      "reconciling",
+      "done"
+    ],
+    [
+      "reconciling",
+      "failed"
+    ],
+    [
+      "reconciling",
+      "suspended"
+    ],
+    [
+      "reconciling",
+      "cancelled"
+    ],
+    [
+      "ready",
+      "suspended"
+    ],
+    [
+      "blocked",
+      "suspended"
+    ],
+    [
+      "waiting_input",
+      "suspended"
+    ],
+    [
+      "suspended",
+      "waiting_input"
+    ],
+    [
+      "suspended",
+      "blocked"
+    ]
+  ],
+  "wire_required_fields": {
+    "WorkerAssignment": [
+      "schema_version",
+      "operation_id",
+      "identity",
+      "work_kind",
+      "snapshot_id",
+      "profile_refs",
+      "session_manifest_ref",
+      "tool_definition_refs",
+      "limits",
+      "resume_reason"
+    ],
+    "ResultEnvelope": [
+      "schema_version",
+      "submission_id",
+      "identity",
+      "snapshot_id",
+      "read_set",
+      "raw_output_ref",
+      "raw_output_digest",
+      "payload",
+      "producer_version"
+    ],
+    "ClaimProposal": [
+      "client_ref",
+      "kind",
+      "assertion_role",
+      "text",
+      "basis_refs",
+      "limitations"
+    ],
+    "CaptureEnvelope": [
+      "schema_version",
+      "capture_id",
+      "identity",
+      "tool_call_id",
+      "tool_attempt_id",
+      "artifact_refs",
+      "capture_layer",
+      "observed_at",
+      "received_at",
+      "evidence_origin",
+      "conditions",
+      "completeness"
+    ],
+    "FactAssessment": [
+      "assessment_id",
+      "claim_ref",
+      "input_refs",
+      "grounding_state",
+      "evidence_state",
+      "applicability_state",
+      "method_kind",
+      "method_version",
+      "reviewer_ref",
+      "conditions",
+      "reason"
+    ],
+    "SessionManifest": [
+      "session_id",
+      "work_item_id",
+      "checkpoint_revision",
+      "owner_run_id",
+      "run_epoch",
+      "history_root",
+      "message_end",
+      "provider_state_ref",
+      "memory_manifest_ref",
+      "pending_operation_refs",
+      "lock_digest",
+      "recovery_class",
+      "saved_at"
+    ],
+    "ViewEventBatch": [
+      "schema_version",
+      "view_id",
+      "base_view_revision",
+      "view_revision",
+      "cursor",
+      "patches"
+    ],
+    "TopologySnapshot": [
+      "view_id",
+      "snapshot_id",
+      "view_revision",
+      "query_digest",
+      "access_scope_digest",
+      "projection_version",
+      "nodes",
+      "edges",
+      "opaque_cursor",
+      "truncated",
+      "continuation",
+      "allowed_actions"
+    ],
+    "ViewReset": [
+      "schema_version",
+      "view_id",
+      "reason",
+      "action"
+    ],
+    "AgentPayload": [
+      "schema_version",
+      "claims",
+      "intent_proposals",
+      "limitations"
+    ]
+  },
+  "agent_forbidden_fields": [
+    "collector_id",
+    "evidence_state",
+    "grounding_state",
+    "applicability_state",
+    "fact_assessment",
+    "task_state",
+    "run_epoch"
+  ],
+  "closed_fixture_limits": {
+    "description": "仅用于无敏感离线机制用例，不是生产推荐配额",
+    "max_work_items": 24,
+    "max_reason_runs": 6,
+    "max_model_requests": 32,
+    "max_tool_calls": 48,
+    "max_single_output_bytes": 1048576,
+    "max_total_output_bytes": 8388608,
+    "max_elapsed_seconds": 600,
+    "max_attempts_per_work": 2,
+    "repair_attempts": 0
+  },
+  "source_of_truth_note": "这些字段清单与枚举是设计合同；不是已实现OpenAPI或已安装MAF类。实际路由schema由P02生成，并由运行测试验证。",
+  "number_encoding": {
+    "revisions_and_counters": "nonnegative decimal string; compare numerically, not lexically",
+    "money": "decimal string; currency specified separately",
+    "coordinates": "finite JSON number"
+  },
+  "error_codes": [
+    "UNAUTHENTICATED",
+    "FORBIDDEN_COLLECTOR",
+    "FORBIDDEN_ASSESSOR",
+    "NOT_FOUND_OR_FORBIDDEN",
+    "STALE_VERSION",
+    "STALE_EXECUTION",
+    "INPUT_DIGEST_CONFLICT",
+    "OPERATION_UNKNOWN",
+    "SNAPSHOT_EXPIRED",
+    "VIEW_EXPIRED",
+    "HISTORY_UNAVAILABLE",
+    "INVALID_REFERENCE",
+    "INVALID_WAIT",
+    "INVALID_SCHEMA",
+    "INVALID_SCHEMA_VERSION",
+    "LIMIT_BLOCKED",
+    "CAPABILITY_UNAVAILABLE"
+  ]
+}

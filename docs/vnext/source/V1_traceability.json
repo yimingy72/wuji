@@ -1,0 +1,862 @@
+{
+  "version": "1.0-review",
+  "created_at": "2026-09-12",
+  "requirements": {
+    "REQ-001": {
+      "acceptance": [
+        "A01",
+        "A39"
+      ],
+      "plan_tasks": [
+        "P01",
+        "P17",
+        "P18"
+      ]
+    },
+    "REQ-002": {
+      "acceptance": [
+        "A30"
+      ],
+      "plan_tasks": [
+        "P13",
+        "P14"
+      ]
+    },
+    "REQ-003": {
+      "acceptance": [
+        "A02",
+        "A03",
+        "A05"
+      ],
+      "plan_tasks": [
+        "P02",
+        "P03",
+        "P05"
+      ]
+    },
+    "REQ-004": {
+      "acceptance": [
+        "A05",
+        "A07",
+        "A08"
+      ],
+      "plan_tasks": [
+        "P03",
+        "P05",
+        "P11"
+      ]
+    },
+    "REQ-005": {
+      "acceptance": [
+        "A04",
+        "A06"
+      ],
+      "plan_tasks": [
+        "P03",
+        "P04"
+      ]
+    },
+    "REQ-006": {
+      "acceptance": [
+        "A02",
+        "A29"
+      ],
+      "plan_tasks": [
+        "P02",
+        "P03",
+        "P11"
+      ]
+    },
+    "REQ-007": {
+      "acceptance": [
+        "A09",
+        "A11"
+      ],
+      "plan_tasks": [
+        "P07",
+        "P08",
+        "P09",
+        "P10"
+      ]
+    },
+    "REQ-008": {
+      "acceptance": [
+        "A09",
+        "A10",
+        "A16"
+      ],
+      "plan_tasks": [
+        "P07",
+        "P08",
+        "P09"
+      ]
+    },
+    "REQ-009": {
+      "acceptance": [
+        "A08",
+        "A26"
+      ],
+      "plan_tasks": [
+        "P05",
+        "P11"
+      ]
+    },
+    "REQ-010": {
+      "acceptance": [
+        "A25",
+        "A26",
+        "A32",
+        "A33"
+      ],
+      "plan_tasks": [
+        "P02",
+        "P05",
+        "P12",
+        "P14"
+      ]
+    },
+    "REQ-011": {
+      "acceptance": [
+        "A27",
+        "A28",
+        "A29"
+      ],
+      "plan_tasks": [
+        "P11"
+      ]
+    },
+    "REQ-012": {
+      "acceptance": [
+        "A17",
+        "A18",
+        "A21"
+      ],
+      "plan_tasks": [
+        "P04",
+        "P06",
+        "P09",
+        "P16"
+      ]
+    },
+    "REQ-013": {
+      "acceptance": [
+        "A20",
+        "A21"
+      ],
+      "plan_tasks": [
+        "P06",
+        "P10"
+      ]
+    },
+    "REQ-014": {
+      "acceptance": [
+        "A19"
+      ],
+      "plan_tasks": [
+        "P06",
+        "P10"
+      ]
+    },
+    "REQ-015": {
+      "acceptance": [
+        "A10",
+        "A11",
+        "A12",
+        "A28"
+      ],
+      "plan_tasks": [
+        "P08",
+        "P09",
+        "P10",
+        "P11"
+      ]
+    },
+    "REQ-016": {
+      "acceptance": [
+        "A22",
+        "A23"
+      ],
+      "plan_tasks": [
+        "P09",
+        "P16"
+      ]
+    },
+    "REQ-017": {
+      "acceptance": [
+        "A18"
+      ],
+      "plan_tasks": [
+        "P04",
+        "P06",
+        "P09",
+        "P16"
+      ]
+    },
+    "REQ-018": {
+      "acceptance": [
+        "A04",
+        "A06",
+        "A18",
+        "A24"
+      ],
+      "plan_tasks": [
+        "P03",
+        "P04",
+        "P06",
+        "P09",
+        "P16"
+      ]
+    },
+    "REQ-019": {
+      "acceptance": [
+        "A17"
+      ],
+      "plan_tasks": [
+        "P06"
+      ]
+    },
+    "REQ-020": {
+      "acceptance": [
+        "A13",
+        "A14"
+      ],
+      "plan_tasks": [
+        "P07"
+      ]
+    },
+    "REQ-021": {
+      "acceptance": [
+        "A15",
+        "A16"
+      ],
+      "plan_tasks": [
+        "P07",
+        "P09"
+      ]
+    },
+    "REQ-022": {
+      "acceptance": [
+        "A11"
+      ],
+      "plan_tasks": [
+        "P08",
+        "P09",
+        "P10"
+      ]
+    },
+    "REQ-023": {
+      "acceptance": [
+        "A30",
+        "A31",
+        "A36"
+      ],
+      "plan_tasks": [
+        "P13",
+        "P14"
+      ]
+    },
+    "REQ-024": {
+      "acceptance": [
+        "A30",
+        "A31"
+      ],
+      "plan_tasks": [
+        "P13",
+        "P14"
+      ]
+    },
+    "REQ-025": {
+      "acceptance": [
+        "A32",
+        "A33",
+        "A35"
+      ],
+      "plan_tasks": [
+        "P12",
+        "P14",
+        "P17"
+      ]
+    },
+    "REQ-026": {
+      "acceptance": [
+        "A03",
+        "A34",
+        "A35"
+      ],
+      "plan_tasks": [
+        "P02",
+        "P03",
+        "P12",
+        "P14",
+        "P17"
+      ]
+    },
+    "REQ-027": {
+      "acceptance": [
+        "A37"
+      ],
+      "plan_tasks": [
+        "P15"
+      ]
+    },
+    "REQ-028": {
+      "acceptance": [
+        "A38",
+        "A40"
+      ],
+      "plan_tasks": [
+        "P01",
+        "P11",
+        "P15",
+        "P16",
+        "P18"
+      ]
+    },
+    "REQ-029": {
+      "acceptance": [
+        "A39"
+      ],
+      "plan_tasks": [
+        "P17",
+        "P18"
+      ]
+    },
+    "REQ-030": {
+      "acceptance": [
+        "A01",
+        "A40"
+      ],
+      "plan_tasks": [
+        "P01",
+        "P16",
+        "P18"
+      ]
+    },
+    "REQ-031": {
+      "acceptance": [
+        "A40"
+      ],
+      "plan_tasks": [
+        "P01",
+        "P16",
+        "P18"
+      ]
+    },
+    "REQ-032": {
+      "acceptance": [
+        "A36",
+        "A38"
+      ],
+      "plan_tasks": [
+        "P11",
+        "P13",
+        "P14",
+        "P15"
+      ]
+    }
+  },
+  "acceptance": [
+    {
+      "id": "A01",
+      "condition": "不安装 Cairn/Pi 的干净环境可启动新核心并创建夹具 Task",
+      "requirements": [
+        "REQ-001",
+        "REQ-030"
+      ],
+      "plan_tasks": [
+        "P01",
+        "P18"
+      ],
+      "product_test_status": "not_run"
+    },
+    {
+      "id": "A02",
+      "condition": "Origin 与 Goal 独立类型，用户输入不自动生成 Fact",
+      "requirements": [
+        "REQ-003",
+        "REQ-006"
+      ],
+      "plan_tasks": [
+        "P02",
+        "P03"
+      ],
+      "product_test_status": "not_run"
+    },
+    {
+      "id": "A03",
+      "condition": "Agent 直接调用事实写入口被拒绝，未产生记录",
+      "requirements": [
+        "REQ-003",
+        "REQ-026"
+      ],
+      "plan_tasks": [
+        "P03"
+      ],
+      "product_test_status": "not_run"
+    },
+    {
+      "id": "A04",
+      "condition": "相同真实回执重交只产生一组 Observation/Fact，参数冲突拒绝",
+      "requirements": [
+        "REQ-005",
+        "REQ-018"
+      ],
+      "plan_tasks": [
+        "P03",
+        "P04"
+      ],
+      "product_test_status": "not_run"
+    },
+    {
+      "id": "A05",
+      "condition": "工具原文声称成功、退出0不自动形成业务成功 Fact",
+      "requirements": [
+        "REQ-003",
+        "REQ-004"
+      ],
+      "plan_tasks": [
+        "P03",
+        "P05"
+      ],
+      "product_test_status": "not_run"
+    },
+    {
+      "id": "A06",
+      "condition": "截断/超时/合成证据被正确标记，不能支持超出范围的断言",
+      "requirements": [
+        "REQ-005",
+        "REQ-018"
+      ],
+      "plan_tasks": [
+        "P03",
+        "P04"
+      ],
+      "product_test_status": "not_run"
+    },
+    {
+      "id": "A07",
+      "condition": "另一 Agent 的赞同不让 Claim 自动变为 supported",
+      "requirements": [
+        "REQ-004"
+      ],
+      "plan_tasks": [
+        "P05"
+      ],
+      "product_test_status": "not_run"
+    },
+    {
+      "id": "A08",
+      "condition": "反证/撤回追加修订，旧报告及原证据保持原样",
+      "requirements": [
+        "REQ-004",
+        "REQ-009"
+      ],
+      "plan_tasks": [
+        "P05",
+        "P11"
+      ],
+      "product_test_status": "not_run"
+    },
+    {
+      "id": "A09",
+      "condition": "两个领取竞争者下一个 WorkItem 仅一个活动 Run，容量不超发",
+      "requirements": [
+        "REQ-007",
+        "REQ-008"
+      ],
+      "plan_tasks": [
+        "P07",
+        "P08"
+      ],
+      "product_test_status": "not_run"
+    },
+    {
+      "id": "A10",
+      "condition": "启动响应丢失只查询同 operation，不第二次启动",
+      "requirements": [
+        "REQ-008",
+        "REQ-015"
+      ],
+      "plan_tasks": [
+        "P08"
+      ],
+      "product_test_status": "not_run"
+    },
+    {
+      "id": "A11",
+      "condition": "旧 run_epoch/attempt/Pod UID 不得启动模型/工具或保存新 Session",
+      "requirements": [
+        "REQ-007",
+        "REQ-015",
+        "REQ-022"
+      ],
+      "plan_tasks": [
+        "P08",
+        "P09",
+        "P10"
+      ],
+      "product_test_status": "not_run"
+    },
+    {
+      "id": "A12",
+      "condition": "单工作 hold 后不会立即重新调度，其他工作继续",
+      "requirements": [
+        "REQ-015"
+      ],
+      "plan_tasks": [
+        "P08",
+        "P10"
+      ],
+      "product_test_status": "not_run"
+    },
+    {
+      "id": "A13",
+      "condition": "Reason 期间多次更新合并，崩溃后触发未丢失",
+      "requirements": [
+        "REQ-020"
+      ],
+      "plan_tasks": [
+        "P07"
+      ],
+      "product_test_status": "not_run"
+    },
+    {
+      "id": "A14",
+      "condition": "wait 没有已登记事件条件被拒绝，不空轮询模型",
+      "requirements": [
+        "REQ-020"
+      ],
+      "plan_tasks": [
+        "P07"
+      ],
+      "product_test_status": "not_run"
+    },
+    {
+      "id": "A15",
+      "condition": "改措辞/重复回执/Token 不重置无进展阈值，硬限额不重置",
+      "requirements": [
+        "REQ-021"
+      ],
+      "plan_tasks": [
+        "P07"
+      ],
+      "product_test_status": "not_run"
+    },
+    {
+      "id": "A16",
+      "condition": "新策略只对明确版本生效，准入拒绝不可被优先级绕过",
+      "requirements": [
+        "REQ-008",
+        "REQ-021"
+      ],
+      "plan_tasks": [
+        "P07",
+        "P09"
+      ],
+      "product_test_status": "not_run"
+    },
+    {
+      "id": "A17",
+      "condition": "未发布默认工具和内部子 Agent 不出现在 MAF 工具集合",
+      "requirements": [
+        "REQ-012",
+        "REQ-019"
+      ],
+      "plan_tasks": [
+        "P06"
+      ],
+      "product_test_status": "not_run"
+    },
+    {
+      "id": "A18",
+      "condition": "真实 MAF 合成模型循环正确；函数/MCP共用Router，Agent不直接写Fact",
+      "requirements": [
+        "REQ-012",
+        "REQ-017",
+        "REQ-018"
+      ],
+      "plan_tasks": [
+        "P04",
+        "P06",
+        "P09",
+        "P16"
+      ],
+      "product_test_status": "not_run"
+    },
+    {
+      "id": "A19",
+      "condition": "审批完整往返只执行原调用一次，取消/改参数后批准无效",
+      "requirements": [
+        "REQ-014"
+      ],
+      "plan_tasks": [
+        "P06",
+        "P10"
+      ],
+      "product_test_status": "not_run"
+    },
+    {
+      "id": "A20",
+      "condition": "Session 只保存完整 manifest；中途失败不发布可恢复快照",
+      "requirements": [
+        "REQ-013"
+      ],
+      "plan_tasks": [
+        "P06",
+        "P10"
+      ],
+      "product_test_status": "not_run"
+    },
+    {
+      "id": "A21",
+      "condition": "真实 MAF 压缩后原始证据不丢、工具配对及允许集合不变",
+      "requirements": [
+        "REQ-012",
+        "REQ-013"
+      ],
+      "plan_tasks": [
+        "P06"
+      ],
+      "product_test_status": "not_run"
+    },
+    {
+      "id": "A22",
+      "condition": "模型断流记录上游未知、费用待核对，不伪造原回答",
+      "requirements": [
+        "REQ-016"
+      ],
+      "plan_tasks": [
+        "P09"
+      ],
+      "product_test_status": "not_run"
+    },
+    {
+      "id": "A23",
+      "condition": "多 Run/摘要共享 Task 预算，重启不新建额度",
+      "requirements": [
+        "REQ-016"
+      ],
+      "plan_tasks": [
+        "P09",
+        "P16"
+      ],
+      "product_test_status": "not_run"
+    },
+    {
+      "id": "A24",
+      "condition": "工具成功而 Agent 崩溃，事实仍由独立采集留存",
+      "requirements": [
+        "REQ-018"
+      ],
+      "plan_tasks": [
+        "P04",
+        "P16"
+      ],
+      "product_test_status": "not_run"
+    },
+    {
+      "id": "A25",
+      "condition": "默认读并发写的混合快照测试失败；新快照全引用同水位",
+      "requirements": [
+        "REQ-010"
+      ],
+      "plan_tasks": [
+        "P02",
+        "P12"
+      ],
+      "product_test_status": "not_run"
+    },
+    {
+      "id": "A26",
+      "condition": "结果并行追加不因无关 board_revision 增长而全部拒绝",
+      "requirements": [
+        "REQ-009",
+        "REQ-010"
+      ],
+      "plan_tasks": [
+        "P05"
+      ],
+      "product_test_status": "not_run"
+    },
+    {
+      "id": "A27",
+      "condition": "完成发起 Reason 不等待自身；评审期间新反证使旧提案失效",
+      "requirements": [
+        "REQ-011"
+      ],
+      "plan_tasks": [
+        "P11"
+      ],
+      "product_test_status": "not_run"
+    },
+    {
+      "id": "A28",
+      "condition": "quiescing 后不派发新工作，未知外部副作用不显示已停止",
+      "requirements": [
+        "REQ-011",
+        "REQ-015"
+      ],
+      "plan_tasks": [
+        "P11"
+      ],
+      "product_test_status": "not_run"
+    },
+    {
+      "id": "A29",
+      "condition": "空判据/Goal 自评/待验证 Claim 不导致 Goal met",
+      "requirements": [
+        "REQ-006",
+        "REQ-011"
+      ],
+      "plan_tasks": [
+        "P11"
+      ],
+      "product_test_status": "not_run"
+    },
+    {
+      "id": "A30",
+      "condition": "拖节点只保存 Layout，board_revision/Fact 不改变",
+      "requirements": [
+        "REQ-002",
+        "REQ-023",
+        "REQ-024"
+      ],
+      "plan_tasks": [
+        "P13",
+        "P14"
+      ],
+      "product_test_status": "not_run"
+    },
+    {
+      "id": "A31",
+      "condition": "图删键/连线不能删证据或建立已验证支持关系",
+      "requirements": [
+        "REQ-023",
+        "REQ-024"
+      ],
+      "plan_tasks": [
+        "P13",
+        "P14"
+      ],
+      "product_test_status": "not_run"
+    },
+    {
+      "id": "A32",
+      "condition": "稳定节点 ID、增量重复和乱序处理不重复/倒退/丢选择",
+      "requirements": [
+        "REQ-010",
+        "REQ-025"
+      ],
+      "plan_tasks": [
+        "P12",
+        "P14"
+      ],
+      "product_test_status": "not_run"
+    },
+    {
+      "id": "A33",
+      "condition": "SSE 缺口/过期游标重取快照，历史页不混入 latest",
+      "requirements": [
+        "REQ-010",
+        "REQ-025"
+      ],
+      "plan_tasks": [
+        "P12",
+        "P14"
+      ],
+      "product_test_status": "not_run"
+    },
+    {
+      "id": "A34",
+      "condition": "隐藏证据端点/跨租户边不可见，权限变更后清除受限视图",
+      "requirements": [
+        "REQ-026"
+      ],
+      "plan_tasks": [
+        "P02",
+        "P12",
+        "P14"
+      ],
+      "product_test_status": "not_run"
+    },
+    {
+      "id": "A35",
+      "condition": "历史回放无执行动作；当前权限仍保护旧证据",
+      "requirements": [
+        "REQ-025",
+        "REQ-026"
+      ],
+      "plan_tasks": [
+        "P14",
+        "P17"
+      ],
+      "product_test_status": "not_run"
+    },
+    {
+      "id": "A36",
+      "condition": "五主题、键盘/列表替代视图及两组规模基准通过",
+      "requirements": [
+        "REQ-023",
+        "REQ-032"
+      ],
+      "plan_tasks": [
+        "P13",
+        "P14"
+      ],
+      "product_test_status": "not_run"
+    },
+    {
+      "id": "A37",
+      "condition": "审计/Trace/费用分开，敏感字段未进入公开事件和日志",
+      "requirements": [
+        "REQ-027"
+      ],
+      "plan_tasks": [
+        "P15"
+      ],
+      "product_test_status": "not_run"
+    },
+    {
+      "id": "A38",
+      "condition": "证据交付按 Profile 判断，不伪造截图或不适用的HTTP记录",
+      "requirements": [
+        "REQ-028",
+        "REQ-032"
+      ],
+      "plan_tasks": [
+        "P11",
+        "P15"
+      ],
+      "product_test_status": "not_run"
+    },
+    {
+      "id": "A39",
+      "condition": "旧归档可读而无 Cairn SDK，未知旧记录不自动激活或升级 Fact",
+      "requirements": [
+        "REQ-001",
+        "REQ-029"
+      ],
+      "plan_tasks": [
+        "P17",
+        "P18"
+      ],
+      "product_test_status": "not_run"
+    },
+    {
+      "id": "A40",
+      "condition": "合成机制/真实模型效果/文档校验分别标记，发布门没有跳过",
+      "requirements": [
+        "REQ-028",
+        "REQ-030",
+        "REQ-031"
+      ],
+      "plan_tasks": [
+        "P01",
+        "P16",
+        "P18"
+      ],
+      "product_test_status": "not_run"
+    }
+  ],
+  "product_tests_executed": false
+}

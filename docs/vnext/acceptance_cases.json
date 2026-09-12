@@ -1,0 +1,1253 @@
+[
+  {
+    "id": "AC-001",
+    "title": "基线与来源不冒认",
+    "requirements": [
+      "REQ-001",
+      "REQ-030",
+      "REQ-040"
+    ],
+    "tasks": [
+      "P00"
+    ],
+    "setup": "v1三文档、原稿与用户本地仓库",
+    "action": "逐字节归档；记录实际HEAD/本地差异和组件位置",
+    "expected": "source摘要与原件一致；未查到的实现明确未核验；不声称已批准运维",
+    "negative_control": "用历史公开SHA替代当前本地SHA应被评审拒绝",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-002",
+    "title": "安装物不等于源码版本",
+    "requirements": [
+      "REQ-012",
+      "REQ-030",
+      "REQ-031"
+    ],
+    "tasks": [
+      "P01"
+    ],
+    "setup": "隔离Python环境与候选wheel",
+    "action": "检查发行包元数据、文件摘要、公开API签名并运行真实import",
+    "expected": "CapabilityRecord含实际版本/lock/原始输出；没有单凭pyproject字符串通过",
+    "negative_control": "将另一版本wheel替换后摘要检查失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-003",
+    "title": "真实MAF工具往返",
+    "requirements": [
+      "REQ-012",
+      "REQ-035",
+      "REQ-039"
+    ],
+    "tasks": [
+      "P01",
+      "P07"
+    ],
+    "setup": "真实SDK、记录请求的合成模型服务、一个离线读取函数",
+    "action": "模型请求该函数；函数读取夹具；工具结果送回模型",
+    "expected": "日志包含实际SDK分发、函数一次执行和结果二次请求；结果不是mock布尔标志",
+    "negative_control": "把函数替成不执行的空stub时对实际调用计数的断言失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-004",
+    "title": "新依赖无旧执行内核",
+    "requirements": [
+      "REQ-001",
+      "REQ-030"
+    ],
+    "tasks": [
+      "P01",
+      "P20"
+    ],
+    "setup": "新Python/npm锁、镜像、启动清单和空测试库",
+    "action": "无旧包安装条件下构建启动与归档查询",
+    "expected": "不加载Cairn/Pi/Claude CLI；检查传递依赖、命令与挂载",
+    "negative_control": "仅空包import成功但镜像仍启动pi时必须失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-005",
+    "title": "Agent候选事实正向接纳",
+    "requirements": [
+      "REQ-003",
+      "REQ-004",
+      "REQ-033",
+      "REQ-036"
+    ],
+    "tasks": [
+      "P04"
+    ],
+    "setup": "已封存含version=17的fixture Observation",
+    "action": "Agent提出candidate_fact并引用固定JSON位置；可信检查读取原文",
+    "expected": "先accepted_shared/unassessed；核验后Fact视图出现且producer仍为agent；正文只有一份",
+    "negative_control": "检查器把value改为18时不得仍supported",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-006",
+    "title": "无解析器的语义摘要可保存",
+    "requirements": [
+      "REQ-003",
+      "REQ-033",
+      "REQ-036"
+    ],
+    "tasks": [
+      "P04"
+    ],
+    "setup": "有复杂自然语言材料而无专用字段解析器",
+    "action": "Agent提交observation-summary文本与来源",
+    "expected": "Claim可共享；Fact视图不强制生成；没有FACT_EXTRACTOR_REQUIRED阻断",
+    "negative_control": "实现若拒绝所有非结构化候选则失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-007",
+    "title": "假设可驱动工作而非授权",
+    "requirements": [
+      "REQ-004",
+      "REQ-033"
+    ],
+    "tasks": [
+      "P04",
+      "P09",
+      "P12"
+    ],
+    "setup": "未验证hypothesis，限定读取能力Profile",
+    "action": "基于假设提Intent，再请求超Profile能力或宣布Goal met",
+    "expected": "Intent可被接纳；越权动作拒绝；Goal未被自评满足",
+    "negative_control": "把unassessed一律拒绝或一律当真都失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-008",
+    "title": "模型不能伪造采集",
+    "requirements": [
+      "REQ-003",
+      "REQ-005",
+      "REQ-026"
+    ],
+    "tasks": [
+      "P03",
+      "P05"
+    ],
+    "setup": "Agent token和真实采集token",
+    "action": "同CaptureEnvelope分别调用evidence入口",
+    "expected": "Agent为403/FORBIDDEN_COLLECTOR；采集身份可登记；无伪Observation",
+    "negative_control": "只在前端隐藏按钮而HTTP可写应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-009",
+    "title": "模型不能自评supported",
+    "requirements": [
+      "REQ-004"
+    ],
+    "tasks": [
+      "P04"
+    ],
+    "setup": "固定ClaimRevision",
+    "action": "Agent提交evidence_state或model_review=同意",
+    "expected": "权威字段拒绝；意见可另存；证据状态不自动升级",
+    "negative_control": "第二模型同意后Fact视图增加应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-010",
+    "title": "引用存在不证明命题",
+    "requirements": [
+      "REQ-004",
+      "REQ-005",
+      "REQ-036"
+    ],
+    "tasks": [
+      "P04"
+    ],
+    "setup": "真实文件含version=17，但无运行状态材料",
+    "action": "候选宣称两个系统行为完全相同并引用该文件",
+    "expected": "grounding linked不等于content_checked/supported；保留假设",
+    "negative_control": "仅以FK存在将命题认定为真应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-011",
+    "title": "真实输出与业务真相分开",
+    "requirements": [
+      "REQ-005",
+      "REQ-036"
+    ],
+    "tasks": [
+      "P03",
+      "P04"
+    ],
+    "setup": "工具退出0且文本为系统正常",
+    "action": "登记采集并评估system_is_healthy命题",
+    "expected": "可记录tool_reported和退出码；不能据此推定系统正常",
+    "negative_control": "直接解析成功关键字形成全局事实应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-012",
+    "title": "局部/否定断言完整性",
+    "requirements": [
+      "REQ-005",
+      "REQ-018"
+    ],
+    "tasks": [
+      "P03",
+      "P04"
+    ],
+    "setup": "正文只捕获前半部分且完整性partial",
+    "action": "分别核验已捕获字段及全文件未出现某内容",
+    "expected": "局部字段可被核对；全量否定结论inconclusive",
+    "negative_control": "去掉truncated标记应由测试检查发现",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-013",
+    "title": "导入与合成来源独立",
+    "requirements": [
+      "REQ-005",
+      "REQ-028",
+      "REQ-031"
+    ],
+    "tasks": [
+      "P03",
+      "P18",
+      "P19"
+    ],
+    "setup": "真实SDK+合成模型+夹具采集；另有旧Fact导入",
+    "action": "读取Run/Observation/Claim来源标记",
+    "expected": "model_mode和evidence_origin分别存在；旧Fact不冒充新live capture",
+    "negative_control": "把真实SDK单布尔值当全部数据真实应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-014",
+    "title": "修订与新证据不继承旧结论",
+    "requirements": [
+      "REQ-009",
+      "REQ-034"
+    ],
+    "tasks": [
+      "P04"
+    ],
+    "setup": "Claim v1已supported，创建v2及新环境",
+    "action": "取v2评估与引用旧v1的关系",
+    "expected": "v2默认unassessed；旧评估保留但不适用v2；环境变化有stale记录",
+    "negative_control": "自动将旧supported复制到v2应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-015",
+    "title": "依赖条件严格区分",
+    "requirements": [
+      "REQ-007",
+      "REQ-009"
+    ],
+    "tasks": [
+      "P05",
+      "P09"
+    ],
+    "setup": "前驱分别done但无accepted结果、failed、criterion成立",
+    "action": "处理settled/accepted_result/criterion_satisfied三种后继",
+    "expected": "仅满足各自谓词的后继ready；失败不等于成功",
+    "negative_control": "对所有前驱终态都放行应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-016",
+    "title": "并发依赖不能成环",
+    "requirements": [
+      "REQ-009"
+    ],
+    "tasks": [
+      "P03",
+      "P04"
+    ],
+    "setup": "同Task两条工作，无原依赖",
+    "action": "两连接同时建立A依赖B和B依赖A",
+    "expected": "至少一笔拒绝；提交后的依赖图无环",
+    "negative_control": "仅各事务提交前无锁查环会漏过，应被测试捕获",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-017",
+    "title": "无关旧快照追加允许",
+    "requirements": [
+      "REQ-009",
+      "REQ-010",
+      "REQ-019"
+    ],
+    "tasks": [
+      "P04"
+    ],
+    "setup": "两个Run基于同快照做不冲突分析",
+    "action": "先后提交候选并使board_revision变化",
+    "expected": "都可接纳并保留各自read_set；不能全局版本变化就拒绝所有结果",
+    "negative_control": "强制等于最新board_revision使第二笔失败时测试不通过",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-018",
+    "title": "Task尚未start不得派发",
+    "requirements": [
+      "REQ-006",
+      "REQ-007",
+      "REQ-008"
+    ],
+    "tasks": [
+      "P05",
+      "P09"
+    ],
+    "setup": "新Task ready，无activated_at",
+    "action": "Scheduler扫描ready工作",
+    "expected": "不产生可执行Run/许可；显式start后才允许",
+    "negative_control": "把desired.run或UI按钮状态当唯一准入应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-019",
+    "title": "状态表与运行守卫一致",
+    "requirements": [
+      "REQ-007",
+      "REQ-039"
+    ],
+    "tasks": [
+      "P02",
+      "P05"
+    ],
+    "setup": "contracts.json固定状态集",
+    "action": "遍历合法边与非法终态返回边",
+    "expected": "work取消因superseded时state=cancelled+reason；不存在WorkItem.superseded",
+    "negative_control": "向WorkItem写未定义状态或终态回ready应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-020",
+    "title": "收到结果不等于进程退出",
+    "requirements": [
+      "REQ-007",
+      "REQ-015"
+    ],
+    "tasks": [
+      "P05",
+      "P10"
+    ],
+    "setup": "一个Run已提交accepted结果但真实进程未退出",
+    "action": "观察WorkItem与容量",
+    "expected": "result_state更新；WorkItem不done；容量未释放",
+    "negative_control": "只按ResultReceipt释放容量应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-021",
+    "title": "单工作hold不自动再派发",
+    "requirements": [
+      "REQ-015"
+    ],
+    "tasks": [
+      "P05",
+      "P11"
+    ],
+    "setup": "两个并发工作，均受权",
+    "action": "对第一个hold，多次调度扫描",
+    "expected": "第一个不重新ready/启动；第二个不被撤销",
+    "negative_control": "旧lease过期后自动换Run重跑应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-022",
+    "title": "Task恢复保留独立hold",
+    "requirements": [
+      "REQ-015"
+    ],
+    "tasks": [
+      "P05",
+      "P11"
+    ],
+    "setup": "工作A有user_hold，工作B无；Task整体pause",
+    "action": "resume Task",
+    "expected": "只解除task_pause原因；A仍suspended；B符合守卫才可继续",
+    "negative_control": "把所有WorkItem desired改run应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-023",
+    "title": "输入未回答不得因resume消失",
+    "requirements": [
+      "REQ-014",
+      "REQ-015"
+    ],
+    "tasks": [
+      "P05",
+      "P08",
+      "P11"
+    ],
+    "setup": "waiting_input工作被Task暂停",
+    "action": "恢复Task但不回答问题",
+    "expected": "恢复waiting_input或保持明确阻断，不丢wait_ref、不启动模型",
+    "negative_control": "恢复时无条件ready应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-024",
+    "title": "容量跨租户/模型约束",
+    "requirements": [
+      "REQ-008",
+      "REQ-021"
+    ],
+    "tasks": [
+      "P09"
+    ],
+    "setup": "两个租户共享全局容量1，独立数据库连接",
+    "action": "并发领取不同Task工作",
+    "expected": "最多一个有效Run；未退出unknown也占容量",
+    "negative_control": "只锁Task导致两个都获许可应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-025",
+    "title": "调度策略不能授予权限",
+    "requirements": [
+      "REQ-008",
+      "REQ-021"
+    ],
+    "tasks": [
+      "P06",
+      "P09"
+    ],
+    "setup": "一个高优先级但越权工作，一个可执行工作",
+    "action": "纯策略建议与实际Admission",
+    "expected": "越权仍拒绝并有reason_code；选择函数不做网络/DB写",
+    "negative_control": "把策略返回值直接视为permit应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-026",
+    "title": "Reason触发generation不丢非知识事件",
+    "requirements": [
+      "REQ-020"
+    ],
+    "tasks": [
+      "P09"
+    ],
+    "setup": "相同board_revision下依赖结算及人工回复",
+    "action": "Reason领取后又新增trigger，随后结算",
+    "expected": "只消费processing_generation，新generation保留",
+    "negative_control": "仅用board_revision比较会漏事件，应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-027",
+    "title": "Reason失败有界且不自激",
+    "requirements": [
+      "REQ-020",
+      "REQ-021"
+    ],
+    "tasks": [
+      "P09"
+    ],
+    "setup": "持续格式错误的合成Reason及它自己产生的Intent",
+    "action": "触发重复tick到限制",
+    "expected": "有限尝试后blocked；自建Intent不无限触发自身",
+    "negative_control": "无限reason循环或每个Token触发应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-028",
+    "title": "等待条件先发生不丢唤醒",
+    "requirements": [
+      "REQ-020"
+    ],
+    "tasks": [
+      "P09"
+    ],
+    "setup": "依赖可能在waiter登记前后完成",
+    "action": "并发登记wait和提交依赖结果，重启扫描",
+    "expected": "已成立条件直接推进，未成立持久等待；两种顺序都可继续",
+    "negative_control": "先消费事件后登记wait导致永久等待应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-029",
+    "title": "去重与无进展不靠文本假保证",
+    "requirements": [
+      "REQ-021"
+    ],
+    "tasks": [
+      "P09"
+    ],
+    "setup": "相同工作key不同标题，另有不同问题同参数",
+    "action": "提交三项工作并重复无价值记录",
+    "expected": "等价活动工作去重；不同问题不被错误合并；硬上限不重置",
+    "negative_control": "仅用标题/参数hash或Fact计数当进展应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-030",
+    "title": "持久prepared窗口保守恢复",
+    "requirements": [
+      "REQ-008",
+      "REQ-022"
+    ],
+    "tasks": [
+      "P10"
+    ],
+    "setup": "Supervisor prepared已落盘，spawn/running确认之间故障",
+    "action": "重启并查原operation",
+    "expected": "若无法证明未spawn则unknown/reconciling，不第二次spawn",
+    "negative_control": "测试只注入响应丢失而遗漏此窗口不算覆盖",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-031",
+    "title": "启动响应丢失不重复spawn",
+    "requirements": [
+      "REQ-008"
+    ],
+    "tasks": [
+      "P10"
+    ],
+    "setup": "实际无害子进程已启动并记录回执",
+    "action": "丢HTTP响应，再投递相同operation",
+    "expected": "返回同回执，外部计数文件记录启动一次",
+    "negative_control": "换新operation重试或计数来自mock布尔值应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-032",
+    "title": "旧执行身份拒绝新增动作",
+    "requirements": [
+      "REQ-015",
+      "REQ-022"
+    ],
+    "tasks": [
+      "P06",
+      "P10",
+      "P11"
+    ],
+    "setup": "Run被撤销或runtime_attempt改变",
+    "action": "旧token请求模型/工具/新Session保存",
+    "expected": "全部拒绝；仅受信Supervisor可补交既有结果",
+    "negative_control": "仅校验Task而忽略run_epoch应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-033",
+    "title": "证据不依赖最终Agent结果",
+    "requirements": [
+      "REQ-018"
+    ],
+    "tasks": [
+      "P05"
+    ],
+    "setup": "离线工具已捕获字节，Agent未收到结果即退出",
+    "action": "读取证据和回执",
+    "expected": "Observation/Artifact存在且可追溯；不要求Fact或最终回复",
+    "negative_control": "将证据入账放到Agent最后输出后应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-034",
+    "title": "无FactExtractor仍能返回工具结果",
+    "requirements": [
+      "REQ-018",
+      "REQ-036"
+    ],
+    "tasks": [
+      "P05"
+    ],
+    "setup": "已注册工具无专用抽取器",
+    "action": "执行一次受控读取",
+    "expected": "receipt accepted，Observation可用；Agent收到引用；Fact数可为0",
+    "negative_control": "抽取失败令原始采集全失败应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-035",
+    "title": "工具幂等不靠参数推断",
+    "requirements": [
+      "REQ-014",
+      "REQ-017"
+    ],
+    "tasks": [
+      "P05",
+      "P08"
+    ],
+    "setup": "相同operation同内容和同operation不同内容；另有新ID同参数",
+    "action": "投递三种请求",
+    "expected": "第一种原回执；第二种409；第三种作为新操作重新准入",
+    "negative_control": "仅参数相同就返回旧成功应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-036",
+    "title": "函数与MCP拒绝同一撤销",
+    "requirements": [
+      "REQ-017",
+      "REQ-026"
+    ],
+    "tasks": [
+      "P06",
+      "P07"
+    ],
+    "setup": "同一ToolDefinition被撤销，两个受控适配入口",
+    "action": "从函数/MCP分别请求",
+    "expected": "均由服务端拒绝且无实际执行",
+    "negative_control": "只在MAF本地工具表删除但服务仍可执行应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-037",
+    "title": "默认MAF能力不得偷偷开启",
+    "requirements": [
+      "REQ-012",
+      "REQ-017"
+    ],
+    "tasks": [
+      "P01",
+      "P07"
+    ],
+    "setup": "真实Harness与允许工具清单",
+    "action": "记录发给合成模型的全部工具定义并请求一个未登记工具",
+    "expected": "所有发布工具和能力与Profile匹配；未登记函数不执行",
+    "negative_control": "只检查函数结果而不检查工具广告表不算完整",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-038",
+    "title": "Session半发布不能恢复",
+    "requirements": [
+      "REQ-013"
+    ],
+    "tasks": [
+      "P08"
+    ],
+    "setup": "旧完整manifest，新的state/history/memory仅部分写好",
+    "action": "在manifest CAS前故障并重启",
+    "expected": "只看旧manifest；新边界non_resumable且不混入新笔记",
+    "negative_control": "简单断言revision不变但读取latest笔记仍算失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-039",
+    "title": "Session单写与版本兼容",
+    "requirements": [
+      "REQ-013",
+      "REQ-015"
+    ],
+    "tasks": [
+      "P08"
+    ],
+    "setup": "两个Run请求同一Session写；另有不同lock恢复",
+    "action": "并发CAS与跨版本读取",
+    "expected": "一个有效写者；不兼容恢复显式阻断",
+    "negative_control": "旧writer覆盖新manifest或默默迁移SDK对象应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-040",
+    "title": "原生审批批准/拒绝跨进程",
+    "requirements": [
+      "REQ-014",
+      "REQ-035"
+    ],
+    "tasks": [
+      "P01",
+      "P08",
+      "P11"
+    ],
+    "setup": "真实SDK返回一项批准请求，完整保存后退出",
+    "action": "重启同工作并分别批准/拒绝原调用",
+    "expected": "批准一次真实函数执行；拒绝无执行；关联原call ID",
+    "negative_control": "新建无关Session或用mock审批布尔值不算通过",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-041",
+    "title": "批准消费与执行操作原子",
+    "requirements": [
+      "REQ-014"
+    ],
+    "tasks": [
+      "P08",
+      "P11"
+    ],
+    "setup": "有效批准，准备登记ToolOperation",
+    "action": "在批准消费和outbox写入边界故障并重复恢复",
+    "expected": "唯一ToolOperation+原批准绑定；无失去批准或重复动作",
+    "negative_control": "先独立consumed再崩溃导致丢许可应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-042",
+    "title": "取消后批准不复活任务",
+    "requirements": [
+      "REQ-014",
+      "REQ-015"
+    ],
+    "tasks": [
+      "P08",
+      "P11"
+    ],
+    "setup": "已待批，随后hold/cancel/Scope撤销",
+    "action": "提交旧批准并恢复",
+    "expected": "批准过期或当前准入拒绝；保持hold/cancel；无新执行",
+    "negative_control": "批准绕过当前Task状态应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-043",
+    "title": "压缩保留依据与待批配对",
+    "requirements": [
+      "REQ-012",
+      "REQ-013",
+      "REQ-019"
+    ],
+    "tasks": [
+      "P07",
+      "P08"
+    ],
+    "setup": "真实SDK长历史、候选假设、原始证据、待批调用",
+    "action": "在已验证边界触发原生压缩和恢复",
+    "expected": "证据不变；假设标签保留；工具消息配对合法；未核验边界关闭",
+    "negative_control": "只报告compaction事件而不检查恢复与内容身份不足",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-044",
+    "title": "模型断流不伪造响应",
+    "requirements": [
+      "REQ-016"
+    ],
+    "tasks": [
+      "P06",
+      "P11"
+    ],
+    "setup": "记录请求的合成模型在响应中途断流",
+    "action": "断开、核对，再尝试继续",
+    "expected": "response未知且不伪工具输出；费用轴独立；下一请求明确登记",
+    "negative_control": "重发同文本声称恢复原响应应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-045",
+    "title": "累计预算与辅助请求",
+    "requirements": [
+      "REQ-016",
+      "REQ-021"
+    ],
+    "tasks": [
+      "P06",
+      "P17"
+    ],
+    "setup": "多Run、Reason、摘要共享一Task",
+    "action": "重启并续接后继续受控请求至限额",
+    "expected": "累计请求不重置；网关用量引用与Trace分开",
+    "negative_control": "新Session得到新Task预算应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-046",
+    "title": "费用待核对不等于执行仍活跃",
+    "requirements": [
+      "REQ-016",
+      "REQ-022"
+    ],
+    "tasks": [
+      "P11",
+      "P12"
+    ],
+    "setup": "本地Run已退出且无副作用，模型费用pending",
+    "action": "发起结束；另测副作用工具unknown",
+    "expected": "第一种可本地closed+billing_pending；第二种reconciling",
+    "negative_control": "统一unknown让所有任务永远阻塞或全都完成均失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-047",
+    "title": "完成precheck不等待自己",
+    "requirements": [
+      "REQ-011"
+    ],
+    "tasks": [
+      "P12"
+    ],
+    "setup": "Reason已提交完成且随后真实退出，必要工作已结算",
+    "action": "CompletionService precheck",
+    "expected": "不把已结算Reason当活跃依赖；进入合法关闭路径",
+    "negative_control": "将服务评审绑定同一未终止AgentRun应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-048",
+    "title": "必需工作未完不提前冻结",
+    "requirements": [
+      "REQ-011"
+    ],
+    "tasks": [
+      "P12"
+    ],
+    "setup": "必要Explore还需一次已受权读取才能完成",
+    "action": "提出Goal完成",
+    "expected": "返回wait/continue；不进入封死必要动作的quiescing",
+    "negative_control": "既拒绝后续动作又等待自然完成应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-049",
+    "title": "冻结仍允许结算回执",
+    "requirements": [
+      "REQ-011",
+      "REQ-015"
+    ],
+    "tasks": [
+      "P11",
+      "P12"
+    ],
+    "setup": "已通过precheck，存在已登记在途调用",
+    "action": "quiescing时尝试新调用和补交旧回执",
+    "expected": "新动作拒绝；旧回执/证据/停止确认可收；有界结束",
+    "negative_control": "连回执查询都拒绝导致死锁应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-050",
+    "title": "关闭期间反证与abort-close",
+    "requirements": [
+      "REQ-011",
+      "REQ-034"
+    ],
+    "tasks": [
+      "P12"
+    ],
+    "setup": "CompletionEpoch存在，另有独立user_hold",
+    "action": "关闭事务前提交反证并abort-close",
+    "expected": "旧判断失效；只解除completion暂停；user_hold不变",
+    "negative_control": "直接重启所有工作或仍写goal met应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-051",
+    "title": "空判据/模型自评不是Goal met",
+    "requirements": [
+      "REQ-006",
+      "REQ-011",
+      "REQ-033"
+    ],
+    "tasks": [
+      "P12"
+    ],
+    "setup": "空required、全部not_applicable、未映射自然语言、模型声称完成",
+    "action": "分别运行可信评估服务",
+    "expected": "unknown/not_applicable或缺口；不真空判真",
+    "negative_control": "all([])或用户请求体临时传required=[]改变存量Goal应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-052",
+    "title": "关闭原因与结果独立",
+    "requirements": [
+      "REQ-006",
+      "REQ-007",
+      "REQ-037"
+    ],
+    "tasks": [
+      "P05",
+      "P12"
+    ],
+    "setup": "预算耗尽但已有部分结果；用户取消亦有记录",
+    "action": "完成结算并查Task",
+    "expected": "close_trigger分别正确，result_outcome保留partial；未执行工作cancelled而非done",
+    "negative_control": "将budget_exhausted和partial放同一单选字段应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-053",
+    "title": "迟到反证不改历史不重跑",
+    "requirements": [
+      "REQ-034",
+      "REQ-037"
+    ],
+    "tasks": [
+      "P12",
+      "P16"
+    ],
+    "setup": "已冻结ReportCommit与closed Task",
+    "action": "受信来源补入旧调用反证",
+    "expected": "追加争议/补充记录，旧正文hash不变；无ready工作；查看有争议提示",
+    "negative_control": "只存historical_only却让旧成功报告毫无提示应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-054",
+    "title": "稳定数据库读与持久分页",
+    "requirements": [
+      "REQ-010"
+    ],
+    "tasks": [
+      "P03",
+      "P13"
+    ],
+    "setup": "第一页建立SnapshotManifest，随后并发写新revision",
+    "action": "读取该snapshot第二页和完整引用",
+    "expected": "仍为同一manifest，未混latest；过期返回410",
+    "negative_control": "只在第一页开RR事务不保留manifest应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-055",
+    "title": "Fact展示不复制节点",
+    "requirements": [
+      "REQ-002",
+      "REQ-003",
+      "REQ-023"
+    ],
+    "tasks": [
+      "P13",
+      "P14"
+    ],
+    "setup": "同一ClaimRevision从unassessed变supported",
+    "action": "应用受权投影更新",
+    "expected": "节点ID不变、display_kind改变，只有一份正文节点",
+    "negative_control": "同一断言同时多出Fact/Claim两个节点应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-056",
+    "title": "修订端点不被悄悄迁移",
+    "requirements": [
+      "REQ-009",
+      "REQ-023"
+    ],
+    "tasks": [
+      "P13",
+      "P14"
+    ],
+    "setup": "旧关系支持claim@1，创建claim@2",
+    "action": "切到当前/历史视图",
+    "expected": "旧边仍固定@1；@2不继承支持；选择follow_latest与固定revision有区别",
+    "negative_control": "只用实体ID将旧关系连到新正文应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-057",
+    "title": "拖拽只写个人布局",
+    "requirements": [
+      "REQ-002",
+      "REQ-023",
+      "REQ-024"
+    ],
+    "tasks": [
+      "P14"
+    ],
+    "setup": "同一业务快照、两个用户布局",
+    "action": "拖节点、保存布局，再读业务revision",
+    "expected": "仅当前用户layout_revision变化；业务知识不变",
+    "negative_control": "拖拽改变Fact正文或别人布局应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-058",
+    "title": "画布连线删除非业务写入",
+    "requirements": [
+      "REQ-023",
+      "REQ-024"
+    ],
+    "tasks": [
+      "P14",
+      "P15"
+    ],
+    "setup": "正常探索图和用户权限",
+    "action": "按Delete/尝试连接或重连",
+    "expected": "只隐藏个人视图或无操作；不存在隐式领域请求",
+    "negative_control": "本地先显示已验证关系再等后台拒绝应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-059",
+    "title": "隐藏节点与派生摘要不泄露",
+    "requirements": [
+      "REQ-026"
+    ],
+    "tasks": [
+      "P13",
+      "P16"
+    ],
+    "setup": "一条受限证据和引用它的摘要/关系",
+    "action": "低权限用户读图、搜索、侧栏",
+    "expected": "无隐藏端点/计数/敏感摘要；未审查摘要继承权限",
+    "negative_control": "只过滤节点而边标题或摘要泄露应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-060",
+    "title": "视图事件不暴露隐藏序号",
+    "requirements": [
+      "REQ-025",
+      "REQ-026"
+    ],
+    "tasks": [
+      "P13",
+      "P15"
+    ],
+    "setup": "相同可见图，中途多次仅隐藏数据变化",
+    "action": "观察外部批、cursor和固定keepalive",
+    "expected": "不出现原始task_event_seq或递增空白数据批；visible revision不变",
+    "negative_control": "明文签名cursor携带内部seq或空批计数应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-061",
+    "title": "查询切换与旧流隔离",
+    "requirements": [
+      "REQ-025"
+    ],
+    "tasks": [
+      "P15"
+    ],
+    "setup": "viewA/queryA已订阅，切viewB/queryB",
+    "action": "延迟送达A的patch",
+    "expected": "B拒绝A批，按view_id/query/access隔离；不混节点",
+    "negative_control": "只比seq新旧却忽略view_id应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-062",
+    "title": "流重复缺口与重启",
+    "requirements": [
+      "REQ-025"
+    ],
+    "tasks": [
+      "P15"
+    ],
+    "setup": "ViewBatch正常、重复、断档、服务流缓存丢失",
+    "action": "依次应用并重连",
+    "expected": "重复不变；base不符resync；丢流重新快照，不猜漏patch",
+    "negative_control": "watermark或批字符串字典序比较应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-063",
+    "title": "真实保存的历史才可回放",
+    "requirements": [
+      "REQ-010",
+      "REQ-025"
+    ],
+    "tasks": [
+      "P13",
+      "P15"
+    ],
+    "setup": "有保存snapshot H1，没有H0",
+    "action": "分别请求H1/H0并发生最新状态变化",
+    "expected": "H1版本固定且当前鉴权；H0=HISTORY_UNAVAILABLE；无执行",
+    "negative_control": "用latest填补不存在历史应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-064",
+    "title": "可访问性与图规模",
+    "requirements": [
+      "REQ-023",
+      "REQ-032"
+    ],
+    "tasks": [
+      "P14",
+      "P15"
+    ],
+    "setup": "两组明确图数据、五主题、真实浏览器",
+    "action": "键盘操作、缩放、增量、无障碍列表、测量p95",
+    "expected": "ID/选择/视口保持；文字区分证据级别；记录环境和性能",
+    "negative_control": "仅jsdom或根spike build不能代替浏览器通过",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-065",
+    "title": "RLS用真实非owner验证",
+    "requirements": [
+      "REQ-026"
+    ],
+    "tasks": [
+      "P03",
+      "P16"
+    ],
+    "setup": "迁移角色、无BYPASSRLS应用角色、两个租户",
+    "action": "用应用连接跨租户查询与写引用",
+    "expected": "读隐藏、写拒绝；验证schemaFK与策略两层",
+    "negative_control": "只用超级用户/owner测试成功应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-066",
+    "title": "GC与Session/证据引用一致",
+    "requirements": [
+      "REQ-013",
+      "REQ-038"
+    ],
+    "tasks": [
+      "P03",
+      "P08",
+      "P16"
+    ],
+    "setup": "staged对象、提交中租约、已发布manifest、可回收孤儿",
+    "action": "运行GC并尝试恢复",
+    "expected": "提交中/已发布引用保留；真正孤儿可回收",
+    "negative_control": "仅按创建时间删除正在发布对象应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-067",
+    "title": "受权purge不伪装完整证据",
+    "requirements": [
+      "REQ-026",
+      "REQ-038"
+    ],
+    "tasks": [
+      "P16"
+    ],
+    "setup": "有敏感正文和冻结报告引用",
+    "action": "授权purge后查看证据/报告",
+    "expected": "正文不可读；tombstone/争议或不可用提示存在；未重新采集伪补",
+    "negative_control": "永久保留一切或删除后仍显示完整可用都失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-068",
+    "title": "审计/观测与费用分离",
+    "requirements": [
+      "REQ-027"
+    ],
+    "tasks": [
+      "P06",
+      "P16"
+    ],
+    "setup": "关闭/采样Trace，存在审批和费用回执",
+    "action": "执行一项控制命令，检查日志指标与账本",
+    "expected": "审计仍完整；Metric无TaskID默认高基数；敏感内容未导出；账单来自网关",
+    "negative_control": "通过Trace计数当费用或关闭OTel就丢审计应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-069",
+    "title": "交付媒介适用性",
+    "requirements": [
+      "REQ-028"
+    ],
+    "tasks": [
+      "P12",
+      "P16"
+    ],
+    "setup": "离线文档Profile与明确需要截图的Profile",
+    "action": "生成两类ReportDelivery",
+    "expected": "离线不伪造HTTP；缺明确必需截图时delivery incomplete",
+    "negative_control": "将历史原稿一律HTTP要求偷偷当新批准应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-070",
+    "title": "机制验收不等于自主效果",
+    "requirements": [
+      "REQ-028",
+      "REQ-031",
+      "REQ-039"
+    ],
+    "tasks": [
+      "P17",
+      "P18"
+    ],
+    "setup": "合成推理闭环和受控真实模型评测配置",
+    "action": "分别输出评测报告",
+    "expected": "测试来源、模型、环境、费用授权与独立判据分开；未知不写pass",
+    "negative_control": "通过合成固定答案就声称CTF效果好应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-071",
+    "title": "单Harness与黑板公平比较",
+    "requirements": [
+      "REQ-021",
+      "REQ-028",
+      "REQ-031"
+    ],
+    "tasks": [
+      "P18"
+    ],
+    "setup": "相同模型/输入/工具和总预算的两种架构",
+    "action": "运行获准的重复试验或离线验证运行器",
+    "expected": "Reason/摘要/核验全部计费计时；保存逐次结果与失败分类",
+    "negative_control": "只给多Agent额外预算仍宣称架构提升应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-072",
+    "title": "迁移开发不破坏旧部署",
+    "requirements": [
+      "REQ-001",
+      "REQ-029"
+    ],
+    "tasks": [
+      "P00",
+      "P19"
+    ],
+    "setup": "冻结旧部署，新隔离分支/数据库",
+    "action": "实现新Supervisor和新迁移并运行dry-run",
+    "expected": "旧入口/卷不变；新库初始化无需旧迁移依赖",
+    "negative_control": "P08开发时直接覆盖生产Supervisor应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-073",
+    "title": "归档只读且可复核",
+    "requirements": [
+      "REQ-001",
+      "REQ-029"
+    ],
+    "tasks": [
+      "P19"
+    ],
+    "setup": "离线旧图、ID、证据、权限manifest",
+    "action": "新系统不安装Cairn读取/导入",
+    "expected": "原ID/source/hash保留；不产生执行；LegacyClaim可见且未伪认证",
+    "negative_control": "导入自动ready或必须启动旧Server应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-074",
+    "title": "切换必须停止与独立授权",
+    "requirements": [
+      "REQ-029",
+      "REQ-030"
+    ],
+    "tasks": [
+      "P19",
+      "P20"
+    ],
+    "setup": "旧unknown执行或缺停机许可；随后提供合格证据",
+    "action": "尝试切换与清理",
+    "expected": "缺条件blocked，不删卷；满足后显式切换；失败只读维护",
+    "negative_control": "仅源码移除legacy即自动生产切换应失败",
+    "status": "not_run"
+  },
+  {
+    "id": "AC-075",
+    "title": "全套命令实际覆盖新增路径",
+    "requirements": [
+      "REQ-031",
+      "REQ-039",
+      "REQ-040"
+    ],
+    "tasks": [
+      "P02",
+      "P17",
+      "P20"
+    ],
+    "setup": "新tests/vnext、Node Supervisor、正式web、v2合同、浏览器配置",
+    "action": "运行发布脚本并收集测试清单",
+    "expected": "各测试实际收集且有退出码；not_run/blocked不会汇总为pass",
+    "negative_control": "根pytest只跑旧testpaths或只断言布尔标记应失败",
+    "status": "not_run"
+  }
+]

@@ -1,0 +1,56 @@
+[
+  {
+    "path": "source/ORIGINAL_DRAFT.md",
+    "bytes": 47050,
+    "sha256": "8442b71239a23d2ebe0255827df56a9cd73a0b60a3fa76b46b8c4075d598ba97",
+    "lines": 422
+  },
+  {
+    "path": "source/V1_PLAN.md",
+    "bytes": 58512,
+    "sha256": "185f2ca9692760e31fcb84fc8c30795eb1b6d60f7d4b0a6396708a9007bc0010",
+    "lines": 808
+  },
+  {
+    "path": "source/V1_README.md",
+    "bytes": 2081,
+    "sha256": "fbaace3ce53b75bbf59b31aea5430869332e736c7558e9697b6a604634dd373e",
+    "lines": 32
+  },
+  {
+    "path": "source/V1_REVIEW.md",
+    "bytes": 9761,
+    "sha256": "b7d47b6eb41c5b946428256234b3a999a9387504d67960642ac24288e9889d22",
+    "lines": 74
+  },
+  {
+    "path": "source/V1_SOURCES.md",
+    "bytes": 5769,
+    "sha256": "7071013f802184f7451d7b87e39af3c6a6a0847dbfc819873115b3308bed3869",
+    "lines": 85
+  },
+  {
+    "path": "source/V1_SPEC.md",
+    "bytes": 62779,
+    "sha256": "fabdd1e6c9c1b7a144c70041312920df9fba6ca9730341bafdc9b735459dd231",
+    "lines": 773
+  },
+  {
+    "path": "source/V1_VALIDATION_REPORT.md",
+    "bytes": 1699,
+    "sha256": "245e04f2e506dc4e5d7b6c9030e08e1dd1a673aff722e0de84768c68197d8ef1",
+    "lines": 26
+  },
+  {
+    "path": "source/V1_plan_tasks.json",
+    "bytes": 5675,
+    "sha256": "cb605ec91e58fb0024cd724d89da5997762583ff61c03656e11f385b2ecbd361",
+    "lines": 371
+  },
+  {
+    "path": "source/V1_traceability.json",
+    "bytes": 16567,
+    "sha256": "067b23605e0d72dffc04924b2767ac23751a4b0ceb2e0d87f4cf785424e86ccc",
+    "lines": 862
+  }
+]

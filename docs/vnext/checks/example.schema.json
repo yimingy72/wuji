@@ -1,0 +1,885 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Wuji v2 documentation example profiles",
+  "description": "仅验证本包示例的闭合结构，不代表完整OpenAPI已实现；身份/权限/并发/SDK行为必须运行验证。",
+  "$defs": {
+    "KnowledgeRef": {
+      "type": "object",
+      "properties": {
+        "entity_type": {
+          "enum": [
+            "origin",
+            "goal",
+            "observation",
+            "artifact",
+            "claim",
+            "intent",
+            "work_item",
+            "agent_run",
+            "verification",
+            "completion_review",
+            "finding",
+            "report"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        }
+      },
+      "required": [
+        "entity_type",
+        "id",
+        "revision"
+      ],
+      "additionalProperties": false
+    },
+    "BlobRef": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "id",
+        "version",
+        "sha256"
+      ],
+      "additionalProperties": false
+    },
+    "RunIdentity": {
+      "type": "object",
+      "properties": {
+        "tenant_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "project_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "task_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "work_item_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "agent_run_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "execution_epoch": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "run_epoch": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "runtime_attempt": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "receiver_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "tenant_id",
+        "project_id",
+        "task_id",
+        "work_item_id",
+        "agent_run_id",
+        "execution_epoch",
+        "run_epoch",
+        "runtime_attempt",
+        "receiver_id"
+      ],
+      "additionalProperties": false
+    },
+    "ClaimProposal": {
+      "type": "object",
+      "properties": {
+        "client_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": [
+            "observation-summary",
+            "hypothesis",
+            "derived-conclusion"
+          ]
+        },
+        "assertion_role": {
+          "enum": [
+            "candidate_fact",
+            "explanation",
+            "hypothesis"
+          ]
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "basis_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/KnowledgeRef"
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "required": [
+        "client_ref",
+        "kind",
+        "assertion_role",
+        "text",
+        "basis_refs",
+        "limitations"
+      ],
+      "additionalProperties": false
+    },
+    "IntentProposal": {
+      "type": "object",
+      "properties": {
+        "client_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "question": {
+          "type": "string",
+          "minLength": 1
+        },
+        "basis_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/KnowledgeRef"
+          }
+        },
+        "expected_output": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "client_ref",
+        "question",
+        "basis_refs",
+        "expected_output"
+      ],
+      "additionalProperties": false
+    },
+    "AgentPayload": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": "wuji.agent-payload.v2"
+        },
+        "claims": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ClaimProposal"
+          }
+        },
+        "intent_proposals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/IntentProposal"
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "required": [
+        "schema_version",
+        "claims",
+        "intent_proposals",
+        "limitations"
+      ],
+      "additionalProperties": false
+    },
+    "FactAssessment": {
+      "type": "object",
+      "properties": {
+        "assessment_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "claim_ref": {
+          "$ref": "#/$defs/KnowledgeRef"
+        },
+        "input_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/KnowledgeRef"
+          }
+        },
+        "grounding_state": {
+          "enum": [
+            "unchecked",
+            "linked",
+            "content_checked",
+            "invalid"
+          ]
+        },
+        "evidence_state": {
+          "enum": [
+            "unassessed",
+            "supported",
+            "contradicted",
+            "inconclusive"
+          ]
+        },
+        "applicability_state": {
+          "enum": [
+            "current",
+            "stale",
+            "disputed",
+            "retracted"
+          ]
+        },
+        "method_kind": {
+          "enum": [
+            "deterministic",
+            "reproduced_check",
+            "human_attestation",
+            "model_review"
+          ]
+        },
+        "method_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reviewer_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "assessment_id",
+        "claim_ref",
+        "input_refs",
+        "grounding_state",
+        "evidence_state",
+        "applicability_state",
+        "method_kind",
+        "method_version",
+        "reviewer_ref",
+        "conditions",
+        "reason"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "method_kind": {
+                "const": "model_review"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "evidence_state": {
+                "not": {
+                  "const": "supported"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ResultEnvelope": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": "wuji.result-envelope.v2"
+        },
+        "submission_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "identity": {
+          "$ref": "#/$defs/RunIdentity"
+        },
+        "snapshot_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "read_set": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/KnowledgeRef"
+          }
+        },
+        "raw_output_ref": {
+          "$ref": "#/$defs/BlobRef"
+        },
+        "raw_output_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "payload": {
+          "$ref": "#/$defs/AgentPayload"
+        },
+        "producer_version": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "schema_version",
+        "submission_id",
+        "identity",
+        "snapshot_id",
+        "read_set",
+        "raw_output_ref",
+        "raw_output_digest",
+        "payload",
+        "producer_version"
+      ],
+      "additionalProperties": false
+    },
+    "CaptureEnvelope": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": "wuji.capture.v2"
+        },
+        "capture_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "identity": {
+          "$ref": "#/$defs/RunIdentity"
+        },
+        "tool_call_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tool_attempt_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "artifact_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BlobRef"
+          }
+        },
+        "capture_layer": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "received_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "evidence_origin": {
+          "enum": [
+            "live_capture",
+            "fixture_capture",
+            "imported_unverified"
+          ]
+        },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "completeness": {
+          "enum": [
+            "complete",
+            "partial",
+            "unknown"
+          ]
+        }
+      },
+      "required": [
+        "schema_version",
+        "capture_id",
+        "identity",
+        "tool_call_id",
+        "tool_attempt_id",
+        "artifact_refs",
+        "capture_layer",
+        "observed_at",
+        "received_at",
+        "evidence_origin",
+        "conditions",
+        "completeness"
+      ],
+      "additionalProperties": false
+    },
+    "SessionManifest": {
+      "type": "object",
+      "properties": {
+        "session_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "work_item_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "checkpoint_revision": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "owner_run_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "run_epoch": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "history_root": {
+          "$ref": "#/$defs/BlobRef"
+        },
+        "message_end": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "provider_state_ref": {
+          "$ref": "#/$defs/BlobRef"
+        },
+        "memory_manifest_ref": {
+          "$ref": "#/$defs/BlobRef"
+        },
+        "pending_operation_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "lock_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "recovery_class": {
+          "enum": [
+            "settled_boundary",
+            "approval_boundary",
+            "non_resumable"
+          ]
+        },
+        "saved_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "session_id",
+        "work_item_id",
+        "checkpoint_revision",
+        "owner_run_id",
+        "run_epoch",
+        "history_root",
+        "message_end",
+        "provider_state_ref",
+        "memory_manifest_ref",
+        "pending_operation_refs",
+        "lock_digest",
+        "recovery_class",
+        "saved_at"
+      ],
+      "additionalProperties": false
+    },
+    "Node": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ref": {
+          "$ref": "#/$defs/KnowledgeRef"
+        },
+        "display_kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "id",
+        "ref",
+        "display_kind",
+        "label"
+      ],
+      "additionalProperties": false
+    },
+    "Edge": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1
+        },
+        "edge_type": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "id",
+        "source",
+        "target",
+        "edge_type"
+      ],
+      "additionalProperties": false
+    },
+    "ViewEventBatch": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": "wuji.view-event.v2"
+        },
+        "view_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "base_view_revision": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "view_revision": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "cursor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "patches": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "op": {
+                "enum": [
+                  "upsert_node",
+                  "remove_node",
+                  "upsert_edge",
+                  "remove_edge"
+                ]
+              },
+              "value": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/Node"
+                  },
+                  {
+                    "$ref": "#/$defs/Edge"
+                  },
+                  {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                ]
+              }
+            },
+            "required": [
+              "op",
+              "value"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "schema_version",
+        "view_id",
+        "base_view_revision",
+        "view_revision",
+        "cursor",
+        "patches"
+      ],
+      "additionalProperties": false
+    },
+    "ViewReset": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": "wuji.view-reset.v2"
+        },
+        "view_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "action": {
+          "const": "resnapshot"
+        }
+      },
+      "required": [
+        "schema_version",
+        "view_id",
+        "reason",
+        "action"
+      ],
+      "additionalProperties": false
+    },
+    "TopologySnapshot": {
+      "type": "object",
+      "properties": {
+        "view_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "snapshot_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "view_revision": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "query_digest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "access_scope_digest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "projection_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Node"
+          }
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Edge"
+          }
+        },
+        "opaque_cursor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "truncated": {
+          "type": "boolean"
+        },
+        "continuation": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "allowed_actions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "required": [
+        "view_id",
+        "snapshot_id",
+        "view_revision",
+        "query_digest",
+        "access_scope_digest",
+        "projection_version",
+        "nodes",
+        "edges",
+        "opaque_cursor",
+        "truncated",
+        "continuation",
+        "allowed_actions"
+      ],
+      "additionalProperties": false
+    },
+    "WorkerAssignment": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": "wuji.assignment.v2"
+        },
+        "operation_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "identity": {
+          "$ref": "#/$defs/RunIdentity"
+        },
+        "work_kind": {
+          "enum": [
+            "reason",
+            "explore",
+            "report"
+          ]
+        },
+        "snapshot_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "profile_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "session_manifest_ref": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/BlobRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tool_definition_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "limits": {
+          "type": "object",
+          "properties": {
+            "max_work_items": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "max_reason_runs": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "max_model_requests": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "max_tool_calls": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "max_single_output_bytes": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "max_total_output_bytes": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "max_elapsed_seconds": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "max_attempts_per_work": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "repair_attempts": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "max_work_items",
+            "max_reason_runs",
+            "max_model_requests",
+            "max_tool_calls",
+            "max_single_output_bytes",
+            "max_total_output_bytes",
+            "max_elapsed_seconds",
+            "max_attempts_per_work",
+            "repair_attempts"
+          ],
+          "additionalProperties": false
+        },
+        "resume_reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "schema_version",
+        "operation_id",
+        "identity",
+        "work_kind",
+        "snapshot_id",
+        "profile_refs",
+        "session_manifest_ref",
+        "tool_definition_refs",
+        "limits",
+        "resume_reason"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

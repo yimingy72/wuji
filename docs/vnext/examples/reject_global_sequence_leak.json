@@ -1,0 +1,23 @@
+{
+  "schema_version": "wuji.view-event.v2",
+  "view_id": "view-fixture-1",
+  "base_view_revision": "9",
+  "view_revision": "10",
+  "cursor": "opaque-next-server-handle",
+  "patches": [
+    {
+      "op": "upsert_node",
+      "value": {
+        "id": "claim:claim-17@1",
+        "ref": {
+          "entity_type": "claim",
+          "id": "claim-17",
+          "revision": "1"
+        },
+        "display_kind": "fact",
+        "label": "记录 A 的 version=17"
+      }
+    }
+  ],
+  "task_event_seq": "857"
+}

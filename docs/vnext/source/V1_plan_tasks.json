@@ -1,0 +1,371 @@
+[
+  {
+    "id": "P01",
+    "title": "依赖与干净新核心骨架",
+    "depends_on": [
+      "P00"
+    ],
+    "requirements": [
+      "REQ-001",
+      "REQ-030",
+      "REQ-031"
+    ],
+    "acceptance": [
+      "A01",
+      "A40"
+    ]
+  },
+  {
+    "id": "P02",
+    "title": "领域合同、PostgreSQL 约束与测试底座",
+    "depends_on": [
+      "P01"
+    ],
+    "requirements": [
+      "REQ-002",
+      "REQ-006",
+      "REQ-007",
+      "REQ-009",
+      "REQ-010",
+      "REQ-026"
+    ],
+    "acceptance": [
+      "A02",
+      "A25",
+      "A34"
+    ]
+  },
+  {
+    "id": "P03",
+    "title": "Artifact、Observation 与可信 FactLedger",
+    "depends_on": [
+      "P02"
+    ],
+    "requirements": [
+      "REQ-003",
+      "REQ-005",
+      "REQ-018",
+      "REQ-026"
+    ],
+    "acceptance": [
+      "A03",
+      "A04",
+      "A05",
+      "A06"
+    ]
+  },
+  {
+    "id": "P04",
+    "title": "工具回执到证据的独立闭环",
+    "depends_on": [
+      "P03"
+    ],
+    "requirements": [
+      "REQ-017",
+      "REQ-018",
+      "REQ-022"
+    ],
+    "acceptance": [
+      "A04",
+      "A06",
+      "A24",
+      "A18"
+    ]
+  },
+  {
+    "id": "P05",
+    "title": "Claim、Intent 与结果接纳",
+    "depends_on": [
+      "P02",
+      "P03"
+    ],
+    "requirements": [
+      "REQ-004",
+      "REQ-009",
+      "REQ-010"
+    ],
+    "acceptance": [
+      "A07",
+      "A08",
+      "A26"
+    ]
+  },
+  {
+    "id": "P06",
+    "title": "真实 MAF Harness 能力验证与运行适配",
+    "depends_on": [
+      "P01",
+      "P02"
+    ],
+    "requirements": [
+      "REQ-012",
+      "REQ-013",
+      "REQ-014",
+      "REQ-019",
+      "REQ-031"
+    ],
+    "acceptance": [
+      "A17",
+      "A18",
+      "A19",
+      "A20",
+      "A21"
+    ]
+  },
+  {
+    "id": "P07",
+    "title": "WorkItem 调度、Reason 触发与策略",
+    "depends_on": [
+      "P02",
+      "P05"
+    ],
+    "requirements": [
+      "REQ-007",
+      "REQ-008",
+      "REQ-020",
+      "REQ-021"
+    ],
+    "acceptance": [
+      "A09",
+      "A13",
+      "A14",
+      "A15",
+      "A16"
+    ]
+  },
+  {
+    "id": "P08",
+    "title": "Supervisor、幂等启动与工作级停止",
+    "depends_on": [
+      "P07"
+    ],
+    "requirements": [
+      "REQ-007",
+      "REQ-008",
+      "REQ-015",
+      "REQ-022"
+    ],
+    "acceptance": [
+      "A09",
+      "A10",
+      "A11",
+      "A12"
+    ]
+  },
+  {
+    "id": "P09",
+    "title": "Run 模型准入与统一工具治理",
+    "depends_on": [
+      "P04",
+      "P06",
+      "P08"
+    ],
+    "requirements": [
+      "REQ-016",
+      "REQ-017",
+      "REQ-022",
+      "REQ-026"
+    ],
+    "acceptance": [
+      "A11",
+      "A16",
+      "A22",
+      "A23",
+      "A18"
+    ]
+  },
+  {
+    "id": "P10",
+    "title": "会话 manifest、审批续接与控制恢复",
+    "depends_on": [
+      "P06",
+      "P08",
+      "P09"
+    ],
+    "requirements": [
+      "REQ-013",
+      "REQ-014",
+      "REQ-015",
+      "REQ-019"
+    ],
+    "acceptance": [
+      "A11",
+      "A12",
+      "A19",
+      "A20"
+    ]
+  },
+  {
+    "id": "P11",
+    "title": "Goal 判据与完成收敛",
+    "depends_on": [
+      "P05",
+      "P07",
+      "P10"
+    ],
+    "requirements": [
+      "REQ-006",
+      "REQ-011",
+      "REQ-028",
+      "REQ-032"
+    ],
+    "acceptance": [
+      "A08",
+      "A27",
+      "A28",
+      "A29",
+      "A38"
+    ]
+  },
+  {
+    "id": "P12",
+    "title": "GraphProjection、一致快照与事件 API",
+    "depends_on": [
+      "P02",
+      "P05"
+    ],
+    "requirements": [
+      "REQ-002",
+      "REQ-010",
+      "REQ-023",
+      "REQ-025",
+      "REQ-026"
+    ],
+    "acceptance": [
+      "A25",
+      "A32",
+      "A33",
+      "A34"
+    ]
+  },
+  {
+    "id": "P13",
+    "title": "TopologyFlowCanvas 与独立布局",
+    "depends_on": [
+      "P01",
+      "P12"
+    ],
+    "requirements": [
+      "REQ-002",
+      "REQ-023",
+      "REQ-024",
+      "REQ-032"
+    ],
+    "acceptance": [
+      "A30",
+      "A31",
+      "A36"
+    ]
+  },
+  {
+    "id": "P14",
+    "title": "画布事件同步、操作入口与浏览器验收",
+    "depends_on": [
+      "P10",
+      "P12",
+      "P13"
+    ],
+    "requirements": [
+      "REQ-023",
+      "REQ-024",
+      "REQ-025",
+      "REQ-026",
+      "REQ-032"
+    ],
+    "acceptance": [
+      "A30",
+      "A31",
+      "A32",
+      "A33",
+      "A34",
+      "A35",
+      "A36"
+    ]
+  },
+  {
+    "id": "P15",
+    "title": "审计、隐私、保留与证据交付",
+    "depends_on": [
+      "P03",
+      "P09",
+      "P11"
+    ],
+    "requirements": [
+      "REQ-026",
+      "REQ-027",
+      "REQ-028",
+      "REQ-032"
+    ],
+    "acceptance": [
+      "A37",
+      "A38"
+    ]
+  },
+  {
+    "id": "P16",
+    "title": "新闭环、恢复故障与场景机制验收",
+    "depends_on": [
+      "P04",
+      "P06",
+      "P07",
+      "P08",
+      "P09",
+      "P10",
+      "P11",
+      "P14",
+      "P15"
+    ],
+    "requirements": [
+      "REQ-012",
+      "REQ-015",
+      "REQ-016",
+      "REQ-018",
+      "REQ-028",
+      "REQ-031"
+    ],
+    "acceptance": [
+      "A18",
+      "A23",
+      "A24",
+      "A40"
+    ]
+  },
+  {
+    "id": "P17",
+    "title": "只读历史归档与停机切换准备",
+    "depends_on": [
+      "P02",
+      "P12",
+      "P15"
+    ],
+    "requirements": [
+      "REQ-001",
+      "REQ-025",
+      "REQ-026",
+      "REQ-029"
+    ],
+    "acceptance": [
+      "A35",
+      "A39"
+    ]
+  },
+  {
+    "id": "P18",
+    "title": "彻底移除旧运行依赖与发布验收",
+    "depends_on": [
+      "P16",
+      "P17"
+    ],
+    "requirements": [
+      "REQ-001",
+      "REQ-029",
+      "REQ-030",
+      "REQ-031"
+    ],
+    "acceptance": [
+      "A01",
+      "A39",
+      "A40"
+    ]
+  }
+]

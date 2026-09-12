@@ -1,0 +1,952 @@
+[
+  {
+    "requirement_id": "REQ-001",
+    "spec_sections": [
+      "S01",
+      "S16"
+    ],
+    "implementation_tasks": [
+      "P00",
+      "P01",
+      "P19",
+      "P20"
+    ],
+    "acceptance_cases": [
+      "AC-001",
+      "AC-004",
+      "AC-072",
+      "AC-073"
+    ],
+    "review_findings": [
+      "REV-31",
+      "REV-32",
+      "REV-34"
+    ],
+    "runtime_status": "not_run"
+  },
+  {
+    "requirement_id": "REQ-002",
+    "spec_sections": [
+      "S02",
+      "S04",
+      "S12"
+    ],
+    "implementation_tasks": [
+      "P03",
+      "P13",
+      "P14"
+    ],
+    "acceptance_cases": [
+      "AC-055",
+      "AC-057"
+    ],
+    "review_findings": [
+      "REV-24"
+    ],
+    "runtime_status": "not_run"
+  },
+  {
+    "requirement_id": "REQ-003",
+    "spec_sections": [
+      "S03"
+    ],
+    "implementation_tasks": [
+      "P02",
+      "P03",
+      "P04",
+      "P05",
+      "P13",
+      "P14"
+    ],
+    "acceptance_cases": [
+      "AC-005",
+      "AC-006",
+      "AC-008",
+      "AC-055"
+    ],
+    "review_findings": [
+      "REV-01",
+      "REV-24",
+      "REV-28",
+      "REV-30"
+    ],
+    "runtime_status": "not_run"
+  },
+  {
+    "requirement_id": "REQ-004",
+    "spec_sections": [
+      "S03"
+    ],
+    "implementation_tasks": [
+      "P04",
+      "P09",
+      "P12"
+    ],
+    "acceptance_cases": [
+      "AC-005",
+      "AC-007",
+      "AC-009",
+      "AC-010"
+    ],
+    "review_findings": [
+      "REV-01",
+      "REV-02",
+      "REV-03",
+      "REV-27",
+      "REV-30"
+    ],
+    "runtime_status": "not_run"
+  },
+  {
+    "requirement_id": "REQ-005",
+    "spec_sections": [
+      "S03",
+      "S08"
+    ],
+    "implementation_tasks": [
+      "P03",
+      "P04",
+      "P05",
+      "P18",
+      "P19"
+    ],
+    "acceptance_cases": [
+      "AC-008",
+      "AC-010",
+      "AC-011",
+      "AC-012",
+      "AC-013"
+    ],
+    "review_findings": [
+      "REV-03",
+      "REV-28"
+    ],
+    "runtime_status": "not_run"
+  },
+  {
+    "requirement_id": "REQ-006",
+    "spec_sections": [
+      "S03",
+      "S11"
+    ],
+    "implementation_tasks": [
+      "P02",
+      "P05",
+      "P09",
+      "P12"
+    ],
+    "acceptance_cases": [
+      "AC-018",
+      "AC-051",
+      "AC-052"
+    ],
+    "review_findings": [
+      "REV-07"
+    ],
+    "runtime_status": "not_run"
+  },
+  {
+    "requirement_id": "REQ-007",
+    "spec_sections": [
+      "S05"
+    ],
+    "implementation_tasks": [
+      "P02",
+      "P05",
+      "P09",
+      "P10",
+      "P12"
+    ],
+    "acceptance_cases": [
+      "AC-015",
+      "AC-018",
+      "AC-019",
+      "AC-020",
+      "AC-052"
+    ],
+    "review_findings": [
+      "REV-06",
+      "REV-07",
+      "REV-08",
+      "REV-10",
+      "REV-28"
+    ],
+    "runtime_status": "not_run"
+  },
+  {
+    "requirement_id": "REQ-008",
+    "spec_sections": [
+      "S04",
+      "S07"
+    ],
+    "implementation_tasks": [
+      "P05",
+      "P06",
+      "P09",
+      "P10"
+    ],
+    "acceptance_cases": [
+      "AC-018",
+      "AC-024",
+      "AC-025",
+      "AC-030",
+      "AC-031"
+    ],
+    "review_findings": [
+      "REV-13",
+      "REV-14",
+      "REV-15"
+    ],
+    "runtime_status": "not_run"
+  },
+  {
+    "requirement_id": "REQ-009",
+    "spec_sections": [
+      "S04"
+    ],
+    "implementation_tasks": [
+      "P03",
+      "P04",
+      "P05",
+      "P09",
+      "P13",
+      "P14"
+    ],
+    "acceptance_cases": [
+      "AC-014",
+      "AC-015",
+      "AC-016",
+      "AC-017",
+      "AC-056"
+    ],
+    "review_findings": [
+      "REV-05",
+      "REV-10",
+      "REV-24"
+    ],
+    "runtime_status": "not_run"
+  },
+  {
+    "requirement_id": "REQ-010",
+    "spec_sections": [
+      "S04",
+      "S12"
+    ],
+    "implementation_tasks": [
+      "P03",
+      "P04",
+      "P13",
+      "P15"
+    ],
+    "acceptance_cases": [
+      "AC-017",
+      "AC-054",
+      "AC-063"
+    ],
+    "review_findings": [
+      "REV-22"
+    ],
+    "runtime_status": "not_run"
+  },
+  {
+    "requirement_id": "REQ-011",
+    "spec_sections": [
+      "S11"
+    ],
+    "implementation_tasks": [
+      "P11",
+      "P12"
+    ],
+    "acceptance_cases": [
+      "AC-047",
+      "AC-048",
+      "AC-049",
+      "AC-050",
+      "AC-051"
+    ],
+    "review_findings": [
+      "REV-20",
+      "REV-21"
+    ],
+    "runtime_status": "not_run"
+  },
+  {
+    "requirement_id": "REQ-012",
+    "spec_sections": [
+      "S08"
+    ],
+    "implementation_tasks": [
+      "P01",
+      "P07",
+      "P08"
+    ],
+    "acceptance_cases": [
+      "AC-002",
+      "AC-003",
+      "AC-037",
+      "AC-043"
+    ],
+    "review_findings": [
+      "REV-17",
+      "REV-30"
+    ],
+    "runtime_status": "not_run"
+  },
+  {
+    "requirement_id": "REQ-013",
+    "spec_sections": [
+      "S09"
+    ],
+    "implementation_tasks": [
+      "P03",
+      "P07",
+      "P08",
+      "P16"
+    ],
+    "acceptance_cases": [
+      "AC-038",
+      "AC-039",
+      "AC-043",
+      "AC-066"
+    ],
+    "review_findings": [
+      "REV-16",
+      "REV-17",
+      "REV-26"
+    ],
+    "runtime_status": "not_run"
+  },
+  {
+    "requirement_id": "REQ-014",
+    "spec_sections": [
+      "S09"
+    ],
+    "implementation_tasks": [
+      "P01",
+      "P05",
+      "P08",
+      "P11"
+    ],
+    "acceptance_cases": [
+      "AC-023",
+      "AC-035",
+      "AC-040",
+      "AC-041",
+      "AC-042"
+    ],
+    "review_findings": [
+      "REV-09",
+      "REV-17",
+      "REV-18",
+      "REV-29"
+    ],
+    "runtime_status": "not_run"
+  },
+  {
+    "requirement_id": "REQ-015",
+    "spec_sections": [
+      "S05",
+      "S07"
+    ],
+    "implementation_tasks": [
+      "P05",
+      "P06",
+      "P08",
+      "P10",
+      "P11",
+      "P12"
+    ],
+    "acceptance_cases": [
+      "AC-020",
+      "AC-021",
+      "AC-022",
+      "AC-023",
+      "AC-032",
+      "AC-039",
+      "AC-042",
+      "AC-049"
+    ],
+    "review_findings": [
+      "REV-08",
+      "REV-09",
+      "REV-15",
+      "REV-20"
+    ],
+    "runtime_status": "not_run"
+  },
+  {
+    "requirement_id": "REQ-016",
+    "spec_sections": [
+      "S08"
+    ],
+    "implementation_tasks": [
+      "P06",
+      "P11",
+      "P12",
+      "P17"
+    ],
+    "acceptance_cases": [
+      "AC-044",
+      "AC-045",
+      "AC-046"
+    ],
+    "review_findings": [
+      "REV-19"
+    ],
+    "runtime_status": "not_run"
+  },
+  {
+    "requirement_id": "REQ-017",
+    "spec_sections": [
+      "S08",
+      "S14"
+    ],
+    "implementation_tasks": [
+      "P01",
+      "P05",
+      "P06",
+      "P07",
+      "P08"
+    ],
+    "acceptance_cases": [
+      "AC-035",
+      "AC-036",
+      "AC-037"
+    ],
+    "review_findings": [],
+    "runtime_status": "not_run"
+  },
+  {
+    "requirement_id": "REQ-018",
+    "spec_sections": [
+      "S08",
+      "S10"
+    ],
+    "implementation_tasks": [
+      "P03",
+      "P04",
+      "P05"
+    ],
+    "acceptance_cases": [
+      "AC-012",
+      "AC-033",
+      "AC-034"
+    ],
+    "review_findings": [
+      "REV-02",
+      "REV-04"
+    ],
+    "runtime_status": "not_run"
+  },
+  {
+    "requirement_id": "REQ-019",
+    "spec_sections": [
+      "S03",
+      "S09"
+    ],
+    "implementation_tasks": [
+      "P04",
+      "P07",
+      "P08"
+    ],
+    "acceptance_cases": [
+      "AC-017",
+      "AC-043"
+    ],
+    "review_findings": [
+      "REV-17"
+    ],
+    "runtime_status": "not_run"
+  },
+  {
+    "requirement_id": "REQ-020",
+    "spec_sections": [
+      "S06"
+    ],
+    "implementation_tasks": [
+      "P09"
+    ],
+    "acceptance_cases": [
+      "AC-026",
+      "AC-027",
+      "AC-028"
+    ],
+    "review_findings": [
+      "REV-11",
+      "REV-12"
+    ],
+    "runtime_status": "not_run"
+  },
+  {
+    "requirement_id": "REQ-021",
+    "spec_sections": [
+      "S06"
+    ],
+    "implementation_tasks": [
+      "P06",
+      "P09",
+      "P17",
+      "P18"
+    ],
+    "acceptance_cases": [
+      "AC-024",
+      "AC-025",
+      "AC-027",
+      "AC-029",
+      "AC-045",
+      "AC-071"
+    ],
+    "review_findings": [
+      "REV-11",
+      "REV-13",
+      "REV-15",
+      "REV-33"
+    ],
+    "runtime_status": "not_run"
+  },
+  {
+    "requirement_id": "REQ-022",
+    "spec_sections": [
+      "S05",
+      "S07"
+    ],
+    "implementation_tasks": [
+      "P05",
+      "P06",
+      "P10",
+      "P11",
+      "P12"
+    ],
+    "acceptance_cases": [
+      "AC-030",
+      "AC-032",
+      "AC-046"
+    ],
+    "review_findings": [
+      "REV-14",
+      "REV-15",
+      "REV-19"
+    ],
+    "runtime_status": "not_run"
+  },
+  {
+    "requirement_id": "REQ-023",
+    "spec_sections": [
+      "S12"
+    ],
+    "implementation_tasks": [
+      "P13",
+      "P14",
+      "P15"
+    ],
+    "acceptance_cases": [
+      "AC-055",
+      "AC-056",
+      "AC-057",
+      "AC-058",
+      "AC-064"
+    ],
+    "review_findings": [
+      "REV-05",
+      "REV-24"
+    ],
+    "runtime_status": "not_run"
+  },
+  {
+    "requirement_id": "REQ-024",
+    "spec_sections": [
+      "S12"
+    ],
+    "implementation_tasks": [
+      "P14",
+      "P15"
+    ],
+    "acceptance_cases": [
+      "AC-057",
+      "AC-058"
+    ],
+    "review_findings": [],
+    "runtime_status": "not_run"
+  },
+  {
+    "requirement_id": "REQ-025",
+    "spec_sections": [
+      "S12"
+    ],
+    "implementation_tasks": [
+      "P13",
+      "P15"
+    ],
+    "acceptance_cases": [
+      "AC-060",
+      "AC-061",
+      "AC-062",
+      "AC-063"
+    ],
+    "review_findings": [
+      "REV-22",
+      "REV-23",
+      "REV-24"
+    ],
+    "runtime_status": "not_run"
+  },
+  {
+    "requirement_id": "REQ-026",
+    "spec_sections": [
+      "S04",
+      "S14"
+    ],
+    "implementation_tasks": [
+      "P03",
+      "P05",
+      "P06",
+      "P07",
+      "P13",
+      "P15",
+      "P16"
+    ],
+    "acceptance_cases": [
+      "AC-008",
+      "AC-036",
+      "AC-059",
+      "AC-060",
+      "AC-065",
+      "AC-067"
+    ],
+    "review_findings": [
+      "REV-23",
+      "REV-25",
+      "REV-26",
+      "REV-28"
+    ],
+    "runtime_status": "not_run"
+  },
+  {
+    "requirement_id": "REQ-027",
+    "spec_sections": [
+      "S14"
+    ],
+    "implementation_tasks": [
+      "P06",
+      "P16"
+    ],
+    "acceptance_cases": [
+      "AC-068"
+    ],
+    "review_findings": [],
+    "runtime_status": "not_run"
+  },
+  {
+    "requirement_id": "REQ-028",
+    "spec_sections": [
+      "S15"
+    ],
+    "implementation_tasks": [
+      "P03",
+      "P12",
+      "P16",
+      "P17",
+      "P18",
+      "P19"
+    ],
+    "acceptance_cases": [
+      "AC-013",
+      "AC-069",
+      "AC-070",
+      "AC-071"
+    ],
+    "review_findings": [
+      "REV-33"
+    ],
+    "runtime_status": "not_run"
+  },
+  {
+    "requirement_id": "REQ-029",
+    "spec_sections": [
+      "S16"
+    ],
+    "implementation_tasks": [
+      "P00",
+      "P19",
+      "P20"
+    ],
+    "acceptance_cases": [
+      "AC-072",
+      "AC-073",
+      "AC-074"
+    ],
+    "review_findings": [
+      "REV-31",
+      "REV-32"
+    ],
+    "runtime_status": "not_run"
+  },
+  {
+    "requirement_id": "REQ-030",
+    "spec_sections": [
+      "S01",
+      "S08",
+      "S17"
+    ],
+    "implementation_tasks": [
+      "P00",
+      "P01",
+      "P19",
+      "P20"
+    ],
+    "acceptance_cases": [
+      "AC-001",
+      "AC-002",
+      "AC-004",
+      "AC-074"
+    ],
+    "review_findings": [
+      "REV-32",
+      "REV-34"
+    ],
+    "runtime_status": "not_run"
+  },
+  {
+    "requirement_id": "REQ-031",
+    "spec_sections": [
+      "S15",
+      "S17"
+    ],
+    "implementation_tasks": [
+      "P01",
+      "P02",
+      "P03",
+      "P17",
+      "P18",
+      "P19",
+      "P20"
+    ],
+    "acceptance_cases": [
+      "AC-002",
+      "AC-013",
+      "AC-070",
+      "AC-071",
+      "AC-075"
+    ],
+    "review_findings": [
+      "REV-27",
+      "REV-29",
+      "REV-30",
+      "REV-31",
+      "REV-33",
+      "REV-34"
+    ],
+    "runtime_status": "not_run"
+  },
+  {
+    "requirement_id": "REQ-032",
+    "spec_sections": [
+      "S12"
+    ],
+    "implementation_tasks": [
+      "P14",
+      "P15"
+    ],
+    "acceptance_cases": [
+      "AC-064"
+    ],
+    "review_findings": [],
+    "runtime_status": "not_run"
+  },
+  {
+    "requirement_id": "REQ-033",
+    "spec_sections": [
+      "S03"
+    ],
+    "implementation_tasks": [
+      "P04",
+      "P09",
+      "P12"
+    ],
+    "acceptance_cases": [
+      "AC-005",
+      "AC-006",
+      "AC-007",
+      "AC-051"
+    ],
+    "review_findings": [
+      "REV-01",
+      "REV-02",
+      "REV-30"
+    ],
+    "runtime_status": "not_run"
+  },
+  {
+    "requirement_id": "REQ-034",
+    "spec_sections": [
+      "S03",
+      "S04"
+    ],
+    "implementation_tasks": [
+      "P04",
+      "P12",
+      "P16"
+    ],
+    "acceptance_cases": [
+      "AC-014",
+      "AC-050",
+      "AC-053"
+    ],
+    "review_findings": [
+      "REV-05",
+      "REV-21"
+    ],
+    "runtime_status": "not_run"
+  },
+  {
+    "requirement_id": "REQ-035",
+    "spec_sections": [
+      "S01",
+      "S09",
+      "S17"
+    ],
+    "implementation_tasks": [
+      "P01",
+      "P07",
+      "P08",
+      "P11",
+      "P17"
+    ],
+    "acceptance_cases": [
+      "AC-003",
+      "AC-040"
+    ],
+    "review_findings": [
+      "REV-17",
+      "REV-29",
+      "REV-30"
+    ],
+    "runtime_status": "not_run"
+  },
+  {
+    "requirement_id": "REQ-036",
+    "spec_sections": [
+      "S03"
+    ],
+    "implementation_tasks": [
+      "P03",
+      "P04",
+      "P05"
+    ],
+    "acceptance_cases": [
+      "AC-005",
+      "AC-006",
+      "AC-010",
+      "AC-011",
+      "AC-034"
+    ],
+    "review_findings": [
+      "REV-01",
+      "REV-02",
+      "REV-03",
+      "REV-04",
+      "REV-30"
+    ],
+    "runtime_status": "not_run"
+  },
+  {
+    "requirement_id": "REQ-037",
+    "spec_sections": [
+      "S10",
+      "S11"
+    ],
+    "implementation_tasks": [
+      "P05",
+      "P12",
+      "P16"
+    ],
+    "acceptance_cases": [
+      "AC-052",
+      "AC-053"
+    ],
+    "review_findings": [
+      "REV-07",
+      "REV-21"
+    ],
+    "runtime_status": "not_run"
+  },
+  {
+    "requirement_id": "REQ-038",
+    "spec_sections": [
+      "S09",
+      "S14"
+    ],
+    "implementation_tasks": [
+      "P03",
+      "P08",
+      "P16"
+    ],
+    "acceptance_cases": [
+      "AC-066",
+      "AC-067"
+    ],
+    "review_findings": [
+      "REV-16",
+      "REV-25",
+      "REV-26"
+    ],
+    "runtime_status": "not_run"
+  },
+  {
+    "requirement_id": "REQ-039",
+    "spec_sections": [
+      "S17"
+    ],
+    "implementation_tasks": [
+      "P01",
+      "P02",
+      "P05",
+      "P07",
+      "P17",
+      "P18",
+      "P20"
+    ],
+    "acceptance_cases": [
+      "AC-003",
+      "AC-019",
+      "AC-070",
+      "AC-075"
+    ],
+    "review_findings": [
+      "REV-06",
+      "REV-27",
+      "REV-28",
+      "REV-29",
+      "REV-30",
+      "REV-31",
+      "REV-33",
+      "REV-34"
+    ],
+    "runtime_status": "not_run"
+  },
+  {
+    "requirement_id": "REQ-040",
+    "spec_sections": [
+      "S01",
+      "S18"
+    ],
+    "implementation_tasks": [
+      "P00",
+      "P02",
+      "P17",
+      "P20"
+    ],
+    "acceptance_cases": [
+      "AC-001",
+      "AC-075"
+    ],
+    "review_findings": [
+      "REV-27",
+      "REV-29",
+      "REV-30",
+      "REV-31",
+      "REV-34"
+    ],
+    "runtime_status": "not_run"
+  }
+]

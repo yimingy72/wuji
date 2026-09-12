@@ -1,0 +1,478 @@
+[
+  {
+    "id": "REQ-001",
+    "text": "新运行、查询和新库初始化无 Cairn/Pi 执行依赖；历史离线只读导入。",
+    "sections": [
+      "S01",
+      "S16"
+    ],
+    "tasks": [
+      "P00",
+      "P19",
+      "P20"
+    ]
+  },
+  {
+    "id": "REQ-002",
+    "text": "领域知识、工作状态、图投影和个人布局分别有唯一权威。",
+    "sections": [
+      "S02",
+      "S04",
+      "S12"
+    ],
+    "tasks": [
+      "P03",
+      "P13",
+      "P14"
+    ]
+  },
+  {
+    "id": "REQ-003",
+    "text": "Agent 可以生成候选事实；ClaimRevision 是断言正文唯一来源；Fact 为接纳读视图。",
+    "sections": [
+      "S03"
+    ],
+    "tasks": [
+      "P02",
+      "P04"
+    ]
+  },
+  {
+    "id": "REQ-004",
+    "text": "内容生成者与证据接纳者分开；模型互相赞同不自动提升证据等级。",
+    "sections": [
+      "S03"
+    ],
+    "tasks": [
+      "P04"
+    ]
+  },
+  {
+    "id": "REQ-005",
+    "text": "实际采集、来源真实性、内容支持和适用范围独立记录；工具成功文字不是业务真相。",
+    "sections": [
+      "S03",
+      "S08"
+    ],
+    "tasks": [
+      "P03",
+      "P05"
+    ]
+  },
+  {
+    "id": "REQ-006",
+    "text": "Origin/Goal不是已成立Fact；Goal required判据非空且可核验；状态与结果分离。",
+    "sections": [
+      "S03",
+      "S11"
+    ],
+    "tasks": [
+      "P02",
+      "P12"
+    ]
+  },
+  {
+    "id": "REQ-007",
+    "text": "Intent/WorkItem/Run/Session分离，全部转移使用固定枚举和守卫。",
+    "sections": [
+      "S05"
+    ],
+    "tasks": [
+      "P02",
+      "P05"
+    ]
+  },
+  {
+    "id": "REQ-008",
+    "text": "派发事务与Outbox原子；prepared/spawn崩溃窗口明确unknown，不能承诺exactly-once。",
+    "sections": [
+      "S04",
+      "S07"
+    ],
+    "tasks": [
+      "P09",
+      "P10"
+    ]
+  },
+  {
+    "id": "REQ-009",
+    "text": "类型化版本引用与Task复合归属有效；知识关系与唯一WorkDependency DAG分开。",
+    "sections": [
+      "S04"
+    ],
+    "tasks": [
+      "P03",
+      "P04",
+      "P09"
+    ]
+  },
+  {
+    "id": "REQ-010",
+    "text": "数据库稳定读与持久SnapshotManifest分别实现；不能用事务代替跨请求快照。",
+    "sections": [
+      "S04",
+      "S12"
+    ],
+    "tasks": [
+      "P03",
+      "P13"
+    ]
+  },
+  {
+    "id": "REQ-011",
+    "text": "完成precheck、冻结、有限结算、重验和abort-close无自我阻塞。",
+    "sections": [
+      "S11"
+    ],
+    "tasks": [
+      "P11",
+      "P12"
+    ]
+  },
+  {
+    "id": "REQ-012",
+    "text": "MAF通过公开接口组装，默认工具/后台Agent/外层循环显式裁剪。",
+    "sections": [
+      "S08"
+    ],
+    "tasks": [
+      "P01",
+      "P07"
+    ]
+  },
+  {
+    "id": "REQ-013",
+    "text": "完整SessionManifest包含历史、Provider状态和记忆版本；仅实测边界可恢复。",
+    "sections": [
+      "S09"
+    ],
+    "tasks": [
+      "P07",
+      "P08"
+    ]
+  },
+  {
+    "id": "REQ-014",
+    "text": "批准不等于执行；审批消费与唯一ToolOperation绑定原子，续接不重发旧操作。",
+    "sections": [
+      "S09"
+    ],
+    "tasks": [
+      "P08",
+      "P11"
+    ]
+  },
+  {
+    "id": "REQ-015",
+    "text": "Work hold与Task pause叠加；ResumeTask不解除独立hold；未确认停止不放容量。",
+    "sections": [
+      "S05",
+      "S07"
+    ],
+    "tasks": [
+      "P05",
+      "P10",
+      "P11"
+    ]
+  },
+  {
+    "id": "REQ-016",
+    "text": "模型身份、发送、响应和费用分离；辅助请求共享Task额度，unknown费用不伪装成功或无限阻塞。",
+    "sections": [
+      "S08"
+    ],
+    "tasks": [
+      "P06",
+      "P11"
+    ]
+  },
+  {
+    "id": "REQ-017",
+    "text": "函数/MCP入口共用服务端准入，工具名/模型自报身份不授权。",
+    "sections": [
+      "S08",
+      "S14"
+    ],
+    "tasks": [
+      "P05",
+      "P06",
+      "P07"
+    ]
+  },
+  {
+    "id": "REQ-018",
+    "text": "Artifact/Observation独立于Agent最终输出持久化；Fact抽取不阻塞工具证据交付。",
+    "sections": [
+      "S08",
+      "S10"
+    ],
+    "tasks": [
+      "P03",
+      "P05"
+    ]
+  },
+  {
+    "id": "REQ-019",
+    "text": "上下文保留来源、反证、不确定性和read_set；压缩不提升知识等级。",
+    "sections": [
+      "S03",
+      "S09"
+    ],
+    "tasks": [
+      "P04",
+      "P07"
+    ]
+  },
+  {
+    "id": "REQ-020",
+    "text": "Reason用独立trigger_generation；等待登记原子检查，防丢唤醒与自触发循环。",
+    "sections": [
+      "S06"
+    ],
+    "tasks": [
+      "P09"
+    ]
+  },
+  {
+    "id": "REQ-021",
+    "text": "策略与准入分开；精确去重、有限重试、公平性和hard limits可测。",
+    "sections": [
+      "S06"
+    ],
+    "tasks": [
+      "P06",
+      "P09"
+    ]
+  },
+  {
+    "id": "REQ-022",
+    "text": "执行端检查epoch/resource许可；租约过期不证明停止；失败域仅阻断相关资源。",
+    "sections": [
+      "S05",
+      "S07"
+    ],
+    "tasks": [
+      "P05",
+      "P10",
+      "P11"
+    ]
+  },
+  {
+    "id": "REQ-023",
+    "text": "TopologyFlowCanvas使用React Flow受控图；节点身份包含revision，Fact/Claim切换不重复。",
+    "sections": [
+      "S12"
+    ],
+    "tasks": [
+      "P13",
+      "P14"
+    ]
+  },
+  {
+    "id": "REQ-024",
+    "text": "布局不改变领域记录；拖线/删除不能产生事实或删除证据。",
+    "sections": [
+      "S12"
+    ],
+    "tasks": [
+      "P14",
+      "P15"
+    ]
+  },
+  {
+    "id": "REQ-025",
+    "text": "外部ViewStream使用视图版本/查询身份/不透明cursor；隐藏事件不泄露全局序号。",
+    "sections": [
+      "S12"
+    ],
+    "tasks": [
+      "P13",
+      "P15"
+    ]
+  },
+  {
+    "id": "REQ-026",
+    "text": "API/RLS/采集/证据/派生摘要均重验授权；不承诺收回已披露数据。",
+    "sections": [
+      "S04",
+      "S14"
+    ],
+    "tasks": [
+      "P03",
+      "P13",
+      "P15",
+      "P16"
+    ]
+  },
+  {
+    "id": "REQ-027",
+    "text": "审计、Trace、Metric、费用各自独立；高基数和敏感字段受控。",
+    "sections": [
+      "S14"
+    ],
+    "tasks": [
+      "P06",
+      "P16"
+    ]
+  },
+  {
+    "id": "REQ-028",
+    "text": "Scenario/Goal/Delivery分开；有限场景验证与五场景能力目标分开。",
+    "sections": [
+      "S15"
+    ],
+    "tasks": [
+      "P12",
+      "P16",
+      "P18"
+    ]
+  },
+  {
+    "id": "REQ-029",
+    "text": "新开发不先破坏旧Supervisor；切换必须停止证据、离线归档和单独授权。",
+    "sections": [
+      "S16"
+    ],
+    "tasks": [
+      "P00",
+      "P19",
+      "P20"
+    ]
+  },
+  {
+    "id": "REQ-030",
+    "text": "旧源码基线与当前实际依赖分开；真实wheel、工具链和发布锁记录。",
+    "sections": [
+      "S01",
+      "S08",
+      "S17"
+    ],
+    "tasks": [
+      "P00",
+      "P01",
+      "P20"
+    ]
+  },
+  {
+    "id": "REQ-031",
+    "text": "文档校验、真实SDK机制、端到端和真实效果分别留证，不把映射数量当测试。",
+    "sections": [
+      "S15",
+      "S17"
+    ],
+    "tasks": [
+      "P01",
+      "P17",
+      "P18",
+      "P20"
+    ]
+  },
+  {
+    "id": "REQ-032",
+    "text": "画布规模/视口/无障碍/五主题基准可重跑且仅是待测目标。",
+    "sections": [
+      "S12"
+    ],
+    "tasks": [
+      "P14",
+      "P15"
+    ]
+  },
+  {
+    "id": "REQ-033",
+    "text": "未验证假设可以驱动受控探索，不能单凭该假设满足Goal或获得权限。",
+    "sections": [
+      "S03"
+    ],
+    "tasks": [
+      "P04",
+      "P09",
+      "P12"
+    ]
+  },
+  {
+    "id": "REQ-034",
+    "text": "环境/依据/正文版本变化失效相关评估；新revision不继承旧supported。",
+    "sections": [
+      "S03",
+      "S04"
+    ],
+    "tasks": [
+      "P04",
+      "P12"
+    ]
+  },
+  {
+    "id": "REQ-035",
+    "text": "核心审批与恢复Gates不可由关闭功能绕过；可选细粒度恢复明确关闭。",
+    "sections": [
+      "S01",
+      "S09",
+      "S17"
+    ],
+    "tasks": [
+      "P01",
+      "P08",
+      "P17"
+    ]
+  },
+  {
+    "id": "REQ-036",
+    "text": "回执为真实记录而不是任何内容的真理；没有通用解析器也能保存可用Claim。",
+    "sections": [
+      "S03"
+    ],
+    "tasks": [
+      "P03",
+      "P04"
+    ]
+  },
+  {
+    "id": "REQ-037",
+    "text": "ReportCommit冻结，迟到反证形成补充与争议提示，不重启Task或改历史正文。",
+    "sections": [
+      "S10",
+      "S11"
+    ],
+    "tasks": [
+      "P12",
+      "P16"
+    ]
+  },
+  {
+    "id": "REQ-038",
+    "text": "临时对象GC、记忆manifest、受权purge和证据tombstone保持一致。",
+    "sections": [
+      "S09",
+      "S14"
+    ],
+    "tasks": [
+      "P03",
+      "P08",
+      "P16"
+    ]
+  },
+  {
+    "id": "REQ-039",
+    "text": "Plan提供具体输入/行为/持久断言/反例；空集合和自报布尔值不能证明能力。",
+    "sections": [
+      "S17"
+    ],
+    "tasks": [
+      "P02",
+      "P17"
+    ]
+  },
+  {
+    "id": "REQ-040",
+    "text": "复审以v1三文档为对象，保留原稿和修改依据，不将助手过度设计归咎用户。",
+    "sections": [
+      "S01",
+      "S18"
+    ],
+    "tasks": [
+      "P00",
+      "P20"
+    ]
+  }
+]

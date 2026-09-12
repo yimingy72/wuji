@@ -1,5 +1,11 @@
 # Wuji 开发协作约定
 
+## 2026-09-13 vNext v2 执行入口
+
+用户已明确要求按下载目录 `wuji_maf_redesign_v2` 的更新 Spec/Plan 进入重构。当前分支的新核心以 [v2 SPEC](docs/vnext/SPEC.md)、[v2 PLAN](docs/vnext/PLAN.md)及[实施决定](docs/vnext/decision-register.md)为依据，优先于下文旧 Cairn/Pi 目标约束；旧代码、部署与验收仍按原版本解释。新核心退出 Cairn/Pi，使用自有黑板/Scheduler、Python MAF 与 React Flow。开发和本地验证已授权，不重复询问是否开始；生产切换、停机、删除用户数据、收费目标模型及远端发布仍未授权。
+
+本次子代理可按需要使用 `gpt-5.6-sol` / `xhigh` 或 `gpt-6-astra` / `xhigh`，覆盖旧 `gpt-6-astra/low` 限定；主代理保留当前模型并负责架构判断、集成及最终质量。读取 v2 执行台账，不继承 v1 未完成准备记录的状态。
+
 ## 项目背景与上下文恢复（必读）
 
 - 新阶段规划、上下文恢复、换工作树或发现设计冲突时，先核对当前分支、HEAD、未提交变更和设计来源，再实际读取 [项目背景与有效文档索引](docs/project-context.md)、当前阶段 Spec / Plan / Acceptance 及任务涉及的架构文档。链接和对话摘要不能代替读取正文。

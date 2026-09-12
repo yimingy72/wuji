@@ -1,0 +1,25 @@
+{
+  "view_id": "view-fixture-1",
+  "snapshot_id": "snapshot-fixture-1",
+  "view_revision": "9",
+  "query_digest": "query-current-records",
+  "access_scope_digest": "access-fixture-reader",
+  "projection_version": "v2",
+  "nodes": [
+    {
+      "id": "claim:claim-17@1",
+      "ref": {
+        "entity_type": "claim",
+        "id": "claim-17",
+        "revision": "1"
+      },
+      "display_kind": "fact",
+      "label": "记录 A 的 version=17"
+    }
+  ],
+  "edges": [],
+  "opaque_cursor": "opaque-server-handle-example",
+  "truncated": false,
+  "continuation": null,
+  "allowed_actions": []
+}

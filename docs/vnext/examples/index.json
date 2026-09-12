@@ -1,0 +1,72 @@
+[
+  {
+    "path": "examples/claim_candidate.json",
+    "schema_definition": "ClaimProposal",
+    "expected_valid": true
+  },
+  {
+    "path": "examples/claim_hypothesis.json",
+    "schema_definition": "ClaimProposal",
+    "expected_valid": true
+  },
+  {
+    "path": "examples/assessment_supported.json",
+    "schema_definition": "FactAssessment",
+    "expected_valid": true
+  },
+  {
+    "path": "examples/agent_payload.json",
+    "schema_definition": "AgentPayload",
+    "expected_valid": true
+  },
+  {
+    "path": "examples/result_envelope.json",
+    "schema_definition": "ResultEnvelope",
+    "expected_valid": true
+  },
+  {
+    "path": "examples/capture_envelope.json",
+    "schema_definition": "CaptureEnvelope",
+    "expected_valid": true
+  },
+  {
+    "path": "examples/session_manifest.json",
+    "schema_definition": "SessionManifest",
+    "expected_valid": true
+  },
+  {
+    "path": "examples/worker_assignment.json",
+    "schema_definition": "WorkerAssignment",
+    "expected_valid": true
+  },
+  {
+    "path": "examples/topology_snapshot.json",
+    "schema_definition": "TopologySnapshot",
+    "expected_valid": true
+  },
+  {
+    "path": "examples/view_event_batch.json",
+    "schema_definition": "ViewEventBatch",
+    "expected_valid": true
+  },
+  {
+    "path": "examples/view_reset.json",
+    "schema_definition": "ViewReset",
+    "expected_valid": true
+  },
+  {
+    "path": "examples/reject_self_certified_claim.json",
+    "schema_definition": "ClaimProposal",
+    "expected_valid": false
+  },
+  {
+    "path": "examples/reject_model_only_support.json",
+    "schema_definition": "FactAssessment",
+    "expected_valid": false
+  },
+  {
+    "path": "examples/reject_global_sequence_leak.json",
+    "schema_definition": "ViewEventBatch",
+    "expected_valid": false
+  }
+]

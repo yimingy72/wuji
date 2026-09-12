@@ -1,0 +1,16 @@
+{
+  "client_ref": "candidate-17",
+  "kind": "observation-summary",
+  "assertion_role": "candidate_fact",
+  "text": "记录 A 中 version 字段等于 17。",
+  "basis_refs": [
+    {
+      "entity_type": "observation",
+      "id": "observation-17",
+      "revision": "1"
+    }
+  ],
+  "limitations": [
+    "只描述给定文件版本，不推断整个系统状态。"
+  ]
+}
