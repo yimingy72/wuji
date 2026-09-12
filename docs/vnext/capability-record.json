@@ -5708,5 +5708,11 @@
     "node": "24.20.0",
     "pnpm": "10.32.1",
     "postgres_fixture": "PostgreSQL16.2 Unix socket fixture available for P02 onward; not read or used by P01"
+  },
+  "initial_evidence_commit": "1eccff9",
+  "document_validation": {
+    "code_and_prose_diff_check_exit": 0,
+    "raw_evidence_diff_check_exit": 2,
+    "reason": "Original HTTP CRLF and pytest trailing spaces retained verbatim in three raw evidence files; SHA manifests unchanged."
   }
 }

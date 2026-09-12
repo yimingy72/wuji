@@ -10,7 +10,7 @@
 - 开始时 HEAD 为 `c9871a66dcebb0ac74205bbae8e94ed00cd1892e`，工作树干净；该树没有 `.codegraph/`，按规则使用 `rg` 与文件正文。没有使用其他工作树索引。
 - 用户后续协调确认：P00 已由 GPT-6/xhigh 审查通过、无发现，基准仍为 c9871a6；Node24.20.0/pnpm10.32.1 已实测；PostgreSQL16.2 Unix socket 夹具供 P02 以后使用。这些是协调输入，本任务没有重做该审查或连接数据库。
 - 代码提交：**`8c3fa9c193927b77f076b78a84cd040ec10f3e00`**，`feat(vnext): isolate released MAF dependencies and verify public SDK boundaries`。
-- 本报告与 capability-record 是后续文档/证据提交；不预填本报告自己的 SHA。最终交付列出该记录提交。
+- 首次报告与 capability-record 证据提交：`1eccff9`。随后仅补充本条提交记录与原始证据空白检查说明；不预填最新文档提交自己的 SHA。
 - 13 项测试发生于代码提交前，测试后未修改代码；逐个使用 `git show 8c3fa9c:<path>` 核对全部 9 个代码/锁/测试文件字节一致。摘要见 [capability-record](../../../docs/vnext/capability-record.json) 的 `code_file_sha256`。之后 CLI 在该提交上实际运行，退出码 0。没有因只新增 SHA/报告而重跑整套测试。
 - 没有子代理、远端推送、生产切换、付费模型、真实 Key、目标请求、数据库或 Kubernetes 操作。
 
@@ -137,3 +137,5 @@ HTTP 重试 0；单请求超时 5 秒；SDK 工具循环最多 3 次模型轮转
 7. 遵循用户最新协调，不读取或使用 PostgreSQL16.2 夹具；不扩大 P01 范围。P00 审查通过是用户提供的协调事实，不称为本任务独立复核。
 
 自行代码审查已核对：文件所有权、根依赖未变、wheel 与安装文件一致、公开 API 使用、非空工具表、读计数反例、审批两个 ID、子进程恢复、合成凭据、有限失败和退出状态。没有源补丁；没有在最小包里提前实现后续业务。
+
+原始证据格式核对：`git diff --check c9871a6 HEAD -- .superpowers/sdd/vnext-v2/P01-evidence` 退出 2，只报告 HTTP CRLF 和 pytest 原始输出行尾空格（http-reproduction.md、initial-green-failures.txt、red.txt）。这是保留原始报文/日志字节，不清洗或改写已登记的证据摘要。排除该证据目录后，`git diff --check c9871a6 HEAD -- . ":(exclude).superpowers/sdd/vnext-v2/P01-evidence/**"` 退出 0；代码和报告正文无空白错误。
