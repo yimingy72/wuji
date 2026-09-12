@@ -1,6 +1,14 @@
 # vnext migration head
 
-Current head: `vnext_0004_p04_assessment_visibility`, following P04 knowledge
+Current head: `vnext_0005_p04_input_freshness`. The fifth migration adds
+`claim_input_current`, a scope/ACL-checked SECURITY DEFINER boolean over full
+Claim version state. It requires the referenced fixed revision to be readable,
+returns stale even when a newer revision is private, and never returns hidden
+revision numbers, IDs or counts. Both Fact aggregation (Repeatable Read) and
+ResultCommitter read_set admission (the existing Task-locked write transaction)
+consume this shared boundary. No history or original reference is rewritten.
+
+The preceding `vnext_0004_p04_assessment_visibility` follows P04 knowledge
 head `vnext_0003_p04_knowledge` and both P03 heads below. The fourth migration
 adds a fixed-search-path, scope/ACL-checked SECURITY DEFINER visibility guard.
 It returns only whether all related assessments/actions/inputs are visible;

@@ -50,14 +50,17 @@ def claim_record(tx, claim):
 
 
 def inputs_current(tx, refs):
+    """Share authoritative freshness in RR reads or Task-locked admission writes."""
     for ref in refs:
         target = resolve(tx, ref)
         if ref.entity_type.value == "claim":
-            latest = tx.connection.execute(
-                "SELECT max(revision) FROM vnext.claim_revision WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND entity_id=%s",
-                (*tx.owner, ref.id),
+            current = tx.connection.execute(
+                "SELECT vnext.claim_input_current(%s,%s,%s,%s,%s)",
+                (*tx.owner, ref.id, ref.revision.root),
             ).fetchone()[0]
-            if str(latest) != ref.revision.root:
+            if current is None:
+                raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+            if not current:
                 return False
         if ref.entity_type.value in {"artifact", "observation"}:
             env = target["environment_ref"]

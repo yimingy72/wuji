@@ -857,6 +857,7 @@ def test_migration_preserves_heads_and_rejects_unknown(db_environment):
             ("vnext_0002_p03_evidence_authority",),
             ("vnext_0003_p04_knowledge",),
             ("vnext_0004_p04_assessment_visibility",),
+            ("vnext_0005_p04_input_freshness",),
         ]
         m.execute("INSERT INTO vnext.schema_migration(head) VALUES('unknown')")
         with pytest.raises(ValueError, match="unrecognized"):
@@ -1054,3 +1055,120 @@ def test_hidden_counterevidence_cannot_turn_public_claim_into_fact(
                 TASK, access("reader-fixture", role="reader")
             )
         assert unavailable.value.code == "CAPABILITY_UNAVAILABLE"
+
+
+def test_private_new_premise_revision_invalidates_low_reader_fact(
+    db_environment, tmp_path, audit_directory
+):
+    with case(db_environment, tmp_path, audit_directory) as c:
+        with c.env.migration_connection() as m:
+            m.execute(
+                "UPDATE vnext.task_access SET clearance=0 WHERE task_id=%s AND subject='reader-fixture'",
+                (TASK,),
+            )
+        premise = post_claim(
+            c, proposal("Public premise v1", kind="observation-summary")
+        ).json()["canonical_ref"]
+        derived = post_claim(
+            c,
+            proposal(
+                "Conclusion supported by premise",
+                kind="derived-conclusion",
+                basis=[premise],
+            ),
+        ).json()["canonical_ref"]
+        assert (
+            assess(
+                c,
+                derived,
+                [premise],
+                kind="human_attestation",
+                method="human-attestation-v1",
+                role="human",
+            ).status_code
+            == 202
+        )
+        assert (
+            get_claim(c, derived, role="reader").json()["assessment"]["eligible"]
+            is True
+        )
+        private, private_obs = captured(
+            c, body=b'{"updated_premise":false}', access_level=1
+        )
+        changed = post_claim(
+            c,
+            proposal(
+                "Revised private premise v2",
+                kind="observation-summary",
+                basis=[private_obs],
+                revises=premise,
+            ),
+        )
+        assert (
+            changed.status_code == 202
+            and changed.json()["canonical_ref"]["revision"] == "2"
+        )
+        high = get_claim(c, derived, role="agent")
+        low = get_claim(c, derived, role="reader")
+        assert high.status_code == low.status_code == 200
+        assert high.json()["assessment"]["applicability_state"] == "stale"
+        assert low.json()["assessment"]["applicability_state"] == "stale", low.text
+        assert not low.json()["assessment"]["eligible"]
+        assert low.json()["assessment"]["assessment_ids"] == []
+        assert low.json()["assessment"]["conditions"] == []
+        assert low.json()["record"]["basis_refs"] == [premise]
+        for hidden in (
+            private.id,
+            private_obs["id"],
+            "Revised private premise v2",
+            "updated_premise",
+        ):
+            assert hidden not in low.text
+        with c.env.migration_connection() as m:
+            m.execute(
+                "UPDATE vnext.task_access SET can_read=false WHERE task_id=%s AND subject='reader-fixture'",
+                (TASK,),
+            )
+        assert get_claim(c, derived, role="reader").status_code == 404
+
+
+def test_result_readset_uses_authoritative_freshness_for_private_new_version(
+    db_environment, tmp_path, audit_directory
+):
+    with case(db_environment, tmp_path, audit_directory) as c:
+        with c.env.migration_connection() as m:
+            m.execute(
+                "UPDATE vnext.task_access SET clearance=0 WHERE task_id=%s AND subject='worker-fixture'",
+                (TASK,),
+            )
+        premise = post_claim(c, proposal("Public premise")).json()["canonical_ref"]
+        snapshot = SnapshotRepository(c.uow).create(
+            TASK, access("worker-fixture", role="worker")
+        )
+        private, private_obs = captured(
+            c, body=b'{"private_update":true}', access_level=1
+        )
+        changed = post_claim(
+            c, proposal("Private successor", basis=[private_obs], revises=premise)
+        )
+        assert (
+            changed.status_code == 202
+            and changed.json()["canonical_ref"]["revision"] == "2"
+        )
+        envelope = result(
+            c,
+            payload([proposal("Old snapshot analysis", basis=[premise])]),
+            snapshot=snapshot.snapshot_id,
+            read_set=[premise],
+        )
+        response = submit(c, envelope)
+        assert response.status_code == 202, response.text
+        assert response.json()["status"] == "accepted"
+        component = response.json()["components"][0]
+        assert component["code"] == "STALE_INPUT", response.text
+        read = get_claim(c, component["canonical_ref"])
+        assert any(
+            "stale_input" in text for text in read.json()["record"]["limitations"]
+        )
+        for hidden in (private.id, private_obs["id"], "Private successor"):
+            assert hidden not in response.text and hidden not in read.text

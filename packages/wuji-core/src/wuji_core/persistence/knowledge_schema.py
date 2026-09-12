@@ -228,3 +228,36 @@ def upgrade_visibility(connection, application_role):
     connection.execute(
         "INSERT INTO vnext.schema_migration(head) VALUES (%s)", (VISIBILITY_HEAD,)
     )
+
+
+FRESHNESS_HEAD = "vnext_0005_p04_input_freshness"
+
+
+def upgrade_input_freshness(connection, application_role):
+    """A scoped boolean about authoritative versions, never hidden revision data."""
+    connection.execute(
+        """CREATE FUNCTION vnext.claim_input_current(t text,p text,k text,c text,v numeric)
+        RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $$
+        DECLARE allowed_level integer;
+        BEGIN
+        IF NOT COALESCE(vnext.in_scope(t,p,k),false) THEN RETURN NULL; END IF;
+        SELECT least(a.clearance,COALESCE(NULLIF(current_setting('wuji.clearance',true),'')::integer,-1))
+        INTO allowed_level FROM vnext.task_access a WHERE a.tenant_id=t AND a.project_id=p AND a.task_id=k
+        AND a.subject=current_setting('wuji.subject',true) AND a.can_read;
+        IF allowed_level IS NULL OR NOT EXISTS(SELECT 1 FROM vnext.claim_revision x WHERE
+            x.tenant_id=t AND x.project_id=p AND x.task_id=k AND x.entity_id=c AND x.revision=v
+            AND x.access_level<=allowed_level) THEN RETURN NULL; END IF;
+        RETURN NOT EXISTS(SELECT 1 FROM vnext.claim_revision x WHERE
+            x.tenant_id=t AND x.project_id=p AND x.task_id=k AND x.entity_id=c AND x.revision>v);
+        END $$"""
+    )
+    fn = "vnext.claim_input_current(text,text,text,text,numeric)"
+    connection.execute(f"REVOKE EXECUTE ON FUNCTION {fn} FROM PUBLIC")
+    connection.execute(
+        sql.SQL(f"GRANT EXECUTE ON FUNCTION {fn} TO {{}}").format(
+            sql.Identifier(application_role)
+        )
+    )
+    connection.execute(
+        "INSERT INTO vnext.schema_migration(head) VALUES (%s)", (FRESHNESS_HEAD,)
+    )
