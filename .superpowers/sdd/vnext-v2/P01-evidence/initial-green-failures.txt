@@ -1,0 +1,42 @@
+......FF...                                                              [100%]
+=================================== FAILURES ===================================
+___ test_native_approval_restores_original_call_across_processes[approve-1] ____
+
+decision = 'approve', count = 1
+
+    @pytest.mark.parametrize("decision,count", [("approve", 1), ("reject", 0)])
+    def test_native_approval_restores_original_call_across_processes(decision, count):
+        case = results()["cases"][decision]
+        pending, resumed = [p["result"] for p in case["processes"]]
+        assert case["events_before_resume"] == []
+        assert pending["pid"] != resumed["pid"]
+        assert resumed["session_before"] == pending["session_after"]
+>       assert resumed["approval_response"]["id"] == pending["approval_request"]["id"] == "call-p01-read"
+E       AssertionError: assert 'af-call-c2a7...510b48a814f55' == 'call-p01-read'
+E         
+E         - call-p01-read
+E         + af-call-c2a7fd9d8c044b4d813510b48a814f55
+
+tests/vnext/test_dependency_probe.py:102: AssertionError
+____ test_native_approval_restores_original_call_across_processes[reject-0] ____
+
+decision = 'reject', count = 0
+
+    @pytest.mark.parametrize("decision,count", [("approve", 1), ("reject", 0)])
+    def test_native_approval_restores_original_call_across_processes(decision, count):
+        case = results()["cases"][decision]
+        pending, resumed = [p["result"] for p in case["processes"]]
+        assert case["events_before_resume"] == []
+        assert pending["pid"] != resumed["pid"]
+        assert resumed["session_before"] == pending["session_after"]
+>       assert resumed["approval_response"]["id"] == pending["approval_request"]["id"] == "call-p01-read"
+E       AssertionError: assert 'af-call-6633...6f596bbc90701' == 'call-p01-read'
+E         
+E         - call-p01-read
+E         + af-call-6633dbc2660f4d2d8b46f596bbc90701
+
+tests/vnext/test_dependency_probe.py:102: AssertionError
+=========================== short test summary info ============================
+FAILED tests/vnext/test_dependency_probe.py::test_native_approval_restores_original_call_across_processes[approve-1]
+FAILED tests/vnext/test_dependency_probe.py::test_native_approval_restores_original_call_across_processes[reject-0]
+2 failed, 9 passed in 24.08s

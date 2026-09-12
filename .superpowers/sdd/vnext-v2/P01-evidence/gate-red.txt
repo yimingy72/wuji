@@ -1,0 +1,31 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+___________ test_cli_gate_blocks_incomplete_native_approval_evidence ___________
+
+    def test_cli_gate_blocks_incomplete_native_approval_evidence():
+        import copy
+        record = copy.deepcopy(results())
+        record["cases"]["approve"]["processes"][0]["result"].pop("approval_request")
+>       assert probe.capability_outcomes(record)["approval_boundary"]["status"] == "blocked"
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'probe_maf' has no attribute 'capability_outcomes'
+
+tests/vnext/test_dependency_probe.py:149: AttributeError
+_____________ test_cli_gate_requires_observed_nonempty_tool_table ______________
+
+    def test_cli_gate_requires_observed_nonempty_tool_table():
+        import copy
+        record = copy.deepcopy(results())
+        exchange = record["cases"]["roundtrip"]["http"][0]
+        payload = json.loads(exchange["request_body"])
+        payload["tools"] = []
+        exchange["request_body"] = json.dumps(payload)
+>       assert probe.capability_outcomes(record)["tool_profile"]["status"] == "blocked"
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'probe_maf' has no attribute 'capability_outcomes'
+
+tests/vnext/test_dependency_probe.py:159: AttributeError
+=========================== short test summary info ============================
+FAILED tests/vnext/test_dependency_probe.py::test_cli_gate_blocks_incomplete_native_approval_evidence
+FAILED tests/vnext/test_dependency_probe.py::test_cli_gate_requires_observed_nonempty_tool_table
+2 failed, 11 deselected in 10.62s

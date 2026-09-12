@@ -1,0 +1,25 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_______________________ test_real_harness_tool_roundtrip _______________________
+
+    def test_real_harness_tool_roundtrip():
+>       case = results()["cases"]["roundtrip"]
+               ^^^^^^^^^
+
+tests/vnext/test_dependency_probe.py:69: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/vnext/test_dependency_probe.py:22: in results
+    return probe.run_probe(out)
+           ^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+output_dir = PosixPath('/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/p01-5iqlqz03')
+
+    def run_probe(output_dir: Path):
+>       raise NotImplementedError("P01 real SDK HTTP roundtrip has not been implemented")
+E       NotImplementedError: P01 real SDK HTTP roundtrip has not been implemented
+
+scripts/vnext/probe_maf.py:5: NotImplementedError
+=========================== short test summary info ============================
+FAILED tests/vnext/test_dependency_probe.py::test_real_harness_tool_roundtrip
+1 failed in 0.05s
