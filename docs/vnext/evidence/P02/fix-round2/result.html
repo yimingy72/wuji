@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>P02 Fix Round 2 Evidence</title>
+    <style>
+      :root { color-scheme: dark; font-family: ui-sans-serif, system-ui, sans-serif; }
+      body { margin: 0; background: #09101e; color: #eef3fb; }
+      main { max-width: 1040px; margin: 0 auto; padding: 44px 36px 60px; }
+      h1 { margin: 0 0 7px; font-size: 34px; }
+      .meta { color: #92a2bf; margin-bottom: 28px; }
+      .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+      article { background: #141e33; border: 1px solid #2b3957; border-radius: 14px; padding: 19px; }
+      .badge { display: inline-block; padding: 4px 9px; border-radius: 999px; background: #123c32; color: #70dfb1; font-size: 12px; font-weight: 750; }
+      h2 { font-size: 17px; margin: 13px 0 8px; }
+      p { color: #bec9db; line-height: 1.5; margin: 0; font-size: 14px; }
+      code { color: #d9e7ff; }
+      footer { margin-top: 22px; color: #8090ab; font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>P02 · Fix Round 2</h1>
+      <div class="meta">Code 5055f81 · 8/8 round2 · 8/8 changed consumers</div>
+      <section class="grid">
+        <article><span class="badge">R1 residual closed</span><h2>Every HTTP body is bounded</h2><p>Empty bodies replay. Missing, text, and octet-stream bodies are read within limits and safely rejected. Disconnect sends no fabricated response.</p></article>
+        <article><span class="badge">N1 closed</span><h2>Accepted routes are guarded</h2><p>Only <code>VNextAPIRouter</code> composes. A bare <code>StrictJsonRoute</code> router is rejected; VNext Decimal control remains HTTP 503.</p></article>
+        <article><span class="badge">N2 closed</span><h2>Forced rollback is truthful</h2><p>Native before/inside/after readback proves rollback. Audit records <code>force_rollback=true</code> and <code>outcome=forced_rollback</code>.</p></article>
+      </section>
+      <footer>Read-only loopback presentation of the first final-candidate run. No P01, full suite, model, network target, production, or P03 action.</footer>
+    </main>
+  </body>
+</html>

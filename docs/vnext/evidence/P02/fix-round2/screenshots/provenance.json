@@ -1,0 +1,17 @@
+{
+  "captured_at": "2026-09-13T05:13:29+08:00",
+  "capture_actor": "P02 implementer task (actual CUA capture)",
+  "source_url": "http://127.0.0.1:8765/result.html",
+  "source_transport": "read-only loopback HTTP",
+  "source_page": "../result.html",
+  "source_page_sha256": "c0bbb1e2f90da72dbd65f65709ab78cde820cd3c7172ff024f689ec1441e65f3",
+  "screenshot": "residuals.jpg",
+  "screenshot_bytes": 22752,
+  "screenshot_sha256": "579e8adf5dd029f11b9dab3f26dab8978eddcc703fba829d7592019c8198b901",
+  "observations": [
+    "R1 all HTTP request bodies bounded before media dispatch",
+    "N1 only VNextAPIRouter accepted with response guard",
+    "N2 force_rollback native readback and truthful audit outcome"
+  ],
+  "limitations": "Static presentation of first final-candidate results; not a P03 route, full-suite run, P01 rerun, external network test, or independent verification."
+}

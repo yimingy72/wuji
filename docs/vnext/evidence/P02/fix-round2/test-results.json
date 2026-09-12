@@ -1,0 +1,74 @@
+{
+  "task": "P02 fix round 2",
+  "date": "2026-09-13",
+  "base_sha": "195032dfec84962520139039b4f08814783190f3",
+  "tested_code_sha": "5055f81cbef0caa41512cc8f806e662b28174331",
+  "review_source": ".superpowers/sdd/vnext-v2/P02-round1-review.md",
+  "commands": [
+    {
+      "finding": "R1 residual",
+      "phase": "RED",
+      "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_contract_fix_round2.py -q",
+      "exit_code": 1,
+      "outcome": "5 failed, 1 passed; three unsupported/missing media bodies and one over-limit headerless body reached downstream, and disconnect entered downstream"
+    },
+    {
+      "finding": "R1 residual",
+      "phase": "GREEN",
+      "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_contract_fix_round2.py -q",
+      "selection": "the first six R1 tests before N1/N2 were added",
+      "exit_code": 0,
+      "outcome": "6 passed in 0.01s"
+    },
+    {
+      "finding": "N1 / R2",
+      "phase": "RED",
+      "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_contract_fix_round2.py::test_composition_rejects_strict_route_without_vnext_response_guard -q",
+      "exit_code": 1,
+      "outcome": "VNext control returned 503, but APIRouter(route_class=StrictJsonRoute) was accepted by create_app"
+    },
+    {
+      "finding": "N1 / R2",
+      "phase": "GREEN",
+      "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_contract_fix_round2.py::test_composition_rejects_strict_route_without_vnext_response_guard -q",
+      "exit_code": 0,
+      "outcome": "1 passed in 0.14s; VNext control remains 503 and the unguarded alternative is rejected during composition"
+    },
+    {
+      "finding": "N2 / R6",
+      "phase": "RED",
+      "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_contract_fix_round2.py::test_force_rollback_records_the_native_normal_exit_rollback -q",
+      "exit_code": 1,
+      "outcome": "native SHOW/SET/SHOW proved rollback, but transaction_enter omitted force_rollback and the recorder still selected commit"
+    },
+    {
+      "finding": "N2 / R6",
+      "phase": "GREEN",
+      "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_contract_fix_round2.py::test_force_rollback_records_the_native_normal_exit_rollback -q",
+      "exit_code": 0,
+      "outcome": "1 passed in 0.11s"
+    },
+    {
+      "phase": "final candidate",
+      "code_sha": "5055f81cbef0caa41512cc8f806e662b28174331",
+      "command": "WUJI_TEST_EVIDENCE_DIR=docs/vnext/evidence/P02/fix-round2/runtime ./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_contract_fix_round2.py -q",
+      "exit_code": 0,
+      "outcome": "8 passed in 0.32s"
+    },
+    {
+      "phase": "changed consumers",
+      "code_sha": "5055f81cbef0caa41512cc8f806e662b28174331",
+      "command": "WUJI_TEST_EVIDENCE_DIR=docs/vnext/evidence/P02/fix-round2/runtime ./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_contract_fix_round1.py -q -k 'chunked_json_body or json_boundary_terminates or replays_the_original or create_app_rejects or ordinary_endpoint or recorded_database'",
+      "exit_code": 0,
+      "outcome": "8 passed, 21 deselected in 0.70s"
+    }
+  ],
+  "not_run": [
+    "P01",
+    "entire original P02 suite",
+    "entire fix-round1 suite",
+    "contract generation and TypeScript because no schema/type changed",
+    "load/stress matrix",
+    "model, provider, external network, production, or P03"
+  ]
+}
