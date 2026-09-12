@@ -218,7 +218,7 @@ class StrictJsonMiddleware:
         async def replay_body() -> Message:
             nonlocal delivered
             if delivered:
-                return {"type": "http.request", "body": b"", "more_body": False}
+                return await receive()
             delivered = True
             return {"type": "http.request", "body": body, "more_body": False}
 

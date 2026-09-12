@@ -136,6 +136,36 @@ def test_disconnect_terminates_before_downstream_without_a_fabricated_response()
     assert sent == []
 
 
+def test_replay_forwards_real_disconnect_after_the_cached_body() -> None:
+    original_messages = iter(
+        [
+            {"type": "http.request", "body": b"", "more_body": False},
+            {"type": "http.disconnect"},
+        ]
+    )
+    observed: list[dict[str, object]] = []
+
+    async def receive():
+        await asyncio.sleep(0)
+        return next(original_messages)
+
+    async def send(message):
+        return None
+
+    async def downstream(scope, replay, send):
+        observed.append(await replay())
+        observed.append(await replay())
+
+    scope = _scope(None)
+    scope["method"] = "GET"
+    asyncio.run(StrictJsonMiddleware(downstream)(scope, receive, send))
+
+    assert [message["type"] for message in observed] == [
+        "http.request",
+        "http.disconnect",
+    ]
+
+
 def test_composition_rejects_strict_route_without_vnext_response_guard(
     api_client, test_tokens
 ) -> None:
