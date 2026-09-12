@@ -1,0 +1,11 @@
+Command:
+./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_contract_fix_round2.py::test_replay_forwards_real_disconnect_after_the_cached_body -q
+
+Exit code: 1
+
+Observed assertion:
+assert ['http.request', 'http.request'] == ['http.request', 'http.disconnect']
+At index 1 diff: 'http.request' != 'http.disconnect'
+
+Summary:
+1 failed in 0.05s

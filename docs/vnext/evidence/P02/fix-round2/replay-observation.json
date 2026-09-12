@@ -1,0 +1,39 @@
+{
+  "finding": "production ASGI replay follow-up",
+  "base_sha": "7348ee8d4e43c071c11e04a079077c204f1aa516",
+  "tested_code_sha": "a62a508c938cc9e78e4fa253c47f5d3b840bcf10",
+  "original_receive_sequence": [
+    {
+      "type": "http.request",
+      "body_base64": "",
+      "more_body": false
+    },
+    {
+      "type": "http.disconnect"
+    }
+  ],
+  "downstream_awaits": 2,
+  "before": {
+    "observed_types": [
+      "http.request",
+      "http.request"
+    ],
+    "expected_types": [
+      "http.request",
+      "http.disconnect"
+    ],
+    "exit_code": 1,
+    "outcome": "assertion failed at index 1"
+  },
+  "after": {
+    "observed_types": [
+      "http.request",
+      "http.disconnect"
+    ],
+    "exit_code": 0,
+    "outcome": "cached first body replayed once; second await delegated to original receive"
+  },
+  "final_command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_contract_fix_round2.py::test_replay_forwards_real_disconnect_after_the_cached_body tests/vnext/test_contract_fix_round1.py::test_strict_json_boundary_replays_the_original_body_bytes -q",
+  "final_output": "2 passed in 0.02s",
+  "scope": "direct in-memory ASGI receive/send; no HTTPX, network, StreamingResponse stress, P01, full P02, P03, model, or production call"
+}

@@ -1,0 +1,8 @@
+Command:
+./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_contract_fix_round2.py::test_replay_forwards_real_disconnect_after_the_cached_body tests/vnext/test_contract_fix_round1.py::test_strict_json_boundary_replays_the_original_body_bytes -q
+
+Exit code: 0
+
+Output:
+..                                                                       [100%]
+2 passed in 0.02s
