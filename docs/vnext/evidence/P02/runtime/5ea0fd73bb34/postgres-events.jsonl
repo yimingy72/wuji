@@ -1,0 +1,25 @@
+{"operation": "admin_execute", "phase": "setup", "request": {"params": null, "sql": "CREATE ROLE \"wuji_migration_4dc11ad562a1\" NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS"}}
+{"operation": "admin_execute_receipt", "phase": "setup", "response": {"rowcount": -1, "statusmessage": "CREATE ROLE"}}
+{"operation": "admin_execute", "phase": "setup", "request": {"params": null, "sql": "CREATE ROLE \"wuji_app_4dc11ad562a1\" LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS"}}
+{"operation": "admin_execute_receipt", "phase": "setup", "response": {"rowcount": -1, "statusmessage": "CREATE ROLE"}}
+{"operation": "admin_execute", "phase": "setup", "request": {"params": null, "sql": "CREATE DATABASE \"wuji_p02_4dc11ad562a1\" OWNER \"wuji_migration_4dc11ad562a1\""}}
+{"operation": "admin_execute_receipt", "phase": "setup", "response": {"rowcount": -1, "statusmessage": "CREATE DATABASE"}}
+{"operation": "admin_execute", "phase": "setup", "request": {"params": null, "sql": "GRANT CONNECT ON DATABASE \"wuji_p02_4dc11ad562a1\" TO \"wuji_app_4dc11ad562a1\""}}
+{"operation": "admin_execute_receipt", "phase": "setup", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "admin_execute", "phase": "setup", "request": {"params": null, "sql": "CREATE SCHEMA vnext AUTHORIZATION \"wuji_migration_4dc11ad562a1\""}}
+{"operation": "admin_execute_receipt", "phase": "setup", "response": {"rowcount": -1, "statusmessage": "CREATE SCHEMA"}}
+{"operation": "admin_execute", "phase": "setup", "request": {"params": null, "sql": "GRANT USAGE ON SCHEMA vnext TO \"wuji_app_4dc11ad562a1\""}}
+{"operation": "admin_execute_receipt", "phase": "setup", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "application_connect", "request": {"database": "wuji_p02_4dc11ad562a1", "network": "unix_socket", "user": "wuji_app_4dc11ad562a1"}, "response": "connected"}
+{"operation": "execute", "request": {"params": null, "sql": "\n        SELECT\n            current_setting('server_version_num'),\n            current_database(),\n            current_user,\n            owner.rolname,\n            app.rolsuper,\n            app.rolbypassrls,\n            has_database_privilege(current_user, current_database(), 'CREATE')\n        FROM pg_database AS database\n        JOIN pg_roles AS owner ON owner.oid = database.datdba\n        JOIN pg_roles AS app ON app.rolname = current_user\n        WHERE database.datname = current_database()\n        "}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["160002", "wuji_p02_4dc11ad562a1", "wuji_app_4dc11ad562a1", "wuji_migration_4dc11ad562a1", false, false, false]}
+{"operation": "close", "response": "ok"}
+{"operation": "admin_execute", "phase": "cleanup", "request": {"params": ["wuji_p02_4dc11ad562a1"], "sql": "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = %s AND pid <> pg_backend_pid()"}}
+{"operation": "admin_execute_receipt", "phase": "cleanup", "response": {"rowcount": 0, "statusmessage": "SELECT 0"}}
+{"operation": "admin_execute", "phase": "cleanup", "request": {"params": null, "sql": "DROP DATABASE \"wuji_p02_4dc11ad562a1\""}}
+{"operation": "admin_execute_receipt", "phase": "cleanup", "response": {"rowcount": -1, "statusmessage": "DROP DATABASE"}}
+{"operation": "admin_execute", "phase": "cleanup", "request": {"params": null, "sql": "DROP ROLE \"wuji_app_4dc11ad562a1\""}}
+{"operation": "admin_execute_receipt", "phase": "cleanup", "response": {"rowcount": -1, "statusmessage": "DROP ROLE"}}
+{"operation": "admin_execute", "phase": "cleanup", "request": {"params": null, "sql": "DROP ROLE \"wuji_migration_4dc11ad562a1\""}}
+{"operation": "admin_execute_receipt", "phase": "cleanup", "response": {"rowcount": -1, "statusmessage": "DROP ROLE"}}

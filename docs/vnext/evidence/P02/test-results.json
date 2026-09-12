@@ -1,0 +1,167 @@
+{
+  "task": "P02",
+  "date": "2026-09-13",
+  "tested_code_sha": "20f9199182d2b016428524997d5c688dbf4ab941",
+  "environment": {
+    "python": "3.13.15",
+    "uv": "0.12.11",
+    "node": "24.20.0",
+    "pnpm": "10.32.1",
+    "postgresql": "16.2",
+    "postgresql_transport": "Unix socket only",
+    "model_calls": "none"
+  },
+  "commands": [
+    {
+      "phase": "pre-P02 baseline",
+      "code_sha": "ebe1e86cdf9049c3b736daa1a8b152111911f52f",
+      "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext -q",
+      "exit_code": 0,
+      "outcome": "20 passed in 13.78s",
+      "scope_note": "This run occurred before the coordinator restriction and included the existing P01 vNext tests. It is not described as a P02-only run and was not repeated."
+    },
+    {
+      "phase": "scaffold collection",
+      "code_sha": null,
+      "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_contract_shapes.py -q",
+      "exit_code": 2,
+      "outcome": "ModuleNotFoundError for wuji_core.contracts, then wuji_core.http",
+      "scope_note": "Collection/scaffolding signals only; not counted as behavior RED evidence."
+    },
+    {
+      "phase": "behavior RED",
+      "code_sha": null,
+      "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_contract_shapes.py -q -k 'asgi or issuer_signed'",
+      "exit_code": 1,
+      "outcome": "2 passed, 3 failed: fail-closed verifier rejected the valid issuer token and prevented strict JSON route dispatch",
+      "test_names": [
+        "test_issuer_signed_identity_reaches_the_real_asgi_route",
+        "test_asgi_boundary_rejects_unsafe_json_before_route_dispatch"
+      ]
+    },
+    {
+      "phase": "behavior GREEN",
+      "code_sha": null,
+      "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_contract_shapes.py -q -k 'asgi or issuer_signed'",
+      "exit_code": 0,
+      "outcome": "5 passed, 37 deselected after RS256/issuer/audience/time/subject/tenant/role validation"
+    },
+    {
+      "phase": "strict JSON negative control",
+      "code_sha": null,
+      "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_contract_shapes.py -q -k 'duplicate_json_keys or nonfinite_json_numbers'",
+      "exit_code": 1,
+      "outcome": "4 failed with DID NOT RAISE after temporarily replacing strict hooks with standard json.loads",
+      "test_names": [
+        "test_duplicate_json_keys_are_rejected_before_model_validation",
+        "test_nonfinite_json_numbers_are_rejected[NaN]",
+        "test_nonfinite_json_numbers_are_rejected[Infinity]",
+        "test_nonfinite_json_numbers_are_rejected[-Infinity]"
+      ]
+    },
+    {
+      "phase": "strict JSON GREEN",
+      "code_sha": null,
+      "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_contract_shapes.py -q -k 'duplicate_json_keys or nonfinite_json_numbers or asgi_boundary_rejects_unsafe_json'",
+      "exit_code": 0,
+      "outcome": "6 passed, 47 deselected after restoring duplicate/nonfinite rejection"
+    },
+    {
+      "phase": "public error leak RED",
+      "code_sha": null,
+      "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_contract_shapes.py::test_asgi_model_validation_uses_the_versioned_error_envelope -q",
+      "exit_code": 1,
+      "outcome": "Response error item contained input and ctx"
+    },
+    {
+      "phase": "public error leak GREEN",
+      "code_sha": null,
+      "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_contract_shapes.py::test_asgi_model_validation_uses_the_versioned_error_envelope -q",
+      "exit_code": 0,
+      "outcome": "1 passed; public error item contains only type, loc, and a fixed safe message; sensitive sentinels are absent"
+    },
+    {
+      "phase": "nested assessment RED",
+      "code_sha": null,
+      "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_contract_shapes.py::test_assessment_command_cannot_wrap_model_only_supported_assessment -q",
+      "exit_code": 1,
+      "outcome": "DID NOT RAISE before the command-level policy composition"
+    },
+    {
+      "phase": "nested assessment GREEN",
+      "code_sha": null,
+      "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_contract_shapes.py::test_assessment_command_cannot_wrap_model_only_supported_assessment -q",
+      "exit_code": 0,
+      "outcome": "1 passed"
+    },
+    {
+      "phase": "generator freshness RED",
+      "code_sha": null,
+      "command": "./scripts/vnext/uv.sh run --frozen python scripts/vnext/generate_contracts.py --check",
+      "exit_code": 1,
+      "outcome": "Both generated.py and generated.ts reported stale after an OpenAPI change"
+    },
+    {
+      "phase": "PostgreSQL fixture diagnosis",
+      "code_sha": null,
+      "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_contract_shapes.py::test_db_conn_is_real_postgres_in_an_isolated_nonowner_database -q",
+      "exit_code": 1,
+      "outcome": "Fixture reached real role/database/schema setup, then failed because user was passed twice to psycopg.connect; generated objects were cleaned"
+    },
+    {
+      "phase": "PostgreSQL fixture GREEN",
+      "code_sha": null,
+      "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_contract_shapes.py::test_db_conn_is_real_postgres_in_an_isolated_nonowner_database -q",
+      "exit_code": 0,
+      "outcome": "1 passed in 0.15s"
+    },
+    {
+      "phase": "final contract generation and lint",
+      "code_sha": "20f9199182d2b016428524997d5c688dbf4ab941",
+      "command": "work/toolchain/bin/pnpm contracts:check:v2",
+      "exit_code": 0,
+      "outcome": "Generated Python and TypeScript v2 contracts match OpenAPI; Redocly reports the API description valid"
+    },
+    {
+      "phase": "final TypeScript validation",
+      "code_sha": "20f9199182d2b016428524997d5c688dbf4ab941",
+      "command": "work/toolchain/bin/pnpm exec tsc --noEmit --skipLibCheck --target ES2024 --module NodeNext --moduleResolution NodeNext packages/contracts/src/v2/generated.ts",
+      "exit_code": 0,
+      "outcome": "No output; generated TypeScript compiled"
+    },
+    {
+      "phase": "final collection",
+      "code_sha": "20f9199182d2b016428524997d5c688dbf4ab941",
+      "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_contract_shapes.py --collect-only -q",
+      "exit_code": 0,
+      "outcome": "59 tests collected in 0.04s",
+      "test_names_path": "test-names.txt"
+    },
+    {
+      "phase": "final P02 test",
+      "code_sha": "20f9199182d2b016428524997d5c688dbf4ab941",
+      "command": "WUJI_TEST_EVIDENCE_DIR=docs/vnext/evidence/P02/runtime ./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_contract_shapes.py -q",
+      "exit_code": 0,
+      "outcome": "59 passed in 1.99s"
+    },
+    {
+      "phase": "fixture cleanup readback",
+      "code_sha": "20f9199182d2b016428524997d5c688dbf4ab941",
+      "command": "vNext psycopg read-only query for wuji_p02_ databases and wuji_app_/wuji_migration_ roles",
+      "exit_code": 0,
+      "outcome": "remaining_databases=[], remaining_roles=[]"
+    }
+  ],
+  "acceptance": {
+    "AC-019": {
+      "status": "partial",
+      "covered_here": "Exact WorkState set, complete published direct-edge set, no superseded Work state, terminal-to-ready rejection.",
+      "remaining": "P05 must prove persisted command/state guards and intent_superseded cancellation reasons."
+    },
+    "AC-075": {
+      "status": "partial",
+      "covered_here": "P02 test path collects 59 tests; v2 generation/lint and generated TS compilation execute with exit codes.",
+      "remaining": "P17/P20 must collect Node Supervisor, formal web, v2 browser configuration, and aggregate fail/not_run/blocked without promoting them to pass."
+    }
+  }
+}

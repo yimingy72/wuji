@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>P02 HTTP Boundary Evidence</title>
+    <style>
+      :root { color-scheme: dark; font-family: ui-sans-serif, system-ui, sans-serif; }
+      body { margin: 0; background: #0b1020; color: #e7ecf7; }
+      main { max-width: 1080px; margin: 0 auto; padding: 44px 36px 64px; }
+      h1 { margin: 0 0 8px; font-size: 34px; letter-spacing: -0.02em; }
+      .meta { color: #9eabc5; margin-bottom: 30px; }
+      .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+      article { background: #151d33; border: 1px solid #29344f; border-radius: 14px; padding: 20px; }
+      .status { display: inline-block; border-radius: 999px; padding: 5px 10px; font-weight: 700; }
+      .ok { background: #123e32; color: #77e0ba; }
+      .blocked { background: #422b19; color: #ffbc7a; }
+      h2 { font-size: 18px; margin: 16px 0 10px; }
+      p { color: #bdc7da; line-height: 1.55; }
+      pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #090e1a; border-radius: 9px; padding: 13px; color: #cfe0ff; font: 13px/1.5 ui-monospace, monospace; }
+      footer { margin-top: 24px; color: #8290ab; font-size: 13px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>P02 · Versioned HTTP Boundary</h1>
+      <div class="meta">Observed on code 20f9199182d2 · 59/59 P02 tests · synthetic identities only</div>
+      <section class="grid">
+        <article>
+          <span class="status ok">HTTP 200</span>
+          <h2>Issuer-signed identity</h2>
+          <p>RS256 signature, issuer, audience, expiry, subject, tenant and role claims passed the production ASGI verifier.</p>
+          <pre>{
+  "subject": "agent-fixture",
+  "tenant_id": "tenant-fixture",
+  "roles": ["agent"]
+}</pre>
+        </article>
+        <article>
+          <span class="status blocked">HTTP 422</span>
+          <h2>Strict JSON rejection</h2>
+          <p>A non-standard NaN value was rejected before route dispatch. Duplicate object keys follow the same boundary.</p>
+          <pre>{
+  "code": "INVALID_SCHEMA",
+  "retryable": false,
+  "details": {}
+}</pre>
+        </article>
+        <article>
+          <span class="status blocked">HTTP 422</span>
+          <h2>Safe validation error</h2>
+          <p>Public errors retain type and location while excluding Pydantic input, ctx and candidate content.</p>
+          <pre>{
+  "type": "enum",
+  "loc": ["body", "kind"],
+  "msg": "Input does not satisfy the field contract."
+}</pre>
+        </article>
+      </section>
+      <footer>Read-only evidence page served over 127.0.0.1 for screenshot capture. Full HTTP packets and raw ASGI records are stored beside this page.</footer>
+    </main>
+  </body>
+</html>

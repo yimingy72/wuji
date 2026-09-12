@@ -1,0 +1,17 @@
+{
+  "captured_at": "2026-09-13T03:45:22+08:00",
+  "capture_actor": "main agent",
+  "source_url": "http://127.0.0.1:8765/result.html",
+  "source_transport": "read-only loopback HTTP",
+  "source_page": "../result.html",
+  "source_page_sha256": "0ada826e53ad5aa4d4d74d38c3b229283a336a3340abe17ac1be2f53a9858227",
+  "screenshot": "http-boundary.jpg",
+  "screenshot_bytes": 31165,
+  "screenshot_sha256": "be5e51f74b526c40b325edaaeb9ebd5409584e05c03eb36f2db7c6d7745ff0a8",
+  "observations": [
+    "HTTP 200 issuer-signed identity result",
+    "HTTP 422 strict JSON rejection result",
+    "HTTP 422 safe validation error result without public input/ctx"
+  ],
+  "limitations": "The page presents previously recorded ASGI outcomes and is not a P03 business route or browser end-to-end product test."
+}
