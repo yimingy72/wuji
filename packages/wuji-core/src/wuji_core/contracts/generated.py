@@ -330,13 +330,26 @@ class AssertionRole(StrEnum):
     hypothesis = 'hypothesis'
 
 
-class AssessmentCommand(BaseModel):
+class AssessmentCommand(_JsonSchemaRuntimeValidationBase):
     model_config = ConfigDict(
         extra='forbid',
     )
+    __json_schema_unique_items__: ClassVar[tuple[tuple[object, ...], ...]] = (
+        (('supersedes_assessment_ids',),),
+    )
+
+    supersedes_assessment_ids: Annotated[
+        list[SupersedesAssessmentId] | None,
+        Field(max_length=128, validate_default=True),
+    ] = []
+    supersedes_reason: SupersedesReason | None = None
     schema_version: ApiSchemaVersion
     expected_version: RevisionString
     assessment: FactAssessment
+
+
+class AssessmentId(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
 
 
 class AssessmentMethod(StrEnum):
@@ -485,6 +498,20 @@ class ChatToolDefinition(BaseModel):
     function: Function
 
 
+class ClaimAssessmentView(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    policy_version: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    grounding_state: GroundingState
+    evidence_state: EvidenceState
+    applicability_state: ApplicabilityState
+    eligible: StrictBool
+    assessment_ids: Annotated[list[AssessmentId], Field(max_length=1024)]
+    conditions: Annotated[list[Condition3], Field(max_length=1024)]
+    limitations: Annotated[list[Limitation3], Field(max_length=1024)]
+
+
 class ClaimKind(StrEnum):
     observation_summary = 'observation-summary'
     hypothesis = 'hypothesis'
@@ -495,6 +522,7 @@ class ClaimProposal(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
     )
+    revises: KnowledgeRef | None = None
     client_ref: Annotated[StrictStr, Field(max_length=256, min_length=1)]
     kind: ClaimKind
     assertion_role: AssertionRole
@@ -602,6 +630,10 @@ class Condition2(RootModel[StrictStr]):
     root: Annotated[StrictStr, Field(min_length=1)]
 
 
+class Condition3(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=8192, min_length=1)]
+
+
 class Content(RootModel[StrictStr]):
     root: Annotated[StrictStr, Field(max_length=1048576)]
 
@@ -671,6 +703,7 @@ class ErrorCode(StrEnum):
     NOT_FOUND_OR_FORBIDDEN = 'NOT_FOUND_OR_FORBIDDEN'
     STALE_VERSION = 'STALE_VERSION'
     STALE_EXECUTION = 'STALE_EXECUTION'
+    STALE_INPUT = 'STALE_INPUT'
     INPUT_DIGEST_CONFLICT = 'INPUT_DIGEST_CONFLICT'
     OPERATION_UNKNOWN = 'OPERATION_UNKNOWN'
     SNAPSHOT_EXPIRED = 'SNAPSHOT_EXPIRED'
@@ -936,6 +969,10 @@ class Limitation2(RootModel[StrictStr]):
     root: Annotated[StrictStr, Field(min_length=1)]
 
 
+class Limitation3(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=8192, min_length=1)]
+
+
 class ModelMode(StrEnum):
     synthetic = 'synthetic'
     real = 'real'
@@ -1048,6 +1085,7 @@ class RecordView(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
     )
+    assessment: ClaimAssessmentView | None = None
     ref: KnowledgeRef
     display_kind: Annotated[StrictStr, Field(max_length=128, min_length=1)]
     record: RecordPayload
@@ -1077,7 +1115,12 @@ class ResultEnvelope(BaseModel):
     read_set: Annotated[list[KnowledgeRef], Field(max_length=4096)]
     raw_output_ref: BlobRef
     raw_output_digest: Sha256Digest
-    payload: AgentPayload
+    payload: Annotated[
+        Any,
+        Field(
+            description='Untrusted JSON value or null; validate AgentPayload only after sealing and receiving raw output.'
+        ),
+    ]
     producer_version: Annotated[StrictStr, Field(max_length=256, min_length=1)]
 
 
@@ -1232,6 +1275,14 @@ class StartStatus(StrEnum):
 
 class State(RootModel[StrictStr]):
     root: Annotated[StrictStr, Field(max_length=128, min_length=1)]
+
+
+class SupersedesAssessmentId(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+
+
+class SupersedesReason(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=8192, min_length=1)]
 
 
 class SuspensionCause(StrEnum):

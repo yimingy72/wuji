@@ -51,6 +51,44 @@ def capture_disposition(tx, attempt):
     raise DomainError("STALE_EXECUTION", 403)
 
 
+def bound_run(tx, run_id, identity=None):
+    if (
+        not tx.access.principal.roles.intersection({"worker", "supervisor"})
+        or "agent" in tx.access.principal.roles
+    ):
+        raise DomainError("NOT_FOUND_OR_FORBIDDEN", 403)
+    run = row(
+        tx.connection.execute(
+            """SELECT r.*,b.agent_subject,b.can_settle AS binding_can_settle
+        FROM vnext.agent_run r JOIN vnext.run_writer b USING(tenant_id,project_id,task_id,agent_run_id)
+        WHERE r.tenant_id=%s AND r.project_id=%s AND r.task_id=%s AND r.agent_run_id=%s
+        AND b.subject=%s AND NOT b.revoked""",
+            (*tx.owner, run_id, tx.access.principal.subject),
+        )
+    )
+    if run is None:
+        raise DomainError("NOT_FOUND_OR_FORBIDDEN", 403)
+    if identity is not None:
+        values = identity.model_dump(mode="json")
+        if any(str(run[key]) != str(value) for key, value in values.items()):
+            raise DomainError("STALE_EXECUTION", 403)
+    return run
+
+
+def run_disposition(tx, run):
+    current = (
+        tx.task["execution_allowed"]
+        and run["execution_allowed"]
+        and tx.task["execution_epoch"] == run["execution_epoch"]
+        and tx.task["runtime_attempt"] == run["runtime_attempt"]
+    )
+    if current and tx.permissions["can_write"]:
+        return "accepted"
+    if not current and tx.permissions["can_settle"] and run["binding_can_settle"]:
+        return "historical_only"
+    raise DomainError("STALE_EXECUTION", 403)
+
+
 class ArtifactStore:
     def __init__(self, uow, root: Path, *, max_bytes=8 * 1024 * 1024):
         self.uow, self.root, self.max_bytes = uow, Path(root).resolve(), max_bytes
@@ -158,6 +196,93 @@ class ArtifactStore:
                 os.close(fd)
         return ref
 
+    def stage_model_output(
+        self,
+        access,
+        task_id,
+        agent_run_id,
+        data: bytes,
+        media_type: str,
+        *,
+        access_level=0,
+    ):
+        """A real Run writer can stage final output without inventing a ToolAttempt."""
+        if not isinstance(data, bytes) or len(data) > self.max_bytes:
+            raise DomainError("LIMIT_BLOCKED", 422)
+        if (
+            not isinstance(media_type, str)
+            or not 1 <= len(media_type) <= 256
+            or "\r" in media_type
+            or "\n" in media_type
+            or type(access_level) is not int
+            or access_level < 0
+        ):
+            raise DomainError("INVALID_SCHEMA", 422)
+        ref = BlobRef.model_validate(
+            dict(id=str(uuid4()), version="1", sha256=hashlib.sha256(data).hexdigest())
+        )
+        with self.uow.transaction(access, task_id, capability="model_output") as tx:
+            run = bound_run(tx, agent_run_id)
+            run_disposition(tx, run)
+            tx.connection.execute(
+                """INSERT INTO vnext.artifact(tenant_id,project_id,task_id,entity_id,revision,
+                state,storage_key,sha256,size_bytes,media_type,agent_run_id,writer_subject,provenance,evidence_origin,
+                capture_layer,environment_ref,completeness,conditions_json,access_level)
+                VALUES(%s,%s,%s,%s,1,'staged',%s,%s,%s,%s,%s,%s,'model_output','imported_unverified',
+                'model_output',%s,'complete','[]',%s)""",
+                (
+                    *tx.owner,
+                    ref.id,
+                    uuid4(),
+                    ref.sha256.root,
+                    len(data),
+                    media_type,
+                    agent_run_id,
+                    access.principal.subject,
+                    run["environment_ref"],
+                    access_level,
+                ),
+            )
+            tx.connection.execute(
+                """INSERT INTO vnext.artifact_lease(tenant_id,project_id,task_id,artifact_id,
+                artifact_revision,lease_owner,expires_at,access_level) VALUES(%s,%s,%s,%s,1,'staging',
+                clock_timestamp()+interval '5 minutes',%s)""",
+                (*tx.owner, ref.id, access_level),
+            )
+        with self.uow.transaction(access, task_id, capability="model_output") as tx:
+            run_disposition(tx, bound_run(tx, agent_run_id))
+            record = self.record(tx, ref, lock=True)
+            with self._path(record).open("xb") as stream:
+                stream.write(data)
+                stream.flush()
+                os.fsync(stream.fileno())
+            self._path(record).chmod(0o400)
+            fd = os.open(self.root, os.O_RDONLY)
+            try:
+                os.fsync(fd)
+            finally:
+                os.close(fd)
+        return ref
+
+    def _mutation_capability(self, access, task_id, ref):
+        with self.uow.transaction(access, task_id) as tx:
+            record = self.record(tx, ref)
+            if record["agent_run_id"] is not None:
+                bound_run(tx, record["agent_run_id"])
+                return "model_output"
+        require_collector(access)
+        return "evidence"
+
+    def _authorize_mutation(self, tx, record, *, disposition=True):
+        if record["agent_run_id"] is not None:
+            run = bound_run(tx, record["agent_run_id"])
+            if disposition:
+                run_disposition(tx, run)
+        else:
+            attempt = bound_attempt(tx, record["tool_attempt_id"])
+            if disposition:
+                capture_disposition(tx, attempt)
+
     def record(self, tx, ref, *, lock=False):
         result = row(
             tx.connection.execute(
@@ -189,10 +314,10 @@ class ArtifactStore:
         return data
 
     def seal(self, access, task_id, ref):
-        require_collector(access)
-        with self.uow.transaction(access, task_id, capability="evidence") as tx:
+        capability = self._mutation_capability(access, task_id, ref)
+        with self.uow.transaction(access, task_id, capability=capability) as tx:
             record = self.record(tx, ref, lock=True)
-            capture_disposition(tx, bound_attempt(tx, record["tool_attempt_id"]))
+            self._authorize_mutation(tx, record)
             self.checked_bytes(record)
             if record["state"] == "staged":
                 tx.connection.execute(
@@ -221,16 +346,16 @@ class ArtifactStore:
         ).decode("ascii")
 
     def acquire_lease(self, access, task_id, ref, *, lease_owner, seconds=300):
-        require_collector(access)
+        capability = self._mutation_capability(access, task_id, ref)
         if (
             not isinstance(lease_owner, str)
             or not 1 <= len(lease_owner) <= 256
             or not 0 < seconds <= 3600
         ):
             raise DomainError("INVALID_SCHEMA", 422)
-        with self.uow.transaction(access, task_id, capability="evidence") as tx:
+        with self.uow.transaction(access, task_id, capability=capability) as tx:
             record = self.record(tx, ref, lock=True)
-            capture_disposition(tx, bound_attempt(tx, record["tool_attempt_id"]))
+            self._authorize_mutation(tx, record)
             tx.connection.execute(
                 """INSERT INTO vnext.artifact_lease(tenant_id,project_id,task_id,artifact_id,artifact_revision,lease_owner,expires_at,access_level)
                 VALUES (%s,%s,%s,%s,%s,%s,clock_timestamp()+%s*interval '1 second',%s)
@@ -246,10 +371,10 @@ class ArtifactStore:
             )
 
     def release_lease(self, access, task_id, ref, *, lease_owner):
-        require_collector(access)
-        with self.uow.transaction(access, task_id, capability="evidence") as tx:
+        capability = self._mutation_capability(access, task_id, ref)
+        with self.uow.transaction(access, task_id, capability=capability) as tx:
             record = self.record(tx, ref, lock=True)
-            bound_attempt(tx, record["tool_attempt_id"])
+            self._authorize_mutation(tx, record, disposition=False)
             tx.connection.execute(
                 "DELETE FROM vnext.artifact_lease WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND artifact_id=%s AND artifact_revision=%s AND lease_owner=%s",
                 (*tx.owner, ref.id, ref.version.root, lease_owner),

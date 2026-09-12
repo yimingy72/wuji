@@ -14,16 +14,17 @@ from wuji_core.persistence.uow import DomainError, json_text, row
 
 @dataclass(frozen=True)
 class SnapshotQuery:
-    entity_types: tuple[str, ...] = ("artifact", "observation", "claim")
+    entity_types: tuple[str, ...] = ("artifact", "observation", "claim", "intent")
     max_references: int = 1000
 
     def __post_init__(self):
         if (
             not self.entity_types
-            or len(self.entity_types) > 3
+            or len(self.entity_types) > 4
             or len(set(self.entity_types)) != len(self.entity_types)
             or any(
-                t not in {"artifact", "observation", "claim"} for t in self.entity_types
+                t not in {"artifact", "observation", "claim", "intent"}
+                for t in self.entity_types
             )
             or isinstance(self.max_references, bool)
             or not 1 <= self.max_references <= 5000
@@ -128,6 +129,32 @@ class SnapshotRepository:
                                 "target": _ref(t, i, v).model_dump(mode="json"),
                             }
                         )
+                if kind == "claim":
+                    # Assessment inputs need their own fixed closure even when the
+                    # original candidate had no basis or cited different evidence.
+                    for t, i, v, level in tx.connection.execute(
+                        """SELECT ai.entity_type,ai.entity_id,ai.revision,ai.access_level
+                        FROM vnext.assessment_input ai JOIN vnext.assessment a
+                        USING(tenant_id,project_id,task_id,assessment_id)
+                        WHERE a.claim_id=%s AND a.claim_revision=%s AND a.revision=ai.assessment_revision""",
+                        (entity_id, revision),
+                    ).fetchall():
+                        targets.append((t, i, str(v), level))
+                elif kind == "intent":
+                    for t, i, v, level in tx.connection.execute(
+                        "SELECT source_type,source_id,source_revision,access_level FROM vnext.entity_relation WHERE target_type='intent' AND target_id=%s AND target_revision=%s AND relation='input_to'",
+                        (entity_id, revision),
+                    ).fetchall():
+                        targets.append((t, i, str(v), level))
+                        relations.append(
+                            {
+                                "source": _ref(t, i, v).model_dump(mode="json"),
+                                "relation": "input_to",
+                                "target": _ref(kind, entity_id, revision).model_dump(
+                                    mode="json"
+                                ),
+                            }
+                        )
                 for t, i, v, level in targets:
                     if (t, i, v) not in refs:
                         refs[(t, i, v)] = level
@@ -172,6 +199,28 @@ class SnapshotRepository:
                 i: {"process_state": s, "model_mode": m, "run_epoch": str(v)}
                 for i, s, m, v in runs
             }
+            # Freeze P04 assessment policy/outcome in the same RR manifest transaction.
+            from wuji_core.blackboard.fact_view import aggregate
+
+            states["claim_assessments"] = {}
+            for kind, entity_id, revision in refs:
+                if kind == "claim":
+                    claim = row(
+                        tx.connection.execute(
+                            "SELECT * FROM vnext.claim_revision WHERE entity_id=%s AND revision=%s",
+                            (entity_id, revision),
+                        )
+                    )
+                    # P03 historical fixtures may not bind a policy yet. Such snapshots
+                    # cannot later claim a historical fact outcome they never froze.
+                    bound = tx.connection.execute(
+                        "SELECT 1 FROM vnext.task_assessment_policy WHERE task_id=%s",
+                        (task_id,),
+                    ).fetchone()
+                    if bound:
+                        states["claim_assessments"][entity_id + "@" + revision] = (
+                            aggregate(tx, claim).model_dump(mode="python")
+                        )
             snapshot_id = str(uuid4())
             now = datetime.now(timezone.utc)
             expires = now + timedelta(seconds=self.ttl_seconds)
@@ -281,6 +330,7 @@ class SnapshotRepository:
                 raise DomainError("INVALID_REFERENCE", 422)
             tables = {
                 "claim": "claim_revision",
+                "intent": "intent_revision",
                 "observation": "observation",
                 "artifact": "artifact",
             }

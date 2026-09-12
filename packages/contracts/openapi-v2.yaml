@@ -242,6 +242,7 @@ paths:
         - $ref: '#/components/parameters/RecordType'
         - $ref: '#/components/parameters/RecordId'
         - $ref: '#/components/parameters/RevisionQuery'
+        - $ref: '#/components/parameters/SnapshotIdQuery'
       responses:
         '200':
           description: Authorized immutable record revision
@@ -368,6 +369,8 @@ paths:
   /internal/v2/results:
     post:
       operationId: submitResultV2
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
       summary: Receive a trusted result envelope
       tags: [Internal]
       requestBody:
@@ -789,6 +792,7 @@ components:
         - NOT_FOUND_OR_FORBIDDEN
         - STALE_VERSION
         - STALE_EXECUTION
+        - STALE_INPUT
         - INPUT_DIGEST_CONFLICT
         - OPERATION_UNKNOWN
         - SNAPSHOT_EXPIRED
@@ -853,6 +857,10 @@ components:
       additionalProperties: false
       required: [client_ref, kind, assertion_role, text, basis_refs, limitations]
       properties:
+        revises:
+          oneOf:
+            - $ref: '#/components/schemas/KnowledgeRef'
+            - type: 'null'
         client_ref: {type: string, minLength: 1, maxLength: 256}
         kind: {$ref: '#/components/schemas/ClaimKind'}
         assertion_role: {$ref: '#/components/schemas/AssertionRole'}
@@ -960,6 +968,16 @@ components:
       additionalProperties: false
       required: [schema_version, expected_version, assessment]
       properties:
+        supersedes_assessment_ids:
+          type: array
+          maxItems: 128
+          uniqueItems: true
+          default: []
+          items: {type: string, minLength: 1, maxLength: 256}
+        supersedes_reason:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 8192}
+            - {type: 'null'}
         schema_version: {$ref: '#/components/schemas/ApiSchemaVersion'}
         expected_version: {$ref: '#/components/schemas/RevisionString'}
         assessment: {$ref: '#/components/schemas/FactAssessment'}
@@ -992,7 +1010,7 @@ components:
           items: {$ref: '#/components/schemas/KnowledgeRef'}
         raw_output_ref: {$ref: '#/components/schemas/BlobRef'}
         raw_output_digest: {$ref: '#/components/schemas/Sha256Digest'}
-        payload: {$ref: '#/components/schemas/AgentPayload'}
+        payload: {description: 'Untrusted JSON value or null; validate AgentPayload only after sealing and receiving raw output.'}
         producer_version: {type: string, minLength: 1, maxLength: 256}
     CaptureEnvelope:
       type: object
@@ -1413,11 +1431,37 @@ components:
         - $ref: '#/components/schemas/AgentRunRecord'
         - $ref: '#/components/schemas/GoalRecord'
         - $ref: '#/components/schemas/GenericRecord'
+    ClaimAssessmentView:
+      type: object
+      additionalProperties: false
+      required: [policy_version, grounding_state, evidence_state, applicability_state, eligible, assessment_ids, conditions, limitations]
+      properties:
+        policy_version: {type: string, minLength: 1, maxLength: 256}
+        grounding_state: {$ref: '#/components/schemas/GroundingState'}
+        evidence_state: {$ref: '#/components/schemas/EvidenceState'}
+        applicability_state: {$ref: '#/components/schemas/ApplicabilityState'}
+        eligible: {type: boolean}
+        assessment_ids:
+          type: array
+          maxItems: 1024
+          items: {type: string, minLength: 1, maxLength: 256}
+        conditions:
+          type: array
+          maxItems: 1024
+          items: {type: string, minLength: 1, maxLength: 8192}
+        limitations:
+          type: array
+          maxItems: 1024
+          items: {type: string, minLength: 1, maxLength: 8192}
     RecordView:
       type: object
       additionalProperties: false
       required: [ref, display_kind, record]
       properties:
+        assessment:
+          oneOf:
+            - $ref: '#/components/schemas/ClaimAssessmentView'
+            - type: 'null'
         ref: {$ref: '#/components/schemas/KnowledgeRef'}
         display_kind: {type: string, minLength: 1, maxLength: 128}
         record: {$ref: '#/components/schemas/RecordPayload'}

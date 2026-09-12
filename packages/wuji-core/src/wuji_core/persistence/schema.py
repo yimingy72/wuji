@@ -7,7 +7,9 @@ The application role cannot create authority parents, alter claims, or grant ACL
 from psycopg import sql
 
 BASE_HEAD = "vnext_0001_p03"
-HEAD = "vnext_0002_p03_evidence_authority"
+EVIDENCE_HEAD = "vnext_0002_p03_evidence_authority"
+from wuji_core.persistence.knowledge_schema import HEAD, upgrade as upgrade_knowledge
+
 OWNER = "tenant_id,project_id,task_id"
 SCOPE_COLUMNS = (
     "tenant_id text NOT NULL, project_id text NOT NULL, task_id text NOT NULL"
@@ -291,7 +293,9 @@ def _upgrade_evidence_authority(connection, application_role):
             sql.Identifier(application_role)
         )
     )
-    connection.execute("INSERT INTO vnext.schema_migration(head) VALUES (%s)", (HEAD,))
+    connection.execute(
+        "INSERT INTO vnext.schema_migration(head) VALUES (%s)", (EVIDENCE_HEAD,)
+    )
 
 
 TABLES = {
@@ -351,10 +355,14 @@ def migrate(connection, *, application_role: str) -> None:
             heads = connection.execute(
                 "SELECT head FROM vnext.schema_migration"
             ).fetchall()
-            if set(heads) == {(BASE_HEAD,), (HEAD,)}:
+            if set(heads) == {(BASE_HEAD,), (EVIDENCE_HEAD,), (HEAD,)}:
                 return
-            if heads == [(BASE_HEAD,)]:
+            if set(heads) == {(BASE_HEAD,)}:
                 _upgrade_evidence_authority(connection, application_role)
+                upgrade_knowledge(connection, application_role)
+                return
+            if set(heads) == {(BASE_HEAD,), (EVIDENCE_HEAD,)}:
+                upgrade_knowledge(connection, application_role)
                 return
             raise ValueError("unrecognized vnext migration head")
         for statement in statements():
@@ -455,3 +463,4 @@ def migrate(connection, *, application_role: str) -> None:
             "INSERT INTO vnext.schema_migration(head) VALUES (%s)", (BASE_HEAD,)
         )
         _upgrade_evidence_authority(connection, application_role)
+        upgrade_knowledge(connection, application_role)

@@ -458,7 +458,7 @@ export interface components {
         /** @enum {string} */
         ScenarioKind: "ctf" | "web_single" | "comprehensive" | "adversary_emulation" | "code_audit";
         /** @enum {string} */
-        ErrorCode: "UNAUTHENTICATED" | "FORBIDDEN_COLLECTOR" | "FORBIDDEN_ASSESSOR" | "NOT_FOUND_OR_FORBIDDEN" | "STALE_VERSION" | "STALE_EXECUTION" | "INPUT_DIGEST_CONFLICT" | "OPERATION_UNKNOWN" | "SNAPSHOT_EXPIRED" | "VIEW_EXPIRED" | "HISTORY_UNAVAILABLE" | "INVALID_REFERENCE" | "INVALID_WAIT" | "INVALID_SCHEMA" | "INVALID_SCHEMA_VERSION" | "LIMIT_BLOCKED" | "CAPABILITY_UNAVAILABLE";
+        ErrorCode: "UNAUTHENTICATED" | "FORBIDDEN_COLLECTOR" | "FORBIDDEN_ASSESSOR" | "NOT_FOUND_OR_FORBIDDEN" | "STALE_VERSION" | "STALE_EXECUTION" | "STALE_INPUT" | "INPUT_DIGEST_CONFLICT" | "OPERATION_UNKNOWN" | "SNAPSHOT_EXPIRED" | "VIEW_EXPIRED" | "HISTORY_UNAVAILABLE" | "INVALID_REFERENCE" | "INVALID_WAIT" | "INVALID_SCHEMA" | "INVALID_SCHEMA_VERSION" | "LIMIT_BLOCKED" | "CAPABILITY_UNAVAILABLE";
         KnowledgeRef: {
             entity_type: components["schemas"]["NodeEntityType"];
             id: string;
@@ -490,6 +490,7 @@ export interface components {
             receiver_id: string;
         };
         ClaimProposal: {
+            revises?: components["schemas"]["KnowledgeRef"] | null;
             client_ref: string;
             kind: components["schemas"]["ClaimKind"];
             assertion_role: components["schemas"]["AssertionRole"];
@@ -537,6 +538,9 @@ export interface components {
             reason: string;
         } & unknown;
         AssessmentCommand: {
+            /** @default [] */
+            supersedes_assessment_ids: string[];
+            supersedes_reason?: string | null;
             schema_version: components["schemas"]["ApiSchemaVersion"];
             expected_version: components["schemas"]["RevisionString"];
             assessment: components["schemas"]["FactAssessment"];
@@ -557,7 +561,8 @@ export interface components {
             read_set: components["schemas"]["KnowledgeRef"][];
             raw_output_ref: components["schemas"]["BlobRef"];
             raw_output_digest: components["schemas"]["Sha256Digest"];
-            payload: components["schemas"]["AgentPayload"];
+            /** @description Untrusted JSON value or null; validate AgentPayload only after sealing and receiving raw output. */
+            payload: unknown;
             producer_version: string;
         };
         CaptureEnvelope: {
@@ -800,7 +805,18 @@ export interface components {
             report_delivery_state?: components["schemas"]["ReportDeliveryState"] | null;
         };
         RecordPayload: components["schemas"]["TaskView"] | components["schemas"]["WorkItemView"] | components["schemas"]["ClaimRecord"] | components["schemas"]["ObservationRecord"] | components["schemas"]["ArtifactRecord"] | components["schemas"]["IntentRecord"] | components["schemas"]["AgentRunRecord"] | components["schemas"]["GoalRecord"] | components["schemas"]["GenericRecord"];
+        ClaimAssessmentView: {
+            policy_version: string;
+            grounding_state: components["schemas"]["GroundingState"];
+            evidence_state: components["schemas"]["EvidenceState"];
+            applicability_state: components["schemas"]["ApplicabilityState"];
+            eligible: boolean;
+            assessment_ids: string[];
+            conditions: string[];
+            limitations: string[];
+        };
         RecordView: {
+            assessment?: components["schemas"]["ClaimAssessmentView"] | null;
             ref: components["schemas"]["KnowledgeRef"];
             display_kind: string;
             record: components["schemas"]["RecordPayload"];
@@ -1424,6 +1440,7 @@ export interface operations {
         parameters: {
             query: {
                 revision: components["parameters"]["RevisionQuery"];
+                snapshot_id?: components["parameters"]["SnapshotIdQuery"];
             };
             header?: never;
             path: {
@@ -1598,7 +1615,9 @@ export interface operations {
     submitResultV2: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
             path?: never;
             cookie?: never;
         };

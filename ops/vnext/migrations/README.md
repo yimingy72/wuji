@@ -1,5 +1,42 @@
 # vnext migration head
 
+Current head: `vnext_0003_p04_knowledge`, following both P03 heads below.
+The same `migrate(connection, application_role=...)` advances only recognized
+head sets and rejects unknown heads. P04 adds canonical knowledge actors,
+Run writer bindings, explicit Task assessment-policy bindings, immutable
+assessment actions, IntentRevision, and raw/final result receipts. Existing
+P03 rows and evidence-authority mutation guards remain in place.
+
+P04 service ports:
+
+- `ClaimService(uow).propose(access, task_id, proposal, *, idempotency_key)` and
+  `propose_intent(...)` return a `ComponentReceipt`.
+- `AssessmentService(uow, store).record(access, task_id, command, *, idempotency_key)`
+  returns an `AssessmentReceipt`; `invalidate(..., assessment_id, *, kind,
+  reason, idempotency_key)` appends stale/retracted/disputed decisions.
+- `FactLedger(uow).read(access, task_id, KnowledgeRef, *, snapshot_id=None)`
+  returns the validated RecordView. Claim snapshots freeze policy/outcome and
+  close over actual assessment inputs; current permissions are rechecked.
+- `ResultCommitter(uow, store, claims).receive(access, envelope)` publishes raw
+  receipt only; `.reconcile(access, task_id, submission_id)` completes local
+  admission; `.lookup(...)` reads the current receipt; `.submit(...)` combines
+  receive/reconcile. None reruns a model/tool.
+- `ArtifactStore.stage_model_output(access, task_id, agent_run_id, bytes,
+  media_type, *, access_level=0)` uses the same sealing, leases and publication
+  pins as captures. It needs stored `run_writer` + `can_model_output` and a
+  signed worker/supervisor identity, without granting capture. It accepts a Run
+  with zero ToolAttempts; `seal` selects the correct mutation authority.
+- Compose `create_knowledge_router(claims, assessments, committer)` and
+  `create_records_router(ledger)` through P02 `create_app`. Results additionally
+  require `Idempotency-Key == submission_id`.
+
+Deployment must register actual actors/writers and explicitly bind each Task to
+published `assessment-policy-v1`; application credentials cannot grant these
+permissions. P05/P09 own WorkItem creation and lifecycle invalidation triggers;
+P12/P13 own Goal/Topology integration. No seeded test parents prove those flows.
+
+The following describes the preserved P03 foundation and its original checks.
+
 `vnext_0002_p03_evidence_authority` advances the independent `vnext_0001_p03` base through
 `wuji_core.persistence.schema.migrate(connection, application_role=...)`.
 It does not import legacy migrations, start services, or migrate user data.

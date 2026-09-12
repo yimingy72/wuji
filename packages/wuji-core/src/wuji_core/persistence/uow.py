@@ -102,6 +102,7 @@ class UnitOfWork:
             "assess",
             "evidence",
             "snapshot",
+            "model_output",
         }:
             raise ValueError("unsupported capability")
         with self.connection_factory() as connection:
@@ -125,6 +126,7 @@ class UnitOfWork:
                     "snapshot": "false",
                     "domain_write": "false",
                     "gc": "false",
+                    "model_output": "false",
                 }.items():
                     connection.execute(
                         "SELECT set_config(%s,%s,true)", ("wuji." + key, value)
@@ -158,13 +160,21 @@ class UnitOfWork:
                         and (permission["can_capture"] or permission["can_settle"])
                     ).lower(),
                     "snapshot": str(capability == "snapshot").lower(),
+                    "model_output": str(
+                        capability == "model_output"
+                        and bool(access.principal.roles & {"worker", "supervisor"})
+                        and "agent" not in access.principal.roles
+                    ).lower(),
                     "domain_write": str(
-                        permission["can_write"] and capability == "write"
+                        permission["can_write"]
+                        and capability in {"write", "model_output"}
                     ).lower(),
                     "gc": str(capability == "gc").lower(),
                     "assess": str(
                         permission["can_assess"]
                         and "assessor" in access.principal.roles
+                        and "agent" not in access.principal.roles
+                        and capability == "assess"
                     ).lower(),
                 }
                 for key, value in values.items():
