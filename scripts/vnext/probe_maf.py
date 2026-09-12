@@ -404,8 +404,29 @@ def capability_outcomes(record):
 
 
 def exchange_markdown(cases):
-    parts = ["# P01 synthetic HTTP reproduction package", "All data and Authorization values below are synthetic. No target vulnerability is claimed.",
-             "Validation points: explicit nonempty tool advertisement; native call-p01-read routing; actual file reads; approval rejection; finite HTTP failure."]
+    # Scope comes only from probe observations, never HTTP/model-provided labels.
+    count = sum(len(case["http"]) + len(case["restore_http"]) for case in cases.values())
+    timed_out = any(process.get("outcome") == "timed_out"
+                    for case in cases.values() for process in case.get("processes", []))
+    statuses = [case.get("observation_status", "unknown") for case in cases.values()]
+    complete = bool(cases) and count > 0 and not timed_out and all(status == "complete" for status in statuses)
+    completeness = "complete as recorded by the probe" if complete else (
+        "incomplete" if timed_out or "incomplete" in statuses else "unknown"
+    )
+    parts = [
+        "# P01 HTTP observation record",
+        "This package reproduces captured HTTP messages only. It does not establish SDK capability, "
+        "approval outcomes, tool execution, or retry/failure validation.",
+        f"Observation completeness: {completeness}.",
+        f"Captured HTTP exchanges: {count}.",
+    ]
+    if not complete:
+        parts += ["Execution outcome: unknown. Capability outcome: blocked.",
+                  "Missing observations do not prove zero execution."]
+    if timed_out:
+        parts.append("A subprocess timeout was recorded. Only HTTP observations available at that boundary are reproduced.")
+    if count == 0:
+        parts.append("No captured HTTP exchanges.")
     for name, case in cases.items():
         for index, item in enumerate(case["http"] + case["restore_http"], 1):
             request = item["request_line"] + "\r\n" + "".join(f"{k}: {v}\r\n" for k, v in item["request_headers"]) + "\r\n" + item["request_body"]
