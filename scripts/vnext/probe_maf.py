@@ -425,6 +425,10 @@ def run_probe(output_dir):
               "transport": {"protocol": "OpenAI Chat Completions", "max_retries": 0, "timeout_seconds": 5, "trust_env": False},
               "cases": cases}
     modes = ("roundtrip", "approve", "reject", "unknown", "http-error", "stub")
+    # Refuse reused destinations before finally can publish anything over them.
+    for name in (*modes, "probe.json", "http-reproduction.md", "distributions.json"):
+        if (output_dir / name).exists():
+            raise FileExistsError(f"Evidence destination already exists: {output_dir / name}")
     try:
         for mode in modes:
             directory = output_dir / mode

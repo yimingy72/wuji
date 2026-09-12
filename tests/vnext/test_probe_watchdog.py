@@ -81,3 +81,12 @@ def test_outer_watchdog_publishes_blocked_cli_evidence(monkeypatch, tmp_path, ca
         assert case["available_events"] == []
         assert case["observed_event_count"] is None
         assert case["http_observation_count"] is None
+
+
+def test_reporting_does_not_overwrite_an_existing_evidence_run(tmp_path):
+    (tmp_path / "roundtrip").mkdir()
+    original = b'{"historical_run":"preserve exact bytes"}\n'
+    (tmp_path / "probe.json").write_bytes(original)
+    with pytest.raises(FileExistsError):
+        probe.run_probe(tmp_path)
+    assert (tmp_path / "probe.json").read_bytes() == original
