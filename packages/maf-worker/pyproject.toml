@@ -1,0 +1,26 @@
+[project]
+name = "wuji-maf-worker"
+version = "0.1.0"
+requires-python = "==3.13.15"
+dependencies = [
+  "wuji-core",
+  "agent-framework-core==1.18.0",
+  "agent-framework-openai==1.14.3",
+]
+
+[dependency-groups]
+dev = ["pytest==9.1.1"]
+
+[build-system]
+requires = ["hatchling==1.29.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/wuji_maf_worker"]
+
+[tool.uv.sources]
+wuji-core = { path = "../wuji-core", editable = true }
+
+# Own lock and .venv, with no legacy Cairn/Pi workspace membership.
+[tool.uv.workspace]
+members = []
