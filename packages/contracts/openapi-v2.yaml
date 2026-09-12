@@ -1,0 +1,1821 @@
+openapi: 3.1.0
+info:
+  title: Wuji vNext API
+  version: 2.0.0
+  description: >-
+    Authoritative external wire contract for the isolated Wuji vNext runtime.
+    Domain services are supplied by later stages; this document fixes their
+    authenticated HTTP and worker boundaries.
+servers:
+  - url: /
+    description: Same-origin Wuji vNext API
+security:
+  - BearerAuth: []
+tags:
+  - name: Tasks
+    description: Task and WorkItem creation and lifecycle commands.
+  - name: Knowledge
+    description: Candidate knowledge, assessments, and immutable evidence access.
+  - name: Views
+    description: Authorized snapshots, records, layouts, streams, and archives.
+  - name: Approvals
+    description: Versioned human decisions for registered approval requests.
+  - name: Internal
+    description: Trusted worker, supervisor, evidence, result, and model boundaries.
+paths:
+  /api/v2/tasks:
+    post:
+      operationId: createTaskV2
+      summary: Create a non-running vNext task
+      tags: [Tasks]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskCreate'
+      responses:
+        '201':
+          description: Task created in the non-running ready state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskView'
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+  /api/v2/tasks/{task_id}/commands:
+    post:
+      operationId: commandTaskV2
+      summary: Submit a guarded task lifecycle command
+      tags: [Tasks]
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskCommand'
+      responses:
+        '202': {$ref: '#/components/responses/CommandAccepted'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+  /api/v2/tasks/{task_id}/claims/proposals:
+    post:
+      operationId: proposeClaimV2
+      summary: Propose an unassessed claim
+      tags: [Knowledge]
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClaimProposal'
+      responses:
+        '202': {$ref: '#/components/responses/ComponentAccepted'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+  /api/v2/tasks/{task_id}/intents/proposals:
+    post:
+      operationId: proposeIntentV2
+      summary: Propose a controlled exploration intent
+      tags: [Knowledge]
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IntentProposal'
+      responses:
+        '202': {$ref: '#/components/responses/ComponentAccepted'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+  /api/v2/work-items/{work_item_id}/commands:
+    post:
+      operationId: commandWorkItemV2
+      summary: Submit a guarded WorkItem command
+      tags: [Tasks]
+      parameters:
+        - $ref: '#/components/parameters/WorkItemId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkCommand'
+      responses:
+        '202': {$ref: '#/components/responses/CommandAccepted'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+  /api/v2/approvals/{approval_id}/decisions:
+    post:
+      operationId: decideApprovalV2
+      summary: Decide a fixed approval request
+      tags: [Approvals]
+      parameters:
+        - $ref: '#/components/parameters/ApprovalId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApprovalDecision'
+      responses:
+        '202': {$ref: '#/components/responses/CommandAccepted'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+  /api/v2/tasks/{task_id}/assessments:
+    post:
+      operationId: recordAssessmentV2
+      summary: Record a qualified assessment
+      tags: [Knowledge]
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssessmentCommand'
+      responses:
+        '202':
+          description: Assessment recorded for checking or rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentReceipt'
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+  /api/v2/tasks/{task_id}/topology:
+    get:
+      operationId: getTaskTopologyV2
+      summary: Read a stable authorized topology snapshot
+      tags: [Views]
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+        - $ref: '#/components/parameters/ViewMode'
+        - $ref: '#/components/parameters/SnapshotIdQuery'
+        - $ref: '#/components/parameters/ViewCursor'
+        - $ref: '#/components/parameters/NodeLimit'
+        - $ref: '#/components/parameters/EdgeLimit'
+      responses:
+        '200':
+          description: Authorized stable topology snapshot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopologySnapshot'
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
+        '410': {$ref: '#/components/responses/Expired'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+  /api/v2/views/{view_id}/events:
+    get:
+      operationId: streamViewEventsV2
+      summary: Stream authorized atomic view changes
+      tags: [Views]
+      parameters:
+        - $ref: '#/components/parameters/ViewId'
+        - $ref: '#/components/parameters/ViewCursor'
+      responses:
+        '200':
+          description: Authorized SSE stream of atomic view batches or resets
+          content:
+            text/event-stream:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ViewEventBatch'
+                  - $ref: '#/components/schemas/ViewReset'
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
+        '410': {$ref: '#/components/responses/Expired'}
+  /api/v2/tasks/{task_id}/snapshots:
+    get:
+      operationId: listTaskSnapshotsV2
+      summary: List retained authorized snapshots
+      tags: [Views]
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+        - $ref: '#/components/parameters/ViewCursor'
+      responses:
+        '200':
+          description: Authorized saved snapshot index
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SnapshotIndex'
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
+  /api/v2/tasks/{task_id}/records/{record_type}/{record_id}:
+    get:
+      operationId: getTaskRecordV2
+      summary: Read an immutable authorized record revision
+      tags: [Views]
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+        - $ref: '#/components/parameters/RecordType'
+        - $ref: '#/components/parameters/RecordId'
+        - $ref: '#/components/parameters/RevisionQuery'
+      responses:
+        '200':
+          description: Authorized immutable record revision
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecordView'
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+  /api/v2/tasks/{task_id}/layouts/{view_name}:
+    put:
+      operationId: putTaskLayoutV2
+      summary: Update a versioned personal topology layout
+      tags: [Views]
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+        - $ref: '#/components/parameters/ViewName'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LayoutPatch'
+      responses:
+        '200':
+          description: Updated personal layout revision
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LayoutReceipt'
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+  /api/v2/artifacts/{artifact_id}/content:
+    get:
+      operationId: getArtifactContentV2
+      summary: Stream authorized immutable artifact bytes
+      tags: [Knowledge]
+      parameters:
+        - $ref: '#/components/parameters/ArtifactId'
+        - $ref: '#/components/parameters/ArtifactVersionQuery'
+      responses:
+        '200':
+          description: Authorized immutable artifact bytes
+          headers:
+            Digest:
+              required: true
+              schema: {type: string, minLength: 1}
+          content:
+            application/octet-stream:
+              schema: {type: string, format: binary}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
+  /api/v2/archives/{archive_id}:
+    get:
+      operationId: getArchiveV2
+      summary: Read an imported non-executable archive
+      tags: [Views]
+      parameters:
+        - $ref: '#/components/parameters/ArchiveId'
+      responses:
+        '200':
+          description: Read-only imported archive
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArchiveView'
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
+  /internal/v2/model/chat/completions:
+    post:
+      operationId: createModelChatCompletionV2
+      summary: Admit a run-scoped model protocol request
+      tags: [Internal]
+      parameters:
+        - $ref: '#/components/parameters/TrustedRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatCompletionRequest'
+      responses:
+        '200':
+          description: Admitted model protocol response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatCompletionResponse'
+            text/event-stream:
+              schema: {type: string}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+        '429': {$ref: '#/components/responses/LimitBlocked'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /internal/v2/evidence:
+    post:
+      operationId: ingestEvidenceV2
+      summary: Ingest a trusted capture envelope
+      tags: [Internal]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CaptureEnvelope'
+      responses:
+        '202':
+          description: Evidence receipt persisted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvidenceReceipt'
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+  /internal/v2/results:
+    post:
+      operationId: submitResultV2
+      summary: Receive a trusted result envelope
+      tags: [Internal]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResultEnvelope'
+      responses:
+        '202':
+          description: Raw result received for component validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultReceipt'
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+  /internal/v2/dispatch/claims:
+    post:
+      operationId: claimDispatchWorkV2
+      summary: Claim work under the current leader epoch
+      tags: [Internal]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClaimWork'
+      responses:
+        '200':
+          description: Atomic dispatch claim receipt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DispatchReceipt'
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '429': {$ref: '#/components/responses/LimitBlocked'}
+  /internal/v2/runs/{run_id}:
+    put:
+      operationId: prepareRunV2
+      summary: Prepare one stable worker start operation
+      tags: [Internal]
+      parameters:
+        - $ref: '#/components/parameters/RunId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkerAssignment'
+      responses:
+        '200':
+          description: Stable start operation receipt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StartReceipt'
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+  /internal/v2/runs/{run_id}/control:
+    post:
+      operationId: controlRunV2
+      summary: Submit a run control request without implying exit
+      tags: [Internal]
+      parameters:
+        - $ref: '#/components/parameters/RunId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkerControl'
+      responses:
+        '202':
+          description: Control request accepted; this is not an exit receipt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ControlReceipt'
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: {type: string, minLength: 1, maxLength: 256}
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      schema: {$ref: '#/components/schemas/RevisionString'}
+    TrustedRequestId:
+      name: X-Wuji-Request-ID
+      in: header
+      required: true
+      schema: {type: string, minLength: 1, maxLength: 256}
+    TaskId:
+      name: task_id
+      in: path
+      required: true
+      schema: {type: string, minLength: 1}
+    WorkItemId:
+      name: work_item_id
+      in: path
+      required: true
+      schema: {type: string, minLength: 1}
+    ApprovalId:
+      name: approval_id
+      in: path
+      required: true
+      schema: {type: string, minLength: 1}
+    ViewId:
+      name: view_id
+      in: path
+      required: true
+      schema: {type: string, minLength: 1}
+    ViewName:
+      name: view_name
+      in: path
+      required: true
+      schema: {type: string, minLength: 1, maxLength: 128}
+    RecordType:
+      name: record_type
+      in: path
+      required: true
+      schema: {$ref: '#/components/schemas/NodeEntityType'}
+    RecordId:
+      name: record_id
+      in: path
+      required: true
+      schema: {type: string, minLength: 1}
+    ArtifactId:
+      name: artifact_id
+      in: path
+      required: true
+      schema: {type: string, minLength: 1}
+    ArchiveId:
+      name: archive_id
+      in: path
+      required: true
+      schema: {type: string, minLength: 1}
+    RunId:
+      name: run_id
+      in: path
+      required: true
+      schema: {type: string, minLength: 1}
+    ViewMode:
+      name: mode
+      in: query
+      required: false
+      schema: {$ref: '#/components/schemas/ViewMode'}
+    SnapshotIdQuery:
+      name: snapshot_id
+      in: query
+      required: false
+      schema: {type: string, minLength: 1}
+    ViewCursor:
+      name: cursor
+      in: query
+      required: false
+      schema: {type: string, minLength: 1, maxLength: 4096}
+    RevisionQuery:
+      name: revision
+      in: query
+      required: true
+      schema: {$ref: '#/components/schemas/RevisionString'}
+    ArtifactVersionQuery:
+      name: version
+      in: query
+      required: true
+      schema: {$ref: '#/components/schemas/RevisionString'}
+    NodeLimit:
+      name: node_limit
+      in: query
+      required: false
+      schema: {type: integer, minimum: 1, maximum: 1000, default: 300}
+    EdgeLimit:
+      name: edge_limit
+      in: query
+      required: false
+      schema: {type: integer, minimum: 1, maximum: 2000, default: 600}
+  responses:
+    CommandAccepted:
+      description: Command accepted for authoritative processing
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/CommandReceipt'}
+    ComponentAccepted:
+      description: Proposal component accepted or rejected independently
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ComponentReceipt'}
+    Unauthenticated:
+      description: Missing or invalid authenticated identity
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorResponse'}
+    Forbidden:
+      description: Authenticated principal is not eligible for this operation
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorResponse'}
+    NotFoundOrForbidden:
+      description: Object is absent or hidden by the current read scope
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorResponse'}
+    Conflict:
+      description: Version, execution, digest, or operation state conflicts
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorResponse'}
+    Expired:
+      description: Requested retained history or view is unavailable
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorResponse'}
+    InvalidSchema:
+      description: Request does not satisfy the versioned input contract
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorResponse'}
+    LimitBlocked:
+      description: A published hard limit prevents admission
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorResponse'}
+    Unavailable:
+      description: Required runtime capability is unavailable
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorResponse'}
+  schemas:
+    RevisionString:
+      type: string
+      pattern: '^(0|[1-9][0-9]*)$'
+    DecimalString:
+      type: string
+      pattern: '^(0|[1-9][0-9]*)(\.[0-9]+)?$'
+    Sha256Digest:
+      type: string
+      pattern: '^[a-f0-9]{64}$'
+    ApiSchemaVersion:
+      type: string
+      enum: [wuji.api.v2]
+    AssignmentSchemaVersion:
+      type: string
+      enum: [wuji.assignment.v2]
+    ResultEnvelopeSchemaVersion:
+      type: string
+      enum: [wuji.result-envelope.v2]
+    AgentPayloadSchemaVersion:
+      type: string
+      enum: [wuji.agent-payload.v2]
+    ViewEventSchemaVersion:
+      type: string
+      enum: [wuji.view-event.v2]
+    ViewResetSchemaVersion:
+      type: string
+      enum: [wuji.view-reset.v2]
+    CaptureSchemaVersion:
+      type: string
+      enum: [wuji.capture.v2]
+    ClaimKind:
+      type: string
+      enum: [observation-summary, hypothesis, derived-conclusion]
+    AssertionRole:
+      type: string
+      enum: [candidate_fact, explanation, hypothesis]
+    ProducerKind:
+      type: string
+      enum: [agent, human, extractor, import]
+    GroundingState:
+      type: string
+      enum: [unchecked, linked, content_checked, invalid]
+    EvidenceState:
+      type: string
+      enum: [unassessed, supported, contradicted, inconclusive]
+    ApplicabilityState:
+      type: string
+      enum: [current, stale, disputed, retracted]
+    AssessmentMethod:
+      type: string
+      enum: [deterministic, reproduced_check, human_attestation, model_review]
+    WorkKind:
+      type: string
+      enum: [reason, explore, report]
+    IntentAcceptance:
+      type: string
+      enum: [proposed, admitted, rejected, superseded]
+    WorkDesired:
+      type: string
+      enum: [run, hold, cancel]
+    WorkState:
+      type: string
+      enum: [ready, leased, running, waiting_input, blocked, stopping, suspended, reconciling, done, failed, cancelled]
+    RunProcessState:
+      type: string
+      enum: [registered, starting, running, stopping, exited, unknown]
+    RunResultState:
+      type: string
+      enum: [none, received, accepted, rejected, historical_only, incomplete]
+    TaskDesired:
+      type: string
+      enum: [run, pause, cancel, finish]
+    TaskObserved:
+      type: string
+      enum: [ready, running, quiescing, paused, reconciling, closed]
+    CloseTrigger:
+      type: string
+      enum: [goal_satisfied, user_cancel, budget_exhausted, time_limit, no_progress, system_failure, operator_finish]
+    ResultOutcome:
+      type: string
+      enum: [complete, partial, inconclusive, not_assessed]
+    GoalStatus:
+      type: string
+      enum: [met, not_met, unknown, not_applicable]
+    DependencyCondition:
+      type: string
+      enum: [settled, accepted_result, criterion_satisfied]
+    RecoveryClass:
+      type: string
+      enum: [settled_boundary, approval_boundary, non_resumable]
+    ResultReceiptStatus:
+      type: string
+      enum: [received, accepted, rejected, historical_only]
+    ComponentReceiptStatus:
+      type: string
+      enum: [accepted_shared, accepted_for_check, rejected]
+    EvidenceReceiptStatus:
+      type: string
+      enum: [pending, accepted, rejected, historical_only]
+    ArtifactState:
+      type: string
+      enum: [staged, sealed, tombstoned]
+    EvidenceOrigin:
+      type: string
+      enum: [live_capture, fixture_capture, imported_unverified]
+    ModelMode:
+      type: string
+      enum: [synthetic, real, unknown]
+    NodeEntityType:
+      type: string
+      enum: [origin, goal, observation, artifact, claim, intent, work_item, agent_run, verification, completion_review, finding, report]
+    ReasonDecision:
+      type: string
+      enum: [propose_intents, wait, propose_completion, blocked]
+    TestResult:
+      type: string
+      enum: [pass, fail, not_run, blocked]
+    SuspensionCause:
+      type: string
+      enum: [user_hold, task_pause, completion_epoch, scope_revoked]
+    ReportDeliveryState:
+      type: string
+      enum: [delivery_pending, ready, incomplete, failed]
+    TaskCommandName:
+      type: string
+      enum: [start, pause, resume, cancel, finish]
+    WorkCommandName:
+      type: string
+      enum: [hold, resume, cancel]
+    ApprovalDecisionValue:
+      type: string
+      enum: [approve, reject]
+    CommandDisposition:
+      type: string
+      enum: [accepted, rejected, already_recorded]
+    ViewMode:
+      type: string
+      enum: [live, history]
+    ViewSelectionMode:
+      type: string
+      enum: [explicit_revision, follow_latest]
+    ViewResetAction:
+      type: string
+      enum: [resnapshot]
+    ViewPatchOperation:
+      type: string
+      enum: [upsert_node, remove_node, upsert_edge, remove_edge]
+    CaptureCompleteness:
+      type: string
+      enum: [complete, partial, unknown]
+    DispatchStatus:
+      type: string
+      enum: [prepared, duplicate, rejected]
+    ControlAction:
+      type: string
+      enum: [stop_after_current, stop, query]
+    ControlStatus:
+      type: string
+      enum: [accepted, rejected, already_recorded]
+    StartStatus:
+      type: string
+      enum: [prepared, running, already_recorded, rejected, unknown]
+    ScenarioKind:
+      type: string
+      enum: [ctf, web_single, comprehensive, adversary_emulation, code_audit]
+    ErrorCode:
+      type: string
+      enum:
+        - UNAUTHENTICATED
+        - FORBIDDEN_COLLECTOR
+        - FORBIDDEN_ASSESSOR
+        - NOT_FOUND_OR_FORBIDDEN
+        - STALE_VERSION
+        - STALE_EXECUTION
+        - INPUT_DIGEST_CONFLICT
+        - OPERATION_UNKNOWN
+        - SNAPSHOT_EXPIRED
+        - VIEW_EXPIRED
+        - HISTORY_UNAVAILABLE
+        - INVALID_REFERENCE
+        - INVALID_WAIT
+        - INVALID_SCHEMA
+        - INVALID_SCHEMA_VERSION
+        - LIMIT_BLOCKED
+        - CAPABILITY_UNAVAILABLE
+    KnowledgeRef:
+      type: object
+      additionalProperties: false
+      required: [entity_type, id, revision]
+      properties:
+        entity_type: {$ref: '#/components/schemas/NodeEntityType'}
+        id: {type: string, minLength: 1, maxLength: 256}
+        revision: {$ref: '#/components/schemas/RevisionString'}
+    ProposalLocalRef:
+      type: object
+      additionalProperties: false
+      required: [client_ref]
+      properties:
+        client_ref: {type: string, minLength: 1, maxLength: 256}
+    ProposalReference:
+      oneOf:
+        - $ref: '#/components/schemas/KnowledgeRef'
+        - $ref: '#/components/schemas/ProposalLocalRef'
+    BlobRef:
+      type: object
+      additionalProperties: false
+      required: [id, version, sha256]
+      properties:
+        id: {type: string, minLength: 1, maxLength: 256}
+        version: {$ref: '#/components/schemas/RevisionString'}
+        sha256: {$ref: '#/components/schemas/Sha256Digest'}
+    RunIdentity:
+      type: object
+      additionalProperties: false
+      required: [tenant_id, project_id, task_id, work_item_id, agent_run_id, execution_epoch, run_epoch, runtime_attempt, receiver_id]
+      properties:
+        tenant_id: {type: string, minLength: 1, maxLength: 256}
+        project_id: {type: string, minLength: 1, maxLength: 256}
+        task_id: {type: string, minLength: 1, maxLength: 256}
+        work_item_id: {type: string, minLength: 1, maxLength: 256}
+        agent_run_id: {type: string, minLength: 1, maxLength: 256}
+        execution_epoch: {$ref: '#/components/schemas/RevisionString'}
+        run_epoch: {$ref: '#/components/schemas/RevisionString'}
+        runtime_attempt: {$ref: '#/components/schemas/RevisionString'}
+        receiver_id: {type: string, minLength: 1, maxLength: 256}
+    ClaimProposal:
+      type: object
+      additionalProperties: false
+      required: [client_ref, kind, assertion_role, text, basis_refs, limitations]
+      properties:
+        client_ref: {type: string, minLength: 1, maxLength: 256}
+        kind: {$ref: '#/components/schemas/ClaimKind'}
+        assertion_role: {$ref: '#/components/schemas/AssertionRole'}
+        text: {type: string, minLength: 1, maxLength: 32768}
+        structured_assertion:
+          oneOf:
+            - type: object
+              additionalProperties: true
+            - type: 'null'
+        basis_refs:
+          type: array
+          maxItems: 256
+          items: {$ref: '#/components/schemas/ProposalReference'}
+        limitations:
+          type: array
+          maxItems: 128
+          items: {type: string, minLength: 1, maxLength: 8192}
+    IntentProposal:
+      type: object
+      additionalProperties: false
+      required: [client_ref, question, basis_refs, expected_output]
+      properties:
+        client_ref: {type: string, minLength: 1, maxLength: 256}
+        question: {type: string, minLength: 1, maxLength: 32768}
+        basis_refs:
+          type: array
+          maxItems: 256
+          items: {$ref: '#/components/schemas/ProposalReference'}
+        expected_output: {type: string, minLength: 1, maxLength: 32768}
+    WaitRef:
+      type: object
+      additionalProperties: false
+      required: [ref, predicate, predicate_version]
+      properties:
+        ref: {$ref: '#/components/schemas/ProposalReference'}
+        predicate: {type: string, minLength: 1, maxLength: 1024}
+        predicate_version: {$ref: '#/components/schemas/RevisionString'}
+    ReasonDecisionPayload:
+      type: object
+      additionalProperties: false
+      required: [decision, wait_refs, reason]
+      properties:
+        decision: {$ref: '#/components/schemas/ReasonDecision'}
+        wait_refs:
+          type: array
+          maxItems: 128
+          items: {$ref: '#/components/schemas/WaitRef'}
+        reason: {type: string, minLength: 1, maxLength: 32768}
+    AgentPayload:
+      type: object
+      additionalProperties: false
+      required: [schema_version, claims, intent_proposals, limitations]
+      properties:
+        schema_version: {$ref: '#/components/schemas/AgentPayloadSchemaVersion'}
+        claims:
+          type: array
+          maxItems: 256
+          items: {$ref: '#/components/schemas/ClaimProposal'}
+        intent_proposals:
+          type: array
+          maxItems: 256
+          items: {$ref: '#/components/schemas/IntentProposal'}
+        limitations:
+          type: array
+          maxItems: 128
+          items: {type: string, minLength: 1, maxLength: 8192}
+        reason_decision:
+          oneOf:
+            - $ref: '#/components/schemas/ReasonDecisionPayload'
+            - type: 'null'
+    FactAssessment:
+      type: object
+      additionalProperties: false
+      required: [assessment_id, claim_ref, input_refs, grounding_state, evidence_state, applicability_state, method_kind, method_version, reviewer_ref, conditions, reason]
+      properties:
+        assessment_id: {type: string, minLength: 1, maxLength: 256}
+        claim_ref: {$ref: '#/components/schemas/KnowledgeRef'}
+        input_refs:
+          type: array
+          minItems: 1
+          maxItems: 256
+          items: {$ref: '#/components/schemas/KnowledgeRef'}
+        grounding_state: {$ref: '#/components/schemas/GroundingState'}
+        evidence_state: {$ref: '#/components/schemas/EvidenceState'}
+        applicability_state: {$ref: '#/components/schemas/ApplicabilityState'}
+        method_kind: {$ref: '#/components/schemas/AssessmentMethod'}
+        method_version: {type: string, minLength: 1, maxLength: 256}
+        reviewer_ref: {type: string, minLength: 1, maxLength: 256}
+        conditions:
+          type: array
+          maxItems: 128
+          items: {type: string, minLength: 1, maxLength: 8192}
+        reason: {type: string, minLength: 1, maxLength: 32768}
+      allOf:
+        - if:
+            properties:
+              method_kind: {const: model_review}
+            required: [method_kind]
+          then:
+            properties:
+              evidence_state:
+                not: {const: supported}
+    AssessmentCommand:
+      type: object
+      additionalProperties: false
+      required: [schema_version, expected_version, assessment]
+      properties:
+        schema_version: {$ref: '#/components/schemas/ApiSchemaVersion'}
+        expected_version: {$ref: '#/components/schemas/RevisionString'}
+        assessment: {$ref: '#/components/schemas/FactAssessment'}
+    AssessmentReceipt:
+      type: object
+      additionalProperties: false
+      required: [assessment_id, revision, status, claim_ref, request_id]
+      properties:
+        assessment_id: {type: string, minLength: 1}
+        revision: {$ref: '#/components/schemas/RevisionString'}
+        status: {$ref: '#/components/schemas/ComponentReceiptStatus'}
+        claim_ref: {$ref: '#/components/schemas/KnowledgeRef'}
+        request_id: {type: string, minLength: 1}
+        code:
+          oneOf:
+            - $ref: '#/components/schemas/ErrorCode'
+            - type: 'null'
+    ResultEnvelope:
+      type: object
+      additionalProperties: false
+      required: [schema_version, submission_id, identity, snapshot_id, read_set, raw_output_ref, raw_output_digest, payload, producer_version]
+      properties:
+        schema_version: {$ref: '#/components/schemas/ResultEnvelopeSchemaVersion'}
+        submission_id: {type: string, minLength: 1, maxLength: 256}
+        identity: {$ref: '#/components/schemas/RunIdentity'}
+        snapshot_id: {type: string, minLength: 1, maxLength: 256}
+        read_set:
+          type: array
+          maxItems: 4096
+          items: {$ref: '#/components/schemas/KnowledgeRef'}
+        raw_output_ref: {$ref: '#/components/schemas/BlobRef'}
+        raw_output_digest: {$ref: '#/components/schemas/Sha256Digest'}
+        payload: {$ref: '#/components/schemas/AgentPayload'}
+        producer_version: {type: string, minLength: 1, maxLength: 256}
+    CaptureEnvelope:
+      type: object
+      additionalProperties: false
+      required: [schema_version, capture_id, identity, tool_call_id, tool_attempt_id, artifact_refs, capture_layer, observed_at, received_at, evidence_origin, conditions, completeness]
+      properties:
+        schema_version: {$ref: '#/components/schemas/CaptureSchemaVersion'}
+        capture_id: {type: string, minLength: 1, maxLength: 256}
+        identity: {$ref: '#/components/schemas/RunIdentity'}
+        tool_call_id: {type: string, minLength: 1, maxLength: 1024}
+        tool_attempt_id: {type: string, minLength: 1, maxLength: 256}
+        artifact_refs:
+          type: array
+          minItems: 1
+          maxItems: 256
+          items: {$ref: '#/components/schemas/BlobRef'}
+        capture_layer: {type: string, minLength: 1, maxLength: 256}
+        observed_at: {type: string, format: date-time}
+        received_at: {type: string, format: date-time}
+        evidence_origin: {$ref: '#/components/schemas/EvidenceOrigin'}
+        conditions:
+          type: array
+          maxItems: 128
+          items: {type: string, minLength: 1, maxLength: 8192}
+        completeness: {$ref: '#/components/schemas/CaptureCompleteness'}
+    SessionManifest:
+      type: object
+      additionalProperties: false
+      required: [session_id, work_item_id, checkpoint_revision, owner_run_id, run_epoch, history_root, message_end, provider_state_ref, memory_manifest_ref, pending_operation_refs, lock_digest, recovery_class, saved_at]
+      properties:
+        session_id: {type: string, minLength: 1, maxLength: 256}
+        work_item_id: {type: string, minLength: 1, maxLength: 256}
+        checkpoint_revision: {$ref: '#/components/schemas/RevisionString'}
+        owner_run_id: {type: string, minLength: 1, maxLength: 256}
+        run_epoch: {$ref: '#/components/schemas/RevisionString'}
+        history_root: {$ref: '#/components/schemas/BlobRef'}
+        message_end: {$ref: '#/components/schemas/RevisionString'}
+        provider_state_ref: {$ref: '#/components/schemas/BlobRef'}
+        memory_manifest_ref: {$ref: '#/components/schemas/BlobRef'}
+        pending_operation_refs:
+          type: array
+          maxItems: 512
+          items: {type: string, minLength: 1, maxLength: 1024}
+        lock_digest: {$ref: '#/components/schemas/Sha256Digest'}
+        recovery_class: {$ref: '#/components/schemas/RecoveryClass'}
+        saved_at: {type: string, format: date-time}
+    ExecutionLimits:
+      type: object
+      additionalProperties: false
+      required: [max_work_items, max_reason_runs, max_model_requests, max_tool_calls, max_single_output_bytes, max_total_output_bytes, max_elapsed_seconds, max_attempts_per_work, repair_attempts]
+      properties:
+        max_work_items: {type: integer, minimum: 1, maximum: 1000000}
+        max_reason_runs: {type: integer, minimum: 0, maximum: 1000000}
+        max_model_requests: {type: integer, minimum: 0, maximum: 1000000}
+        max_tool_calls: {type: integer, minimum: 0, maximum: 1000000}
+        max_single_output_bytes: {type: integer, minimum: 1, maximum: 1073741824}
+        max_total_output_bytes: {type: integer, minimum: 1, maximum: 1099511627776}
+        max_elapsed_seconds: {type: integer, minimum: 1, maximum: 31536000}
+        max_attempts_per_work: {type: integer, minimum: 1, maximum: 1000}
+        repair_attempts: {type: integer, minimum: 0, maximum: 1000}
+    WorkerAssignment:
+      type: object
+      additionalProperties: false
+      required: [schema_version, operation_id, identity, work_kind, snapshot_id, profile_refs, session_manifest_ref, tool_definition_refs, limits, resume_reason]
+      properties:
+        schema_version: {$ref: '#/components/schemas/AssignmentSchemaVersion'}
+        operation_id: {type: string, minLength: 1, maxLength: 256}
+        identity: {$ref: '#/components/schemas/RunIdentity'}
+        work_kind: {$ref: '#/components/schemas/WorkKind'}
+        snapshot_id: {type: string, minLength: 1, maxLength: 256}
+        profile_refs:
+          type: array
+          minItems: 1
+          maxItems: 64
+          items: {type: string, minLength: 1, maxLength: 256}
+        session_manifest_ref:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 256
+            - type: 'null'
+        tool_definition_refs:
+          type: array
+          maxItems: 256
+          items: {type: string, minLength: 1, maxLength: 256}
+        limits: {$ref: '#/components/schemas/ExecutionLimits'}
+        resume_reason:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 8192
+            - type: 'null'
+    WorkDependency:
+      type: object
+      additionalProperties: false
+      required: [predecessor_work_id, condition]
+      properties:
+        predecessor_work_id: {type: string, minLength: 1, maxLength: 256}
+        condition: {$ref: '#/components/schemas/DependencyCondition'}
+        criterion_ref:
+          oneOf:
+            - $ref: '#/components/schemas/KnowledgeRef'
+            - type: 'null'
+    WorkItemView:
+      type: object
+      additionalProperties: false
+      required: [work_item_id, task_id, revision, kind, desired_state, state, dependencies, suspension_causes, result_state]
+      properties:
+        work_item_id: {type: string, minLength: 1}
+        task_id: {type: string, minLength: 1}
+        revision: {$ref: '#/components/schemas/RevisionString'}
+        kind: {$ref: '#/components/schemas/WorkKind'}
+        desired_state: {$ref: '#/components/schemas/WorkDesired'}
+        state: {$ref: '#/components/schemas/WorkState'}
+        dependencies:
+          type: array
+          items: {$ref: '#/components/schemas/WorkDependency'}
+        suspension_causes:
+          type: array
+          uniqueItems: true
+          items: {$ref: '#/components/schemas/SuspensionCause'}
+        result_state: {$ref: '#/components/schemas/RunResultState'}
+        terminal_reason:
+          oneOf:
+            - type: string
+              minLength: 1
+            - type: 'null'
+    GoalCriterionInput:
+      type: object
+      additionalProperties: false
+      required: [criterion_id, object, condition, evidence_requirements, allowed_methods, responsible_party, required]
+      properties:
+        criterion_id: {type: string, minLength: 1, maxLength: 256}
+        object: {type: string, minLength: 1, maxLength: 8192}
+        condition: {type: string, minLength: 1, maxLength: 8192}
+        evidence_requirements:
+          type: array
+          minItems: 1
+          maxItems: 128
+          items: {type: string, minLength: 1, maxLength: 8192}
+        allowed_methods:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: {$ref: '#/components/schemas/AssessmentMethod'}
+        responsible_party: {type: string, minLength: 1, maxLength: 256}
+        required: {type: boolean}
+    GoalContractInput:
+      type: object
+      additionalProperties: false
+      required: [text, criteria]
+      properties:
+        text: {type: string, minLength: 1, maxLength: 65536}
+        criteria:
+          type: array
+          minItems: 1
+          maxItems: 256
+          items: {$ref: '#/components/schemas/GoalCriterionInput'}
+    AuthorizationScopeEntry:
+      type: object
+      additionalProperties: false
+      required: [host, protocol, port]
+      properties:
+        host: {type: string, minLength: 1, maxLength: 253}
+        protocol: {type: string, enum: [http, https]}
+        port: {type: integer, minimum: 1, maximum: 65535}
+    MoneyBudget:
+      type: object
+      additionalProperties: false
+      required: [amount, currency]
+      properties:
+        amount: {$ref: '#/components/schemas/DecimalString'}
+        currency: {type: string, enum: [USD]}
+    TaskCreate:
+      type: object
+      additionalProperties: false
+      required: [schema_version, project_id, name, scenario, goal, authorization_scope, authorization_expires_at, model_profile_ref, runtime_profile_ref, budget]
+      properties:
+        schema_version: {$ref: '#/components/schemas/ApiSchemaVersion'}
+        project_id: {type: string, minLength: 1, maxLength: 256}
+        name: {type: string, minLength: 1, maxLength: 256}
+        scenario: {$ref: '#/components/schemas/ScenarioKind'}
+        goal: {$ref: '#/components/schemas/GoalContractInput'}
+        authorization_scope:
+          type: array
+          minItems: 1
+          maxItems: 1024
+          items: {$ref: '#/components/schemas/AuthorizationScopeEntry'}
+        authorization_expires_at: {type: string, format: date-time}
+        model_profile_ref: {type: string, minLength: 1, maxLength: 256}
+        runtime_profile_ref: {type: string, minLength: 1, maxLength: 256}
+        budget: {$ref: '#/components/schemas/MoneyBudget'}
+    TaskView:
+      type: object
+      additionalProperties: false
+      required: [task_id, tenant_id, project_id, version, name, scenario, desired_state, observed_state, goal_revision, execution_epoch, allowed_actions]
+      properties:
+        task_id: {type: string, minLength: 1}
+        tenant_id: {type: string, minLength: 1}
+        project_id: {type: string, minLength: 1}
+        version: {$ref: '#/components/schemas/RevisionString'}
+        name: {type: string, minLength: 1}
+        scenario: {$ref: '#/components/schemas/ScenarioKind'}
+        desired_state: {$ref: '#/components/schemas/TaskDesired'}
+        observed_state: {$ref: '#/components/schemas/TaskObserved'}
+        goal_revision: {$ref: '#/components/schemas/RevisionString'}
+        execution_epoch: {$ref: '#/components/schemas/RevisionString'}
+        activated_at:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+        close_trigger:
+          oneOf:
+            - $ref: '#/components/schemas/CloseTrigger'
+            - type: 'null'
+        result_outcome:
+          oneOf:
+            - $ref: '#/components/schemas/ResultOutcome'
+            - type: 'null'
+        allowed_actions:
+          type: array
+          uniqueItems: true
+          items: {$ref: '#/components/schemas/TaskCommandName'}
+    TaskCommand:
+      type: object
+      additionalProperties: false
+      required: [schema_version, command, expected_version, reason]
+      properties:
+        schema_version: {$ref: '#/components/schemas/ApiSchemaVersion'}
+        command: {$ref: '#/components/schemas/TaskCommandName'}
+        expected_version: {$ref: '#/components/schemas/RevisionString'}
+        reason: {type: string, minLength: 1, maxLength: 8192}
+    WorkCommand:
+      type: object
+      additionalProperties: false
+      required: [schema_version, command, expected_version, reason]
+      properties:
+        schema_version: {$ref: '#/components/schemas/ApiSchemaVersion'}
+        command: {$ref: '#/components/schemas/WorkCommandName'}
+        expected_version: {$ref: '#/components/schemas/RevisionString'}
+        reason: {type: string, minLength: 1, maxLength: 8192}
+    ApprovalDecision:
+      type: object
+      additionalProperties: false
+      required: [schema_version, decision, expected_version, reason]
+      properties:
+        schema_version: {$ref: '#/components/schemas/ApiSchemaVersion'}
+        decision: {$ref: '#/components/schemas/ApprovalDecisionValue'}
+        expected_version: {$ref: '#/components/schemas/RevisionString'}
+        reason: {type: string, minLength: 1, maxLength: 8192}
+    CommandReceipt:
+      type: object
+      additionalProperties: false
+      required: [command_id, disposition, resource_ref, resource_version, request_id]
+      properties:
+        command_id: {type: string, minLength: 1}
+        disposition: {$ref: '#/components/schemas/CommandDisposition'}
+        resource_ref: {$ref: '#/components/schemas/KnowledgeRef'}
+        resource_version: {$ref: '#/components/schemas/RevisionString'}
+        request_id: {type: string, minLength: 1}
+        code:
+          oneOf:
+            - $ref: '#/components/schemas/ErrorCode'
+            - type: 'null'
+    ComponentReceipt:
+      type: object
+      additionalProperties: false
+      required: [status, local_ref, request_id]
+      properties:
+        status: {$ref: '#/components/schemas/ComponentReceiptStatus'}
+        local_ref: {type: string, minLength: 1, maxLength: 256}
+        request_id: {type: string, minLength: 1}
+        canonical_ref:
+          oneOf:
+            - $ref: '#/components/schemas/KnowledgeRef'
+            - type: 'null'
+        code:
+          oneOf:
+            - $ref: '#/components/schemas/ErrorCode'
+            - type: 'null'
+    ClaimRecord:
+      type: object
+      additionalProperties: false
+      required: [claim_id, revision, task_id, kind, assertion_role, text, basis_refs, limitations, producer_kind, producer_ref, created_at]
+      properties:
+        claim_id: {type: string, minLength: 1}
+        revision: {$ref: '#/components/schemas/RevisionString'}
+        task_id: {type: string, minLength: 1}
+        kind: {$ref: '#/components/schemas/ClaimKind'}
+        assertion_role: {$ref: '#/components/schemas/AssertionRole'}
+        text: {type: string, minLength: 1, maxLength: 32768}
+        structured_assertion:
+          oneOf:
+            - type: object
+              additionalProperties: true
+            - type: 'null'
+        basis_refs:
+          type: array
+          items: {$ref: '#/components/schemas/KnowledgeRef'}
+        limitations:
+          type: array
+          items: {type: string, minLength: 1}
+        producer_kind: {$ref: '#/components/schemas/ProducerKind'}
+        producer_ref: {type: string, minLength: 1}
+        created_at: {type: string, format: date-time}
+        supersedes:
+          oneOf:
+            - $ref: '#/components/schemas/KnowledgeRef'
+            - type: 'null'
+    ObservationRecord:
+      type: object
+      additionalProperties: false
+      required: [capture_id, tool_attempt_id, collector_ref, artifact_ref, capture_layer, observed_at, received_at, environment_ref, conditions, completeness, evidence_origin]
+      properties:
+        capture_id: {type: string, minLength: 1}
+        tool_attempt_id: {type: string, minLength: 1}
+        collector_ref: {type: string, minLength: 1}
+        artifact_ref: {$ref: '#/components/schemas/BlobRef'}
+        capture_layer: {type: string, minLength: 1}
+        observed_at: {type: string, format: date-time}
+        received_at: {type: string, format: date-time}
+        environment_ref: {type: string, minLength: 1}
+        conditions:
+          type: array
+          items: {type: string, minLength: 1}
+        completeness: {$ref: '#/components/schemas/CaptureCompleteness'}
+        evidence_origin: {$ref: '#/components/schemas/EvidenceOrigin'}
+    ArtifactRecord:
+      type: object
+      additionalProperties: false
+      required: [artifact_ref, state, media_type, size_bytes, created_at]
+      properties:
+        artifact_ref: {$ref: '#/components/schemas/BlobRef'}
+        state: {$ref: '#/components/schemas/ArtifactState'}
+        media_type: {type: string, minLength: 1}
+        size_bytes: {$ref: '#/components/schemas/RevisionString'}
+        created_at: {type: string, format: date-time}
+    IntentRecord:
+      type: object
+      additionalProperties: false
+      required: [intent_id, revision, task_id, question, basis_refs, expected_output, acceptance_state, created_at]
+      properties:
+        intent_id: {type: string, minLength: 1}
+        revision: {$ref: '#/components/schemas/RevisionString'}
+        task_id: {type: string, minLength: 1}
+        question: {type: string, minLength: 1}
+        basis_refs:
+          type: array
+          items: {$ref: '#/components/schemas/KnowledgeRef'}
+        expected_output: {type: string, minLength: 1}
+        acceptance_state: {$ref: '#/components/schemas/IntentAcceptance'}
+        created_at: {type: string, format: date-time}
+    AgentRunRecord:
+      type: object
+      additionalProperties: false
+      required: [identity, process_state, result_state, model_mode, created_at]
+      properties:
+        identity: {$ref: '#/components/schemas/RunIdentity'}
+        process_state: {$ref: '#/components/schemas/RunProcessState'}
+        result_state: {$ref: '#/components/schemas/RunResultState'}
+        model_mode: {$ref: '#/components/schemas/ModelMode'}
+        created_at: {type: string, format: date-time}
+        exited_at:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+        session_manifest:
+          oneOf:
+            - $ref: '#/components/schemas/SessionManifest'
+            - type: 'null'
+    GoalRecord:
+      type: object
+      additionalProperties: false
+      required: [goal_id, revision, text, status, criterion_refs]
+      properties:
+        goal_id: {type: string, minLength: 1}
+        revision: {$ref: '#/components/schemas/RevisionString'}
+        text: {type: string, minLength: 1}
+        status: {$ref: '#/components/schemas/GoalStatus'}
+        criterion_refs:
+          type: array
+          minItems: 1
+          items: {$ref: '#/components/schemas/KnowledgeRef'}
+    GenericRecord:
+      type: object
+      additionalProperties: false
+      required: [ref, title, summary, created_at]
+      properties:
+        ref: {$ref: '#/components/schemas/KnowledgeRef'}
+        title: {type: string, minLength: 1}
+        summary: {type: string, minLength: 1}
+        created_at: {type: string, format: date-time}
+        test_result:
+          oneOf:
+            - $ref: '#/components/schemas/TestResult'
+            - type: 'null'
+        report_delivery_state:
+          oneOf:
+            - $ref: '#/components/schemas/ReportDeliveryState'
+            - type: 'null'
+    RecordPayload:
+      oneOf:
+        - $ref: '#/components/schemas/TaskView'
+        - $ref: '#/components/schemas/WorkItemView'
+        - $ref: '#/components/schemas/ClaimRecord'
+        - $ref: '#/components/schemas/ObservationRecord'
+        - $ref: '#/components/schemas/ArtifactRecord'
+        - $ref: '#/components/schemas/IntentRecord'
+        - $ref: '#/components/schemas/AgentRunRecord'
+        - $ref: '#/components/schemas/GoalRecord'
+        - $ref: '#/components/schemas/GenericRecord'
+    RecordView:
+      type: object
+      additionalProperties: false
+      required: [ref, display_kind, record]
+      properties:
+        ref: {$ref: '#/components/schemas/KnowledgeRef'}
+        display_kind: {type: string, minLength: 1, maxLength: 128}
+        record: {$ref: '#/components/schemas/RecordPayload'}
+    TopologyNode:
+      type: object
+      additionalProperties: false
+      required: [id, ref, display_kind, label]
+      properties:
+        id: {type: string, minLength: 1, maxLength: 1024}
+        ref: {$ref: '#/components/schemas/KnowledgeRef'}
+        display_kind: {type: string, minLength: 1, maxLength: 128}
+        label: {type: string, minLength: 1, maxLength: 8192}
+        state:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 128
+            - type: 'null'
+        allowed_actions:
+          type: array
+          uniqueItems: true
+          items: {type: string, minLength: 1, maxLength: 128}
+    TopologyEdge:
+      type: object
+      additionalProperties: false
+      required: [id, source, target, edge_type]
+      properties:
+        id: {type: string, minLength: 1, maxLength: 1024}
+        source: {type: string, minLength: 1, maxLength: 1024}
+        target: {type: string, minLength: 1, maxLength: 1024}
+        edge_type: {type: string, minLength: 1, maxLength: 128}
+        label:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 8192
+            - type: 'null'
+    ViewRemoval:
+      type: object
+      additionalProperties: false
+      required: [id]
+      properties:
+        id: {type: string, minLength: 1, maxLength: 1024}
+    ViewPatchValue:
+      oneOf:
+        - $ref: '#/components/schemas/TopologyNode'
+        - $ref: '#/components/schemas/TopologyEdge'
+        - $ref: '#/components/schemas/ViewRemoval'
+    ViewPatch:
+      type: object
+      additionalProperties: false
+      required: [op, value]
+      properties:
+        op: {$ref: '#/components/schemas/ViewPatchOperation'}
+        value: {$ref: '#/components/schemas/ViewPatchValue'}
+    ViewQuery:
+      type: object
+      additionalProperties: false
+      required: [mode, snapshot_id, cursor, node_limit, edge_limit]
+      properties:
+        mode: {$ref: '#/components/schemas/ViewMode'}
+        snapshot_id:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 256
+            - type: 'null'
+        cursor:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 4096
+            - type: 'null'
+        node_limit: {type: integer, minimum: 1, maximum: 1000}
+        edge_limit: {type: integer, minimum: 1, maximum: 2000}
+    TopologySnapshot:
+      type: object
+      additionalProperties: false
+      required: [view_id, snapshot_id, view_revision, query_digest, access_scope_digest, projection_version, nodes, edges, opaque_cursor, truncated, continuation, allowed_actions]
+      properties:
+        view_id: {type: string, minLength: 1, maxLength: 256}
+        snapshot_id: {type: string, minLength: 1, maxLength: 256}
+        view_revision: {$ref: '#/components/schemas/RevisionString'}
+        query_digest: {type: string, minLength: 1, maxLength: 256}
+        access_scope_digest: {type: string, minLength: 1, maxLength: 256}
+        projection_version: {type: string, minLength: 1, maxLength: 256}
+        nodes:
+          type: array
+          maxItems: 1000
+          items: {$ref: '#/components/schemas/TopologyNode'}
+        edges:
+          type: array
+          maxItems: 2000
+          items: {$ref: '#/components/schemas/TopologyEdge'}
+        opaque_cursor: {type: string, minLength: 1, maxLength: 4096}
+        truncated: {type: boolean}
+        continuation:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 4096
+            - type: 'null'
+        allowed_actions:
+          type: array
+          uniqueItems: true
+          items: {type: string, minLength: 1, maxLength: 128}
+    ViewEventBatch:
+      type: object
+      additionalProperties: false
+      required: [schema_version, view_id, base_view_revision, view_revision, cursor, patches]
+      properties:
+        schema_version: {$ref: '#/components/schemas/ViewEventSchemaVersion'}
+        view_id: {type: string, minLength: 1, maxLength: 256}
+        base_view_revision: {$ref: '#/components/schemas/RevisionString'}
+        view_revision: {$ref: '#/components/schemas/RevisionString'}
+        cursor: {type: string, minLength: 1, maxLength: 4096}
+        patches:
+          type: array
+          minItems: 1
+          maxItems: 2000
+          items: {$ref: '#/components/schemas/ViewPatch'}
+    ViewReset:
+      type: object
+      additionalProperties: false
+      required: [schema_version, view_id, reason, action]
+      properties:
+        schema_version: {$ref: '#/components/schemas/ViewResetSchemaVersion'}
+        view_id: {type: string, minLength: 1, maxLength: 256}
+        reason: {type: string, minLength: 1, maxLength: 256}
+        action: {$ref: '#/components/schemas/ViewResetAction'}
+    SnapshotSummary:
+      type: object
+      additionalProperties: false
+      required: [snapshot_id, view_id, view_revision, created_at, query_digest, projection_version]
+      properties:
+        snapshot_id: {type: string, minLength: 1}
+        view_id: {type: string, minLength: 1}
+        view_revision: {$ref: '#/components/schemas/RevisionString'}
+        created_at: {type: string, format: date-time}
+        query_digest: {type: string, minLength: 1}
+        projection_version: {type: string, minLength: 1}
+        query:
+          oneOf:
+            - $ref: '#/components/schemas/ViewQuery'
+            - type: 'null'
+    SnapshotIndex:
+      type: object
+      additionalProperties: false
+      required: [items, opaque_cursor]
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/SnapshotSummary'}
+        opaque_cursor:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 4096
+            - type: 'null'
+    LayoutAnchor:
+      type: object
+      additionalProperties: false
+      required: [entity_type, id]
+      properties:
+        entity_type: {$ref: '#/components/schemas/NodeEntityType'}
+        id: {type: string, minLength: 1, maxLength: 256}
+        revision:
+          oneOf:
+            - $ref: '#/components/schemas/RevisionString'
+            - type: 'null'
+    LayoutEntry:
+      type: object
+      additionalProperties: false
+      required: [anchor, x, y, pinned]
+      properties:
+        anchor: {$ref: '#/components/schemas/LayoutAnchor'}
+        x: {type: number, format: double, minimum: -10000000, maximum: 10000000}
+        y: {type: number, format: double, minimum: -10000000, maximum: 10000000}
+        pinned: {type: boolean}
+    LayoutPatch:
+      type: object
+      additionalProperties: false
+      required: [schema_version, selection_mode, entries]
+      properties:
+        schema_version: {$ref: '#/components/schemas/ApiSchemaVersion'}
+        selection_mode: {$ref: '#/components/schemas/ViewSelectionMode'}
+        entries:
+          type: array
+          maxItems: 1000
+          items: {$ref: '#/components/schemas/LayoutEntry'}
+    LayoutReceipt:
+      type: object
+      additionalProperties: false
+      required: [view_name, layout_revision, request_id]
+      properties:
+        view_name: {type: string, minLength: 1}
+        layout_revision: {$ref: '#/components/schemas/RevisionString'}
+        request_id: {type: string, minLength: 1}
+    ArchiveView:
+      type: object
+      additionalProperties: false
+      required: [archive_id, source_version, imported_at, records, executable]
+      properties:
+        archive_id: {type: string, minLength: 1}
+        source_version: {type: string, minLength: 1}
+        imported_at: {type: string, format: date-time}
+        records:
+          type: array
+          items: {$ref: '#/components/schemas/RecordView'}
+        executable: {type: boolean, const: false}
+    EvidenceReceipt:
+      type: object
+      additionalProperties: false
+      required: [capture_id, status, artifact_refs, request_id]
+      properties:
+        capture_id: {type: string, minLength: 1}
+        status: {$ref: '#/components/schemas/EvidenceReceiptStatus'}
+        artifact_refs:
+          type: array
+          items: {$ref: '#/components/schemas/BlobRef'}
+        request_id: {type: string, minLength: 1}
+        code:
+          oneOf:
+            - $ref: '#/components/schemas/ErrorCode'
+            - type: 'null'
+    ResultReceipt:
+      type: object
+      additionalProperties: false
+      required: [submission_id, status, components, request_id]
+      properties:
+        submission_id: {type: string, minLength: 1}
+        status: {$ref: '#/components/schemas/ResultReceiptStatus'}
+        components:
+          type: array
+          items: {$ref: '#/components/schemas/ComponentReceipt'}
+        request_id: {type: string, minLength: 1}
+        code:
+          oneOf:
+            - $ref: '#/components/schemas/ErrorCode'
+            - type: 'null'
+    ClaimWork:
+      type: object
+      additionalProperties: false
+      required: [schema_version, operation_id, leader_epoch, receiver_id, capacity_key]
+      properties:
+        schema_version: {$ref: '#/components/schemas/ApiSchemaVersion'}
+        operation_id: {type: string, minLength: 1}
+        leader_epoch: {$ref: '#/components/schemas/RevisionString'}
+        receiver_id: {type: string, minLength: 1}
+        capacity_key: {type: string, minLength: 1}
+    DispatchReceipt:
+      type: object
+      additionalProperties: false
+      required: [operation_id, status, request_id]
+      properties:
+        operation_id: {type: string, minLength: 1}
+        status: {$ref: '#/components/schemas/DispatchStatus'}
+        assignment:
+          oneOf:
+            - $ref: '#/components/schemas/WorkerAssignment'
+            - type: 'null'
+        request_id: {type: string, minLength: 1}
+        code:
+          oneOf:
+            - $ref: '#/components/schemas/ErrorCode'
+            - type: 'null'
+    StartReceipt:
+      type: object
+      additionalProperties: false
+      required: [operation_id, identity, status, process_identity, request_id]
+      properties:
+        operation_id: {type: string, minLength: 1}
+        identity: {$ref: '#/components/schemas/RunIdentity'}
+        status: {$ref: '#/components/schemas/StartStatus'}
+        process_identity:
+          oneOf:
+            - type: string
+              minLength: 1
+            - type: 'null'
+        request_id: {type: string, minLength: 1}
+    WorkerControl:
+      type: object
+      additionalProperties: false
+      required: [schema_version, operation_id, identity, action, reason]
+      properties:
+        schema_version: {$ref: '#/components/schemas/ApiSchemaVersion'}
+        operation_id: {type: string, minLength: 1}
+        identity: {$ref: '#/components/schemas/RunIdentity'}
+        action: {$ref: '#/components/schemas/ControlAction'}
+        reason: {type: string, minLength: 1, maxLength: 8192}
+    ControlReceipt:
+      type: object
+      additionalProperties: false
+      required: [operation_id, identity, status, process_state, request_id]
+      properties:
+        operation_id: {type: string, minLength: 1}
+        identity: {$ref: '#/components/schemas/RunIdentity'}
+        status: {$ref: '#/components/schemas/ControlStatus'}
+        process_state: {$ref: '#/components/schemas/RunProcessState'}
+        request_id: {type: string, minLength: 1}
+    ChatRole:
+      type: string
+      enum: [system, user, assistant, tool]
+    ChatMessage:
+      type: object
+      additionalProperties: false
+      required: [role, content]
+      properties:
+        role: {$ref: '#/components/schemas/ChatRole'}
+        content:
+          oneOf:
+            - type: string
+              maxLength: 1048576
+            - type: 'null'
+        name:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 256
+            - type: 'null'
+        tool_call_id:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 1024
+            - type: 'null'
+    ChatToolDefinition:
+      type: object
+      additionalProperties: false
+      required: [type, function]
+      properties:
+        type: {type: string, enum: [function]}
+        function:
+          type: object
+          additionalProperties: false
+          required: [name, description, parameters]
+          properties:
+            name: {type: string, minLength: 1, maxLength: 256}
+            description: {type: string, maxLength: 8192}
+            parameters:
+              type: object
+              additionalProperties: true
+    ChatCompletionRequest:
+      type: object
+      additionalProperties: false
+      required: [model, messages, stream]
+      properties:
+        model: {type: string, minLength: 1, maxLength: 256}
+        messages:
+          type: array
+          minItems: 1
+          maxItems: 4096
+          items: {$ref: '#/components/schemas/ChatMessage'}
+        tools:
+          type: array
+          maxItems: 256
+          items: {$ref: '#/components/schemas/ChatToolDefinition'}
+        tool_choice:
+          oneOf:
+            - type: string
+              enum: [none, auto, required]
+            - type: object
+              additionalProperties: false
+              required: [type, function]
+              properties:
+                type: {type: string, enum: [function]}
+                function:
+                  type: object
+                  additionalProperties: false
+                  required: [name]
+                  properties:
+                    name: {type: string, minLength: 1, maxLength: 256}
+        stream: {type: boolean}
+        max_tokens: {type: integer, minimum: 1, maximum: 1048576}
+        temperature: {type: number, minimum: 0, maximum: 2}
+    ChatCompletionChoice:
+      type: object
+      additionalProperties: false
+      required: [index, message, finish_reason]
+      properties:
+        index: {type: integer, minimum: 0, maximum: 1000000}
+        message: {$ref: '#/components/schemas/ChatMessage'}
+        finish_reason:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 128
+            - type: 'null'
+    TokenUsage:
+      type: object
+      additionalProperties: false
+      required: [prompt_tokens, completion_tokens, total_tokens]
+      properties:
+        prompt_tokens: {$ref: '#/components/schemas/RevisionString'}
+        completion_tokens: {$ref: '#/components/schemas/RevisionString'}
+        total_tokens: {$ref: '#/components/schemas/RevisionString'}
+    ChatCompletionResponse:
+      type: object
+      additionalProperties: false
+      required: [id, object, created, model, choices, usage]
+      properties:
+        id: {type: string, minLength: 1}
+        object: {type: string, enum: [chat.completion]}
+        created: {$ref: '#/components/schemas/RevisionString'}
+        model: {type: string, minLength: 1}
+        choices:
+          type: array
+          items: {$ref: '#/components/schemas/ChatCompletionChoice'}
+        usage: {$ref: '#/components/schemas/TokenUsage'}
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [code, message, request_id, retryable, details]
+      properties:
+        code: {$ref: '#/components/schemas/ErrorCode'}
+        message: {type: string, minLength: 1, maxLength: 8192}
+        request_id: {type: string, minLength: 1, maxLength: 256}
+        retryable: {type: boolean}
+        details:
+          type: object
+          additionalProperties: true
