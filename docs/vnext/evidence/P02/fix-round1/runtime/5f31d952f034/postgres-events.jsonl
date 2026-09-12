@@ -1,0 +1,39 @@
+{"operation": "admin_execute", "phase": "setup", "request": {"params": null, "sql": "CREATE ROLE \"wuji_migration_3418633d03cc\" NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS"}}
+{"operation": "admin_execute_receipt", "phase": "setup", "response": {"rowcount": -1, "statusmessage": "CREATE ROLE"}}
+{"operation": "admin_execute", "phase": "setup", "request": {"params": null, "sql": "CREATE ROLE \"wuji_app_3418633d03cc\" LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS"}}
+{"operation": "admin_execute_receipt", "phase": "setup", "response": {"rowcount": -1, "statusmessage": "CREATE ROLE"}}
+{"operation": "admin_execute", "phase": "setup", "request": {"params": null, "sql": "CREATE DATABASE \"wuji_p02_3418633d03cc\" OWNER \"wuji_migration_3418633d03cc\""}}
+{"operation": "admin_execute_receipt", "phase": "setup", "response": {"rowcount": -1, "statusmessage": "CREATE DATABASE"}}
+{"operation": "admin_execute", "phase": "setup", "request": {"params": null, "sql": "GRANT CONNECT ON DATABASE \"wuji_p02_3418633d03cc\" TO \"wuji_app_3418633d03cc\""}}
+{"operation": "admin_execute_receipt", "phase": "setup", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "admin_execute", "phase": "setup", "request": {"params": null, "sql": "CREATE SCHEMA vnext AUTHORIZATION \"wuji_migration_3418633d03cc\""}}
+{"operation": "admin_execute_receipt", "phase": "setup", "response": {"rowcount": -1, "statusmessage": "CREATE SCHEMA"}}
+{"operation": "admin_execute", "phase": "setup", "request": {"params": null, "sql": "GRANT USAGE ON SCHEMA vnext TO \"wuji_app_3418633d03cc\""}}
+{"operation": "admin_execute_receipt", "phase": "setup", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "additional_app_connect", "request": {"database": "wuji_p02_3418633d03cc", "network": "unix_socket", "user": "wuji_app_3418633d03cc"}, "response": "connected"}
+{"operation": "transaction_enter"}
+{"operation": "cursor_create"}
+{"operation": "cursor_enter"}
+{"operation": "cursor_execute", "request": {"params": null, "sql": "CREATE TEMP TABLE p02_audit(value integer NOT NULL)"}}
+{"operation": "cursor_execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE TABLE"}}
+{"operation": "cursor_execute", "request": {"params": [2, 1], "sql": "INSERT INTO p02_audit(value) VALUES (%s), (%s)"}}
+{"operation": "cursor_execute_receipt", "response": {"rowcount": 2, "statusmessage": "INSERT 0 2"}}
+{"operation": "cursor_execute", "request": {"params": null, "sql": "SELECT count(*) FROM p02_audit"}}
+{"operation": "cursor_execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": [2]}
+{"operation": "cursor_execute", "request": {"params": null, "sql": "SELECT value FROM p02_audit ORDER BY value"}}
+{"operation": "cursor_execute_receipt", "response": {"rowcount": 2, "statusmessage": "SELECT 2"}}
+{"operation": "iteration_row", "response": [1]}
+{"operation": "iteration_row", "response": [2]}
+{"operation": "iteration_complete", "response": "exhausted"}
+{"exception": null, "operation": "cursor_exit", "response": "closed"}
+{"exception": null, "operation": "transaction_commit", "response": "ok"}
+{"operation": "close", "response": "ok"}
+{"operation": "admin_execute", "phase": "cleanup", "request": {"params": ["wuji_p02_3418633d03cc"], "sql": "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = %s AND pid <> pg_backend_pid()"}}
+{"operation": "admin_execute_receipt", "phase": "cleanup", "response": {"rowcount": 0, "statusmessage": "SELECT 0"}}
+{"operation": "admin_execute", "phase": "cleanup", "request": {"params": null, "sql": "DROP DATABASE \"wuji_p02_3418633d03cc\""}}
+{"operation": "admin_execute_receipt", "phase": "cleanup", "response": {"rowcount": -1, "statusmessage": "DROP DATABASE"}}
+{"operation": "admin_execute", "phase": "cleanup", "request": {"params": null, "sql": "DROP ROLE \"wuji_app_3418633d03cc\""}}
+{"operation": "admin_execute_receipt", "phase": "cleanup", "response": {"rowcount": -1, "statusmessage": "DROP ROLE"}}
+{"operation": "admin_execute", "phase": "cleanup", "request": {"params": null, "sql": "DROP ROLE \"wuji_migration_3418633d03cc\""}}
+{"operation": "admin_execute_receipt", "phase": "cleanup", "response": {"rowcount": -1, "statusmessage": "DROP ROLE"}}

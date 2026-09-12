@@ -1,0 +1,19 @@
+{
+  "captured_at": "2026-09-13T04:44:10+08:00",
+  "capture_actor": "P02 implementer task (actual CUA capture)",
+  "source_url": "http://127.0.0.1:8765/result.html",
+  "source_transport": "read-only loopback HTTP",
+  "source_page": "../result.html",
+  "source_page_sha256": "03180f10e046d221319172da8a3e4fee2f6846bed3f14f3d6819fd530afe3a33",
+  "screenshot": "http-boundaries.jpg",
+  "screenshot_bytes": 29848,
+  "screenshot_sha256": "b9993261989386935c5d420577766e93127e6f1682114533f785d26229539e6f",
+  "observations": [
+    "R1 bounded JSON HTTP 422 and disconnect termination summary",
+    "R2 Decimal-preserving HTTP 200 and lossy-return HTTP 503",
+    "R3/R7 bounded redacted HTTP 422 results",
+    "R4/R5 offline contract compatibility result",
+    "R6 real PostgreSQL transaction audit result"
+  ],
+  "limitations": "Static presentation of the recorded fix-round outcomes; not a P03 business route, product browser E2E, P01 SDK rerun, or independent review."
+}

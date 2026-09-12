@@ -51,7 +51,7 @@
 - 三份未截断请求/响应包：[`http-reproduction.md`](http-reproduction.md)。每份包含 method、URL、全部合成 headers、请求体、状态、响应 headers 与响应体。
 - 全部逐交换原始记录：[`runtime/`](runtime/)。其中 signed 200 为 [`247a8daa9b47/http-exchanges.jsonl`](runtime/247a8daa9b47/http-exchanges.jsonl)，安全错误 422 为 [`bc8dbb66fe40/http-exchanges.jsonl`](runtime/bc8dbb66fe40/http-exchanges.jsonl)。
 - PostgreSQL 完整 setup/query/cleanup：[`runtime/5ea0fd73bb34/postgres-events.jsonl`](runtime/5ea0fd73bb34/postgres-events.jsonl)。实际 readback 为 PostgreSQL `160002`、独立 DB/app/migration 名、`rolsuper=false`、`rolbypassrls=false`、CREATE=false；清理状态为 database/roles 空集合。
-- 截图由主代理从安全 loopback `http://127.0.0.1:8765/result.html` 捕获，来源与摘要见 [`screenshots/provenance.json`](screenshots/provenance.json)。
+- 截图由 P02 implementer task 通过实际 CUA 从安全 loopback `http://127.0.0.1:8765/result.html` 捕获；后续 parent/controller 仅复核已有产物。来源与摘要见 [`screenshots/provenance.json`](screenshots/provenance.json)。
 
 ![P02 HTTP boundary verification](screenshots/http-boundary.jpg)
 

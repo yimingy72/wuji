@@ -1,6 +1,6 @@
 {
   "captured_at": "2026-09-13T03:45:22+08:00",
-  "capture_actor": "main agent",
+  "capture_actor": "P02 implementer task (actual CUA capture)",
   "source_url": "http://127.0.0.1:8765/result.html",
   "source_transport": "read-only loopback HTTP",
   "source_page": "../result.html",

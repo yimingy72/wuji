@@ -1,0 +1,41 @@
+{"operation": "admin_execute", "phase": "setup", "request": {"params": null, "sql": "CREATE ROLE \"wuji_migration_52dd883bffc9\" NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS"}}
+{"operation": "admin_execute_receipt", "phase": "setup", "response": {"rowcount": -1, "statusmessage": "CREATE ROLE"}}
+{"operation": "admin_execute", "phase": "setup", "request": {"params": null, "sql": "CREATE ROLE \"wuji_app_52dd883bffc9\" LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS"}}
+{"operation": "admin_execute_receipt", "phase": "setup", "response": {"rowcount": -1, "statusmessage": "CREATE ROLE"}}
+{"operation": "admin_execute", "phase": "setup", "request": {"params": null, "sql": "CREATE DATABASE \"wuji_p02_52dd883bffc9\" OWNER \"wuji_migration_52dd883bffc9\""}}
+{"operation": "admin_execute_receipt", "phase": "setup", "response": {"rowcount": -1, "statusmessage": "CREATE DATABASE"}}
+{"operation": "admin_execute", "phase": "setup", "request": {"params": null, "sql": "GRANT CONNECT ON DATABASE \"wuji_p02_52dd883bffc9\" TO \"wuji_app_52dd883bffc9\""}}
+{"operation": "admin_execute_receipt", "phase": "setup", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "admin_execute", "phase": "setup", "request": {"params": null, "sql": "CREATE SCHEMA vnext AUTHORIZATION \"wuji_migration_52dd883bffc9\""}}
+{"operation": "admin_execute_receipt", "phase": "setup", "response": {"rowcount": -1, "statusmessage": "CREATE SCHEMA"}}
+{"operation": "admin_execute", "phase": "setup", "request": {"params": null, "sql": "GRANT USAGE ON SCHEMA vnext TO \"wuji_app_52dd883bffc9\""}}
+{"operation": "admin_execute_receipt", "phase": "setup", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "admin_execute", "phase": "migration_connect", "request": {"params": null, "sql": "SET ROLE \"wuji_migration_52dd883bffc9\""}}
+{"operation": "admin_execute_receipt", "phase": "migration_connect", "response": {"rowcount": -1, "statusmessage": "SET"}}
+{"operation": "migration_connect", "request": {"database": "wuji_p02_52dd883bffc9", "network": "unix_socket", "role": "wuji_migration_52dd883bffc9"}, "response": "connected_with_set_role"}
+{"operation": "execute", "request": {"params": null, "sql": "SELECT current_user"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["wuji_migration_52dd883bffc9"]}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE TABLE vnext.p02_shared(value integer NOT NULL)"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "INSERT INTO vnext.p02_shared(value) VALUES (17)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "INSERT 0 1"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT SELECT ON vnext.p02_shared TO \"wuji_app_52dd883bffc9\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "migration_close", "response": "ok"}
+{"operation": "additional_app_connect", "request": {"database": "wuji_p02_52dd883bffc9", "network": "unix_socket", "user": "wuji_app_52dd883bffc9"}, "response": "connected"}
+{"operation": "execute", "request": {"params": null, "sql": "SELECT current_user, pg_backend_pid()"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["wuji_app_52dd883bffc9", 74569]}
+{"operation": "execute", "request": {"params": null, "sql": "SELECT value FROM vnext.p02_shared"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": [17]}
+{"operation": "close", "response": "ok"}
+{"operation": "admin_execute", "phase": "cleanup", "request": {"params": ["wuji_p02_52dd883bffc9"], "sql": "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = %s AND pid <> pg_backend_pid()"}}
+{"operation": "admin_execute_receipt", "phase": "cleanup", "response": {"rowcount": 0, "statusmessage": "SELECT 0"}}
+{"operation": "admin_execute", "phase": "cleanup", "request": {"params": null, "sql": "DROP DATABASE \"wuji_p02_52dd883bffc9\""}}
+{"operation": "admin_execute_receipt", "phase": "cleanup", "response": {"rowcount": -1, "statusmessage": "DROP DATABASE"}}
+{"operation": "admin_execute", "phase": "cleanup", "request": {"params": null, "sql": "DROP ROLE \"wuji_app_52dd883bffc9\""}}
+{"operation": "admin_execute_receipt", "phase": "cleanup", "response": {"rowcount": -1, "statusmessage": "DROP ROLE"}}
+{"operation": "admin_execute", "phase": "cleanup", "request": {"params": null, "sql": "DROP ROLE \"wuji_migration_52dd883bffc9\""}}
+{"operation": "admin_execute_receipt", "phase": "cleanup", "response": {"rowcount": -1, "statusmessage": "DROP ROLE"}}

@@ -1,0 +1,173 @@
+{
+  "task": "P02 fix round 1",
+  "date": "2026-09-13",
+  "base_sha": "c4dc9ff1a1491a2392405a9bee615b9dfff09fe2",
+  "tested_code_sha": "8a90d408a4b99f80e951448c25455a4b3e99639f",
+  "review_source": ".superpowers/sdd/vnext-v2/P02-review.md",
+  "commands": [
+    {
+      "finding": "R4",
+      "phase": "RED",
+      "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_contract_fix_round1.py -q",
+      "selection": "initial command-resource tests",
+      "exit_code": 1,
+      "outcome": "2 failed, 3 passed; task and approval were rejected by KnowledgeRef.entity_type"
+    },
+    {
+      "finding": "R4",
+      "phase": "GREEN",
+      "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_contract_fix_round1.py -q",
+      "selection": "command-resource tests",
+      "exit_code": 0,
+      "outcome": "5 passed; task/work_item/approval accepted only by CommandResourceRef and task/approval still rejected by KnowledgeRef"
+    },
+    {
+      "finding": "R5",
+      "phase": "RED",
+      "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_contract_fix_round1.py -q -k 'saved_p01'",
+      "exit_code": 1,
+      "outcome": "2 failed; preserved first response had five schema errors and preserved continuation request had two"
+    },
+    {
+      "finding": "R5",
+      "phase": "GREEN",
+      "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_contract_fix_round1.py -q -k 'saved_p01'",
+      "exit_code": 0,
+      "outcome": "2 passed, 5 deselected; saved P01 bytes only, no SDK execution"
+    },
+    {
+      "finding": "R7",
+      "phase": "RED",
+      "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_contract_fix_round1.py::test_unknown_schema_version_has_a_distinct_asgi_error -q",
+      "exit_code": 1,
+      "outcome": "actual ASGI response used INVALID_SCHEMA"
+    },
+    {
+      "finding": "R7",
+      "phase": "GREEN",
+      "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_contract_fix_round1.py::test_unknown_schema_version_has_a_distinct_asgi_error tests/vnext/test_contract_shapes.py::test_asgi_model_validation_uses_the_versioned_error_envelope -q",
+      "exit_code": 0,
+      "outcome": "2 passed; unknown supplied version maps to INVALID_SCHEMA_VERSION while ordinary shape remains INVALID_SCHEMA"
+    },
+    {
+      "finding": "R3",
+      "phase": "RED",
+      "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_contract_fix_round1.py -q -k 'unknown_input_key or public_validation_diagnostics'",
+      "exit_code": 1,
+      "outcome": "2 failed; unknown key was returned verbatim and 20 diagnostics were emitted"
+    },
+    {
+      "finding": "R3",
+      "phase": "GREEN",
+      "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_contract_fix_round1.py -q -k 'unknown_input_key or public_validation_diagnostics or unknown_schema_version' tests/vnext/test_contract_shapes.py::test_asgi_model_validation_uses_the_versioned_error_envelope",
+      "exit_code": 0,
+      "outcome": "3 passed; extra key redacted, errors capped at 16, loc depth capped at 8"
+    },
+    {
+      "finding": "R6",
+      "phase": "RED",
+      "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_contract_fix_round1.py -q -k 'recorded_database'",
+      "exit_code": 1,
+      "outcome": "2 failed; real cursor/transaction SQL ran but expected audit events were absent"
+    },
+    {
+      "finding": "R6",
+      "phase": "GREEN",
+      "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_contract_fix_round1.py -q -k 'recorded_database or database_environment'",
+      "exit_code": 0,
+      "outcome": "3 passed; transaction/cursor/fetch/iteration/error/rollback plus migration and second app connection recorded"
+    },
+    {
+      "finding": "R1",
+      "phase": "RED",
+      "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_contract_fix_round1.py -q -k 'chunked_json or terminates_when or large_integer_parser or nesting_beyond'",
+      "exit_code": 1,
+      "outcome": "4 failed: oversized body dispatched, disconnect did not terminate cleanly, 4301-digit integer raised through ASGI, depth 65 returned 200"
+    },
+    {
+      "finding": "R1",
+      "phase": "GREEN",
+      "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_contract_fix_round1.py -q -k 'chunked_json or terminates_when or large_integer_parser or nesting_beyond or read_deadline or replays_the_original'",
+      "exit_code": 0,
+      "outcome": "6 passed"
+    },
+    {
+      "finding": "R2",
+      "phase": "RED",
+      "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_contract_fix_round1.py -q -k 'decimal_parser or high_precision or survives_actual'",
+      "exit_code": 1,
+      "outcome": "4 failed: inf, canonical collapse, ASGI null, ASGI 1.0"
+    },
+    {
+      "finding": "R2",
+      "phase": "GREEN",
+      "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_contract_fix_round1.py -q -k 'decimal_parser or high_precision or survives_actual or safety_limits or decimal_encoder or bypass_strict'",
+      "exit_code": 0,
+      "outcome": "7 passed; 1e400/high-precision values preserved as JSON numbers and strict router configuration enforced"
+    },
+    {
+      "finding": "R2",
+      "phase": "ordinary return RED",
+      "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_contract_fix_round1.py::test_ordinary_endpoint_fails_before_lossy_decimal_response_encoding -q",
+      "exit_code": 1,
+      "outcome": "ordinary dict endpoint returned lossy HTTP 200 before the return guard"
+    },
+    {
+      "finding": "R2",
+      "phase": "ordinary return GREEN",
+      "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_contract_fix_round1.py -q -k 'ordinary_endpoint'",
+      "exit_code": 0,
+      "outcome": "2 passed; dict and BaseModel paths both return fixed 503 before encoding"
+    },
+    {
+      "phase": "final fix tests",
+      "code_sha": "8a90d408a4b99f80e951448c25455a4b3e99639f",
+      "command": "WUJI_TEST_EVIDENCE_DIR=docs/vnext/evidence/P02/fix-round1/runtime ./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_contract_fix_round1.py -q",
+      "exit_code": 0,
+      "outcome": "29 passed in 1.27s"
+    },
+    {
+      "phase": "affected original P02 tests",
+      "code_sha": "8a90d408a4b99f80e951448c25455a4b3e99639f",
+      "command": "WUJI_TEST_EVIDENCE_DIR=docs/vnext/evidence/P02/fix-round1/runtime ./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_contract_shapes.py -q -k 'approved_examples or openapi or numeric_limits or finite_integer or duplicate_json or nonfinite_json or canonical_json or protected_asgi or issuer_signed or asgi_boundary or asgi_model or db_conn'",
+      "exit_code": 0,
+      "outcome": "31 passed, 28 deselected in 1.56s"
+    },
+    {
+      "phase": "fix test collection",
+      "code_sha": "8a90d408a4b99f80e951448c25455a4b3e99639f",
+      "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_contract_fix_round1.py --collect-only -q",
+      "exit_code": 0,
+      "outcome": "29 tests collected in 0.01s",
+      "test_names_path": "test-names.txt"
+    },
+    {
+      "phase": "generation and OpenAPI lint",
+      "code_sha": "8a90d408a4b99f80e951448c25455a4b3e99639f",
+      "command": "work/toolchain/bin/pnpm contracts:check:v2",
+      "exit_code": 0,
+      "outcome": "generated Python/TS match OpenAPI; Redocly valid"
+    },
+    {
+      "phase": "generated TypeScript",
+      "code_sha": "8a90d408a4b99f80e951448c25455a4b3e99639f",
+      "command": "work/toolchain/bin/pnpm exec tsc --noEmit --skipLibCheck --target ES2024 --module NodeNext --moduleResolution NodeNext packages/contracts/src/v2/generated.ts",
+      "exit_code": 0,
+      "outcome": "no output"
+    },
+    {
+      "phase": "PostgreSQL cleanup readback",
+      "code_sha": "8a90d408a4b99f80e951448c25455a4b3e99639f",
+      "command": "./scripts/vnext/uv.sh run --frozen python - <<'PY'\nimport json\nfrom pathlib import Path\nimport psycopg\nmanifest=json.loads(Path('work/vnext/postgres-fixture.json').read_text())\nwith psycopg.connect(host=manifest['socket_dir'],port=manifest['port'],user=manifest['user'],dbname=manifest['database']) as connection:\n databases=connection.execute(\"SELECT datname FROM pg_database WHERE datname LIKE 'wuji_p02_%' ORDER BY datname\").fetchall()\n roles=connection.execute(\"SELECT rolname FROM pg_roles WHERE rolname LIKE 'wuji_app_%' OR rolname LIKE 'wuji_migration_%' ORDER BY rolname\").fetchall()\nprint({'remaining_databases':databases,'remaining_roles':roles})\nPY",
+      "exit_code": 0,
+      "outcome": "remaining_databases=[], remaining_roles=[]"
+    }
+  ],
+  "not_run": [
+    "P01 SDK or HTTP probe",
+    "paid or real model",
+    "old service regressions",
+    "broad load/stress matrix",
+    "production cutover or network target"
+  ]
+}

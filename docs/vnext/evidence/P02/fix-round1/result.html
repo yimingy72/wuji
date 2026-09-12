@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>P02 Fix Round 1 Evidence</title>
+    <style>
+      :root { color-scheme: dark; font-family: ui-sans-serif, system-ui, sans-serif; }
+      body { margin: 0; background: #090f1d; color: #eef3fb; }
+      main { max-width: 1120px; margin: 0 auto; padding: 38px 34px 52px; }
+      h1 { margin: 0 0 7px; font-size: 32px; }
+      .meta { color: #91a0bc; margin-bottom: 24px; }
+      .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+      article { background: #131c30; border: 1px solid #293653; border-radius: 13px; padding: 17px; }
+      h2 { font-size: 16px; margin: 12px 0 7px; }
+      p { color: #bbc6d9; line-height: 1.45; margin: 0; font-size: 14px; }
+      code { color: #d8e6ff; }
+      .badge { display: inline-block; border-radius: 999px; padding: 4px 9px; font-size: 12px; font-weight: 750; }
+      .pass { color: #70e1b2; background: #103d31; }
+      .guard { color: #ffc181; background: #432b19; }
+      footer { margin-top: 20px; color: #7f8eaa; font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>P02 · Fix Round 1</h1>
+      <div class="meta">Code 8a90d408a4b9 · 29/29 fix tests · 31/31 affected original tests</div>
+      <section class="grid">
+        <article><span class="badge guard">R1 · HTTP 422</span><h2>Bounded request reader</h2><p>1 MiB body, 5 s read, depth 64 and numeric limits. Disconnect terminates without an invented response.</p></article>
+        <article><span class="badge pass">R2 · HTTP 200</span><h2>Decimal preserved</h2><p><code>1E+400</code> and <code>1.0000000000000001</code> survive parser, Pydantic and explicit response as JSON numbers.</p></article>
+        <article><span class="badge guard">R2 · HTTP 503</span><h2>Lossy return blocked</h2><p>Ordinary dict/BaseModel values containing Decimal fail before FastAPI can coerce them.</p></article>
+        <article><span class="badge pass">R3/R7 · HTTP 422</span><h2>Safe diagnostics</h2><p>Unknown keys become <code>&lt;field&gt;</code>; diagnostics are bounded; unknown schema versions retain their distinct code.</p></article>
+        <article><span class="badge pass">R4/R5 · 7 checks</span><h2>Wire compatibility</h2><p>Command resources are separate from knowledge refs. Preserved P01 tool-call response and continuation validate offline.</p></article>
+        <article><span class="badge pass">R6 · PostgreSQL 16.2</span><h2>Audited real transactions</h2><p>Cursor SQL, fetch, iteration, commit, rollback/error, migration role and second app connection are recorded.</p></article>
+      </section>
+      <footer>Read-only loopback evidence page. Synthetic fixtures only; no SDK, provider, target, production or legacy service was called.</footer>
+    </main>
+  </body>
+</html>
