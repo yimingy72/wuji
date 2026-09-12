@@ -1,0 +1,35 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+________ test_hidden_counterevidence_cannot_turn_public_claim_into_fact ________
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x106557e00>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-82/test_hidden_counterevidence_ca0')
+audit_directory = PosixPath('/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/work/vnext/p04-fix1-red/63b5739add8b')
+
+    def test_hidden_counterevidence_cannot_turn_public_claim_into_fact(db_environment, tmp_path, audit_directory):
+        with case(db_environment, tmp_path, audit_directory) as c:
+            public, public_obs = captured(c)
+            ref = post_claim(c, exact(public, public_obs)).json()['canonical_ref']
+            assert assess(c, ref, [public_obs]).status_code == 202
+            with c.env.migration_connection() as m:
+                m.execute("UPDATE vnext.task_access SET clearance=0 WHERE task_id=%s AND subject='reader-fixture'", (TASK,))
+            assert get_claim(c, ref, role='reader').json()['assessment']['eligible'] is True
+            old_snapshot = SnapshotRepository(c.uow).create(TASK, access('reader-fixture', role='reader'))
+            private, private_obs = captured(c, body=b'{"private_counterexample":true}', access_level=1)
+            opposed = assess(c, ref, [private_obs], kind='human_attestation', method='human-attestation-v1', state='contradicted', role='human')
+            assert opposed.status_code == 202, opposed.text
+            high = get_claim(c, ref)
+            assert high.status_code == 200, high.text
+            assert high.json()['assessment']['applicability_state'] == 'disputed'
+            assert high.json()['assessment']['eligible'] is False
+            for snapshot in (None, old_snapshot.snapshot_id):
+                low = get_claim(c, ref, role='reader', snapshot=snapshot)
+>               assert low.status_code == 503, low.text
+E               AssertionError: {"assessment":{"policy_version":"assessment-policy-v1","grounding_state":"content_checked","evidence_state":"supported","applicability_state":"current","eligible":true,"assessment_ids":["8863a533-8ed3-43b1-b61c-1ae5360ebd69"],"conditions":["isolated fixture"],"limitations":["isolated fixture"]},"ref":{"entity_type":"claim","id":"a7a34eaa-9b2d-4bfa-8c6e-9d01ed8f5319","revision":"1"},"display_kind":"fact","record":{"claim_id":"a7a34eaa-9b2d-4bfa-8c6e-9d01ed8f5319","revision":"1","task_id":"task-fixture","kind":"observation-summary","assertion_role":"candidate_fact","text":"已捕获内容 ed859d00-e262-4d4f-8609-2f646de74a0f@1 的 /version 字段等于 17。","structured_assertion":{"artifact_ref":{"id":"ed859d00-e262-4d4f-8609-2f646de74a0f","sha256":"7f8657fdb0bc4e2190fb39a2641aafc3e3a5b713b0d3bfd04af35094fdd67665","version":"1"},"expected":17,"pointer":"/version","predicate":"json-pointer-equals-v1"},"basis_refs":[{"entity_type":"observation","id":"e2f62e9f-7829-4e67-a2de-39eaf846b545","revision":"1"}],"limitations":["isolated fixture"],"producer_kind":"agent","producer_ref":"agent-fixture","created_at":"2026-09-12T23:25:30.436655Z","supersedes":null}}
+E               assert 200 == 503
+E                +  where 200 = <Response [200 OK]>.status_code
+
+tests/vnext/test_knowledge_admission.py:1017: AssertionError
+=========================== short test summary info ============================
+FAILED tests/vnext/test_knowledge_admission.py::test_hidden_counterevidence_cannot_turn_public_claim_into_fact
+1 failed, 24 deselected in 0.86s

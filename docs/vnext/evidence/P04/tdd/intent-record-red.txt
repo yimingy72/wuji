@@ -1,0 +1,27 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_________ test_unverified_intent_is_readable_but_not_in_older_snapshot _________
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x1084401a0>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-79/test_unverified_intent_is_read0')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-79/test_unverified_intent_is_read0')
+
+    def test_unverified_intent_is_readable_but_not_in_older_snapshot(db_environment,tmp_path,audit_directory):
+        with case(db_environment,tmp_path,audit_directory) as c:
+            claim=post_claim(c,proposal()).json()['canonical_ref']
+            snap=SnapshotRepository(c.uow).create(TASK,access('agent-fixture',role='agent'))
+            body=dict(client_ref='i',question='Check hypothesis',basis_refs=[claim],expected_output='actual evidence')
+            accepted=c.client.post(BASE+'/intents/proposals',json=body,headers=headers(c))
+            assert accepted.status_code==202,accepted.text
+            ref=accepted.json()['canonical_ref']
+            path=BASE+'/records/intent/'+ref['id']
+            read=c.client.get(path,params={'revision':'1'},headers=headers(c))
+>           assert read.status_code==200,read.text
+E           AssertionError: {"code":"INVALID_SCHEMA","message":"The request could not be completed.","request_id":"10195d25-570c-4f60-a9a6-bd80680e5446","retryable":false,"details":{}}
+E           assert 422 == 200
+E            +  where 422 = <Response [422 Unprocessable Entity]>.status_code
+
+tests/vnext/test_knowledge_admission.py:479: AssertionError
+=========================== short test summary info ============================
+FAILED tests/vnext/test_knowledge_admission.py::test_unverified_intent_is_readable_but_not_in_older_snapshot
+1 failed, 23 deselected in 0.78s

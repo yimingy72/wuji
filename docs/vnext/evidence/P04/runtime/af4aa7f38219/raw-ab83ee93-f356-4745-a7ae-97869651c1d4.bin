@@ -1,0 +1,1 @@
+{"claims":[{"assertion_role":"candidate_fact","basis_refs":[],"client_ref":"c","kind":"hypothesis","limitations":["isolated fixture"],"text":"second"}],"intent_proposals":[],"limitations":[],"schema_version":"wuji.agent-payload.v2"}

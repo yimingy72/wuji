@@ -1,0 +1,12 @@
+{
+  "captured_at": "2026-09-12T23:33:32.053816+00:00",
+  "tool": "mcp__cua_repl: browser Tab.screenshot(fullPage=false)",
+  "url": "http://127.0.0.1:8769/result.html",
+  "source_document": "result.html",
+  "source_sha256": "1d9cb1362eff86549d92ee4d4c1a3b1f67318e71f10dabcd12e8d490acfeaa49",
+  "image": "knowledge-and-visibility.png",
+  "image_sha256": "ecf301926e81fbb03d053e9a9c0f6a57d160f8b1a00d9c97d7d1008d84b354aa",
+  "content": "saved production ASGI responses and actual command output; not a product UI screenshot",
+  "paired_http_evidence": "fix-round1/runtime/green/63b5739add8b/http-exchanges.jsonl",
+  "code_commit": "538f4d6d80d6e4132b1dd625f1a78216f81876a1"
+}

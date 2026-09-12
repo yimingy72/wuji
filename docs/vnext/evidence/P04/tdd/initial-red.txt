@@ -1,0 +1,702 @@
+FFFFFFFFFFF                                                              [100%]
+=================================== FAILURES ===================================
+__________________ test_revision_and_raw_first_wire_contract ___________________
+
+    def test_revision_and_raw_first_wire_contract():
+        revised = proposal(revises={'entity_type':'claim','id':'c','revision':'1'})
+        try:
+>           parsed = ClaimProposal.model_validate(revised)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           pydantic_core._pydantic_core.ValidationError: 1 validation error for ClaimProposal
+E           revises
+E             Extra inputs are not permitted [type=extra_forbidden, input_value={'entity_type': 'claim', ...': 'c', 'revision': '1'}, input_type=dict]
+E               For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden
+
+tests/vnext/test_knowledge_admission.py:52: ValidationError
+
+During handling of the above exception, another exception occurred:
+
+    def test_revision_and_raw_first_wire_contract():
+        revised = proposal(revises={'entity_type':'claim','id':'c','revision':'1'})
+        try:
+            parsed = ClaimProposal.model_validate(revised)
+        except ValidationError:
+>           pytest.fail('ClaimProposal must accept a fixed revises reference')
+E           Failed: ClaimProposal must accept a fixed revises reference
+
+tests/vnext/test_knowledge_admission.py:54: Failed
+______________ test_agent_candidate_real_check_and_only_one_body _______________
+
+name = 'blackboard.claims'
+
+    def production(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_knowledge_admission.py:39: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1310: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.blackboard', import_ = <function _gcd_import at 0x1035d44a0>
+
+>   ???
+E   ModuleNotFoundError: No module named 'wuji_core.blackboard'
+
+<frozen importlib._bootstrap>:1324: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x107d5cd70>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-71/test_agent_candidate_real_chec0')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-71/test_agent_candidate_real_chec0')
+
+    def test_agent_candidate_real_check_and_only_one_body(db_environment,tmp_path,audit_directory):
+>       with case(db_environment,tmp_path,audit_directory) as c:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_knowledge_admission.py:147: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/vnext/test_knowledge_admission.py:65: in case
+    claims_mod = production('blackboard.claims')
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'blackboard.claims'
+
+    def production(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           pytest.fail(f'P04 production entrypoint absent: {error.name}')
+E           Failed: P04 production entrypoint absent: wuji_core.blackboard
+
+tests/vnext/test_knowledge_admission.py:41: Failed
+___ test_precise_checker_does_not_launder_evidence[wrong-value-contradicted] ___
+
+name = 'blackboard.claims'
+
+    def production(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_knowledge_admission.py:39: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1310: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.blackboard', import_ = <function _gcd_import at 0x1035d44a0>
+
+>   ???
+E   ModuleNotFoundError: No module named 'wuji_core.blackboard'
+
+<frozen importlib._bootstrap>:1324: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x107df8550>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-71/test_precise_checker_does_not_0')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-71/test_precise_checker_does_not_0')
+variant = 'wrong-value', want = 'contradicted'
+
+    @pytest.mark.parametrize('variant,want',[('wrong-value','contradicted'),('unrelated-prose','unassessed'),('partial-negative','inconclusive')])
+    def test_precise_checker_does_not_launder_evidence(db_environment,tmp_path,audit_directory,variant,want):
+>       with case(db_environment,tmp_path,audit_directory) as c:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_knowledge_admission.py:171: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/vnext/test_knowledge_admission.py:65: in case
+    claims_mod = production('blackboard.claims')
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'blackboard.claims'
+
+    def production(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           pytest.fail(f'P04 production entrypoint absent: {error.name}')
+E           Failed: P04 production entrypoint absent: wuji_core.blackboard
+
+tests/vnext/test_knowledge_admission.py:41: Failed
+__ test_precise_checker_does_not_launder_evidence[unrelated-prose-unassessed] __
+
+name = 'blackboard.claims'
+
+    def production(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_knowledge_admission.py:39: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1310: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.blackboard', import_ = <function _gcd_import at 0x1035d44a0>
+
+>   ???
+E   ModuleNotFoundError: No module named 'wuji_core.blackboard'
+
+<frozen importlib._bootstrap>:1324: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x107df8690>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-71/test_precise_checker_does_not_1')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-71/test_precise_checker_does_not_1')
+variant = 'unrelated-prose', want = 'unassessed'
+
+    @pytest.mark.parametrize('variant,want',[('wrong-value','contradicted'),('unrelated-prose','unassessed'),('partial-negative','inconclusive')])
+    def test_precise_checker_does_not_launder_evidence(db_environment,tmp_path,audit_directory,variant,want):
+>       with case(db_environment,tmp_path,audit_directory) as c:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_knowledge_admission.py:171: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/vnext/test_knowledge_admission.py:65: in case
+    claims_mod = production('blackboard.claims')
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'blackboard.claims'
+
+    def production(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           pytest.fail(f'P04 production entrypoint absent: {error.name}')
+E           Failed: P04 production entrypoint absent: wuji_core.blackboard
+
+tests/vnext/test_knowledge_admission.py:41: Failed
+_ test_precise_checker_does_not_launder_evidence[partial-negative-inconclusive] _
+
+name = 'blackboard.claims'
+
+    def production(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_knowledge_admission.py:39: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1310: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.blackboard', import_ = <function _gcd_import at 0x1035d44a0>
+
+>   ???
+E   ModuleNotFoundError: No module named 'wuji_core.blackboard'
+
+<frozen importlib._bootstrap>:1324: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x107bd35c0>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-71/test_precise_checker_does_not_2')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-71/test_precise_checker_does_not_2')
+variant = 'partial-negative', want = 'inconclusive'
+
+    @pytest.mark.parametrize('variant,want',[('wrong-value','contradicted'),('unrelated-prose','unassessed'),('partial-negative','inconclusive')])
+    def test_precise_checker_does_not_launder_evidence(db_environment,tmp_path,audit_directory,variant,want):
+>       with case(db_environment,tmp_path,audit_directory) as c:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_knowledge_admission.py:171: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/vnext/test_knowledge_admission.py:65: in case
+    claims_mod = production('blackboard.claims')
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'blackboard.claims'
+
+    def production(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           pytest.fail(f'P04 production entrypoint absent: {error.name}')
+E           Failed: P04 production entrypoint absent: wuji_core.blackboard
+
+tests/vnext/test_knowledge_admission.py:41: Failed
+_________ test_free_candidates_and_model_opinions_do_not_self_certify __________
+
+name = 'blackboard.claims'
+
+    def production(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_knowledge_admission.py:39: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1310: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.blackboard', import_ = <function _gcd_import at 0x1035d44a0>
+
+>   ???
+E   ModuleNotFoundError: No module named 'wuji_core.blackboard'
+
+<frozen importlib._bootstrap>:1324: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x107bd3820>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-71/test_free_candidates_and_model0')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-71/test_free_candidates_and_model0')
+
+    def test_free_candidates_and_model_opinions_do_not_self_certify(db_environment,tmp_path,audit_directory):
+>       with case(db_environment,tmp_path,audit_directory) as c:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_knowledge_admission.py:184: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/vnext/test_knowledge_admission.py:65: in case
+    claims_mod = production('blackboard.claims')
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'blackboard.claims'
+
+    def production(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           pytest.fail(f'P04 production entrypoint absent: {error.name}')
+E           Failed: P04 production entrypoint absent: wuji_core.blackboard
+
+tests/vnext/test_knowledge_admission.py:41: Failed
+____________ test_revision_conflict_aggregation_and_frozen_snapshot ____________
+
+name = 'blackboard.claims'
+
+    def production(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_knowledge_admission.py:39: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1310: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.blackboard', import_ = <function _gcd_import at 0x1035d44a0>
+
+>   ???
+E   ModuleNotFoundError: No module named 'wuji_core.blackboard'
+
+<frozen importlib._bootstrap>:1324: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x107d305f0>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-71/test_revision_conflict_aggrega0')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-71/test_revision_conflict_aggrega0')
+
+    def test_revision_conflict_aggregation_and_frozen_snapshot(db_environment,tmp_path,audit_directory):
+>       with case(db_environment,tmp_path,audit_directory) as c:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_knowledge_admission.py:200: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/vnext/test_knowledge_admission.py:65: in case
+    claims_mod = production('blackboard.claims')
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'blackboard.claims'
+
+    def production(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           pytest.fail(f'P04 production entrypoint absent: {error.name}')
+E           Failed: P04 production entrypoint absent: wuji_core.blackboard
+
+tests/vnext/test_knowledge_admission.py:41: Failed
+________ test_raw_first_rejection_and_model_output_has_no_capture_power ________
+
+name = 'blackboard.claims'
+
+    def production(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_knowledge_admission.py:39: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1310: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.blackboard', import_ = <function _gcd_import at 0x1035d44a0>
+
+>   ???
+E   ModuleNotFoundError: No module named 'wuji_core.blackboard'
+
+<frozen importlib._bootstrap>:1324: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x107d13460>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-71/test_raw_first_rejection_and_m0')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-71/test_raw_first_rejection_and_m0')
+
+    def test_raw_first_rejection_and_model_output_has_no_capture_power(db_environment,tmp_path,audit_directory):
+>       with case(db_environment,tmp_path,audit_directory) as c:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_knowledge_admission.py:241: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/vnext/test_knowledge_admission.py:65: in case
+    claims_mod = production('blackboard.claims')
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'blackboard.claims'
+
+    def production(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           pytest.fail(f'P04 production entrypoint absent: {error.name}')
+E           Failed: P04 production entrypoint absent: wuji_core.blackboard
+
+tests/vnext/test_knowledge_admission.py:41: Failed
+___________ test_same_batch_topology_failure_has_no_phantom_records ____________
+
+name = 'blackboard.claims'
+
+    def production(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_knowledge_admission.py:39: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1310: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.blackboard', import_ = <function _gcd_import at 0x1035d44a0>
+
+>   ???
+E   ModuleNotFoundError: No module named 'wuji_core.blackboard'
+
+<frozen importlib._bootstrap>:1324: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x107d139b0>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-71/test_same_batch_topology_failu0')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-71/test_same_batch_topology_failu0')
+
+    def test_same_batch_topology_failure_has_no_phantom_records(db_environment,tmp_path,audit_directory):
+>       with case(db_environment,tmp_path,audit_directory) as c:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_knowledge_admission.py:259: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/vnext/test_knowledge_admission.py:65: in case
+    claims_mod = production('blackboard.claims')
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'blackboard.claims'
+
+    def production(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           pytest.fail(f'P04 production entrypoint absent: {error.name}')
+E           Failed: P04 production entrypoint absent: wuji_core.blackboard
+
+tests/vnext/test_knowledge_admission.py:41: Failed
+______________ test_old_snapshot_append_and_current_auth_recheck _______________
+
+name = 'blackboard.claims'
+
+    def production(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_knowledge_admission.py:39: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1310: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.blackboard', import_ = <function _gcd_import at 0x1035d44a0>
+
+>   ???
+E   ModuleNotFoundError: No module named 'wuji_core.blackboard'
+
+<frozen importlib._bootstrap>:1324: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x107bde950>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-71/test_old_snapshot_append_and_c0')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-71/test_old_snapshot_append_and_c0')
+
+    def test_old_snapshot_append_and_current_auth_recheck(db_environment,tmp_path,audit_directory):
+>       with case(db_environment,tmp_path,audit_directory) as c:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_knowledge_admission.py:279: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/vnext/test_knowledge_admission.py:65: in case
+    claims_mod = production('blackboard.claims')
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'blackboard.claims'
+
+    def production(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           pytest.fail(f'P04 production entrypoint absent: {error.name}')
+E           Failed: P04 production entrypoint absent: wuji_core.blackboard
+
+tests/vnext/test_knowledge_admission.py:41: Failed
+___________ test_claim_cross_owner_refs_and_agent_revision_authority ___________
+
+name = 'blackboard.claims'
+
+    def production(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_knowledge_admission.py:39: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1310: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.blackboard', import_ = <function _gcd_import at 0x1035d44a0>
+
+>   ???
+E   ModuleNotFoundError: No module named 'wuji_core.blackboard'
+
+<frozen importlib._bootstrap>:1324: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x107fcc250>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-71/test_claim_cross_owner_refs_an0')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-71/test_claim_cross_owner_refs_an0')
+
+    def test_claim_cross_owner_refs_and_agent_revision_authority(db_environment,tmp_path,audit_directory):
+>       with case(db_environment,tmp_path,audit_directory) as c:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_knowledge_admission.py:291: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/vnext/test_knowledge_admission.py:65: in case
+    claims_mod = production('blackboard.claims')
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'blackboard.claims'
+
+    def production(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           pytest.fail(f'P04 production entrypoint absent: {error.name}')
+E           Failed: P04 production entrypoint absent: wuji_core.blackboard
+
+tests/vnext/test_knowledge_admission.py:41: Failed
+=============================== warnings summary ===============================
+tests/vnext/support/identity_provider.py:32
+  /Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/tests/vnext/support/identity_provider.py:32: PytestCollectionWarning: cannot collect test class 'TestIdentityProvider' because it has a __init__ constructor (from: tests/vnext/test_knowledge_admission.py)
+    class TestIdentityProvider:
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/vnext/test_knowledge_admission.py::test_revision_and_raw_first_wire_contract
+FAILED tests/vnext/test_knowledge_admission.py::test_agent_candidate_real_check_and_only_one_body
+FAILED tests/vnext/test_knowledge_admission.py::test_precise_checker_does_not_launder_evidence[wrong-value-contradicted]
+FAILED tests/vnext/test_knowledge_admission.py::test_precise_checker_does_not_launder_evidence[unrelated-prose-unassessed]
+FAILED tests/vnext/test_knowledge_admission.py::test_precise_checker_does_not_launder_evidence[partial-negative-inconclusive]
+FAILED tests/vnext/test_knowledge_admission.py::test_free_candidates_and_model_opinions_do_not_self_certify
+FAILED tests/vnext/test_knowledge_admission.py::test_revision_conflict_aggregation_and_frozen_snapshot
+FAILED tests/vnext/test_knowledge_admission.py::test_raw_first_rejection_and_model_output_has_no_capture_power
+FAILED tests/vnext/test_knowledge_admission.py::test_same_batch_topology_failure_has_no_phantom_records
+FAILED tests/vnext/test_knowledge_admission.py::test_old_snapshot_append_and_current_auth_recheck
+FAILED tests/vnext/test_knowledge_admission.py::test_claim_cross_owner_refs_and_agent_revision_authority
+11 failed, 1 warning in 1.16s

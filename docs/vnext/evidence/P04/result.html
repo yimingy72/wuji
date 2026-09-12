@@ -1,0 +1,65 @@
+<!doctype html><html lang="zh"><meta charset="utf-8"><title>P04 observed evidence</title><style>body{font:16px system-ui;margin:28px;background:#f5f7fa;color:#182331}h1{font-size:26px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:white;border:1px solid #ccd5df;padding:14px;font:12px ui-monospace}.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}small{color:#40546a}</style><h1>P04 · 知识接纳与权限修复验证</h1><p><b>原候选 24 passed；权限修复及直接影响项 6 passed</b></p><small>最终代码：538f4d6d80d6e4132b1dd625f1a78216f81876a1<br>原候选638c335，其余19项复用原证据；完整阶段与独立审查未宣称通过。以下为保存的真实ASGI响应，非产品界面。</small><pre>......                                                                   [100%]
+6 passed, 19 deselected in 3.41s
+</pre><div class="grid"><section><h2>高权限：disputed / eligible=false</h2><pre>{
+  &quot;assessment&quot;: {
+    &quot;policy_version&quot;: &quot;assessment-policy-v1&quot;,
+    &quot;grounding_state&quot;: &quot;content_checked&quot;,
+    &quot;evidence_state&quot;: &quot;inconclusive&quot;,
+    &quot;applicability_state&quot;: &quot;disputed&quot;,
+    &quot;eligible&quot;: false,
+    &quot;assessment_ids&quot;: [
+      &quot;4873e26c-6f7a-438b-a7ed-ebaf6ae194a2&quot;,
+      &quot;ba7e47fd-ddcc-458c-93a1-7dde7ec10949&quot;
+    ],
+    &quot;conditions&quot;: [
+      &quot;isolated fixture&quot;
+    ],
+    &quot;limitations&quot;: [
+      &quot;isolated fixture&quot;
+    ]
+  },
+  &quot;ref&quot;: {
+    &quot;entity_type&quot;: &quot;claim&quot;,
+    &quot;id&quot;: &quot;6e3309ef-0554-4bf5-8a57-b2c10bf5159e&quot;,
+    &quot;revision&quot;: &quot;1&quot;
+  },
+  &quot;display_kind&quot;: &quot;claim&quot;,
+  &quot;record&quot;: {
+    &quot;claim_id&quot;: &quot;6e3309ef-0554-4bf5-8a57-b2c10bf5159e&quot;,
+    &quot;revision&quot;: &quot;1&quot;,
+    &quot;task_id&quot;: &quot;task-fixture&quot;,
+    &quot;kind&quot;: &quot;observation-summary&quot;,
+    &quot;assertion_role&quot;: &quot;candidate_fact&quot;,
+    &quot;text&quot;: &quot;已捕获内容 6c00cafd-7bec-4a5e-b34b-0470b0705ee6@1 的 /version 字段等于 17。&quot;,
+    &quot;structured_assertion&quot;: {
+      &quot;artifact_ref&quot;: {
+        &quot;id&quot;: &quot;6c00cafd-7bec-4a5e-b34b-0470b0705ee6&quot;,
+        &quot;sha256&quot;: &quot;7f8657fdb0bc4e2190fb39a2641aafc3e3a5b713b0d3bfd04af35094fdd67665&quot;,
+        &quot;version&quot;: &quot;1&quot;
+      },
+      &quot;expected&quot;: 17,
+      &quot;pointer&quot;: &quot;/version&quot;,
+      &quot;predicate&quot;: &quot;json-pointer-equals-v1&quot;
+    },
+    &quot;basis_refs&quot;: [
+      {
+        &quot;entity_type&quot;: &quot;observation&quot;,
+        &quot;id&quot;: &quot;e5403926-71a4-4ac8-8005-642109d12213&quot;,
+        &quot;revision&quot;: &quot;1&quot;
+      }
+    ],
+    &quot;limitations&quot;: [
+      &quot;isolated fixture&quot;
+    ],
+    &quot;producer_kind&quot;: &quot;agent&quot;,
+    &quot;producer_ref&quot;: &quot;agent-fixture&quot;,
+    &quot;created_at&quot;: &quot;2026-09-12T23:27:11.760060Z&quot;,
+    &quot;supersedes&quot;: null
+  }
+}</pre></section><section><h2>低权限：统一不可用</h2><pre>{
+  &quot;code&quot;: &quot;CAPABILITY_UNAVAILABLE&quot;,
+  &quot;message&quot;: &quot;The request could not be completed.&quot;,
+  &quot;request_id&quot;: &quot;aa4a8daa-526a-4233-894a-e6eaf5c912b4&quot;,
+  &quot;retryable&quot;: false,
+  &quot;details&quot;: {}
+}</pre><p>没有隐藏评估ID、条件或数量。当前读取、旧快照读取、新快照创建均覆盖。</p><p>scope/ACL限定的完整可见性检查；稳定读事务；没有新增Fact正文。</p></section></div></html>

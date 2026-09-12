@@ -1,0 +1,23 @@
+..F                                                                      [100%]
+=================================== FAILURES ===================================
+_______________ test_assessment_request_keeps_actor_foreign_key ________________
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x112a09950>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-77/test_assessment_request_keeps_0')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-77/test_assessment_request_keeps_0')
+
+    def test_assessment_request_keeps_actor_foreign_key(db_environment,tmp_path,audit_directory):
+        with case(db_environment,tmp_path,audit_directory) as c:
+            a,obs=captured(c)
+            ref=post_claim(c,exact(a,obs)).json()['canonical_ref']
+            assert assess(c,ref,[obs]).status_code==202
+            with c.uow.transaction(access('assessor-fixture',role='assessor'),TASK) as tx:
+                # to_jsonb permits a semantic missing-field assertion on the pre-extension table.
+                stored=tx.connection.execute("SELECT to_jsonb(a)->>'actor_subject' FROM vnext.assessment a").fetchone()[0]
+>               assert stored=='assessor-fixture'
+E               AssertionError: assert None == 'assessor-fixture'
+
+tests/vnext/test_knowledge_admission.py:466: AssertionError
+=========================== short test summary info ============================
+FAILED tests/vnext/test_knowledge_admission.py::test_assessment_request_keeps_actor_foreign_key
+1 failed, 2 passed, 20 deselected in 2.73s

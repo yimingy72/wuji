@@ -1,0 +1,21 @@
+{
+  "base_head": "638c33547d547327862e97de06d9a49d099e8568",
+  "file_sha256": {
+    "packages/wuji-core/src/wuji_core/persistence/knowledge_schema.py": "5a1ee834b30f06e54aad23ec17b2eb4018607d93dff101195acc97db0a07d8ce",
+    "packages/wuji-core/src/wuji_core/persistence/schema.py": "27a397016a37c22165b5cb85d6db8f2bc17aa1610e14d87d03aaf2b3b43230c6",
+    "packages/wuji-core/src/wuji_core/blackboard/fact_view.py": "688f78626d25a6adfd4bf262387bca07409523b9280dad7120ea3cd110195e50",
+    "tests/vnext/test_knowledge_admission.py": "82eb70bc27385132ddcbaff07873e24eafde2e9a511612ce6c2467ab06f6b707"
+  },
+  "command": [
+    "./scripts/vnext/uv.sh",
+    "run",
+    "--frozen",
+    "pytest",
+    "tests/vnext/test_knowledge_admission.py",
+    "-q",
+    "-k",
+    "hidden_counterevidence or candidate_real or revision_conflict or fixed_snapshot or migration_preserves or unverified_intent_is_readable",
+    "--junitxml=docs/vnext/evidence/P04/fix-round1/junit.xml"
+  ],
+  "exit_code": 0
+}

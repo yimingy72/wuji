@@ -1,0 +1,1 @@
+{"command": ["./scripts/vnext/uv.sh", "run", "--frozen", "pytest", "tests/vnext/test_knowledge_admission.py", "-q", "-k", "assessment_actions or raw_reconcile or model_output_capability or batch_invalid or stale_readset or fixed_snapshot or migration_preserves"], "exit_code": 1}

@@ -1,0 +1,65 @@
+<!doctype html><html lang="zh"><meta charset="utf-8"><title>P04 recorded verification evidence</title>
+<style>body{font:16px system-ui;margin:32px;background:#f5f7fa;color:#182331}h1{font-size:28px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:white;border:1px solid #d5dee8;padding:16px;font:13px ui-monospace}.meta{font-size:14px;color:#40546a}strong{color:#145c35}</style>
+<h1>P04 · 真实服务/API/PG/字节验证记录</h1><p><strong>24 passed · contracts check exit 0</strong></p>
+<p class="meta">被测树与本地代码提交逐文件匹配：638c33547d547327862e97de06d9a49d099e8568<br>代码指纹：ff5da9c081f19d3bb169b229192d012eef49411409da8aaa529bded1119040bb<br>生产 ASGI 路由；隔离 PostgreSQL；实际封存字节。截图展示已保存的响应，不是运行中的产品 UI。</p>
+<h2>最终候选命令</h2><pre>........................                                                 [100%]
+24 passed in 13.18s
+</pre>
+<h2>Agent 候选经独立核验后进入 Fact 读视图</h2><pre>{
+  &quot;assessment&quot;: {
+    &quot;policy_version&quot;: &quot;assessment-policy-v1&quot;,
+    &quot;grounding_state&quot;: &quot;content_checked&quot;,
+    &quot;evidence_state&quot;: &quot;supported&quot;,
+    &quot;applicability_state&quot;: &quot;current&quot;,
+    &quot;eligible&quot;: true,
+    &quot;assessment_ids&quot;: [
+      &quot;1e4aeb18-8104-467d-827d-d34dc2d39845&quot;
+    ],
+    &quot;conditions&quot;: [
+      &quot;isolated fixture&quot;
+    ],
+    &quot;limitations&quot;: [
+      &quot;isolated fixture&quot;
+    ]
+  },
+  &quot;ref&quot;: {
+    &quot;entity_type&quot;: &quot;claim&quot;,
+    &quot;id&quot;: &quot;3ad56c53-7305-40b5-b85c-215478998de6&quot;,
+    &quot;revision&quot;: &quot;1&quot;
+  },
+  &quot;display_kind&quot;: &quot;fact&quot;,
+  &quot;record&quot;: {
+    &quot;claim_id&quot;: &quot;3ad56c53-7305-40b5-b85c-215478998de6&quot;,
+    &quot;revision&quot;: &quot;1&quot;,
+    &quot;task_id&quot;: &quot;task-fixture&quot;,
+    &quot;kind&quot;: &quot;observation-summary&quot;,
+    &quot;assertion_role&quot;: &quot;candidate_fact&quot;,
+    &quot;text&quot;: &quot;已捕获内容 48ba8abd-fbc2-4fd3-bee5-c8177502a1e1@1 的 /version 字段等于 17。&quot;,
+    &quot;structured_assertion&quot;: {
+      &quot;artifact_ref&quot;: {
+        &quot;id&quot;: &quot;48ba8abd-fbc2-4fd3-bee5-c8177502a1e1&quot;,
+        &quot;sha256&quot;: &quot;7f8657fdb0bc4e2190fb39a2641aafc3e3a5b713b0d3bfd04af35094fdd67665&quot;,
+        &quot;version&quot;: &quot;1&quot;
+      },
+      &quot;expected&quot;: 17,
+      &quot;pointer&quot;: &quot;/version&quot;,
+      &quot;predicate&quot;: &quot;json-pointer-equals-v1&quot;
+    },
+    &quot;basis_refs&quot;: [
+      {
+        &quot;entity_type&quot;: &quot;observation&quot;,
+        &quot;id&quot;: &quot;1bd86634-9869-4187-9dd2-9849c14fe9d8&quot;,
+        &quot;revision&quot;: &quot;1&quot;
+      }
+    ],
+    &quot;limitations&quot;: [
+      &quot;isolated fixture&quot;
+    ],
+    &quot;producer_kind&quot;: &quot;agent&quot;,
+    &quot;producer_ref&quot;: &quot;agent-fixture&quot;,
+    &quot;created_at&quot;: &quot;2026-09-12T23:20:02.743779Z&quot;,
+    &quot;supersedes&quot;: null
+  }
+}</pre>
+<h2>直接自认证被拒绝</h2><pre>{&quot;code&quot;:&quot;FORBIDDEN_ASSESSOR&quot;,&quot;message&quot;:&quot;The request could not be completed.&quot;,&quot;request_id&quot;:&quot;f0b07102-63a6-47cd-9055-201b6abbb263&quot;,&quot;retryable&quot;:false,&quot;details&quot;:{}}</pre>
+<p>局部机制自行验证；P05/P09 执行、P12 Goal、P13 完整画布及独立审查不在本页通过声明内。</p></html>

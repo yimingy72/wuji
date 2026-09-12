@@ -1,0 +1,238 @@
+.F
+=================================== FAILURES ===================================
+______________ test_agent_candidate_real_check_and_only_one_body _______________
+
+value = [Limitation(root='isolated fixture')]
+limits = JsonBoundaryLimits(max_body_bytes=1048576, read_timeout_seconds=5.0, max_nesting_depth=64, max_number_characters=256, max_decimal_adjusted_exponent=10000)
+
+    def canonical_json_bytes(
+        value: Any, *, limits: JsonBoundaryLimits = DEFAULT_JSON_LIMITS
+    ) -> bytes:
+        """Canonicalize structure while preserving strings and array order exactly."""
+    
+        parsed = (
+            strict_json_loads(value, limits=limits)
+            if isinstance(value, (bytes, bytearray, memoryview, str))
+            else value
+        )
+        _ensure_finite_numbers(parsed, limits=limits)
+        try:
+>           encoded = json.dumps(
+                parsed,
+                allow_nan=False,
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+                use_decimal=True,
+            )
+
+packages/wuji-core/src/wuji_core/http/json_boundary.py:111: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+packages/maf-worker/.venv/lib/python3.13/site-packages/simplejson/__init__.py:396: in dumps
+    **kw).encode(obj)
+          ^^^^^^^^^^^
+packages/maf-worker/.venv/lib/python3.13/site-packages/simplejson/encoder.py:342: in encode
+    chunks = self.iterencode(o)
+             ^^^^^^^^^^^^^^^^^^
+packages/maf-worker/.venv/lib/python3.13/site-packages/simplejson/encoder.py:423: in iterencode
+    return _iterencode(o, 0)
+           ^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <simplejson.encoder.JSONEncoder object at 0x10635ed50>
+o = Limitation(root='isolated fixture')
+
+    def default(self, o):
+        """Implement this method in a subclass such that it returns
+        a serializable object for ``o``, or calls the base implementation
+        (to raise a ``TypeError``).
+    
+        For example, to support arbitrary iterators, you could
+        implement default like this::
+    
+            def default(self, o):
+                try:
+                    iterable = iter(o)
+                except TypeError:
+                    pass
+                else:
+                    return list(iterable)
+                return JSONEncoder.default(self, o)
+    
+        """
+>       raise TypeError('Object of type %s is not JSON serializable' %
+                        o.__class__.__name__)
+E       TypeError: Object of type Limitation is not JSON serializable
+E       when serializing Limitation object
+E       when serializing list item 0
+
+packages/maf-worker/.venv/lib/python3.13/site-packages/simplejson/encoder.py:318: TypeError
+
+The above exception was the direct cause of the following exception:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x1062d0440>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-72/test_agent_candidate_real_chec0')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-72/test_agent_candidate_real_chec0')
+
+    def test_agent_candidate_real_check_and_only_one_body(db_environment,tmp_path,audit_directory):
+        with case(db_environment,tmp_path,audit_directory) as c:
+            artifact,obs=captured(c)
+            body=exact(artifact,obs)
+>           accepted=post_claim(c,body,key='candidate')
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_knowledge_admission.py:150: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/vnext/test_knowledge_admission.py:105: in post_claim
+    return c.client.post(BASE+'/claims/proposals',json=body,headers=headers(c,role,key))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/vnext/support/http_capture.py:79: in post
+    return self.request("POST", url, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/vnext/support/http_capture.py:55: in request
+    response = asyncio.run(send())
+               ^^^^^^^^^^^^^^^^^^^
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/asyncio/runners.py:196: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/asyncio/runners.py:119: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/asyncio/base_events.py:726: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+tests/vnext/support/http_capture.py:53: in send
+    return await client.request(method, url, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+packages/maf-worker/.venv/lib/python3.13/site-packages/httpx/_client.py:1540: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+packages/maf-worker/.venv/lib/python3.13/site-packages/httpx/_client.py:1629: in send
+    response = await self._send_handling_auth(
+packages/maf-worker/.venv/lib/python3.13/site-packages/httpx/_client.py:1657: in _send_handling_auth
+    response = await self._send_handling_redirects(
+packages/maf-worker/.venv/lib/python3.13/site-packages/httpx/_client.py:1694: in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+packages/maf-worker/.venv/lib/python3.13/site-packages/httpx/_client.py:1730: in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+packages/maf-worker/.venv/lib/python3.13/site-packages/httpx/_transports/asgi.py:170: in handle_async_request
+    await self.app(scope, receive, send)
+packages/wuji-core/src/wuji_core/http/auth.py:117: in __call__
+    await self._app(scope, receive, send_with_request_id)
+packages/wuji-core/src/wuji_core/http/json_boundary.py:225: in __call__
+    await self._app(scope, replay_body, send)
+packages/maf-worker/.venv/lib/python3.13/site-packages/fastapi/applications.py:1163: in __call__
+    await super().__call__(scope, receive, send)
+packages/maf-worker/.venv/lib/python3.13/site-packages/starlette/applications.py:96: in __call__
+    await self.middleware_stack(scope, receive, send)
+packages/maf-worker/.venv/lib/python3.13/site-packages/starlette/middleware/errors.py:186: in __call__
+    raise exc
+packages/maf-worker/.venv/lib/python3.13/site-packages/starlette/middleware/errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+packages/maf-worker/.venv/lib/python3.13/site-packages/starlette/middleware/exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+packages/maf-worker/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+packages/maf-worker/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+packages/maf-worker/.venv/lib/python3.13/site-packages/fastapi/middleware/asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+packages/maf-worker/.venv/lib/python3.13/site-packages/starlette/routing.py:670: in __call__
+    await self.middleware_stack(scope, receive, send)
+packages/maf-worker/.venv/lib/python3.13/site-packages/fastapi/routing.py:2734: in app
+    await route.handle(scope, receive, send)
+packages/maf-worker/.venv/lib/python3.13/site-packages/fastapi/routing.py:1780: in handle
+    await self.original_router.handle(scope, receive, send)
+packages/maf-worker/.venv/lib/python3.13/site-packages/fastapi/routing.py:2789: in handle
+    await included_router._handle_selected(scope, receive, send)
+packages/maf-worker/.venv/lib/python3.13/site-packages/fastapi/routing.py:1800: in _handle_selected
+    await original_route.handle(scope, receive, send)
+packages/maf-worker/.venv/lib/python3.13/site-packages/fastapi/routing.py:1279: in handle
+    await app(scope, receive, send)
+packages/maf-worker/.venv/lib/python3.13/site-packages/fastapi/routing.py:158: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+packages/maf-worker/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+packages/maf-worker/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+packages/maf-worker/.venv/lib/python3.13/site-packages/fastapi/routing.py:144: in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+packages/wuji-core/src/wuji_core/http/json_boundary.py:148: in strict_route_handler
+    return await original_handler(strict_request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+packages/maf-worker/.venv/lib/python3.13/site-packages/fastapi/routing.py:706: in app
+    raw_response = await run_endpoint_function(
+packages/maf-worker/.venv/lib/python3.13/site-packages/fastapi/routing.py:354: in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+packages/maf-worker/.venv/lib/python3.13/site-packages/starlette/concurrency.py:34: in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+packages/maf-worker/.venv/lib/python3.13/site-packages/anyio/to_thread.py:65: in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+packages/maf-worker/.venv/lib/python3.13/site-packages/anyio/_backends/_asyncio.py:2706: in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+packages/maf-worker/.venv/lib/python3.13/site-packages/anyio/_backends/_asyncio.py:1100: in run
+    result = context.run(func, *args)
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+packages/wuji-core/src/wuji_core/http/app.py:141: in guarded_sync
+    result = endpoint(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+packages/wuji-core/src/wuji_core/http/knowledge.py:29: in propose
+    return execute(request,claims.propose,ComponentReceipt,task_id,payload,idempotency_key=idempotency_key)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+packages/wuji-core/src/wuji_core/http/knowledge.py:21: in execute
+    value=action(access,*args,**kwargs)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+packages/wuji-core/src/wuji_core/blackboard/claims.py:17: in propose
+    return self._propose(access,task_id,proposal,idempotency_key,'claim')
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+packages/wuji-core/src/wuji_core/blackboard/claims.py:30: in _propose
+    result,level=self.append(tx,proposal,kind=kind,who=who)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+packages/wuji-core/src/wuji_core/blackboard/claims.py:63: in append
+    who['producer_kind'],run_id or who['subject'],who['subject'],run_id,json_text(limits),refs_json,level))
+                                                                        ^^^^^^^^^^^^^^^^^
+packages/wuji-core/src/wuji_core/persistence/uow.py:24: in json_text
+    return canonical_json_bytes(value).decode("utf-8")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = [Limitation(root='isolated fixture')]
+limits = JsonBoundaryLimits(max_body_bytes=1048576, read_timeout_seconds=5.0, max_nesting_depth=64, max_number_characters=256, max_decimal_adjusted_exponent=10000)
+
+    def canonical_json_bytes(
+        value: Any, *, limits: JsonBoundaryLimits = DEFAULT_JSON_LIMITS
+    ) -> bytes:
+        """Canonicalize structure while preserving strings and array order exactly."""
+    
+        parsed = (
+            strict_json_loads(value, limits=limits)
+            if isinstance(value, (bytes, bytearray, memoryview, str))
+            else value
+        )
+        _ensure_finite_numbers(parsed, limits=limits)
+        try:
+            encoded = json.dumps(
+                parsed,
+                allow_nan=False,
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+                use_decimal=True,
+            )
+        except (TypeError, ValueError) as error:
+>           raise InvalidJsonDocument(
+                f"value cannot be encoded as finite JSON: {error}"
+            ) from error
+E           wuji_core.http.json_boundary.InvalidJsonDocument: value cannot be encoded as finite JSON: Object of type Limitation is not JSON serializable
+
+packages/wuji-core/src/wuji_core/http/json_boundary.py:120: InvalidJsonDocument
+=========================== short test summary info ============================
+FAILED tests/vnext/test_knowledge_admission.py::test_agent_candidate_real_check_and_only_one_body
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed, 1 passed in 0.96s

@@ -1,0 +1,47 @@
+{
+  "base_head": "96e391aa3d9b28a70df38ebb13a9a2525d3cadb4",
+  "code_tree_sha256": "ff5da9c081f19d3bb169b229192d012eef49411409da8aaa529bded1119040bb",
+  "file_sha256": {
+    "packages/contracts/openapi-v2.yaml": "f380d54e7428019af1c031cbfe9be852deb0ff71dd4cf3171294a56ab68fca4d",
+    "packages/contracts/src/v2/generated.ts": "f31ec11fd3c05f57c3a67b299cbfdfc96a4a9da8bd5944e8929ec146ccb85923",
+    "packages/wuji-core/src/wuji_core/blackboard/assessments.py": "09e42f8cf8630420d8e1b1a9f95d692d3d54e9e2b58825b8d34ed950e29ee37e",
+    "packages/wuji-core/src/wuji_core/blackboard/claims.py": "63df0e9185dd89bb881f973474ecb07fc29dfc07fc833e8fd70a8846fc9a965b",
+    "packages/wuji-core/src/wuji_core/blackboard/committer.py": "35f39615458f8bf6bb7d40e8132bd50b5a9c74df71d0025020144819efc207c0",
+    "packages/wuji-core/src/wuji_core/blackboard/fact_view.py": "e04349ef2cfc33e5cbf583523740a55aa6141efd9041259200fafe2f8abe21e1",
+    "packages/wuji-core/src/wuji_core/blackboard/relations.py": "ff2c0dcc701df965097a6296bfa774c8a02b2630c1ae0218951ca49f71d4ccfb",
+    "packages/wuji-core/src/wuji_core/contracts/generated.py": "c31838aa0b6809a97d45113828cf5554280f8a86bbf6a6564575f1e832999df8",
+    "packages/wuji-core/src/wuji_core/evidence/artifacts.py": "abab5e757c7635bf15a4b699055e277478510e42cb8351909d5ce228669dbe51",
+    "packages/wuji-core/src/wuji_core/http/knowledge.py": "8dbf15465ac0014e742ffbb17e762cb85062882950c112092d0d06048dac17e4",
+    "packages/wuji-core/src/wuji_core/http/records.py": "b06872745aa41ddd7e1ceff69cd30dd18c3ce94af55f5739e35771cefa0a90ca",
+    "packages/wuji-core/src/wuji_core/persistence/knowledge_schema.py": "43760e249eeda3d3782e74267ad7c2211e743cf3df1b4df592bc5ae65c039e71",
+    "packages/wuji-core/src/wuji_core/persistence/schema.py": "4492164cf427c6ae1c5db965a7c6e08523c0aea32a839e10132a18707da15b30",
+    "packages/wuji-core/src/wuji_core/persistence/snapshots.py": "d51621744bb23cd7a023cae840dbf92ec3fcb81b614ec4193df6922024a9bc48",
+    "packages/wuji-core/src/wuji_core/persistence/uow.py": "3fd063ce70ac54093f6566cc6cec5f5484498590ee53db7ef0c18b83a6f97c65",
+    "tests/vnext/test_knowledge_admission.py": "ec69c20a4587357ab1ba5c2f1703c04da840943c356cad5a08de872af99c8235"
+  },
+  "commands": [
+    {
+      "argv": [
+        "./scripts/vnext/uv.sh",
+        "run",
+        "--frozen",
+        "pytest",
+        "tests/vnext/test_knowledge_admission.py",
+        "-q",
+        "--junitxml=/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/docs/vnext/evidence/P04/junit.xml"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 14.241,
+      "output": "final-tests.txt"
+    },
+    {
+      "argv": [
+        "work/toolchain/bin/pnpm",
+        "contracts:check:v2"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 3.819,
+      "output": "contracts-check.txt"
+    }
+  ]
+}

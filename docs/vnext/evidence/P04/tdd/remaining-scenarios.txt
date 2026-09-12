@@ -1,0 +1,23 @@
+.......F.                                                                [100%]
+=================================== FAILURES ===================================
+___ test_fixed_snapshot_includes_assessment_inputs_and_checks_current_access ___
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x107f345a0>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-75/test_fixed_snapshot_includes_a0')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-75/test_fixed_snapshot_includes_a0')
+
+    def test_fixed_snapshot_includes_assessment_inputs_and_checks_current_access(db_environment,tmp_path,audit_directory):
+        from wuji_core.persistence.snapshots import SnapshotQuery
+        with case(db_environment,tmp_path,audit_directory) as c:
+            a,obs=captured(c)
+            ref=post_claim(c,proposal('Reviewed prose',kind='observation-summary')).json()['canonical_ref']
+            assert assess(c,ref,[obs],kind='human_attestation',method='human-attestation-v1',role='human').status_code==202
+            snap=SnapshotRepository(c.uow).create(TASK,access('agent-fixture',role='agent'),query=SnapshotQuery(entity_types=('claim',)))
+            refs=[r.model_dump(mode='json') for r in snap.refs]
+>           assert obs in refs
+E           AssertionError: assert {'entity_type': 'observation', 'id': '4f69e153-034d-403b-90dc-ee7ee79abf8f', 'revision': '1'} in [{'entity_type': 'claim', 'id': '5922b908-238b-4286-9573-a6ce5d244049', 'revision': '1'}]
+
+tests/vnext/test_knowledge_admission.py:403: AssertionError
+=========================== short test summary info ============================
+FAILED tests/vnext/test_knowledge_admission.py::test_fixed_snapshot_includes_assessment_inputs_and_checks_current_access
+1 failed, 8 passed, 11 deselected in 4.96s
