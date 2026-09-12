@@ -184,7 +184,7 @@ class StrictJsonMiddleware:
         self._limits = limits
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http" or not _is_json_request(scope):
+        if scope["type"] != "http":
             await self._app(scope, receive, send)
             return
 
@@ -199,6 +199,13 @@ class StrictJsonMiddleware:
             await _send_invalid_schema(scope, send)
             return
         if body:
+            if not _is_json_request(scope):
+                await _send_invalid_schema(
+                    scope,
+                    send,
+                    message="Nonempty request body requires application/json.",
+                )
+                return
             try:
                 parsed = strict_json_loads(body, limits=self._limits)
             except InvalidJsonDocument:
@@ -350,12 +357,17 @@ def _validate_nesting_depth(source: str, max_depth: int) -> None:
             depth -= 1
 
 
-async def _send_invalid_schema(scope: Scope, send: Send) -> None:
+async def _send_invalid_schema(
+    scope: Scope,
+    send: Send,
+    *,
+    message: str = "Request body is not valid strict JSON.",
+) -> None:
     request_id = scope.setdefault("state", {}).setdefault("request_id", str(uuid4()))
     body = json.dumps(
         {
             "code": "INVALID_SCHEMA",
-            "message": "Request body is not valid strict JSON.",
+            "message": message,
             "request_id": request_id,
             "retryable": False,
             "details": {},

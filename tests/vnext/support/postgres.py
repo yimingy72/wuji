@@ -222,8 +222,16 @@ class RecordedDbConnection:
         return RecordedCursor(cursor, audit_path=self.audit_path)
 
     def transaction(self, *args: Any, **kwargs: Any):
+        force_rollback = kwargs.get("force_rollback")
+        if force_rollback is None and len(args) >= 2:
+            force_rollback = args[1]
+        force_rollback = bool(force_rollback)
         transaction = self._connection.transaction(*args, **kwargs)
-        return RecordedTransaction(transaction, audit_path=self.audit_path)
+        return RecordedTransaction(
+            transaction,
+            audit_path=self.audit_path,
+            force_rollback=force_rollback,
+        )
 
     def commit(self) -> None:
         try:
@@ -265,9 +273,16 @@ class RecordedDbConnection:
 
 
 class RecordedTransaction:
-    def __init__(self, transaction: Any, *, audit_path: Path) -> None:
+    def __init__(
+        self,
+        transaction: Any,
+        *,
+        audit_path: Path,
+        force_rollback: bool,
+    ) -> None:
         self._transaction = transaction
         self._audit_path = audit_path
+        self._force_rollback = force_rollback
 
     def __enter__(self):
         try:
@@ -281,7 +296,13 @@ class RecordedTransaction:
                 },
             )
             raise
-        _append_event(self._audit_path, {"operation": "transaction_enter"})
+        _append_event(
+            self._audit_path,
+            {
+                "operation": "transaction_enter",
+                "force_rollback": self._force_rollback,
+            },
+        )
         return self
 
     def __exit__(self, exception_type, exception, traceback):
@@ -292,18 +313,27 @@ class RecordedTransaction:
                 self._audit_path,
                 {
                     "operation": "transaction_exit_error",
+                    "force_rollback": self._force_rollback,
                     "response": _error_record(error),
                 },
             )
             raise
+        rolled_back = exception_type is not None or self._force_rollback
+        outcome = (
+            "forced_rollback"
+            if self._force_rollback and exception_type is None
+            else "exception_rollback" if exception_type is not None else "commit"
+        )
         _append_event(
             self._audit_path,
             {
                 "operation": (
-                    "transaction_rollback" if exception_type else "transaction_commit"
+                    "transaction_rollback" if rolled_back else "transaction_commit"
                 ),
                 "response": "ok",
                 "exception": exception_type.__name__ if exception_type else None,
+                "force_rollback": self._force_rollback,
+                "outcome": outcome,
             },
         )
         return result

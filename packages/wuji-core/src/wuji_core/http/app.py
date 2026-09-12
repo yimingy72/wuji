@@ -45,6 +45,8 @@ def create_app(
         openapi_url=None,
     )
     for router in routers:
+        if not isinstance(router, VNextAPIRouter):
+            raise ValueError("vNext routers must use VNextAPIRouter")
         incompatible = [
             route.path
             for route in router.routes
@@ -52,7 +54,7 @@ def create_app(
         ]
         if incompatible:
             raise ValueError(
-                "vNext routers must use VNextAPIRouter/StrictJsonRoute: "
+                "VNextAPIRouter contains a route without StrictJsonRoute: "
                 + ", ".join(incompatible)
             )
         application.include_router(router)
