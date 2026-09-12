@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "task": "P01",
-  "status": "P01_fix_round1_ready_for_review",
+  "status": "P01_fix_round2_ready_for_scoped_re_review",
   "code_commit": "8c3fa9c193927b77f076b78a84cd040ec10f3e00",
   "source_baseline_commit": "c9871a66dcebb0ac74205bbae8e94ed00cd1892e",
   "code_file_sha256": {
@@ -1480,7 +1480,14 @@
       "provenance": "docs/vnext/evidence/P01/screenshots/provenance.json",
       "history": "docs/vnext/evidence/P01/historical/screenshot-blocked-9186c1b.md"
     },
-    "watchdog_fix": "docs/vnext/evidence/P01/fix-round1"
+    "watchdog_fix": "docs/vnext/evidence/P01/fix-round1",
+    "corrected_watchdog_http_packages": [
+      "docs/vnext/evidence/P01/fix-round2/watchdog-af4f609-available-http.md",
+      "docs/vnext/evidence/P01/fix-round2/watchdog-af4f609-no-captured-exchanges-http.md",
+      "docs/vnext/evidence/P01/fix-round2/watchdog-1d77954-available-http.md",
+      "docs/vnext/evidence/P01/fix-round2/watchdog-1d77954-no-captured-exchanges-http.md"
+    ],
+    "http_rendering_provenance": "docs/vnext/evidence/P01/fix-round2/provenance.json"
   },
   "raw_sdk_and_http": {
     "baseline": {
@@ -5726,7 +5733,7 @@
     "reason": "Original HTTP CRLF and pytest trailing spaces retained verbatim in three raw evidence files; SHA manifests unchanged."
   },
   "code_commit_scope": "Historical successful SDK evidence; unchanged 13 SDK cases were not rerun in fix round1",
-  "current_code_commit": "1d779540f11bc9ce1aeaf0aa9357ff3e2f71c9d0",
+  "current_code_commit": "1598ea2079dbbfc52b1b0f64b9a88c18a86912b9",
   "fix_round1": {
     "review_base": "9186c1b895d3a1e710b495e03295cd43fc413710",
     "code_fix_test_commit": "1d779540f11bc9ce1aeaf0aa9357ff3e2f71c9d0",
@@ -5812,5 +5819,32 @@
       "docs/vnext/evidence/P01/fix-round1/final/true/probe.json",
       "docs/vnext/evidence/P01/fix-round1/final/false/probe.json"
     ]
+  },
+  "fix_round2": {
+    "review_base": "d3a456ec15d70a4b363a6410702de37ae8889a21",
+    "renderer_test_commit": "1598ea2079dbbfc52b1b0f64b9a88c18a86912b9",
+    "prior_finding_disposition": "Original 3 Important findings ADDRESSED by round1 review",
+    "new_finding": "1 Important/P2: fixed SDK-validation statement on watchdog/zero-exchange HTTP packages",
+    "status": "addressed; ready for scoped re-review",
+    "change_scope": "exchange_markdown header and offline regression only; no execution/lifecycle/SDK changes",
+    "test": {
+      "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_http_record_rendering.py -q",
+      "code_commit": "1598ea2079dbbfc52b1b0f64b9a88c18a86912b9",
+      "exit_code": 0,
+      "result": "4 passed in 0.02s",
+      "log": "docs/vnext/evidence/P01/fix-round2/verified.txt"
+    },
+    "red": {
+      "exit_code": 1,
+      "result": "3 failed, 1 passed in 0.05s",
+      "log": "docs/vnext/evidence/P01/fix-round2/red.txt"
+    },
+    "provenance": "docs/vnext/evidence/P01/fix-round2/provenance.json",
+    "manifest": "docs/vnext/evidence/P01/fix-round2/sha256.json",
+    "source_code_sha256": {
+      "scripts/vnext/probe_maf.py": "0270a326831174efecc8e2f7bb0ba925ceb848438fdfcbfee7378828d7372ac9",
+      "tests/vnext/test_http_record_rendering.py": "a1b4beb2aef88306c9e31f567c483c2ac84359f0e249377a646c4f928442c829"
+    },
+    "rendering_vs_runtime": "4 offline renderer checks at 1598ea2 do not constitute new SDK or watchdog runtime validation. Previous raw records, code-test SHAs and checksum lists are retained."
   }
 }

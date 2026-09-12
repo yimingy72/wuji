@@ -1,6 +1,6 @@
-# P01 current implementation and fix round1 report
+# P01 current implementation and fix round2 report
 
-Current status: **3 Important findings addressed; ready for scoped re-review.** SDK evidence remains bound to 8c3fa9c; watchdog fix/tests are bound to 1d77954 (initial fix af4f609). Required screenshot is now resolved by the later main-controller capture. G2/G4/product integration remain separate.
+Current status: **round1 review confirmed the original 3 Important findings ADDRESSED; round2 addresses its single new HTTP-header labeling finding and is ready for scoped re-review.** SDK evidence remains bound to 8c3fa9c; watchdog fix/tests are bound to 1d77954 (initial fix af4f609). Required screenshot is now resolved by the later main-controller capture. G2/G4/product integration remain separate.
 
 Durable owner: Wuji vNext P01. Current evidence lives under [evidence/P01](evidence/P01/relocation.json), independent of SDD scratch cleanup. See [CapabilityRecord](capability-record.json) and [stage acceptance](../stages/vnext-maf/acceptance.md). The [original 9186c1b report](evidence/P01/historical/P01-report-9186c1b.md), original checksum list and denial/check results are byte-preserved. The section below is a readable historical copy with current links and corrected coordination attribution; its earlier blocked verdict is historical. The round1 addendum at the end records the current resolution.
 
@@ -182,7 +182,7 @@ case 和聚合报告在 `finally` 中发布；已有 HTTP 交换与可读 event 
 
 实际 test_name：`test_outer_watchdog_publishes_blocked_cli_evidence[available-observations]` 和 `[unknown-observations]`，文件为 `tests/vnext/test_probe_watchdog.py`。
 
-原始新日志：[RED](evidence/P01/fix-round1/fix-round1-red.txt)、[最终 GREEN](evidence/P01/fix-round1/fix-round1-verified.txt)。完整新观察：[有观察聚合 JSON](evidence/P01/fix-round1/true/probe.json)、[有观察全量 HTTP](evidence/P01/fix-round1/true/http-reproduction.md)、[无观察聚合 JSON](evidence/P01/fix-round1/false/probe.json)。无观察变体没有可交付 HTTP 交换，记录为未知，不补造报文。每个变体的子目录包含命令、期限、进程记录、完整 stdout/stderr 和可用本地观察。
+原始新日志：[RED](evidence/P01/fix-round1/fix-round1-red.txt)、[最终 GREEN](evidence/P01/fix-round1/fix-round1-verified.txt)。完整新观察：[有观察聚合 JSON](evidence/P01/fix-round1/true/probe.json)、[有观察全量 HTTP](evidence/P01/fix-round2/watchdog-af4f609-available-http.md)、[无观察聚合 JSON](evidence/P01/fix-round1/false/probe.json)。无观察变体没有可交付 HTTP 交换，记录为未知，不补造报文。每个变体的子目录包含命令、期限、进程记录、完整 stdout/stderr 和可用本地观察。
 
 ### Finding 3 — 实际截图与来源标签（已处理）
 
@@ -212,4 +212,49 @@ SHA-256：`0e85d91474dbd586b83d886bb5b74efe3533a88f7adeab358642cca0a2a8b7a7`。�
 
 在最终代码 SHA 1d77954 上实际执行 `P01_WATCHDOG_EVIDENCE_DIR="$PWD/work/p01/fix-round1-final" ./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_probe_watchdog.py -q`，退出 0，**3 passed in 2.10s**。新增 test_name 为 `test_reporting_does_not_overwrite_an_existing_evidence_run`。两个真实子进程超时用例和纯文件发布保护均通过；没有运行原 13 个 SDK 用例。
 
-最终 [GREEN 日志](evidence/P01/fix-round1/fix-round1-final.txt)、[有观察 JSON](evidence/P01/fix-round1/final/true/probe.json)、[完整 watchdog HTTP](evidence/P01/fix-round1/final/true/http-reproduction.md)、[无观察 JSON](evidence/P01/fix-round1/final/false/probe.json) 使用新的独立目录；先前 af4f609 的两个通过记录保持原样。CapabilityRecord 分别保存这两个修复提交的实际证据及旧 8c3fa9c 的 SDK 复用依据。
+最终 [GREEN 日志](evidence/P01/fix-round1/fix-round1-final.txt)、[有观察 JSON](evidence/P01/fix-round1/final/true/probe.json)、[完整 watchdog HTTP](evidence/P01/fix-round2/watchdog-1d77954-available-http.md)、[无观察 JSON](evidence/P01/fix-round1/final/false/probe.json) 使用新的独立目录；先前 af4f609 的两个通过记录保持原样。CapabilityRecord 分别保存这两个修复提交的实际证据及旧 8c3fa9c 的 SDK 复用依据。
+
+## P01 fix round2 — single HTTP-header finding
+
+基准：`d3a456ec15d70a4b363a6410702de37ae8889a21`。已读取 [round1 复审原文](evidence/P01/fix-round2/review-d3a456e.md)：原有 3 个 Important 全部 **ADDRESSED**；本轮只处理其 **1 个新 Important/P2**，即 watchdog/零交换包复用了 SDK 验证页眉。当前状态为 addressed / ready for scoped re-review，不替主控制器宣布复审通过或提前实施 P02。
+
+### 修改与实际范围
+
+代码/离线测试提交：**`1598ea2079dbbfc52b1b0f64b9a88c18a86912b9`**。只修改 `scripts/vnext/probe_maf.py` 的 `exchange_markdown()` 页眉，新增 `tests/vnext/test_http_record_rendering.py`；没有修改 watchdog、SDK、子进程、依赖或运行控制。
+
+页眉现在只说明 HTTP 记录用途与观察完整性，不列举 SDK/原生调用/审批拒绝/503 等验证成功点。完整性依据探针自身的 `observation_status` 和实际进程超时记录，**不从 HTTP model/header 名称推断任何 SDK 能力**。不完整记录明确标记 execution unknown、capability blocked；无捕获交换时明确写出 `No captured HTTP exchanges.`，并说明缺少观察不证明零执行。完整元数据分支也只给中性的 HTTP 记录说明，不把报文包当作能力验收。
+
+使用现有 `fix-round1/final/true|false/probe.json` 调用真实 renderer 离线测试。两个实际保存的 watchdog 变体验证范围标签与全部 HTTP 报文块；另两个用例验证 HTTP 名称不能提升状态、完整元数据分支仍保持中性。后者只改变内存中的测试输入以覆盖 renderer 分支，不发布为新的运行事实。
+
+### RED/GREEN 与被测 SHA
+
+所有步骤仅执行：
+
+```sh
+./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_http_record_rendering.py -q
+```
+
+| 记录 | 实际结果 | 证据 |
+| --- | --- | --- |
+| RED，修复前 | 退出 1；3 failed / 1 passed in 0.05s；固定页眉缺少 incomplete/unknown/blocked 范围 | [red.txt](evidence/P01/fix-round2/red.txt) |
+| 初次 GREEN | 退出 0；4 passed in 0.03s | [green.txt](evidence/P01/fix-round2/green.txt) |
+| 1598ea2 提交上的测试 | 退出 0；**4 passed in 0.02s** | [verified.txt](evidence/P01/fix-round2/verified.txt) |
+
+测试名称：`test_saved_watchdog_http_package_states_its_incomplete_scope[true-1]`、`[false-0]`、`test_http_model_and_header_names_cannot_promote_observation_scope`、`test_complete_probe_metadata_still_has_a_neutral_http_header`。
+
+这些是**离线渲染回归**，不构成新的 SDK 或 watchdog 运行验证。没有运行 SDK suite、watchdog 子进程、模型/目标/网络请求、包下载、UI 或子代理。原 SDK 运行仍绑定 8c3fa9c，原 watchdog 运行仍绑定 af4f609 / 1d77954，测试结果不迁移到新 renderer SHA。
+
+### 新衍生包、当前链接与原件保留
+
+| 原历史运行 | 当前范围正确的 HTTP 衍生包 |
+| --- | --- |
+| af4f609，有 1 次捕获交换 | [available HTTP](evidence/P01/fix-round2/watchdog-af4f609-available-http.md) |
+| af4f609，无捕获交换 | [no captured exchanges](evidence/P01/fix-round2/watchdog-af4f609-no-captured-exchanges-http.md) |
+| 1d77954，有 1 次捕获交换 | [available HTTP](evidence/P01/fix-round2/watchdog-1d77954-available-http.md) |
+| 1d77954，无捕获交换 | [no captured exchanges](evidence/P01/fix-round2/watchdog-1d77954-no-captured-exchanges-http.md) |
+
+以上均由旧 `probe.json` 离线重绘，保存为 **新的派生文件**。原 `probe.json`、原错误页眉 HTTP 包、历史报告与所有之前的 SHA manifest 均不覆盖；当前报告和 CapabilityRecord 发布新包链接，同时保留原始来源定位。非空包中全部请求/响应 fenced blocks（包括 CRLF）逐字节相同；零交换包没有补造报文。
+
+新 [provenance.json](evidence/P01/fix-round2/provenance.json) 为每份衍生包记录原 JSON/HTTP 路径与摘要、原证据提交 d3a456e、历史运行 SHA、renderer SHA、衍生摘要及每个原始 HTTP block 摘要。新 [sha256.json](evidence/P01/fix-round2/sha256.json) 独立登记本轮文件，未修改前轮清单。报告渲染与运行验证分别归属，不因新页眉或新文档提交声称旧运行被重新执行。
+
+唯一新 Important 已处理；剩余是主控制器对本窄范围复审。P02 与其他业务实现不在本轮改动中。

@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "operation": "offline HTTP report re-render; no runtime validation",
+  "review_base": "d3a456ec15d70a4b363a6410702de37ae8889a21",
+  "review_source": ".superpowers/sdd/vnext-v2/P01-round1-review.md",
+  "review_archive": "docs/vnext/evidence/P01/fix-round2/review-d3a456e.md",
+  "review_sha256": "d6407a15fd475c6677ff752fcac056ea9f04e07c2cffd1adf93ca712251d9f8a",
+  "renderer": {
+    "path": "scripts/vnext/probe_maf.py",
+    "code_commit": "1598ea2079dbbfc52b1b0f64b9a88c18a86912b9",
+    "sha256": "0270a326831174efecc8e2f7bb0ba925ceb848438fdfcbfee7378828d7372ac9",
+    "function": "exchange_markdown"
+  },
+  "test": {
+    "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_http_record_rendering.py -q",
+    "code_commit": "1598ea2079dbbfc52b1b0f64b9a88c18a86912b9",
+    "exit_code": 0,
+    "result": "4 passed in 0.02s",
+    "log": "docs/vnext/evidence/P01/fix-round2/verified.txt"
+  },
+  "red": {
+    "exit_code": 1,
+    "result": "3 failed, 1 passed in 0.05s",
+    "log": "docs/vnext/evidence/P01/fix-round2/red.txt"
+  },
+  "outputs": [
+    {
+      "source_probe": "docs/vnext/evidence/P01/fix-round1/true/probe.json",
+      "source_probe_sha256": "b8487579a29b985c244eb95097a96198a813d5f3c03c5359ffaec2c702d304db",
+      "source_http_package": "docs/vnext/evidence/P01/fix-round1/true/http-reproduction.md",
+      "source_http_sha256": "353ceacb5018a6de50e56612236a02688996a899340d09ebf0323b55210f2ab2",
+      "source_artifact_commit": "d3a456ec15d70a4b363a6410702de37ae8889a21",
+      "historical_runtime_test_commit": "af4f609c28483de40df816bf57a299851923823b",
+      "derived_http_package": "docs/vnext/evidence/P01/fix-round2/watchdog-af4f609-available-http.md",
+      "derived_sha256": "72999d0cdf29ad6f3bae8e138964261ded9c1b19c0184e6d453c0ccaebd7795b",
+      "captured_http_exchanges": 1,
+      "http_block_sha256": [
+        "1e6497ff4384ee14846981e6cd21b8dda5a138d4e47747b7bf9dfa5bbadc8ee0",
+        "a6607c1c07d4d42620473d0c9dd9a08a00498926eb76da6971d7a76b774a9e93"
+      ],
+      "observed_scope": "incomplete observations; unknown execution; blocked capability conclusion",
+      "derivation": "Only the renderer header changed. HTTP request/response blocks are byte-identical; source JSON/HTTP and prior hashes are untouched."
+    },
+    {
+      "source_probe": "docs/vnext/evidence/P01/fix-round1/false/probe.json",
+      "source_probe_sha256": "7d1787914b8d4448e7689d94a1d96d4ab837047b6375144777ff4b993c5b2c93",
+      "source_http_package": "docs/vnext/evidence/P01/fix-round1/false/http-reproduction.md",
+      "source_http_sha256": "92e6a386a2d8cb8088e29f067dbb679d3554df787e93c237a27dc967e359dc9f",
+      "source_artifact_commit": "d3a456ec15d70a4b363a6410702de37ae8889a21",
+      "historical_runtime_test_commit": "af4f609c28483de40df816bf57a299851923823b",
+      "derived_http_package": "docs/vnext/evidence/P01/fix-round2/watchdog-af4f609-no-captured-exchanges-http.md",
+      "derived_sha256": "38d6e122cf5dddcf2a375fafee652b6c5d85925b3b2573ec21cf6a3925fe43e6",
+      "captured_http_exchanges": 0,
+      "http_block_sha256": [],
+      "observed_scope": "incomplete observations; unknown execution; blocked capability conclusion",
+      "derivation": "Only the renderer header changed. HTTP request/response blocks are byte-identical; source JSON/HTTP and prior hashes are untouched."
+    },
+    {
+      "source_probe": "docs/vnext/evidence/P01/fix-round1/final/true/probe.json",
+      "source_probe_sha256": "2c7eb0e07ab5151c2c91dd7f217af6ad8804c11b021a7a601384e7fb588d515d",
+      "source_http_package": "docs/vnext/evidence/P01/fix-round1/final/true/http-reproduction.md",
+      "source_http_sha256": "f61f61de348e578b14cee10301efd47073ffc86032ded905560096a2d58a8d9f",
+      "source_artifact_commit": "d3a456ec15d70a4b363a6410702de37ae8889a21",
+      "historical_runtime_test_commit": "1d779540f11bc9ce1aeaf0aa9357ff3e2f71c9d0",
+      "derived_http_package": "docs/vnext/evidence/P01/fix-round2/watchdog-1d77954-available-http.md",
+      "derived_sha256": "08963a74613bba72345c74cf8ff7dd95e9734113fc77f7b31fac40324bfbf611",
+      "captured_http_exchanges": 1,
+      "http_block_sha256": [
+        "68084463b5e51b0f687b4920b9331948dc0f4feec455db372bf23b70f9b6a09b",
+        "a6607c1c07d4d42620473d0c9dd9a08a00498926eb76da6971d7a76b774a9e93"
+      ],
+      "observed_scope": "incomplete observations; unknown execution; blocked capability conclusion",
+      "derivation": "Only the renderer header changed. HTTP request/response blocks are byte-identical; source JSON/HTTP and prior hashes are untouched."
+    },
+    {
+      "source_probe": "docs/vnext/evidence/P01/fix-round1/final/false/probe.json",
+      "source_probe_sha256": "9d894686825912172df66a7d815dc43503aca2c72017bf4d23da7033c0100f72",
+      "source_http_package": "docs/vnext/evidence/P01/fix-round1/final/false/http-reproduction.md",
+      "source_http_sha256": "92e6a386a2d8cb8088e29f067dbb679d3554df787e93c237a27dc967e359dc9f",
+      "source_artifact_commit": "d3a456ec15d70a4b363a6410702de37ae8889a21",
+      "historical_runtime_test_commit": "1d779540f11bc9ce1aeaf0aa9357ff3e2f71c9d0",
+      "derived_http_package": "docs/vnext/evidence/P01/fix-round2/watchdog-1d77954-no-captured-exchanges-http.md",
+      "derived_sha256": "38d6e122cf5dddcf2a375fafee652b6c5d85925b3b2573ec21cf6a3925fe43e6",
+      "captured_http_exchanges": 0,
+      "http_block_sha256": [],
+      "observed_scope": "incomplete observations; unknown execution; blocked capability conclusion",
+      "derivation": "Only the renderer header changed. HTTP request/response blocks are byte-identical; source JSON/HTTP and prior hashes are untouched."
+    }
+  ],
+  "scope": "Original three Important findings were ADDRESSED by round1 review; this derivation addresses only its new fixed-header labeling finding. Scope uses probe completeness/timeout metadata, never HTTP model/header names.",
+  "runtime_evidence_reuse": "SDK 8c3fa9c and watchdog af4f609/1d77954 observations reused as historical input. No SDK run, watchdog subprocess, model, target, HTTP request, package download or UI action occurred in this derivation.",
+  "historical_manifests_unchanged": [
+    "docs/vnext/evidence/P01/sha256.json",
+    "docs/vnext/evidence/P01/fix-round1/sha256.json",
+    "docs/vnext/evidence/P01/fix-round1/sha256-af4f609.json"
+  ]
+}

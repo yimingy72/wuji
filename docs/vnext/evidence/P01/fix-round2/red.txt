@@ -1,0 +1,44 @@
+FF.F                                                                     [100%]
+=================================== FAILURES ===================================
+_____ test_saved_watchdog_http_package_states_its_incomplete_scope[true-1] _____
+
+variant = 'true', count = 1
+
+    @pytest.mark.parametrize("variant,count", [("true", 1), ("false", 0)])
+    def test_saved_watchdog_http_package_states_its_incomplete_scope(variant, count):
+        rendered = probe.exchange_markdown(load_cases(variant))
+        scope = header(rendered)
+>       assert "Observation completeness: incomplete." in scope
+E       AssertionError: assert 'Observation completeness: incomplete.' in '# P01 synthetic HTTP reproduction package\n\nAll data and Authorization values below are synthetic. No target vulnera...mpty tool advertisement; native call-p01-read routing; actual file reads; approval rejection; finite HTTP failure.\n\n'
+
+tests/vnext/test_http_record_rendering.py:33: AssertionError
+____ test_saved_watchdog_http_package_states_its_incomplete_scope[false-0] _____
+
+variant = 'false', count = 0
+
+    @pytest.mark.parametrize("variant,count", [("true", 1), ("false", 0)])
+    def test_saved_watchdog_http_package_states_its_incomplete_scope(variant, count):
+        rendered = probe.exchange_markdown(load_cases(variant))
+        scope = header(rendered)
+>       assert "Observation completeness: incomplete." in scope
+E       AssertionError: assert 'Observation completeness: incomplete.' in '# P01 synthetic HTTP reproduction package\n\nAll data and Authorization values below are synthetic. No target vulnera...nempty tool advertisement; native call-p01-read routing; actual file reads; approval rejection; finite HTTP failure.\n'
+
+tests/vnext/test_http_record_rendering.py:33: AssertionError
+_________ test_complete_probe_metadata_still_has_a_neutral_http_header _________
+
+    def test_complete_probe_metadata_still_has_a_neutral_http_header():
+        cases = load_cases("true")
+        # Exercise only the renderer's explicit completeness branch. This is not a
+        # runtime record or a claim that this historical watchdog run was complete.
+        cases["roundtrip"]["observation_status"] = "complete"
+        cases["roundtrip"]["processes"] = []
+        scope = header(probe.exchange_markdown(cases))
+>       assert "Observation completeness: complete as recorded by the probe." in scope
+E       AssertionError: assert 'Observation completeness: complete as recorded by the probe.' in '# P01 synthetic HTTP reproduction package\n\nAll data and Authorization values below are synthetic. No target vulnera...mpty tool advertisement; native call-p01-read routing; actual file reads; approval rejection; finite HTTP failure.\n\n'
+
+tests/vnext/test_http_record_rendering.py:65: AssertionError
+=========================== short test summary info ============================
+FAILED tests/vnext/test_http_record_rendering.py::test_saved_watchdog_http_package_states_its_incomplete_scope[true-1]
+FAILED tests/vnext/test_http_record_rendering.py::test_saved_watchdog_http_package_states_its_incomplete_scope[false-0]
+FAILED tests/vnext/test_http_record_rendering.py::test_complete_probe_metadata_still_has_a_neutral_http_header
+3 failed, 1 passed in 0.05s

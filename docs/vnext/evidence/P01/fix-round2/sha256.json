@@ -1,0 +1,11 @@
+{
+  "docs/vnext/evidence/P01/fix-round2/green.txt": "988344a7589dd35ded61b8e784dcd5bc43cb64ba0f19a2bda1a7ec44b380abcb",
+  "docs/vnext/evidence/P01/fix-round2/provenance.json": "bf7d4feddbaf7b15c15cde4ae2f8c24b94e90bf0503fb9503b98c6a892b605c8",
+  "docs/vnext/evidence/P01/fix-round2/red.txt": "7e3b7a8a068053f5248c3645e21464aade6ccbd95216e3f466409c66f18c8345",
+  "docs/vnext/evidence/P01/fix-round2/review-d3a456e.md": "d6407a15fd475c6677ff752fcac056ea9f04e07c2cffd1adf93ca712251d9f8a",
+  "docs/vnext/evidence/P01/fix-round2/verified.txt": "99cef98de12a8b8a90abbcb2033d076bfc563ea7951d4da90263da27288d16f6",
+  "docs/vnext/evidence/P01/fix-round2/watchdog-1d77954-available-http.md": "08963a74613bba72345c74cf8ff7dd95e9734113fc77f7b31fac40324bfbf611",
+  "docs/vnext/evidence/P01/fix-round2/watchdog-1d77954-no-captured-exchanges-http.md": "38d6e122cf5dddcf2a375fafee652b6c5d85925b3b2573ec21cf6a3925fe43e6",
+  "docs/vnext/evidence/P01/fix-round2/watchdog-af4f609-available-http.md": "72999d0cdf29ad6f3bae8e138964261ded9c1b19c0184e6d453c0ccaebd7795b",
+  "docs/vnext/evidence/P01/fix-round2/watchdog-af4f609-no-captured-exchanges-http.md": "38d6e122cf5dddcf2a375fafee652b6c5d85925b3b2573ec21cf6a3925fe43e6"
+}
