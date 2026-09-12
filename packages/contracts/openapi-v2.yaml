@@ -745,6 +745,9 @@ components:
     CommandDisposition:
       type: string
       enum: [accepted, rejected, already_recorded]
+    CommandResourceType:
+      type: string
+      enum: [task, work_item, approval]
     ViewMode:
       type: string
       enum: [live, history]
@@ -813,6 +816,14 @@ components:
       oneOf:
         - $ref: '#/components/schemas/KnowledgeRef'
         - $ref: '#/components/schemas/ProposalLocalRef'
+    CommandResourceRef:
+      type: object
+      additionalProperties: false
+      required: [entity_type, id, revision]
+      properties:
+        entity_type: {$ref: '#/components/schemas/CommandResourceType'}
+        id: {type: string, minLength: 1, maxLength: 256}
+        revision: {$ref: '#/components/schemas/RevisionString'}
     BlobRef:
       type: object
       additionalProperties: false
@@ -1238,7 +1249,7 @@ components:
       properties:
         command_id: {type: string, minLength: 1}
         disposition: {$ref: '#/components/schemas/CommandDisposition'}
-        resource_ref: {$ref: '#/components/schemas/KnowledgeRef'}
+        resource_ref: {$ref: '#/components/schemas/CommandResourceRef'}
         resource_version: {$ref: '#/components/schemas/RevisionString'}
         request_id: {type: string, minLength: 1}
         code:
@@ -1704,7 +1715,7 @@ components:
     ChatMessage:
       type: object
       additionalProperties: false
-      required: [role, content]
+      required: [role]
       properties:
         role: {$ref: '#/components/schemas/ChatRole'}
         content:
@@ -1724,6 +1735,25 @@ components:
               minLength: 1
               maxLength: 1024
             - type: 'null'
+        tool_calls:
+          type: array
+          maxItems: 256
+          items: {$ref: '#/components/schemas/ChatToolCall'}
+    ChatToolCallFunction:
+      type: object
+      additionalProperties: false
+      required: [name, arguments]
+      properties:
+        name: {type: string, minLength: 1, maxLength: 256}
+        arguments: {type: string, maxLength: 1048576}
+    ChatToolCall:
+      type: object
+      additionalProperties: false
+      required: [id, type, function]
+      properties:
+        id: {type: string, minLength: 1, maxLength: 1024}
+        type: {type: string, enum: [function]}
+        function: {$ref: '#/components/schemas/ChatToolCallFunction'}
     ChatToolDefinition:
       type: object
       additionalProperties: false
@@ -1791,9 +1821,9 @@ components:
       additionalProperties: false
       required: [prompt_tokens, completion_tokens, total_tokens]
       properties:
-        prompt_tokens: {$ref: '#/components/schemas/RevisionString'}
-        completion_tokens: {$ref: '#/components/schemas/RevisionString'}
-        total_tokens: {$ref: '#/components/schemas/RevisionString'}
+        prompt_tokens: {type: integer, minimum: 0, maximum: 9223372036854775807}
+        completion_tokens: {type: integer, minimum: 0, maximum: 9223372036854775807}
+        total_tokens: {type: integer, minimum: 0, maximum: 9223372036854775807}
     ChatCompletionResponse:
       type: object
       additionalProperties: false
@@ -1801,7 +1831,7 @@ components:
       properties:
         id: {type: string, minLength: 1}
         object: {type: string, enum: [chat.completion]}
-        created: {$ref: '#/components/schemas/RevisionString'}
+        created: {type: integer, minimum: 0, maximum: 9223372036854775807}
         model: {type: string, minLength: 1}
         choices:
           type: array

@@ -436,6 +436,8 @@ export interface components {
         /** @enum {string} */
         CommandDisposition: "accepted" | "rejected" | "already_recorded";
         /** @enum {string} */
+        CommandResourceType: "task" | "work_item" | "approval";
+        /** @enum {string} */
         ViewMode: "live" | "history";
         /** @enum {string} */
         ViewSelectionMode: "explicit_revision" | "follow_latest";
@@ -466,6 +468,11 @@ export interface components {
             client_ref: string;
         };
         ProposalReference: components["schemas"]["KnowledgeRef"] | components["schemas"]["ProposalLocalRef"];
+        CommandResourceRef: {
+            entity_type: components["schemas"]["CommandResourceType"];
+            id: string;
+            revision: components["schemas"]["RevisionString"];
+        };
         BlobRef: {
             id: string;
             version: components["schemas"]["RevisionString"];
@@ -699,7 +706,7 @@ export interface components {
         CommandReceipt: {
             command_id: string;
             disposition: components["schemas"]["CommandDisposition"];
-            resource_ref: components["schemas"]["KnowledgeRef"];
+            resource_ref: components["schemas"]["CommandResourceRef"];
             resource_version: components["schemas"]["RevisionString"];
             request_id: string;
             code?: components["schemas"]["ErrorCode"] | null;
@@ -952,9 +959,20 @@ export interface components {
         ChatRole: "system" | "user" | "assistant" | "tool";
         ChatMessage: {
             role: components["schemas"]["ChatRole"];
-            content: string | null;
+            content?: string | null;
             name?: string | null;
             tool_call_id?: string | null;
+            tool_calls?: components["schemas"]["ChatToolCall"][];
+        };
+        ChatToolCallFunction: {
+            name: string;
+            arguments: string;
+        };
+        ChatToolCall: {
+            id: string;
+            /** @enum {string} */
+            type: "function";
+            function: components["schemas"]["ChatToolCallFunction"];
         };
         ChatToolDefinition: {
             /** @enum {string} */
@@ -988,15 +1006,15 @@ export interface components {
             finish_reason: string | null;
         };
         TokenUsage: {
-            prompt_tokens: components["schemas"]["RevisionString"];
-            completion_tokens: components["schemas"]["RevisionString"];
-            total_tokens: components["schemas"]["RevisionString"];
+            prompt_tokens: number;
+            completion_tokens: number;
+            total_tokens: number;
         };
         ChatCompletionResponse: {
             id: string;
             /** @enum {string} */
             object: "chat.completion";
-            created: components["schemas"]["RevisionString"];
+            created: number;
             model: string;
             choices: components["schemas"]["ChatCompletionChoice"][];
             usage: components["schemas"]["TokenUsage"];

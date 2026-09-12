@@ -436,7 +436,7 @@ class ChatCompletionResponse(BaseModel):
     )
     id: Annotated[StrictStr, Field(min_length=1)]
     object: Literal['chat.completion']
-    created: RevisionString
+    created: Annotated[StrictInt, Field(ge=0, le=9223372036854775807)]
     model: Annotated[StrictStr, Field(min_length=1)]
     choices: list[ChatCompletionChoice]
     usage: TokenUsage
@@ -447,9 +447,10 @@ class ChatMessage(BaseModel):
         extra='forbid',
     )
     role: ChatRole
-    content: Content | None
+    content: Content | None = None
     name: Name | None = None
     tool_call_id: ToolCallId | None = None
+    tool_calls: Annotated[list[ChatToolCall] | None, Field(max_length=256)] = None
 
 
 class ChatRole(StrEnum):
@@ -457,6 +458,23 @@ class ChatRole(StrEnum):
     user = 'user'
     assistant = 'assistant'
     tool = 'tool'
+
+
+class ChatToolCall(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    id: Annotated[StrictStr, Field(max_length=1024, min_length=1)]
+    type: Literal['function']
+    function: ChatToolCallFunction
+
+
+class ChatToolCallFunction(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    name: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    arguments: Annotated[StrictStr, Field(max_length=1048576)]
 
 
 class ChatToolDefinition(BaseModel):
@@ -538,10 +556,25 @@ class CommandReceipt(BaseModel):
     )
     command_id: Annotated[StrictStr, Field(min_length=1)]
     disposition: CommandDisposition
-    resource_ref: KnowledgeRef
+    resource_ref: CommandResourceRef
     resource_version: RevisionString
     request_id: Annotated[StrictStr, Field(min_length=1)]
     code: ErrorCode | None = None
+
+
+class CommandResourceRef(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    entity_type: CommandResourceType
+    id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    revision: RevisionString
+
+
+class CommandResourceType(StrEnum):
+    task = 'task'
+    work_item = 'work_item'
+    approval = 'approval'
 
 
 class ComponentReceipt(BaseModel):
@@ -1295,9 +1328,9 @@ class TokenUsage(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
     )
-    prompt_tokens: RevisionString
-    completion_tokens: RevisionString
-    total_tokens: RevisionString
+    prompt_tokens: Annotated[StrictInt, Field(ge=0, le=9223372036854775807)]
+    completion_tokens: Annotated[StrictInt, Field(ge=0, le=9223372036854775807)]
+    total_tokens: Annotated[StrictInt, Field(ge=0, le=9223372036854775807)]
 
 
 class ToolCallId(RootModel[StrictStr]):
