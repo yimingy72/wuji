@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import base64
+from datetime import datetime, timedelta, timezone
 import hashlib
 import importlib.metadata as metadata
 import inspect
@@ -243,14 +245,49 @@ def run_process(directory, url, mode, stage):
     config_path = directory / f"{stage}-input.json"
     write_json(config_path, config)
     command = [sys.executable, str(Path(__file__).resolve()), "--worker", str(config_path)]
-    process = subprocess.run(
-        command, cwd=directory, env={"PATH": str(Path(sys.executable).parent), "PYTHONNOUSERSITE": "1", "OTEL_SDK_DISABLED": "true"},
-        text=True, capture_output=True, timeout=30,
-    )
-    result_path = directory / f"{stage}-result.json"
-    record = {"command": command, "exit_code": process.returncode, "stdout": process.stdout, "stderr": process.stderr,
-              "result": json.loads(result_path.read_text()) if result_path.exists() else {"error": {"type": "ProcessFailure", "message": process.stderr}, "loaded_modules": []}}
-    write_json(directory / f"{stage}-process.json", record)
+    started = datetime.now(timezone.utc)
+    timeout_seconds = 30
+    record = {"command": command, "exit_code": None, "result": None}
+    try:
+        process = subprocess.run(
+            command, cwd=directory,
+            env={"PATH": str(Path(sys.executable).parent), "PYTHONNOUSERSITE": "1", "OTEL_SDK_DISABLED": "true"},
+            text=True, capture_output=True, timeout=timeout_seconds,
+        )
+        record.update(outcome="exited", execution_outcome="returned", exit_code=process.returncode,
+                      stdout=process.stdout, stderr=process.stderr)
+    except subprocess.TimeoutExpired as exc:
+        # subprocess.run kills and waits for the child, but does not expose its
+        # return code on this path. A saved result also cannot prove full completion.
+        timeout_seconds = exc.timeout
+        record.update(
+            command=exc.cmd, outcome="timed_out", execution_outcome="unknown",
+            error={"type": "TimeoutExpired", "message": str(exc), "timeout_seconds": exc.timeout},
+        )
+        for stream, raw in (("stdout", exc.stdout), ("stderr", exc.stderr)):
+            if isinstance(raw, str):
+                raw = raw.encode()
+            record[stream] = raw.decode(errors="replace") if raw is not None else None
+            record[stream + "_base64"] = base64.b64encode(raw).decode() if raw is not None else None
+    finally:
+        record["deadline"] = {
+            "started_at": started.isoformat(), "timeout_seconds": timeout_seconds,
+            "expired_at_or_after": (started + timedelta(seconds=timeout_seconds)).isoformat(),
+            "observed_at": datetime.now(timezone.utc).isoformat(),
+        }
+        result_path = directory / f"{stage}-result.json"
+        timed_out = record.get("outcome") == "timed_out"
+        record["result_state"] = "missing_at_timeout" if timed_out else "missing"
+        if result_path.exists():
+            raw = result_path.read_bytes()
+            record["result_raw_base64"] = base64.b64encode(raw).decode()
+            try:
+                record["result"] = json.loads(raw)
+                record["result_state"] = "available_at_timeout" if timed_out else "complete"
+            except (ValueError, UnicodeDecodeError) as exc:
+                record["result_state"] = "unreadable_at_timeout" if timed_out else "unreadable"
+                record["result_read_error"] = {"type": type(exc).__name__, "message": str(exc)}
+        write_json(directory / f"{stage}-process.json", record)
     return record
 
 
@@ -275,6 +312,15 @@ def capability_outcomes(record):
     Exceptions preserve a concrete gated reason for missing public capability.
     """
     cases = record["cases"]
+    incomplete = [name for name, case in cases.items() if case.get("observation_status") == "incomplete"]
+    if incomplete:
+        timeouts = [process["error"] for case in cases.values() for process in case["processes"]
+                    if process.get("outcome") == "timed_out"]
+        return {"watchdog" if timeouts else "reporting": {
+            "status": "blocked", "execution_outcome": "unknown", "incomplete_cases": incomplete,
+            "errors": timeouts or [cases[name].get("error") for name in incomplete],
+            "scope": "Incomplete observations cannot establish SDK capability; no automatic retry",
+        }}
 
     def successful_processes(case):
         for process in case["processes"]:
@@ -374,34 +420,71 @@ def run_probe(output_dir):
     output_dir = Path(output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     cases = {}
-    for mode in ("roundtrip", "approve", "reject", "unknown", "http-error", "stub"):
-        directory = output_dir / mode
-        directory.mkdir(exist_ok=False)  # Never append a second run to previous evidence.
-        fixture_text = '{"id":"synthetic-001","value":"offline-p01-record"}'
-        (directory / "record.json").write_text(fixture_text)
-        case = {"fixture_text": fixture_text, "processes": [], "restore_http": []}
-        with SyntheticModel(mode) as server:
-            case["processes"].append(run_process(directory, server.url, mode, "initial"))
-            cut = len(server.exchanges)
-            case["http"] = list(server.exchanges)
-            case["events_before_resume"] = read_events(directory)
-            initial = case["processes"][0]["result"]
-            if mode in ("roundtrip", "approve", "reject") and "error" not in initial:
-                if mode == "roundtrip" or initial.get("approval_request"):
-                    stage = "restore" if mode == "roundtrip" else mode
-                    case["processes"].append(run_process(directory, server.url, mode, stage))
-                    case["restore_http"] = server.exchanges[cut:]
-            case["events"] = read_events(directory)
-        write_json(directory / "http.json", case["http"] + case["restore_http"])
-        write_json(directory / "case.json", case)
-        cases[mode] = case
     record = {"baseline": {"source_commit": BASELINE_SHA, "document": "docs/vnext/implementation-baseline.md"},
               "profile": PROFILE, "explicit_tools": ["read_record"], "function_invocation_limits": INVOCATION_LIMITS,
               "transport": {"protocol": "OpenAI Chat Completions", "max_retries": 0, "timeout_seconds": 5, "trust_env": False},
               "cases": cases}
-    record["capabilities"] = capability_outcomes(record)
-    write_json(output_dir / "probe.json", record)
-    (output_dir / "http-reproduction.md").write_text(exchange_markdown(cases))
+    modes = ("roundtrip", "approve", "reject", "unknown", "http-error", "stub")
+    try:
+        for mode in modes:
+            directory = output_dir / mode
+            directory.mkdir(exist_ok=False)  # Never append to previous evidence.
+            fixture_text = '{"id":"synthetic-001","value":"offline-p01-record"}'
+            (directory / "record.json").write_text(fixture_text)
+            case = {"fixture_text": fixture_text, "processes": [], "http": [], "restore_http": [],
+                    "events": None, "events_before_resume": None, "observation_status": "incomplete"}
+            cases[mode] = case
+            server = None
+            cut = None
+            try:
+                with SyntheticModel(mode) as server:
+                    initial_process = run_process(directory, server.url, mode, "initial")
+                    case["processes"].append(initial_process)
+                    cut = len(server.exchanges)
+                    if initial_process["outcome"] != "timed_out":
+                        initial = initial_process["result"]
+                        if initial is None:
+                            raise ValueError("Worker exited without a readable result; observations incomplete")
+                        case["events_before_resume"] = read_events(directory)
+                        if mode in ("roundtrip", "approve", "reject") and "error" not in initial:
+                            if mode == "roundtrip" or initial.get("approval_request"):
+                                stage = "restore" if mode == "roundtrip" else mode
+                                case["processes"].append(run_process(directory, server.url, mode, stage))
+                        if not any(p["outcome"] == "timed_out" for p in case["processes"]):
+                            case["events"] = read_events(directory)
+                            case["observation_status"] = "complete"
+            except Exception as exc:
+                case["error"] = {"type": type(exc).__name__, "message": str(exc), "traceback": traceback.format_exc()}
+            finally:
+                # Snapshot after fixture cleanup, including evidence captured before
+                # a worker startup/run/shutdown timeout. Never infer zero execution.
+                if server is not None:
+                    case["http"] = list(server.exchanges if cut is None else server.exchanges[:cut])
+                    case["restore_http"] = [] if cut is None else list(server.exchanges[cut:])
+                if case["observation_status"] == "incomplete":
+                    event_path = directory / "reads.jsonl"
+                    raw = event_path.read_bytes() if event_path.exists() else None
+                    case["event_log_base64"] = base64.b64encode(raw).decode() if raw is not None else None
+                    available_events = []
+                    for line in (raw or b"").splitlines():
+                        try:
+                            available_events.append(json.loads(line))
+                        except (ValueError, UnicodeDecodeError) as exc:
+                            case["event_read_error"] = {"type": type(exc).__name__, "message": str(exc)}
+                            break
+                    case["available_events"] = available_events
+                    case["observed_event_count"] = len(available_events) if available_events else None
+                    http_count = len(case["http"]) + len(case["restore_http"])
+                    case["http_observation_count"] = http_count if http_count else None
+                write_json(directory / "http.json", case["http"] + case["restore_http"])
+                write_json(directory / "case.json", case)
+            if case["observation_status"] == "incomplete":
+                break  # Do not retry, resume, or run subsequent SDK cases after unknown execution.
+    finally:
+        record["not_run_cases"] = [mode for mode in modes if mode not in cases]
+        record["capabilities"] = capability_outcomes(record)
+        write_json(output_dir / "probe.json", record)
+        (output_dir / "http-reproduction.md").write_text(exchange_markdown(cases))
     return record
 
 
@@ -420,14 +503,20 @@ def main():
     if not args.output_dir:
         parser.error("--output-dir or --prepare-wheels is required")
     record = run_probe(args.output_dir)
-    try:
-        write_json(args.output_dir / "distributions.json", distribution_record())
-    except Exception as exc:
-        record["capabilities"]["distribution"] = {"status": "blocked", "error": {"type": type(exc).__name__, "message": str(exc), "traceback": traceback.format_exc()}}
-        write_json(args.output_dir / "probe.json", record)
+    if not any(c["status"] == "blocked" for c in record["capabilities"].values()):
+        try:
+            write_json(args.output_dir / "distributions.json", distribution_record())
+        except Exception as exc:
+            record["capabilities"]["distribution"] = {"status": "blocked", "error": {"type": type(exc).__name__, "message": str(exc), "traceback": traceback.format_exc()}}
+            write_json(args.output_dir / "probe.json", record)
     for name, case in record["cases"].items():
-        print(name, "reads=", len(case["events"]), "HTTP=", len(case["http"]) + len(case["restore_http"]),
-              "errors=", [p["result"].get("error") for p in case["processes"]])
+        reads = "unknown" if case["events"] is None else len(case["events"])
+        http_count = len(case["http"]) + len(case["restore_http"])
+        if case["observation_status"] == "incomplete" and not http_count:
+            http_count = "unknown"
+        print(name, "reads=", reads, "HTTP observed=", http_count,
+              "observation_status=", case["observation_status"],
+              "errors=", [p.get("error") or (p["result"] or {}).get("error") for p in case["processes"]])
     print(json.dumps(record["capabilities"], indent=2))
     return 2 if any(c["status"] == "blocked" for c in record["capabilities"].values()) else 0
 
