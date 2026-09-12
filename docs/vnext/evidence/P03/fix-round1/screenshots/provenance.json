@@ -1,0 +1,18 @@
+{
+  "captured_at": "2026-09-12T22:43:50.736Z",
+  "code_sha": "c2a86e3a98895378532fff1427e9ee82420b4039",
+  "url": "http://127.0.0.1:52269/result.html",
+  "method": "Native in-app browser screenshot, clipped to observed document bounds; no raster editing",
+  "clip": {
+    "height": 720,
+    "width": 1280,
+    "x": 0,
+    "y": 0
+  },
+  "rendered_from": [
+    "../observations.json",
+    "../final.txt",
+    "../runtime/*/mutation-outcomes.json"
+  ],
+  "scope": "Saved actual first-final-run observations, not product UI or a new execution"
+}

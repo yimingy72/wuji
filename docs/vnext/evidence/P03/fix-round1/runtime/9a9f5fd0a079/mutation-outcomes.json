@@ -1,0 +1,17 @@
+[
+  {
+    "operation": "seal",
+    "sqlstate": "42501",
+    "changed_rows": 0
+  },
+  {
+    "operation": "expire_lease",
+    "sqlstate": "42501",
+    "changed_rows": 0
+  },
+  {
+    "operation": "delete_lease",
+    "sqlstate": "42501",
+    "changed_rows": 0
+  }
+]

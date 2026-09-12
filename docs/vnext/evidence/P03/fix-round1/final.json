@@ -1,0 +1,23 @@
+{
+  "command": [
+    "./scripts/vnext/uv.sh",
+    "run",
+    "--frozen",
+    "pytest",
+    "tests/vnext/test_p03_fix_round1.py",
+    "-q",
+    "--junitxml=docs/vnext/evidence/P03/fix-round1/final-junit.xml"
+  ],
+  "evidence_env": {
+    "WUJI_TEST_EVIDENCE_DIR": "docs/vnext/evidence/P03/fix-round1/runtime"
+  },
+  "started_at": "2026-09-12T22:38:41.557195+00:00",
+  "elapsed_seconds": 4.0457052499987185,
+  "exit_code": 0,
+  "candidate_tree": "7b7989c64eec9c72fc597cad3831d2268a561d7c",
+  "code_sha": "c2a86e3a98895378532fff1427e9ee82420b4039",
+  "first_final_candidate_run": true,
+  "output": "final.txt",
+  "junit": "final-junit.xml",
+  "binding": "Tested staged source tree equals this code commit; no code changes after the first final candidate run."
+}

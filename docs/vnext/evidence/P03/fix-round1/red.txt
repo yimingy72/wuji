@@ -1,0 +1,219 @@
+FFFF.F                                                                   [100%]
+=================================== FAILURES ===================================
+_ test_non_evidence_context_cannot_mutate_artifact_or_collector_lease[agent-fixture-agent-write] _
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x1047a3b60>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-68/test_non_evidence_context_cann0')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-68/test_non_evidence_context_cann0')
+test_tokens = TestTokens(agent='eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6IjY5OGJhMmRlMzdkZjQyNmMifQ.eyJpc3MiOiJodHRwczovL2lkZW50a...id', audience='wuji-vnext-tests', public_key_sha256='698ba2de37df426c2452075a33894118c6e683e9cfecc91d3d0fd8f82adda315')
+subject = 'agent-fixture', role = 'agent', capability = 'write'
+
+    @pytest.mark.parametrize('subject,role,capability', [
+        ('agent-fixture','agent','write'),
+        ('agent-fixture','agent','snapshot'),
+        ('collector-fixture','collector','snapshot'),
+    ])
+    def test_non_evidence_context_cannot_mutate_artifact_or_collector_lease(db_environment,tmp_path,audit_directory,test_tokens,subject,role,capability):
+        with capture_case(db_environment,tmp_path,audit_directory,test_tokens) as case:
+            ref = case.store.stage(access(),'task-fixture','attempt-fixture',b'staged R1 fixture','text/plain')
+            outcomes = _attempt_sql_mutations(case,access(subject,role=role),capability,ref)
+            (audit_directory/'mutation-outcomes.json').write_text(json.dumps(outcomes,indent=2)+'\n')
+>           assert [item['sqlstate'] for item in outcomes] == ['42501']*3, outcomes
+E           AssertionError: [{'operation': 'seal', 'sqlstate': None, 'changed_rows': 1}, {'operation': 'expire_lease', 'sqlstate': None, 'changed_rows': 1}, {'operation': 'delete_lease', 'sqlstate': None, 'changed_rows': 1}]
+E           assert [None, None, None] == ['42501', '42501', '42501']
+E             
+E             At index 0 diff: None != '42501'
+E             Use -v to get more diff
+
+tests/vnext/test_p03_fix_round1.py:54: AssertionError
+_ test_non_evidence_context_cannot_mutate_artifact_or_collector_lease[agent-fixture-agent-snapshot] _
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x104827b10>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-68/test_non_evidence_context_cann1')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-68/test_non_evidence_context_cann1')
+test_tokens = TestTokens(agent='eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6IjQxN2ZmZDE0YTUxODgwODMifQ.eyJpc3MiOiJodHRwczovL2lkZW50a...id', audience='wuji-vnext-tests', public_key_sha256='417ffd14a5188083139914a7e322ac6549ff98355cb387bdfc78b4304568d807')
+subject = 'agent-fixture', role = 'agent', capability = 'snapshot'
+
+    @pytest.mark.parametrize('subject,role,capability', [
+        ('agent-fixture','agent','write'),
+        ('agent-fixture','agent','snapshot'),
+        ('collector-fixture','collector','snapshot'),
+    ])
+    def test_non_evidence_context_cannot_mutate_artifact_or_collector_lease(db_environment,tmp_path,audit_directory,test_tokens,subject,role,capability):
+        with capture_case(db_environment,tmp_path,audit_directory,test_tokens) as case:
+            ref = case.store.stage(access(),'task-fixture','attempt-fixture',b'staged R1 fixture','text/plain')
+            outcomes = _attempt_sql_mutations(case,access(subject,role=role),capability,ref)
+            (audit_directory/'mutation-outcomes.json').write_text(json.dumps(outcomes,indent=2)+'\n')
+>           assert [item['sqlstate'] for item in outcomes] == ['42501']*3, outcomes
+E           AssertionError: [{'operation': 'seal', 'sqlstate': None, 'changed_rows': 1}, {'operation': 'expire_lease', 'sqlstate': None, 'changed_rows': 1}, {'operation': 'delete_lease', 'sqlstate': None, 'changed_rows': 1}]
+E           assert [None, None, None] == ['42501', '42501', '42501']
+E             
+E             At index 0 diff: None != '42501'
+E             Use -v to get more diff
+
+tests/vnext/test_p03_fix_round1.py:54: AssertionError
+_ test_non_evidence_context_cannot_mutate_artifact_or_collector_lease[collector-fixture-collector-snapshot] _
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x1048274d0>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-68/test_non_evidence_context_cann2')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-68/test_non_evidence_context_cann2')
+test_tokens = TestTokens(agent='eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6ImYzODI0MzQ3OWViMDMyMTMifQ.eyJpc3MiOiJodHRwczovL2lkZW50a...id', audience='wuji-vnext-tests', public_key_sha256='f38243479eb03213405340069472fce22599afe394ef06f1cdd338ee25ca3936')
+subject = 'collector-fixture', role = 'collector', capability = 'snapshot'
+
+    @pytest.mark.parametrize('subject,role,capability', [
+        ('agent-fixture','agent','write'),
+        ('agent-fixture','agent','snapshot'),
+        ('collector-fixture','collector','snapshot'),
+    ])
+    def test_non_evidence_context_cannot_mutate_artifact_or_collector_lease(db_environment,tmp_path,audit_directory,test_tokens,subject,role,capability):
+        with capture_case(db_environment,tmp_path,audit_directory,test_tokens) as case:
+            ref = case.store.stage(access(),'task-fixture','attempt-fixture',b'staged R1 fixture','text/plain')
+            outcomes = _attempt_sql_mutations(case,access(subject,role=role),capability,ref)
+            (audit_directory/'mutation-outcomes.json').write_text(json.dumps(outcomes,indent=2)+'\n')
+>           assert [item['sqlstate'] for item in outcomes] == ['42501']*3, outcomes
+E           AssertionError: [{'operation': 'seal', 'sqlstate': None, 'changed_rows': 1}, {'operation': 'expire_lease', 'sqlstate': None, 'changed_rows': 1}, {'operation': 'delete_lease', 'sqlstate': None, 'changed_rows': 1}]
+E           assert [None, None, None] == ['42501', '42501', '42501']
+E             
+E             At index 0 diff: None != '42501'
+E             Use -v to get more diff
+
+tests/vnext/test_p03_fix_round1.py:54: AssertionError
+_________ test_evidence_flag_still_requires_nonrevoked_stored_binding __________
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x105010050>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-68/test_evidence_flag_still_requi0')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-68/test_evidence_flag_still_requi0')
+test_tokens = TestTokens(agent='eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6ImQ3NjMxMzFjM2MwZmMyYTgifQ.eyJpc3MiOiJodHRwczovL2lkZW50a...id', audience='wuji-vnext-tests', public_key_sha256='d763131c3c0fc2a8f822e147bcb575eac0f39a4e73d39c310e467b3b8e775d20')
+
+    def test_evidence_flag_still_requires_nonrevoked_stored_binding(db_environment,tmp_path,audit_directory,test_tokens):
+        with capture_case(db_environment,tmp_path,audit_directory,test_tokens) as case:
+            ref = case.store.stage(access(),'task-fixture','attempt-fixture',b'binding R1 fixture','text/plain')
+            with db_environment.migration_connection() as db:
+                db.execute("UPDATE vnext.collector_binding SET revoked=true WHERE tenant_id='tenant-fixture' AND task_id='task-fixture'")
+            outcomes = _attempt_sql_mutations(case,access(),'evidence',ref)
+            (audit_directory/'mutation-outcomes.json').write_text(json.dumps(outcomes,indent=2)+'\n')
+>           assert [item['sqlstate'] for item in outcomes] == ['42501']*3, outcomes
+E           AssertionError: [{'operation': 'seal', 'sqlstate': None, 'changed_rows': 1}, {'operation': 'expire_lease', 'sqlstate': None, 'changed_rows': 1}, {'operation': 'delete_lease', 'sqlstate': None, 'changed_rows': 1}]
+E           assert [None, None, None] == ['42501', '42501', '42501']
+E             
+E             At index 0 diff: None != '42501'
+E             Use -v to get more diff
+
+tests/vnext/test_p03_fix_round1.py:64: AssertionError
+_____ test_task_lock_does_not_block_an_unrelated_request_on_same_asgi_loop _____
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x104877530>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-68/test_task_lock_does_not_block_0')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-68/test_task_lock_does_not_block_0')
+test_tokens = TestTokens(agent='eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6ImU2NGM5NWVjMWY1ODNjYTcifQ.eyJpc3MiOiJodHRwczovL2lkZW50a...id', audience='wuji-vnext-tests', public_key_sha256='e64c95ec1f583ca700d164ca0b46d23a9c7958e2d40f4716c0b4f88c57b95a0f')
+
+    def test_task_lock_does_not_block_an_unrelated_request_on_same_asgi_loop(db_environment,tmp_path,audit_directory,test_tokens):
+        with capture_case(db_environment,tmp_path,audit_directory,test_tokens) as case:
+            held, ingest_waiting, response_done, release_started = Event(),Event(),Event(),Event()
+            events=[]; events_lock=Lock()
+            def record(event,**details):
+                with events_lock:
+                    events.append({'event':event,'monotonic_ns':time.monotonic_ns(),**details})
+    
+            def hold_and_observe():
+                try:
+                    with case.uow.transaction(access(),'task-fixture',capability='write') as tx:
+                        holder_pid=tx.connection.execute('SELECT pg_backend_pid()').fetchone()[0]
+                        record('task_lock_acquired',holder_pid=holder_pid); held.set()
+                        # This is a second real app connection, querying real lock blockers.
+                        with db_environment.additional_app_connection() as observer:
+                            deadline=time.monotonic()+2
+                            while time.monotonic()<deadline:
+                                blocked=observer.execute('SELECT pid FROM pg_stat_activity WHERE datname=current_database() AND usename=current_user AND %s=ANY(pg_blocking_pids(pid))',(holder_pid,)).fetchall()
+                                observer.commit()
+                                if blocked:
+                                    record('ingest_waiting_on_task_lock',backend_pids=[row[0] for row in blocked]); ingest_waiting.set(); break
+                                response_done.wait(0.01)
+                        if not ingest_waiting.is_set():
+                            raise AssertionError('No actual ingest lock wait observed')
+                        progressed=response_done.wait(3)
+                        record('lock_release_requested',reason='response_completed' if progressed else 'finite_fallback')
+                        release_started.set()
+                    record('task_lock_released')
+                finally:
+                    release_started.set(); held.set()
+    
+            async def exercise():
+                async with httpx.AsyncClient(transport=httpx.ASGITransport(app=case.client._app),base_url='http://testserver') as client:
+                    async def request(method,url,**kwargs):
+                        response=await client.request(method,url,**kwargs)
+                        await response.aread()
+                        req=response.request
+                        exchange=CapturedExchange(CapturedRequest(req.method,str(req.url),dict(req.headers),req.content),CapturedResponse(response.status_code,dict(response.headers),response.content))
+                        with (audit_directory/'http-exchanges.jsonl').open('a') as stream:
+                            stream.write(json.dumps(_serializable(exchange),sort_keys=True)+'\n')
+                        return response
+                    ingest=asyncio.create_task(request('POST','/internal/v2/evidence',json=case.envelope,headers=case.headers))
+                    try:
+                        assert await asyncio.to_thread(ingest_waiting.wait,2)
+                        content=await request('GET',f'/api/v2/artifacts/{case.refs[0]["id"]}/content?version=1',headers={'Authorization':'Bearer '+test_tokens.reader})
+                        progressed_before_release=not release_started.is_set()
+                        record('unrelated_response_completed',status=content.status_code,before_release=progressed_before_release)
+                        response_done.set()
+                        receipt=await ingest
+                        assert content.status_code==200 and content.content==case.data[0]
+                        assert receipt.status_code==202, receipt.text
+                        assert progressed_before_release, 'ASGI request stalled until the real Task lock was released'
+                    finally:
+                        response_done.set()
+                        if not ingest.done(): await ingest
+    
+            with ThreadPoolExecutor(max_workers=1) as pool:
+                holder=pool.submit(hold_and_observe)
+                try:
+                    assert held.wait(2)
+>                   asyncio.run(asyncio.wait_for(exercise(),timeout=8))
+
+tests/vnext/test_p03_fix_round1.py:147: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/asyncio/runners.py:196: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/asyncio/runners.py:119: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/asyncio/base_events.py:726: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/asyncio/tasks.py:507: in wait_for
+    return await fut
+           ^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    async def exercise():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=case.client._app),base_url='http://testserver') as client:
+            async def request(method,url,**kwargs):
+                response=await client.request(method,url,**kwargs)
+                await response.aread()
+                req=response.request
+                exchange=CapturedExchange(CapturedRequest(req.method,str(req.url),dict(req.headers),req.content),CapturedResponse(response.status_code,dict(response.headers),response.content))
+                with (audit_directory/'http-exchanges.jsonl').open('a') as stream:
+                    stream.write(json.dumps(_serializable(exchange),sort_keys=True)+'\n')
+                return response
+            ingest=asyncio.create_task(request('POST','/internal/v2/evidence',json=case.envelope,headers=case.headers))
+            try:
+                assert await asyncio.to_thread(ingest_waiting.wait,2)
+                content=await request('GET',f'/api/v2/artifacts/{case.refs[0]["id"]}/content?version=1',headers={'Authorization':'Bearer '+test_tokens.reader})
+                progressed_before_release=not release_started.is_set()
+                record('unrelated_response_completed',status=content.status_code,before_release=progressed_before_release)
+                response_done.set()
+                receipt=await ingest
+                assert content.status_code==200 and content.content==case.data[0]
+                assert receipt.status_code==202, receipt.text
+>               assert progressed_before_release, 'ASGI request stalled until the real Task lock was released'
+E               AssertionError: ASGI request stalled until the real Task lock was released
+E               assert False
+
+tests/vnext/test_p03_fix_round1.py:138: AssertionError
+=========================== short test summary info ============================
+FAILED tests/vnext/test_p03_fix_round1.py::test_non_evidence_context_cannot_mutate_artifact_or_collector_lease[agent-fixture-agent-write]
+FAILED tests/vnext/test_p03_fix_round1.py::test_non_evidence_context_cannot_mutate_artifact_or_collector_lease[agent-fixture-agent-snapshot]
+FAILED tests/vnext/test_p03_fix_round1.py::test_non_evidence_context_cannot_mutate_artifact_or_collector_lease[collector-fixture-collector-snapshot]
+FAILED tests/vnext/test_p03_fix_round1.py::test_evidence_flag_still_requires_nonrevoked_stored_binding
+FAILED tests/vnext/test_p03_fix_round1.py::test_task_lock_does_not_block_an_unrelated_request_on_same_asgi_loop
+5 failed, 1 passed in 5.88s

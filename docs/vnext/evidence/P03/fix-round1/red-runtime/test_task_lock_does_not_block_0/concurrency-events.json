@@ -1,0 +1,29 @@
+[
+  {
+    "event": "task_lock_acquired",
+    "monotonic_ns": 142404495165041,
+    "holder_pid": 20345
+  },
+  {
+    "event": "ingest_waiting_on_task_lock",
+    "monotonic_ns": 142404517771958,
+    "backend_pids": [
+      20347
+    ]
+  },
+  {
+    "event": "lock_release_requested",
+    "monotonic_ns": 142407528631416,
+    "reason": "finite_fallback"
+  },
+  {
+    "event": "task_lock_released",
+    "monotonic_ns": 142407530439416
+  },
+  {
+    "event": "unrelated_response_completed",
+    "monotonic_ns": 142407559074041,
+    "status": 200,
+    "before_release": false
+  }
+]

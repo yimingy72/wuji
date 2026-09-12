@@ -1,0 +1,375 @@
+{
+  "code_sha": "c2a86e3a98895378532fff1427e9ee82420b4039",
+  "files": [
+    {
+      "path": "artifact-check.json",
+      "bytes": 242,
+      "sha256": "09b9675d7c3d534b2bcfa389aae266711a3a4ff60fa69a1d4610edc309441cb4"
+    },
+    {
+      "path": "final-junit.xml",
+      "bytes": 1207,
+      "sha256": "abb17d6950c7d9cea3fa860de7d5bd430458f59cfb622bb06ad5f555cfb05316"
+    },
+    {
+      "path": "final.json",
+      "bytes": 758,
+      "sha256": "dc22d7b1103c08d0271689220c7eba87eef545c1076bcf6682db0bfd0f535cb1"
+    },
+    {
+      "path": "final.txt",
+      "bytes": 98,
+      "sha256": "ca8592bcdcd4373c21fe38350231cdaae5d16f078260e7a8f3b0acbdf05e1fd7"
+    },
+    {
+      "path": "green.txt",
+      "bytes": 98,
+      "sha256": "b48e3d40adc3cb33dcc5c33cda0ed6c071a2fcf14af75143e280b76693be832e"
+    },
+    {
+      "path": "http-reproduction.md",
+      "bytes": 14175,
+      "sha256": "73bf09ac87a7c713ff9811939b24e03c0d705cdb5624d6872079a030dad1f7ce"
+    },
+    {
+      "path": "observations.json",
+      "bytes": 849,
+      "sha256": "6a72e5d827bf3b28b48089a6689f085b56a7f3037ac0686757d2d82baa9e3623"
+    },
+    {
+      "path": "preserved-original.json",
+      "bytes": 214,
+      "sha256": "04134acf00bd0b2f982cac45bea7f7b146583af40a8b150ab2d1fdddf9e37439"
+    },
+    {
+      "path": "red-green.json",
+      "bytes": 448,
+      "sha256": "9c89e35c01ac7825804a05af1bb6de41b965c5f0237b082f08de81d208ecf9e3"
+    },
+    {
+      "path": "red-runtime/test_evidence_flag_still_requi0/capture-input-0.bin",
+      "bytes": 44,
+      "sha256": "9a2c7e845b8a07ae130eb01e61457d9a0324372c2ebec062b67d0f811dfb17ac"
+    },
+    {
+      "path": "red-runtime/test_evidence_flag_still_requi0/capture-input-1.bin",
+      "bytes": 44,
+      "sha256": "c254960b9750fe3d4d5d833ce8b21042038b3f92b95def612c5e7fb71ab68403"
+    },
+    {
+      "path": "red-runtime/test_evidence_flag_still_requi0/identity-events.jsonl",
+      "bytes": 2123,
+      "sha256": "9ca40aed5ceec5cacb5fafd712818b3d2556efc701593ad018905badba414001"
+    },
+    {
+      "path": "red-runtime/test_evidence_flag_still_requi0/mutation-outcomes.json",
+      "bytes": 253,
+      "sha256": "7ccf83c9d5dcc6b985f3473b9612687e736a0ad676d79908ff435e30035a377a"
+    },
+    {
+      "path": "red-runtime/test_evidence_flag_still_requi0/postgres-events.jsonl",
+      "bytes": 161299,
+      "sha256": "d140557247a601989f09f1f1f4c4d91c13afa287f889b69cb2b06d2f8fe77106"
+    },
+    {
+      "path": "red-runtime/test_non_evidence_context_cann0/capture-input-0.bin",
+      "bytes": 44,
+      "sha256": "9a2c7e845b8a07ae130eb01e61457d9a0324372c2ebec062b67d0f811dfb17ac"
+    },
+    {
+      "path": "red-runtime/test_non_evidence_context_cann0/capture-input-1.bin",
+      "bytes": 44,
+      "sha256": "c254960b9750fe3d4d5d833ce8b21042038b3f92b95def612c5e7fb71ab68403"
+    },
+    {
+      "path": "red-runtime/test_non_evidence_context_cann0/identity-events.jsonl",
+      "bytes": 2123,
+      "sha256": "0a748e41c35612835197125e4fec2ab08e4dcdd9193d37e22ed78f6954858ae4"
+    },
+    {
+      "path": "red-runtime/test_non_evidence_context_cann0/mutation-outcomes.json",
+      "bytes": 253,
+      "sha256": "7ccf83c9d5dcc6b985f3473b9612687e736a0ad676d79908ff435e30035a377a"
+    },
+    {
+      "path": "red-runtime/test_non_evidence_context_cann0/postgres-events.jsonl",
+      "bytes": 160519,
+      "sha256": "d2dbed3e28c82a9e9ebff406c47fc78820e80d927ce02f0b7e3618bffb291464"
+    },
+    {
+      "path": "red-runtime/test_non_evidence_context_cann1/capture-input-0.bin",
+      "bytes": 44,
+      "sha256": "9a2c7e845b8a07ae130eb01e61457d9a0324372c2ebec062b67d0f811dfb17ac"
+    },
+    {
+      "path": "red-runtime/test_non_evidence_context_cann1/capture-input-1.bin",
+      "bytes": 44,
+      "sha256": "c254960b9750fe3d4d5d833ce8b21042038b3f92b95def612c5e7fb71ab68403"
+    },
+    {
+      "path": "red-runtime/test_non_evidence_context_cann1/identity-events.jsonl",
+      "bytes": 2123,
+      "sha256": "d67731746acfd140cd7c83b281d65e01b4a26c79f7323eb7aeadae8fe9bc3b18"
+    },
+    {
+      "path": "red-runtime/test_non_evidence_context_cann1/mutation-outcomes.json",
+      "bytes": 253,
+      "sha256": "7ccf83c9d5dcc6b985f3473b9612687e736a0ad676d79908ff435e30035a377a"
+    },
+    {
+      "path": "red-runtime/test_non_evidence_context_cann1/postgres-events.jsonl",
+      "bytes": 160519,
+      "sha256": "125377b8c68b8ba2b4e091e6839c0c023c13f66a70a85443f5cf196d18a8bdb9"
+    },
+    {
+      "path": "red-runtime/test_non_evidence_context_cann2/capture-input-0.bin",
+      "bytes": 44,
+      "sha256": "9a2c7e845b8a07ae130eb01e61457d9a0324372c2ebec062b67d0f811dfb17ac"
+    },
+    {
+      "path": "red-runtime/test_non_evidence_context_cann2/capture-input-1.bin",
+      "bytes": 44,
+      "sha256": "c254960b9750fe3d4d5d833ce8b21042038b3f92b95def612c5e7fb71ab68403"
+    },
+    {
+      "path": "red-runtime/test_non_evidence_context_cann2/identity-events.jsonl",
+      "bytes": 2123,
+      "sha256": "6cbd2e4db1e29c0abc9015a1599e64d8959f4eb2f877d8d617ed8a8ba51ddf71"
+    },
+    {
+      "path": "red-runtime/test_non_evidence_context_cann2/mutation-outcomes.json",
+      "bytes": 253,
+      "sha256": "7ccf83c9d5dcc6b985f3473b9612687e736a0ad676d79908ff435e30035a377a"
+    },
+    {
+      "path": "red-runtime/test_non_evidence_context_cann2/postgres-events.jsonl",
+      "bytes": 160530,
+      "sha256": "15651cdeaf8d252f7505ab8f68548b840f590b19c7681513761cd8245da493a7"
+    },
+    {
+      "path": "red-runtime/test_task_lock_does_not_block_0/capture-input-0.bin",
+      "bytes": 44,
+      "sha256": "9a2c7e845b8a07ae130eb01e61457d9a0324372c2ebec062b67d0f811dfb17ac"
+    },
+    {
+      "path": "red-runtime/test_task_lock_does_not_block_0/capture-input-1.bin",
+      "bytes": 44,
+      "sha256": "c254960b9750fe3d4d5d833ce8b21042038b3f92b95def612c5e7fb71ab68403"
+    },
+    {
+      "path": "red-runtime/test_task_lock_does_not_block_0/concurrency-events.json",
+      "bytes": 573,
+      "sha256": "96faa94e81a27e6010612d67d880fe222057c66a2726305f889afd55ce703021"
+    },
+    {
+      "path": "red-runtime/test_task_lock_does_not_block_0/http-exchanges.jsonl",
+      "bytes": 4654,
+      "sha256": "eec70028317168a2ab8f9797052db481bf87cb95f696f2aae77908679a933cd8"
+    },
+    {
+      "path": "red-runtime/test_task_lock_does_not_block_0/identity-events.jsonl",
+      "bytes": 2123,
+      "sha256": "5a55bf8da702debaf81c53367a4b58370195a73495850374fcbacc5c5308d783"
+    },
+    {
+      "path": "red-runtime/test_task_lock_does_not_block_0/postgres-events.jsonl",
+      "bytes": 168621,
+      "sha256": "fa319dd3319b629356c5b287c9bd346a06747797e7affeab21dd32c4b9ac9db8"
+    },
+    {
+      "path": "red-runtime-index.json",
+      "bytes": 1078,
+      "sha256": "3a233800769ab5bdbb310c99e52fb050f2b9827d9c864bfddb19a95f6e75e376"
+    },
+    {
+      "path": "red.txt",
+      "bytes": 16911,
+      "sha256": "1af421191a2efa7ee2992056fa479027573bd6d2f24aad5eefa6afb230143e61"
+    },
+    {
+      "path": "report.md",
+      "bytes": 3021,
+      "sha256": "2a75c96f760910c912cd0f427c4ad3ff13458886a3e382f56d528092556fce12"
+    },
+    {
+      "path": "result.html",
+      "bytes": 2558,
+      "sha256": "76a4b6bf8384f14039dcaddac6cea36423b3162087695b1fe849978d77b53caa"
+    },
+    {
+      "path": "runtime/7d884c116150/capture-input-0.bin",
+      "bytes": 44,
+      "sha256": "9a2c7e845b8a07ae130eb01e61457d9a0324372c2ebec062b67d0f811dfb17ac"
+    },
+    {
+      "path": "runtime/7d884c116150/capture-input-1.bin",
+      "bytes": 44,
+      "sha256": "c254960b9750fe3d4d5d833ce8b21042038b3f92b95def612c5e7fb71ab68403"
+    },
+    {
+      "path": "runtime/7d884c116150/http-exchanges.jsonl",
+      "bytes": 3153,
+      "sha256": "91c6d3cb3c054c7266955052908dc8a0e15b8f9d3d6bf0697ae4ea772892fbda"
+    },
+    {
+      "path": "runtime/7d884c116150/identity-events.jsonl",
+      "bytes": 2123,
+      "sha256": "737c53a109e9813b443afe31e2d26ea2e6984fa58544e56409f8e7a2e79de77f"
+    },
+    {
+      "path": "runtime/7d884c116150/postgres-events.jsonl",
+      "bytes": 289644,
+      "sha256": "0a92a29e31048a464422e467155f7468418b5be1579f46797abeababcc24de2e"
+    },
+    {
+      "path": "runtime/9a9f5fd0a079/capture-input-0.bin",
+      "bytes": 44,
+      "sha256": "9a2c7e845b8a07ae130eb01e61457d9a0324372c2ebec062b67d0f811dfb17ac"
+    },
+    {
+      "path": "runtime/9a9f5fd0a079/capture-input-1.bin",
+      "bytes": 44,
+      "sha256": "c254960b9750fe3d4d5d833ce8b21042038b3f92b95def612c5e7fb71ab68403"
+    },
+    {
+      "path": "runtime/9a9f5fd0a079/identity-events.jsonl",
+      "bytes": 2123,
+      "sha256": "b676a2158277cfb03b5eeb31d794686113d727feb81cd86c81ce6984c3463d70"
+    },
+    {
+      "path": "runtime/9a9f5fd0a079/mutation-outcomes.json",
+      "bytes": 262,
+      "sha256": "669f8faa50a88110881f9129f1ed0a62287ef6e95eaedfa0002c25b55f549a57"
+    },
+    {
+      "path": "runtime/9a9f5fd0a079/postgres-events.jsonl",
+      "bytes": 165701,
+      "sha256": "b114f3707e818d7e82e2b680d1c56f5dbb17d40658fcaba046a5afdaf7c047a6"
+    },
+    {
+      "path": "runtime/a63c6b5dcb7f/capture-input-0.bin",
+      "bytes": 44,
+      "sha256": "9a2c7e845b8a07ae130eb01e61457d9a0324372c2ebec062b67d0f811dfb17ac"
+    },
+    {
+      "path": "runtime/a63c6b5dcb7f/capture-input-1.bin",
+      "bytes": 44,
+      "sha256": "c254960b9750fe3d4d5d833ce8b21042038b3f92b95def612c5e7fb71ab68403"
+    },
+    {
+      "path": "runtime/a63c6b5dcb7f/identity-events.jsonl",
+      "bytes": 2123,
+      "sha256": "19956c9dce7a26b34393a908ae389692069088b8d620f5fba7678987fc2c1dda"
+    },
+    {
+      "path": "runtime/a63c6b5dcb7f/mutation-outcomes.json",
+      "bytes": 262,
+      "sha256": "669f8faa50a88110881f9129f1ed0a62287ef6e95eaedfa0002c25b55f549a57"
+    },
+    {
+      "path": "runtime/a63c6b5dcb7f/postgres-events.jsonl",
+      "bytes": 166481,
+      "sha256": "281fb32768f90da5b86c8937f6ede6dac2fc3d841501632a24afa555834edd20"
+    },
+    {
+      "path": "runtime/cea67badd51b/capture-input-0.bin",
+      "bytes": 44,
+      "sha256": "9a2c7e845b8a07ae130eb01e61457d9a0324372c2ebec062b67d0f811dfb17ac"
+    },
+    {
+      "path": "runtime/cea67badd51b/capture-input-1.bin",
+      "bytes": 44,
+      "sha256": "c254960b9750fe3d4d5d833ce8b21042038b3f92b95def612c5e7fb71ab68403"
+    },
+    {
+      "path": "runtime/cea67badd51b/identity-events.jsonl",
+      "bytes": 2123,
+      "sha256": "2c8ab84a4d776f502670e1d48a7e70a47296ab85e801e18e8f83169c6e7c200e"
+    },
+    {
+      "path": "runtime/cea67badd51b/mutation-outcomes.json",
+      "bytes": 262,
+      "sha256": "669f8faa50a88110881f9129f1ed0a62287ef6e95eaedfa0002c25b55f549a57"
+    },
+    {
+      "path": "runtime/cea67badd51b/postgres-events.jsonl",
+      "bytes": 165714,
+      "sha256": "6d1daefba8fdd99a425f8f50a0a10418202a6be3bbaf5061497ed960c855ff56"
+    },
+    {
+      "path": "runtime/d56c6da94a8e/capture-input-0.bin",
+      "bytes": 44,
+      "sha256": "9a2c7e845b8a07ae130eb01e61457d9a0324372c2ebec062b67d0f811dfb17ac"
+    },
+    {
+      "path": "runtime/d56c6da94a8e/capture-input-1.bin",
+      "bytes": 44,
+      "sha256": "c254960b9750fe3d4d5d833ce8b21042038b3f92b95def612c5e7fb71ab68403"
+    },
+    {
+      "path": "runtime/d56c6da94a8e/identity-events.jsonl",
+      "bytes": 2123,
+      "sha256": "7965bbffee1995c283edd5527dde81374efc1d884ca3d86226e4310fd366fe65"
+    },
+    {
+      "path": "runtime/d56c6da94a8e/mutation-outcomes.json",
+      "bytes": 262,
+      "sha256": "669f8faa50a88110881f9129f1ed0a62287ef6e95eaedfa0002c25b55f549a57"
+    },
+    {
+      "path": "runtime/d56c6da94a8e/postgres-events.jsonl",
+      "bytes": 165701,
+      "sha256": "e2dd1526a9619a468e6dc15038bce7d279b5750d0a7f58ee31b5a9c2750e38f2"
+    },
+    {
+      "path": "runtime/eff450c665f2/capture-input-0.bin",
+      "bytes": 44,
+      "sha256": "9a2c7e845b8a07ae130eb01e61457d9a0324372c2ebec062b67d0f811dfb17ac"
+    },
+    {
+      "path": "runtime/eff450c665f2/capture-input-1.bin",
+      "bytes": 44,
+      "sha256": "c254960b9750fe3d4d5d833ce8b21042038b3f92b95def612c5e7fb71ab68403"
+    },
+    {
+      "path": "runtime/eff450c665f2/concurrency-events.json",
+      "bytes": 575,
+      "sha256": "df2a92ab686aa6884c85fdb665229e6b82d3e36e0e52cfaf885829c8436e4440"
+    },
+    {
+      "path": "runtime/eff450c665f2/http-exchanges.jsonl",
+      "bytes": 4654,
+      "sha256": "d58f818c66abe9772b341ab82e3fec20e6a5e40349dab2a3b6a52e9ffb15251d"
+    },
+    {
+      "path": "runtime/eff450c665f2/identity-events.jsonl",
+      "bytes": 2123,
+      "sha256": "1e051a956f026b9f274beaaa3b8570f4761deaed6cfa67151d75a6ca1e84e03f"
+    },
+    {
+      "path": "runtime/eff450c665f2/postgres-events.jsonl",
+      "bytes": 172907,
+      "sha256": "f437989fdc3103e986defacef90d4e5e08539fb8bed43f3362ca848c6b323c5c"
+    },
+    {
+      "path": "screenshots/fixes.jpg",
+      "bytes": 45663,
+      "sha256": "982b566b7d9633ca79a670f6ec1f0ac1f2f4df00ca2974e8a8a1f20d454bf4e6"
+    },
+    {
+      "path": "screenshots/provenance.json",
+      "bytes": 541,
+      "sha256": "1ed54e4071c7e2797d5ebd41e89eb4b518bd15b22cc56ebc62ddc13d9c202d87"
+    },
+    {
+      "path": "test-index.json",
+      "bytes": 1459,
+      "sha256": "86f417211645f36fd1c1f60c99f3cbd6a7a17b0ac480a79c92523ce6578fee17"
+    },
+    {
+      "path": "test-names.txt",
+      "bytes": 712,
+      "sha256": "12e9532890878221f537037251ee3f26a49cdea669cee768182340dfaf477cb9"
+    }
+  ]
+}

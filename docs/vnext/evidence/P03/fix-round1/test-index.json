@@ -1,0 +1,38 @@
+[
+  {
+    "test_name": "tests/vnext/test_p03_fix_round1.py::test_non_evidence_context_cannot_mutate_artifact_or_collector_lease[agent-fixture-agent-write]",
+    "status": "pass",
+    "seconds": "0.523",
+    "evidence_directory": "runtime/d56c6da94a8e"
+  },
+  {
+    "test_name": "tests/vnext/test_p03_fix_round1.py::test_non_evidence_context_cannot_mutate_artifact_or_collector_lease[agent-fixture-agent-snapshot]",
+    "status": "pass",
+    "seconds": "0.415",
+    "evidence_directory": "runtime/9a9f5fd0a079"
+  },
+  {
+    "test_name": "tests/vnext/test_p03_fix_round1.py::test_non_evidence_context_cannot_mutate_artifact_or_collector_lease[collector-fixture-collector-snapshot]",
+    "status": "pass",
+    "seconds": "0.597",
+    "evidence_directory": "runtime/cea67badd51b"
+  },
+  {
+    "test_name": "tests/vnext/test_p03_fix_round1.py::test_evidence_flag_still_requires_nonrevoked_stored_binding",
+    "status": "pass",
+    "seconds": "0.402",
+    "evidence_directory": "runtime/a63c6b5dcb7f"
+  },
+  {
+    "test_name": "tests/vnext/test_p03_fix_round1.py::test_bound_evidence_mutations_keep_seal_snapshot_publication_and_gc",
+    "status": "pass",
+    "seconds": "0.511",
+    "evidence_directory": "runtime/7d884c116150"
+  },
+  {
+    "test_name": "tests/vnext/test_p03_fix_round1.py::test_task_lock_does_not_block_an_unrelated_request_on_same_asgi_loop",
+    "status": "pass",
+    "seconds": "0.539",
+    "evidence_directory": "runtime/eff450c665f2"
+  }
+]

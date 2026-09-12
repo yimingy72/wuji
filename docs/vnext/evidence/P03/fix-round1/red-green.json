@@ -1,0 +1,25 @@
+{
+  "command": [
+    "./scripts/vnext/uv.sh",
+    "run",
+    "--frozen",
+    "pytest",
+    "tests/vnext/test_p03_fix_round1.py",
+    "-q"
+  ],
+  "red": {
+    "exit_code": 1,
+    "result": "5 failed, 1 passed in 5.88s",
+    "stdout": "red.txt"
+  },
+  "green": {
+    "exit_code": 0,
+    "result": "6 passed in 2.81s",
+    "stdout": "green.txt"
+  },
+  "final": {
+    "exit_code": 0,
+    "result": "6 passed in 3.03s",
+    "record": "final.json"
+  }
+}

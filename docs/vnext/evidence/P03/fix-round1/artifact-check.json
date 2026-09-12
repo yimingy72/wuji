@@ -1,0 +1,8 @@
+{
+  "kind": "offline evidence integrity check",
+  "report_links_resolve": true,
+  "complete_final_and_red_http_exchanges": 5,
+  "content_lengths_match": true,
+  "application_tests_rerun": false,
+  "native_stdout_whitespace_preserved": true
+}
