@@ -737,10 +737,13 @@ export interface components {
             supersedes?: components["schemas"]["KnowledgeRef"] | null;
         };
         ObservationRecord: {
+            observation_id: string;
+            revision: components["schemas"]["RevisionString"];
+            task_id: string;
             capture_id: string;
             tool_attempt_id: string;
             collector_ref: string;
-            artifact_ref: components["schemas"]["BlobRef"];
+            artifact_refs: components["schemas"]["BlobRef"][];
             capture_layer: string;
             /** Format: date-time */
             observed_at: string;
@@ -907,12 +910,13 @@ export interface components {
             executable: false;
         };
         EvidenceReceipt: {
+            observation_ref: components["schemas"]["KnowledgeRef"] | null;
             capture_id: string;
             status: components["schemas"]["EvidenceReceiptStatus"];
             artifact_refs: components["schemas"]["BlobRef"][];
             request_id: string;
             code?: components["schemas"]["ErrorCode"] | null;
-        };
+        } & unknown;
         ResultReceipt: {
             submission_id: string;
             status: components["schemas"]["ResultReceiptStatus"];
@@ -1564,7 +1568,9 @@ export interface operations {
     ingestEvidenceV2: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
             path?: never;
             cookie?: never;
         };

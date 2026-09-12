@@ -705,6 +705,7 @@ class EvidenceReceipt(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
     )
+    observation_ref: KnowledgeRef | None
     capture_id: Annotated[StrictStr, Field(min_length=1)]
     status: EvidenceReceiptStatus
     artifact_refs: list[BlobRef]
@@ -972,10 +973,13 @@ class ObservationRecord(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
     )
+    observation_id: Annotated[StrictStr, Field(min_length=1)]
+    revision: RevisionString
+    task_id: Annotated[StrictStr, Field(min_length=1)]
     capture_id: Annotated[StrictStr, Field(min_length=1)]
     tool_attempt_id: Annotated[StrictStr, Field(min_length=1)]
     collector_ref: Annotated[StrictStr, Field(min_length=1)]
-    artifact_ref: BlobRef
+    artifact_refs: Annotated[list[BlobRef], Field(max_length=256, min_length=1)]
     capture_layer: Annotated[StrictStr, Field(min_length=1)]
     observed_at: AwareDatetime
     received_at: AwareDatetime

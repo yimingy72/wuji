@@ -1,0 +1,398 @@
+"""Independent migration head. SQL is applied by the migration owner only.
+
+PostgreSQL is the authority for ownership, version existence and DAG integrity.
+The application role cannot create authority parents, alter claims, or grant ACLs.
+"""
+
+from psycopg import sql
+
+HEAD = "vnext_0001_p03"
+OWNER = "tenant_id,project_id,task_id"
+SCOPE_COLUMNS = (
+    "tenant_id text NOT NULL, project_id text NOT NULL, task_id text NOT NULL"
+)
+TASK_FK = f"FOREIGN KEY ({OWNER}) REFERENCES vnext.task({OWNER})"
+REVISION = "numeric NOT NULL CHECK (revision >= 1 AND revision = trunc(revision))"
+
+
+def _parent(name, key, columns, extra=""):
+    return f"CREATE TABLE vnext.{name} ({SCOPE_COLUMNS}, {key} text NOT NULL, {columns}, PRIMARY KEY ({OWNER},{key}), {TASK_FK}{extra})"
+
+
+def statements():
+    yield "CREATE SCHEMA IF NOT EXISTS vnext"
+    yield "CREATE TABLE vnext.schema_migration(head text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT clock_timestamp())"
+    yield "CREATE TABLE vnext.tenant(tenant_id text PRIMARY KEY)"
+    yield "CREATE TABLE vnext.project(tenant_id text NOT NULL REFERENCES vnext.tenant,project_id text NOT NULL,PRIMARY KEY(tenant_id,project_id))"
+    yield f"""CREATE TABLE vnext.task ({SCOPE_COLUMNS}, PRIMARY KEY({OWNER}), UNIQUE(tenant_id,task_id),
+        FOREIGN KEY(tenant_id,project_id) REFERENCES vnext.project(tenant_id,project_id),
+        execution_allowed boolean NOT NULL DEFAULT true,
+        execution_epoch numeric NOT NULL DEFAULT 1 CHECK(execution_epoch>=1 AND execution_epoch=trunc(execution_epoch)),
+        runtime_attempt numeric NOT NULL DEFAULT 1 CHECK(runtime_attempt>=1 AND runtime_attempt=trunc(runtime_attempt)),
+        board_revision numeric NOT NULL DEFAULT 0, event_seq numeric NOT NULL DEFAULT 0,
+        observation_count numeric NOT NULL DEFAULT 0,
+        CHECK(board_revision>=0 AND event_seq>=0 AND observation_count>=0))"""
+    yield f"""CREATE TABLE vnext.task_access ({SCOPE_COLUMNS}, subject text NOT NULL,
+        can_read boolean NOT NULL DEFAULT false, can_write boolean NOT NULL DEFAULT false,
+        can_capture boolean NOT NULL DEFAULT false, can_settle boolean NOT NULL DEFAULT false,
+        can_gc boolean NOT NULL DEFAULT false, can_assess boolean NOT NULL DEFAULT false,
+        clearance integer NOT NULL DEFAULT 0 CHECK(clearance>=0), PRIMARY KEY({OWNER},subject),{TASK_FK})"""
+    yield _parent(
+        "work_item",
+        "work_item_id",
+        "state text NOT NULL DEFAULT 'ready', revision numeric NOT NULL DEFAULT 1",
+    )
+    yield _parent(
+        "agent_run",
+        "agent_run_id",
+        """work_item_id text NOT NULL, receiver_id text NOT NULL,
+        execution_epoch numeric NOT NULL DEFAULT 1, run_epoch numeric NOT NULL DEFAULT 1,
+        runtime_attempt numeric NOT NULL DEFAULT 1, environment_ref text NOT NULL,
+        model_mode text NOT NULL CHECK(model_mode IN ('synthetic','real','unknown')),
+        execution_allowed boolean NOT NULL DEFAULT true, process_state text NOT NULL DEFAULT 'registered' """,
+        f", FOREIGN KEY({OWNER},work_item_id) REFERENCES vnext.work_item({OWNER},work_item_id)",
+    )
+    yield _parent(
+        "tool_call",
+        "tool_call_id",
+        """session_lineage text NOT NULL, message_id text NOT NULL,
+        provider_call_id text NOT NULL, tool_definition_version text NOT NULL""",
+        f", UNIQUE({OWNER},session_lineage,message_id,provider_call_id,tool_definition_version)",
+    )
+    yield _parent(
+        "tool_attempt",
+        "tool_attempt_id",
+        """tool_call_id text NOT NULL, agent_run_id text NOT NULL,
+        started_at timestamptz, evidence_origin text NOT NULL CHECK(evidence_origin IN ('live_capture','fixture_capture','imported_unverified')),
+        capture_layer text NOT NULL, receipt_json text NOT NULL CHECK(jsonb_typeof(receipt_json::jsonb)='object')""",
+        f", FOREIGN KEY({OWNER},tool_call_id) REFERENCES vnext.tool_call({OWNER},tool_call_id), FOREIGN KEY({OWNER},agent_run_id) REFERENCES vnext.agent_run({OWNER},agent_run_id)",
+    )
+    yield f"""CREATE TABLE vnext.collector_binding ({SCOPE_COLUMNS}, tool_attempt_id text NOT NULL,
+        subject text NOT NULL, revoked boolean NOT NULL DEFAULT false, can_settle boolean NOT NULL DEFAULT false,
+        PRIMARY KEY({OWNER},tool_attempt_id,subject), FOREIGN KEY({OWNER},tool_attempt_id) REFERENCES vnext.tool_attempt({OWNER},tool_attempt_id))"""
+    yield f"""CREATE TABLE vnext.entity_revision_registry ({SCOPE_COLUMNS}, entity_type text NOT NULL,
+        entity_id text NOT NULL, revision {REVISION}, access_level integer NOT NULL DEFAULT 0 CHECK(access_level>=0),
+        PRIMARY KEY({OWNER},entity_type,entity_id,revision), {TASK_FK})"""
+    yield f"""CREATE TABLE vnext.claim_revision ({SCOPE_COLUMNS}, entity_id text NOT NULL, revision {REVISION},
+        kind text NOT NULL CHECK(kind IN ('observation-summary','hypothesis','derived-conclusion')),
+        assertion_role text NOT NULL CHECK(assertion_role IN ('candidate_fact','explanation','hypothesis')),
+        text text NOT NULL CHECK(length(text) BETWEEN 1 AND 32768), structured_json text,
+        producer_kind text NOT NULL CHECK(producer_kind IN ('agent','human','extractor','import')),
+        producer_ref text NOT NULL, limitations_json text NOT NULL DEFAULT '[]',
+        access_level integer NOT NULL DEFAULT 0 CHECK(access_level>=0), created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+        PRIMARY KEY({OWNER},entity_id,revision), {TASK_FK})"""
+    yield f"""CREATE TABLE vnext.artifact ({SCOPE_COLUMNS}, entity_id text NOT NULL, revision {REVISION},
+        state text NOT NULL CHECK(state IN ('staged','sealed','tombstoned')), body_removed boolean NOT NULL DEFAULT false, storage_key uuid NOT NULL UNIQUE,
+        sha256 text NOT NULL CHECK(sha256 ~ '^[a-f0-9]{{64}}$'), size_bytes bigint NOT NULL CHECK(size_bytes>=0),
+        media_type text NOT NULL CHECK(length(media_type) BETWEEN 1 AND 256), tool_attempt_id text NOT NULL,
+        provenance text NOT NULL CHECK(provenance IN ('capture','model_output','import')),
+        evidence_origin text NOT NULL CHECK(evidence_origin IN ('live_capture','fixture_capture','imported_unverified')),
+        capture_layer text NOT NULL, environment_ref text NOT NULL,
+        completeness text NOT NULL CHECK(completeness IN ('complete','partial','unknown')),
+        conditions_json text NOT NULL DEFAULT '[]', access_level integer NOT NULL DEFAULT 0 CHECK(access_level>=0),
+        created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+        PRIMARY KEY({OWNER},entity_id,revision), FOREIGN KEY({OWNER},tool_attempt_id) REFERENCES vnext.tool_attempt({OWNER},tool_attempt_id),{TASK_FK})"""
+    yield f"""CREATE TABLE vnext.observation ({SCOPE_COLUMNS}, entity_id text NOT NULL, revision {REVISION} CHECK(revision=1),
+        capture_id text NOT NULL, tool_attempt_id text NOT NULL, collector_ref text NOT NULL,
+        capture_layer text NOT NULL, observed_at timestamptz NOT NULL, received_at timestamptz NOT NULL,
+        environment_ref text NOT NULL, conditions_json text NOT NULL,
+        completeness text NOT NULL CHECK(completeness IN ('complete','partial','unknown')),
+        evidence_origin text NOT NULL CHECK(evidence_origin IN ('live_capture','fixture_capture','imported_unverified')),
+        access_level integer NOT NULL DEFAULT 0 CHECK(access_level>=0),
+        PRIMARY KEY({OWNER},entity_id,revision), UNIQUE({OWNER},capture_id),
+        FOREIGN KEY({OWNER},tool_attempt_id,collector_ref) REFERENCES vnext.collector_binding({OWNER},tool_attempt_id,subject),{TASK_FK})"""
+    yield f"""CREATE TABLE vnext.observation_artifact ({SCOPE_COLUMNS}, observation_id text NOT NULL,
+        observation_revision numeric NOT NULL, ordinal integer NOT NULL CHECK(ordinal>=0 AND ordinal<256),
+        artifact_id text NOT NULL, artifact_revision numeric NOT NULL, access_level integer NOT NULL DEFAULT 0,
+        PRIMARY KEY({OWNER},observation_id,observation_revision,ordinal), UNIQUE({OWNER},observation_id,observation_revision,artifact_id,artifact_revision),
+        FOREIGN KEY({OWNER},observation_id,observation_revision) REFERENCES vnext.observation({OWNER},entity_id,revision),
+        FOREIGN KEY({OWNER},artifact_id,artifact_revision) REFERENCES vnext.artifact({OWNER},entity_id,revision))"""
+    yield f"""CREATE TABLE vnext.assessment ({SCOPE_COLUMNS}, assessment_id text NOT NULL, revision {REVISION} DEFAULT 1,
+        claim_id text NOT NULL, claim_revision numeric NOT NULL,
+        grounding_state text NOT NULL DEFAULT 'unchecked' CHECK(grounding_state IN ('unchecked','linked','content_checked','invalid')),
+        evidence_state text NOT NULL DEFAULT 'unassessed' CHECK(evidence_state IN ('unassessed','supported','contradicted','inconclusive')),
+        applicability_state text NOT NULL DEFAULT 'current' CHECK(applicability_state IN ('current','stale','disputed','retracted')),
+        method_kind text NOT NULL CHECK(method_kind IN ('deterministic','reproduced_check','human_attestation','model_review')),
+        method_version text NOT NULL, reviewer_ref text NOT NULL, reason text NOT NULL,
+        conditions_json text NOT NULL DEFAULT '[]', access_level integer NOT NULL DEFAULT 0,
+        created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+        CHECK(NOT(method_kind='model_review' AND evidence_state='supported')),
+        PRIMARY KEY({OWNER},assessment_id,revision), FOREIGN KEY({OWNER},claim_id,claim_revision) REFERENCES vnext.claim_revision({OWNER},entity_id,revision))"""
+    yield f"""CREATE TABLE vnext.assessment_input ({SCOPE_COLUMNS},assessment_id text NOT NULL,assessment_revision numeric NOT NULL,
+        entity_type text NOT NULL,entity_id text NOT NULL,revision numeric NOT NULL,access_level integer NOT NULL DEFAULT 0,
+        PRIMARY KEY({OWNER},assessment_id,assessment_revision,entity_type,entity_id,revision),
+        FOREIGN KEY({OWNER},assessment_id,assessment_revision) REFERENCES vnext.assessment({OWNER},assessment_id,revision),
+        FOREIGN KEY({OWNER},entity_type,entity_id,revision) REFERENCES vnext.entity_revision_registry({OWNER},entity_type,entity_id,revision))"""
+    yield f"""CREATE TABLE vnext.entity_relation ({SCOPE_COLUMNS},source_type text NOT NULL CHECK(source_type='claim'),
+        source_id text NOT NULL,source_revision numeric NOT NULL,
+        relation text NOT NULL CHECK(relation IN ('cites','extracted_from','supersedes')),
+        target_type text NOT NULL CHECK(target_type IN ('claim','observation','artifact')),target_id text NOT NULL,target_revision numeric NOT NULL,
+        access_level integer NOT NULL DEFAULT 0,
+        CHECK(relation<>'extracted_from' OR target_type='observation'),
+        CHECK(relation<>'supersedes' OR (source_type=target_type AND source_id=target_id AND source_revision>target_revision)),
+        PRIMARY KEY({OWNER},source_type,source_id,source_revision,relation,target_type,target_id,target_revision),
+        FOREIGN KEY({OWNER},source_type,source_id,source_revision) REFERENCES vnext.entity_revision_registry({OWNER},entity_type,entity_id,revision),
+        FOREIGN KEY({OWNER},target_type,target_id,target_revision) REFERENCES vnext.entity_revision_registry({OWNER},entity_type,entity_id,revision))"""
+    yield f"""CREATE TABLE vnext.work_dependency ({SCOPE_COLUMNS}, work_item_id text NOT NULL, predecessor_id text NOT NULL,
+        condition text NOT NULL CHECK(condition IN ('settled','accepted_result','criterion_satisfied')),
+        criterion_type text,criterion_id text,criterion_revision numeric,
+        CHECK((condition='criterion_satisfied')=(criterion_id IS NOT NULL)),
+        CHECK((criterion_id IS NULL AND criterion_type IS NULL AND criterion_revision IS NULL) OR (criterion_id IS NOT NULL AND criterion_type IS NOT NULL AND criterion_revision IS NOT NULL)),
+        PRIMARY KEY({OWNER},work_item_id,predecessor_id),
+        FOREIGN KEY({OWNER},work_item_id) REFERENCES vnext.work_item({OWNER},work_item_id),
+        FOREIGN KEY({OWNER},predecessor_id) REFERENCES vnext.work_item({OWNER},work_item_id),
+        FOREIGN KEY({OWNER},criterion_type,criterion_id,criterion_revision) REFERENCES vnext.entity_revision_registry({OWNER},entity_type,entity_id,revision))"""
+    yield f"""CREATE TABLE vnext.evidence_receipt ({SCOPE_COLUMNS},capture_id text NOT NULL,
+        operation_kind text NOT NULL DEFAULT 'evidence_ingest' CHECK(operation_kind='evidence_ingest'),
+        input_digest text NOT NULL,original_envelope text NOT NULL,
+        status text NOT NULL CHECK(status IN ('accepted','historical_only')),
+        observation_type text NOT NULL DEFAULT 'observation' CHECK(observation_type='observation'),
+        observation_id text NOT NULL,observation_revision numeric NOT NULL,
+        receipt_json text NOT NULL,access_level integer NOT NULL DEFAULT 0,
+        PRIMARY KEY(tenant_id,task_id,operation_kind,capture_id),
+        FOREIGN KEY({OWNER},observation_type,observation_id,observation_revision) REFERENCES vnext.entity_revision_registry({OWNER},entity_type,entity_id,revision))"""
+    yield f"""CREATE TABLE vnext.outbox ({SCOPE_COLUMNS},event_seq numeric NOT NULL,kind text NOT NULL,
+        payload_json text NOT NULL,access_level integer NOT NULL DEFAULT 0,created_at timestamptz NOT NULL DEFAULT clock_timestamp(), PRIMARY KEY({OWNER},event_seq),{TASK_FK})"""
+    yield f"""CREATE TABLE vnext.publication ({SCOPE_COLUMNS},publication_id text NOT NULL,kind text NOT NULL,
+        access_level integer NOT NULL DEFAULT 0,created_at timestamptz NOT NULL DEFAULT clock_timestamp(),PRIMARY KEY({OWNER},publication_id),{TASK_FK})"""
+    yield f"""CREATE TABLE vnext.publication_ref ({SCOPE_COLUMNS},publication_id text NOT NULL,artifact_id text NOT NULL,
+        artifact_revision numeric NOT NULL,access_level integer NOT NULL DEFAULT 0,
+        PRIMARY KEY({OWNER},publication_id,artifact_id,artifact_revision),
+        FOREIGN KEY({OWNER},publication_id) REFERENCES vnext.publication({OWNER},publication_id),
+        FOREIGN KEY({OWNER},artifact_id,artifact_revision) REFERENCES vnext.artifact({OWNER},entity_id,revision))"""
+    yield f"""CREATE TABLE vnext.artifact_lease ({SCOPE_COLUMNS},artifact_id text NOT NULL,artifact_revision numeric NOT NULL,
+        lease_owner text NOT NULL,expires_at timestamptz NOT NULL,access_level integer NOT NULL DEFAULT 0,
+        PRIMARY KEY({OWNER},artifact_id,artifact_revision,lease_owner),
+        FOREIGN KEY({OWNER},artifact_id,artifact_revision) REFERENCES vnext.artifact({OWNER},entity_id,revision))"""
+    yield f"""CREATE TABLE vnext.snapshot_manifest ({SCOPE_COLUMNS},snapshot_id text NOT NULL,publication_id text NOT NULL,
+        query_json text NOT NULL,query_digest text NOT NULL,access_digest text NOT NULL,manifest_json text NOT NULL,
+        access_level integer NOT NULL DEFAULT 0,created_at timestamptz NOT NULL,expires_at timestamptz NOT NULL,
+        PRIMARY KEY({OWNER},snapshot_id),FOREIGN KEY({OWNER},publication_id) REFERENCES vnext.publication({OWNER},publication_id))"""
+    yield f"""CREATE TABLE vnext.snapshot_ref ({SCOPE_COLUMNS},snapshot_id text NOT NULL,ordinal integer NOT NULL,
+        entity_type text NOT NULL,entity_id text NOT NULL,revision numeric NOT NULL,access_level integer NOT NULL DEFAULT 0,
+        PRIMARY KEY({OWNER},snapshot_id,ordinal),FOREIGN KEY({OWNER},snapshot_id) REFERENCES vnext.snapshot_manifest({OWNER},snapshot_id),
+        FOREIGN KEY({OWNER},entity_type,entity_id,revision) REFERENCES vnext.entity_revision_registry({OWNER},entity_type,entity_id,revision))"""
+    yield """CREATE FUNCTION vnext.in_scope(t text,p text,k text,l integer DEFAULT 0) RETURNS boolean
+        LANGUAGE sql STABLE SET search_path=pg_catalog AS $$ SELECT
+        t=current_setting('wuji.tenant',true) AND p=current_setting('wuji.project',true)
+        AND k=current_setting('wuji.task',true) AND l<=COALESCE(NULLIF(current_setting('wuji.clearance',true),'')::integer,-1) $$"""
+    yield """CREATE FUNCTION vnext.register_revision() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog AS $$
+        BEGIN INSERT INTO vnext.entity_revision_registry(tenant_id,project_id,task_id,entity_type,entity_id,revision,access_level)
+        VALUES(NEW.tenant_id,NEW.project_id,NEW.task_id,TG_ARGV[0],NEW.entity_id,NEW.revision,NEW.access_level);
+        RETURN NEW; END $$"""
+    branches = []
+    for name, kind in [
+        ("claim_revision", "claim"),
+        ("artifact", "artifact"),
+        ("observation", "observation"),
+    ]:
+        yield f"CREATE TRIGGER register_revision AFTER INSERT ON vnext.{name} FOR EACH ROW EXECUTE FUNCTION vnext.register_revision('{kind}')"
+        branches.append(
+            f"WHEN '{kind}' THEN SELECT EXISTS(SELECT 1 FROM vnext.{name} WHERE tenant_id=NEW.tenant_id AND project_id=NEW.project_id AND task_id=NEW.task_id AND entity_id=NEW.entity_id AND revision=NEW.revision AND access_level=NEW.access_level) INTO present;"
+        )
+    yield """CREATE FUNCTION vnext.check_registry() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog AS $$
+        DECLARE present boolean := false; BEGIN CASE NEW.entity_type """ + " ".join(
+        branches
+    ) + """
+        ELSE present := false; END CASE;
+        IF NOT present THEN RAISE EXCEPTION 'registry requires actual matching domain revision' USING ERRCODE='23503'; END IF;
+        RETURN NULL; END $$"""
+    yield """CREATE CONSTRAINT TRIGGER registry_domain_exists AFTER INSERT OR UPDATE ON vnext.entity_revision_registry
+        DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION vnext.check_registry()"""
+    yield """CREATE FUNCTION vnext.check_dependency() RETURNS trigger LANGUAGE plpgsql VOLATILE SET search_path=pg_catalog AS $$
+        DECLARE cyclic boolean; BEGIN
+        PERFORM 1 FROM vnext.task WHERE tenant_id=NEW.tenant_id AND project_id=NEW.project_id AND task_id=NEW.task_id FOR UPDATE;
+        WITH RECURSIVE reachable(id) AS (SELECT NEW.predecessor_id UNION SELECT d.predecessor_id FROM vnext.work_dependency d JOIN reachable r ON d.work_item_id=r.id WHERE d.tenant_id=NEW.tenant_id AND d.project_id=NEW.project_id AND d.task_id=NEW.task_id)
+        SELECT EXISTS(SELECT 1 FROM reachable WHERE id=NEW.work_item_id) INTO cyclic;
+        IF cyclic THEN RAISE EXCEPTION 'work dependency cycle' USING ERRCODE='23514'; END IF; RETURN NEW; END $$"""
+    yield "CREATE TRIGGER dependency_dag BEFORE INSERT OR UPDATE ON vnext.work_dependency FOR EACH ROW EXECUTE FUNCTION vnext.check_dependency()"
+    yield """CREATE FUNCTION vnext.check_reference_level() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$
+        DECLARE required_level integer; BEGIN
+        SELECT access_level INTO required_level FROM vnext.entity_revision_registry WHERE tenant_id=NEW.tenant_id AND project_id=NEW.project_id AND task_id=NEW.task_id AND entity_type=NEW.target_type AND entity_id=NEW.target_id AND revision=NEW.target_revision;
+        IF required_level IS NOT NULL AND (NEW.access_level<required_level OR EXISTS(SELECT 1 FROM vnext.entity_revision_registry WHERE tenant_id=NEW.tenant_id AND project_id=NEW.project_id AND task_id=NEW.task_id AND entity_type=NEW.source_type AND entity_id=NEW.source_id AND revision=NEW.source_revision AND access_level<required_level)) THEN
+        RAISE EXCEPTION 'derived record must inherit source access level' USING ERRCODE='23514'; END IF; RETURN NEW; END $$"""
+    yield "CREATE TRIGGER relation_access BEFORE INSERT ON vnext.entity_relation FOR EACH ROW EXECUTE FUNCTION vnext.check_reference_level()"
+    yield """CREATE FUNCTION vnext.artifact_retained(t text,p text,k text,i text,v numeric) RETURNS boolean
+        LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$ BEGIN
+        IF NOT COALESCE(vnext.in_scope(t,p,k),false) OR current_setting('wuji.gc',true) IS DISTINCT FROM 'true' THEN
+            RAISE EXCEPTION 'retention access denied' USING ERRCODE='42501'; END IF;
+        RETURN EXISTS(SELECT 1 FROM vnext.publication_ref WHERE tenant_id=t AND project_id=p AND task_id=k AND artifact_id=i AND artifact_revision=v)
+          OR EXISTS(SELECT 1 FROM vnext.artifact_lease WHERE tenant_id=t AND project_id=p AND task_id=k AND artifact_id=i AND artifact_revision=v AND expires_at>clock_timestamp())
+          OR EXISTS(SELECT 1 FROM vnext.observation_artifact WHERE tenant_id=t AND project_id=p AND task_id=k AND artifact_id=i AND artifact_revision=v)
+          OR EXISTS(SELECT 1 FROM vnext.entity_relation WHERE tenant_id=t AND project_id=p AND task_id=k AND target_type='artifact' AND target_id=i AND target_revision=v)
+          OR EXISTS(SELECT 1 FROM vnext.assessment_input WHERE tenant_id=t AND project_id=p AND task_id=k AND entity_type='artifact' AND entity_id=i AND revision=v)
+          OR EXISTS(SELECT 1 FROM vnext.snapshot_ref WHERE tenant_id=t AND project_id=p AND task_id=k AND entity_type='artifact' AND entity_id=i AND revision=v);
+        END $$"""
+    yield """CREATE FUNCTION vnext.check_artifact_update() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog AS $$
+        BEGIN
+        IF (to_jsonb(NEW)-'state'-'body_removed') IS DISTINCT FROM (to_jsonb(OLD)-'state'-'body_removed') OR (NEW.body_removed AND NEW.state<>'tombstoned') OR (OLD.state='tombstoned' AND NOT (NEW.state='tombstoned' AND NOT OLD.body_removed AND NEW.body_removed)) OR (OLD.state='sealed' AND NEW.state<>'tombstoned') THEN
+        RAISE EXCEPTION 'artifact metadata is immutable' USING ERRCODE='23514'; END IF;
+        IF NEW.state='tombstoned' AND current_setting('wuji.gc',true) IS DISTINCT FROM 'true' THEN RAISE EXCEPTION 'GC authority required' USING ERRCODE='42501'; END IF;
+        IF NEW.state='tombstoned' AND OLD.state<>'tombstoned' AND vnext.artifact_retained(OLD.tenant_id,OLD.project_id,OLD.task_id,OLD.entity_id,OLD.revision) THEN
+        RAISE EXCEPTION 'artifact is retained' USING ERRCODE='23514'; END IF; RETURN NEW; END $$"""
+    yield "CREATE TRIGGER artifact_immutable BEFORE UPDATE ON vnext.artifact FOR EACH ROW EXECUTE FUNCTION vnext.check_artifact_update()"
+    yield """CREATE FUNCTION vnext.check_publication_ref() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog AS $$
+        DECLARE a vnext.artifact%ROWTYPE; BEGIN
+        SELECT * INTO a FROM vnext.artifact WHERE tenant_id=NEW.tenant_id AND project_id=NEW.project_id AND task_id=NEW.task_id AND entity_id=NEW.artifact_id AND revision=NEW.artifact_revision FOR UPDATE;
+        IF NOT FOUND OR a.state<>'sealed' THEN RAISE EXCEPTION 'publication requires a sealed artifact' USING ERRCODE='23503'; END IF;
+        IF NEW.access_level<a.access_level THEN RAISE EXCEPTION 'publication access level too low' USING ERRCODE='23514'; END IF; RETURN NEW; END $$"""
+    yield "CREATE TRIGGER publication_sealed BEFORE INSERT ON vnext.publication_ref FOR EACH ROW EXECUTE FUNCTION vnext.check_publication_ref()"
+
+
+TABLES = {
+    "task": False,
+    "work_item": False,
+    "agent_run": False,
+    "tool_call": False,
+    "tool_attempt": False,
+    "collector_binding": False,
+    "entity_revision_registry": True,
+    "claim_revision": True,
+    "artifact": True,
+    "observation": True,
+    "observation_artifact": True,
+    "assessment": True,
+    "assessment_input": True,
+    "entity_relation": True,
+    "work_dependency": False,
+    "evidence_receipt": True,
+    "outbox": True,
+    "publication": True,
+    "publication_ref": True,
+    "artifact_lease": True,
+    "snapshot_manifest": True,
+    "snapshot_ref": True,
+}
+IMMUTABLE = {
+    "claim_revision",
+    "observation",
+    "observation_artifact",
+    "entity_revision_registry",
+    "assessment",
+    "assessment_input",
+    "entity_relation",
+    "evidence_receipt",
+    "outbox",
+    "publication",
+    "publication_ref",
+    "snapshot_manifest",
+    "snapshot_ref",
+    "work_dependency",
+}
+
+
+def migrate(connection, *, application_role: str) -> None:
+    """Apply this head once on a fresh vnext schema, with real migration ownership."""
+    with connection.transaction():
+        role = connection.execute(
+            "SELECT rolsuper,rolbypassrls FROM pg_roles WHERE rolname=current_user"
+        ).fetchone()
+        if role != (False, False):
+            raise ValueError("migrate under the non-superuser migration role")
+        existing = connection.execute(
+            "SELECT to_regclass('vnext.schema_migration')"
+        ).fetchone()[0]
+        if existing:
+            heads = connection.execute(
+                "SELECT head FROM vnext.schema_migration"
+            ).fetchall()
+            if heads == [(HEAD,)]:
+                return
+            raise ValueError("unrecognized vnext migration head")
+        for statement in statements():
+            connection.execute(statement)
+        app = sql.Identifier(application_role)
+        connection.execute(sql.SQL("GRANT USAGE ON SCHEMA vnext TO {}").format(app))
+        connection.execute("REVOKE ALL ON ALL TABLES IN SCHEMA vnext FROM PUBLIC")
+        connection.execute(
+            "REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA vnext FROM PUBLIC"
+        )
+        connection.execute(
+            sql.SQL("GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA vnext TO {}").format(app)
+        )
+        connection.execute("ALTER TABLE vnext.task_access ENABLE ROW LEVEL SECURITY")
+        connection.execute(
+            "CREATE POLICY access_self ON vnext.task_access FOR SELECT USING (tenant_id=current_setting('wuji.tenant',true) AND subject=current_setting('wuji.subject',true))"
+        )
+        connection.execute(
+            sql.SQL("GRANT SELECT ON vnext.task_access TO {}").format(app)
+        )
+        for table, level in TABLES.items():
+            name = sql.Identifier("vnext", table)
+            scope = (
+                "vnext.in_scope(tenant_id,project_id,task_id"
+                + (",access_level" if level else "")
+                + ")"
+            )
+            connection.execute(
+                sql.SQL("ALTER TABLE {} ENABLE ROW LEVEL SECURITY").format(name)
+            )
+            read_scope = scope
+            if table == "artifact":
+                read_scope += " OR (current_setting('wuji.task',true)='' AND tenant_id=current_setting('wuji.tenant',true) AND EXISTS(SELECT 1 FROM vnext.task_access a WHERE a.tenant_id=artifact.tenant_id AND a.project_id=artifact.project_id AND a.task_id=artifact.task_id AND a.subject=current_setting('wuji.subject',true) AND a.can_read AND a.clearance>=artifact.access_level))"
+            connection.execute(
+                sql.SQL(
+                    f"CREATE POLICY scoped_read ON {{}} FOR SELECT USING ({read_scope})"
+                ).format(name)
+            )
+            connection.execute(sql.SQL("GRANT SELECT ON {} TO {}").format(name, app))
+            if table in IMMUTABLE or table in {"artifact", "artifact_lease"}:
+                privilege = "current_setting('wuji.write',true)='true'"
+                if table in {
+                    "observation",
+                    "observation_artifact",
+                    "evidence_receipt",
+                    "artifact",
+                    "artifact_lease",
+                }:
+                    privilege += " AND current_setting('wuji.capture',true)='true'"
+                if (
+                    table == "claim_revision"
+                    or table == "entity_relation"
+                    or table == "work_dependency"
+                ):
+                    privilege += " AND current_setting('wuji.domain_write',true)='true'"
+                if table in {"publication", "publication_ref"}:
+                    privilege += " AND (current_setting('wuji.capture',true)='true' OR current_setting('wuji.snapshot',true)='true')"
+                if table in {"snapshot_manifest", "snapshot_ref"}:
+                    privilege += " AND current_setting('wuji.snapshot',true)='true'"
+                if table in {"assessment", "assessment_input"}:
+                    privilege += " AND current_setting('wuji.assess',true)='true'"
+                connection.execute(
+                    sql.SQL(
+                        f"CREATE POLICY scoped_insert ON {{}} FOR INSERT WITH CHECK ({scope} AND {privilege})"
+                    ).format(name)
+                )
+                connection.execute(
+                    sql.SQL("GRANT INSERT ON {} TO {}").format(name, app)
+                )
+            if table in {"task", "artifact", "artifact_lease"}:
+                connection.execute(
+                    sql.SQL(
+                        f"CREATE POLICY scoped_update ON {{}} FOR UPDATE USING ({scope} AND current_setting('wuji.write',true)='true') WITH CHECK ({scope})"
+                    ).format(name)
+                )
+                columns = (
+                    "(board_revision,event_seq,observation_count)"
+                    if table == "task"
+                    else (
+                        "(state,body_removed)"
+                        if table == "artifact"
+                        else "(expires_at)"
+                    )
+                )
+                connection.execute(
+                    sql.SQL(f"GRANT UPDATE {columns} ON {{}} TO {{}}").format(name, app)
+                )
+            if table == "artifact_lease":
+                connection.execute(
+                    sql.SQL(
+                        f"CREATE POLICY scoped_delete ON {{}} FOR DELETE USING ({scope} AND current_setting('wuji.write',true)='true')"
+                    ).format(name)
+                )
+                connection.execute(
+                    sql.SQL("GRANT DELETE ON {} TO {}").format(name, app)
+                )
+        connection.execute(
+            "INSERT INTO vnext.schema_migration(head) VALUES (%s)", (HEAD,)
+        )
