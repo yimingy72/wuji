@@ -1,6 +1,6 @@
 # vnext migration head
 
-`vnext_0001_p03` is an independent fresh-schema head implemented by
+`vnext_0002_p03_evidence_authority` advances the independent `vnext_0001_p03` base through
 `wuji_core.persistence.schema.migrate(connection, application_role=...)`.
 It does not import legacy migrations, start services, or migrate user data.
 The schema owner must be a separate non-superuser, non-BYPASSRLS migration role;
@@ -19,7 +19,11 @@ with db_environment.migration_connection() as migration:
 uow = UnitOfWork(db_environment.additional_app_connection)
 ```
 
-Reapplying the same head is a no-op; an unknown head is rejected. Deployment
+Reapplying the same head is a no-op; an unknown head is rejected. The authority
+upgrade adds only mutation guards and retains the base migration record. Artifact
+sealing and lease writes require an evidence execution context plus a nonrevoked
+stored collector binding. Actual-mutation triggers preserve the UPDATE visibility
+needed for snapshot publication row locks. Deployment
 must supply its own connection factory and configured storage root. This task
 verifies local PostgreSQL 16.2, not a production image or production cutover.
 
@@ -78,7 +82,10 @@ Compose `create_evidence_router(EvidenceService(uow, store))` through the existi
 capture route and authorized byte stream route. Capture requires a signed
 collector plus stored attempt binding; `Idempotency-Key` must equal capture_id.
 A started old attempt can produce historical_only only with settlement authority.
-The response is validated before DecimalJSONResponse; content uses
+The async capture route reads the original request body, then offloads the entire
+synchronous ingestion transaction through Starlette run_in_threadpool; connection
+creation, use and commit stay together. The response is validated before
+DecimalJSONResponse; content uses
 StreamingResponse with Digest, attachment, no-store and nosniff headers.
 
 ```sh

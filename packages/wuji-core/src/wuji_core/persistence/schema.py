@@ -6,7 +6,8 @@ The application role cannot create authority parents, alter claims, or grant ACL
 
 from psycopg import sql
 
-HEAD = "vnext_0001_p03"
+BASE_HEAD = "vnext_0001_p03"
+HEAD = "vnext_0002_p03_evidence_authority"
 OWNER = "tenant_id,project_id,task_id"
 SCOPE_COLUMNS = (
     "tenant_id text NOT NULL, project_id text NOT NULL, task_id text NOT NULL"
@@ -223,13 +224,7 @@ def statements():
           OR EXISTS(SELECT 1 FROM vnext.assessment_input WHERE tenant_id=t AND project_id=p AND task_id=k AND entity_type='artifact' AND entity_id=i AND revision=v)
           OR EXISTS(SELECT 1 FROM vnext.snapshot_ref WHERE tenant_id=t AND project_id=p AND task_id=k AND entity_type='artifact' AND entity_id=i AND revision=v);
         END $$"""
-    yield """CREATE FUNCTION vnext.check_artifact_update() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog AS $$
-        BEGIN
-        IF (to_jsonb(NEW)-'state'-'body_removed') IS DISTINCT FROM (to_jsonb(OLD)-'state'-'body_removed') OR (NEW.body_removed AND NEW.state<>'tombstoned') OR (OLD.state='tombstoned' AND NOT (NEW.state='tombstoned' AND NOT OLD.body_removed AND NEW.body_removed)) OR (OLD.state='sealed' AND NEW.state<>'tombstoned') THEN
-        RAISE EXCEPTION 'artifact metadata is immutable' USING ERRCODE='23514'; END IF;
-        IF NEW.state='tombstoned' AND current_setting('wuji.gc',true) IS DISTINCT FROM 'true' THEN RAISE EXCEPTION 'GC authority required' USING ERRCODE='42501'; END IF;
-        IF NEW.state='tombstoned' AND OLD.state<>'tombstoned' AND vnext.artifact_retained(OLD.tenant_id,OLD.project_id,OLD.task_id,OLD.entity_id,OLD.revision) THEN
-        RAISE EXCEPTION 'artifact is retained' USING ERRCODE='23514'; END IF; RETURN NEW; END $$"""
+    yield _artifact_update_sql()
     yield "CREATE TRIGGER artifact_immutable BEFORE UPDATE ON vnext.artifact FOR EACH ROW EXECUTE FUNCTION vnext.check_artifact_update()"
     yield """CREATE FUNCTION vnext.check_publication_ref() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog AS $$
         DECLARE a vnext.artifact%ROWTYPE; BEGIN
@@ -237,6 +232,66 @@ def statements():
         IF NOT FOUND OR a.state<>'sealed' THEN RAISE EXCEPTION 'publication requires a sealed artifact' USING ERRCODE='23503'; END IF;
         IF NEW.access_level<a.access_level THEN RAISE EXCEPTION 'publication access level too low' USING ERRCODE='23514'; END IF; RETURN NEW; END $$"""
     yield "CREATE TRIGGER publication_sealed BEFORE INSERT ON vnext.publication_ref FOR EACH ROW EXECUTE FUNCTION vnext.check_publication_ref()"
+
+
+def _artifact_update_sql(*, require_evidence=False):
+    statement = """CREATE OR REPLACE FUNCTION vnext.check_artifact_update() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog AS $$
+        BEGIN
+        IF (to_jsonb(NEW)-'state'-'body_removed') IS DISTINCT FROM (to_jsonb(OLD)-'state'-'body_removed') OR (NEW.body_removed AND NEW.state<>'tombstoned') OR (OLD.state='tombstoned' AND NOT (NEW.state='tombstoned' AND NOT OLD.body_removed AND NEW.body_removed)) OR (OLD.state='sealed' AND NEW.state<>'tombstoned') THEN
+        RAISE EXCEPTION 'artifact metadata is immutable' USING ERRCODE='23514'; END IF;
+        IF NEW.state='tombstoned' AND current_setting('wuji.gc',true) IS DISTINCT FROM 'true' THEN RAISE EXCEPTION 'GC authority required' USING ERRCODE='42501'; END IF;
+        IF NEW.state='tombstoned' AND OLD.state<>'tombstoned' AND vnext.artifact_retained(OLD.tenant_id,OLD.project_id,OLD.task_id,OLD.entity_id,OLD.revision) THEN
+        RAISE EXCEPTION 'artifact is retained' USING ERRCODE='23514'; END IF; RETURN NEW; END $$"""
+    if require_evidence:
+        statement = statement.replace(
+            "        BEGIN\n",
+            "        BEGIN\n"
+            "        IF OLD.state='staged' AND NEW.state='sealed' THEN\n"
+            "        PERFORM vnext.require_evidence_mutation(OLD.tenant_id,OLD.project_id,OLD.task_id,OLD.tool_attempt_id);\n"
+            "        END IF;\n",
+            1,
+        )
+    return statement
+
+
+def _upgrade_evidence_authority(connection, application_role):
+    # Mutation triggers leave UPDATE visibility intact for SELECT ... FOR UPDATE.
+    # Capability is derived by UoW; binding is rechecked against actual stored rows.
+    connection.execute(
+        """CREATE FUNCTION vnext.require_evidence_mutation(t text,p text,k text,attempt text)
+        RETURNS void LANGUAGE plpgsql SET search_path=pg_catalog AS $$ BEGIN
+        IF current_setting('wuji.capture',true) IS DISTINCT FROM 'true'
+          OR NOT COALESCE(vnext.in_scope(t,p,k),false)
+          OR NOT EXISTS(SELECT 1 FROM vnext.collector_binding b
+            WHERE b.tenant_id=t AND b.project_id=p AND b.task_id=k AND b.tool_attempt_id=attempt
+            AND b.subject=current_setting('wuji.subject',true) AND NOT b.revoked) THEN
+            RAISE EXCEPTION 'bound evidence authority required' USING ERRCODE='42501';
+        END IF; END $$"""
+    )
+    connection.execute(_artifact_update_sql(require_evidence=True))
+    connection.execute("""CREATE FUNCTION vnext.check_lease_mutation() RETURNS trigger
+        LANGUAGE plpgsql SET search_path=pg_catalog AS $$
+        DECLARE target vnext.artifact_lease%ROWTYPE; attempt text;
+        BEGIN
+        IF TG_OP='DELETE' THEN target:=OLD; ELSE target:=NEW; END IF;
+        SELECT tool_attempt_id INTO attempt FROM vnext.artifact
+            WHERE tenant_id=target.tenant_id AND project_id=target.project_id AND task_id=target.task_id
+            AND entity_id=target.artifact_id AND revision=target.artifact_revision;
+        IF NOT FOUND THEN RAISE EXCEPTION 'bound evidence authority required' USING ERRCODE='42501'; END IF;
+        PERFORM vnext.require_evidence_mutation(target.tenant_id,target.project_id,target.task_id,attempt);
+        IF TG_OP='DELETE' THEN RETURN OLD; ELSE RETURN NEW; END IF;
+        END $$""")
+    connection.execute(
+        "CREATE TRIGGER lease_mutation_authority BEFORE INSERT OR UPDATE OR DELETE ON vnext.artifact_lease FOR EACH ROW EXECUTE FUNCTION vnext.check_lease_mutation()"
+    )
+    functions = "vnext.require_evidence_mutation(text,text,text,text),vnext.check_lease_mutation()"
+    connection.execute(f"REVOKE EXECUTE ON FUNCTION {functions} FROM PUBLIC")
+    connection.execute(
+        sql.SQL(f"GRANT EXECUTE ON FUNCTION {functions} TO {{}}").format(
+            sql.Identifier(application_role)
+        )
+    )
+    connection.execute("INSERT INTO vnext.schema_migration(head) VALUES (%s)", (HEAD,))
 
 
 TABLES = {
@@ -282,7 +337,7 @@ IMMUTABLE = {
 
 
 def migrate(connection, *, application_role: str) -> None:
-    """Apply this head once on a fresh vnext schema, with real migration ownership."""
+    """Install fresh or advance the known vnext base head without rewriting data."""
     with connection.transaction():
         role = connection.execute(
             "SELECT rolsuper,rolbypassrls FROM pg_roles WHERE rolname=current_user"
@@ -296,7 +351,10 @@ def migrate(connection, *, application_role: str) -> None:
             heads = connection.execute(
                 "SELECT head FROM vnext.schema_migration"
             ).fetchall()
-            if heads == [(HEAD,)]:
+            if set(heads) == {(BASE_HEAD,), (HEAD,)}:
+                return
+            if heads == [(BASE_HEAD,)]:
+                _upgrade_evidence_authority(connection, application_role)
                 return
             raise ValueError("unrecognized vnext migration head")
         for statement in statements():
@@ -394,5 +452,6 @@ def migrate(connection, *, application_role: str) -> None:
                     sql.SQL("GRANT DELETE ON {} TO {}").format(name, app)
                 )
         connection.execute(
-            "INSERT INTO vnext.schema_migration(head) VALUES (%s)", (HEAD,)
+            "INSERT INTO vnext.schema_migration(head) VALUES (%s)", (BASE_HEAD,)
         )
+        _upgrade_evidence_authority(connection, application_role)

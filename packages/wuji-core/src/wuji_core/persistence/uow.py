@@ -152,7 +152,8 @@ class UnitOfWork:
                     "clearance": str(permission["clearance"]),
                     "write": str(capability != "read").lower(),
                     "capture": str(
-                        "collector" in access.principal.roles
+                        capability in {"evidence", "capture", "settle"}
+                        and "collector" in access.principal.roles
                         and "agent" not in access.principal.roles
                         and (permission["can_capture"] or permission["can_settle"])
                     ).lower(),

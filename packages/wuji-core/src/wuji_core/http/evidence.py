@@ -5,6 +5,7 @@ from typing import Annotated
 from fastapi import Header, Query, Request
 from pydantic import ValidationError
 import psycopg
+from starlette.concurrency import run_in_threadpool
 from starlette.responses import StreamingResponse
 
 from wuji_core.contracts.envelopes import (
@@ -45,8 +46,10 @@ def create_evidence_router(service):
             return _error(request, "INVALID_SCHEMA", 422)
         access = AccessContext(current_principal(request), request.state.request_id)
         try:
-            receipt = service.ingest(
-                access, payload, original_json=await request.body()
+            original_body = await request.body()
+            # Create/use/commit the sync DB connection in the same worker thread.
+            receipt = await run_in_threadpool(
+                service.ingest, access, payload, original_json=original_body
             )
             result = EvidenceReceipt.model_validate(receipt.model_dump(mode="python"))
             return DecimalJSONResponse(
