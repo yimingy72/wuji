@@ -8,7 +8,12 @@ from psycopg import sql
 
 BASE_HEAD = "vnext_0001_p03"
 EVIDENCE_HEAD = "vnext_0002_p03_evidence_authority"
-from wuji_core.persistence.knowledge_schema import HEAD, upgrade as upgrade_knowledge
+from wuji_core.persistence.knowledge_schema import (
+    HEAD as KNOWLEDGE_HEAD,
+    VISIBILITY_HEAD as HEAD,
+    upgrade as upgrade_knowledge,
+    upgrade_visibility,
+)
 
 OWNER = "tenant_id,project_id,task_id"
 SCOPE_COLUMNS = (
@@ -355,14 +360,24 @@ def migrate(connection, *, application_role: str) -> None:
             heads = connection.execute(
                 "SELECT head FROM vnext.schema_migration"
             ).fetchall()
-            if set(heads) == {(BASE_HEAD,), (EVIDENCE_HEAD,), (HEAD,)}:
+            if set(heads) == {
+                (BASE_HEAD,),
+                (EVIDENCE_HEAD,),
+                (KNOWLEDGE_HEAD,),
+                (HEAD,),
+            }:
+                return
+            if set(heads) == {(BASE_HEAD,), (EVIDENCE_HEAD,), (KNOWLEDGE_HEAD,)}:
+                upgrade_visibility(connection, application_role)
                 return
             if set(heads) == {(BASE_HEAD,)}:
                 _upgrade_evidence_authority(connection, application_role)
                 upgrade_knowledge(connection, application_role)
+                upgrade_visibility(connection, application_role)
                 return
             if set(heads) == {(BASE_HEAD,), (EVIDENCE_HEAD,)}:
                 upgrade_knowledge(connection, application_role)
+                upgrade_visibility(connection, application_role)
                 return
             raise ValueError("unrecognized vnext migration head")
         for statement in statements():
@@ -464,3 +479,4 @@ def migrate(connection, *, application_role: str) -> None:
         )
         _upgrade_evidence_authority(connection, application_role)
         upgrade_knowledge(connection, application_role)
+        upgrade_visibility(connection, application_role)

@@ -175,7 +175,7 @@ def get_claim(c, ref, *, snapshot=None, role="agent"):
     )
 
 
-def captured(c, *, body=b'{"version":17}', completeness="complete"):
+def captured(c, *, body=b'{"version":17}', completeness="complete", access_level=0):
     ref = c.store.stage(
         access(),
         TASK,
@@ -183,6 +183,7 @@ def captured(c, *, body=b'{"version":17}', completeness="complete"):
         body,
         "application/json",
         completeness=completeness,
+        access_level=access_level,
     )
     c.store.seal(access(), TASK, ref)
     c.audit.joinpath("capture-" + ref.id + ".bin").write_bytes(body)
@@ -855,6 +856,7 @@ def test_migration_preserves_heads_and_rejects_unknown(db_environment):
             ("vnext_0001_p03",),
             ("vnext_0002_p03_evidence_authority",),
             ("vnext_0003_p04_knowledge",),
+            ("vnext_0004_p04_assessment_visibility",),
         ]
         m.execute("INSERT INTO vnext.schema_migration(head) VALUES('unknown')")
         with pytest.raises(ValueError, match="unrecognized"):
@@ -993,3 +995,62 @@ def test_unverified_intent_is_readable_but_not_in_older_snapshot(
                 ).fetchone()[0]
                 == 2
             )  # only seeded prerequisites
+
+
+def test_hidden_counterevidence_cannot_turn_public_claim_into_fact(
+    db_environment, tmp_path, audit_directory
+):
+    with case(db_environment, tmp_path, audit_directory) as c:
+        public, public_obs = captured(c)
+        ref = post_claim(c, exact(public, public_obs)).json()["canonical_ref"]
+        assert assess(c, ref, [public_obs]).status_code == 202
+        with c.env.migration_connection() as m:
+            m.execute(
+                "UPDATE vnext.task_access SET clearance=0 WHERE task_id=%s AND subject='reader-fixture'",
+                (TASK,),
+            )
+        assert get_claim(c, ref, role="reader").json()["assessment"]["eligible"] is True
+        old_snapshot = SnapshotRepository(c.uow).create(
+            TASK, access("reader-fixture", role="reader")
+        )
+        private, private_obs = captured(
+            c, body=b'{"private_counterexample":true}', access_level=1
+        )
+        opposed = assess(
+            c,
+            ref,
+            [private_obs],
+            kind="human_attestation",
+            method="human-attestation-v1",
+            state="contradicted",
+            role="human",
+        )
+        assert opposed.status_code == 202, opposed.text
+        high = get_claim(c, ref)
+        assert high.status_code == 200, high.text
+        assert high.json()["assessment"]["applicability_state"] == "disputed"
+        assert high.json()["assessment"]["eligible"] is False
+        for snapshot in (None, old_snapshot.snapshot_id):
+            low = get_claim(c, ref, role="reader", snapshot=snapshot)
+            assert low.status_code == 503, low.text
+            assert low.json()["code"] == "CAPABILITY_UNAVAILABLE"
+            assert low.json()["details"] == {}
+            assert set(low.json()) == {
+                "code",
+                "message",
+                "request_id",
+                "retryable",
+                "details",
+            }
+            for hidden in (
+                opposed.json()["assessment_id"],
+                private.id,
+                private_obs["id"],
+                "isolated fixture",
+            ):
+                assert hidden not in low.text
+        with pytest.raises(DomainError) as unavailable:
+            SnapshotRepository(c.uow).create(
+                TASK, access("reader-fixture", role="reader")
+            )
+        assert unavailable.value.code == "CAPABILITY_UNAVAILABLE"

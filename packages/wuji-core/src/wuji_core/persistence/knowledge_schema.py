@@ -181,3 +181,50 @@ def upgrade(connection, application_role):
         )
     connection.execute("REVOKE ALL ON ALL TABLES IN SCHEMA vnext FROM PUBLIC")
     connection.execute("INSERT INTO vnext.schema_migration(head) VALUES (%s)", (HEAD,))
+
+
+VISIBILITY_HEAD = "vnext_0004_p04_assessment_visibility"
+
+
+def upgrade_visibility(connection, application_role):
+    """Check the complete dependency set without exposing hidden rows to readers."""
+    connection.execute(
+        """CREATE FUNCTION vnext.assessment_visibility_complete(t text,p text,k text,c text,v numeric)
+        RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $$
+        DECLARE allowed_level integer;
+        BEGIN
+        IF NOT COALESCE(vnext.in_scope(t,p,k),false) THEN RETURN false; END IF;
+        SELECT least(a.clearance,COALESCE(NULLIF(current_setting('wuji.clearance',true),'')::integer,-1))
+        INTO allowed_level FROM vnext.task_access a WHERE a.tenant_id=t AND a.project_id=p AND a.task_id=k
+        AND a.subject=current_setting('wuji.subject',true) AND a.can_read;
+        IF allowed_level IS NULL OR NOT EXISTS(SELECT 1 FROM vnext.claim_revision x WHERE
+            x.tenant_id=t AND x.project_id=p AND x.task_id=k AND x.entity_id=c AND x.revision=v
+            AND x.access_level<=allowed_level) THEN RETURN false; END IF;
+        RETURN NOT EXISTS(SELECT 1 FROM vnext.assessment a WHERE
+            a.tenant_id=t AND a.project_id=p AND a.task_id=k AND a.claim_id=c AND a.claim_revision=v
+            AND a.access_level>allowed_level)
+        AND NOT EXISTS(SELECT 1 FROM vnext.assessment_action x JOIN vnext.assessment a
+            ON (a.tenant_id,a.project_id,a.task_id,a.assessment_id,a.revision)=
+               (x.tenant_id,x.project_id,x.task_id,x.target_id,x.target_revision)
+            WHERE a.tenant_id=t AND a.project_id=p AND a.task_id=k AND a.claim_id=c AND a.claim_revision=v
+            AND x.access_level>allowed_level)
+        AND NOT EXISTS(SELECT 1 FROM vnext.assessment_input i JOIN vnext.assessment a
+            ON (a.tenant_id,a.project_id,a.task_id,a.assessment_id,a.revision)=
+               (i.tenant_id,i.project_id,i.task_id,i.assessment_id,i.assessment_revision)
+            LEFT JOIN vnext.entity_revision_registry r
+            ON (r.tenant_id,r.project_id,r.task_id,r.entity_type,r.entity_id,r.revision)=
+               (i.tenant_id,i.project_id,i.task_id,i.entity_type,i.entity_id,i.revision)
+            WHERE a.tenant_id=t AND a.project_id=p AND a.task_id=k AND a.claim_id=c AND a.claim_revision=v
+            AND (i.access_level>allowed_level OR r.entity_id IS NULL OR r.access_level>allowed_level));
+        END $$"""
+    )
+    fn = "vnext.assessment_visibility_complete(text,text,text,text,numeric)"
+    connection.execute(f"REVOKE EXECUTE ON FUNCTION {fn} FROM PUBLIC")
+    connection.execute(
+        sql.SQL(f"GRANT EXECUTE ON FUNCTION {fn} TO {{}}").format(
+            sql.Identifier(application_role)
+        )
+    )
+    connection.execute(
+        "INSERT INTO vnext.schema_migration(head) VALUES (%s)", (VISIBILITY_HEAD,)
+    )

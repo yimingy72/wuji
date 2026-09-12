@@ -1,6 +1,12 @@
 # vnext migration head
 
-Current head: `vnext_0003_p04_knowledge`, following both P03 heads below.
+Current head: `vnext_0004_p04_assessment_visibility`, following P04 knowledge
+head `vnext_0003_p04_knowledge` and both P03 heads below. The fourth migration
+adds a fixed-search-path, scope/ACL-checked SECURITY DEFINER visibility guard.
+It returns only whether all related assessments/actions/inputs are visible;
+partial views uniformly return CAPABILITY_UNAVAILABLE. Fact reads use one
+Repeatable Read transaction for this guard and aggregation; historical reads
+also guard against exposing a misleading subset. No hidden row data is returned.
 The same `migrate(connection, application_role=...)` advances only recognized
 head sets and rejects unknown heads. P04 adds canonical knowledge actors,
 Run writer bindings, explicit Task assessment-policy bindings, immutable

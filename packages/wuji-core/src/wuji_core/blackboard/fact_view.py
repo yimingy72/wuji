@@ -75,7 +75,18 @@ def inputs_current(tx, refs):
     return True
 
 
+def require_complete_assessments(tx, claim):
+    complete = tx.connection.execute(
+        "SELECT vnext.assessment_visibility_complete(%s,%s,%s,%s,%s)",
+        (*tx.owner, claim["entity_id"], claim["revision"]),
+    ).fetchone()[0]
+    if not complete:
+        # Uniform response: no hidden IDs, conditions, counts, or partial Fact.
+        raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+
+
 def aggregate(tx, claim):
+    require_complete_assessments(tx, claim)
     selected = policy(tx)
     rows = tx.connection.execute(
         """SELECT assessment_id,revision,grounding_state,evidence_state,applicability_state,
@@ -177,10 +188,12 @@ class FactLedger:
 
     def read(self, access, task_id, ref, *, snapshot_id=None):
         ref = KnowledgeRef.model_validate(ref)
-        with self.uow.transaction(access, task_id) as tx:
+        with self.uow.transaction(access, task_id, repeatable_read=True) as tx:
             record = resolve(tx, ref)
             manifest = None
             if snapshot_id:
+                if ref.entity_type.value == "claim":
+                    require_complete_assessments(tx, record)
                 from wuji_core.persistence.snapshots import SnapshotRepository
 
                 manifest = SnapshotRepository(self.uow)._get(tx, snapshot_id)
