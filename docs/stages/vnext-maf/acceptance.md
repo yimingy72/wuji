@@ -8,8 +8,9 @@
 | --- | --- | --- |
 | P00 基线与来源 | accepted（本项） | 基线 c9871a6；源文件保留与实际环境已核对，GPT-6/xhigh 审查无发现 |
 | P01 SDK 探针 | accepted（局部能力） | [当前报告](../../vnext/P01-report.md)；SDK13项@8c3fa9c，watchdog3项@1d77954，离线渲染4项@1598ea2；[最终范围复核](../../vnext/evidence/P01/review-round2.md)关闭所有发现，后续产品 Gate 独立 |
-| P02 合同与测试底座 | in-progress | SOL/xhigh 执行；OpenAPI/真实认证/独立 PostgreSQL 夹具 |
-| P03—P20 开发和机制验收 | not_run | 按依赖执行，未验证不标通过 |
+| P02 合同与测试底座 | accepted（本项） | [原报告](../../vnext/evidence/P02/report.md)、[修复](../../vnext/evidence/P02/fix-round1/report.md)、[最终范围复核](../../vnext/evidence/P02/final-controller-review.md)；后续完整 AC 仍 partial |
+| P03 规范持久化与证据 | in-progress | [实施接口](../../vnext/P03-implementation-contract.md)已收口；真实 API/PG/字节/快照/RLS 验证 |
+| P04—P20 开发和机制验收 | not_run | 按依赖执行，未验证不标通过 |
 | 真实模型效果 | not_run | 需明确模型/数据及新增 USD 额度 |
 | 生产切换/旧数据删除 | not_run | 需独立明确授权；开发不隐式实施 |
 
