@@ -1,0 +1,285 @@
+F.FFFF                                                                   [100%]
+=================================== FAILURES ===================================
+_____________ test_agent_database_context_cannot_forge_observation _____________
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x1064e82f0>
+
+    def test_agent_database_context_cannot_forge_observation(db_environment):
+        with prepared(db_environment) as uow:
+            with uow.transaction(access('agent-fixture',role='agent'),'task-fixture',capability='write') as tx:
+>               with pytest.raises(psycopg.errors.InsufficientPrivilege):
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               Failed: DID NOT RAISE InsufficientPrivilege
+
+tests/vnext/test_rls.py:102: Failed
+_____ test_snapshot_pins_revisions_states_relations_after_connection_close _____
+
+name = 'persistence.snapshots'
+
+    def module(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/support/p03.py:14: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.persistence.snapshots', package = None
+
+    def import_module(name, package=None):
+        """Import a module.
+    
+        The 'package' argument is required when performing a relative import. It
+        specifies the package to use as the anchor point from which to resolve the
+        relative import to an absolute import.
+    
+        """
+        level = 0
+        if name.startswith('.'):
+            if not package:
+                raise TypeError("the 'package' argument is required to perform a "
+                                f"relative import for {name!r}")
+            for character in name:
+                if character != '.':
+                    break
+                level += 1
+>       return _bootstrap._gcd_import(name[level:], package, level)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ModuleNotFoundError: No module named 'wuji_core.persistence.snapshots'
+
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x105b53110>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-59/test_snapshot_pins_revisions_s0')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-59/test_snapshot_pins_revisions_s0')
+test_tokens = TestTokens(agent='eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6IjBmMDdmYzhmODQwMjRhY2MifQ.eyJpc3MiOiJodHRwczovL2lkZW50a...id', audience='wuji-vnext-tests', public_key_sha256='0f07fc8f84024acc40b8df1ecad7fa8ba80bdf03a62e313494964769d133c154')
+
+    def test_snapshot_pins_revisions_states_relations_after_connection_close(db_environment,tmp_path,audit_directory,test_tokens):
+        from support.p03 import claim
+        with capture_case(db_environment,tmp_path,audit_directory,test_tokens) as c:
+            assert submit(c).status_code==202
+            with c.uow.transaction(access(),'task-fixture',capability='write') as tx:
+                claim(tx,text='version one')
+                tx.add_dependency('work-fixture','work-b','settled')
+>           snapshots=module('persistence.snapshots').SnapshotRepository(c.uow)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_capture_transactions.py:178: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'persistence.snapshots'
+
+    def module(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           assert False, f'P03 production module absent: {error.name}'
+                   ^^^^^
+E           AssertionError: P03 production module absent: wuji_core.persistence.snapshots
+
+tests/vnext/support/p03.py:16: AssertionError
+___________ test_snapshot_query_scope_current_access_and_expiration ____________
+
+name = 'persistence.snapshots'
+
+    def module(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/support/p03.py:14: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.persistence.snapshots', package = None
+
+    def import_module(name, package=None):
+        """Import a module.
+    
+        The 'package' argument is required when performing a relative import. It
+        specifies the package to use as the anchor point from which to resolve the
+        relative import to an absolute import.
+    
+        """
+        level = 0
+        if name.startswith('.'):
+            if not package:
+                raise TypeError("the 'package' argument is required to perform a "
+                                f"relative import for {name!r}")
+            for character in name:
+                if character != '.':
+                    break
+                level += 1
+>       return _bootstrap._gcd_import(name[level:], package, level)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ModuleNotFoundError: No module named 'wuji_core.persistence.snapshots'
+
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x1064d3950>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-59/test_snapshot_query_scope_curr0')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-59/test_snapshot_query_scope_curr0')
+test_tokens = TestTokens(agent='eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6Ijk2ZGY3YzcxNTY2NjQ0OTkifQ.eyJpc3MiOiJodHRwczovL2lkZW50a...id', audience='wuji-vnext-tests', public_key_sha256='96df7c7156664499104cc30d95e3b81c9ef0fefe14bbfdb52b7a08b10b898a36')
+
+    def test_snapshot_query_scope_current_access_and_expiration(db_environment,tmp_path,audit_directory,test_tokens):
+        from support.p03 import claim
+        with capture_case(db_environment,tmp_path,audit_directory,test_tokens) as c:
+            with c.uow.transaction(access(),'task-fixture',capability='write') as tx:
+                claim(tx)
+>           snapshots_module=module('persistence.snapshots')
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_capture_transactions.py:203: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'persistence.snapshots'
+
+    def module(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           assert False, f'P03 production module absent: {error.name}'
+                   ^^^^^
+E           AssertionError: P03 production module absent: wuji_core.persistence.snapshots
+
+tests/vnext/support/p03.py:16: AssertionError
+_______ test_gc_retains_live_commit_leases_and_published_snapshot_bytes ________
+
+name = 'persistence.snapshots'
+
+    def module(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/support/p03.py:14: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.persistence.snapshots', package = None
+
+    def import_module(name, package=None):
+        """Import a module.
+    
+        The 'package' argument is required when performing a relative import. It
+        specifies the package to use as the anchor point from which to resolve the
+        relative import to an absolute import.
+    
+        """
+        level = 0
+        if name.startswith('.'):
+            if not package:
+                raise TypeError("the 'package' argument is required to perform a "
+                                f"relative import for {name!r}")
+            for character in name:
+                if character != '.':
+                    break
+                level += 1
+>       return _bootstrap._gcd_import(name[level:], package, level)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ModuleNotFoundError: No module named 'wuji_core.persistence.snapshots'
+
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x1064d3bb0>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-59/test_gc_retains_live_commit_le0')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-59/test_gc_retains_live_commit_le0')
+test_tokens = TestTokens(agent='eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6IjQ3MzRiMzUyOGI2MzQyNWMifQ.eyJpc3MiOiJodHRwczovL2lkZW50a...id', audience='wuji-vnext-tests', public_key_sha256='4734b3528b63425c0c6e222f041201715937b0ea4bf0cdb312e5a4f0a98e7e21')
+
+    def test_gc_retains_live_commit_leases_and_published_snapshot_bytes(db_environment,tmp_path,audit_directory,test_tokens):
+        from wuji_core.contracts.envelopes import BlobRef
+        with capture_case(db_environment,tmp_path,audit_directory,test_tokens) as c:
+>           snapshots=module('persistence.snapshots').SnapshotRepository(c.uow)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_capture_transactions.py:222: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'persistence.snapshots'
+
+    def module(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           assert False, f'P03 production module absent: {error.name}'
+                   ^^^^^
+E           AssertionError: P03 production module absent: wuji_core.persistence.snapshots
+
+tests/vnext/support/p03.py:16: AssertionError
+_______ test_snapshot_publication_and_gc_use_two_coordinated_connections _______
+
+name = 'persistence.snapshots'
+
+    def module(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/support/p03.py:14: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.persistence.snapshots', package = None
+
+    def import_module(name, package=None):
+        """Import a module.
+    
+        The 'package' argument is required when performing a relative import. It
+        specifies the package to use as the anchor point from which to resolve the
+        relative import to an absolute import.
+    
+        """
+        level = 0
+        if name.startswith('.'):
+            if not package:
+                raise TypeError("the 'package' argument is required to perform a "
+                                f"relative import for {name!r}")
+            for character in name:
+                if character != '.':
+                    break
+                level += 1
+>       return _bootstrap._gcd_import(name[level:], package, level)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ModuleNotFoundError: No module named 'wuji_core.persistence.snapshots'
+
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x1063c8170>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-59/test_snapshot_publication_and_0')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-59/test_snapshot_publication_and_0')
+test_tokens = TestTokens(agent='eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6ImIxNTY4YTE5MWYyYTI3YTgifQ.eyJpc3MiOiJodHRwczovL2lkZW50a...id', audience='wuji-vnext-tests', public_key_sha256='b1568a191f2a27a8b1e41ae484d8f3dc95d5e02adfbc2e84e916be00d849856e')
+
+    def test_snapshot_publication_and_gc_use_two_coordinated_connections(db_environment,tmp_path,audit_directory,test_tokens):
+        from concurrent.futures import ThreadPoolExecutor
+        from threading import Barrier
+        from wuji_core.contracts.envelopes import BlobRef
+        with capture_case(db_environment,tmp_path,audit_directory,test_tokens) as c:
+>           snapshots=module('persistence.snapshots').SnapshotRepository(c.uow)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_capture_transactions.py:248: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'persistence.snapshots'
+
+    def module(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           assert False, f'P03 production module absent: {error.name}'
+                   ^^^^^
+E           AssertionError: P03 production module absent: wuji_core.persistence.snapshots
+
+tests/vnext/support/p03.py:16: AssertionError
+=========================== short test summary info ============================
+FAILED tests/vnext/test_rls.py::test_agent_database_context_cannot_forge_observation
+FAILED tests/vnext/test_capture_transactions.py::test_snapshot_pins_revisions_states_relations_after_connection_close
+FAILED tests/vnext/test_capture_transactions.py::test_snapshot_query_scope_current_access_and_expiration
+FAILED tests/vnext/test_capture_transactions.py::test_gc_retains_live_commit_leases_and_published_snapshot_bytes
+FAILED tests/vnext/test_capture_transactions.py::test_snapshot_publication_and_gc_use_two_coordinated_connections
+5 failed, 1 passed, 25 deselected in 2.00s

@@ -1,0 +1,224 @@
+[
+  {
+    "log": "contracts-red.txt",
+    "summary": "6 failed, 2 passed in 0.16s",
+    "exit_code": 1,
+    "command": [
+      "./scripts/vnext/uv.sh",
+      "run",
+      "--frozen",
+      "pytest",
+      "tests/vnext/test_p03_contracts.py",
+      "-q"
+    ]
+  },
+  {
+    "log": "contracts-green-attempt.txt",
+    "summary": "4 failed, 4 passed in 0.16s",
+    "exit_code": 1,
+    "command": [
+      "./scripts/vnext/uv.sh",
+      "run",
+      "--frozen",
+      "pytest",
+      "tests/vnext/test_p03_contracts.py",
+      "-q"
+    ]
+  },
+  {
+    "log": "contracts-green.txt",
+    "summary": "4 failed, 4 passed in 0.15s",
+    "exit_code": 1,
+    "command": [
+      "./scripts/vnext/uv.sh",
+      "run",
+      "--frozen",
+      "pytest",
+      "tests/vnext/test_p03_contracts.py",
+      "-q"
+    ]
+  },
+  {
+    "log": "contracts-green-final.txt",
+    "summary": "8 passed in 0.11s",
+    "exit_code": 0,
+    "command": [
+      "./scripts/vnext/uv.sh",
+      "run",
+      "--frozen",
+      "pytest",
+      "tests/vnext/test_p03_contracts.py",
+      "-q"
+    ]
+  },
+  {
+    "log": "persistence-red.txt",
+    "summary": "8 failed in 0.78s",
+    "exit_code": 1,
+    "command": [
+      "./scripts/vnext/uv.sh",
+      "run",
+      "--frozen",
+      "pytest",
+      "tests/vnext/test_rls.py",
+      "-q"
+    ]
+  },
+  {
+    "log": "persistence-green-attempt.txt",
+    "summary": "8 passed in 1.70s",
+    "exit_code": 0,
+    "command": [
+      "./scripts/vnext/uv.sh",
+      "run",
+      "--frozen",
+      "pytest",
+      "tests/vnext/test_rls.py",
+      "-q"
+    ]
+  },
+  {
+    "log": "capture-red.txt",
+    "summary": "25 failed in 7.90s",
+    "exit_code": 1,
+    "command": [
+      "./scripts/vnext/uv.sh",
+      "run",
+      "--frozen",
+      "pytest",
+      "tests/vnext/test_capture_transactions.py",
+      "-q"
+    ]
+  },
+  {
+    "log": "capture-green-attempt.txt",
+    "summary": "25 passed in 10.37s",
+    "exit_code": 0,
+    "command": [
+      "./scripts/vnext/uv.sh",
+      "run",
+      "--frozen",
+      "pytest",
+      "tests/vnext/test_capture_transactions.py",
+      "-q"
+    ]
+  },
+  {
+    "log": "snapshot-gc-red.txt",
+    "summary": "5 failed, 1 passed, 25 deselected in 2.00s",
+    "exit_code": 1,
+    "command": [
+      "./scripts/vnext/uv.sh",
+      "run",
+      "--frozen",
+      "pytest",
+      "tests/vnext/test_rls.py::test_agent_database_context_cannot_forge_observation",
+      "tests/vnext/test_rls.py::test_derived_claim_cannot_lower_source_visibility",
+      "tests/vnext/test_capture_transactions.py",
+      "-k",
+      "snapshot or gc or database_context or lower_source",
+      "-q"
+    ]
+  },
+  {
+    "log": "snapshot-gc-green-attempt.txt",
+    "summary": "5 passed, 25 deselected in 2.19s",
+    "exit_code": 0,
+    "command": [
+      "./scripts/vnext/uv.sh",
+      "run",
+      "--frozen",
+      "pytest",
+      "tests/vnext/test_rls.py::test_agent_database_context_cannot_forge_observation",
+      "tests/vnext/test_capture_transactions.py",
+      "-k",
+      "snapshot or gc or database_context",
+      "-q"
+    ]
+  },
+  {
+    "log": "boundary-review-red.txt",
+    "summary": "1 failed, 3 passed, 29 deselected in 2.02s",
+    "exit_code": 1,
+    "command": [
+      "./scripts/vnext/uv.sh",
+      "run",
+      "--frozen",
+      "pytest",
+      "tests/vnext/test_capture_transactions.py",
+      "-k",
+      "partial_body or trusted_start or private_publication or read_only_member",
+      "-q"
+    ]
+  },
+  {
+    "log": "access-review-red.txt",
+    "summary": "2 failed, 32 deselected in 0.95s",
+    "exit_code": 1,
+    "command": [
+      "./scripts/vnext/uv.sh",
+      "run",
+      "--frozen",
+      "pytest",
+      "tests/vnext/test_capture_transactions.py",
+      "-k",
+      "private_publication or revoked_collector",
+      "-q"
+    ]
+  },
+  {
+    "log": "boundary-review-green.txt",
+    "summary": "3 passed, 31 deselected in 1.30s",
+    "exit_code": 0,
+    "command": [
+      "./scripts/vnext/uv.sh",
+      "run",
+      "--frozen",
+      "pytest",
+      "tests/vnext/test_capture_transactions.py",
+      "-k",
+      "partial_body or private_publication or revoked_collector",
+      "-q"
+    ]
+  },
+  {
+    "log": "reference-gc-red.txt",
+    "summary": "1 failed in 0.59s",
+    "exit_code": 1,
+    "command": [
+      "./scripts/vnext/uv.sh",
+      "run",
+      "--frozen",
+      "pytest",
+      "tests/vnext/test_capture_transactions.py::test_gc_preserves_artifact_cited_by_claim_before_snapshot",
+      "-q"
+    ]
+  },
+  {
+    "log": "gc-repeat-red.txt",
+    "summary": "1 failed in 0.65s",
+    "exit_code": 1,
+    "command": [
+      "./scripts/vnext/uv.sh",
+      "run",
+      "--frozen",
+      "pytest",
+      "tests/vnext/test_capture_transactions.py::test_gc_retains_live_commit_leases_and_published_snapshot_bytes",
+      "-q"
+    ]
+  },
+  {
+    "log": "reference-gc-green.txt",
+    "summary": "2 passed in 1.13s",
+    "exit_code": 0,
+    "command": [
+      "./scripts/vnext/uv.sh",
+      "run",
+      "--frozen",
+      "pytest",
+      "tests/vnext/test_capture_transactions.py::test_gc_preserves_artifact_cited_by_claim_before_snapshot",
+      "tests/vnext/test_capture_transactions.py::test_gc_retains_live_commit_leases_and_published_snapshot_bytes",
+      "-q"
+    ]
+  }
+]

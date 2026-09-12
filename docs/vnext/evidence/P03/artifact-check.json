@@ -1,0 +1,17 @@
+{
+  "kind": "offline artifact integrity check",
+  "report_links_resolve": true,
+  "http_exchange_count": 38,
+  "recorded_content_lengths_match": true,
+  "application_tests_rerun": false,
+  "raw_evidence_whitespace_preserved": [
+    "capture-red.txt",
+    "contracts-green.txt",
+    "final-contracts-check.txt",
+    "gc-repeat-red.txt",
+    "persistence-red.txt",
+    "reference-gc-red.txt",
+    "snapshot-gc-red.txt"
+  ],
+  "note": "Whole evidence diff-check reports whitespace in native stdout/body bytes. Those bytes are intentionally preserved; authored report/JSON/HTML metadata is checked separately."
+}

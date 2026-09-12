@@ -1,0 +1,25 @@
+{
+  "command": [
+    "./scripts/vnext/uv.sh",
+    "run",
+    "--frozen",
+    "pytest",
+    "tests/vnext/test_p03_contracts.py",
+    "tests/vnext/test_rls.py",
+    "tests/vnext/test_capture_transactions.py",
+    "-q",
+    "--junitxml=docs/vnext/evidence/P03/final-junit.xml"
+  ],
+  "evidence_env": {
+    "WUJI_TEST_EVIDENCE_DIR": "docs/vnext/evidence/P03/runtime"
+  },
+  "started_at": "2026-09-12T22:00:33.165259+00:00",
+  "elapsed_seconds": 19.37085562502034,
+  "exit_code": 0,
+  "candidate_tree": "7e9aa747ee07a8af412124707dcaeabc98942af3",
+  "code_sha": "dcf5cc2903622a02b023f545e3e4c1585004ae59",
+  "output": "final-pytest.txt",
+  "junit": "final-junit.xml",
+  "first_final_candidate_run": true,
+  "binding": "The first final run tested the staged source tree; this commit has the identical tree, with no source edits after that run."
+}

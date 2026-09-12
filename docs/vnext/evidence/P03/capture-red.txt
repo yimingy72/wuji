@@ -1,0 +1,1792 @@
+FFFFFFFFFFFFFFFFFFFFFFFFF                                                [100%]
+=================================== FAILURES ===================================
+____________________ test_agent_cannot_use_capture_endpoint ____________________
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/support/p03.py:14: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.evidence.artifacts', package = None
+
+    def import_module(name, package=None):
+        """Import a module.
+    
+        The 'package' argument is required when performing a relative import. It
+        specifies the package to use as the anchor point from which to resolve the
+        relative import to an absolute import.
+    
+        """
+        level = 0
+        if name.startswith('.'):
+            if not package:
+                raise TypeError("the 'package' argument is required to perform a "
+                                f"relative import for {name!r}")
+            for character in name:
+                if character != '.':
+                    break
+                level += 1
+>       return _bootstrap._gcd_import(name[level:], package, level)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ModuleNotFoundError: No module named 'wuji_core.evidence.artifacts'
+
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x1129481a0>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_agent_cannot_use_capture_0')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_agent_cannot_use_capture_0')
+test_tokens = TestTokens(agent='eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6IjU5NmZiODlhMTUzYzc5Y2YifQ.eyJpc3MiOiJodHRwczovL2lkZW50a...id', audience='wuji-vnext-tests', public_key_sha256='596fb89a153c79cf28aa53d8779d139acf7b8340c89bdc8fa2cce8a85b8c66e2')
+
+    def test_agent_cannot_use_capture_endpoint(db_environment,tmp_path,audit_directory,test_tokens):
+>       with capture_case(db_environment,tmp_path,audit_directory,test_tokens) as c:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_capture_transactions.py:25: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/vnext/support/p03.py:65: in capture_case
+    store = module('evidence.artifacts').ArtifactStore(uow, tmp_path / 'objects')
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           assert False, f'P03 production module absent: {error.name}'
+                   ^^^^^
+E           AssertionError: P03 production module absent: wuji_core.evidence.artifacts
+
+tests/vnext/support/p03.py:16: AssertionError
+__ test_bound_collector_persists_one_observation_all_bytes_without_extractor ___
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/support/p03.py:14: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.evidence.artifacts', package = None
+
+    def import_module(name, package=None):
+        """Import a module.
+    
+        The 'package' argument is required when performing a relative import. It
+        specifies the package to use as the anchor point from which to resolve the
+        relative import to an absolute import.
+    
+        """
+        level = 0
+        if name.startswith('.'):
+            if not package:
+                raise TypeError("the 'package' argument is required to perform a "
+                                f"relative import for {name!r}")
+            for character in name:
+                if character != '.':
+                    break
+                level += 1
+>       return _bootstrap._gcd_import(name[level:], package, level)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ModuleNotFoundError: No module named 'wuji_core.evidence.artifacts'
+
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x111fcafd0>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_bound_collector_persists_0')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_bound_collector_persists_0')
+test_tokens = TestTokens(agent='eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6IjBlMjI0MzI1N2QzMDNmNDkifQ.eyJpc3MiOiJodHRwczovL2lkZW50a...id', audience='wuji-vnext-tests', public_key_sha256='0e2243257d303f496ef81c457f01823da2c7d2796b85958708fbc720cf387d8e')
+
+    def test_bound_collector_persists_one_observation_all_bytes_without_extractor(db_environment,tmp_path,audit_directory,test_tokens):
+>       with capture_case(db_environment,tmp_path,audit_directory,test_tokens) as c:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_capture_transactions.py:32: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/vnext/support/p03.py:65: in capture_case
+    store = module('evidence.artifacts').ArtifactStore(uow, tmp_path / 'objects')
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           assert False, f'P03 production module absent: {error.name}'
+                   ^^^^^
+E           AssertionError: P03 production module absent: wuji_core.evidence.artifacts
+
+tests/vnext/support/p03.py:16: AssertionError
+______ test_replay_is_stable_and_conflicting_arrays_or_text_are_rejected _______
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/support/p03.py:14: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.evidence.artifacts', package = None
+
+    def import_module(name, package=None):
+        """Import a module.
+    
+        The 'package' argument is required when performing a relative import. It
+        specifies the package to use as the anchor point from which to resolve the
+        relative import to an absolute import.
+    
+        """
+        level = 0
+        if name.startswith('.'):
+            if not package:
+                raise TypeError("the 'package' argument is required to perform a "
+                                f"relative import for {name!r}")
+            for character in name:
+                if character != '.':
+                    break
+                level += 1
+>       return _bootstrap._gcd_import(name[level:], package, level)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ModuleNotFoundError: No module named 'wuji_core.evidence.artifacts'
+
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x112c9c410>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_replay_is_stable_and_conf0')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_replay_is_stable_and_conf0')
+test_tokens = TestTokens(agent='eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6IjUwYjg0N2YyZWU5MDg4ZjUifQ.eyJpc3MiOiJodHRwczovL2lkZW50a...id', audience='wuji-vnext-tests', public_key_sha256='50b847f2ee9088f59850d16ef5877525f60e8451dffda6f69c0b0b4671bdc0fe')
+
+    def test_replay_is_stable_and_conflicting_arrays_or_text_are_rejected(db_environment,tmp_path,audit_directory,test_tokens):
+>       with capture_case(db_environment,tmp_path,audit_directory,test_tokens) as c:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_capture_transactions.py:58: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/vnext/support/p03.py:65: in capture_case
+    store = module('evidence.artifacts').ArtifactStore(uow, tmp_path / 'objects')
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           assert False, f'P03 production module absent: {error.name}'
+                   ^^^^^
+E           AssertionError: P03 production module absent: wuji_core.evidence.artifacts
+
+tests/vnext/support/p03.py:16: AssertionError
+_ test_capture_rejects_unbound_or_mismatched_identity[tenant_id-tenant-other] __
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/support/p03.py:14: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.evidence.artifacts', package = None
+
+    def import_module(name, package=None):
+        """Import a module.
+    
+        The 'package' argument is required when performing a relative import. It
+        specifies the package to use as the anchor point from which to resolve the
+        relative import to an absolute import.
+    
+        """
+        level = 0
+        if name.startswith('.'):
+            if not package:
+                raise TypeError("the 'package' argument is required to perform a "
+                                f"relative import for {name!r}")
+            for character in name:
+                if character != '.':
+                    break
+                level += 1
+>       return _bootstrap._gcd_import(name[level:], package, level)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ModuleNotFoundError: No module named 'wuji_core.evidence.artifacts'
+
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x111fd2650>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_capture_rejects_unbound_o0')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_capture_rejects_unbound_o0')
+test_tokens = TestTokens(agent='eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6ImQwZmMwNmRiMWUyN2QyY2IifQ.eyJpc3MiOiJodHRwczovL2lkZW50a...id', audience='wuji-vnext-tests', public_key_sha256='d0fc06db1e27d2cb592b1887be956a0c6d41a4b8c47138293e577817d36ab28f')
+key = 'tenant_id', value = 'tenant-other'
+
+    @pytest.mark.parametrize('key,value', [('tenant_id','tenant-other'),('project_id','project-other'),('task_id','task-sibling'),('work_item_id','work-b'),('agent_run_id','missing'),('receiver_id','other'),('execution_epoch','2'),('run_epoch','2'),('runtime_attempt','2'),('tool_call_id','provider-opaque-call'),('tool_attempt_id','missing')])
+    def test_capture_rejects_unbound_or_mismatched_identity(db_environment,tmp_path,audit_directory,test_tokens,key,value):
+>       with capture_case(db_environment,tmp_path,audit_directory,test_tokens) as c:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_capture_transactions.py:73: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/vnext/support/p03.py:65: in capture_case
+    store = module('evidence.artifacts').ArtifactStore(uow, tmp_path / 'objects')
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           assert False, f'P03 production module absent: {error.name}'
+                   ^^^^^
+E           AssertionError: P03 production module absent: wuji_core.evidence.artifacts
+
+tests/vnext/support/p03.py:16: AssertionError
+_ test_capture_rejects_unbound_or_mismatched_identity[project_id-project-other] _
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/support/p03.py:14: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.evidence.artifacts', package = None
+
+    def import_module(name, package=None):
+        """Import a module.
+    
+        The 'package' argument is required when performing a relative import. It
+        specifies the package to use as the anchor point from which to resolve the
+        relative import to an absolute import.
+    
+        """
+        level = 0
+        if name.startswith('.'):
+            if not package:
+                raise TypeError("the 'package' argument is required to perform a "
+                                f"relative import for {name!r}")
+            for character in name:
+                if character != '.':
+                    break
+                level += 1
+>       return _bootstrap._gcd_import(name[level:], package, level)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ModuleNotFoundError: No module named 'wuji_core.evidence.artifacts'
+
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x111fd2c40>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_capture_rejects_unbound_o1')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_capture_rejects_unbound_o1')
+test_tokens = TestTokens(agent='eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6IjhmZmU2Y2M4NTVmNTMzMDEifQ.eyJpc3MiOiJodHRwczovL2lkZW50a...id', audience='wuji-vnext-tests', public_key_sha256='8ffe6cc855f53301648acaa13d2620d00033772467af2db96dc45301c569c3df')
+key = 'project_id', value = 'project-other'
+
+    @pytest.mark.parametrize('key,value', [('tenant_id','tenant-other'),('project_id','project-other'),('task_id','task-sibling'),('work_item_id','work-b'),('agent_run_id','missing'),('receiver_id','other'),('execution_epoch','2'),('run_epoch','2'),('runtime_attempt','2'),('tool_call_id','provider-opaque-call'),('tool_attempt_id','missing')])
+    def test_capture_rejects_unbound_or_mismatched_identity(db_environment,tmp_path,audit_directory,test_tokens,key,value):
+>       with capture_case(db_environment,tmp_path,audit_directory,test_tokens) as c:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_capture_transactions.py:73: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/vnext/support/p03.py:65: in capture_case
+    store = module('evidence.artifacts').ArtifactStore(uow, tmp_path / 'objects')
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           assert False, f'P03 production module absent: {error.name}'
+                   ^^^^^
+E           AssertionError: P03 production module absent: wuji_core.evidence.artifacts
+
+tests/vnext/support/p03.py:16: AssertionError
+__ test_capture_rejects_unbound_or_mismatched_identity[task_id-task-sibling] ___
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/support/p03.py:14: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.evidence.artifacts', package = None
+
+    def import_module(name, package=None):
+        """Import a module.
+    
+        The 'package' argument is required when performing a relative import. It
+        specifies the package to use as the anchor point from which to resolve the
+        relative import to an absolute import.
+    
+        """
+        level = 0
+        if name.startswith('.'):
+            if not package:
+                raise TypeError("the 'package' argument is required to perform a "
+                                f"relative import for {name!r}")
+            for character in name:
+                if character != '.':
+                    break
+                level += 1
+>       return _bootstrap._gcd_import(name[level:], package, level)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ModuleNotFoundError: No module named 'wuji_core.evidence.artifacts'
+
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x1129315b0>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_capture_rejects_unbound_o2')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_capture_rejects_unbound_o2')
+test_tokens = TestTokens(agent='eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6ImQxZDU1MjgyZGM2ZDcwMDQifQ.eyJpc3MiOiJodHRwczovL2lkZW50a...id', audience='wuji-vnext-tests', public_key_sha256='d1d55282dc6d7004741233ce8285404985e9416e2dbc8df092bec0358eeb8ad8')
+key = 'task_id', value = 'task-sibling'
+
+    @pytest.mark.parametrize('key,value', [('tenant_id','tenant-other'),('project_id','project-other'),('task_id','task-sibling'),('work_item_id','work-b'),('agent_run_id','missing'),('receiver_id','other'),('execution_epoch','2'),('run_epoch','2'),('runtime_attempt','2'),('tool_call_id','provider-opaque-call'),('tool_attempt_id','missing')])
+    def test_capture_rejects_unbound_or_mismatched_identity(db_environment,tmp_path,audit_directory,test_tokens,key,value):
+>       with capture_case(db_environment,tmp_path,audit_directory,test_tokens) as c:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_capture_transactions.py:73: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/vnext/support/p03.py:65: in capture_case
+    store = module('evidence.artifacts').ArtifactStore(uow, tmp_path / 'objects')
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           assert False, f'P03 production module absent: {error.name}'
+                   ^^^^^
+E           AssertionError: P03 production module absent: wuji_core.evidence.artifacts
+
+tests/vnext/support/p03.py:16: AssertionError
+___ test_capture_rejects_unbound_or_mismatched_identity[work_item_id-work-b] ___
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/support/p03.py:14: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.evidence.artifacts', package = None
+
+    def import_module(name, package=None):
+        """Import a module.
+    
+        The 'package' argument is required when performing a relative import. It
+        specifies the package to use as the anchor point from which to resolve the
+        relative import to an absolute import.
+    
+        """
+        level = 0
+        if name.startswith('.'):
+            if not package:
+                raise TypeError("the 'package' argument is required to perform a "
+                                f"relative import for {name!r}")
+            for character in name:
+                if character != '.':
+                    break
+                level += 1
+>       return _bootstrap._gcd_import(name[level:], package, level)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ModuleNotFoundError: No module named 'wuji_core.evidence.artifacts'
+
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x1129127a0>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_capture_rejects_unbound_o3')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_capture_rejects_unbound_o3')
+test_tokens = TestTokens(agent='eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6IjY0M2UyZTRjOTAxZTRjMTMifQ.eyJpc3MiOiJodHRwczovL2lkZW50a...id', audience='wuji-vnext-tests', public_key_sha256='643e2e4c901e4c138ccbc503d090fe885624d2e483e3d0d7a9eb1b343489d487')
+key = 'work_item_id', value = 'work-b'
+
+    @pytest.mark.parametrize('key,value', [('tenant_id','tenant-other'),('project_id','project-other'),('task_id','task-sibling'),('work_item_id','work-b'),('agent_run_id','missing'),('receiver_id','other'),('execution_epoch','2'),('run_epoch','2'),('runtime_attempt','2'),('tool_call_id','provider-opaque-call'),('tool_attempt_id','missing')])
+    def test_capture_rejects_unbound_or_mismatched_identity(db_environment,tmp_path,audit_directory,test_tokens,key,value):
+>       with capture_case(db_environment,tmp_path,audit_directory,test_tokens) as c:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_capture_transactions.py:73: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/vnext/support/p03.py:65: in capture_case
+    store = module('evidence.artifacts').ArtifactStore(uow, tmp_path / 'objects')
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           assert False, f'P03 production module absent: {error.name}'
+                   ^^^^^
+E           AssertionError: P03 production module absent: wuji_core.evidence.artifacts
+
+tests/vnext/support/p03.py:16: AssertionError
+__ test_capture_rejects_unbound_or_mismatched_identity[agent_run_id-missing] ___
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/support/p03.py:14: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.evidence.artifacts', package = None
+
+    def import_module(name, package=None):
+        """Import a module.
+    
+        The 'package' argument is required when performing a relative import. It
+        specifies the package to use as the anchor point from which to resolve the
+        relative import to an absolute import.
+    
+        """
+        level = 0
+        if name.startswith('.'):
+            if not package:
+                raise TypeError("the 'package' argument is required to perform a "
+                                f"relative import for {name!r}")
+            for character in name:
+                if character != '.':
+                    break
+                level += 1
+>       return _bootstrap._gcd_import(name[level:], package, level)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ModuleNotFoundError: No module named 'wuji_core.evidence.artifacts'
+
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x112913020>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_capture_rejects_unbound_o4')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_capture_rejects_unbound_o4')
+test_tokens = TestTokens(agent='eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6ImQ2Nzg3YmRiM2UyMWY0ZjMifQ.eyJpc3MiOiJodHRwczovL2lkZW50a...id', audience='wuji-vnext-tests', public_key_sha256='d6787bdb3e21f4f3246d688ea7c5a1e12aad6e17fe25d67828b76a14979d5bb8')
+key = 'agent_run_id', value = 'missing'
+
+    @pytest.mark.parametrize('key,value', [('tenant_id','tenant-other'),('project_id','project-other'),('task_id','task-sibling'),('work_item_id','work-b'),('agent_run_id','missing'),('receiver_id','other'),('execution_epoch','2'),('run_epoch','2'),('runtime_attempt','2'),('tool_call_id','provider-opaque-call'),('tool_attempt_id','missing')])
+    def test_capture_rejects_unbound_or_mismatched_identity(db_environment,tmp_path,audit_directory,test_tokens,key,value):
+>       with capture_case(db_environment,tmp_path,audit_directory,test_tokens) as c:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_capture_transactions.py:73: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/vnext/support/p03.py:65: in capture_case
+    store = module('evidence.artifacts').ArtifactStore(uow, tmp_path / 'objects')
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           assert False, f'P03 production module absent: {error.name}'
+                   ^^^^^
+E           AssertionError: P03 production module absent: wuji_core.evidence.artifacts
+
+tests/vnext/support/p03.py:16: AssertionError
+____ test_capture_rejects_unbound_or_mismatched_identity[receiver_id-other] ____
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/support/p03.py:14: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.evidence.artifacts', package = None
+
+    def import_module(name, package=None):
+        """Import a module.
+    
+        The 'package' argument is required when performing a relative import. It
+        specifies the package to use as the anchor point from which to resolve the
+        relative import to an absolute import.
+    
+        """
+        level = 0
+        if name.startswith('.'):
+            if not package:
+                raise TypeError("the 'package' argument is required to perform a "
+                                f"relative import for {name!r}")
+            for character in name:
+                if character != '.':
+                    break
+                level += 1
+>       return _bootstrap._gcd_import(name[level:], package, level)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ModuleNotFoundError: No module named 'wuji_core.evidence.artifacts'
+
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x112b64150>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_capture_rejects_unbound_o5')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_capture_rejects_unbound_o5')
+test_tokens = TestTokens(agent='eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6IjY0MDE0MzY4ZGU5NWY4MmIifQ.eyJpc3MiOiJodHRwczovL2lkZW50a...id', audience='wuji-vnext-tests', public_key_sha256='64014368de95f82b715df006256cae684001bd3e7408893480cf7c4368574019')
+key = 'receiver_id', value = 'other'
+
+    @pytest.mark.parametrize('key,value', [('tenant_id','tenant-other'),('project_id','project-other'),('task_id','task-sibling'),('work_item_id','work-b'),('agent_run_id','missing'),('receiver_id','other'),('execution_epoch','2'),('run_epoch','2'),('runtime_attempt','2'),('tool_call_id','provider-opaque-call'),('tool_attempt_id','missing')])
+    def test_capture_rejects_unbound_or_mismatched_identity(db_environment,tmp_path,audit_directory,test_tokens,key,value):
+>       with capture_case(db_environment,tmp_path,audit_directory,test_tokens) as c:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_capture_transactions.py:73: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/vnext/support/p03.py:65: in capture_case
+    store = module('evidence.artifacts').ArtifactStore(uow, tmp_path / 'objects')
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           assert False, f'P03 production module absent: {error.name}'
+                   ^^^^^
+E           AssertionError: P03 production module absent: wuji_core.evidence.artifacts
+
+tests/vnext/support/p03.py:16: AssertionError
+____ test_capture_rejects_unbound_or_mismatched_identity[execution_epoch-2] ____
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/support/p03.py:14: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.evidence.artifacts', package = None
+
+    def import_module(name, package=None):
+        """Import a module.
+    
+        The 'package' argument is required when performing a relative import. It
+        specifies the package to use as the anchor point from which to resolve the
+        relative import to an absolute import.
+    
+        """
+        level = 0
+        if name.startswith('.'):
+            if not package:
+                raise TypeError("the 'package' argument is required to perform a "
+                                f"relative import for {name!r}")
+            for character in name:
+                if character != '.':
+                    break
+                level += 1
+>       return _bootstrap._gcd_import(name[level:], package, level)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ModuleNotFoundError: No module named 'wuji_core.evidence.artifacts'
+
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x111fdb350>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_capture_rejects_unbound_o6')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_capture_rejects_unbound_o6')
+test_tokens = TestTokens(agent='eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6IjY2MTQ0YWZhM2U0OWYwNzUifQ.eyJpc3MiOiJodHRwczovL2lkZW50a...id', audience='wuji-vnext-tests', public_key_sha256='66144afa3e49f075868e223b51e2633cf95d109b44909aa32560f40997805674')
+key = 'execution_epoch', value = '2'
+
+    @pytest.mark.parametrize('key,value', [('tenant_id','tenant-other'),('project_id','project-other'),('task_id','task-sibling'),('work_item_id','work-b'),('agent_run_id','missing'),('receiver_id','other'),('execution_epoch','2'),('run_epoch','2'),('runtime_attempt','2'),('tool_call_id','provider-opaque-call'),('tool_attempt_id','missing')])
+    def test_capture_rejects_unbound_or_mismatched_identity(db_environment,tmp_path,audit_directory,test_tokens,key,value):
+>       with capture_case(db_environment,tmp_path,audit_directory,test_tokens) as c:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_capture_transactions.py:73: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/vnext/support/p03.py:65: in capture_case
+    store = module('evidence.artifacts').ArtifactStore(uow, tmp_path / 'objects')
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           assert False, f'P03 production module absent: {error.name}'
+                   ^^^^^
+E           AssertionError: P03 production module absent: wuji_core.evidence.artifacts
+
+tests/vnext/support/p03.py:16: AssertionError
+_______ test_capture_rejects_unbound_or_mismatched_identity[run_epoch-2] _______
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/support/p03.py:14: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.evidence.artifacts', package = None
+
+    def import_module(name, package=None):
+        """Import a module.
+    
+        The 'package' argument is required when performing a relative import. It
+        specifies the package to use as the anchor point from which to resolve the
+        relative import to an absolute import.
+    
+        """
+        level = 0
+        if name.startswith('.'):
+            if not package:
+                raise TypeError("the 'package' argument is required to perform a "
+                                f"relative import for {name!r}")
+            for character in name:
+                if character != '.':
+                    break
+                level += 1
+>       return _bootstrap._gcd_import(name[level:], package, level)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ModuleNotFoundError: No module named 'wuji_core.evidence.artifacts'
+
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x1129c99a0>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_capture_rejects_unbound_o7')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_capture_rejects_unbound_o7')
+test_tokens = TestTokens(agent='eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6IjU0MDc1Y2I4ODgxNTZjYWIifQ.eyJpc3MiOiJodHRwczovL2lkZW50a...id', audience='wuji-vnext-tests', public_key_sha256='54075cb888156cab2341784f7cabe8603ea45e14cd70178ee4e2c7715480bed0')
+key = 'run_epoch', value = '2'
+
+    @pytest.mark.parametrize('key,value', [('tenant_id','tenant-other'),('project_id','project-other'),('task_id','task-sibling'),('work_item_id','work-b'),('agent_run_id','missing'),('receiver_id','other'),('execution_epoch','2'),('run_epoch','2'),('runtime_attempt','2'),('tool_call_id','provider-opaque-call'),('tool_attempt_id','missing')])
+    def test_capture_rejects_unbound_or_mismatched_identity(db_environment,tmp_path,audit_directory,test_tokens,key,value):
+>       with capture_case(db_environment,tmp_path,audit_directory,test_tokens) as c:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_capture_transactions.py:73: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/vnext/support/p03.py:65: in capture_case
+    store = module('evidence.artifacts').ArtifactStore(uow, tmp_path / 'objects')
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           assert False, f'P03 production module absent: {error.name}'
+                   ^^^^^
+E           AssertionError: P03 production module absent: wuji_core.evidence.artifacts
+
+tests/vnext/support/p03.py:16: AssertionError
+____ test_capture_rejects_unbound_or_mismatched_identity[runtime_attempt-2] ____
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/support/p03.py:14: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.evidence.artifacts', package = None
+
+    def import_module(name, package=None):
+        """Import a module.
+    
+        The 'package' argument is required when performing a relative import. It
+        specifies the package to use as the anchor point from which to resolve the
+        relative import to an absolute import.
+    
+        """
+        level = 0
+        if name.startswith('.'):
+            if not package:
+                raise TypeError("the 'package' argument is required to perform a "
+                                f"relative import for {name!r}")
+            for character in name:
+                if character != '.':
+                    break
+                level += 1
+>       return _bootstrap._gcd_import(name[level:], package, level)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ModuleNotFoundError: No module named 'wuji_core.evidence.artifacts'
+
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x1129c94f0>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_capture_rejects_unbound_o8')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_capture_rejects_unbound_o8')
+test_tokens = TestTokens(agent='eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6IjhkN2VhMDczOGY3ODRiYTgifQ.eyJpc3MiOiJodHRwczovL2lkZW50a...id', audience='wuji-vnext-tests', public_key_sha256='8d7ea0738f784ba87905e88c89c36268f67c4d38e932ced85c5a98ea4e2df95f')
+key = 'runtime_attempt', value = '2'
+
+    @pytest.mark.parametrize('key,value', [('tenant_id','tenant-other'),('project_id','project-other'),('task_id','task-sibling'),('work_item_id','work-b'),('agent_run_id','missing'),('receiver_id','other'),('execution_epoch','2'),('run_epoch','2'),('runtime_attempt','2'),('tool_call_id','provider-opaque-call'),('tool_attempt_id','missing')])
+    def test_capture_rejects_unbound_or_mismatched_identity(db_environment,tmp_path,audit_directory,test_tokens,key,value):
+>       with capture_case(db_environment,tmp_path,audit_directory,test_tokens) as c:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_capture_transactions.py:73: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/vnext/support/p03.py:65: in capture_case
+    store = module('evidence.artifacts').ArtifactStore(uow, tmp_path / 'objects')
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           assert False, f'P03 production module absent: {error.name}'
+                   ^^^^^
+E           AssertionError: P03 production module absent: wuji_core.evidence.artifacts
+
+tests/vnext/support/p03.py:16: AssertionError
+_ test_capture_rejects_unbound_or_mismatched_identity[tool_call_id-provider-opaque-call] _
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/support/p03.py:14: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.evidence.artifacts', package = None
+
+    def import_module(name, package=None):
+        """Import a module.
+    
+        The 'package' argument is required when performing a relative import. It
+        specifies the package to use as the anchor point from which to resolve the
+        relative import to an absolute import.
+    
+        """
+        level = 0
+        if name.startswith('.'):
+            if not package:
+                raise TypeError("the 'package' argument is required to perform a "
+                                f"relative import for {name!r}")
+            for character in name:
+                if character != '.':
+                    break
+                level += 1
+>       return _bootstrap._gcd_import(name[level:], package, level)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ModuleNotFoundError: No module named 'wuji_core.evidence.artifacts'
+
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x1129a2970>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_capture_rejects_unbound_o9')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_capture_rejects_unbound_o9')
+test_tokens = TestTokens(agent='eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6IjUzYjdlMDZhZDEwYjk4NDcifQ.eyJpc3MiOiJodHRwczovL2lkZW50a...id', audience='wuji-vnext-tests', public_key_sha256='53b7e06ad10b9847090c7476813af8d15b5844abba89217e21bff6ebaf9e0a4e')
+key = 'tool_call_id', value = 'provider-opaque-call'
+
+    @pytest.mark.parametrize('key,value', [('tenant_id','tenant-other'),('project_id','project-other'),('task_id','task-sibling'),('work_item_id','work-b'),('agent_run_id','missing'),('receiver_id','other'),('execution_epoch','2'),('run_epoch','2'),('runtime_attempt','2'),('tool_call_id','provider-opaque-call'),('tool_attempt_id','missing')])
+    def test_capture_rejects_unbound_or_mismatched_identity(db_environment,tmp_path,audit_directory,test_tokens,key,value):
+>       with capture_case(db_environment,tmp_path,audit_directory,test_tokens) as c:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_capture_transactions.py:73: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/vnext/support/p03.py:65: in capture_case
+    store = module('evidence.artifacts').ArtifactStore(uow, tmp_path / 'objects')
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           assert False, f'P03 production module absent: {error.name}'
+                   ^^^^^
+E           AssertionError: P03 production module absent: wuji_core.evidence.artifacts
+
+tests/vnext/support/p03.py:16: AssertionError
+_ test_capture_rejects_unbound_or_mismatched_identity[tool_attempt_id-missing] _
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/support/p03.py:14: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.evidence.artifacts', package = None
+
+    def import_module(name, package=None):
+        """Import a module.
+    
+        The 'package' argument is required when performing a relative import. It
+        specifies the package to use as the anchor point from which to resolve the
+        relative import to an absolute import.
+    
+        """
+        level = 0
+        if name.startswith('.'):
+            if not package:
+                raise TypeError("the 'package' argument is required to perform a "
+                                f"relative import for {name!r}")
+            for character in name:
+                if character != '.':
+                    break
+                level += 1
+>       return _bootstrap._gcd_import(name[level:], package, level)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ModuleNotFoundError: No module named 'wuji_core.evidence.artifacts'
+
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x1129809f0>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_capture_rejects_unbound_o10')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_capture_rejects_unbound_o10')
+test_tokens = TestTokens(agent='eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6IjcwYzBkMGQ1ZWE0YzNhNmEifQ.eyJpc3MiOiJodHRwczovL2lkZW50a...id', audience='wuji-vnext-tests', public_key_sha256='70c0d0d5ea4c3a6a0f87b1590f17452f60a731c1f1e9d6d993c4b99d4f75785d')
+key = 'tool_attempt_id', value = 'missing'
+
+    @pytest.mark.parametrize('key,value', [('tenant_id','tenant-other'),('project_id','project-other'),('task_id','task-sibling'),('work_item_id','work-b'),('agent_run_id','missing'),('receiver_id','other'),('execution_epoch','2'),('run_epoch','2'),('runtime_attempt','2'),('tool_call_id','provider-opaque-call'),('tool_attempt_id','missing')])
+    def test_capture_rejects_unbound_or_mismatched_identity(db_environment,tmp_path,audit_directory,test_tokens,key,value):
+>       with capture_case(db_environment,tmp_path,audit_directory,test_tokens) as c:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_capture_transactions.py:73: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/vnext/support/p03.py:65: in capture_case
+    store = module('evidence.artifacts').ArtifactStore(uow, tmp_path / 'objects')
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           assert False, f'P03 production module absent: {error.name}'
+                   ^^^^^
+E           AssertionError: P03 production module absent: wuji_core.evidence.artifacts
+
+tests/vnext/support/p03.py:16: AssertionError
+__________ test_evidence_requires_capture_id_as_idempotency_key[None] __________
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/support/p03.py:14: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.evidence.artifacts', package = None
+
+    def import_module(name, package=None):
+        """Import a module.
+    
+        The 'package' argument is required when performing a relative import. It
+        specifies the package to use as the anchor point from which to resolve the
+        relative import to an absolute import.
+    
+        """
+        level = 0
+        if name.startswith('.'):
+            if not package:
+                raise TypeError("the 'package' argument is required to perform a "
+                                f"relative import for {name!r}")
+            for character in name:
+                if character != '.':
+                    break
+                level += 1
+>       return _bootstrap._gcd_import(name[level:], package, level)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ModuleNotFoundError: No module named 'wuji_core.evidence.artifacts'
+
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x11291e4e0>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_evidence_requires_capture0')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_evidence_requires_capture0')
+test_tokens = TestTokens(agent='eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6IjE5YzI1ZWVhYzRjOTNiNGUifQ.eyJpc3MiOiJodHRwczovL2lkZW50a...id', audience='wuji-vnext-tests', public_key_sha256='19c25eeac4c93b4eb5fabe120d2cf0f14ecb095b203696c7d2ecfc37a9548340')
+key = None
+
+    @pytest.mark.parametrize('key', [None,'different-operation'])
+    def test_evidence_requires_capture_id_as_idempotency_key(db_environment,tmp_path,audit_directory,test_tokens,key):
+>       with capture_case(db_environment,tmp_path,audit_directory,test_tokens) as c:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_capture_transactions.py:84: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/vnext/support/p03.py:65: in capture_case
+    store = module('evidence.artifacts').ArtifactStore(uow, tmp_path / 'objects')
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           assert False, f'P03 production module absent: {error.name}'
+                   ^^^^^
+E           AssertionError: P03 production module absent: wuji_core.evidence.artifacts
+
+tests/vnext/support/p03.py:16: AssertionError
+__ test_evidence_requires_capture_id_as_idempotency_key[different-operation] ___
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/support/p03.py:14: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.evidence.artifacts', package = None
+
+    def import_module(name, package=None):
+        """Import a module.
+    
+        The 'package' argument is required when performing a relative import. It
+        specifies the package to use as the anchor point from which to resolve the
+        relative import to an absolute import.
+    
+        """
+        level = 0
+        if name.startswith('.'):
+            if not package:
+                raise TypeError("the 'package' argument is required to perform a "
+                                f"relative import for {name!r}")
+            for character in name:
+                if character != '.':
+                    break
+                level += 1
+>       return _bootstrap._gcd_import(name[level:], package, level)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ModuleNotFoundError: No module named 'wuji_core.evidence.artifacts'
+
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x1129e0c50>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_evidence_requires_capture1')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_evidence_requires_capture1')
+test_tokens = TestTokens(agent='eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6ImQ3Y2RkNmE1YTQzYWJjOTkifQ.eyJpc3MiOiJodHRwczovL2lkZW50a...id', audience='wuji-vnext-tests', public_key_sha256='d7cdd6a5a43abc99933784300c3cf6bf8b623ca6ac240522ad7965e50b49d7da')
+key = 'different-operation'
+
+    @pytest.mark.parametrize('key', [None,'different-operation'])
+    def test_evidence_requires_capture_id_as_idempotency_key(db_environment,tmp_path,audit_directory,test_tokens,key):
+>       with capture_case(db_environment,tmp_path,audit_directory,test_tokens) as c:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_capture_transactions.py:84: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/vnext/support/p03.py:65: in capture_case
+    store = module('evidence.artifacts').ArtifactStore(uow, tmp_path / 'objects')
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           assert False, f'P03 production module absent: {error.name}'
+                   ^^^^^
+E           AssertionError: P03 production module absent: wuji_core.evidence.artifacts
+
+tests/vnext/support/p03.py:16: AssertionError
+_________ test_replay_and_artifact_download_recheck_current_permission _________
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/support/p03.py:14: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.evidence.artifacts', package = None
+
+    def import_module(name, package=None):
+        """Import a module.
+    
+        The 'package' argument is required when performing a relative import. It
+        specifies the package to use as the anchor point from which to resolve the
+        relative import to an absolute import.
+    
+        """
+        level = 0
+        if name.startswith('.'):
+            if not package:
+                raise TypeError("the 'package' argument is required to perform a "
+                                f"relative import for {name!r}")
+            for character in name:
+                if character != '.':
+                    break
+                level += 1
+>       return _bootstrap._gcd_import(name[level:], package, level)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ModuleNotFoundError: No module named 'wuji_core.evidence.artifacts'
+
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x1129e0890>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_replay_and_artifact_downl0')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_replay_and_artifact_downl0')
+test_tokens = TestTokens(agent='eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6ImM5YWE0ZWZkZGNjMzVlZTkifQ.eyJpc3MiOiJodHRwczovL2lkZW50a...id', audience='wuji-vnext-tests', public_key_sha256='c9aa4efddcc35ee9ed0c532715818eac26cf8b2487bba86cb8ca9069010302c2')
+
+    def test_replay_and_artifact_download_recheck_current_permission(db_environment,tmp_path,audit_directory,test_tokens):
+>       with capture_case(db_environment,tmp_path,audit_directory,test_tokens) as c:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_capture_transactions.py:93: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/vnext/support/p03.py:65: in capture_case
+    store = module('evidence.artifacts').ArtifactStore(uow, tmp_path / 'objects')
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           assert False, f'P03 production module absent: {error.name}'
+                   ^^^^^
+E           AssertionError: P03 production module absent: wuji_core.evidence.artifacts
+
+tests/vnext/support/p03.py:16: AssertionError
+_ test_started_late_attempt_is_historical_only_with_settlement_authority[True] _
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/support/p03.py:14: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.evidence.artifacts', package = None
+
+    def import_module(name, package=None):
+        """Import a module.
+    
+        The 'package' argument is required when performing a relative import. It
+        specifies the package to use as the anchor point from which to resolve the
+        relative import to an absolute import.
+    
+        """
+        level = 0
+        if name.startswith('.'):
+            if not package:
+                raise TypeError("the 'package' argument is required to perform a "
+                                f"relative import for {name!r}")
+            for character in name:
+                if character != '.':
+                    break
+                level += 1
+>       return _bootstrap._gcd_import(name[level:], package, level)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ModuleNotFoundError: No module named 'wuji_core.evidence.artifacts'
+
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x1129d99c0>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_started_late_attempt_is_h0')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_started_late_attempt_is_h0')
+test_tokens = TestTokens(agent='eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6IjlkZDUyNmFjYzRhZTBhOTgifQ.eyJpc3MiOiJodHRwczovL2lkZW50a...id', audience='wuji-vnext-tests', public_key_sha256='9dd526acc4ae0a9861bb46ac417c9f7add7501a4e17d130ae4e06765e6c0f861')
+settlement = True
+
+    @pytest.mark.parametrize('settlement', [True,False])
+    def test_started_late_attempt_is_historical_only_with_settlement_authority(db_environment,tmp_path,audit_directory,test_tokens,settlement):
+>       with capture_case(db_environment,tmp_path,audit_directory,test_tokens) as c:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_capture_transactions.py:105: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/vnext/support/p03.py:65: in capture_case
+    store = module('evidence.artifacts').ArtifactStore(uow, tmp_path / 'objects')
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           assert False, f'P03 production module absent: {error.name}'
+                   ^^^^^
+E           AssertionError: P03 production module absent: wuji_core.evidence.artifacts
+
+tests/vnext/support/p03.py:16: AssertionError
+_ test_started_late_attempt_is_historical_only_with_settlement_authority[False] _
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/support/p03.py:14: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.evidence.artifacts', package = None
+
+    def import_module(name, package=None):
+        """Import a module.
+    
+        The 'package' argument is required when performing a relative import. It
+        specifies the package to use as the anchor point from which to resolve the
+        relative import to an absolute import.
+    
+        """
+        level = 0
+        if name.startswith('.'):
+            if not package:
+                raise TypeError("the 'package' argument is required to perform a "
+                                f"relative import for {name!r}")
+            for character in name:
+                if character != '.':
+                    break
+                level += 1
+>       return _bootstrap._gcd_import(name[level:], package, level)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ModuleNotFoundError: No module named 'wuji_core.evidence.artifacts'
+
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x1129dbe30>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_started_late_attempt_is_h1')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_started_late_attempt_is_h1')
+test_tokens = TestTokens(agent='eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6Ijg0Yzk3MzllNGQ5ZjZkOGQifQ.eyJpc3MiOiJodHRwczovL2lkZW50a...id', audience='wuji-vnext-tests', public_key_sha256='84c9739e4d9f6d8d58c8f479123dba22aab7b13440666afca7902ee871860153')
+settlement = False
+
+    @pytest.mark.parametrize('settlement', [True,False])
+    def test_started_late_attempt_is_historical_only_with_settlement_authority(db_environment,tmp_path,audit_directory,test_tokens,settlement):
+>       with capture_case(db_environment,tmp_path,audit_directory,test_tokens) as c:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_capture_transactions.py:105: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/vnext/support/p03.py:65: in capture_case
+    store = module('evidence.artifacts').ArtifactStore(uow, tmp_path / 'objects')
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           assert False, f'P03 production module absent: {error.name}'
+                   ^^^^^
+E           AssertionError: P03 production module absent: wuji_core.evidence.artifacts
+
+tests/vnext/support/p03.py:16: AssertionError
+________ test_capture_rejects_missing_or_changed_actual_bytes[missing] _________
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/support/p03.py:14: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.evidence.artifacts', package = None
+
+    def import_module(name, package=None):
+        """Import a module.
+    
+        The 'package' argument is required when performing a relative import. It
+        specifies the package to use as the anchor point from which to resolve the
+        relative import to an absolute import.
+    
+        """
+        level = 0
+        if name.startswith('.'):
+            if not package:
+                raise TypeError("the 'package' argument is required to perform a "
+                                f"relative import for {name!r}")
+            for character in name:
+                if character != '.':
+                    break
+                level += 1
+>       return _bootstrap._gcd_import(name[level:], package, level)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ModuleNotFoundError: No module named 'wuji_core.evidence.artifacts'
+
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x1129e8cd0>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_capture_rejects_missing_o0')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_capture_rejects_missing_o0')
+test_tokens = TestTokens(agent='eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6ImFlZDZhZWNmZWZhZGQzOWQifQ.eyJpc3MiOiJodHRwczovL2lkZW50a...id', audience='wuji-vnext-tests', public_key_sha256='aed6aecfefadd39d7bb00debda6590620f2d21e690968d28032476525892ed73')
+damage = 'missing'
+
+    @pytest.mark.parametrize('damage', ['missing','changed'])
+    def test_capture_rejects_missing_or_changed_actual_bytes(db_environment,tmp_path,audit_directory,test_tokens,damage):
+>       with capture_case(db_environment,tmp_path,audit_directory,test_tokens) as c:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_capture_transactions.py:121: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/vnext/support/p03.py:65: in capture_case
+    store = module('evidence.artifacts').ArtifactStore(uow, tmp_path / 'objects')
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           assert False, f'P03 production module absent: {error.name}'
+                   ^^^^^
+E           AssertionError: P03 production module absent: wuji_core.evidence.artifacts
+
+tests/vnext/support/p03.py:16: AssertionError
+________ test_capture_rejects_missing_or_changed_actual_bytes[changed] _________
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/support/p03.py:14: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.evidence.artifacts', package = None
+
+    def import_module(name, package=None):
+        """Import a module.
+    
+        The 'package' argument is required when performing a relative import. It
+        specifies the package to use as the anchor point from which to resolve the
+        relative import to an absolute import.
+    
+        """
+        level = 0
+        if name.startswith('.'):
+            if not package:
+                raise TypeError("the 'package' argument is required to perform a "
+                                f"relative import for {name!r}")
+            for character in name:
+                if character != '.':
+                    break
+                level += 1
+>       return _bootstrap._gcd_import(name[level:], package, level)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ModuleNotFoundError: No module named 'wuji_core.evidence.artifacts'
+
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x1129eb2f0>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_capture_rejects_missing_o1')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_capture_rejects_missing_o1')
+test_tokens = TestTokens(agent='eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6ImY4ODBhMjFkYjgzYmUyNTAifQ.eyJpc3MiOiJodHRwczovL2lkZW50a...id', audience='wuji-vnext-tests', public_key_sha256='f880a21db83be25026aef43ffb38074adce795b45e5bd116a679c8ad3abc95da')
+damage = 'changed'
+
+    @pytest.mark.parametrize('damage', ['missing','changed'])
+    def test_capture_rejects_missing_or_changed_actual_bytes(db_environment,tmp_path,audit_directory,test_tokens,damage):
+>       with capture_case(db_environment,tmp_path,audit_directory,test_tokens) as c:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_capture_transactions.py:121: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/vnext/support/p03.py:65: in capture_case
+    store = module('evidence.artifacts').ArtifactStore(uow, tmp_path / 'objects')
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           assert False, f'P03 production module absent: {error.name}'
+                   ^^^^^
+E           AssertionError: P03 production module absent: wuji_core.evidence.artifacts
+
+tests/vnext/support/p03.py:16: AssertionError
+____ test_capture_publication_database_failure_rolls_back_all_domain_state _____
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/support/p03.py:14: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.evidence.artifacts', package = None
+
+    def import_module(name, package=None):
+        """Import a module.
+    
+        The 'package' argument is required when performing a relative import. It
+        specifies the package to use as the anchor point from which to resolve the
+        relative import to an absolute import.
+    
+        """
+        level = 0
+        if name.startswith('.'):
+            if not package:
+                raise TypeError("the 'package' argument is required to perform a "
+                                f"relative import for {name!r}")
+            for character in name:
+                if character != '.':
+                    break
+                level += 1
+>       return _bootstrap._gcd_import(name[level:], package, level)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ModuleNotFoundError: No module named 'wuji_core.evidence.artifacts'
+
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x111fdf2f0>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_capture_publication_datab0')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_capture_publication_datab0')
+test_tokens = TestTokens(agent='eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6ImNlMjZmYTM4NDU4MjE4N2UifQ.eyJpc3MiOiJodHRwczovL2lkZW50a...id', audience='wuji-vnext-tests', public_key_sha256='ce26fa384582187eb06833bd8d50633d16712987d23c3228b3cb4700db51abcc')
+
+    def test_capture_publication_database_failure_rolls_back_all_domain_state(db_environment,tmp_path,audit_directory,test_tokens):
+>       with capture_case(db_environment,tmp_path,audit_directory,test_tokens) as c:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_capture_transactions.py:135: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/vnext/support/p03.py:65: in capture_case
+    store = module('evidence.artifacts').ArtifactStore(uow, tmp_path / 'objects')
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           assert False, f'P03 production module absent: {error.name}'
+                   ^^^^^
+E           AssertionError: P03 production module absent: wuji_core.evidence.artifacts
+
+tests/vnext/support/p03.py:16: AssertionError
+______ test_partial_output_and_source_axes_do_not_certify_business_truth _______
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/support/p03.py:14: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.evidence.artifacts', package = None
+
+    def import_module(name, package=None):
+        """Import a module.
+    
+        The 'package' argument is required when performing a relative import. It
+        specifies the package to use as the anchor point from which to resolve the
+        relative import to an absolute import.
+    
+        """
+        level = 0
+        if name.startswith('.'):
+            if not package:
+                raise TypeError("the 'package' argument is required to perform a "
+                                f"relative import for {name!r}")
+            for character in name:
+                if character != '.':
+                    break
+                level += 1
+>       return _bootstrap._gcd_import(name[level:], package, level)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ModuleNotFoundError: No module named 'wuji_core.evidence.artifacts'
+
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x112b18c50>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_partial_output_and_source0')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_partial_output_and_source0')
+test_tokens = TestTokens(agent='eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6ImZlM2E0MzUxM2E2Yjk0NmYifQ.eyJpc3MiOiJodHRwczovL2lkZW50a...id', audience='wuji-vnext-tests', public_key_sha256='fe3a43513a6b946fdfb4100e4b6513119d6638228e82a10202db19c924f282c9')
+
+    def test_partial_output_and_source_axes_do_not_certify_business_truth(db_environment,tmp_path,audit_directory,test_tokens):
+>       with capture_case(db_environment,tmp_path,audit_directory,test_tokens,completeness='partial') as c:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_capture_transactions.py:151: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/vnext/support/p03.py:65: in capture_case
+    store = module('evidence.artifacts').ArtifactStore(uow, tmp_path / 'objects')
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           assert False, f'P03 production module absent: {error.name}'
+                   ^^^^^
+E           AssertionError: P03 production module absent: wuji_core.evidence.artifacts
+
+tests/vnext/support/p03.py:16: AssertionError
+_ test_model_or_imported_bytes_cannot_be_laundered_into_capture[model_output] __
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/support/p03.py:14: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.evidence.artifacts', package = None
+
+    def import_module(name, package=None):
+        """Import a module.
+    
+        The 'package' argument is required when performing a relative import. It
+        specifies the package to use as the anchor point from which to resolve the
+        relative import to an absolute import.
+    
+        """
+        level = 0
+        if name.startswith('.'):
+            if not package:
+                raise TypeError("the 'package' argument is required to perform a "
+                                f"relative import for {name!r}")
+            for character in name:
+                if character != '.':
+                    break
+                level += 1
+>       return _bootstrap._gcd_import(name[level:], package, level)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ModuleNotFoundError: No module named 'wuji_core.evidence.artifacts'
+
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x112c10bd0>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_model_or_imported_bytes_c0')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_model_or_imported_bytes_c0')
+test_tokens = TestTokens(agent='eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6ImQyZjYxMjg4N2I2NmEzNWUifQ.eyJpc3MiOiJodHRwczovL2lkZW50a...id', audience='wuji-vnext-tests', public_key_sha256='d2f612887b66a35ec79433f1862027c82e8d87deedab3017a42feebf128dcc0b')
+provenance = 'model_output'
+
+    @pytest.mark.parametrize('provenance', ['model_output','import'])
+    def test_model_or_imported_bytes_cannot_be_laundered_into_capture(db_environment,tmp_path,audit_directory,test_tokens,provenance):
+>       with capture_case(db_environment,tmp_path,audit_directory,test_tokens,provenance=provenance) as c:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_capture_transactions.py:165: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/vnext/support/p03.py:65: in capture_case
+    store = module('evidence.artifacts').ArtifactStore(uow, tmp_path / 'objects')
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           assert False, f'P03 production module absent: {error.name}'
+                   ^^^^^
+E           AssertionError: P03 production module absent: wuji_core.evidence.artifacts
+
+tests/vnext/support/p03.py:16: AssertionError
+____ test_model_or_imported_bytes_cannot_be_laundered_into_capture[import] _____
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/support/p03.py:14: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.evidence.artifacts', package = None
+
+    def import_module(name, package=None):
+        """Import a module.
+    
+        The 'package' argument is required when performing a relative import. It
+        specifies the package to use as the anchor point from which to resolve the
+        relative import to an absolute import.
+    
+        """
+        level = 0
+        if name.startswith('.'):
+            if not package:
+                raise TypeError("the 'package' argument is required to perform a "
+                                f"relative import for {name!r}")
+            for character in name:
+                if character != '.':
+                    break
+                level += 1
+>       return _bootstrap._gcd_import(name[level:], package, level)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ModuleNotFoundError: No module named 'wuji_core.evidence.artifacts'
+
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x112b4b850>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_model_or_imported_bytes_c1')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-57/test_model_or_imported_bytes_c1')
+test_tokens = TestTokens(agent='eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6ImE5NGRiMTkwMDUyN2Q2ZjMifQ.eyJpc3MiOiJodHRwczovL2lkZW50a...id', audience='wuji-vnext-tests', public_key_sha256='a94db1900527d6f3ff507f145c66c40cec944ac3d9087c15148e953f9d39bb9d')
+provenance = 'import'
+
+    @pytest.mark.parametrize('provenance', ['model_output','import'])
+    def test_model_or_imported_bytes_cannot_be_laundered_into_capture(db_environment,tmp_path,audit_directory,test_tokens,provenance):
+>       with capture_case(db_environment,tmp_path,audit_directory,test_tokens,provenance=provenance) as c:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_capture_transactions.py:165: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/vnext/support/p03.py:65: in capture_case
+    store = module('evidence.artifacts').ArtifactStore(uow, tmp_path / 'objects')
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'evidence.artifacts'
+
+    def module(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           assert False, f'P03 production module absent: {error.name}'
+                   ^^^^^
+E           AssertionError: P03 production module absent: wuji_core.evidence.artifacts
+
+tests/vnext/support/p03.py:16: AssertionError
+=========================== short test summary info ============================
+FAILED tests/vnext/test_capture_transactions.py::test_agent_cannot_use_capture_endpoint
+FAILED tests/vnext/test_capture_transactions.py::test_bound_collector_persists_one_observation_all_bytes_without_extractor
+FAILED tests/vnext/test_capture_transactions.py::test_replay_is_stable_and_conflicting_arrays_or_text_are_rejected
+FAILED tests/vnext/test_capture_transactions.py::test_capture_rejects_unbound_or_mismatched_identity[tenant_id-tenant-other]
+FAILED tests/vnext/test_capture_transactions.py::test_capture_rejects_unbound_or_mismatched_identity[project_id-project-other]
+FAILED tests/vnext/test_capture_transactions.py::test_capture_rejects_unbound_or_mismatched_identity[task_id-task-sibling]
+FAILED tests/vnext/test_capture_transactions.py::test_capture_rejects_unbound_or_mismatched_identity[work_item_id-work-b]
+FAILED tests/vnext/test_capture_transactions.py::test_capture_rejects_unbound_or_mismatched_identity[agent_run_id-missing]
+FAILED tests/vnext/test_capture_transactions.py::test_capture_rejects_unbound_or_mismatched_identity[receiver_id-other]
+FAILED tests/vnext/test_capture_transactions.py::test_capture_rejects_unbound_or_mismatched_identity[execution_epoch-2]
+FAILED tests/vnext/test_capture_transactions.py::test_capture_rejects_unbound_or_mismatched_identity[run_epoch-2]
+FAILED tests/vnext/test_capture_transactions.py::test_capture_rejects_unbound_or_mismatched_identity[runtime_attempt-2]
+FAILED tests/vnext/test_capture_transactions.py::test_capture_rejects_unbound_or_mismatched_identity[tool_call_id-provider-opaque-call]
+FAILED tests/vnext/test_capture_transactions.py::test_capture_rejects_unbound_or_mismatched_identity[tool_attempt_id-missing]
+FAILED tests/vnext/test_capture_transactions.py::test_evidence_requires_capture_id_as_idempotency_key[None]
+FAILED tests/vnext/test_capture_transactions.py::test_evidence_requires_capture_id_as_idempotency_key[different-operation]
+FAILED tests/vnext/test_capture_transactions.py::test_replay_and_artifact_download_recheck_current_permission
+FAILED tests/vnext/test_capture_transactions.py::test_started_late_attempt_is_historical_only_with_settlement_authority[True]
+FAILED tests/vnext/test_capture_transactions.py::test_started_late_attempt_is_historical_only_with_settlement_authority[False]
+FAILED tests/vnext/test_capture_transactions.py::test_capture_rejects_missing_or_changed_actual_bytes[missing]
+FAILED tests/vnext/test_capture_transactions.py::test_capture_rejects_missing_or_changed_actual_bytes[changed]
+FAILED tests/vnext/test_capture_transactions.py::test_capture_publication_database_failure_rolls_back_all_domain_state
+FAILED tests/vnext/test_capture_transactions.py::test_partial_output_and_source_axes_do_not_certify_business_truth
+FAILED tests/vnext/test_capture_transactions.py::test_model_or_imported_bytes_cannot_be_laundered_into_capture[model_output]
+FAILED tests/vnext/test_capture_transactions.py::test_model_or_imported_bytes_cannot_be_laundered_into_capture[import]
+25 failed in 7.90s

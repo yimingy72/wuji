@@ -1,0 +1,1126 @@
+{"operation": "admin_execute", "phase": "setup", "request": {"params": null, "sql": "CREATE ROLE \"wuji_migration_9d515442c2bf\" NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS"}}
+{"operation": "admin_execute_receipt", "phase": "setup", "response": {"rowcount": -1, "statusmessage": "CREATE ROLE"}}
+{"operation": "admin_execute", "phase": "setup", "request": {"params": null, "sql": "CREATE ROLE \"wuji_app_9d515442c2bf\" LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS"}}
+{"operation": "admin_execute_receipt", "phase": "setup", "response": {"rowcount": -1, "statusmessage": "CREATE ROLE"}}
+{"operation": "admin_execute", "phase": "setup", "request": {"params": null, "sql": "CREATE DATABASE \"wuji_p02_9d515442c2bf\" OWNER \"wuji_migration_9d515442c2bf\""}}
+{"operation": "admin_execute_receipt", "phase": "setup", "response": {"rowcount": -1, "statusmessage": "CREATE DATABASE"}}
+{"operation": "admin_execute", "phase": "setup", "request": {"params": null, "sql": "GRANT CONNECT ON DATABASE \"wuji_p02_9d515442c2bf\" TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "admin_execute_receipt", "phase": "setup", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "admin_execute", "phase": "setup", "request": {"params": null, "sql": "CREATE SCHEMA vnext AUTHORIZATION \"wuji_migration_9d515442c2bf\""}}
+{"operation": "admin_execute_receipt", "phase": "setup", "response": {"rowcount": -1, "statusmessage": "CREATE SCHEMA"}}
+{"operation": "admin_execute", "phase": "setup", "request": {"params": null, "sql": "GRANT USAGE ON SCHEMA vnext TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "admin_execute_receipt", "phase": "setup", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "admin_execute", "phase": "migration_connect", "request": {"params": null, "sql": "SET ROLE \"wuji_migration_9d515442c2bf\""}}
+{"operation": "admin_execute_receipt", "phase": "migration_connect", "response": {"rowcount": -1, "statusmessage": "SET"}}
+{"operation": "migration_connect", "request": {"database": "wuji_p02_9d515442c2bf", "network": "unix_socket", "role": "wuji_migration_9d515442c2bf"}, "response": "connected_with_set_role"}
+{"force_rollback": false, "operation": "transaction_enter"}
+{"operation": "execute", "request": {"params": null, "sql": "SELECT rolsuper,rolbypassrls FROM pg_roles WHERE rolname=current_user"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": [false, false]}
+{"operation": "execute", "request": {"params": null, "sql": "SELECT to_regclass('vnext.schema_migration')"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": [null]}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE SCHEMA IF NOT EXISTS vnext"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE SCHEMA"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE TABLE vnext.schema_migration(head text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT clock_timestamp())"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE TABLE vnext.tenant(tenant_id text PRIMARY KEY)"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE TABLE vnext.project(tenant_id text NOT NULL REFERENCES vnext.tenant,project_id text NOT NULL,PRIMARY KEY(tenant_id,project_id))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE TABLE vnext.task (tenant_id text NOT NULL, project_id text NOT NULL, task_id text NOT NULL, PRIMARY KEY(tenant_id,project_id,task_id), UNIQUE(tenant_id,task_id),\n        FOREIGN KEY(tenant_id,project_id) REFERENCES vnext.project(tenant_id,project_id),\n        execution_allowed boolean NOT NULL DEFAULT true,\n        execution_epoch numeric NOT NULL DEFAULT 1 CHECK(execution_epoch>=1 AND execution_epoch=trunc(execution_epoch)),\n        runtime_attempt numeric NOT NULL DEFAULT 1 CHECK(runtime_attempt>=1 AND runtime_attempt=trunc(runtime_attempt)),\n        board_revision numeric NOT NULL DEFAULT 0, event_seq numeric NOT NULL DEFAULT 0,\n        observation_count numeric NOT NULL DEFAULT 0,\n        CHECK(board_revision>=0 AND event_seq>=0 AND observation_count>=0))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE TABLE vnext.task_access (tenant_id text NOT NULL, project_id text NOT NULL, task_id text NOT NULL, subject text NOT NULL,\n        can_read boolean NOT NULL DEFAULT false, can_write boolean NOT NULL DEFAULT false,\n        can_capture boolean NOT NULL DEFAULT false, can_settle boolean NOT NULL DEFAULT false,\n        can_gc boolean NOT NULL DEFAULT false, can_assess boolean NOT NULL DEFAULT false,\n        clearance integer NOT NULL DEFAULT 0 CHECK(clearance>=0), PRIMARY KEY(tenant_id,project_id,task_id,subject),FOREIGN KEY (tenant_id,project_id,task_id) REFERENCES vnext.task(tenant_id,project_id,task_id))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE TABLE vnext.work_item (tenant_id text NOT NULL, project_id text NOT NULL, task_id text NOT NULL, work_item_id text NOT NULL, state text NOT NULL DEFAULT 'ready', revision numeric NOT NULL DEFAULT 1, PRIMARY KEY (tenant_id,project_id,task_id,work_item_id), FOREIGN KEY (tenant_id,project_id,task_id) REFERENCES vnext.task(tenant_id,project_id,task_id))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE TABLE vnext.agent_run (tenant_id text NOT NULL, project_id text NOT NULL, task_id text NOT NULL, agent_run_id text NOT NULL, work_item_id text NOT NULL, receiver_id text NOT NULL,\n        execution_epoch numeric NOT NULL DEFAULT 1, run_epoch numeric NOT NULL DEFAULT 1,\n        runtime_attempt numeric NOT NULL DEFAULT 1, environment_ref text NOT NULL,\n        model_mode text NOT NULL CHECK(model_mode IN ('synthetic','real','unknown')),\n        execution_allowed boolean NOT NULL DEFAULT true, process_state text NOT NULL DEFAULT 'registered' , PRIMARY KEY (tenant_id,project_id,task_id,agent_run_id), FOREIGN KEY (tenant_id,project_id,task_id) REFERENCES vnext.task(tenant_id,project_id,task_id), FOREIGN KEY(tenant_id,project_id,task_id,work_item_id) REFERENCES vnext.work_item(tenant_id,project_id,task_id,work_item_id))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE TABLE vnext.tool_call (tenant_id text NOT NULL, project_id text NOT NULL, task_id text NOT NULL, tool_call_id text NOT NULL, session_lineage text NOT NULL, message_id text NOT NULL,\n        provider_call_id text NOT NULL, tool_definition_version text NOT NULL, PRIMARY KEY (tenant_id,project_id,task_id,tool_call_id), FOREIGN KEY (tenant_id,project_id,task_id) REFERENCES vnext.task(tenant_id,project_id,task_id), UNIQUE(tenant_id,project_id,task_id,session_lineage,message_id,provider_call_id,tool_definition_version))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE TABLE vnext.tool_attempt (tenant_id text NOT NULL, project_id text NOT NULL, task_id text NOT NULL, tool_attempt_id text NOT NULL, tool_call_id text NOT NULL, agent_run_id text NOT NULL,\n        started_at timestamptz, evidence_origin text NOT NULL CHECK(evidence_origin IN ('live_capture','fixture_capture','imported_unverified')),\n        capture_layer text NOT NULL, receipt_json text NOT NULL CHECK(jsonb_typeof(receipt_json::jsonb)='object'), PRIMARY KEY (tenant_id,project_id,task_id,tool_attempt_id), FOREIGN KEY (tenant_id,project_id,task_id) REFERENCES vnext.task(tenant_id,project_id,task_id), FOREIGN KEY(tenant_id,project_id,task_id,tool_call_id) REFERENCES vnext.tool_call(tenant_id,project_id,task_id,tool_call_id), FOREIGN KEY(tenant_id,project_id,task_id,agent_run_id) REFERENCES vnext.agent_run(tenant_id,project_id,task_id,agent_run_id))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE TABLE vnext.collector_binding (tenant_id text NOT NULL, project_id text NOT NULL, task_id text NOT NULL, tool_attempt_id text NOT NULL,\n        subject text NOT NULL, revoked boolean NOT NULL DEFAULT false, can_settle boolean NOT NULL DEFAULT false,\n        PRIMARY KEY(tenant_id,project_id,task_id,tool_attempt_id,subject), FOREIGN KEY(tenant_id,project_id,task_id,tool_attempt_id) REFERENCES vnext.tool_attempt(tenant_id,project_id,task_id,tool_attempt_id))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE TABLE vnext.entity_revision_registry (tenant_id text NOT NULL, project_id text NOT NULL, task_id text NOT NULL, entity_type text NOT NULL,\n        entity_id text NOT NULL, revision numeric NOT NULL CHECK (revision >= 1 AND revision = trunc(revision)), access_level integer NOT NULL DEFAULT 0 CHECK(access_level>=0),\n        PRIMARY KEY(tenant_id,project_id,task_id,entity_type,entity_id,revision), FOREIGN KEY (tenant_id,project_id,task_id) REFERENCES vnext.task(tenant_id,project_id,task_id))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE TABLE vnext.claim_revision (tenant_id text NOT NULL, project_id text NOT NULL, task_id text NOT NULL, entity_id text NOT NULL, revision numeric NOT NULL CHECK (revision >= 1 AND revision = trunc(revision)),\n        kind text NOT NULL CHECK(kind IN ('observation-summary','hypothesis','derived-conclusion')),\n        assertion_role text NOT NULL CHECK(assertion_role IN ('candidate_fact','explanation','hypothesis')),\n        text text NOT NULL CHECK(length(text) BETWEEN 1 AND 32768), structured_json text,\n        producer_kind text NOT NULL CHECK(producer_kind IN ('agent','human','extractor','import')),\n        producer_ref text NOT NULL, limitations_json text NOT NULL DEFAULT '[]',\n        access_level integer NOT NULL DEFAULT 0 CHECK(access_level>=0), created_at timestamptz NOT NULL DEFAULT clock_timestamp(),\n        PRIMARY KEY(tenant_id,project_id,task_id,entity_id,revision), FOREIGN KEY (tenant_id,project_id,task_id) REFERENCES vnext.task(tenant_id,project_id,task_id))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE TABLE vnext.artifact (tenant_id text NOT NULL, project_id text NOT NULL, task_id text NOT NULL, entity_id text NOT NULL, revision numeric NOT NULL CHECK (revision >= 1 AND revision = trunc(revision)),\n        state text NOT NULL CHECK(state IN ('staged','sealed','tombstoned')), body_removed boolean NOT NULL DEFAULT false, storage_key uuid NOT NULL UNIQUE,\n        sha256 text NOT NULL CHECK(sha256 ~ '^[a-f0-9]{64}$'), size_bytes bigint NOT NULL CHECK(size_bytes>=0),\n        media_type text NOT NULL CHECK(length(media_type) BETWEEN 1 AND 256), tool_attempt_id text NOT NULL,\n        provenance text NOT NULL CHECK(provenance IN ('capture','model_output','import')),\n        evidence_origin text NOT NULL CHECK(evidence_origin IN ('live_capture','fixture_capture','imported_unverified')),\n        capture_layer text NOT NULL, environment_ref text NOT NULL,\n        completeness text NOT NULL CHECK(completeness IN ('complete','partial','unknown')),\n        conditions_json text NOT NULL DEFAULT '[]', access_level integer NOT NULL DEFAULT 0 CHECK(access_level>=0),\n        created_at timestamptz NOT NULL DEFAULT clock_timestamp(),\n        PRIMARY KEY(tenant_id,project_id,task_id,entity_id,revision), FOREIGN KEY(tenant_id,project_id,task_id,tool_attempt_id) REFERENCES vnext.tool_attempt(tenant_id,project_id,task_id,tool_attempt_id),FOREIGN KEY (tenant_id,project_id,task_id) REFERENCES vnext.task(tenant_id,project_id,task_id))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE TABLE vnext.observation (tenant_id text NOT NULL, project_id text NOT NULL, task_id text NOT NULL, entity_id text NOT NULL, revision numeric NOT NULL CHECK (revision >= 1 AND revision = trunc(revision)) CHECK(revision=1),\n        capture_id text NOT NULL, tool_attempt_id text NOT NULL, collector_ref text NOT NULL,\n        capture_layer text NOT NULL, observed_at timestamptz NOT NULL, received_at timestamptz NOT NULL,\n        environment_ref text NOT NULL, conditions_json text NOT NULL,\n        completeness text NOT NULL CHECK(completeness IN ('complete','partial','unknown')),\n        evidence_origin text NOT NULL CHECK(evidence_origin IN ('live_capture','fixture_capture','imported_unverified')),\n        access_level integer NOT NULL DEFAULT 0 CHECK(access_level>=0),\n        PRIMARY KEY(tenant_id,project_id,task_id,entity_id,revision), UNIQUE(tenant_id,project_id,task_id,capture_id),\n        FOREIGN KEY(tenant_id,project_id,task_id,tool_attempt_id,collector_ref) REFERENCES vnext.collector_binding(tenant_id,project_id,task_id,tool_attempt_id,subject),FOREIGN KEY (tenant_id,project_id,task_id) REFERENCES vnext.task(tenant_id,project_id,task_id))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE TABLE vnext.observation_artifact (tenant_id text NOT NULL, project_id text NOT NULL, task_id text NOT NULL, observation_id text NOT NULL,\n        observation_revision numeric NOT NULL, ordinal integer NOT NULL CHECK(ordinal>=0 AND ordinal<256),\n        artifact_id text NOT NULL, artifact_revision numeric NOT NULL, access_level integer NOT NULL DEFAULT 0,\n        PRIMARY KEY(tenant_id,project_id,task_id,observation_id,observation_revision,ordinal), UNIQUE(tenant_id,project_id,task_id,observation_id,observation_revision,artifact_id,artifact_revision),\n        FOREIGN KEY(tenant_id,project_id,task_id,observation_id,observation_revision) REFERENCES vnext.observation(tenant_id,project_id,task_id,entity_id,revision),\n        FOREIGN KEY(tenant_id,project_id,task_id,artifact_id,artifact_revision) REFERENCES vnext.artifact(tenant_id,project_id,task_id,entity_id,revision))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE TABLE vnext.assessment (tenant_id text NOT NULL, project_id text NOT NULL, task_id text NOT NULL, assessment_id text NOT NULL, revision numeric NOT NULL CHECK (revision >= 1 AND revision = trunc(revision)) DEFAULT 1,\n        claim_id text NOT NULL, claim_revision numeric NOT NULL,\n        grounding_state text NOT NULL DEFAULT 'unchecked' CHECK(grounding_state IN ('unchecked','linked','content_checked','invalid')),\n        evidence_state text NOT NULL DEFAULT 'unassessed' CHECK(evidence_state IN ('unassessed','supported','contradicted','inconclusive')),\n        applicability_state text NOT NULL DEFAULT 'current' CHECK(applicability_state IN ('current','stale','disputed','retracted')),\n        method_kind text NOT NULL CHECK(method_kind IN ('deterministic','reproduced_check','human_attestation','model_review')),\n        method_version text NOT NULL, reviewer_ref text NOT NULL, reason text NOT NULL,\n        conditions_json text NOT NULL DEFAULT '[]', access_level integer NOT NULL DEFAULT 0,\n        created_at timestamptz NOT NULL DEFAULT clock_timestamp(),\n        CHECK(NOT(method_kind='model_review' AND evidence_state='supported')),\n        PRIMARY KEY(tenant_id,project_id,task_id,assessment_id,revision), FOREIGN KEY(tenant_id,project_id,task_id,claim_id,claim_revision) REFERENCES vnext.claim_revision(tenant_id,project_id,task_id,entity_id,revision))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE TABLE vnext.assessment_input (tenant_id text NOT NULL, project_id text NOT NULL, task_id text NOT NULL,assessment_id text NOT NULL,assessment_revision numeric NOT NULL,\n        entity_type text NOT NULL,entity_id text NOT NULL,revision numeric NOT NULL,access_level integer NOT NULL DEFAULT 0,\n        PRIMARY KEY(tenant_id,project_id,task_id,assessment_id,assessment_revision,entity_type,entity_id,revision),\n        FOREIGN KEY(tenant_id,project_id,task_id,assessment_id,assessment_revision) REFERENCES vnext.assessment(tenant_id,project_id,task_id,assessment_id,revision),\n        FOREIGN KEY(tenant_id,project_id,task_id,entity_type,entity_id,revision) REFERENCES vnext.entity_revision_registry(tenant_id,project_id,task_id,entity_type,entity_id,revision))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE TABLE vnext.entity_relation (tenant_id text NOT NULL, project_id text NOT NULL, task_id text NOT NULL,source_type text NOT NULL CHECK(source_type='claim'),\n        source_id text NOT NULL,source_revision numeric NOT NULL,\n        relation text NOT NULL CHECK(relation IN ('cites','extracted_from','supersedes')),\n        target_type text NOT NULL CHECK(target_type IN ('claim','observation','artifact')),target_id text NOT NULL,target_revision numeric NOT NULL,\n        access_level integer NOT NULL DEFAULT 0,\n        CHECK(relation<>'extracted_from' OR target_type='observation'),\n        CHECK(relation<>'supersedes' OR (source_type=target_type AND source_id=target_id AND source_revision>target_revision)),\n        PRIMARY KEY(tenant_id,project_id,task_id,source_type,source_id,source_revision,relation,target_type,target_id,target_revision),\n        FOREIGN KEY(tenant_id,project_id,task_id,source_type,source_id,source_revision) REFERENCES vnext.entity_revision_registry(tenant_id,project_id,task_id,entity_type,entity_id,revision),\n        FOREIGN KEY(tenant_id,project_id,task_id,target_type,target_id,target_revision) REFERENCES vnext.entity_revision_registry(tenant_id,project_id,task_id,entity_type,entity_id,revision))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE TABLE vnext.work_dependency (tenant_id text NOT NULL, project_id text NOT NULL, task_id text NOT NULL, work_item_id text NOT NULL, predecessor_id text NOT NULL,\n        condition text NOT NULL CHECK(condition IN ('settled','accepted_result','criterion_satisfied')),\n        criterion_type text,criterion_id text,criterion_revision numeric,\n        CHECK((condition='criterion_satisfied')=(criterion_id IS NOT NULL)),\n        CHECK((criterion_id IS NULL AND criterion_type IS NULL AND criterion_revision IS NULL) OR (criterion_id IS NOT NULL AND criterion_type IS NOT NULL AND criterion_revision IS NOT NULL)),\n        PRIMARY KEY(tenant_id,project_id,task_id,work_item_id,predecessor_id),\n        FOREIGN KEY(tenant_id,project_id,task_id,work_item_id) REFERENCES vnext.work_item(tenant_id,project_id,task_id,work_item_id),\n        FOREIGN KEY(tenant_id,project_id,task_id,predecessor_id) REFERENCES vnext.work_item(tenant_id,project_id,task_id,work_item_id),\n        FOREIGN KEY(tenant_id,project_id,task_id,criterion_type,criterion_id,criterion_revision) REFERENCES vnext.entity_revision_registry(tenant_id,project_id,task_id,entity_type,entity_id,revision))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE TABLE vnext.evidence_receipt (tenant_id text NOT NULL, project_id text NOT NULL, task_id text NOT NULL,capture_id text NOT NULL,\n        operation_kind text NOT NULL DEFAULT 'evidence_ingest' CHECK(operation_kind='evidence_ingest'),\n        input_digest text NOT NULL,original_envelope text NOT NULL,\n        status text NOT NULL CHECK(status IN ('accepted','historical_only')),\n        observation_type text NOT NULL DEFAULT 'observation' CHECK(observation_type='observation'),\n        observation_id text NOT NULL,observation_revision numeric NOT NULL,\n        receipt_json text NOT NULL,access_level integer NOT NULL DEFAULT 0,\n        PRIMARY KEY(tenant_id,task_id,operation_kind,capture_id),\n        FOREIGN KEY(tenant_id,project_id,task_id,observation_type,observation_id,observation_revision) REFERENCES vnext.entity_revision_registry(tenant_id,project_id,task_id,entity_type,entity_id,revision))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE TABLE vnext.outbox (tenant_id text NOT NULL, project_id text NOT NULL, task_id text NOT NULL,event_seq numeric NOT NULL,kind text NOT NULL,\n        payload_json text NOT NULL,access_level integer NOT NULL DEFAULT 0,created_at timestamptz NOT NULL DEFAULT clock_timestamp(), PRIMARY KEY(tenant_id,project_id,task_id,event_seq),FOREIGN KEY (tenant_id,project_id,task_id) REFERENCES vnext.task(tenant_id,project_id,task_id))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE TABLE vnext.publication (tenant_id text NOT NULL, project_id text NOT NULL, task_id text NOT NULL,publication_id text NOT NULL,kind text NOT NULL,\n        access_level integer NOT NULL DEFAULT 0,created_at timestamptz NOT NULL DEFAULT clock_timestamp(),PRIMARY KEY(tenant_id,project_id,task_id,publication_id),FOREIGN KEY (tenant_id,project_id,task_id) REFERENCES vnext.task(tenant_id,project_id,task_id))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE TABLE vnext.publication_ref (tenant_id text NOT NULL, project_id text NOT NULL, task_id text NOT NULL,publication_id text NOT NULL,artifact_id text NOT NULL,\n        artifact_revision numeric NOT NULL,access_level integer NOT NULL DEFAULT 0,\n        PRIMARY KEY(tenant_id,project_id,task_id,publication_id,artifact_id,artifact_revision),\n        FOREIGN KEY(tenant_id,project_id,task_id,publication_id) REFERENCES vnext.publication(tenant_id,project_id,task_id,publication_id),\n        FOREIGN KEY(tenant_id,project_id,task_id,artifact_id,artifact_revision) REFERENCES vnext.artifact(tenant_id,project_id,task_id,entity_id,revision))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE TABLE vnext.artifact_lease (tenant_id text NOT NULL, project_id text NOT NULL, task_id text NOT NULL,artifact_id text NOT NULL,artifact_revision numeric NOT NULL,\n        lease_owner text NOT NULL,expires_at timestamptz NOT NULL,access_level integer NOT NULL DEFAULT 0,\n        PRIMARY KEY(tenant_id,project_id,task_id,artifact_id,artifact_revision,lease_owner),\n        FOREIGN KEY(tenant_id,project_id,task_id,artifact_id,artifact_revision) REFERENCES vnext.artifact(tenant_id,project_id,task_id,entity_id,revision))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE TABLE vnext.snapshot_manifest (tenant_id text NOT NULL, project_id text NOT NULL, task_id text NOT NULL,snapshot_id text NOT NULL,publication_id text NOT NULL,\n        query_json text NOT NULL,query_digest text NOT NULL,access_digest text NOT NULL,manifest_json text NOT NULL,\n        access_level integer NOT NULL DEFAULT 0,created_at timestamptz NOT NULL,expires_at timestamptz NOT NULL,\n        PRIMARY KEY(tenant_id,project_id,task_id,snapshot_id),FOREIGN KEY(tenant_id,project_id,task_id,publication_id) REFERENCES vnext.publication(tenant_id,project_id,task_id,publication_id))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE TABLE vnext.snapshot_ref (tenant_id text NOT NULL, project_id text NOT NULL, task_id text NOT NULL,snapshot_id text NOT NULL,ordinal integer NOT NULL,\n        entity_type text NOT NULL,entity_id text NOT NULL,revision numeric NOT NULL,access_level integer NOT NULL DEFAULT 0,\n        PRIMARY KEY(tenant_id,project_id,task_id,snapshot_id,ordinal),FOREIGN KEY(tenant_id,project_id,task_id,snapshot_id) REFERENCES vnext.snapshot_manifest(tenant_id,project_id,task_id,snapshot_id),\n        FOREIGN KEY(tenant_id,project_id,task_id,entity_type,entity_id,revision) REFERENCES vnext.entity_revision_registry(tenant_id,project_id,task_id,entity_type,entity_id,revision))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE FUNCTION vnext.in_scope(t text,p text,k text,l integer DEFAULT 0) RETURNS boolean\n        LANGUAGE sql STABLE SET search_path=pg_catalog AS $$ SELECT\n        t=current_setting('wuji.tenant',true) AND p=current_setting('wuji.project',true)\n        AND k=current_setting('wuji.task',true) AND l<=COALESCE(NULLIF(current_setting('wuji.clearance',true),'')::integer,-1) $$"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE FUNCTION"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE FUNCTION vnext.register_revision() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog AS $$\n        BEGIN INSERT INTO vnext.entity_revision_registry(tenant_id,project_id,task_id,entity_type,entity_id,revision,access_level)\n        VALUES(NEW.tenant_id,NEW.project_id,NEW.task_id,TG_ARGV[0],NEW.entity_id,NEW.revision,NEW.access_level);\n        RETURN NEW; END $$"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE FUNCTION"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE TRIGGER register_revision AFTER INSERT ON vnext.claim_revision FOR EACH ROW EXECUTE FUNCTION vnext.register_revision('claim')"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE TRIGGER"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE TRIGGER register_revision AFTER INSERT ON vnext.artifact FOR EACH ROW EXECUTE FUNCTION vnext.register_revision('artifact')"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE TRIGGER"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE TRIGGER register_revision AFTER INSERT ON vnext.observation FOR EACH ROW EXECUTE FUNCTION vnext.register_revision('observation')"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE TRIGGER"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE FUNCTION vnext.check_registry() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog AS $$\n        DECLARE present boolean := false; BEGIN CASE NEW.entity_type WHEN 'claim' THEN SELECT EXISTS(SELECT 1 FROM vnext.claim_revision WHERE tenant_id=NEW.tenant_id AND project_id=NEW.project_id AND task_id=NEW.task_id AND entity_id=NEW.entity_id AND revision=NEW.revision AND access_level=NEW.access_level) INTO present; WHEN 'artifact' THEN SELECT EXISTS(SELECT 1 FROM vnext.artifact WHERE tenant_id=NEW.tenant_id AND project_id=NEW.project_id AND task_id=NEW.task_id AND entity_id=NEW.entity_id AND revision=NEW.revision AND access_level=NEW.access_level) INTO present; WHEN 'observation' THEN SELECT EXISTS(SELECT 1 FROM vnext.observation WHERE tenant_id=NEW.tenant_id AND project_id=NEW.project_id AND task_id=NEW.task_id AND entity_id=NEW.entity_id AND revision=NEW.revision AND access_level=NEW.access_level) INTO present;\n        ELSE present := false; END CASE;\n        IF NOT present THEN RAISE EXCEPTION 'registry requires actual matching domain revision' USING ERRCODE='23503'; END IF;\n        RETURN NULL; END $$"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE FUNCTION"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE CONSTRAINT TRIGGER registry_domain_exists AFTER INSERT OR UPDATE ON vnext.entity_revision_registry\n        DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION vnext.check_registry()"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE TRIGGER"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE FUNCTION vnext.check_dependency() RETURNS trigger LANGUAGE plpgsql VOLATILE SET search_path=pg_catalog AS $$\n        DECLARE cyclic boolean; BEGIN\n        PERFORM 1 FROM vnext.task WHERE tenant_id=NEW.tenant_id AND project_id=NEW.project_id AND task_id=NEW.task_id FOR UPDATE;\n        WITH RECURSIVE reachable(id) AS (SELECT NEW.predecessor_id UNION SELECT d.predecessor_id FROM vnext.work_dependency d JOIN reachable r ON d.work_item_id=r.id WHERE d.tenant_id=NEW.tenant_id AND d.project_id=NEW.project_id AND d.task_id=NEW.task_id)\n        SELECT EXISTS(SELECT 1 FROM reachable WHERE id=NEW.work_item_id) INTO cyclic;\n        IF cyclic THEN RAISE EXCEPTION 'work dependency cycle' USING ERRCODE='23514'; END IF; RETURN NEW; END $$"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE FUNCTION"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE TRIGGER dependency_dag BEFORE INSERT OR UPDATE ON vnext.work_dependency FOR EACH ROW EXECUTE FUNCTION vnext.check_dependency()"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE TRIGGER"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE FUNCTION vnext.check_reference_level() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$\n        DECLARE required_level integer; BEGIN\n        SELECT access_level INTO required_level FROM vnext.entity_revision_registry WHERE tenant_id=NEW.tenant_id AND project_id=NEW.project_id AND task_id=NEW.task_id AND entity_type=NEW.target_type AND entity_id=NEW.target_id AND revision=NEW.target_revision;\n        IF required_level IS NOT NULL AND (NEW.access_level<required_level OR EXISTS(SELECT 1 FROM vnext.entity_revision_registry WHERE tenant_id=NEW.tenant_id AND project_id=NEW.project_id AND task_id=NEW.task_id AND entity_type=NEW.source_type AND entity_id=NEW.source_id AND revision=NEW.source_revision AND access_level<required_level)) THEN\n        RAISE EXCEPTION 'derived record must inherit source access level' USING ERRCODE='23514'; END IF; RETURN NEW; END $$"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE FUNCTION"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE TRIGGER relation_access BEFORE INSERT ON vnext.entity_relation FOR EACH ROW EXECUTE FUNCTION vnext.check_reference_level()"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE TRIGGER"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE FUNCTION vnext.artifact_retained(t text,p text,k text,i text,v numeric) RETURNS boolean\n        LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$ BEGIN\n        IF NOT COALESCE(vnext.in_scope(t,p,k),false) OR current_setting('wuji.gc',true) IS DISTINCT FROM 'true' THEN\n            RAISE EXCEPTION 'retention access denied' USING ERRCODE='42501'; END IF;\n        RETURN EXISTS(SELECT 1 FROM vnext.publication_ref WHERE tenant_id=t AND project_id=p AND task_id=k AND artifact_id=i AND artifact_revision=v)\n          OR EXISTS(SELECT 1 FROM vnext.artifact_lease WHERE tenant_id=t AND project_id=p AND task_id=k AND artifact_id=i AND artifact_revision=v AND expires_at>clock_timestamp())\n          OR EXISTS(SELECT 1 FROM vnext.observation_artifact WHERE tenant_id=t AND project_id=p AND task_id=k AND artifact_id=i AND artifact_revision=v)\n          OR EXISTS(SELECT 1 FROM vnext.entity_relation WHERE tenant_id=t AND project_id=p AND task_id=k AND target_type='artifact' AND target_id=i AND target_revision=v)\n          OR EXISTS(SELECT 1 FROM vnext.assessment_input WHERE tenant_id=t AND project_id=p AND task_id=k AND entity_type='artifact' AND entity_id=i AND revision=v)\n          OR EXISTS(SELECT 1 FROM vnext.snapshot_ref WHERE tenant_id=t AND project_id=p AND task_id=k AND entity_type='artifact' AND entity_id=i AND revision=v);\n        END $$"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE FUNCTION"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE FUNCTION vnext.check_artifact_update() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog AS $$\n        BEGIN\n        IF (to_jsonb(NEW)-'state'-'body_removed') IS DISTINCT FROM (to_jsonb(OLD)-'state'-'body_removed') OR (NEW.body_removed AND NEW.state<>'tombstoned') OR (OLD.state='tombstoned' AND NOT (NEW.state='tombstoned' AND NOT OLD.body_removed AND NEW.body_removed)) OR (OLD.state='sealed' AND NEW.state<>'tombstoned') THEN\n        RAISE EXCEPTION 'artifact metadata is immutable' USING ERRCODE='23514'; END IF;\n        IF NEW.state='tombstoned' AND current_setting('wuji.gc',true) IS DISTINCT FROM 'true' THEN RAISE EXCEPTION 'GC authority required' USING ERRCODE='42501'; END IF;\n        IF NEW.state='tombstoned' AND OLD.state<>'tombstoned' AND vnext.artifact_retained(OLD.tenant_id,OLD.project_id,OLD.task_id,OLD.entity_id,OLD.revision) THEN\n        RAISE EXCEPTION 'artifact is retained' USING ERRCODE='23514'; END IF; RETURN NEW; END $$"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE FUNCTION"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE TRIGGER artifact_immutable BEFORE UPDATE ON vnext.artifact FOR EACH ROW EXECUTE FUNCTION vnext.check_artifact_update()"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE TRIGGER"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE FUNCTION vnext.check_publication_ref() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog AS $$\n        DECLARE a vnext.artifact%ROWTYPE; BEGIN\n        SELECT * INTO a FROM vnext.artifact WHERE tenant_id=NEW.tenant_id AND project_id=NEW.project_id AND task_id=NEW.task_id AND entity_id=NEW.artifact_id AND revision=NEW.artifact_revision FOR UPDATE;\n        IF NOT FOUND OR a.state<>'sealed' THEN RAISE EXCEPTION 'publication requires a sealed artifact' USING ERRCODE='23503'; END IF;\n        IF NEW.access_level<a.access_level THEN RAISE EXCEPTION 'publication access level too low' USING ERRCODE='23514'; END IF; RETURN NEW; END $$"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE FUNCTION"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE TRIGGER publication_sealed BEFORE INSERT ON vnext.publication_ref FOR EACH ROW EXECUTE FUNCTION vnext.check_publication_ref()"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE TRIGGER"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT USAGE ON SCHEMA vnext TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "execute", "request": {"params": null, "sql": "REVOKE ALL ON ALL TABLES IN SCHEMA vnext FROM PUBLIC"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "REVOKE"}}
+{"operation": "execute", "request": {"params": null, "sql": "REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA vnext FROM PUBLIC"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "REVOKE"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA vnext TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "execute", "request": {"params": null, "sql": "ALTER TABLE vnext.task_access ENABLE ROW LEVEL SECURITY"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "ALTER TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE POLICY access_self ON vnext.task_access FOR SELECT USING (tenant_id=current_setting('wuji.tenant',true) AND subject=current_setting('wuji.subject',true))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE POLICY"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT SELECT ON vnext.task_access TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "execute", "request": {"params": null, "sql": "ALTER TABLE \"vnext\".\"task\" ENABLE ROW LEVEL SECURITY"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "ALTER TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE POLICY scoped_read ON \"vnext\".\"task\" FOR SELECT USING (vnext.in_scope(tenant_id,project_id,task_id))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE POLICY"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT SELECT ON \"vnext\".\"task\" TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE POLICY scoped_update ON \"vnext\".\"task\" FOR UPDATE USING (vnext.in_scope(tenant_id,project_id,task_id) AND current_setting('wuji.write',true)='true') WITH CHECK (vnext.in_scope(tenant_id,project_id,task_id))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE POLICY"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT UPDATE (board_revision,event_seq,observation_count) ON \"vnext\".\"task\" TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "execute", "request": {"params": null, "sql": "ALTER TABLE \"vnext\".\"work_item\" ENABLE ROW LEVEL SECURITY"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "ALTER TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE POLICY scoped_read ON \"vnext\".\"work_item\" FOR SELECT USING (vnext.in_scope(tenant_id,project_id,task_id))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE POLICY"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT SELECT ON \"vnext\".\"work_item\" TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "execute", "request": {"params": null, "sql": "ALTER TABLE \"vnext\".\"agent_run\" ENABLE ROW LEVEL SECURITY"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "ALTER TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE POLICY scoped_read ON \"vnext\".\"agent_run\" FOR SELECT USING (vnext.in_scope(tenant_id,project_id,task_id))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE POLICY"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT SELECT ON \"vnext\".\"agent_run\" TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "execute", "request": {"params": null, "sql": "ALTER TABLE \"vnext\".\"tool_call\" ENABLE ROW LEVEL SECURITY"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "ALTER TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE POLICY scoped_read ON \"vnext\".\"tool_call\" FOR SELECT USING (vnext.in_scope(tenant_id,project_id,task_id))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE POLICY"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT SELECT ON \"vnext\".\"tool_call\" TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "execute", "request": {"params": null, "sql": "ALTER TABLE \"vnext\".\"tool_attempt\" ENABLE ROW LEVEL SECURITY"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "ALTER TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE POLICY scoped_read ON \"vnext\".\"tool_attempt\" FOR SELECT USING (vnext.in_scope(tenant_id,project_id,task_id))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE POLICY"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT SELECT ON \"vnext\".\"tool_attempt\" TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "execute", "request": {"params": null, "sql": "ALTER TABLE \"vnext\".\"collector_binding\" ENABLE ROW LEVEL SECURITY"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "ALTER TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE POLICY scoped_read ON \"vnext\".\"collector_binding\" FOR SELECT USING (vnext.in_scope(tenant_id,project_id,task_id))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE POLICY"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT SELECT ON \"vnext\".\"collector_binding\" TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "execute", "request": {"params": null, "sql": "ALTER TABLE \"vnext\".\"entity_revision_registry\" ENABLE ROW LEVEL SECURITY"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "ALTER TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE POLICY scoped_read ON \"vnext\".\"entity_revision_registry\" FOR SELECT USING (vnext.in_scope(tenant_id,project_id,task_id,access_level))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE POLICY"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT SELECT ON \"vnext\".\"entity_revision_registry\" TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE POLICY scoped_insert ON \"vnext\".\"entity_revision_registry\" FOR INSERT WITH CHECK (vnext.in_scope(tenant_id,project_id,task_id,access_level) AND current_setting('wuji.write',true)='true')"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE POLICY"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT INSERT ON \"vnext\".\"entity_revision_registry\" TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "execute", "request": {"params": null, "sql": "ALTER TABLE \"vnext\".\"claim_revision\" ENABLE ROW LEVEL SECURITY"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "ALTER TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE POLICY scoped_read ON \"vnext\".\"claim_revision\" FOR SELECT USING (vnext.in_scope(tenant_id,project_id,task_id,access_level))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE POLICY"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT SELECT ON \"vnext\".\"claim_revision\" TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE POLICY scoped_insert ON \"vnext\".\"claim_revision\" FOR INSERT WITH CHECK (vnext.in_scope(tenant_id,project_id,task_id,access_level) AND current_setting('wuji.write',true)='true' AND current_setting('wuji.domain_write',true)='true')"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE POLICY"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT INSERT ON \"vnext\".\"claim_revision\" TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "execute", "request": {"params": null, "sql": "ALTER TABLE \"vnext\".\"artifact\" ENABLE ROW LEVEL SECURITY"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "ALTER TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE POLICY scoped_read ON \"vnext\".\"artifact\" FOR SELECT USING (vnext.in_scope(tenant_id,project_id,task_id,access_level) OR (current_setting('wuji.task',true)='' AND tenant_id=current_setting('wuji.tenant',true) AND EXISTS(SELECT 1 FROM vnext.task_access a WHERE a.tenant_id=artifact.tenant_id AND a.project_id=artifact.project_id AND a.task_id=artifact.task_id AND a.subject=current_setting('wuji.subject',true) AND a.can_read AND a.clearance>=artifact.access_level)))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE POLICY"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT SELECT ON \"vnext\".\"artifact\" TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE POLICY scoped_insert ON \"vnext\".\"artifact\" FOR INSERT WITH CHECK (vnext.in_scope(tenant_id,project_id,task_id,access_level) AND current_setting('wuji.write',true)='true' AND current_setting('wuji.capture',true)='true')"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE POLICY"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT INSERT ON \"vnext\".\"artifact\" TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE POLICY scoped_update ON \"vnext\".\"artifact\" FOR UPDATE USING (vnext.in_scope(tenant_id,project_id,task_id,access_level) AND current_setting('wuji.write',true)='true') WITH CHECK (vnext.in_scope(tenant_id,project_id,task_id,access_level))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE POLICY"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT UPDATE (state,body_removed) ON \"vnext\".\"artifact\" TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "execute", "request": {"params": null, "sql": "ALTER TABLE \"vnext\".\"observation\" ENABLE ROW LEVEL SECURITY"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "ALTER TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE POLICY scoped_read ON \"vnext\".\"observation\" FOR SELECT USING (vnext.in_scope(tenant_id,project_id,task_id,access_level))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE POLICY"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT SELECT ON \"vnext\".\"observation\" TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE POLICY scoped_insert ON \"vnext\".\"observation\" FOR INSERT WITH CHECK (vnext.in_scope(tenant_id,project_id,task_id,access_level) AND current_setting('wuji.write',true)='true' AND current_setting('wuji.capture',true)='true')"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE POLICY"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT INSERT ON \"vnext\".\"observation\" TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "execute", "request": {"params": null, "sql": "ALTER TABLE \"vnext\".\"observation_artifact\" ENABLE ROW LEVEL SECURITY"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "ALTER TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE POLICY scoped_read ON \"vnext\".\"observation_artifact\" FOR SELECT USING (vnext.in_scope(tenant_id,project_id,task_id,access_level))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE POLICY"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT SELECT ON \"vnext\".\"observation_artifact\" TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE POLICY scoped_insert ON \"vnext\".\"observation_artifact\" FOR INSERT WITH CHECK (vnext.in_scope(tenant_id,project_id,task_id,access_level) AND current_setting('wuji.write',true)='true' AND current_setting('wuji.capture',true)='true')"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE POLICY"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT INSERT ON \"vnext\".\"observation_artifact\" TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "execute", "request": {"params": null, "sql": "ALTER TABLE \"vnext\".\"assessment\" ENABLE ROW LEVEL SECURITY"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "ALTER TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE POLICY scoped_read ON \"vnext\".\"assessment\" FOR SELECT USING (vnext.in_scope(tenant_id,project_id,task_id,access_level))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE POLICY"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT SELECT ON \"vnext\".\"assessment\" TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE POLICY scoped_insert ON \"vnext\".\"assessment\" FOR INSERT WITH CHECK (vnext.in_scope(tenant_id,project_id,task_id,access_level) AND current_setting('wuji.write',true)='true' AND current_setting('wuji.assess',true)='true')"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE POLICY"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT INSERT ON \"vnext\".\"assessment\" TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "execute", "request": {"params": null, "sql": "ALTER TABLE \"vnext\".\"assessment_input\" ENABLE ROW LEVEL SECURITY"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "ALTER TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE POLICY scoped_read ON \"vnext\".\"assessment_input\" FOR SELECT USING (vnext.in_scope(tenant_id,project_id,task_id,access_level))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE POLICY"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT SELECT ON \"vnext\".\"assessment_input\" TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE POLICY scoped_insert ON \"vnext\".\"assessment_input\" FOR INSERT WITH CHECK (vnext.in_scope(tenant_id,project_id,task_id,access_level) AND current_setting('wuji.write',true)='true' AND current_setting('wuji.assess',true)='true')"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE POLICY"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT INSERT ON \"vnext\".\"assessment_input\" TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "execute", "request": {"params": null, "sql": "ALTER TABLE \"vnext\".\"entity_relation\" ENABLE ROW LEVEL SECURITY"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "ALTER TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE POLICY scoped_read ON \"vnext\".\"entity_relation\" FOR SELECT USING (vnext.in_scope(tenant_id,project_id,task_id,access_level))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE POLICY"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT SELECT ON \"vnext\".\"entity_relation\" TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE POLICY scoped_insert ON \"vnext\".\"entity_relation\" FOR INSERT WITH CHECK (vnext.in_scope(tenant_id,project_id,task_id,access_level) AND current_setting('wuji.write',true)='true' AND current_setting('wuji.domain_write',true)='true')"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE POLICY"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT INSERT ON \"vnext\".\"entity_relation\" TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "execute", "request": {"params": null, "sql": "ALTER TABLE \"vnext\".\"work_dependency\" ENABLE ROW LEVEL SECURITY"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "ALTER TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE POLICY scoped_read ON \"vnext\".\"work_dependency\" FOR SELECT USING (vnext.in_scope(tenant_id,project_id,task_id))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE POLICY"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT SELECT ON \"vnext\".\"work_dependency\" TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE POLICY scoped_insert ON \"vnext\".\"work_dependency\" FOR INSERT WITH CHECK (vnext.in_scope(tenant_id,project_id,task_id) AND current_setting('wuji.write',true)='true' AND current_setting('wuji.domain_write',true)='true')"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE POLICY"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT INSERT ON \"vnext\".\"work_dependency\" TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "execute", "request": {"params": null, "sql": "ALTER TABLE \"vnext\".\"evidence_receipt\" ENABLE ROW LEVEL SECURITY"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "ALTER TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE POLICY scoped_read ON \"vnext\".\"evidence_receipt\" FOR SELECT USING (vnext.in_scope(tenant_id,project_id,task_id,access_level))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE POLICY"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT SELECT ON \"vnext\".\"evidence_receipt\" TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE POLICY scoped_insert ON \"vnext\".\"evidence_receipt\" FOR INSERT WITH CHECK (vnext.in_scope(tenant_id,project_id,task_id,access_level) AND current_setting('wuji.write',true)='true' AND current_setting('wuji.capture',true)='true')"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE POLICY"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT INSERT ON \"vnext\".\"evidence_receipt\" TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "execute", "request": {"params": null, "sql": "ALTER TABLE \"vnext\".\"outbox\" ENABLE ROW LEVEL SECURITY"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "ALTER TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE POLICY scoped_read ON \"vnext\".\"outbox\" FOR SELECT USING (vnext.in_scope(tenant_id,project_id,task_id,access_level))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE POLICY"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT SELECT ON \"vnext\".\"outbox\" TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE POLICY scoped_insert ON \"vnext\".\"outbox\" FOR INSERT WITH CHECK (vnext.in_scope(tenant_id,project_id,task_id,access_level) AND current_setting('wuji.write',true)='true')"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE POLICY"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT INSERT ON \"vnext\".\"outbox\" TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "execute", "request": {"params": null, "sql": "ALTER TABLE \"vnext\".\"publication\" ENABLE ROW LEVEL SECURITY"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "ALTER TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE POLICY scoped_read ON \"vnext\".\"publication\" FOR SELECT USING (vnext.in_scope(tenant_id,project_id,task_id,access_level))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE POLICY"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT SELECT ON \"vnext\".\"publication\" TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE POLICY scoped_insert ON \"vnext\".\"publication\" FOR INSERT WITH CHECK (vnext.in_scope(tenant_id,project_id,task_id,access_level) AND current_setting('wuji.write',true)='true' AND (current_setting('wuji.capture',true)='true' OR current_setting('wuji.snapshot',true)='true'))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE POLICY"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT INSERT ON \"vnext\".\"publication\" TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "execute", "request": {"params": null, "sql": "ALTER TABLE \"vnext\".\"publication_ref\" ENABLE ROW LEVEL SECURITY"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "ALTER TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE POLICY scoped_read ON \"vnext\".\"publication_ref\" FOR SELECT USING (vnext.in_scope(tenant_id,project_id,task_id,access_level))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE POLICY"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT SELECT ON \"vnext\".\"publication_ref\" TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE POLICY scoped_insert ON \"vnext\".\"publication_ref\" FOR INSERT WITH CHECK (vnext.in_scope(tenant_id,project_id,task_id,access_level) AND current_setting('wuji.write',true)='true' AND (current_setting('wuji.capture',true)='true' OR current_setting('wuji.snapshot',true)='true'))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE POLICY"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT INSERT ON \"vnext\".\"publication_ref\" TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "execute", "request": {"params": null, "sql": "ALTER TABLE \"vnext\".\"artifact_lease\" ENABLE ROW LEVEL SECURITY"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "ALTER TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE POLICY scoped_read ON \"vnext\".\"artifact_lease\" FOR SELECT USING (vnext.in_scope(tenant_id,project_id,task_id,access_level))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE POLICY"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT SELECT ON \"vnext\".\"artifact_lease\" TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE POLICY scoped_insert ON \"vnext\".\"artifact_lease\" FOR INSERT WITH CHECK (vnext.in_scope(tenant_id,project_id,task_id,access_level) AND current_setting('wuji.write',true)='true' AND current_setting('wuji.capture',true)='true')"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE POLICY"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT INSERT ON \"vnext\".\"artifact_lease\" TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE POLICY scoped_update ON \"vnext\".\"artifact_lease\" FOR UPDATE USING (vnext.in_scope(tenant_id,project_id,task_id,access_level) AND current_setting('wuji.write',true)='true') WITH CHECK (vnext.in_scope(tenant_id,project_id,task_id,access_level))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE POLICY"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT UPDATE (expires_at) ON \"vnext\".\"artifact_lease\" TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE POLICY scoped_delete ON \"vnext\".\"artifact_lease\" FOR DELETE USING (vnext.in_scope(tenant_id,project_id,task_id,access_level) AND current_setting('wuji.write',true)='true')"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE POLICY"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT DELETE ON \"vnext\".\"artifact_lease\" TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "execute", "request": {"params": null, "sql": "ALTER TABLE \"vnext\".\"snapshot_manifest\" ENABLE ROW LEVEL SECURITY"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "ALTER TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE POLICY scoped_read ON \"vnext\".\"snapshot_manifest\" FOR SELECT USING (vnext.in_scope(tenant_id,project_id,task_id,access_level))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE POLICY"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT SELECT ON \"vnext\".\"snapshot_manifest\" TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE POLICY scoped_insert ON \"vnext\".\"snapshot_manifest\" FOR INSERT WITH CHECK (vnext.in_scope(tenant_id,project_id,task_id,access_level) AND current_setting('wuji.write',true)='true' AND current_setting('wuji.snapshot',true)='true')"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE POLICY"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT INSERT ON \"vnext\".\"snapshot_manifest\" TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "execute", "request": {"params": null, "sql": "ALTER TABLE \"vnext\".\"snapshot_ref\" ENABLE ROW LEVEL SECURITY"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "ALTER TABLE"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE POLICY scoped_read ON \"vnext\".\"snapshot_ref\" FOR SELECT USING (vnext.in_scope(tenant_id,project_id,task_id,access_level))"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE POLICY"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT SELECT ON \"vnext\".\"snapshot_ref\" TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "execute", "request": {"params": null, "sql": "CREATE POLICY scoped_insert ON \"vnext\".\"snapshot_ref\" FOR INSERT WITH CHECK (vnext.in_scope(tenant_id,project_id,task_id,access_level) AND current_setting('wuji.write',true)='true' AND current_setting('wuji.snapshot',true)='true')"}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "CREATE POLICY"}}
+{"operation": "execute", "request": {"params": null, "sql": "GRANT INSERT ON \"vnext\".\"snapshot_ref\" TO \"wuji_app_9d515442c2bf\""}}
+{"operation": "execute_receipt", "response": {"rowcount": -1, "statusmessage": "GRANT"}}
+{"operation": "execute", "request": {"params": ["vnext_0001_p03"], "sql": "INSERT INTO vnext.schema_migration(head) VALUES (%s)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "INSERT 0 1"}}
+{"exception": null, "force_rollback": false, "operation": "transaction_commit", "outcome": "commit", "response": "ok"}
+{"operation": "execute", "request": {"params": ["tenant-fixture"], "sql": "INSERT INTO vnext.tenant(tenant_id) VALUES (%s) ON CONFLICT DO NOTHING"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "INSERT 0 1"}}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-fixture"], "sql": "INSERT INTO vnext.project(tenant_id,project_id) VALUES (%s,%s) ON CONFLICT DO NOTHING"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "INSERT 0 1"}}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-fixture", "task-fixture"], "sql": "INSERT INTO vnext.task(tenant_id,project_id,task_id) VALUES (%s,%s,%s)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "INSERT 0 1"}}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-fixture", "task-fixture", "collector-fixture", true, true, true, false], "sql": "INSERT INTO vnext.task_access(tenant_id,project_id,task_id,subject,can_read,can_write,can_capture,can_settle,can_gc,can_assess,clearance) VALUES (%s,%s,%s,%s,true,true,%s,%s,%s,%s,1)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "INSERT 0 1"}}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-fixture", "task-fixture", "agent-fixture", false, false, false, false], "sql": "INSERT INTO vnext.task_access(tenant_id,project_id,task_id,subject,can_read,can_write,can_capture,can_settle,can_gc,can_assess,clearance) VALUES (%s,%s,%s,%s,true,true,%s,%s,%s,%s,1)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "INSERT 0 1"}}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-fixture", "task-fixture", "reader-fixture", false, false, false, false], "sql": "INSERT INTO vnext.task_access(tenant_id,project_id,task_id,subject,can_read,can_write,can_capture,can_settle,can_gc,can_assess,clearance) VALUES (%s,%s,%s,%s,true,true,%s,%s,%s,%s,1)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "INSERT 0 1"}}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-fixture", "task-fixture", "assessor-fixture", false, false, false, true], "sql": "INSERT INTO vnext.task_access(tenant_id,project_id,task_id,subject,can_read,can_write,can_capture,can_settle,can_gc,can_assess,clearance) VALUES (%s,%s,%s,%s,true,true,%s,%s,%s,%s,1)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "INSERT 0 1"}}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-fixture", "task-fixture", "work-fixture"], "sql": "INSERT INTO vnext.work_item(tenant_id,project_id,task_id,work_item_id) VALUES (%s,%s,%s,%s)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "INSERT 0 1"}}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-fixture", "task-fixture", "work-b"], "sql": "INSERT INTO vnext.work_item(tenant_id,project_id,task_id,work_item_id) VALUES (%s,%s,%s,%s)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "INSERT 0 1"}}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-fixture", "task-fixture", "run-fixture", "work-fixture", "receiver-fixture", "environment-fixture", "synthetic"], "sql": "INSERT INTO vnext.agent_run(tenant_id,project_id,task_id,agent_run_id,work_item_id,receiver_id,environment_ref,model_mode) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "INSERT 0 1"}}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-fixture", "task-fixture", "tool-fixture", "lineage-fixture", "message-fixture", "provider-opaque-call", "fixture-reader-v1"], "sql": "INSERT INTO vnext.tool_call(tenant_id,project_id,task_id,tool_call_id,session_lineage,message_id,provider_call_id,tool_definition_version) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "INSERT 0 1"}}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-fixture", "task-fixture", "attempt-fixture", "tool-fixture", "run-fixture", "{\"fixture_prerequisite\":true,\"exit_code\":0}"], "sql": "INSERT INTO vnext.tool_attempt(tenant_id,project_id,task_id,tool_attempt_id,tool_call_id,agent_run_id,started_at,evidence_origin,capture_layer,receipt_json) VALUES (%s,%s,%s,%s,%s,%s,'2026-09-13T00:00:00Z','fixture_capture','fixture_file_bytes',%s)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "INSERT 0 1"}}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-fixture", "task-fixture", "attempt-fixture", "collector-fixture"], "sql": "INSERT INTO vnext.collector_binding(tenant_id,project_id,task_id,tool_attempt_id,subject,can_settle) VALUES (%s,%s,%s,%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "INSERT 0 1"}}
+{"operation": "execute", "request": {"params": ["tenant-other"], "sql": "INSERT INTO vnext.tenant(tenant_id) VALUES (%s) ON CONFLICT DO NOTHING"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "INSERT 0 1"}}
+{"operation": "execute", "request": {"params": ["tenant-other", "project-other"], "sql": "INSERT INTO vnext.project(tenant_id,project_id) VALUES (%s,%s) ON CONFLICT DO NOTHING"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "INSERT 0 1"}}
+{"operation": "execute", "request": {"params": ["tenant-other", "project-other", "task-other"], "sql": "INSERT INTO vnext.task(tenant_id,project_id,task_id) VALUES (%s,%s,%s)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "INSERT 0 1"}}
+{"operation": "execute", "request": {"params": ["tenant-other", "project-other", "task-other", "collector-fixture", true, true, true, false], "sql": "INSERT INTO vnext.task_access(tenant_id,project_id,task_id,subject,can_read,can_write,can_capture,can_settle,can_gc,can_assess,clearance) VALUES (%s,%s,%s,%s,true,true,%s,%s,%s,%s,1)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "INSERT 0 1"}}
+{"operation": "execute", "request": {"params": ["tenant-other", "project-other", "task-other", "agent-fixture", false, false, false, false], "sql": "INSERT INTO vnext.task_access(tenant_id,project_id,task_id,subject,can_read,can_write,can_capture,can_settle,can_gc,can_assess,clearance) VALUES (%s,%s,%s,%s,true,true,%s,%s,%s,%s,1)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "INSERT 0 1"}}
+{"operation": "execute", "request": {"params": ["tenant-other", "project-other", "task-other", "reader-fixture", false, false, false, false], "sql": "INSERT INTO vnext.task_access(tenant_id,project_id,task_id,subject,can_read,can_write,can_capture,can_settle,can_gc,can_assess,clearance) VALUES (%s,%s,%s,%s,true,true,%s,%s,%s,%s,1)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "INSERT 0 1"}}
+{"operation": "execute", "request": {"params": ["tenant-other", "project-other", "task-other", "assessor-fixture", false, false, false, true], "sql": "INSERT INTO vnext.task_access(tenant_id,project_id,task_id,subject,can_read,can_write,can_capture,can_settle,can_gc,can_assess,clearance) VALUES (%s,%s,%s,%s,true,true,%s,%s,%s,%s,1)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "INSERT 0 1"}}
+{"operation": "execute", "request": {"params": ["tenant-other", "project-other", "task-other", "work-fixture"], "sql": "INSERT INTO vnext.work_item(tenant_id,project_id,task_id,work_item_id) VALUES (%s,%s,%s,%s)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "INSERT 0 1"}}
+{"operation": "execute", "request": {"params": ["tenant-other", "project-other", "task-other", "work-b"], "sql": "INSERT INTO vnext.work_item(tenant_id,project_id,task_id,work_item_id) VALUES (%s,%s,%s,%s)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "INSERT 0 1"}}
+{"operation": "execute", "request": {"params": ["tenant-other", "project-other", "task-other", "run-fixture", "work-fixture", "receiver-fixture", "environment-fixture", "synthetic"], "sql": "INSERT INTO vnext.agent_run(tenant_id,project_id,task_id,agent_run_id,work_item_id,receiver_id,environment_ref,model_mode) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "INSERT 0 1"}}
+{"operation": "execute", "request": {"params": ["tenant-other", "project-other", "task-other", "tool-fixture", "lineage-fixture", "message-fixture", "provider-opaque-call", "fixture-reader-v1"], "sql": "INSERT INTO vnext.tool_call(tenant_id,project_id,task_id,tool_call_id,session_lineage,message_id,provider_call_id,tool_definition_version) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "INSERT 0 1"}}
+{"operation": "execute", "request": {"params": ["tenant-other", "project-other", "task-other", "attempt-fixture", "tool-fixture", "run-fixture", "{\"fixture_prerequisite\":true,\"exit_code\":0}"], "sql": "INSERT INTO vnext.tool_attempt(tenant_id,project_id,task_id,tool_attempt_id,tool_call_id,agent_run_id,started_at,evidence_origin,capture_layer,receipt_json) VALUES (%s,%s,%s,%s,%s,%s,'2026-09-13T00:00:00Z','fixture_capture','fixture_file_bytes',%s)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "INSERT 0 1"}}
+{"operation": "execute", "request": {"params": ["tenant-other", "project-other", "task-other", "attempt-fixture", "collector-fixture"], "sql": "INSERT INTO vnext.collector_binding(tenant_id,project_id,task_id,tool_attempt_id,subject,can_settle) VALUES (%s,%s,%s,%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "INSERT 0 1"}}
+{"operation": "execute", "request": {"params": ["tenant-fixture"], "sql": "INSERT INTO vnext.tenant(tenant_id) VALUES (%s) ON CONFLICT DO NOTHING"}}
+{"operation": "execute_receipt", "response": {"rowcount": 0, "statusmessage": "INSERT 0 0"}}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-other"], "sql": "INSERT INTO vnext.project(tenant_id,project_id) VALUES (%s,%s) ON CONFLICT DO NOTHING"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "INSERT 0 1"}}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-other", "task-sibling"], "sql": "INSERT INTO vnext.task(tenant_id,project_id,task_id) VALUES (%s,%s,%s)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "INSERT 0 1"}}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-other", "task-sibling", "collector-fixture", true, true, true, false], "sql": "INSERT INTO vnext.task_access(tenant_id,project_id,task_id,subject,can_read,can_write,can_capture,can_settle,can_gc,can_assess,clearance) VALUES (%s,%s,%s,%s,true,true,%s,%s,%s,%s,1)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "INSERT 0 1"}}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-other", "task-sibling", "agent-fixture", false, false, false, false], "sql": "INSERT INTO vnext.task_access(tenant_id,project_id,task_id,subject,can_read,can_write,can_capture,can_settle,can_gc,can_assess,clearance) VALUES (%s,%s,%s,%s,true,true,%s,%s,%s,%s,1)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "INSERT 0 1"}}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-other", "task-sibling", "reader-fixture", false, false, false, false], "sql": "INSERT INTO vnext.task_access(tenant_id,project_id,task_id,subject,can_read,can_write,can_capture,can_settle,can_gc,can_assess,clearance) VALUES (%s,%s,%s,%s,true,true,%s,%s,%s,%s,1)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "INSERT 0 1"}}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-other", "task-sibling", "assessor-fixture", false, false, false, true], "sql": "INSERT INTO vnext.task_access(tenant_id,project_id,task_id,subject,can_read,can_write,can_capture,can_settle,can_gc,can_assess,clearance) VALUES (%s,%s,%s,%s,true,true,%s,%s,%s,%s,1)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "INSERT 0 1"}}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-other", "task-sibling", "work-fixture"], "sql": "INSERT INTO vnext.work_item(tenant_id,project_id,task_id,work_item_id) VALUES (%s,%s,%s,%s)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "INSERT 0 1"}}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-other", "task-sibling", "work-b"], "sql": "INSERT INTO vnext.work_item(tenant_id,project_id,task_id,work_item_id) VALUES (%s,%s,%s,%s)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "INSERT 0 1"}}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-other", "task-sibling", "run-fixture", "work-fixture", "receiver-fixture", "environment-fixture", "synthetic"], "sql": "INSERT INTO vnext.agent_run(tenant_id,project_id,task_id,agent_run_id,work_item_id,receiver_id,environment_ref,model_mode) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "INSERT 0 1"}}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-other", "task-sibling", "tool-fixture", "lineage-fixture", "message-fixture", "provider-opaque-call", "fixture-reader-v1"], "sql": "INSERT INTO vnext.tool_call(tenant_id,project_id,task_id,tool_call_id,session_lineage,message_id,provider_call_id,tool_definition_version) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "INSERT 0 1"}}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-other", "task-sibling", "attempt-fixture", "tool-fixture", "run-fixture", "{\"fixture_prerequisite\":true,\"exit_code\":0}"], "sql": "INSERT INTO vnext.tool_attempt(tenant_id,project_id,task_id,tool_attempt_id,tool_call_id,agent_run_id,started_at,evidence_origin,capture_layer,receipt_json) VALUES (%s,%s,%s,%s,%s,%s,'2026-09-13T00:00:00Z','fixture_capture','fixture_file_bytes',%s)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "INSERT 0 1"}}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-other", "task-sibling", "attempt-fixture", "collector-fixture"], "sql": "INSERT INTO vnext.collector_binding(tenant_id,project_id,task_id,tool_attempt_id,subject,can_settle) VALUES (%s,%s,%s,%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "INSERT 0 1"}}
+{"operation": "migration_close", "response": "ok"}
+{"operation": "additional_app_connect", "request": {"database": "wuji_p02_9d515442c2bf", "network": "unix_socket", "user": "wuji_app_9d515442c2bf"}, "response": "connected"}
+{"force_rollback": false, "operation": "transaction_enter"}
+{"operation": "execute", "request": {"params": null, "sql": "SELECT set_config('statement_timeout','5000',true),set_config('lock_timeout','5000',true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["5s", "5s"]}
+{"operation": "execute", "request": {"params": ["wuji.tenant", "tenant-fixture"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["tenant-fixture"]}
+{"operation": "execute", "request": {"params": ["wuji.subject", "collector-fixture"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["collector-fixture"]}
+{"operation": "execute", "request": {"params": ["wuji.project", ""], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": [""]}
+{"operation": "execute", "request": {"params": ["wuji.task", ""], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": [""]}
+{"operation": "execute", "request": {"params": ["wuji.clearance", "-1"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["-1"]}
+{"operation": "execute", "request": {"params": ["wuji.write", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.assess", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.capture", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.snapshot", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.domain_write", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.gc", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "collector-fixture", "task-fixture"], "sql": "SELECT * FROM vnext.task_access WHERE tenant_id=%s AND subject=%s AND task_id=%s"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["tenant-fixture", "project-fixture", "task-fixture", "collector-fixture", true, true, true, true, true, false, 1]}
+{"operation": "execute", "request": {"params": ["wuji.project", "project-fixture"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["project-fixture"]}
+{"operation": "execute", "request": {"params": ["wuji.task", "task-fixture"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["task-fixture"]}
+{"operation": "execute", "request": {"params": ["wuji.clearance", "1"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["1"]}
+{"operation": "execute", "request": {"params": ["wuji.write", "true"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["true"]}
+{"operation": "execute", "request": {"params": ["wuji.capture", "true"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["true"]}
+{"operation": "execute", "request": {"params": ["wuji.snapshot", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.domain_write", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.gc", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.assess", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-fixture", "task-fixture"], "sql": "SELECT * FROM vnext.task WHERE tenant_id=%s AND project_id=%s AND task_id=%s FOR UPDATE"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["tenant-fixture", "project-fixture", "task-fixture", true, "1", "1", "0", "0", "0"]}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-fixture", "task-fixture", "attempt-fixture", "collector-fixture"], "sql": "SELECT a.*,r.work_item_id,r.receiver_id,r.environment_ref,\n        r.execution_epoch,r.run_epoch,r.runtime_attempt,r.execution_allowed,\n        b.can_settle AS binding_can_settle FROM vnext.tool_attempt a\n        JOIN vnext.agent_run r USING(tenant_id,project_id,task_id,agent_run_id)\n        JOIN vnext.collector_binding b USING(tenant_id,project_id,task_id,tool_attempt_id)\n        WHERE a.tenant_id=%s AND a.project_id=%s AND a.task_id=%s AND a.tool_attempt_id=%s\n        AND b.subject=%s AND NOT b.revoked"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["tenant-fixture", "project-fixture", "task-fixture", "attempt-fixture", "tool-fixture", "run-fixture", "2026-09-13 08:00:00+08:00", "fixture_capture", "fixture_file_bytes", "{\"fixture_prerequisite\":true,\"exit_code\":0}", "work-fixture", "receiver-fixture", "environment-fixture", "1", "1", "1", true, true]}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-fixture", "task-fixture", "8ac6008d-bc94-4a56-85f3-d35e71847c08", "e8150d63-bdc6-4b33-a35a-6a7a9765e426", "9a2c7e845b8a07ae130eb01e61457d9a0324372c2ebec062b67d0f811dfb17ac", 44, "application/json", "attempt-fixture", "capture", "fixture_capture", "fixture_file_bytes", "environment-fixture", "complete", "[\"fixture bytes\"]", 0], "sql": "INSERT INTO vnext.artifact(tenant_id,project_id,task_id,entity_id,revision,\n                state,storage_key,sha256,size_bytes,media_type,tool_attempt_id,provenance,evidence_origin,\n                capture_layer,environment_ref,completeness,conditions_json,access_level)\n                VALUES (%s,%s,%s,%s,1,'staged',%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "INSERT 0 1"}}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-fixture", "task-fixture", "8ac6008d-bc94-4a56-85f3-d35e71847c08", 0], "sql": "INSERT INTO vnext.artifact_lease(tenant_id,project_id,task_id,artifact_id,artifact_revision,lease_owner,expires_at,access_level) VALUES (%s,%s,%s,%s,1,'staging',clock_timestamp()+interval '5 minutes',%s)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "INSERT 0 1"}}
+{"exception": null, "force_rollback": false, "operation": "transaction_commit", "outcome": "commit", "response": "ok"}
+{"operation": "close", "response": "ok"}
+{"operation": "additional_app_connect", "request": {"database": "wuji_p02_9d515442c2bf", "network": "unix_socket", "user": "wuji_app_9d515442c2bf"}, "response": "connected"}
+{"force_rollback": false, "operation": "transaction_enter"}
+{"operation": "execute", "request": {"params": null, "sql": "SELECT set_config('statement_timeout','5000',true),set_config('lock_timeout','5000',true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["5s", "5s"]}
+{"operation": "execute", "request": {"params": ["wuji.tenant", "tenant-fixture"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["tenant-fixture"]}
+{"operation": "execute", "request": {"params": ["wuji.subject", "collector-fixture"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["collector-fixture"]}
+{"operation": "execute", "request": {"params": ["wuji.project", ""], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": [""]}
+{"operation": "execute", "request": {"params": ["wuji.task", ""], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": [""]}
+{"operation": "execute", "request": {"params": ["wuji.clearance", "-1"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["-1"]}
+{"operation": "execute", "request": {"params": ["wuji.write", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.assess", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.capture", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.snapshot", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.domain_write", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.gc", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "collector-fixture", "task-fixture"], "sql": "SELECT * FROM vnext.task_access WHERE tenant_id=%s AND subject=%s AND task_id=%s"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["tenant-fixture", "project-fixture", "task-fixture", "collector-fixture", true, true, true, true, true, false, 1]}
+{"operation": "execute", "request": {"params": ["wuji.project", "project-fixture"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["project-fixture"]}
+{"operation": "execute", "request": {"params": ["wuji.task", "task-fixture"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["task-fixture"]}
+{"operation": "execute", "request": {"params": ["wuji.clearance", "1"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["1"]}
+{"operation": "execute", "request": {"params": ["wuji.write", "true"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["true"]}
+{"operation": "execute", "request": {"params": ["wuji.capture", "true"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["true"]}
+{"operation": "execute", "request": {"params": ["wuji.snapshot", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.domain_write", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.gc", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.assess", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-fixture", "task-fixture"], "sql": "SELECT * FROM vnext.task WHERE tenant_id=%s AND project_id=%s AND task_id=%s FOR UPDATE"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["tenant-fixture", "project-fixture", "task-fixture", true, "1", "1", "0", "0", "0"]}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-fixture", "task-fixture", "8ac6008d-bc94-4a56-85f3-d35e71847c08", "1"], "sql": "SELECT * FROM vnext.artifact WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND entity_id=%s AND revision=%s FOR UPDATE"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["tenant-fixture", "project-fixture", "task-fixture", "8ac6008d-bc94-4a56-85f3-d35e71847c08", "1", "staged", false, "e8150d63-bdc6-4b33-a35a-6a7a9765e426", "9a2c7e845b8a07ae130eb01e61457d9a0324372c2ebec062b67d0f811dfb17ac", 44, "application/json", "attempt-fixture", "capture", "fixture_capture", "fixture_file_bytes", "environment-fixture", "complete", "[\"fixture bytes\"]", 0, "2026-09-13 06:00:38.727414+08:00"]}
+{"exception": null, "force_rollback": false, "operation": "transaction_commit", "outcome": "commit", "response": "ok"}
+{"operation": "close", "response": "ok"}
+{"operation": "additional_app_connect", "request": {"database": "wuji_p02_9d515442c2bf", "network": "unix_socket", "user": "wuji_app_9d515442c2bf"}, "response": "connected"}
+{"force_rollback": false, "operation": "transaction_enter"}
+{"operation": "execute", "request": {"params": null, "sql": "SELECT set_config('statement_timeout','5000',true),set_config('lock_timeout','5000',true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["5s", "5s"]}
+{"operation": "execute", "request": {"params": ["wuji.tenant", "tenant-fixture"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["tenant-fixture"]}
+{"operation": "execute", "request": {"params": ["wuji.subject", "collector-fixture"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["collector-fixture"]}
+{"operation": "execute", "request": {"params": ["wuji.project", ""], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": [""]}
+{"operation": "execute", "request": {"params": ["wuji.task", ""], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": [""]}
+{"operation": "execute", "request": {"params": ["wuji.clearance", "-1"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["-1"]}
+{"operation": "execute", "request": {"params": ["wuji.write", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.assess", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.capture", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.snapshot", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.domain_write", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.gc", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "collector-fixture", "task-fixture"], "sql": "SELECT * FROM vnext.task_access WHERE tenant_id=%s AND subject=%s AND task_id=%s"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["tenant-fixture", "project-fixture", "task-fixture", "collector-fixture", true, true, true, true, true, false, 1]}
+{"operation": "execute", "request": {"params": ["wuji.project", "project-fixture"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["project-fixture"]}
+{"operation": "execute", "request": {"params": ["wuji.task", "task-fixture"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["task-fixture"]}
+{"operation": "execute", "request": {"params": ["wuji.clearance", "1"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["1"]}
+{"operation": "execute", "request": {"params": ["wuji.write", "true"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["true"]}
+{"operation": "execute", "request": {"params": ["wuji.capture", "true"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["true"]}
+{"operation": "execute", "request": {"params": ["wuji.snapshot", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.domain_write", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.gc", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.assess", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-fixture", "task-fixture"], "sql": "SELECT * FROM vnext.task WHERE tenant_id=%s AND project_id=%s AND task_id=%s FOR UPDATE"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["tenant-fixture", "project-fixture", "task-fixture", true, "1", "1", "0", "0", "0"]}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-fixture", "task-fixture", "8ac6008d-bc94-4a56-85f3-d35e71847c08", "1"], "sql": "SELECT * FROM vnext.artifact WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND entity_id=%s AND revision=%s FOR UPDATE"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["tenant-fixture", "project-fixture", "task-fixture", "8ac6008d-bc94-4a56-85f3-d35e71847c08", "1", "staged", false, "e8150d63-bdc6-4b33-a35a-6a7a9765e426", "9a2c7e845b8a07ae130eb01e61457d9a0324372c2ebec062b67d0f811dfb17ac", 44, "application/json", "attempt-fixture", "capture", "fixture_capture", "fixture_file_bytes", "environment-fixture", "complete", "[\"fixture bytes\"]", 0, "2026-09-13 06:00:38.727414+08:00"]}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-fixture", "task-fixture", "attempt-fixture", "collector-fixture"], "sql": "SELECT a.*,r.work_item_id,r.receiver_id,r.environment_ref,\n        r.execution_epoch,r.run_epoch,r.runtime_attempt,r.execution_allowed,\n        b.can_settle AS binding_can_settle FROM vnext.tool_attempt a\n        JOIN vnext.agent_run r USING(tenant_id,project_id,task_id,agent_run_id)\n        JOIN vnext.collector_binding b USING(tenant_id,project_id,task_id,tool_attempt_id)\n        WHERE a.tenant_id=%s AND a.project_id=%s AND a.task_id=%s AND a.tool_attempt_id=%s\n        AND b.subject=%s AND NOT b.revoked"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["tenant-fixture", "project-fixture", "task-fixture", "attempt-fixture", "tool-fixture", "run-fixture", "2026-09-13 08:00:00+08:00", "fixture_capture", "fixture_file_bytes", "{\"fixture_prerequisite\":true,\"exit_code\":0}", "work-fixture", "receiver-fixture", "environment-fixture", "1", "1", "1", true, true]}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-fixture", "task-fixture", "8ac6008d-bc94-4a56-85f3-d35e71847c08", "1"], "sql": "UPDATE vnext.artifact SET state='sealed' WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND entity_id=%s AND revision=%s"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "UPDATE 1"}}
+{"exception": null, "force_rollback": false, "operation": "transaction_commit", "outcome": "commit", "response": "ok"}
+{"operation": "close", "response": "ok"}
+{"operation": "additional_app_connect", "request": {"database": "wuji_p02_9d515442c2bf", "network": "unix_socket", "user": "wuji_app_9d515442c2bf"}, "response": "connected"}
+{"force_rollback": false, "operation": "transaction_enter"}
+{"operation": "execute", "request": {"params": null, "sql": "SELECT set_config('statement_timeout','5000',true),set_config('lock_timeout','5000',true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["5s", "5s"]}
+{"operation": "execute", "request": {"params": ["wuji.tenant", "tenant-fixture"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["tenant-fixture"]}
+{"operation": "execute", "request": {"params": ["wuji.subject", "collector-fixture"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["collector-fixture"]}
+{"operation": "execute", "request": {"params": ["wuji.project", ""], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": [""]}
+{"operation": "execute", "request": {"params": ["wuji.task", ""], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": [""]}
+{"operation": "execute", "request": {"params": ["wuji.clearance", "-1"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["-1"]}
+{"operation": "execute", "request": {"params": ["wuji.write", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.assess", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.capture", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.snapshot", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.domain_write", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.gc", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "collector-fixture", "task-fixture"], "sql": "SELECT * FROM vnext.task_access WHERE tenant_id=%s AND subject=%s AND task_id=%s"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["tenant-fixture", "project-fixture", "task-fixture", "collector-fixture", true, true, true, true, true, false, 1]}
+{"operation": "execute", "request": {"params": ["wuji.project", "project-fixture"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["project-fixture"]}
+{"operation": "execute", "request": {"params": ["wuji.task", "task-fixture"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["task-fixture"]}
+{"operation": "execute", "request": {"params": ["wuji.clearance", "1"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["1"]}
+{"operation": "execute", "request": {"params": ["wuji.write", "true"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["true"]}
+{"operation": "execute", "request": {"params": ["wuji.capture", "true"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["true"]}
+{"operation": "execute", "request": {"params": ["wuji.snapshot", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.domain_write", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.gc", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.assess", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-fixture", "task-fixture"], "sql": "SELECT * FROM vnext.task WHERE tenant_id=%s AND project_id=%s AND task_id=%s FOR UPDATE"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["tenant-fixture", "project-fixture", "task-fixture", true, "1", "1", "0", "0", "0"]}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-fixture", "task-fixture", "attempt-fixture", "collector-fixture"], "sql": "SELECT a.*,r.work_item_id,r.receiver_id,r.environment_ref,\n        r.execution_epoch,r.run_epoch,r.runtime_attempt,r.execution_allowed,\n        b.can_settle AS binding_can_settle FROM vnext.tool_attempt a\n        JOIN vnext.agent_run r USING(tenant_id,project_id,task_id,agent_run_id)\n        JOIN vnext.collector_binding b USING(tenant_id,project_id,task_id,tool_attempt_id)\n        WHERE a.tenant_id=%s AND a.project_id=%s AND a.task_id=%s AND a.tool_attempt_id=%s\n        AND b.subject=%s AND NOT b.revoked"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["tenant-fixture", "project-fixture", "task-fixture", "attempt-fixture", "tool-fixture", "run-fixture", "2026-09-13 08:00:00+08:00", "fixture_capture", "fixture_file_bytes", "{\"fixture_prerequisite\":true,\"exit_code\":0}", "work-fixture", "receiver-fixture", "environment-fixture", "1", "1", "1", true, true]}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-fixture", "task-fixture", "8aebf861-065a-4a19-97fa-d354c5565f93", "67038564-e31f-4a14-9fd8-8ccb84cc2c36", "c254960b9750fe3d4d5d833ce8b21042038b3f92b95def612c5e7fb71ab68403", 44, "application/json", "attempt-fixture", "capture", "fixture_capture", "fixture_file_bytes", "environment-fixture", "complete", "[\"fixture bytes\"]", 0], "sql": "INSERT INTO vnext.artifact(tenant_id,project_id,task_id,entity_id,revision,\n                state,storage_key,sha256,size_bytes,media_type,tool_attempt_id,provenance,evidence_origin,\n                capture_layer,environment_ref,completeness,conditions_json,access_level)\n                VALUES (%s,%s,%s,%s,1,'staged',%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "INSERT 0 1"}}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-fixture", "task-fixture", "8aebf861-065a-4a19-97fa-d354c5565f93", 0], "sql": "INSERT INTO vnext.artifact_lease(tenant_id,project_id,task_id,artifact_id,artifact_revision,lease_owner,expires_at,access_level) VALUES (%s,%s,%s,%s,1,'staging',clock_timestamp()+interval '5 minutes',%s)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "INSERT 0 1"}}
+{"exception": null, "force_rollback": false, "operation": "transaction_commit", "outcome": "commit", "response": "ok"}
+{"operation": "close", "response": "ok"}
+{"operation": "additional_app_connect", "request": {"database": "wuji_p02_9d515442c2bf", "network": "unix_socket", "user": "wuji_app_9d515442c2bf"}, "response": "connected"}
+{"force_rollback": false, "operation": "transaction_enter"}
+{"operation": "execute", "request": {"params": null, "sql": "SELECT set_config('statement_timeout','5000',true),set_config('lock_timeout','5000',true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["5s", "5s"]}
+{"operation": "execute", "request": {"params": ["wuji.tenant", "tenant-fixture"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["tenant-fixture"]}
+{"operation": "execute", "request": {"params": ["wuji.subject", "collector-fixture"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["collector-fixture"]}
+{"operation": "execute", "request": {"params": ["wuji.project", ""], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": [""]}
+{"operation": "execute", "request": {"params": ["wuji.task", ""], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": [""]}
+{"operation": "execute", "request": {"params": ["wuji.clearance", "-1"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["-1"]}
+{"operation": "execute", "request": {"params": ["wuji.write", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.assess", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.capture", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.snapshot", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.domain_write", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.gc", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "collector-fixture", "task-fixture"], "sql": "SELECT * FROM vnext.task_access WHERE tenant_id=%s AND subject=%s AND task_id=%s"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["tenant-fixture", "project-fixture", "task-fixture", "collector-fixture", true, true, true, true, true, false, 1]}
+{"operation": "execute", "request": {"params": ["wuji.project", "project-fixture"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["project-fixture"]}
+{"operation": "execute", "request": {"params": ["wuji.task", "task-fixture"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["task-fixture"]}
+{"operation": "execute", "request": {"params": ["wuji.clearance", "1"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["1"]}
+{"operation": "execute", "request": {"params": ["wuji.write", "true"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["true"]}
+{"operation": "execute", "request": {"params": ["wuji.capture", "true"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["true"]}
+{"operation": "execute", "request": {"params": ["wuji.snapshot", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.domain_write", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.gc", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.assess", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-fixture", "task-fixture"], "sql": "SELECT * FROM vnext.task WHERE tenant_id=%s AND project_id=%s AND task_id=%s FOR UPDATE"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["tenant-fixture", "project-fixture", "task-fixture", true, "1", "1", "0", "0", "0"]}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-fixture", "task-fixture", "8aebf861-065a-4a19-97fa-d354c5565f93", "1"], "sql": "SELECT * FROM vnext.artifact WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND entity_id=%s AND revision=%s FOR UPDATE"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["tenant-fixture", "project-fixture", "task-fixture", "8aebf861-065a-4a19-97fa-d354c5565f93", "1", "staged", false, "67038564-e31f-4a14-9fd8-8ccb84cc2c36", "c254960b9750fe3d4d5d833ce8b21042038b3f92b95def612c5e7fb71ab68403", 44, "application/json", "attempt-fixture", "capture", "fixture_capture", "fixture_file_bytes", "environment-fixture", "complete", "[\"fixture bytes\"]", 0, "2026-09-13 06:00:38.761693+08:00"]}
+{"exception": null, "force_rollback": false, "operation": "transaction_commit", "outcome": "commit", "response": "ok"}
+{"operation": "close", "response": "ok"}
+{"operation": "additional_app_connect", "request": {"database": "wuji_p02_9d515442c2bf", "network": "unix_socket", "user": "wuji_app_9d515442c2bf"}, "response": "connected"}
+{"force_rollback": false, "operation": "transaction_enter"}
+{"operation": "execute", "request": {"params": null, "sql": "SELECT set_config('statement_timeout','5000',true),set_config('lock_timeout','5000',true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["5s", "5s"]}
+{"operation": "execute", "request": {"params": ["wuji.tenant", "tenant-fixture"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["tenant-fixture"]}
+{"operation": "execute", "request": {"params": ["wuji.subject", "collector-fixture"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["collector-fixture"]}
+{"operation": "execute", "request": {"params": ["wuji.project", ""], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": [""]}
+{"operation": "execute", "request": {"params": ["wuji.task", ""], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": [""]}
+{"operation": "execute", "request": {"params": ["wuji.clearance", "-1"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["-1"]}
+{"operation": "execute", "request": {"params": ["wuji.write", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.assess", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.capture", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.snapshot", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.domain_write", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.gc", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "collector-fixture", "task-fixture"], "sql": "SELECT * FROM vnext.task_access WHERE tenant_id=%s AND subject=%s AND task_id=%s"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["tenant-fixture", "project-fixture", "task-fixture", "collector-fixture", true, true, true, true, true, false, 1]}
+{"operation": "execute", "request": {"params": ["wuji.project", "project-fixture"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["project-fixture"]}
+{"operation": "execute", "request": {"params": ["wuji.task", "task-fixture"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["task-fixture"]}
+{"operation": "execute", "request": {"params": ["wuji.clearance", "1"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["1"]}
+{"operation": "execute", "request": {"params": ["wuji.write", "true"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["true"]}
+{"operation": "execute", "request": {"params": ["wuji.capture", "true"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["true"]}
+{"operation": "execute", "request": {"params": ["wuji.snapshot", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.domain_write", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.gc", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.assess", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-fixture", "task-fixture"], "sql": "SELECT * FROM vnext.task WHERE tenant_id=%s AND project_id=%s AND task_id=%s FOR UPDATE"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["tenant-fixture", "project-fixture", "task-fixture", true, "1", "1", "0", "0", "0"]}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-fixture", "task-fixture", "8aebf861-065a-4a19-97fa-d354c5565f93", "1"], "sql": "SELECT * FROM vnext.artifact WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND entity_id=%s AND revision=%s FOR UPDATE"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["tenant-fixture", "project-fixture", "task-fixture", "8aebf861-065a-4a19-97fa-d354c5565f93", "1", "staged", false, "67038564-e31f-4a14-9fd8-8ccb84cc2c36", "c254960b9750fe3d4d5d833ce8b21042038b3f92b95def612c5e7fb71ab68403", 44, "application/json", "attempt-fixture", "capture", "fixture_capture", "fixture_file_bytes", "environment-fixture", "complete", "[\"fixture bytes\"]", 0, "2026-09-13 06:00:38.761693+08:00"]}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-fixture", "task-fixture", "attempt-fixture", "collector-fixture"], "sql": "SELECT a.*,r.work_item_id,r.receiver_id,r.environment_ref,\n        r.execution_epoch,r.run_epoch,r.runtime_attempt,r.execution_allowed,\n        b.can_settle AS binding_can_settle FROM vnext.tool_attempt a\n        JOIN vnext.agent_run r USING(tenant_id,project_id,task_id,agent_run_id)\n        JOIN vnext.collector_binding b USING(tenant_id,project_id,task_id,tool_attempt_id)\n        WHERE a.tenant_id=%s AND a.project_id=%s AND a.task_id=%s AND a.tool_attempt_id=%s\n        AND b.subject=%s AND NOT b.revoked"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["tenant-fixture", "project-fixture", "task-fixture", "attempt-fixture", "tool-fixture", "run-fixture", "2026-09-13 08:00:00+08:00", "fixture_capture", "fixture_file_bytes", "{\"fixture_prerequisite\":true,\"exit_code\":0}", "work-fixture", "receiver-fixture", "environment-fixture", "1", "1", "1", true, true]}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-fixture", "task-fixture", "8aebf861-065a-4a19-97fa-d354c5565f93", "1"], "sql": "UPDATE vnext.artifact SET state='sealed' WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND entity_id=%s AND revision=%s"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "UPDATE 1"}}
+{"exception": null, "force_rollback": false, "operation": "transaction_commit", "outcome": "commit", "response": "ok"}
+{"operation": "close", "response": "ok"}
+{"operation": "additional_app_connect", "request": {"database": "wuji_p02_9d515442c2bf", "network": "unix_socket", "user": "wuji_app_9d515442c2bf"}, "response": "connected"}
+{"force_rollback": false, "operation": "transaction_enter"}
+{"operation": "execute", "request": {"params": null, "sql": "SELECT set_config('statement_timeout','5000',true),set_config('lock_timeout','5000',true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["5s", "5s"]}
+{"operation": "execute", "request": {"params": ["wuji.tenant", "tenant-fixture"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["tenant-fixture"]}
+{"operation": "execute", "request": {"params": ["wuji.subject", "collector-fixture"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["collector-fixture"]}
+{"operation": "execute", "request": {"params": ["wuji.project", ""], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": [""]}
+{"operation": "execute", "request": {"params": ["wuji.task", ""], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": [""]}
+{"operation": "execute", "request": {"params": ["wuji.clearance", "-1"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["-1"]}
+{"operation": "execute", "request": {"params": ["wuji.write", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.assess", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.capture", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.snapshot", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.domain_write", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.gc", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "collector-fixture", "task-fixture"], "sql": "SELECT * FROM vnext.task_access WHERE tenant_id=%s AND subject=%s AND task_id=%s"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["tenant-fixture", "project-fixture", "task-fixture", "collector-fixture", true, true, true, true, true, false, 1]}
+{"operation": "execute", "request": {"params": ["wuji.project", "project-fixture"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["project-fixture"]}
+{"operation": "execute", "request": {"params": ["wuji.task", "task-fixture"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["task-fixture"]}
+{"operation": "execute", "request": {"params": ["wuji.clearance", "1"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["1"]}
+{"operation": "execute", "request": {"params": ["wuji.write", "true"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["true"]}
+{"operation": "execute", "request": {"params": ["wuji.capture", "true"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["true"]}
+{"operation": "execute", "request": {"params": ["wuji.snapshot", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.domain_write", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.gc", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.assess", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-fixture", "task-fixture"], "sql": "SELECT * FROM vnext.task WHERE tenant_id=%s AND project_id=%s AND task_id=%s FOR UPDATE"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["tenant-fixture", "project-fixture", "task-fixture", true, "1", "1", "0", "0", "0"]}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-fixture", "task-fixture", "attempt-fixture", "collector-fixture"], "sql": "SELECT a.*,r.work_item_id,r.receiver_id,r.environment_ref,\n        r.execution_epoch,r.run_epoch,r.runtime_attempt,r.execution_allowed,\n        b.can_settle AS binding_can_settle FROM vnext.tool_attempt a\n        JOIN vnext.agent_run r USING(tenant_id,project_id,task_id,agent_run_id)\n        JOIN vnext.collector_binding b USING(tenant_id,project_id,task_id,tool_attempt_id)\n        WHERE a.tenant_id=%s AND a.project_id=%s AND a.task_id=%s AND a.tool_attempt_id=%s\n        AND b.subject=%s AND NOT b.revoked"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["tenant-fixture", "project-fixture", "task-fixture", "attempt-fixture", "tool-fixture", "run-fixture", "2026-09-13 08:00:00+08:00", "fixture_capture", "fixture_file_bytes", "{\"fixture_prerequisite\":true,\"exit_code\":0}", "work-fixture", "receiver-fixture", "environment-fixture", "1", "1", "1", true, true]}
+{"exception": "DomainError", "force_rollback": false, "operation": "transaction_rollback", "outcome": "exception_rollback", "response": "ok"}
+{"operation": "close", "response": "ok"}
+{"operation": "additional_app_connect", "request": {"database": "wuji_p02_9d515442c2bf", "network": "unix_socket", "user": "wuji_app_9d515442c2bf"}, "response": "connected"}
+{"force_rollback": false, "operation": "transaction_enter"}
+{"operation": "execute", "request": {"params": null, "sql": "SELECT set_config('statement_timeout','5000',true),set_config('lock_timeout','5000',true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["5s", "5s"]}
+{"operation": "execute", "request": {"params": ["wuji.tenant", "tenant-fixture"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["tenant-fixture"]}
+{"operation": "execute", "request": {"params": ["wuji.subject", "collector-fixture"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["collector-fixture"]}
+{"operation": "execute", "request": {"params": ["wuji.project", ""], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": [""]}
+{"operation": "execute", "request": {"params": ["wuji.task", ""], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": [""]}
+{"operation": "execute", "request": {"params": ["wuji.clearance", "-1"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["-1"]}
+{"operation": "execute", "request": {"params": ["wuji.write", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.assess", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.capture", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.snapshot", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.domain_write", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.gc", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "collector-fixture", "task-fixture"], "sql": "SELECT * FROM vnext.task_access WHERE tenant_id=%s AND subject=%s AND task_id=%s"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["tenant-fixture", "project-fixture", "task-fixture", "collector-fixture", true, true, true, true, true, false, 1]}
+{"operation": "execute", "request": {"params": ["wuji.project", "project-fixture"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["project-fixture"]}
+{"operation": "execute", "request": {"params": ["wuji.task", "task-fixture"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["task-fixture"]}
+{"operation": "execute", "request": {"params": ["wuji.clearance", "1"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["1"]}
+{"operation": "execute", "request": {"params": ["wuji.write", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.capture", "true"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["true"]}
+{"operation": "execute", "request": {"params": ["wuji.snapshot", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.domain_write", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.gc", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.assess", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-fixture", "task-fixture"], "sql": "SELECT * FROM vnext.task WHERE tenant_id=%s AND project_id=%s AND task_id=%s"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["tenant-fixture", "project-fixture", "task-fixture", true, "1", "1", "0", "0", "0"]}
+{"operation": "execute", "request": {"params": null, "sql": "SELECT count(*) FROM \"vnext\".\"observation\""}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": [0]}
+{"exception": null, "force_rollback": false, "operation": "transaction_commit", "outcome": "commit", "response": "ok"}
+{"operation": "close", "response": "ok"}
+{"operation": "additional_app_connect", "request": {"database": "wuji_p02_9d515442c2bf", "network": "unix_socket", "user": "wuji_app_9d515442c2bf"}, "response": "connected"}
+{"force_rollback": false, "operation": "transaction_enter"}
+{"operation": "execute", "request": {"params": null, "sql": "SELECT set_config('statement_timeout','5000',true),set_config('lock_timeout','5000',true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["5s", "5s"]}
+{"operation": "execute", "request": {"params": ["wuji.tenant", "tenant-fixture"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["tenant-fixture"]}
+{"operation": "execute", "request": {"params": ["wuji.subject", "collector-fixture"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["collector-fixture"]}
+{"operation": "execute", "request": {"params": ["wuji.project", ""], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": [""]}
+{"operation": "execute", "request": {"params": ["wuji.task", ""], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": [""]}
+{"operation": "execute", "request": {"params": ["wuji.clearance", "-1"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["-1"]}
+{"operation": "execute", "request": {"params": ["wuji.write", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.assess", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.capture", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.snapshot", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.domain_write", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.gc", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "collector-fixture", "task-fixture"], "sql": "SELECT * FROM vnext.task_access WHERE tenant_id=%s AND subject=%s AND task_id=%s"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["tenant-fixture", "project-fixture", "task-fixture", "collector-fixture", true, true, true, true, true, false, 1]}
+{"operation": "execute", "request": {"params": ["wuji.project", "project-fixture"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["project-fixture"]}
+{"operation": "execute", "request": {"params": ["wuji.task", "task-fixture"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["task-fixture"]}
+{"operation": "execute", "request": {"params": ["wuji.clearance", "1"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["1"]}
+{"operation": "execute", "request": {"params": ["wuji.write", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.capture", "true"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["true"]}
+{"operation": "execute", "request": {"params": ["wuji.snapshot", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.domain_write", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.gc", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["wuji.assess", "false"], "sql": "SELECT set_config(%s,%s,true)"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["false"]}
+{"operation": "execute", "request": {"params": ["tenant-fixture", "project-fixture", "task-fixture"], "sql": "SELECT * FROM vnext.task WHERE tenant_id=%s AND project_id=%s AND task_id=%s"}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": ["tenant-fixture", "project-fixture", "task-fixture", true, "1", "1", "0", "0", "0"]}
+{"operation": "execute", "request": {"params": null, "sql": "SELECT count(*) FROM \"vnext\".\"tool_attempt\""}}
+{"operation": "execute_receipt", "response": {"rowcount": 1, "statusmessage": "SELECT 1"}}
+{"operation": "fetchone", "response": [1]}
+{"exception": null, "force_rollback": false, "operation": "transaction_commit", "outcome": "commit", "response": "ok"}
+{"operation": "close", "response": "ok"}
+{"operation": "admin_execute", "phase": "cleanup", "request": {"params": ["wuji_p02_9d515442c2bf"], "sql": "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = %s AND pid <> pg_backend_pid()"}}
+{"operation": "admin_execute_receipt", "phase": "cleanup", "response": {"rowcount": 0, "statusmessage": "SELECT 0"}}
+{"operation": "admin_execute", "phase": "cleanup", "request": {"params": null, "sql": "DROP DATABASE \"wuji_p02_9d515442c2bf\""}}
+{"operation": "admin_execute_receipt", "phase": "cleanup", "response": {"rowcount": -1, "statusmessage": "DROP DATABASE"}}
+{"operation": "admin_execute", "phase": "cleanup", "request": {"params": null, "sql": "DROP ROLE \"wuji_app_9d515442c2bf\""}}
+{"operation": "admin_execute_receipt", "phase": "cleanup", "response": {"rowcount": -1, "statusmessage": "DROP ROLE"}}
+{"operation": "admin_execute", "phase": "cleanup", "request": {"params": null, "sql": "DROP ROLE \"wuji_migration_9d515442c2bf\""}}
+{"operation": "admin_execute_receipt", "phase": "cleanup", "response": {"rowcount": -1, "statusmessage": "DROP ROLE"}}

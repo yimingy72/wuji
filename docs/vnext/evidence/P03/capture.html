@@ -1,0 +1,23 @@
+<!doctype html><meta charset="utf-8"><title>P03 capture receipts</title><style>body{font:17px system-ui;background:#f4f6f9;color:#172536;margin:36px;max-width:1380px}h1{font-size:34px;margin:0 0 8px}.pill{background:#d6f1e4;color:#164f37;padding:8px 14px;border-radius:10px;display:inline-block}pre{font:14px ui-monospace,monospace;white-space:pre-wrap;overflow-wrap:anywhere;background:#fff;padding:16px;border:1px solid #dbe2e8;border-radius:8px}table{border-collapse:collapse;width:100%;background:white}td,th{text-align:left;padding:10px 12px;border-bottom:1px solid #dbe2e8;font-size:15px}.muted{color:#526477;font-size:14px}a{color:#1662ad}</style><h1>P03 · actual recorded HTTP receipts</h1><p class="muted">Code dcf5cc2903622a02b023f545e3e4c1585004ae59 · selected exchanges from first final run; full headers/bodies in http-reproduction.md.</p><h2>Agent request → 403</h2><pre>{&quot;code&quot;:&quot;FORBIDDEN_COLLECTOR&quot;,&quot;message&quot;:&quot;The request could not be completed.&quot;,&quot;request_id&quot;:&quot;d555af41-6721-4305-b3fe-9b674b834337&quot;,&quot;retryable&quot;:false,&quot;details&quot;:{}}</pre><h2>Bound collector → 202 · one Observation, all artifacts</h2><pre>{
+  &quot;observation_ref&quot;: {
+    &quot;entity_type&quot;: &quot;observation&quot;,
+    &quot;id&quot;: &quot;16b6cfe1-6fd3-48e9-93a7-7dca7b8a4a99&quot;,
+    &quot;revision&quot;: &quot;1&quot;
+  },
+  &quot;capture_id&quot;: &quot;capture-fixture&quot;,
+  &quot;status&quot;: &quot;accepted&quot;,
+  &quot;artifact_refs&quot;: [
+    {
+      &quot;id&quot;: &quot;6b365e80-d4bc-4632-813a-e7a7f29d8ca4&quot;,
+      &quot;version&quot;: &quot;1&quot;,
+      &quot;sha256&quot;: &quot;9a2c7e845b8a07ae130eb01e61457d9a0324372c2ebec062b67d0f811dfb17ac&quot;
+    },
+    {
+      &quot;id&quot;: &quot;a66e31cf-26cb-4709-8f7f-202054e86e26&quot;,
+      &quot;version&quot;: &quot;1&quot;,
+      &quot;sha256&quot;: &quot;c254960b9750fe3d4d5d833ce8b21042038b3f92b95def612c5e7fb71ab68403&quot;
+    }
+  ],
+  &quot;request_id&quot;: &quot;15ff2add-8984-4cfd-9fea-5368beaf13bb&quot;,
+  &quot;code&quot;: null
+}</pre><p class="muted">Raw source bytes, original envelope and server receipt time were verified through the production service and recorded PostgreSQL application connection.</p>

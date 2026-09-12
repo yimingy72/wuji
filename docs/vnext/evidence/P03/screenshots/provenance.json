@@ -1,0 +1,24 @@
+{
+  "captured_at": "2026-09-12T22:06:21.018Z",
+  "code_sha": "dcf5cc2903622a02b023f545e3e4c1585004ae59",
+  "method": "Native Codex in-app browser screenshots through cua_repl; no raster editing",
+  "sources": [
+    {
+      "file": "overview.jpg",
+      "url": "http://127.0.0.1:64865/result.html",
+      "rendered_from": [
+        "../final-pytest.txt",
+        "../ac-slices.json",
+        "../observed-environment.json"
+      ]
+    },
+    {
+      "file": "capture.jpg",
+      "url": "http://127.0.0.1:64865/capture.html",
+      "rendered_from": [
+        "../runtime/*/http-exchanges.jsonl"
+      ]
+    }
+  ],
+  "scope": "Saved first-final-run evidence viewer, not a product UI or a new execution"
+}

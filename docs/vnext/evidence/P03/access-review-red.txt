@@ -1,0 +1,47 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+_ test_private_publication_pin_protects_visible_bytes_from_lower_clearance_gc __
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x11118c440>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-62/test_private_publication_pin_p0')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-62/test_private_publication_pin_p0')
+test_tokens = TestTokens(agent='eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6Ijg5YTIwNWJlMGRkZDdkYTkifQ.eyJpc3MiOiJodHRwczovL2lkZW50a...id', audience='wuji-vnext-tests', public_key_sha256='89a205be0ddd7da99438d2c72e1826ea20f641e6eb40e44abb0ccafbd00a4562')
+
+    def test_private_publication_pin_protects_visible_bytes_from_lower_clearance_gc(db_environment,tmp_path,audit_directory,test_tokens):
+        from wuji_core.contracts.envelopes import BlobRef
+        with capture_case(db_environment,tmp_path,audit_directory,test_tokens) as c:
+            private=c.store.stage(access(),'task-fixture','attempt-fixture',b'private fixture','text/plain',conditions=['fixture bytes'],access_level=1)
+            c.store.seal(access(),'task-fixture',private)
+            envelope={**c.envelope,'artifact_refs':[c.refs[0],private.model_dump(mode='json')]}
+            assert submit(c,envelope).status_code==202
+            with db_environment.migration_connection() as db:
+                db.execute("UPDATE vnext.task_access SET clearance=0 WHERE tenant_id='tenant-fixture' AND task_id='task-fixture'")
+            assert c.store.collect_garbage(access(),'task-fixture',older_than=datetime.now(timezone.utc))==[]
+            assert c.store.read(access(),c.refs[0]['id'],'1')[0]==c.data[0]
+            with c.uow.transaction(access(),'task-fixture') as tx:
+                assert tx.connection.execute('SELECT count(*) FROM vnext.observation').fetchone()[0]==0
+>               assert tx.connection.execute('SELECT count(*) FROM vnext.outbox').fetchone()[0]==0
+E               assert 1 == 0
+
+tests/vnext/test_capture_transactions.py:301: AssertionError
+______________ test_revoked_collector_cannot_release_commit_lease ______________
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x107f67110>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-62/test_revoked_collector_cannot_0')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-62/test_revoked_collector_cannot_0')
+test_tokens = TestTokens(agent='eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6IjE5ZGIwMGNkZTdmMWFlNmEifQ.eyJpc3MiOiJodHRwczovL2lkZW50a...id', audience='wuji-vnext-tests', public_key_sha256='19db00cde7f1ae6aaeafad8b9c55973787289145380dff55ffb51344d2a8a01a')
+
+    def test_revoked_collector_cannot_release_commit_lease(db_environment,tmp_path,audit_directory,test_tokens):
+        from wuji_core.contracts.envelopes import BlobRef
+        with capture_case(db_environment,tmp_path,audit_directory,test_tokens) as c:
+            with db_environment.migration_connection() as db:
+                db.execute("UPDATE vnext.collector_binding SET revoked=true WHERE tenant_id='tenant-fixture' AND task_id='task-fixture'")
+>           with pytest.raises(module('persistence.uow').DomainError) as error:
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           Failed: DID NOT RAISE DomainError
+
+tests/vnext/test_capture_transactions.py:318: Failed
+=========================== short test summary info ============================
+FAILED tests/vnext/test_capture_transactions.py::test_private_publication_pin_protects_visible_bytes_from_lower_clearance_gc
+FAILED tests/vnext/test_capture_transactions.py::test_revoked_collector_cannot_release_commit_lease
+2 failed, 32 deselected in 0.95s

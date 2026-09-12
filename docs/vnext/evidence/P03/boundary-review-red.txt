@@ -1,0 +1,24 @@
+F...                                                                     [100%]
+=================================== FAILURES ===================================
+____ test_partial_body_and_complete_metadata_remain_one_partial_observation ____
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x121994440>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-61/test_partial_body_and_complete0')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-61/test_partial_body_and_complete0')
+test_tokens = TestTokens(agent='eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6IjcwYWM3MjIwOWRmNTBiYTQifQ.eyJpc3MiOiJodHRwczovL2lkZW50a...id', audience='wuji-vnext-tests', public_key_sha256='70ac72209df50ba448dce73359c7ca78cffe5a0fc264610f4709e8167277f49c')
+
+    def test_partial_body_and_complete_metadata_remain_one_partial_observation(db_environment,tmp_path,audit_directory,test_tokens):
+        with capture_case(db_environment,tmp_path,audit_directory,test_tokens) as c:
+            body=c.store.stage(access(),'task-fixture','attempt-fixture',b'{"version":17','application/json',completeness='partial',conditions=['body truncated'])
+            c.store.seal(access(),'task-fixture',body)
+            envelope={**c.envelope,'artifact_refs':[body.model_dump(mode='json'),c.refs[1]],'completeness':'partial','conditions':['fixture bytes','body truncated']}
+            response=submit(c,envelope)
+>           assert response.status_code==202, response.text
+E           AssertionError: {"code":"INVALID_REFERENCE","message":"The request could not be completed.","request_id":"7dbe41a2-f0f7-4218-acff-1971b1daf3d5","retryable":false,"details":{}}
+E           assert 422 == 202
+E            +  where 422 = <Response [422 Unprocessable Entity]>.status_code
+
+tests/vnext/test_capture_transactions.py:272: AssertionError
+=========================== short test summary info ============================
+FAILED tests/vnext/test_capture_transactions.py::test_partial_body_and_complete_metadata_remain_one_partial_observation
+1 failed, 3 passed, 29 deselected in 2.02s

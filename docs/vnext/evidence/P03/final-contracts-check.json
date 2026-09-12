@@ -1,0 +1,10 @@
+{
+  "command": [
+    "work/toolchain/bin/pnpm",
+    "contracts:check:v2"
+  ],
+  "started_at": "2026-09-12T22:00:33.165185+00:00",
+  "elapsed_seconds": 3.88381970798946,
+  "exit_code": 0,
+  "output": "final-contracts-check.txt"
+}

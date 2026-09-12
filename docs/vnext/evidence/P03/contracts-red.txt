@@ -1,0 +1,114 @@
+F..FFFFF                                                                 [100%]
+=================================== FAILURES ===================================
+___________ test_one_observation_preserves_all_ordered_artifact_refs ___________
+
+    def test_one_observation_preserves_all_ordered_artifact_refs():
+>       record = ObservationRecord.model_validate(observation())
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       pydantic_core._pydantic_core.ValidationError: 5 validation errors for ObservationRecord
+E       artifact_ref
+E         Field required [type=missing, input_value={'observation_id': 'obs-1...bbbbbbbbbbbbbbbbbbbb'}]}, input_type=dict]
+E           For further information visit https://errors.pydantic.dev/2.13/v/missing
+E       observation_id
+E         Extra inputs are not permitted [type=extra_forbidden, input_value='obs-1', input_type=str]
+E           For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden
+E       revision
+E         Extra inputs are not permitted [type=extra_forbidden, input_value='1', input_type=str]
+E           For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden
+E       task_id
+E         Extra inputs are not permitted [type=extra_forbidden, input_value='task-fixture', input_type=str]
+E           For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden
+E       artifact_refs
+E         Extra inputs are not permitted [type=extra_forbidden, input_value=[{'id': 'body', 'version'...bbbbbbbbbbbbbbbbbbbbb'}], input_type=list]
+E           For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden
+
+tests/vnext/test_p03_contracts.py:28: ValidationError
+___ test_evidence_receipt_binds_exactly_the_published_observation[accepted] ____
+
+status = 'accepted'
+
+    @pytest.mark.parametrize("status", ["accepted", "historical_only", "pending", "rejected"])
+    def test_evidence_receipt_binds_exactly_the_published_observation(status):
+        ref = {"entity_type": "observation", "id": "obs-1", "revision": "1"}
+        published = status in {"accepted", "historical_only"}
+        body = {"capture_id": "capture-1", "status": status, "artifact_refs": [],
+                "request_id": "request-1", "observation_ref": ref if published else None}
+>       assert EvidenceReceipt.model_validate(body).observation_ref == (None if not published else EvidenceReceipt.model_validate(body).observation_ref)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       pydantic_core._pydantic_core.ValidationError: 1 validation error for EvidenceReceipt
+E       observation_ref
+E         Extra inputs are not permitted [type=extra_forbidden, input_value={'entity_type': 'observat...obs-1', 'revision': '1'}, input_type=dict]
+E           For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden
+
+tests/vnext/test_p03_contracts.py:46: ValidationError
+_ test_evidence_receipt_binds_exactly_the_published_observation[historical_only] _
+
+status = 'historical_only'
+
+    @pytest.mark.parametrize("status", ["accepted", "historical_only", "pending", "rejected"])
+    def test_evidence_receipt_binds_exactly_the_published_observation(status):
+        ref = {"entity_type": "observation", "id": "obs-1", "revision": "1"}
+        published = status in {"accepted", "historical_only"}
+        body = {"capture_id": "capture-1", "status": status, "artifact_refs": [],
+                "request_id": "request-1", "observation_ref": ref if published else None}
+>       assert EvidenceReceipt.model_validate(body).observation_ref == (None if not published else EvidenceReceipt.model_validate(body).observation_ref)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       pydantic_core._pydantic_core.ValidationError: 1 validation error for EvidenceReceipt
+E       observation_ref
+E         Extra inputs are not permitted [type=extra_forbidden, input_value={'entity_type': 'observat...obs-1', 'revision': '1'}, input_type=dict]
+E           For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden
+
+tests/vnext/test_p03_contracts.py:46: ValidationError
+____ test_evidence_receipt_binds_exactly_the_published_observation[pending] ____
+
+status = 'pending'
+
+    @pytest.mark.parametrize("status", ["accepted", "historical_only", "pending", "rejected"])
+    def test_evidence_receipt_binds_exactly_the_published_observation(status):
+        ref = {"entity_type": "observation", "id": "obs-1", "revision": "1"}
+        published = status in {"accepted", "historical_only"}
+        body = {"capture_id": "capture-1", "status": status, "artifact_refs": [],
+                "request_id": "request-1", "observation_ref": ref if published else None}
+>       assert EvidenceReceipt.model_validate(body).observation_ref == (None if not published else EvidenceReceipt.model_validate(body).observation_ref)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       pydantic_core._pydantic_core.ValidationError: 1 validation error for EvidenceReceipt
+E       observation_ref
+E         Extra inputs are not permitted [type=extra_forbidden, input_value=None, input_type=NoneType]
+E           For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden
+
+tests/vnext/test_p03_contracts.py:46: ValidationError
+___ test_evidence_receipt_binds_exactly_the_published_observation[rejected] ____
+
+status = 'rejected'
+
+    @pytest.mark.parametrize("status", ["accepted", "historical_only", "pending", "rejected"])
+    def test_evidence_receipt_binds_exactly_the_published_observation(status):
+        ref = {"entity_type": "observation", "id": "obs-1", "revision": "1"}
+        published = status in {"accepted", "historical_only"}
+        body = {"capture_id": "capture-1", "status": status, "artifact_refs": [],
+                "request_id": "request-1", "observation_ref": ref if published else None}
+>       assert EvidenceReceipt.model_validate(body).observation_ref == (None if not published else EvidenceReceipt.model_validate(body).observation_ref)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       pydantic_core._pydantic_core.ValidationError: 1 validation error for EvidenceReceipt
+E       observation_ref
+E         Extra inputs are not permitted [type=extra_forbidden, input_value=None, input_type=NoneType]
+E           For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden
+
+tests/vnext/test_p03_contracts.py:46: ValidationError
+____________ test_openapi_evidence_requires_one_idempotency_header _____________
+
+    def test_openapi_evidence_requires_one_idempotency_header():
+        source = yaml.safe_load((Path(__file__).resolve().parents[2] / "packages/contracts/openapi-v2.yaml").read_text())
+        params = source["paths"]["/internal/v2/evidence"]["post"].get("parameters", [])
+>       assert {"$ref": "#/components/parameters/IdempotencyKey"} in params
+E       AssertionError: assert {'$ref': '#/components/parameters/IdempotencyKey'} in []
+
+tests/vnext/test_p03_contracts.py:57: AssertionError
+=========================== short test summary info ============================
+FAILED tests/vnext/test_p03_contracts.py::test_one_observation_preserves_all_ordered_artifact_refs
+FAILED tests/vnext/test_p03_contracts.py::test_evidence_receipt_binds_exactly_the_published_observation[accepted]
+FAILED tests/vnext/test_p03_contracts.py::test_evidence_receipt_binds_exactly_the_published_observation[historical_only]
+FAILED tests/vnext/test_p03_contracts.py::test_evidence_receipt_binds_exactly_the_published_observation[pending]
+FAILED tests/vnext/test_p03_contracts.py::test_evidence_receipt_binds_exactly_the_published_observation[rejected]
+FAILED tests/vnext/test_p03_contracts.py::test_openapi_evidence_requires_one_idempotency_header
+6 failed, 2 passed in 0.16s

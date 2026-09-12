@@ -1,0 +1,29 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+__________ test_gc_preserves_artifact_cited_by_claim_before_snapshot ___________
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x1219df380>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-64/test_gc_preserves_artifact_cit0')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-64/test_gc_preserves_artifact_cit0')
+test_tokens = TestTokens(agent='eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6IjM5Y2U2NDBhMTkxNWQ3MDIifQ.eyJpc3MiOiJodHRwczovL2lkZW50a...id', audience='wuji-vnext-tests', public_key_sha256='39ce640a1915d7026e7beffee4dad17621d3e97b543622d6747e420951c0be01')
+
+    def test_gc_preserves_artifact_cited_by_claim_before_snapshot(db_environment,tmp_path,audit_directory,test_tokens):
+        from support.p03 import claim
+        from wuji_core.contracts.envelopes import BlobRef
+        with capture_case(db_environment,tmp_path,audit_directory,test_tokens) as c:
+            with c.uow.transaction(access(),'task-fixture',capability='write') as tx:
+                claim(tx)
+                tx.connection.execute("INSERT INTO vnext.entity_relation(tenant_id,project_id,task_id,source_type,source_id,source_revision,relation,target_type,target_id,target_revision) VALUES (%s,%s,%s,'claim','claim-1',1,'cites','artifact',%s,1)",(*tx.owner,c.refs[0]['id']))
+            for wire in c.refs:
+                c.store.release_lease(access(),'task-fixture',BlobRef.model_validate(wire),lease_owner='staging')
+>           assert c.store.collect_garbage(access(),'task-fixture',older_than=datetime.now(timezone.utc))==[c.refs[1]['id']]
+E           AssertionError: assert ['0c15b92d-d0...fd68a5c17852'] == ['ab8fe74b-87...fd68a5c17852']
+E             
+E             At index 0 diff: '0c15b92d-d0ad-480a-a52c-e4c18ecd5b26' != 'ab8fe74b-874b-498d-be5d-fd68a5c17852'
+E             Left contains one more item: 'ab8fe74b-874b-498d-be5d-fd68a5c17852'
+E             Use -v to get more diff
+
+tests/vnext/test_capture_transactions.py:332: AssertionError
+=========================== short test summary info ============================
+FAILED tests/vnext/test_capture_transactions.py::test_gc_preserves_artifact_cited_by_claim_before_snapshot
+1 failed in 0.59s

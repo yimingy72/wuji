@@ -1,0 +1,92 @@
+...FFFF.                                                                 [100%]
+=================================== FAILURES ===================================
+___ test_evidence_receipt_binds_exactly_the_published_observation[accepted] ____
+
+status = 'accepted'
+
+    @pytest.mark.parametrize("status", ["accepted", "historical_only", "pending", "rejected"])
+    def test_evidence_receipt_binds_exactly_the_published_observation(status):
+        ref = {"entity_type": "observation", "id": "obs-1", "revision": "1"}
+        published = status in {"accepted", "historical_only"}
+        body = {"capture_id": "capture-1", "status": status, "artifact_refs": [],
+                "request_id": "request-1", "observation_ref": ref if published else None}
+        receipt = EvidenceReceipt.model_validate(body)
+        if published:
+            assert receipt.observation_ref.id == "obs-1"
+            assert receipt.observation_ref.revision.root == "1"
+        else:
+            assert receipt.observation_ref is None
+>       with pytest.raises(ValidationError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValidationError
+
+tests/vnext/test_p03_contracts.py:52: Failed
+_ test_evidence_receipt_binds_exactly_the_published_observation[historical_only] _
+
+status = 'historical_only'
+
+    @pytest.mark.parametrize("status", ["accepted", "historical_only", "pending", "rejected"])
+    def test_evidence_receipt_binds_exactly_the_published_observation(status):
+        ref = {"entity_type": "observation", "id": "obs-1", "revision": "1"}
+        published = status in {"accepted", "historical_only"}
+        body = {"capture_id": "capture-1", "status": status, "artifact_refs": [],
+                "request_id": "request-1", "observation_ref": ref if published else None}
+        receipt = EvidenceReceipt.model_validate(body)
+        if published:
+            assert receipt.observation_ref.id == "obs-1"
+            assert receipt.observation_ref.revision.root == "1"
+        else:
+            assert receipt.observation_ref is None
+>       with pytest.raises(ValidationError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValidationError
+
+tests/vnext/test_p03_contracts.py:52: Failed
+____ test_evidence_receipt_binds_exactly_the_published_observation[pending] ____
+
+status = 'pending'
+
+    @pytest.mark.parametrize("status", ["accepted", "historical_only", "pending", "rejected"])
+    def test_evidence_receipt_binds_exactly_the_published_observation(status):
+        ref = {"entity_type": "observation", "id": "obs-1", "revision": "1"}
+        published = status in {"accepted", "historical_only"}
+        body = {"capture_id": "capture-1", "status": status, "artifact_refs": [],
+                "request_id": "request-1", "observation_ref": ref if published else None}
+        receipt = EvidenceReceipt.model_validate(body)
+        if published:
+            assert receipt.observation_ref.id == "obs-1"
+            assert receipt.observation_ref.revision.root == "1"
+        else:
+            assert receipt.observation_ref is None
+>       with pytest.raises(ValidationError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValidationError
+
+tests/vnext/test_p03_contracts.py:52: Failed
+___ test_evidence_receipt_binds_exactly_the_published_observation[rejected] ____
+
+status = 'rejected'
+
+    @pytest.mark.parametrize("status", ["accepted", "historical_only", "pending", "rejected"])
+    def test_evidence_receipt_binds_exactly_the_published_observation(status):
+        ref = {"entity_type": "observation", "id": "obs-1", "revision": "1"}
+        published = status in {"accepted", "historical_only"}
+        body = {"capture_id": "capture-1", "status": status, "artifact_refs": [],
+                "request_id": "request-1", "observation_ref": ref if published else None}
+        receipt = EvidenceReceipt.model_validate(body)
+        if published:
+            assert receipt.observation_ref.id == "obs-1"
+            assert receipt.observation_ref.revision.root == "1"
+        else:
+            assert receipt.observation_ref is None
+>       with pytest.raises(ValidationError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValidationError
+
+tests/vnext/test_p03_contracts.py:52: Failed
+=========================== short test summary info ============================
+FAILED tests/vnext/test_p03_contracts.py::test_evidence_receipt_binds_exactly_the_published_observation[accepted]
+FAILED tests/vnext/test_p03_contracts.py::test_evidence_receipt_binds_exactly_the_published_observation[historical_only]
+FAILED tests/vnext/test_p03_contracts.py::test_evidence_receipt_binds_exactly_the_published_observation[pending]
+FAILED tests/vnext/test_p03_contracts.py::test_evidence_receipt_binds_exactly_the_published_observation[rejected]
+4 failed, 4 passed in 0.16s

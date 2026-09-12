@@ -1,0 +1,546 @@
+FFFFFFFF                                                                 [100%]
+=================================== FAILURES ===================================
+_____________ test_rls_uses_nonowner_role_and_resets_request_scope _____________
+
+name = 'persistence.schema'
+
+    def module(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/support/p03.py:14: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.persistence.schema', package = None
+
+    def import_module(name, package=None):
+        """Import a module.
+    
+        The 'package' argument is required when performing a relative import. It
+        specifies the package to use as the anchor point from which to resolve the
+        relative import to an absolute import.
+    
+        """
+        level = 0
+        if name.startswith('.'):
+            if not package:
+                raise TypeError("the 'package' argument is required to perform a "
+                                f"relative import for {name!r}")
+            for character in name:
+                if character != '.':
+                    break
+                level += 1
+>       return _bootstrap._gcd_import(name[level:], package, level)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ModuleNotFoundError: No module named 'wuji_core.persistence'
+
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x105d5f8c0>
+
+    def test_rls_uses_nonowner_role_and_resets_request_scope(db_environment):
+>       with prepared(db_environment) as uow:
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_rls.py:12: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/vnext/support/p03.py:44: in prepared
+    schema = module('persistence.schema')
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'persistence.schema'
+
+    def module(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           assert False, f'P03 production module absent: {error.name}'
+                   ^^^^^
+E           AssertionError: P03 production module absent: wuji_core.persistence
+
+tests/vnext/support/p03.py:16: AssertionError
+___________ test_registry_requires_real_domain_and_rolls_back_event ____________
+
+name = 'persistence.schema'
+
+    def module(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/support/p03.py:14: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.persistence.schema', package = None
+
+    def import_module(name, package=None):
+        """Import a module.
+    
+        The 'package' argument is required when performing a relative import. It
+        specifies the package to use as the anchor point from which to resolve the
+        relative import to an absolute import.
+    
+        """
+        level = 0
+        if name.startswith('.'):
+            if not package:
+                raise TypeError("the 'package' argument is required to perform a "
+                                f"relative import for {name!r}")
+            for character in name:
+                if character != '.':
+                    break
+                level += 1
+>       return _bootstrap._gcd_import(name[level:], package, level)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ModuleNotFoundError: No module named 'wuji_core.persistence'
+
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x105ddfed0>
+
+    def test_registry_requires_real_domain_and_rolls_back_event(db_environment):
+>       with prepared(db_environment) as uow:
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_rls.py:28: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/vnext/support/p03.py:44: in prepared
+    schema = module('persistence.schema')
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'persistence.schema'
+
+    def module(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           assert False, f'P03 production module absent: {error.name}'
+                   ^^^^^
+E           AssertionError: P03 production module absent: wuji_core.persistence
+
+tests/vnext/support/p03.py:16: AssertionError
+_________ test_composite_refs_reject_missing_type_or_revision[target0] _________
+
+name = 'persistence.schema'
+
+    def module(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/support/p03.py:14: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.persistence.schema', package = None
+
+    def import_module(name, package=None):
+        """Import a module.
+    
+        The 'package' argument is required when performing a relative import. It
+        specifies the package to use as the anchor point from which to resolve the
+        relative import to an absolute import.
+    
+        """
+        level = 0
+        if name.startswith('.'):
+            if not package:
+                raise TypeError("the 'package' argument is required to perform a "
+                                f"relative import for {name!r}")
+            for character in name:
+                if character != '.':
+                    break
+                level += 1
+>       return _bootstrap._gcd_import(name[level:], package, level)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ModuleNotFoundError: No module named 'wuji_core.persistence'
+
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x105ddec10>
+target = ('claim', 'missing', 1)
+
+    @pytest.mark.parametrize('target', [('claim','missing',1), ('observation','claim-1',1), ('claim','claim-1',2)])
+    def test_composite_refs_reject_missing_type_or_revision(db_environment, target):
+>       with prepared(db_environment) as uow:
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_rls.py:48: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/vnext/support/p03.py:44: in prepared
+    schema = module('persistence.schema')
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'persistence.schema'
+
+    def module(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           assert False, f'P03 production module absent: {error.name}'
+                   ^^^^^
+E           AssertionError: P03 production module absent: wuji_core.persistence
+
+tests/vnext/support/p03.py:16: AssertionError
+_________ test_composite_refs_reject_missing_type_or_revision[target1] _________
+
+name = 'persistence.schema'
+
+    def module(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/support/p03.py:14: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.persistence.schema', package = None
+
+    def import_module(name, package=None):
+        """Import a module.
+    
+        The 'package' argument is required when performing a relative import. It
+        specifies the package to use as the anchor point from which to resolve the
+        relative import to an absolute import.
+    
+        """
+        level = 0
+        if name.startswith('.'):
+            if not package:
+                raise TypeError("the 'package' argument is required to perform a "
+                                f"relative import for {name!r}")
+            for character in name:
+                if character != '.':
+                    break
+                level += 1
+>       return _bootstrap._gcd_import(name[level:], package, level)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ModuleNotFoundError: No module named 'wuji_core.persistence'
+
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x105dedf30>
+target = ('observation', 'claim-1', 1)
+
+    @pytest.mark.parametrize('target', [('claim','missing',1), ('observation','claim-1',1), ('claim','claim-1',2)])
+    def test_composite_refs_reject_missing_type_or_revision(db_environment, target):
+>       with prepared(db_environment) as uow:
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_rls.py:48: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/vnext/support/p03.py:44: in prepared
+    schema = module('persistence.schema')
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'persistence.schema'
+
+    def module(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           assert False, f'P03 production module absent: {error.name}'
+                   ^^^^^
+E           AssertionError: P03 production module absent: wuji_core.persistence
+
+tests/vnext/support/p03.py:16: AssertionError
+_________ test_composite_refs_reject_missing_type_or_revision[target2] _________
+
+name = 'persistence.schema'
+
+    def module(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/support/p03.py:14: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.persistence.schema', package = None
+
+    def import_module(name, package=None):
+        """Import a module.
+    
+        The 'package' argument is required when performing a relative import. It
+        specifies the package to use as the anchor point from which to resolve the
+        relative import to an absolute import.
+    
+        """
+        level = 0
+        if name.startswith('.'):
+            if not package:
+                raise TypeError("the 'package' argument is required to perform a "
+                                f"relative import for {name!r}")
+            for character in name:
+                if character != '.':
+                    break
+                level += 1
+>       return _bootstrap._gcd_import(name[level:], package, level)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ModuleNotFoundError: No module named 'wuji_core.persistence'
+
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x105dee650>
+target = ('claim', 'claim-1', 2)
+
+    @pytest.mark.parametrize('target', [('claim','missing',1), ('observation','claim-1',1), ('claim','claim-1',2)])
+    def test_composite_refs_reject_missing_type_or_revision(db_environment, target):
+>       with prepared(db_environment) as uow:
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_rls.py:48: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/vnext/support/p03.py:44: in prepared
+    schema = module('persistence.schema')
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'persistence.schema'
+
+    def module(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           assert False, f'P03 production module absent: {error.name}'
+                   ^^^^^
+E           AssertionError: P03 production module absent: wuji_core.persistence
+
+tests/vnext/support/p03.py:16: AssertionError
+________ test_same_tenant_other_project_task_cannot_supply_a_reference _________
+
+name = 'persistence.schema'
+
+    def module(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/support/p03.py:14: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.persistence.schema', package = None
+
+    def import_module(name, package=None):
+        """Import a module.
+    
+        The 'package' argument is required when performing a relative import. It
+        specifies the package to use as the anchor point from which to resolve the
+        relative import to an absolute import.
+    
+        """
+        level = 0
+        if name.startswith('.'):
+            if not package:
+                raise TypeError("the 'package' argument is required to perform a "
+                                f"relative import for {name!r}")
+            for character in name:
+                if character != '.':
+                    break
+                level += 1
+>       return _bootstrap._gcd_import(name[level:], package, level)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ModuleNotFoundError: No module named 'wuji_core.persistence'
+
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x1066331d0>
+
+    def test_same_tenant_other_project_task_cannot_supply_a_reference(db_environment):
+>       with prepared(db_environment) as uow:
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_rls.py:57: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/vnext/support/p03.py:44: in prepared
+    schema = module('persistence.schema')
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'persistence.schema'
+
+    def module(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           assert False, f'P03 production module absent: {error.name}'
+                   ^^^^^
+E           AssertionError: P03 production module absent: wuji_core.persistence
+
+tests/vnext/support/p03.py:16: AssertionError
+______________ test_immutable_claim_and_agent_assessment_boundary ______________
+
+name = 'persistence.schema'
+
+    def module(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/support/p03.py:14: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.persistence.schema', package = None
+
+    def import_module(name, package=None):
+        """Import a module.
+    
+        The 'package' argument is required when performing a relative import. It
+        specifies the package to use as the anchor point from which to resolve the
+        relative import to an absolute import.
+    
+        """
+        level = 0
+        if name.startswith('.'):
+            if not package:
+                raise TypeError("the 'package' argument is required to perform a "
+                                f"relative import for {name!r}")
+            for character in name:
+                if character != '.':
+                    break
+                level += 1
+>       return _bootstrap._gcd_import(name[level:], package, level)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ModuleNotFoundError: No module named 'wuji_core.persistence'
+
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x10660e140>
+
+    def test_immutable_claim_and_agent_assessment_boundary(db_environment):
+>       with prepared(db_environment) as uow:
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_rls.py:68: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/vnext/support/p03.py:44: in prepared
+    schema = module('persistence.schema')
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'persistence.schema'
+
+    def module(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           assert False, f'P03 production module absent: {error.name}'
+                   ^^^^^
+E           AssertionError: P03 production module absent: wuji_core.persistence
+
+tests/vnext/support/p03.py:16: AssertionError
+_____________ test_two_connections_cannot_commit_dependency_cycle ______________
+
+name = 'persistence.schema'
+
+    def module(name):
+        try:
+>           return import_module('wuji_core.' + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/support/p03.py:14: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'wuji_core.persistence.schema', package = None
+
+    def import_module(name, package=None):
+        """Import a module.
+    
+        The 'package' argument is required when performing a relative import. It
+        specifies the package to use as the anchor point from which to resolve the
+        relative import to an absolute import.
+    
+        """
+        level = 0
+        if name.startswith('.'):
+            if not package:
+                raise TypeError("the 'package' argument is required to perform a "
+                                f"relative import for {name!r}")
+            for character in name:
+                if character != '.':
+                    break
+                level += 1
+>       return _bootstrap._gcd_import(name[level:], package, level)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ModuleNotFoundError: No module named 'wuji_core.persistence'
+
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: ModuleNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x10660d590>
+
+    def test_two_connections_cannot_commit_dependency_cycle(db_environment):
+>       with prepared(db_environment) as uow:
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_rls.py:81: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/vnext/support/p03.py:44: in prepared
+    schema = module('persistence.schema')
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'persistence.schema'
+
+    def module(name):
+        try:
+            return import_module('wuji_core.' + name)
+        except ModuleNotFoundError as error:
+>           assert False, f'P03 production module absent: {error.name}'
+                   ^^^^^
+E           AssertionError: P03 production module absent: wuji_core.persistence
+
+tests/vnext/support/p03.py:16: AssertionError
+=========================== short test summary info ============================
+FAILED tests/vnext/test_rls.py::test_rls_uses_nonowner_role_and_resets_request_scope
+FAILED tests/vnext/test_rls.py::test_registry_requires_real_domain_and_rolls_back_event
+FAILED tests/vnext/test_rls.py::test_composite_refs_reject_missing_type_or_revision[target0]
+FAILED tests/vnext/test_rls.py::test_composite_refs_reject_missing_type_or_revision[target1]
+FAILED tests/vnext/test_rls.py::test_composite_refs_reject_missing_type_or_revision[target2]
+FAILED tests/vnext/test_rls.py::test_same_tenant_other_project_task_cannot_supply_a_reference
+FAILED tests/vnext/test_rls.py::test_immutable_claim_and_agent_assessment_boundary
+FAILED tests/vnext/test_rls.py::test_two_connections_cannot_commit_dependency_cycle
+8 failed in 0.78s

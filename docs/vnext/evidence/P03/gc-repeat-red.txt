@@ -1,0 +1,34 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_______ test_gc_retains_live_commit_leases_and_published_snapshot_bytes ________
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x110743380>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-65/test_gc_retains_live_commit_le0')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-65/test_gc_retains_live_commit_le0')
+test_tokens = TestTokens(agent='eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6ImE1NWQwOGVjZmVkOTNiZDUifQ.eyJpc3MiOiJodHRwczovL2lkZW50a...id', audience='wuji-vnext-tests', public_key_sha256='a55d08ecfed93bd5061c962e7de17b0e5a38203ceeeee7ade08df035d90f62ed')
+
+    def test_gc_retains_live_commit_leases_and_published_snapshot_bytes(db_environment,tmp_path,audit_directory,test_tokens):
+        from wuji_core.contracts.envelopes import BlobRef
+        with capture_case(db_environment,tmp_path,audit_directory,test_tokens) as c:
+            snapshots=module('persistence.snapshots').SnapshotRepository(c.uow)
+            manifest=snapshots.create('task-fixture',access())
+            for wire in c.refs:
+                c.store.release_lease(access(),'task-fixture',BlobRef.model_validate(wire),lease_owner='staging')
+            orphan=c.store.stage(access(),'task-fixture','attempt-fixture',b'orphan fixture','text/plain')
+            c.store.seal(access(),'task-fixture',orphan)
+            c.store.acquire_lease(access(),'task-fixture',orphan,lease_owner='publishing-fixture',seconds=60)
+            c.store.release_lease(access(),'task-fixture',orphan,lease_owner='staging')
+            assert c.store.collect_garbage(access(),'task-fixture',older_than=datetime.now(timezone.utc))==[]
+            c.store.release_lease(access(),'task-fixture',orphan,lease_owner='publishing-fixture')
+            removed=c.store.collect_garbage(access(),'task-fixture',older_than=datetime.now(timezone.utc))
+            assert removed==[orphan.id]
+>           assert c.store.collect_garbage(access(),'task-fixture',older_than=datetime.now(timezone.utc))==[]
+E           AssertionError: assert ['e83358cf-10...5b133bef3acb'] == []
+E             
+E             Left contains one more item: 'e83358cf-109a-4557-bff2-5b133bef3acb'
+E             Use -v to get more diff
+
+tests/vnext/test_capture_transactions.py:234: AssertionError
+=========================== short test summary info ============================
+FAILED tests/vnext/test_capture_transactions.py::test_gc_retains_live_commit_leases_and_published_snapshot_bytes
+1 failed in 0.65s

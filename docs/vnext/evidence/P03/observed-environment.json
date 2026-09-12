@@ -1,0 +1,10 @@
+{
+  "code_sha": "dcf5cc2903622a02b023f545e3e4c1585004ae59",
+  "postgres_server_version": "16.2",
+  "application_role": "wuji_app_d755b96176c2",
+  "rolsuper": false,
+  "rolbypassrls": false,
+  "table_owner": "wuji_migration_d755b96176c2",
+  "sql_evidence": "runtime/4d04b4b6e913/postgres-events.jsonl",
+  "http_exchange_count": 38
+}
