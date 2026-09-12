@@ -10,3 +10,5 @@
 每项先建立能揭示缺失行为的检查，再实现并运行直接相关的正/反向路径；集成统一执行一次所需完整入口，修复只复测受影响项。75 条核心验收不能由静态例子、空集合、自己填写的 pass 或采样日志替代。无累计开发检查时间预算；Profile 中机制夹具执行上限属于产品限制，含义独立。
 
 代码本地提交；不自动推送、部署、停机、删旧数据或发起收费效果试验。最终交付注明实际完成项、未运行项、被测 SHA 和证据。
+
+P01 固定交付入口：[当前报告](../../vnext/P01-report.md)、[CapabilityRecord](../../vnext/capability-record.json)、[永久证据及迁移映射](../../vnext/evidence/P01/relocation.json)。这些由 Wuji vNext P01 文档保留；`.superpowers/sdd/vnext-v2/` 只保留活动 scratch，不再 force-add 或承担永久证据保留。

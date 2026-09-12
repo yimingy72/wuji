@@ -1,0 +1,176 @@
+{
+  "baseline": {
+    "source_commit": "c9871a66dcebb0ac74205bbae8e94ed00cd1892e",
+    "document": "docs/vnext/implementation-baseline.md"
+  },
+  "profile": {
+    "disable_compaction": true,
+    "disable_todo": true,
+    "disable_mode": true,
+    "disable_file_memory": true,
+    "file_memory_store": null,
+    "file_access_store": null,
+    "skills_provider": null,
+    "skills_paths": null,
+    "background_agents": null,
+    "shell_executor": null,
+    "disable_web_search": true,
+    "disable_tool_auto_approval": true,
+    "auto_approval_rules": null,
+    "loop_should_continue": null,
+    "loop_next_message": null,
+    "loop_max_iterations": 1
+  },
+  "explicit_tools": [
+    "read_record"
+  ],
+  "function_invocation_limits": {
+    "max_iterations": 3,
+    "max_function_calls": 2,
+    "max_duration_seconds": 15,
+    "max_consecutive_errors_per_request": 1,
+    "terminate_on_unknown_calls": true,
+    "additional_tools": []
+  },
+  "transport": {
+    "protocol": "OpenAI Chat Completions",
+    "max_retries": 0,
+    "timeout_seconds": 5,
+    "trust_env": false
+  },
+  "cases": {
+    "roundtrip": {
+      "fixture_text": "{\"id\":\"synthetic-001\",\"value\":\"offline-p01-record\"}",
+      "processes": [
+        {
+          "command": [
+            "/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/packages/maf-worker/.venv/bin/python",
+            "/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/tests/vnext/watchdog_child.py",
+            "--worker",
+            "/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/work/p01/fix-round1-final/true/roundtrip/initial-input.json"
+          ],
+          "exit_code": null,
+          "result": {
+            "source": "watchdog fixture, not MAF",
+            "pid": 52165,
+            "response_bytes": 400
+          },
+          "outcome": "timed_out",
+          "execution_outcome": "unknown",
+          "error": {
+            "type": "TimeoutExpired",
+            "message": "Command '['/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/packages/maf-worker/.venv/bin/python', '/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/tests/vnext/watchdog_child.py', '--worker', '/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/work/p01/fix-round1-final/true/roundtrip/initial-input.json']' timed out after 0.75 seconds",
+            "timeout_seconds": 0.75
+          },
+          "stdout": "watchdog stdout ✓\n",
+          "stdout_base64": "d2F0Y2hkb2cgc3Rkb3V0IOKckwo=",
+          "stderr": "watchdog stderr ✓\n",
+          "stderr_base64": "d2F0Y2hkb2cgc3RkZXJyIOKckwo=",
+          "deadline": {
+            "started_at": "2026-09-12T18:26:42.802609+00:00",
+            "timeout_seconds": 0.75,
+            "expired_at_or_after": "2026-09-12T18:26:43.552609+00:00",
+            "observed_at": "2026-09-12T18:26:43.559558+00:00"
+          },
+          "result_state": "available_at_timeout",
+          "result_raw_base64": "eyJzb3VyY2UiOiAid2F0Y2hkb2cgZml4dHVyZSwgbm90IE1BRiIsICJwaWQiOiA1MjE2NSwgInJlc3BvbnNlX2J5dGVzIjogNDAwfQ=="
+        }
+      ],
+      "http": [
+        {
+          "method": "POST",
+          "url": "http://127.0.0.1:58995/v1/chat/completions",
+          "request_line": "POST /v1/chat/completions HTTP/1.1",
+          "request_headers": [
+            [
+              "Accept-Encoding",
+              "identity"
+            ],
+            [
+              "Content-Length",
+              "133"
+            ],
+            [
+              "Host",
+              "127.0.0.1:58995"
+            ],
+            [
+              "User-Agent",
+              "Python-urllib/3.13"
+            ],
+            [
+              "Content-Type",
+              "application/json"
+            ],
+            [
+              "X-P01-Purpose",
+              "watchdog-no-sdk"
+            ],
+            [
+              "Connection",
+              "close"
+            ]
+          ],
+          "request_body": "{\"model\": \"watchdog-no-sdk\", \"tools\": [], \"messages\": [{\"role\": \"user\", \"content\": \"watchdog reporting fixture; no SDK invocation\"}]}",
+          "response_status": 200,
+          "response_headers": [
+            [
+              "Content-Type",
+              "application/json"
+            ],
+            [
+              "Content-Length",
+              "400"
+            ],
+            [
+              "Connection",
+              "close"
+            ]
+          ],
+          "response_body": "{\"id\":\"chatcmpl-synthetic-p01\",\"object\":\"chat.completion\",\"created\":1,\"model\":\"p01-synthetic\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":null,\"tool_calls\":[{\"id\":\"call-p01-read\",\"type\":\"function\",\"function\":{\"name\":\"read_record\",\"arguments\":\"{\\\"record_id\\\":\\\"synthetic-001\\\"}\"}}]},\"finish_reason\":\"tool_calls\"}],\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":5,\"total_tokens\":15}}",
+          "response_http": "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 400\r\nConnection: close\r\n\r\n{\"id\":\"chatcmpl-synthetic-p01\",\"object\":\"chat.completion\",\"created\":1,\"model\":\"p01-synthetic\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":null,\"tool_calls\":[{\"id\":\"call-p01-read\",\"type\":\"function\",\"function\":{\"name\":\"read_record\",\"arguments\":\"{\\\"record_id\\\":\\\"synthetic-001\\\"}\"}}]},\"finish_reason\":\"tool_calls\"}],\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":5,\"total_tokens\":15}}"
+        }
+      ],
+      "restore_http": [],
+      "events": null,
+      "events_before_resume": null,
+      "observation_status": "incomplete",
+      "event_log_base64": "eyJzb3VyY2UiOiAid2F0Y2hkb2cgZml4dHVyZSwgbm90IE1BRiIsICJvcGVyYXRpb24iOiAicmVhZF9maXh0dXJlIiwgInBpZCI6IDUyMTY1LCAic2hhMjU2IjogIjI5MWZiZWYwMDVkNWVlNjcwMzhjZjk3NWVkMTlhNGViZmEyZDkxNjk4ODVjMjM2ZTQ4MzRmZDdmYjM1NzNhNjMiLCAiYnl0ZXNfcmVhZCI6IDUxfQo=",
+      "available_events": [
+        {
+          "source": "watchdog fixture, not MAF",
+          "operation": "read_fixture",
+          "pid": 52165,
+          "sha256": "291fbef005d5ee67038cf975ed19a4ebfa2d9169885c236e4834fd7fb3573a63",
+          "bytes_read": 51
+        }
+      ],
+      "observed_event_count": 1,
+      "http_observation_count": 1
+    }
+  },
+  "not_run_cases": [
+    "approve",
+    "reject",
+    "unknown",
+    "http-error",
+    "stub"
+  ],
+  "capabilities": {
+    "watchdog": {
+      "status": "blocked",
+      "execution_outcome": "unknown",
+      "incomplete_cases": [
+        "roundtrip"
+      ],
+      "errors": [
+        {
+          "type": "TimeoutExpired",
+          "message": "Command '['/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/packages/maf-worker/.venv/bin/python', '/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/tests/vnext/watchdog_child.py', '--worker', '/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/work/p01/fix-round1-final/true/roundtrip/initial-input.json']' timed out after 0.75 seconds",
+          "timeout_seconds": 0.75
+        }
+      ],
+      "scope": "Incomplete observations cannot establish SDK capability; no automatic retry"
+    }
+  }
+}

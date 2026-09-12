@@ -1,0 +1,90 @@
+{
+  "owner": "Wuji vNext P01 durable documentation; retained independently of SDD scratch cleanup",
+  "original_sha_manifest": "docs/vnext/evidence/P01/sha256.json",
+  "mapping": [
+    {
+      "source": ".superpowers/sdd/vnext-v2/P01-evidence/cli.txt",
+      "destination": "docs/vnext/evidence/P01/cli.txt",
+      "sha256": "cce9278a00dbe78998fd8cd805eee522eb96ddcc9dd9ea7ba7925c7ce7d7be66",
+      "source_commit": "9186c1b895d3a1e710b495e03295cd43fc413710"
+    },
+    {
+      "source": ".superpowers/sdd/vnext-v2/P01-evidence/gate-red.txt",
+      "destination": "docs/vnext/evidence/P01/gate-red.txt",
+      "sha256": "bdd140951cc764db632e949e7ff4616a1d1d16a515f4ff2c732921c48f400fd3",
+      "source_commit": "9186c1b895d3a1e710b495e03295cd43fc413710"
+    },
+    {
+      "source": ".superpowers/sdd/vnext-v2/P01-evidence/green-11.txt",
+      "destination": "docs/vnext/evidence/P01/green-11.txt",
+      "sha256": "d63c2d4758c742cd9e8277792de30544cea85bcbd3887c9c63cb14bfb43e5934",
+      "source_commit": "9186c1b895d3a1e710b495e03295cd43fc413710"
+    },
+    {
+      "source": ".superpowers/sdd/vnext-v2/P01-evidence/green-13.txt",
+      "destination": "docs/vnext/evidence/P01/green-13.txt",
+      "sha256": "79a8cb5a5667eb5feafd29e0f2ef3dfdfd852a3e6650749634474fe6cf1b2569",
+      "source_commit": "9186c1b895d3a1e710b495e03295cd43fc413710"
+    },
+    {
+      "source": ".superpowers/sdd/vnext-v2/P01-evidence/http-reproduction.md",
+      "destination": "docs/vnext/evidence/P01/http-reproduction.md",
+      "sha256": "914fea982b014c31d5ccf0b0dec928625752832d151a2aff0a945a653c77db4d",
+      "source_commit": "9186c1b895d3a1e710b495e03295cd43fc413710"
+    },
+    {
+      "source": ".superpowers/sdd/vnext-v2/P01-evidence/initial-green-failures.txt",
+      "destination": "docs/vnext/evidence/P01/initial-green-failures.txt",
+      "sha256": "d8855419786415bcce9c95f70b1a3f98718cc242bf0ea183ae81ece5947cc3d8",
+      "source_commit": "9186c1b895d3a1e710b495e03295cd43fc413710"
+    },
+    {
+      "source": ".superpowers/sdd/vnext-v2/P01-evidence/pytest-probe.json",
+      "destination": "docs/vnext/evidence/P01/pytest-probe.json",
+      "sha256": "4e7754989296403b11cb7f991a7308ed19fe38f0940b8fb7a98a1db951ea79de",
+      "source_commit": "9186c1b895d3a1e710b495e03295cd43fc413710"
+    },
+    {
+      "source": ".superpowers/sdd/vnext-v2/P01-evidence/red.txt",
+      "destination": "docs/vnext/evidence/P01/red.txt",
+      "sha256": "842f81f0db03a33c34a8c285c4356d20d641edbbb723d30e7a645f06fb1e3a3e",
+      "source_commit": "9186c1b895d3a1e710b495e03295cd43fc413710"
+    },
+    {
+      "source": ".superpowers/sdd/vnext-v2/P01-evidence/screenshots/README.md",
+      "destination": "docs/vnext/evidence/P01/historical/screenshot-blocked-9186c1b.md",
+      "sha256": "e43bb90797d90abb0a319ed84a97ef91cf5f16c106d8df8bf183baf6836d3e94",
+      "source_commit": "9186c1b895d3a1e710b495e03295cd43fc413710"
+    },
+    {
+      "source": ".superpowers/sdd/vnext-v2/P01-evidence/sha256.json",
+      "destination": "docs/vnext/evidence/P01/sha256.json",
+      "sha256": "643a7ad3793f64d205f869b75fc08b74b05a7d37e050bc73ee0ea48888abc7cb",
+      "source_commit": "9186c1b895d3a1e710b495e03295cd43fc413710"
+    },
+    {
+      "source": ".superpowers/sdd/vnext-v2/P01-report.md",
+      "destination": "docs/vnext/evidence/P01/historical/P01-report-9186c1b.md",
+      "sha256": "d7ca8785233be7cac18b82c0b1e144d33b89742d4bc70be03def38ceab1da777",
+      "source_commit": "9186c1b895d3a1e710b495e03295cd43fc413710"
+    },
+    {
+      "source": "docs/vnext/capability-record.json",
+      "destination": "docs/vnext/evidence/P01/historical/capability-record-9186c1b.json",
+      "sha256": "0dc633b803f3d2a07aa6bcffb780e8fdd1d962646994211465e305b5584a0d55",
+      "source_commit": "9186c1b",
+      "note": "Original anchored record, copied without rewriting"
+    },
+    {
+      "source": ".superpowers/sdd/vnext-v2/P01-review.md",
+      "destination": "docs/vnext/evidence/P01/historical/P01-review-9186c1b.md",
+      "sha256": "9ad1858c7c02ccbb08ac6e4f03f287456d7ba05c61c36208259692a934720c67",
+      "source_commit": null,
+      "note": "Original anchored record, copied without rewriting"
+    }
+  ],
+  "current_report": "docs/vnext/P01-report.md",
+  "current_capability_record": "docs/vnext/capability-record.json",
+  "stage_index": "docs/stages/vnext-maf/acceptance.md",
+  "policy": "Only remove scratch paths from Git index after verifying these copies and publishing current links. Retain scratch working files for active SDD workflow; never force-add scratch again."
+}

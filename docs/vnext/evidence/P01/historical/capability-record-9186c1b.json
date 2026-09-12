@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "task": "P01",
-  "status": "P01_fix_round1_ready_for_review",
+  "status": "implemented_sdk_verified_delivery_evidence_incomplete",
   "code_commit": "8c3fa9c193927b77f076b78a84cd040ec10f3e00",
   "source_baseline_commit": "c9871a66dcebb0ac74205bbae8e94ed00cd1892e",
   "code_file_sha256": {
@@ -1337,31 +1337,31 @@
       "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_dependency_probe.py::test_real_harness_tool_roundtrip -q",
       "exit_code": 1,
       "result": "1 failed: NotImplementedError before implementation",
-      "evidence": "docs/vnext/evidence/P01/red.txt"
+      "evidence": ".superpowers/sdd/vnext-v2/P01-evidence/red.txt"
     },
     {
       "command": "P01_EVIDENCE_DIR=\"$PWD/work/p01/green-1\" ./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_dependency_probe.py -q",
       "exit_code": 1,
       "result": "9 passed, 2 failed: approval content id was incorrectly equated to model call_id",
-      "evidence": "docs/vnext/evidence/P01/initial-green-failures.txt"
+      "evidence": ".superpowers/sdd/vnext-v2/P01-evidence/initial-green-failures.txt"
     },
     {
       "command": "P01_EVIDENCE_DIR=\"$PWD/work/p01/green-2\" ./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_dependency_probe.py -q",
       "exit_code": 0,
       "result": "11 passed in 11.29s",
-      "evidence": "docs/vnext/evidence/P01/green-11.txt"
+      "evidence": ".superpowers/sdd/vnext-v2/P01-evidence/green-11.txt"
     },
     {
       "command": "P01_EVIDENCE_DIR=\"$PWD/work/p01/gate-red\" ./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_dependency_probe.py -k cli_gate -q",
       "exit_code": 1,
       "result": "2 failed, 11 deselected: capability_outcomes absent",
-      "evidence": "docs/vnext/evidence/P01/gate-red.txt"
+      "evidence": ".superpowers/sdd/vnext-v2/P01-evidence/gate-red.txt"
     },
     {
       "command": "P01_EVIDENCE_DIR=\"$PWD/work/p01/final\" ./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_dependency_probe.py -q",
       "exit_code": 0,
       "result": "13 passed in 11.40s",
-      "evidence": "docs/vnext/evidence/P01/green-13.txt",
+      "evidence": ".superpowers/sdd/vnext-v2/P01-evidence/green-13.txt",
       "binding": "Run before code commit; all nine code/lock/test files are byte-identical to code_commit, verified with git show. No code changed after this run."
     },
     {
@@ -1369,13 +1369,13 @@
       "exit_code": 0,
       "result": "5 local capability gates passed; 9 SDK subprocesses, 11 captured HTTP exchanges",
       "code_commit": "8c3fa9c193927b77f076b78a84cd040ec10f3e00",
-      "evidence": "docs/vnext/evidence/P01/cli.txt"
+      "evidence": ".superpowers/sdd/vnext-v2/P01-evidence/cli.txt"
     }
   ],
   "acceptance": {
     "AC-002": {
       "p01_runtime_status": "passed",
-      "full_acceptance_status": "runtime_checks_passed_delivery_evidence_ready_for_review",
+      "full_acceptance_status": "runtime_checks_passed_delivery_evidence_blocked",
       "test_names": [
         "test_factory_is_from_installed_distribution",
         "test_released_wheel_and_installed_files_match_lock",
@@ -1464,23 +1464,14 @@
     }
   ],
   "evidence": {
-    "owner": "Wuji vNext P01 durable documentation, independent of SDD scratch cleanup",
-    "report": "docs/vnext/P01-report.md",
-    "relocation_manifest": "docs/vnext/evidence/P01/relocation.json",
-    "original_sha_manifest": "docs/vnext/evidence/P01/sha256.json",
-    "full_http_package": "docs/vnext/evidence/P01/http-reproduction.md",
-    "pytest_raw": "docs/vnext/evidence/P01/pytest-probe.json",
-    "historical_capability_record": "docs/vnext/evidence/P01/historical/capability-record-9186c1b.json",
+    "full_http_package": ".superpowers/sdd/vnext-v2/P01-evidence/http-reproduction.md",
+    "pytest_raw": ".superpowers/sdd/vnext-v2/P01-evidence/pytest-probe.json",
     "screenshots": {
-      "status": "resolved",
-      "paths": [
-        "docs/vnext/evidence/P01/screenshots/test-results.jpg"
-      ],
-      "sha256": "0e85d91474dbd586b83d886bb5b74efe3533a88f7adeab358642cca0a2a8b7a7",
-      "provenance": "docs/vnext/evidence/P01/screenshots/provenance.json",
-      "history": "docs/vnext/evidence/P01/historical/screenshot-blocked-9186c1b.md"
-    },
-    "watchdog_fix": "docs/vnext/evidence/P01/fix-round1"
+      "status": "blocked",
+      "paths": [],
+      "reason": "# Screenshot evidence — blocked\n\nNo verification screenshot was produced. Browser policy rejected navigation to the local file URL; computer-use policy denied Terminal and Codex app access. The Codex read-only file open request was queued and did not establish a visible log panel. No blocked operation was retried through another browser, raw CDP, shell screenshot command or generated replacement image.\n\nThis is a missing required delivery item. Raw tests, full HTTP exchanges and SDK observations are available, but the P01 delivery-evidence gate remains blocked. A user-provided verification screenshot of green-13.txt plus the capability record can be saved here later; it has not been supplied in this run.\n",
+      "details": ".superpowers/sdd/vnext-v2/P01-evidence/screenshots/README.md"
+    }
   },
   "raw_sdk_and_http": {
     "baseline": {
@@ -5712,105 +5703,16 @@
     }
   },
   "coordination_update": {
-    "source": "main-controller handoff",
+    "source": "user message during P01",
     "P00": "reviewed by GPT-6/xhigh; no findings; baseline c9871a6",
     "node": "24.20.0",
     "pnpm": "10.32.1",
-    "postgres_fixture": "PostgreSQL16.2 Unix socket fixture available for P02 onward; not read or used by P01",
-    "scope": "Reported P00 review and environment facts only; not an amendment to human task authorization"
+    "postgres_fixture": "PostgreSQL16.2 Unix socket fixture available for P02 onward; not read or used by P01"
   },
   "initial_evidence_commit": "1eccff9",
   "document_validation": {
     "code_and_prose_diff_check_exit": 0,
     "raw_evidence_diff_check_exit": 2,
     "reason": "Original HTTP CRLF and pytest trailing spaces retained verbatim in three raw evidence files; SHA manifests unchanged."
-  },
-  "code_commit_scope": "Historical successful SDK evidence; unchanged 13 SDK cases were not rerun in fix round1",
-  "current_code_commit": "1d779540f11bc9ce1aeaf0aa9357ff3e2f71c9d0",
-  "fix_round1": {
-    "review_base": "9186c1b895d3a1e710b495e03295cd43fc413710",
-    "code_fix_test_commit": "1d779540f11bc9ce1aeaf0aa9357ff3e2f71c9d0",
-    "review": "docs/vnext/evidence/P01/historical/P01-review-9186c1b.md",
-    "findings": {
-      "1": "addressed: durable byte-preserved evidence and relocation map",
-      "2": "addressed: actual TimeoutExpired reporting, unknown outcomes, nonzero CLI and no retry",
-      "3": "addressed: actual later main-controller JPEG linked with provenance"
-    },
-    "test_command": "P01_WATCHDOG_EVIDENCE_DIR=\"$PWD/work/p01/fix-round1-final\" ./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_probe_watchdog.py -q",
-    "test_result": {
-      "exit_code": 0,
-      "summary": "3 passed in 2.10s",
-      "evidence": "docs/vnext/evidence/P01/fix-round1/fix-round1-final.txt"
-    },
-    "test_names": [
-      "test_outer_watchdog_publishes_blocked_cli_evidence[available-observations]",
-      "test_outer_watchdog_publishes_blocked_cli_evidence[unknown-observations]",
-      "test_reporting_does_not_overwrite_an_existing_evidence_run"
-    ],
-    "red_result": {
-      "exit_code": 1,
-      "summary": "2 failed in 2.27s: real subprocess.TimeoutExpired escaped main before structured publication",
-      "evidence": "docs/vnext/evidence/P01/fix-round1/fix-round1-red.txt"
-    },
-    "code_file_sha256": {
-      "scripts/vnext/probe_maf.py": "787378589b13b96698761226af09cb4ef4e833d0bb8f50cc6ee8d647ed9f7240",
-      "tests/vnext/test_probe_watchdog.py": "a5b0dada538517c78844fc1f69e07db5a6c12375a309ae059ae18d07cc035951",
-      "tests/vnext/watchdog_child.py": "39f72047b9615ac1a10704eb36e0a3047c3140491df0cb6f0c7db2cd1ff477bf"
-    },
-    "test_scope": "Actual harmless Python child with real OS watchdog; only command payload/deadline replaced at test boundary. No MAF import, no fabricated SDK result, no unchanged SDK cases, paid model, database or UI actions.",
-    "observations": {
-      "available": {
-        "cli_entrypoint_return_code": 2,
-        "worker_exit_code": null,
-        "execution_outcome": "unknown",
-        "observed_events": 1,
-        "observed_http_exchanges": 1
-      },
-      "unavailable": {
-        "cli_entrypoint_return_code": 2,
-        "worker_exit_code": null,
-        "execution_outcome": "unknown",
-        "observed_events": null,
-        "observed_http_exchanges": null
-      }
-    },
-    "reuse": {
-      "sdk_test_commit": "8c3fa9c193927b77f076b78a84cd040ec10f3e00",
-      "sdk_test_summary": "13 passed and 5 CLI gates, historical observations reused without rerun",
-      "reason": "No changes to worker(), SDK factory/profile, function, Session/approval handling, fixture, dependency pins, lock or original SDK tests. Modified OS watchdog/evidence publication tested separately; historical original results/SHAs and raw JSON remain unchanged."
-    },
-    "review_status": "ready_for_scoped_re_review; not an independent approval or G2/G4 result",
-    "initial_watchdog_verification": {
-      "commit": "af4f609c28483de40df816bf57a299851923823b",
-      "test_result": {
-        "exit_code": 0,
-        "summary": "2 passed in 2.12s",
-        "evidence": "docs/vnext/evidence/P01/fix-round1/fix-round1-verified.txt"
-      },
-      "test_command": "P01_WATCHDOG_EVIDENCE_DIR=\"$PWD/work/p01/fix-round1-verified\" ./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_probe_watchdog.py -q",
-      "code_file_sha256": {
-        "scripts/vnext/probe_maf.py": "7d4776c7b863dad9fbcc1ff5e4ac22636f1f1e820b7ff8c6bdbf8c56cb187164",
-        "tests/vnext/test_probe_watchdog.py": "a2d04e48a1da97dbf7255e9cce084604e126e0cbccc94da6d35cc076c4452696",
-        "tests/vnext/watchdog_child.py": "39f72047b9615ac1a10704eb36e0a3047c3140491df0cb6f0c7db2cd1ff477bf"
-      }
-    },
-    "publication_guard": {
-      "commit": "1d779540f11bc9ce1aeaf0aa9357ff3e2f71c9d0",
-      "reason": "Prevent newly added finally publication from modifying existing evidence when a reused output directory is refused",
-      "red": {
-        "exit_code": 1,
-        "summary": "1 failed, 2 deselected in 0.06s",
-        "evidence": "docs/vnext/evidence/P01/fix-round1/fix-round1-publication-red.txt"
-      },
-      "green": {
-        "exit_code": 0,
-        "summary": "1 passed, 2 deselected in 0.04s",
-        "evidence": "docs/vnext/evidence/P01/fix-round1/fix-round1-publication-green.txt"
-      }
-    },
-    "final_watchdog_observations": [
-      "docs/vnext/evidence/P01/fix-round1/final/true/probe.json",
-      "docs/vnext/evidence/P01/fix-round1/final/false/probe.json"
-    ]
   }
 }

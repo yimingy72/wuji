@@ -1,0 +1,109 @@
+{
+  "baseline": {
+    "source_commit": "c9871a66dcebb0ac74205bbae8e94ed00cd1892e",
+    "document": "docs/vnext/implementation-baseline.md"
+  },
+  "profile": {
+    "disable_compaction": true,
+    "disable_todo": true,
+    "disable_mode": true,
+    "disable_file_memory": true,
+    "file_memory_store": null,
+    "file_access_store": null,
+    "skills_provider": null,
+    "skills_paths": null,
+    "background_agents": null,
+    "shell_executor": null,
+    "disable_web_search": true,
+    "disable_tool_auto_approval": true,
+    "auto_approval_rules": null,
+    "loop_should_continue": null,
+    "loop_next_message": null,
+    "loop_max_iterations": 1
+  },
+  "explicit_tools": [
+    "read_record"
+  ],
+  "function_invocation_limits": {
+    "max_iterations": 3,
+    "max_function_calls": 2,
+    "max_duration_seconds": 15,
+    "max_consecutive_errors_per_request": 1,
+    "terminate_on_unknown_calls": true,
+    "additional_tools": []
+  },
+  "transport": {
+    "protocol": "OpenAI Chat Completions",
+    "max_retries": 0,
+    "timeout_seconds": 5,
+    "trust_env": false
+  },
+  "cases": {
+    "roundtrip": {
+      "fixture_text": "{\"id\":\"synthetic-001\",\"value\":\"offline-p01-record\"}",
+      "processes": [
+        {
+          "command": [
+            "/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/packages/maf-worker/.venv/bin/python",
+            "/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/tests/vnext/watchdog_child.py",
+            "--worker",
+            "/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/work/p01/fix-round1-final/false/roundtrip/initial-input.json"
+          ],
+          "exit_code": null,
+          "result": null,
+          "outcome": "timed_out",
+          "execution_outcome": "unknown",
+          "error": {
+            "type": "TimeoutExpired",
+            "message": "Command '['/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/packages/maf-worker/.venv/bin/python', '/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/tests/vnext/watchdog_child.py', '--worker', '/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/work/p01/fix-round1-final/false/roundtrip/initial-input.json']' timed out after 0.75 seconds",
+            "timeout_seconds": 0.75
+          },
+          "stdout": "watchdog stdout ✓\n",
+          "stdout_base64": "d2F0Y2hkb2cgc3Rkb3V0IOKckwo=",
+          "stderr": "watchdog stderr ✓\n",
+          "stderr_base64": "d2F0Y2hkb2cgc3RkZXJyIOKckwo=",
+          "deadline": {
+            "started_at": "2026-09-12T18:26:43.861940+00:00",
+            "timeout_seconds": 0.75,
+            "expired_at_or_after": "2026-09-12T18:26:44.611940+00:00",
+            "observed_at": "2026-09-12T18:26:44.615028+00:00"
+          },
+          "result_state": "missing_at_timeout"
+        }
+      ],
+      "http": [],
+      "restore_http": [],
+      "events": null,
+      "events_before_resume": null,
+      "observation_status": "incomplete",
+      "event_log_base64": null,
+      "available_events": [],
+      "observed_event_count": null,
+      "http_observation_count": null
+    }
+  },
+  "not_run_cases": [
+    "approve",
+    "reject",
+    "unknown",
+    "http-error",
+    "stub"
+  ],
+  "capabilities": {
+    "watchdog": {
+      "status": "blocked",
+      "execution_outcome": "unknown",
+      "incomplete_cases": [
+        "roundtrip"
+      ],
+      "errors": [
+        {
+          "type": "TimeoutExpired",
+          "message": "Command '['/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/packages/maf-worker/.venv/bin/python', '/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/tests/vnext/watchdog_child.py', '--worker', '/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/work/p01/fix-round1-final/false/roundtrip/initial-input.json']' timed out after 0.75 seconds",
+          "timeout_seconds": 0.75
+        }
+      ],
+      "scope": "Incomplete observations cannot establish SDK capability; no automatic retry"
+    }
+  }
+}

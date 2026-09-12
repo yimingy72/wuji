@@ -1,0 +1,33 @@
+{
+  "command": [
+    "/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/packages/maf-worker/.venv/bin/python",
+    "/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/tests/vnext/watchdog_child.py",
+    "--worker",
+    "/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/work/p01/fix-round1-verified/true/roundtrip/initial-input.json"
+  ],
+  "exit_code": null,
+  "result": {
+    "source": "watchdog fixture, not MAF",
+    "pid": 24417,
+    "response_bytes": 400
+  },
+  "outcome": "timed_out",
+  "execution_outcome": "unknown",
+  "error": {
+    "type": "TimeoutExpired",
+    "message": "Command '['/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/packages/maf-worker/.venv/bin/python', '/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/tests/vnext/watchdog_child.py', '--worker', '/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/work/p01/fix-round1-verified/true/roundtrip/initial-input.json']' timed out after 0.75 seconds",
+    "timeout_seconds": 0.75
+  },
+  "stdout": "watchdog stdout ✓\n",
+  "stdout_base64": "d2F0Y2hkb2cgc3Rkb3V0IOKckwo=",
+  "stderr": "watchdog stderr ✓\n",
+  "stderr_base64": "d2F0Y2hkb2cgc3RkZXJyIOKckwo=",
+  "deadline": {
+    "started_at": "2026-09-12T18:19:35.108612+00:00",
+    "timeout_seconds": 0.75,
+    "expired_at_or_after": "2026-09-12T18:19:35.858612+00:00",
+    "observed_at": "2026-09-12T18:19:35.864517+00:00"
+  },
+  "result_state": "available_at_timeout",
+  "result_raw_base64": "eyJzb3VyY2UiOiAid2F0Y2hkb2cgZml4dHVyZSwgbm90IE1BRiIsICJwaWQiOiAyNDQxNywgInJlc3BvbnNlX2J5dGVzIjogNDAwfQ=="
+}

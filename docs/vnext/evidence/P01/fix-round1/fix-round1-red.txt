@@ -1,0 +1,158 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+__ test_outer_watchdog_publishes_blocked_cli_evidence[available-observations] __
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106c99810>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-0/test_outer_watchdog_publishes_0')
+capsys = <_pytest.capture.CaptureFixture object at 0x106c482f0>
+observations = True
+
+    @pytest.mark.parametrize("observations", [True, False], ids=["available-observations", "unknown-observations"])
+    def test_outer_watchdog_publishes_blocked_cli_evidence(monkeypatch, tmp_path, capsys, observations):
+        destination = Path(os.environ.get("P01_WATCHDOG_EVIDENCE_DIR", tmp_path)) / str(observations).lower()
+        real_run = subprocess.run
+        commands = []
+    
+        def run_harmless_child(command, **kwargs):
+            # Change only executable payload/deadline at the OS boundary. The actual
+            # subprocess.run raises TimeoutExpired; no completed result is fabricated.
+            assert command[2] == "--worker"
+            command[1] = str(ROOT / "tests/vnext/watchdog_child.py")
+            config_path = Path(command[-1])
+            config = json.loads(config_path.read_text())
+            config["watchdog_observations"] = observations
+            config_path.write_text(json.dumps(config))
+            commands.append(list(command))
+            kwargs["timeout"] = 0.75
+            return real_run(command, **kwargs)
+    
+        def unrelated_distribution_check():
+            pytest.fail("timeout reporting must not trigger unrelated SDK/distribution verification")
+    
+        monkeypatch.setattr(probe.subprocess, "run", run_harmless_child)
+        monkeypatch.setattr(probe, "distribution_record", unrelated_distribution_check)
+        monkeypatch.setattr(sys, "argv", ["probe_maf.py", "--output-dir", str(destination)])
+>       assert probe.main() == 2
+               ^^^^^^^^^^^^
+
+tests/vnext/test_probe_watchdog.py:41: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+scripts/vnext/probe_maf.py:422: in main
+    record = run_probe(args.output_dir)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts/vnext/probe_maf.py:384: in run_probe
+    case["processes"].append(run_process(directory, server.url, mode, "initial"))
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts/vnext/probe_maf.py:246: in run_process
+    process = subprocess.run(
+tests/vnext/test_probe_watchdog.py:33: in run_harmless_child
+    return real_run(command, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/subprocess.py:556: in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/subprocess.py:1222: in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/subprocess.py:2155: in _communicate
+    self._check_timeout(endtime, orig_timeout, stdout, stderr)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Popen: returncode: -9 args: ['/Users/yym1ng/Documents/ChatGPT/wuji/work/wor...>
+endtime = 127062.288326666, orig_timeout = 0.75
+stdout_seq = [b'watchdog stdout \xe2\x9c\x93\n']
+stderr_seq = [b'watchdog stderr \xe2\x9c\x93\n'], skip_check_and_raise = False
+
+    def _check_timeout(self, endtime, orig_timeout, stdout_seq, stderr_seq,
+                       skip_check_and_raise=False):
+        """Convenience for checking if a timeout has expired."""
+        if endtime is None:
+            return
+        if skip_check_and_raise or _time() > endtime:
+>           raise TimeoutExpired(
+                    self.args, orig_timeout,
+                    output=b''.join(stdout_seq) if stdout_seq else None,
+                    stderr=b''.join(stderr_seq) if stderr_seq else None)
+E           subprocess.TimeoutExpired: Command '['/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/packages/maf-worker/.venv/bin/python', '/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/tests/vnext/watchdog_child.py', '--worker', '/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/work/p01/fix-round1-red/true/roundtrip/initial-input.json']' timed out after 0.75 seconds
+
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/subprocess.py:1269: TimeoutExpired
+___ test_outer_watchdog_publishes_blocked_cli_evidence[unknown-observations] ___
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106b6ac40>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-0/test_outer_watchdog_publishes_1')
+capsys = <_pytest.capture.CaptureFixture object at 0x106d3b610>
+observations = False
+
+    @pytest.mark.parametrize("observations", [True, False], ids=["available-observations", "unknown-observations"])
+    def test_outer_watchdog_publishes_blocked_cli_evidence(monkeypatch, tmp_path, capsys, observations):
+        destination = Path(os.environ.get("P01_WATCHDOG_EVIDENCE_DIR", tmp_path)) / str(observations).lower()
+        real_run = subprocess.run
+        commands = []
+    
+        def run_harmless_child(command, **kwargs):
+            # Change only executable payload/deadline at the OS boundary. The actual
+            # subprocess.run raises TimeoutExpired; no completed result is fabricated.
+            assert command[2] == "--worker"
+            command[1] = str(ROOT / "tests/vnext/watchdog_child.py")
+            config_path = Path(command[-1])
+            config = json.loads(config_path.read_text())
+            config["watchdog_observations"] = observations
+            config_path.write_text(json.dumps(config))
+            commands.append(list(command))
+            kwargs["timeout"] = 0.75
+            return real_run(command, **kwargs)
+    
+        def unrelated_distribution_check():
+            pytest.fail("timeout reporting must not trigger unrelated SDK/distribution verification")
+    
+        monkeypatch.setattr(probe.subprocess, "run", run_harmless_child)
+        monkeypatch.setattr(probe, "distribution_record", unrelated_distribution_check)
+        monkeypatch.setattr(sys, "argv", ["probe_maf.py", "--output-dir", str(destination)])
+>       assert probe.main() == 2
+               ^^^^^^^^^^^^
+
+tests/vnext/test_probe_watchdog.py:41: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+scripts/vnext/probe_maf.py:422: in main
+    record = run_probe(args.output_dir)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts/vnext/probe_maf.py:384: in run_probe
+    case["processes"].append(run_process(directory, server.url, mode, "initial"))
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts/vnext/probe_maf.py:246: in run_process
+    process = subprocess.run(
+tests/vnext/test_probe_watchdog.py:33: in run_harmless_child
+    return real_run(command, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/subprocess.py:556: in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/subprocess.py:1222: in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/subprocess.py:2155: in _communicate
+    self._check_timeout(endtime, orig_timeout, stdout, stderr)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Popen: returncode: -9 args: ['/Users/yym1ng/Documents/ChatGPT/wuji/work/wor...>
+endtime = 127063.430399708, orig_timeout = 0.75
+stdout_seq = [b'watchdog stdout \xe2\x9c\x93\n']
+stderr_seq = [b'watchdog stderr \xe2\x9c\x93\n'], skip_check_and_raise = False
+
+    def _check_timeout(self, endtime, orig_timeout, stdout_seq, stderr_seq,
+                       skip_check_and_raise=False):
+        """Convenience for checking if a timeout has expired."""
+        if endtime is None:
+            return
+        if skip_check_and_raise or _time() > endtime:
+>           raise TimeoutExpired(
+                    self.args, orig_timeout,
+                    output=b''.join(stdout_seq) if stdout_seq else None,
+                    stderr=b''.join(stderr_seq) if stderr_seq else None)
+E           subprocess.TimeoutExpired: Command '['/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/packages/maf-worker/.venv/bin/python', '/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/tests/vnext/watchdog_child.py', '--worker', '/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/work/p01/fix-round1-red/false/roundtrip/initial-input.json']' timed out after 0.75 seconds
+
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/subprocess.py:1269: TimeoutExpired
+=========================== short test summary info ============================
+FAILED tests/vnext/test_probe_watchdog.py::test_outer_watchdog_publishes_blocked_cli_evidence[available-observations]
+FAILED tests/vnext/test_probe_watchdog.py::test_outer_watchdog_publishes_blocked_cli_evidence[unknown-observations]
+2 failed in 2.27s

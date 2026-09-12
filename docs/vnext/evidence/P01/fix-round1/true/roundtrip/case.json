@@ -1,0 +1,109 @@
+{
+  "fixture_text": "{\"id\":\"synthetic-001\",\"value\":\"offline-p01-record\"}",
+  "processes": [
+    {
+      "command": [
+        "/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/packages/maf-worker/.venv/bin/python",
+        "/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/tests/vnext/watchdog_child.py",
+        "--worker",
+        "/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/work/p01/fix-round1-verified/true/roundtrip/initial-input.json"
+      ],
+      "exit_code": null,
+      "result": {
+        "source": "watchdog fixture, not MAF",
+        "pid": 24417,
+        "response_bytes": 400
+      },
+      "outcome": "timed_out",
+      "execution_outcome": "unknown",
+      "error": {
+        "type": "TimeoutExpired",
+        "message": "Command '['/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/packages/maf-worker/.venv/bin/python', '/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/tests/vnext/watchdog_child.py', '--worker', '/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/work/p01/fix-round1-verified/true/roundtrip/initial-input.json']' timed out after 0.75 seconds",
+        "timeout_seconds": 0.75
+      },
+      "stdout": "watchdog stdout ✓\n",
+      "stdout_base64": "d2F0Y2hkb2cgc3Rkb3V0IOKckwo=",
+      "stderr": "watchdog stderr ✓\n",
+      "stderr_base64": "d2F0Y2hkb2cgc3RkZXJyIOKckwo=",
+      "deadline": {
+        "started_at": "2026-09-12T18:19:35.108612+00:00",
+        "timeout_seconds": 0.75,
+        "expired_at_or_after": "2026-09-12T18:19:35.858612+00:00",
+        "observed_at": "2026-09-12T18:19:35.864517+00:00"
+      },
+      "result_state": "available_at_timeout",
+      "result_raw_base64": "eyJzb3VyY2UiOiAid2F0Y2hkb2cgZml4dHVyZSwgbm90IE1BRiIsICJwaWQiOiAyNDQxNywgInJlc3BvbnNlX2J5dGVzIjogNDAwfQ=="
+    }
+  ],
+  "http": [
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:58389/v1/chat/completions",
+      "request_line": "POST /v1/chat/completions HTTP/1.1",
+      "request_headers": [
+        [
+          "Accept-Encoding",
+          "identity"
+        ],
+        [
+          "Content-Length",
+          "133"
+        ],
+        [
+          "Host",
+          "127.0.0.1:58389"
+        ],
+        [
+          "User-Agent",
+          "Python-urllib/3.13"
+        ],
+        [
+          "Content-Type",
+          "application/json"
+        ],
+        [
+          "X-P01-Purpose",
+          "watchdog-no-sdk"
+        ],
+        [
+          "Connection",
+          "close"
+        ]
+      ],
+      "request_body": "{\"model\": \"watchdog-no-sdk\", \"tools\": [], \"messages\": [{\"role\": \"user\", \"content\": \"watchdog reporting fixture; no SDK invocation\"}]}",
+      "response_status": 200,
+      "response_headers": [
+        [
+          "Content-Type",
+          "application/json"
+        ],
+        [
+          "Content-Length",
+          "400"
+        ],
+        [
+          "Connection",
+          "close"
+        ]
+      ],
+      "response_body": "{\"id\":\"chatcmpl-synthetic-p01\",\"object\":\"chat.completion\",\"created\":1,\"model\":\"p01-synthetic\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":null,\"tool_calls\":[{\"id\":\"call-p01-read\",\"type\":\"function\",\"function\":{\"name\":\"read_record\",\"arguments\":\"{\\\"record_id\\\":\\\"synthetic-001\\\"}\"}}]},\"finish_reason\":\"tool_calls\"}],\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":5,\"total_tokens\":15}}",
+      "response_http": "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 400\r\nConnection: close\r\n\r\n{\"id\":\"chatcmpl-synthetic-p01\",\"object\":\"chat.completion\",\"created\":1,\"model\":\"p01-synthetic\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":null,\"tool_calls\":[{\"id\":\"call-p01-read\",\"type\":\"function\",\"function\":{\"name\":\"read_record\",\"arguments\":\"{\\\"record_id\\\":\\\"synthetic-001\\\"}\"}}]},\"finish_reason\":\"tool_calls\"}],\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":5,\"total_tokens\":15}}"
+    }
+  ],
+  "restore_http": [],
+  "events": null,
+  "events_before_resume": null,
+  "observation_status": "incomplete",
+  "event_log_base64": "eyJzb3VyY2UiOiAid2F0Y2hkb2cgZml4dHVyZSwgbm90IE1BRiIsICJvcGVyYXRpb24iOiAicmVhZF9maXh0dXJlIiwgInBpZCI6IDI0NDE3LCAic2hhMjU2IjogIjI5MWZiZWYwMDVkNWVlNjcwMzhjZjk3NWVkMTlhNGViZmEyZDkxNjk4ODVjMjM2ZTQ4MzRmZDdmYjM1NzNhNjMiLCAiYnl0ZXNfcmVhZCI6IDUxfQo=",
+  "available_events": [
+    {
+      "source": "watchdog fixture, not MAF",
+      "operation": "read_fixture",
+      "pid": 24417,
+      "sha256": "291fbef005d5ee67038cf975ed19a4ebfa2d9169885c236e4834fd7fb3573a63",
+      "bytes_read": 51
+    }
+  ],
+  "observed_event_count": 1,
+  "http_observation_count": 1
+}

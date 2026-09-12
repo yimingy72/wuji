@@ -1,0 +1,18 @@
+roundtrip reads= unknown HTTP observed= unknown observation_status= incomplete errors= [{'type': 'TimeoutExpired', 'message': "Command '['/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/packages/maf-worker/.venv/bin/python', '/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/tests/vnext/watchdog_child.py', '--worker', '/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/work/p01/fix-round1-verified/false/roundtrip/initial-input.json']' timed out after 0.75 seconds", 'timeout_seconds': 0.75}]
+{
+  "watchdog": {
+    "status": "blocked",
+    "execution_outcome": "unknown",
+    "incomplete_cases": [
+      "roundtrip"
+    ],
+    "errors": [
+      {
+        "type": "TimeoutExpired",
+        "message": "Command '['/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/packages/maf-worker/.venv/bin/python', '/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/tests/vnext/watchdog_child.py', '--worker', '/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/work/p01/fix-round1-verified/false/roundtrip/initial-input.json']' timed out after 0.75 seconds",
+        "timeout_seconds": 0.75
+      }
+    ],
+    "scope": "Incomplete observations cannot establish SDK capability; no automatic retry"
+  }
+}

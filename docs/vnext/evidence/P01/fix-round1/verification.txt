@@ -1,0 +1,1 @@
+PASS: all 13 relocation mappings, 9 original digests, both watchdog manifests, image hash/links, raw CRLF, scratch retention/untracking, 1d77954 test-code binding, current attribution and unchanged SDK evidence/worker/dependencies. No unchanged SDK tests rerun.

@@ -1,0 +1,55 @@
+[
+  {
+    "method": "POST",
+    "url": "http://127.0.0.1:58995/v1/chat/completions",
+    "request_line": "POST /v1/chat/completions HTTP/1.1",
+    "request_headers": [
+      [
+        "Accept-Encoding",
+        "identity"
+      ],
+      [
+        "Content-Length",
+        "133"
+      ],
+      [
+        "Host",
+        "127.0.0.1:58995"
+      ],
+      [
+        "User-Agent",
+        "Python-urllib/3.13"
+      ],
+      [
+        "Content-Type",
+        "application/json"
+      ],
+      [
+        "X-P01-Purpose",
+        "watchdog-no-sdk"
+      ],
+      [
+        "Connection",
+        "close"
+      ]
+    ],
+    "request_body": "{\"model\": \"watchdog-no-sdk\", \"tools\": [], \"messages\": [{\"role\": \"user\", \"content\": \"watchdog reporting fixture; no SDK invocation\"}]}",
+    "response_status": 200,
+    "response_headers": [
+      [
+        "Content-Type",
+        "application/json"
+      ],
+      [
+        "Content-Length",
+        "400"
+      ],
+      [
+        "Connection",
+        "close"
+      ]
+    ],
+    "response_body": "{\"id\":\"chatcmpl-synthetic-p01\",\"object\":\"chat.completion\",\"created\":1,\"model\":\"p01-synthetic\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":null,\"tool_calls\":[{\"id\":\"call-p01-read\",\"type\":\"function\",\"function\":{\"name\":\"read_record\",\"arguments\":\"{\\\"record_id\\\":\\\"synthetic-001\\\"}\"}}]},\"finish_reason\":\"tool_calls\"}],\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":5,\"total_tokens\":15}}",
+    "response_http": "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 400\r\nConnection: close\r\n\r\n{\"id\":\"chatcmpl-synthetic-p01\",\"object\":\"chat.completion\",\"created\":1,\"model\":\"p01-synthetic\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":null,\"tool_calls\":[{\"id\":\"call-p01-read\",\"type\":\"function\",\"function\":{\"name\":\"read_record\",\"arguments\":\"{\\\"record_id\\\":\\\"synthetic-001\\\"}\"}}]},\"finish_reason\":\"tool_calls\"}],\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":5,\"total_tokens\":15}}"
+  }
+]

@@ -1,0 +1,19 @@
+{
+  "status": "resolved",
+  "path": "docs/vnext/evidence/P01/screenshots/test-results.jpg",
+  "sha256": "0e85d91474dbd586b83d886bb5b74efe3533a88f7adeab358642cca0a2a8b7a7",
+  "media_type": "image/jpeg",
+  "width": 1280,
+  "height": 720,
+  "captured_by": "main-controller",
+  "capture_source": "main-controller handoff",
+  "capture_description": "Main controller safely captured a permitted loopback browser page displaying original green-13.txt and CLI output. This fix round read the existing JPEG, verified its dimensions/hash and visually checked its content; no UI actions or recapture.",
+  "capture_time": "not supplied; available after the 9186c1b anchored review",
+  "displayed_sdk_test_commit": "8c3fa9c193927b77f076b78a84cd040ec10f3e00",
+  "displayed_source_logs": {
+    "docs/vnext/evidence/P01/green-13.txt": "79a8cb5a5667eb5feafd29e0f2ef3dfdfd852a3e6650749634474fe6cf1b2569",
+    "docs/vnext/evidence/P01/cli.txt": "cce9278a00dbe78998fd8cd805eee522eb96ddcc9dd9ea7ba7925c7ce7d7be66"
+  },
+  "historical_denial_record": "docs/vnext/evidence/P01/historical/screenshot-blocked-9186c1b.md",
+  "boundary": "Historical file:// and app denials were not changed. This JPEG is later evidence, not a claim that screenshot capture succeeded at 9186c1b or that any SDK test was rerun."
+}

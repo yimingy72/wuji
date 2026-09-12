@@ -1,0 +1,22 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+__________ test_reporting_does_not_overwrite_an_existing_evidence_run __________
+
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-5/test_reporting_does_not_overwr0')
+
+    def test_reporting_does_not_overwrite_an_existing_evidence_run(tmp_path):
+        (tmp_path / "roundtrip").mkdir()
+        original = b'{"historical_run":"preserve exact bytes"}\n'
+        (tmp_path / "probe.json").write_bytes(original)
+        with pytest.raises(FileExistsError):
+            probe.run_probe(tmp_path)
+>       assert (tmp_path / "probe.json").read_bytes() == original
+E       assert b'{\n  "basel...  }\n  }\n}\n' == b'{"historica...act bytes"}\n'
+E         
+E         At index 1 diff: b'\n' != b'"'
+E         Use -v to get more diff
+
+tests/vnext/test_probe_watchdog.py:92: AssertionError
+=========================== short test summary info ============================
+FAILED tests/vnext/test_probe_watchdog.py::test_reporting_does_not_overwrite_an_existing_evidence_run
+1 failed, 2 deselected in 0.06s
