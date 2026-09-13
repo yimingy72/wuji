@@ -212,6 +212,7 @@ def build_runtime_controller(
     journal_path,
     spool_directory,
     approval_service=None,
+    control_service=None,
     json_limits: JsonBoundaryLimits = DEFAULT_JSON_LIMITS,
     max_configured_tasks: int = 10_000,
 ) -> RuntimeController:
@@ -260,6 +261,13 @@ def build_runtime_controller(
         from wuji_core.http.approvals import create_approval_router
 
         routers.append(create_approval_router(approval_service))
+    if control_service is not None:
+        if control_service is not control:
+            raise ValueError("the command API must use the Runtime ControlService")
+        from wuji_core.execution.control_api import ControlAPI
+        from wuji_core.http.commands import create_command_router
+
+        routers.append(create_command_router(ControlAPI(control_service)))
     if session_transport:
         from wuji_core.http.session_host import create_session_host_router
 
