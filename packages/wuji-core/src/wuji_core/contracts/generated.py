@@ -296,6 +296,10 @@ class ApprovalDecisionValue(StrEnum):
     reject = 'reject'
 
 
+class ApprovalRef(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+
+
 class ArchiveView(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -382,6 +386,12 @@ class AuthorizationScopeEntry(BaseModel):
     host: Annotated[StrictStr, Field(max_length=253, min_length=1)]
     protocol: Protocol
     port: Annotated[StrictInt, Field(ge=1, le=65535)]
+
+
+class BillingState(StrEnum):
+    pending = 'pending'
+    reported = 'reported'
+    unknown = 'unknown'
 
 
 class BlobRef(BaseModel):
@@ -816,6 +826,14 @@ class Function1(BaseModel):
     name: Annotated[StrictStr, Field(max_length=256, min_length=1)]
 
 
+class GatewaySpendRef(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+
+
+class GatewayUsageRef(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+
+
 class GenericRecord(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -886,6 +904,11 @@ class GroundingState(StrEnum):
     linked = 'linked'
     content_checked = 'content_checked'
     invalid = 'invalid'
+
+
+class GroupingState(StrEnum):
+    known = 'known'
+    grouping_unknown = 'grouping_unknown'
 
 
 class IntentAcceptance(StrEnum):
@@ -979,6 +1002,40 @@ class Limitation2(RootModel[StrictStr]):
 
 class Limitation3(RootModel[StrictStr]):
     root: Annotated[StrictStr, Field(max_length=8192, min_length=1)]
+
+
+class LocalState(StrEnum):
+    inflight = 'inflight'
+    ended = 'ended'
+    unknown = 'unknown'
+
+
+class LogicalRequestId(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+
+
+class ModelAttemptReceipt(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    model_attempt_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    input_digest: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    logical_request_id: LogicalRequestId | None
+    grouping_state: GroupingState
+    admission_state: Literal['admitted']
+    send_state: SendState
+    response_state: ResponseState
+    billing_state: BillingState
+    local_state: LocalState
+    inflight: StrictBool
+    upstream_status: UpstreamStatus | None
+    response_available: StrictBool
+    gateway_usage_ref: GatewayUsageRef | None
+    gateway_spend_ref: GatewaySpendRef | None
+    received_bytes: RevisionString
+    retained_bytes: RevisionString
+    forwarded_bytes: RevisionString
+    output_bytes: RevisionString
 
 
 class ModelMode(StrEnum):
@@ -1112,6 +1169,13 @@ class ReportDeliveryState(StrEnum):
     failed = 'failed'
 
 
+class ResponseState(StrEnum):
+    pending = 'pending'
+    complete = 'complete'
+    partial = 'partial'
+    unknown = 'unknown'
+
+
 class ResultEnvelope(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -1210,6 +1274,21 @@ class ScenarioKind(StrEnum):
     code_audit = 'code_audit'
 
 
+class SdkApprovalId(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+
+
+class SdkContentId(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+
+
+class SendState(StrEnum):
+    not_sent = 'not_sent'
+    sending = 'sending'
+    sent = 'sent'
+    unknown = 'unknown'
+
+
 class SessionManifest(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -1283,6 +1362,19 @@ class StartStatus(StrEnum):
 
 class State(RootModel[StrictStr]):
     root: Annotated[StrictStr, Field(max_length=128, min_length=1)]
+
+
+class Status(StrEnum):
+    pending_approval = 'pending_approval'
+    admitted = 'admitted'
+    dispatched = 'dispatched'
+    running = 'running'
+    evidence_pending = 'evidence_pending'
+    complete = 'complete'
+    unknown = 'unknown'
+    cancel_requested = 'cancel_requested'
+    cancelled = 'cancelled'
+    failed = 'failed'
 
 
 class SupersedesAssessmentId(RootModel[StrictStr]):
@@ -1396,8 +1488,46 @@ class TokenUsage(BaseModel):
     total_tokens: Annotated[StrictInt, Field(ge=0, le=9223372036854775807)]
 
 
+class ToolAttemptId(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+
+
 class ToolCallId(RootModel[StrictStr]):
     root: Annotated[StrictStr, Field(max_length=1024, min_length=1)]
+
+
+class ToolCallReceipt(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    tool_call_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    operation_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    tool_attempt_id: ToolAttemptId | None
+    status: Status
+    evidence_receipt: EvidenceReceipt | None
+    result_ref: BlobRef | None
+    reason_code: ErrorCode | None
+
+
+class ToolCallRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    session_lineage: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    message_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    provider_call_id: Annotated[StrictStr, Field(max_length=1024, min_length=1)]
+    tool_definition_ref: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    arguments: dict[str, Any]
+    sdk_content_id: SdkContentId | None = None
+    sdk_approval_id: SdkApprovalId | None = None
+    approval_ref: ApprovalRef | None = None
+
+
+class ToolCancelRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    reason: Annotated[StrictStr, Field(max_length=8192, min_length=1)]
 
 
 class ToolChoice(StrEnum):
@@ -1465,6 +1595,10 @@ class TopologySnapshot(_JsonSchemaRuntimeValidationBase):
     truncated: StrictBool
     continuation: Continuation | None
     allowed_actions: list[AllowedAction]
+
+
+class UpstreamStatus(RootModel[StrictInt]):
+    root: Annotated[StrictInt, Field(ge=100, le=599)]
 
 
 class ViewEventBatch(BaseModel):

@@ -344,6 +344,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/internal/v2/model-attempts/{model_attempt_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** readModelAttemptV2 */
+        get: operations["readModelAttemptV2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/v2/tool-calls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** createToolCallV2 */
+        post: operations["createToolCallV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/v2/tool-calls/{tool_call_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** readToolCallV2 */
+        get: operations["readToolCallV2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/v2/tool-calls/{tool_call_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** cancelToolCallV2 */
+        post: operations["cancelToolCallV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1052,6 +1120,57 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        ToolCallRequest: {
+            session_lineage: string;
+            message_id: string;
+            provider_call_id: string;
+            tool_definition_ref: string;
+            arguments: {
+                [key: string]: unknown;
+            };
+            sdk_content_id?: string | null;
+            sdk_approval_id?: string | null;
+            approval_ref?: string | null;
+        };
+        ToolCancelRequest: {
+            reason: string;
+        };
+        ModelAttemptReceipt: {
+            model_attempt_id: string;
+            input_digest: string;
+            logical_request_id: string | null;
+            /** @enum {string} */
+            grouping_state: "known" | "grouping_unknown";
+            /** @enum {string} */
+            admission_state: "admitted";
+            /** @enum {string} */
+            send_state: "not_sent" | "sending" | "sent" | "unknown";
+            /** @enum {string} */
+            response_state: "pending" | "complete" | "partial" | "unknown";
+            /** @enum {string} */
+            billing_state: "pending" | "reported" | "unknown";
+            /** @enum {string} */
+            local_state: "inflight" | "ended" | "unknown";
+            inflight: boolean;
+            upstream_status: number | null;
+            response_available: boolean;
+            gateway_usage_ref: string | null;
+            gateway_spend_ref: string | null;
+            received_bytes: components["schemas"]["RevisionString"];
+            retained_bytes: components["schemas"]["RevisionString"];
+            forwarded_bytes: components["schemas"]["RevisionString"];
+            output_bytes: components["schemas"]["RevisionString"];
+        };
+        ToolCallReceipt: {
+            tool_call_id: string;
+            operation_id: string;
+            tool_attempt_id: string | null;
+            /** @enum {string} */
+            status: "pending_approval" | "admitted" | "dispatched" | "running" | "evidence_pending" | "complete" | "unknown" | "cancel_requested" | "cancelled" | "failed";
+            evidence_receipt: components["schemas"]["EvidenceReceipt"] | null;
+            result_ref: components["schemas"]["BlobRef"] | null;
+            reason_code: components["schemas"]["ErrorCode"] | null;
+        };
     };
     responses: {
         /** @description Command accepted for authoritative processing */
@@ -1728,6 +1847,150 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["InvalidSchema"];
+        };
+    };
+    readModelAttemptV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                model_attempt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current authorized receipt */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelAttemptReceipt"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            /** @description Missing or not accessible */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidSchema"];
+            429: components["responses"]["LimitBlocked"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    createToolCallV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ToolCallRequest"];
+            };
+        };
+        responses: {
+            /** @description Current authorized receipt */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ToolCallReceipt"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            /** @description Missing or not accessible */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidSchema"];
+            429: components["responses"]["LimitBlocked"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    readToolCallV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tool_call_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current authorized receipt */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ToolCallReceipt"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            /** @description Missing or not accessible */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidSchema"];
+            429: components["responses"]["LimitBlocked"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    cancelToolCallV2: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                tool_call_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ToolCancelRequest"];
+            };
+        };
+        responses: {
+            /** @description Current authorized receipt */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ToolCallReceipt"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            /** @description Missing or not accessible */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidSchema"];
+            429: components["responses"]["LimitBlocked"];
+            503: components["responses"]["Unavailable"];
         };
     };
 }

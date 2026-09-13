@@ -41,6 +41,8 @@ class Transaction:
     permissions: dict[str, Any]
     task: dict[str, Any]
     capacity_pools: tuple[dict[str, Any], ...] = ()
+    run_binding: Any = None
+    purpose: str = "read"
 
     def semantic_event(
         self,
@@ -107,8 +109,13 @@ class UnitOfWork:
             "control",
             "observe",
             "admit",
+            "model_request",
+            "tool_request",
+            "model_settle",
+            "tool_settle",
         }:
             raise ValueError("unsupported capability")
+        request_purpose = capability in {"model_request", "tool_request", "model_settle", "tool_settle"}
         with self.connection_factory() as connection:
             with connection.transaction():
                 if repeatable_read:
@@ -134,6 +141,8 @@ class UnitOfWork:
                     "control": "false",
                     "observe": "false",
                     "admit": "false",
+                    "token_id": access.principal.token_id,
+                    "request_purpose": "",
                 }.items():
                     connection.execute(
                         "SELECT set_config(%s,%s,true)", ("wuji." + key, value)
@@ -149,13 +158,16 @@ class UnitOfWork:
                     if capability == "evidence"
                     else (
                         permission["can_read"]
-                        if capability == "snapshot"
+                        if capability == "snapshot" or request_purpose
                         else permission["can_" + capability]
                     )
                 )
                 if not permission or not permission["can_read"] or not allowed:
                     raise DomainError("NOT_FOUND_OR_FORBIDDEN")
                 _require_control_actor(access, capability)
+                binding = None
+                if request_purpose:
+                    binding = self._request_binding(connection, access, task_id, capability)
                 values = {
                     "project": permission["project_id"],
                     "task": task_id,
@@ -187,6 +199,7 @@ class UnitOfWork:
                     "control": str(capability == "control").lower(),
                     "observe": str(capability == "observe").lower(),
                     "admit": str(capability == "admit").lower(),
+                    "request_purpose": capability if request_purpose else "",
                 }
                 for key, value in values.items():
                     connection.execute(
@@ -194,7 +207,7 @@ class UnitOfWork:
                     ).fetchone()
                 owner = (permission["tenant_id"], permission["project_id"], task_id)
                 pools = ()
-                if capability in {"control", "observe", "admit"}:
+                if capability in {"control", "observe", "admit"} or request_purpose:
                     from wuji_core.execution.capacity import prelock_pools
 
                     pools = prelock_pools(connection, owner)
@@ -209,7 +222,7 @@ class UnitOfWork:
                 )
                 if task is None:
                     raise DomainError("NOT_FOUND_OR_FORBIDDEN")
-                if capability in {"control", "observe", "admit"}:
+                if capability in {"control", "observe", "admit"} or request_purpose:
                     current = row(
                         connection.execute(
                             "SELECT * FROM vnext.task_access WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND subject=%s",
@@ -219,7 +232,7 @@ class UnitOfWork:
                     if (
                         not current
                         or not current["can_read"]
-                        or not current["can_" + capability]
+                        or not current["can_read" if request_purpose else "can_" + capability]
                     ):
                         raise DomainError("NOT_FOUND_OR_FORBIDDEN")
                     permission = current
@@ -227,7 +240,50 @@ class UnitOfWork:
                         "SELECT set_config('wuji.clearance',%s,true)",
                         (str(permission["clearance"]),),
                     ).fetchone()
-                yield Transaction(connection, owner, access, permission, task, pools)
+                    if request_purpose:
+                        binding = self._request_binding(connection, access, task_id, capability)
+                yield Transaction(connection, owner, access, permission, task, pools, binding, capability)
+
+    def _request_binding(self, connection, access, task_id, purpose):
+        from datetime import datetime, timezone
+        from wuji_core.admission.registry import RunCredentialBinding
+        from wuji_core.http import strict_json_loads
+
+        record = row(connection.execute(
+            "SELECT * FROM vnext.run_credential WHERE tenant_id=%s AND subject=%s AND token_id=%s AND task_id=%s",
+            (access.principal.tenant_id, access.principal.subject, access.principal.token_id, task_id),
+        ))
+        if not record or not access.principal.roles.intersection({"worker", "agent"}):
+            raise DomainError("NOT_FOUND_OR_FORBIDDEN")
+        binding = RunCredentialBinding.model_validate(strict_json_loads(record["document_json"]))
+        required = purpose.replace("_settle", "_request")
+        if required not in binding.purposes:
+            raise DomainError("NOT_FOUND_OR_FORBIDDEN")
+        if purpose.endswith("_request") and (record["revoked"] or binding.expires_at <= datetime.now(timezone.utc)):
+            raise DomainError("STALE_EXECUTION", 409)
+        return binding
+
+    def locate_run_credential(self, access):
+        from wuji_core.admission.registry import RunCredentialBinding
+        from wuji_core.http import strict_json_loads
+        with self.connection_factory() as connection:
+            with connection.transaction():
+                for key, value in {"tenant": access.principal.tenant_id, "subject": access.principal.subject, "token_id": access.principal.token_id}.items():
+                    connection.execute("SELECT set_config(%s,%s,true)", ("wuji." + key, value)).fetchone()
+                result = connection.execute("SELECT document_json FROM vnext.run_credential WHERE tenant_id=%s AND subject=%s AND token_id=%s", (access.principal.tenant_id, access.principal.subject, access.principal.token_id)).fetchone()
+                if not result:
+                    raise DomainError("NOT_FOUND_OR_FORBIDDEN")
+                return RunCredentialBinding.model_validate(strict_json_loads(result[0]))
+
+    def locate_model_attempt(self, access, attempt_id):
+        with self.connection_factory() as connection:
+            with connection.transaction():
+                for key, value in {"tenant": access.principal.tenant_id, "subject": access.principal.subject, "project": "", "task": "", "clearance": "-1"}.items():
+                    connection.execute("SELECT set_config(%s,%s,true)", ("wuji." + key, value)).fetchone()
+                result = connection.execute("SELECT task_id FROM vnext.model_call WHERE model_attempt_id=%s", (attempt_id,)).fetchone()
+                if not result:
+                    raise DomainError("NOT_FOUND_OR_FORBIDDEN")
+                return result[0]
 
     def locate_artifact(self, access, artifact_id, version):
         # A locator read is tenant/subject ACL filtered, then the scoped read reauthorizes.
