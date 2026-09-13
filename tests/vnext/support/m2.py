@@ -49,7 +49,7 @@ from wuji_core.http import JsonBoundaryLimits, canonical_json_bytes, create_app
 from wuji_core.http.auth import TokenVerifier
 from wuji_core.http.model_gate import create_model_router
 from wuji_core.http.tool_gate import create_tool_router
-from wuji_core.persistence.uow import AccessContext
+from wuji_core.persistence.uow import AccessContext, DomainError
 from wuji_core.worker_host import PlatformWorkerHost
 from wuji_maf_worker.context import ContextLimits, ContextRelation, build_context_bundle
 from wuji_core.contracts.knowledge import KnowledgeRef
@@ -395,6 +395,7 @@ def m2_case(
     *,
     reject_first_submit: bool = True,
     revoke_worker_on_result_write: bool = False,
+    fail_first_companion_publish: bool = False,
 ):
     upstream = NativeSseModel(audit_directory / "m2-model-upstream-http.jsonl")
     gate_server = None
@@ -418,6 +419,7 @@ def m2_case(
             assignment = explore_assignment(scheduled.scheduler.tick(limit=2))
             worker = worker_credential(scheduled, assignment)
             worker_write_state = {"revocations": 0}
+            companion_fault_state = {"failures": 0}
             receiver_credential = _receiver_credential(scheduled, audit_directory)
             receiver = {
                 "receiver_id": RECEIVER,
@@ -504,7 +506,20 @@ def m2_case(
                 )
 
             def retained_host_factory(receiver_access, retained_result):
-                return PlatformWorkerHost(
+                class RetainedHost(PlatformWorkerHost):
+                    def _publish(self, assigned, publication_id, kind, refs):
+                        if (
+                            fail_first_companion_publish
+                            and publication_id.startswith("result:")
+                            and companion_fault_state["failures"] == 0
+                        ):
+                            companion_fault_state["failures"] += 1
+                            raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+                        return super()._publish(
+                            assigned, publication_id, kind, refs
+                        )
+
+                return RetainedHost(
                     uow=scheduled.control.uow,
                     registry=registry,
                     access=receiver_access,

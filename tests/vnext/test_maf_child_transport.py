@@ -405,7 +405,12 @@ def test_actual_supervisor_child_waits_for_start_and_receiver_replays_bytes(
 ):
     """Catch an early SDK call, hosted substitute, or fake late-result ack."""
 
-    with m2_case(db_environment, tmp_path, audit_directory) as case:
+    with m2_case(
+        db_environment,
+        tmp_path,
+        audit_directory,
+        fail_first_companion_publish=not revoke_before_first_intake,
+    ) as case:
         deliveries = case.dispatcher.deliver_pending(limit=1)
         assert len(deliveries) == 1
         started = deliveries[0]
@@ -503,6 +508,7 @@ def test_actual_supervisor_child_waits_for_start_and_receiver_replays_bytes(
             assert claim is None
         else:
             assert result.status.value == "accepted"
+            assert case.companion_fault_state["failures"] == 1
             assert claim[0:2] == (
                 "agent",
                 case.assignment.identity.agent_run_id,
