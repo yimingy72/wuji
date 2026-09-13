@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import importlib
 import json
+from contextlib import ExitStack
 from threading import Event, Thread
 
 from wuji_core.execution.runtime_dispatcher import RuntimeController, RuntimeDispatcher
@@ -16,6 +17,7 @@ def run(
     stop: Event,
     interval_seconds: float = 1.0,
     batch_limit: int = 16,
+    pod_environment=None,
 ) -> None:
     if (
         not isinstance(dispatcher, RuntimeDispatcher)
@@ -25,9 +27,17 @@ def run(
         or not 1 <= batch_limit <= 256
     ):
         raise ValueError("a composed runtime and bounded loop are required")
+    lifecycle = ExitStack()
     try:
+        if pod_environment is not None:
+            lifecycle.enter_context(pod_environment)
         while not stop.is_set():
             try:
+                if pod_environment is not None:
+                    infrastructure = pod_environment.ensure()
+                    if infrastructure.state != "ready":
+                        stop.wait(interval_seconds)
+                        continue
                 observed = dispatcher.run_once(limit=batch_limit)
                 states: dict[str, int] = {}
                 for item in observed:
@@ -57,7 +67,10 @@ def run(
                 )
             stop.wait(interval_seconds)
     finally:
-        dispatcher.close()
+        try:
+            dispatcher.close()
+        finally:
+            lifecycle.close()
 
 
 def _load_factory(spec: str):
@@ -85,7 +98,11 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=8000)
     parser.add_argument("--interval-seconds", type=float, default=1.0)
     parser.add_argument("--batch-limit", type=int, default=16)
+    parser.add_argument("--ssl-certfile")
+    parser.add_argument("--ssl-keyfile")
     args = parser.parse_args()
+    if bool(args.ssl_certfile) != bool(args.ssl_keyfile):
+        parser.error("TLS requires both certificate and key")
     controller = _load_factory(args.factory)()
     if not isinstance(controller, RuntimeController):
         raise ValueError("factory did not return RuntimeController")
@@ -97,6 +114,7 @@ def main() -> None:
             "stop": stop,
             "interval_seconds": args.interval_seconds,
             "batch_limit": args.batch_limit,
+            "pod_environment": getattr(controller, "pod_environment", None),
         },
         name="wuji-runtime-dispatch",
         daemon=False,
@@ -108,6 +126,8 @@ def main() -> None:
             host=args.host,
             port=args.port,
             access_log=False,
+            ssl_certfile=args.ssl_certfile,
+            ssl_keyfile=args.ssl_keyfile,
         )
     finally:
         stop.set()

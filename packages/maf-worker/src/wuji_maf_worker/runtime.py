@@ -1,6 +1,7 @@
 """One hosted Worker assignment, independently consuming MAF's native stream."""
 
 import asyncio
+import ssl
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from hashlib import sha256
@@ -54,7 +55,7 @@ class WorkerHostPort(Protocol):
 class MafRuntime:
     def __init__(self, *, host: WorkerHostPort, context: ContextBundle,
                  run_credential: str, token_verifier: TokenVerifier,
-                 model_gate_url: str, tool_gate_url: str):
+                 model_gate_url: str, tool_gate_url: str, ssl_context=None):
         for url, suffix in ((model_gate_url, "/internal/v2/model"), (tool_gate_url, "/internal/v2/tool-calls")):
             parsed = urlsplit(url)
             if parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment or parsed.path.rstrip("/") != suffix:
@@ -64,6 +65,13 @@ class MafRuntime:
         if not isinstance(token_verifier, TokenVerifier):
             raise TypeError("the deployment TokenVerifier is required")
         self._host, self._context, self._credential = host, context, run_credential
+        if ssl_context is not None and (
+            not isinstance(ssl_context, ssl.SSLContext)
+            or ssl_context.verify_mode != ssl.CERT_REQUIRED
+            or not ssl_context.check_hostname
+        ):
+            raise ValueError("verified TLS context required")
+        self._ssl_context = ssl_context
         self._token_verifier = token_verifier
         self._model_url, self._tool_url = model_gate_url, tool_gate_url
         self._assignment = None
@@ -256,11 +264,11 @@ class MafRuntime:
             })]) + b"\n"
 
         async with httpx.AsyncClient(
-            transport=httpx.AsyncHTTPTransport(retries=0), trust_env=False,
+            transport=httpx.AsyncHTTPTransport(retries=0, verify=self._ssl_context or True), trust_env=False,
             follow_redirects=False, timeout=timeout,
             event_hooks={"request": [identity.request], "response": [identity.response]},
         ) as model_http, httpx.AsyncClient(
-            transport=httpx.AsyncHTTPTransport(retries=0), trust_env=False,
+            transport=httpx.AsyncHTTPTransport(retries=0, verify=self._ssl_context or True), trust_env=False,
             follow_redirects=False, timeout=timeout,
             headers={"Authorization": "Bearer " + self._credential, "Content-Type": "application/json"},
         ) as tool_http:

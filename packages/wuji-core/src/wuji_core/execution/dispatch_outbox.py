@@ -11,10 +11,11 @@ from ipaddress import ip_address
 from pathlib import Path
 import os
 import sqlite3
+import ssl
 from threading import Lock, get_ident
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlsplit
-from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
+from urllib.request import HTTPRedirectHandler, HTTPSHandler, ProxyHandler, Request, build_opener
 
 from wuji_core.contracts.envelopes import WorkerAssignment
 from wuji_core.execution.dependencies import dependencies_satisfied, intent_current
@@ -35,7 +36,7 @@ class SupervisorHttpTransport:
     """Fixed deployment URL and service credentials; no proxy/redirect/retry."""
 
     def __init__(self, base_url, *, authorization, timeout=10, max_response_bytes=65536,
-                 audit=None):
+                 audit=None, ssl_context=None):
         target = urlsplit(base_url)
         local = target.hostname == "localhost"
         try:
@@ -52,7 +53,13 @@ class SupervisorHttpTransport:
         self.base_url = base_url.rstrip("/")
         self.authorization = authorization
         self.timeout, self.max_response_bytes = timeout, max_response_bytes
-        self.opener = build_opener(ProxyHandler({}), _NoRedirect())
+        if ssl_context is not None and (
+            not isinstance(ssl_context, ssl.SSLContext)
+            or ssl_context.verify_mode != ssl.CERT_REQUIRED
+            or not ssl_context.check_hostname
+        ):
+            raise ValueError("verified TLS context required")
+        self.opener = build_opener(ProxyHandler({}), _NoRedirect(), HTTPSHandler(context=ssl_context))
         self.audit = audit
 
     def _audit(self, *, method, url, encoded, status=None, headers=None, data=b"",

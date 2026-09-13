@@ -8,6 +8,7 @@ from ipaddress import ip_address
 import os
 from pathlib import Path
 import stat
+import ssl
 import tempfile
 from urllib.parse import urlsplit
 
@@ -84,7 +85,8 @@ def private_save(path, body, maximum):
 
 class RemoteWorkerHost:
     def __init__(self, origin, *, run_credential, token_verifier, receiver,
-                 spool_directory, timeout=10, max_transport_bytes=67108864):
+                 spool_directory, timeout=10, max_transport_bytes=67108864,
+                 ssl_context=None):
         parsed = urlsplit(origin)
         local = parsed.hostname == "localhost"
         try:
@@ -106,6 +108,13 @@ class RemoteWorkerHost:
         self.verifier = token_verifier
         self.receiver = wire.WorkerReceiver.model_validate(receiver)
         self.timeout, self.maximum = timeout, max_transport_bytes
+        if ssl_context is not None and (
+            not isinstance(ssl_context, ssl.SSLContext)
+            or ssl_context.verify_mode != ssl.CERT_REQUIRED
+            or not ssl_context.check_hostname
+        ):
+            raise ValueError("verified TLS context required")
+        self.ssl_context = ssl_context
         self.session_codec = SessionTransportCodec(
             max_transport_bytes=max_transport_bytes
         )
@@ -137,7 +146,7 @@ class RemoteWorkerHost:
             raise HostTransportError("Host request exceeds transport limit")
         try:
             async with asyncio.timeout(self.timeout), httpx.AsyncClient(
-                transport=httpx.AsyncHTTPTransport(retries=0), trust_env=False,
+                transport=httpx.AsyncHTTPTransport(retries=0, verify=self.ssl_context or True), trust_env=False,
                 follow_redirects=False, timeout=httpx.Timeout(float(self.timeout)),
                 headers={"Authorization": "Bearer " + self._credential,
                          "Content-Type": "application/json", "Accept": "application/json",

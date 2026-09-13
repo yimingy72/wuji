@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
+import { createServer as createTlsServer } from 'node:https';
 import { existsSync, mkdirSync, mkdtempSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -309,9 +310,10 @@ export class NodeSupervisor {
     });
   }
 
-  createServer({ authenticate, maxBodyBytes = 1048576 } = {}) {
+  createServer({ authenticate, maxBodyBytes = 1048576, tls = null } = {}) {
     if (typeof authenticate !== 'function') throw new SupervisorError('AUTHENTICATOR_REQUIRED', 503);
-    const server = createServer(async (request, response) => {
+    if (tls !== null && (!tls.cert || !tls.key)) throw new SupervisorError('INVALID_TLS_CONFIGURATION', 422);
+    const handle = async (request, response) => {
       try {
         const auth = await authenticate(request);
         if (auth === null || auth === undefined || auth === false) throw new SupervisorError('UNAUTHENTICATED', 401);
@@ -343,7 +345,8 @@ export class NodeSupervisor {
           { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
         response.end(canonical({ code: error instanceof SupervisorError ? error.code : 'RECEIVER_UNAVAILABLE' }));
       }
-    });
+    };
+    const server = tls === null ? createServer(handle) : createTlsServer({ ...tls, minVersion: 'TLSv1.2' }, handle);
     server.requestTimeout = 15000; server.headersTimeout = 10000;
     return server;
   }
@@ -361,7 +364,8 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   const module = await import(pathToFileURL(resolve(process.argv[index + 1])).href);
   const configuration = await module.buildSupervisor();
   const supervisor = await NodeSupervisor.open(configuration);
-  const server = supervisor.createServer({ authenticate: configuration.authenticate });
+  const server = supervisor.createServer({ authenticate: configuration.authenticate,
+    tls: configuration.tls ?? null, maxBodyBytes: configuration.maxBodyBytes ?? 1048576 });
   server.listen(configuration.port, configuration.host ?? '127.0.0.1');
   for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => {
     server.close(() => supervisor.close());

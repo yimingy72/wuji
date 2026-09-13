@@ -5,6 +5,7 @@ from hashlib import sha256
 import os
 from pathlib import Path
 import sys
+import ssl
 
 from wuji_core.contracts import generated as wire
 from wuji_core.contracts.envelopes import ResultReceipt, WorkerAssignment
@@ -51,11 +52,14 @@ async def run_child(*, assignment_file, bootstrap_directory):
         os.close(parent)
     verifier = TokenVerifier(public_key_pem=bootstrap.public_key_pem.encode(),
                              issuer=bootstrap.issuer, audience=bootstrap.audience)
+    ca_file = os.environ.get("WUJI_TLS_CA_FILE")
+    ssl_context = ssl.create_default_context(cafile=ca_file) if ca_file else None
     host = RemoteWorkerHost(
         bootstrap.host_origin, run_credential=bootstrap.run_credential,
         token_verifier=verifier, receiver=document(bootstrap.receiver),
         spool_directory=directory, timeout=bootstrap.transport_timeout_seconds,
         max_transport_bytes=bootstrap.max_transport_bytes,
+        ssl_context=ssl_context,
     )
     await host.await_start(assignment, timeout=bootstrap.wait_timeout_seconds)
     context = await asyncio.to_thread(host.load_context, assignment)
@@ -71,6 +75,7 @@ async def run_child(*, assignment_file, bootstrap_directory):
         token_verifier=verifier,
         model_gate_url=bootstrap.model_gate_url,
         tool_gate_url=bootstrap.tool_gate_url,
+        ssl_context=ssl_context,
     )
     return validate_completion_receipt(receipt)
 

@@ -256,7 +256,7 @@ export class ControllerAdapter {
 export function mafProfile({ pythonExecutable, cwd, env = {}, workKinds = ['explore'] }) {
   if (!isAbsolute(pythonExecutable) || !isAbsolute(cwd)
       || !keys(env, Object.keys(env)) || Object.keys(env).some(key => !['PATH', 'PYTHONPATH',
-        'PYTHONNOUSERSITE', 'PYTHONDONTWRITEBYTECODE', 'LANG', 'LC_ALL', 'TZ'].includes(key))
+        'PYTHONNOUSERSITE', 'PYTHONDONTWRITEBYTECODE', 'LANG', 'LC_ALL', 'TZ', 'WUJI_TLS_CA_FILE'].includes(key))
       || Object.values(env).some(value => typeof value !== 'string')) {
     throw new SupervisorError('INVALID_LAUNCH_PROFILE', 422);
   }
