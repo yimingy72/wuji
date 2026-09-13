@@ -55,16 +55,21 @@ class RuntimeDispatcher:
         *,
         access: AccessContext,
         authorized_task_ids: Iterable[str] | Callable[[], Iterable[str]],
+        work_kinds: Iterable[str],
         outbox: DispatchOutbox,
         reconciler: Reconciler,
         max_configured_tasks: int = 10_000,
     ) -> None:
+        work_kinds = tuple(work_kinds)
         if (
             not isinstance(access, AccessContext)
             or "agent" in access.principal.roles
             or not access.principal.roles.intersection({"controller", "reconciler"})
             or type(max_configured_tasks) is not int
             or not 1 <= max_configured_tasks <= 100_000
+            or not work_kinds
+            or len(set(work_kinds)) != len(work_kinds)
+            or any(kind not in {"reason", "explore", "report"} for kind in work_kinds)
         ):
             raise ValueError("a bounded authenticated receiver is required")
         self.uow = uow
@@ -74,6 +79,7 @@ class RuntimeDispatcher:
             if callable(authorized_task_ids)
             else lambda: tuple(authorized_task_ids)
         )
+        self.work_kinds = work_kinds
         self.outbox = outbox
         self.reconciler = reconciler
         self.max_configured_tasks = max_configured_tasks
@@ -102,15 +108,24 @@ class RuntimeDispatcher:
                       a.start_operation_id)=
                      (d.tenant_id,d.project_id,d.task_id,d.agent_run_id,d.work_item_id,
                       d.operation_id)
+                JOIN vnext.work_item w
+                  ON (w.tenant_id,w.project_id,w.task_id,w.work_item_id)=
+                     (a.tenant_id,a.project_id,a.task_id,a.work_item_id)
                 JOIN vnext.scheduler_receiver r
                   ON (r.tenant_id,r.project_id,r.task_id,r.runtime_attempt,r.receiver_id)=
                      (a.tenant_id,a.project_id,a.task_id,a.runtime_attempt,a.receiver_id)
                 WHERE o.tenant_id=%s AND o.project_id=%s AND o.task_id=%s
                   AND o.kind='run.dispatch_requested'
                   AND r.receiver_subject=%s AND r.enabled
+                  AND w.kind=ANY(%s)
                   AND a.process_state<>'exited'
                 ORDER BY o.event_seq,d.operation_id LIMIT %s""",
-                (*tx.owner, self.access.principal.subject, limit),
+                (
+                    *tx.owner,
+                    self.access.principal.subject,
+                    list(self.work_kinds),
+                    limit,
+                ),
             )
             columns = tuple(column.name for column in cursor.description)
             rows = tuple(dict(zip(columns, values)) for values in cursor.fetchall())
@@ -181,6 +196,7 @@ def build_runtime_controller(
     *,
     access: AccessContext,
     authorized_task_ids: Iterable[str] | Callable[[], Iterable[str]],
+    work_kinds: Iterable[str],
     credentials,
     registry,
     control,
@@ -234,6 +250,7 @@ def build_runtime_controller(
         uow,
         access=access,
         authorized_task_ids=authorized_task_ids,
+        work_kinds=work_kinds,
         outbox=outbox,
         reconciler=reconciler,
         max_configured_tasks=max_configured_tasks,

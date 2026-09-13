@@ -533,6 +533,7 @@ def m2_case(
                 scheduled.control.uow,
                 access=receiver_credential.access,
                 authorized_task_ids=(TASK,),
+                work_kinds=("explore",),
                 credentials=scheduled.issuer,
                 registry=registry,
                 control=scheduled.control.control,
