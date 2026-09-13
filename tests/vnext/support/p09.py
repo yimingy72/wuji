@@ -166,6 +166,10 @@ def _configure_scheduler(
     template_clearance: int,
     max_work_items: int,
     capacity: int,
+    gateway_url: str = "https://model.fixture.invalid/v1",
+    approval_required: bool = False,
+    max_single_output_bytes: int = 4096,
+    evaluation_mode: str | None = None,
 ) -> None:
     registry = __import__(
         "wuji_core.admission.registry", fromlist=["TaskAdmissionConfig"]
@@ -173,7 +177,7 @@ def _configure_scheduler(
     lock_digest = _lock_digest()
     config = task_admission_config(
         registry,
-        gateway_url="https://model.fixture.invalid/v1",
+        gateway_url=gateway_url,
         max_model_requests=8,
         max_tool_calls=8,
         max_total_output_bytes=65_536,
@@ -185,7 +189,10 @@ def _configure_scheduler(
                 update={
                     "lock_digest": lock_digest,
                     "limits": config.runtime.limits.model_copy(
-                        update={"max_work_items": max_work_items}
+                        update={
+                            "max_work_items": max_work_items,
+                            "max_single_output_bytes": max_single_output_bytes,
+                        }
                     ),
                 }
             )
@@ -199,6 +206,8 @@ def _configure_scheduler(
         )
         definition["lock_digest"] = lock_digest
         definition["worker_profiles"] = profiles
+        if evaluation_mode is not None:
+            definition["evaluation_mode"] = evaluation_mode
         body = canonical_json_bytes(definition).decode("utf-8")
         connection.execute(
             "UPDATE vnext.task SET definition_json=%s,definition_digest=%s WHERE task_id=%s",
@@ -216,7 +225,11 @@ def _configure_scheduler(
             "INSERT INTO vnext.task_capacity_pool(tenant_id,project_id,task_id,pool_key) VALUES(%s,%s,%s,'model:fixture-model-v1')",
             OWNER,
         )
-        register_workspace_components(registry, connection)
+        register_workspace_components(
+            registry,
+            connection,
+            approval_required=approval_required,
+        )
         registry.register_task_config(connection, owner=OWNER, config=config)
         connection.execute(
             """INSERT INTO vnext.scheduler_identity_template(
@@ -316,9 +329,14 @@ def scheduler_case(
     input_access_level: int = 1,
     max_work_items: int = 4,
     capacity: int = 2,
+    profiles: dict[str, dict[str, object]] | None = None,
+    gateway_url: str = "https://model.fixture.invalid/v1",
+    approval_required: bool = False,
+    max_single_output_bytes: int = 4096,
+    evaluation_mode: str | None = None,
 ):
     keys = SchedulerKeys.generate()
-    profiles = _profiles(_lock_digest())
+    profiles = profiles or _profiles(_lock_digest())
     with control_case(environment, tmp_path, audit_directory) as control:
         _configure_scheduler(
             control,
@@ -326,6 +344,10 @@ def scheduler_case(
             template_clearance=template_clearance,
             max_work_items=max_work_items,
             capacity=capacity,
+            gateway_url=gateway_url,
+            approval_required=approval_required,
+            max_single_output_bytes=max_single_output_bytes,
+            evaluation_mode=evaluation_mode,
         )
         artifact_ref, claim_ref, intent_ref = _publish_intent(
             control, access_level=input_access_level

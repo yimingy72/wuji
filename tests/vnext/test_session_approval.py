@@ -25,10 +25,12 @@ from support.p08 import (
     REQUIRED,
     SDK_CONTENT_ID,
     SESSION_LINEAGE,
+    TASK,
     TOOL_CALL_ID,
     TOOL_DEFINITION,
     parameter_shape,
     pending_native_identity,
+    p08_candidate_case,
     session_limits,
     session_repository_type,
 )
@@ -37,6 +39,7 @@ from wuji_core.contracts.sessions import (
     HumanInput,
     InputPayload,
     NativeCallBinding,
+    native_rejection_content,
 )
 from wuji_core.contracts.execution import SessionManifest
 from wuji_core.contracts.envelopes import RunIdentity
@@ -46,6 +49,7 @@ from wuji_core.execution.sessions import (
     document,
     provider_messages,
     request_predecessor_positions,
+    work_row,
 )
 from wuji_core.persistence.uow import DomainError
 from wuji_maf_worker.approvals import approval_response_message
@@ -161,6 +165,322 @@ def test_p08_migration_follows_receiver_results_and_keeps_session_guards():
     assert "check_approval_intake_source" in ddl
     assert "approval, original ToolCall, Attempt and Outbox must commit together" in ddl
     assert "require_scheduler_identity(text,text,text,jsonb)" in ddl
+
+
+def test_p08_migration_installs_after_receiver_results_with_private_stage_guards(
+    db_environment,
+):
+    from wuji_core.persistence.schema import migrate
+
+    with db_environment.migration_connection() as connection:
+        migrate(connection, application_role=db_environment.application_role)
+        heads = {
+            row[0]
+            for row in connection.execute(
+                "SELECT head FROM vnext.schema_migration"
+            ).fetchall()
+        }
+        assert "vnext_0013_receiver_results" in heads
+        assert "vnext_0014_p08_session_approval" in heads
+        assert connection.execute(
+            "SELECT to_regclass('vnext.session_stage')"
+        ).fetchone() == ("vnext.session_stage",)
+        functions = {
+            row[0]
+            for row in connection.execute(
+                """SELECT proname FROM pg_proc p JOIN pg_namespace n
+                ON n.oid=p.pronamespace WHERE n.nspname='vnext'
+                  AND proname IN ('record_session_stage',
+                    'check_session_stage_for_publish',
+                    'guard_session_manifest_insert',
+                    'mechanism_candidate_receiver_matches',
+                    'guard_approval_intake_insert')"""
+            ).fetchall()
+        }
+        assert functions == {
+            "record_session_stage",
+            "check_session_stage_for_publish",
+            "guard_session_manifest_insert",
+            "mechanism_candidate_receiver_matches",
+            "guard_approval_intake_insert",
+        }
+
+
+def test_real_sdk_candidate_publishes_native_approval_boundary(
+    db_environment,
+    tmp_path,
+    audit_directory,
+):
+    with p08_candidate_case(
+        db_environment,
+        tmp_path,
+        audit_directory,
+    ) as case:
+        case.upstream.release_first_response.set()
+        events = asyncio.run(_consume_runtime(case.runtime, case.assignment))
+
+        assert len(events) == 1
+        assert events[0].kind == "input_receipt"
+        assert case.runtime.input_receipt is not None
+        assert case.runtime.session_receipt is not None
+        with case.environment.migration_connection() as connection:
+            manifest = connection.execute(
+                "SELECT manifest_json::jsonb->>'recovery_class',"
+                "capability_ref,capability_digest FROM vnext.session_manifest "
+                "WHERE task_id=%s",
+                (TASK,),
+            ).fetchone()
+            approval = connection.execute(
+                "SELECT status,latest_attempt_id FROM vnext.tool_call "
+                "WHERE task_id=%s AND work_item_id=%s AND session_lineage=%s",
+                (
+                    TASK,
+                    case.assignment.identity.work_item_id,
+                    case.credential.binding.session_lineage,
+                ),
+            ).fetchone()
+            attempts = connection.execute(
+                "SELECT count(*) FROM vnext.tool_attempt attempt "
+                "JOIN vnext.tool_call call USING(tenant_id,project_id,task_id,tool_call_id) "
+                "WHERE attempt.task_id=%s AND call.work_item_id=%s "
+                "AND call.session_lineage=%s",
+                (
+                    TASK,
+                    case.assignment.identity.work_item_id,
+                    case.credential.binding.session_lineage,
+                ),
+            ).fetchone()[0]
+        assert manifest[0] == "approval_boundary"
+        assert manifest[1] == "session-capability-p08-candidate"
+        assert len(manifest[2]) == 64
+        assert approval == ("pending_approval", None)
+        assert attempts == 0
+
+
+def test_real_approval_http_resumes_original_session_and_executes_once(
+    db_environment,
+    tmp_path,
+    audit_directory,
+):
+    with p08_candidate_case(
+        db_environment,
+        tmp_path,
+        audit_directory,
+    ) as case:
+        case.upstream.release_first_response.set()
+        initial_events = asyncio.run(
+            _consume_runtime(case.runtime, case.assignment)
+        )
+        assert [event.kind for event in initial_events] == ["input_receipt"]
+        original_binding = _published_session(case).history.frontier.pending_approvals[0]
+        case.record_process(case.assignment, "exited")
+        with case.control.uow.transaction(
+            case.scheduler.receiver_access,
+            TASK,
+            capability="observe",
+        ) as tx:
+            recovery = case.sessions.validate_recovery_in_transaction(
+                tx,
+                work_row(tx, case.assignment.identity.work_item_id),
+            )
+        assert recovery.resumable, recovery
+
+        approval_ref = case.runtime.input_receipt.approval_refs[0]
+        response = case.approval_client.post(
+            f"/api/v2/approvals/{approval_ref}/decisions",
+            json={
+                "schema_version": "wuji.api.v2",
+                "decision": "approve",
+                "expected_version": "1",
+                "reason": "fixed synthetic P08 approval",
+            },
+            headers={
+                "Authorization": "Bearer " + case.approval_token,
+                "Idempotency-Key": "p08-approve-once",
+            },
+        )
+        assert response.status_code == 202, response.text
+
+        resumed_assignment = next(
+            item
+            for item in case.scheduler.scheduler.tick(limit=2).assignments
+            if item.identity.work_item_id == case.assignment.identity.work_item_id
+        )
+        assert resumed_assignment.session_manifest_ref is not None
+        assert (
+            resumed_assignment.session_manifest_ref.root
+            == case.runtime.session_receipt.manifest_ref
+        )
+        resumed = case.child_execute(resumed_assignment)
+
+        assert resumed.exited["observation"]["process"]["exit_code"] == 0, (
+            resumed.worker_stderr
+        )
+        assert resumed.final.state == "exited"
+        assert resumed.credential.binding.session_lineage == (
+            case.credential.binding.session_lineage
+        )
+        assert case.upstream.received_tool_receipt is not None
+        restored_binding = _published_session(case).provider_state.call_bindings[0]
+        assert restored_binding == original_binding
+        assert restored_binding.provider_response_ref == original_binding.provider_response_ref
+        assert restored_binding.arguments_ref == original_binding.arguments_ref
+        with case.environment.migration_connection() as connection:
+            approval = connection.execute(
+                "SELECT decision,decision_status,consumed_attempt_id,consumed_by_run "
+                "FROM vnext.approval_request WHERE approval_ref=%s",
+                (approval_ref,),
+            ).fetchone()
+            call = connection.execute(
+                "SELECT status,latest_attempt_id FROM vnext.tool_call "
+                "WHERE tool_call_id=%s",
+                (case.upstream.received_tool_receipt["tool_call_id"],),
+            ).fetchone()
+            attempts = connection.execute(
+                "SELECT count(*) FROM vnext.tool_attempt WHERE tool_call_id=%s",
+                (case.upstream.received_tool_receipt["tool_call_id"],),
+            ).fetchone()[0]
+            manifests = connection.execute(
+                "SELECT manifest_json::jsonb->>'recovery_class' "
+                "FROM vnext.session_manifest WHERE session_id=%s ORDER BY revision",
+                (case.runtime.session_receipt.session_id,),
+            ).fetchall()
+        assert approval[0:2] == ("approve", "consumed")
+        assert approval[2] == call[1]
+        assert approval[3] == resumed_assignment.identity.agent_run_id
+        assert call[0] == "complete"
+        assert attempts == 1
+        assert manifests == [("approval_boundary",), ("settled_boundary",)]
+
+
+def test_real_rejection_http_restores_native_denial_without_execution(
+    db_environment,
+    tmp_path,
+    audit_directory,
+):
+    with p08_candidate_case(
+        db_environment,
+        tmp_path,
+        audit_directory,
+        reject=True,
+    ) as case:
+        case.upstream.release_first_response.set()
+        initial_events = asyncio.run(
+            _consume_runtime(case.runtime, case.assignment)
+        )
+        assert [event.kind for event in initial_events] == ["input_receipt"]
+        original = _published_session(case)
+        original_binding = original.history.frontier.pending_approvals[0]
+        case.record_process(case.assignment, "exited")
+
+        approval_ref = case.runtime.input_receipt.approval_refs[0]
+        response = case.approval_client.post(
+            f"/api/v2/approvals/{approval_ref}/decisions",
+            json={
+                "schema_version": "wuji.api.v2",
+                "decision": "reject",
+                "expected_version": "1",
+                "reason": "fixed synthetic P08 rejection",
+            },
+            headers={
+                "Authorization": "Bearer " + case.approval_token,
+                "Idempotency-Key": "p08-reject-once",
+            },
+        )
+        assert response.status_code == 202, response.text
+
+        resumed_assignment = next(
+            item
+            for item in case.scheduler.scheduler.tick(limit=2).assignments
+            if item.identity.work_item_id == case.assignment.identity.work_item_id
+        )
+        resumed = case.child_execute(resumed_assignment)
+
+        assert resumed.exited["observation"]["process"]["exit_code"] == 0, (
+            resumed.worker_stderr
+        )
+        assert resumed.final.state == "exited"
+        assert resumed.credential.principal.token_id != case.credential.principal.token_id
+        assert resumed.credential.binding.session_lineage == (
+            case.credential.binding.session_lineage
+        )
+        assert case.upstream.received_tool_receipt is None
+        assert case.upstream.received_rejection == {
+            "role": "tool",
+            "tool_call_id": original_binding.provider_call_id,
+            "content": native_rejection_content(
+                original_binding.provider_call_id
+            )["result"],
+        }
+        published = _published_session(case)
+        assert published.provider_state.call_bindings[0] == original_binding
+        assert len(published.history.frontier.rejected_calls) == 1
+        rejected = published.history.frontier.rejected_calls[0]
+        rejection_properties = original.provider_state.pending_contents[0][
+            "function_call"
+        ]["additional_properties"]
+        assert rejected.approval_ref == approval_ref
+        assert rejected.decision_version == "2"
+        assert rejected.call_binding == original_binding
+        assert rejected.result_content == native_rejection_content(
+            original_binding.provider_call_id,
+            additional_properties=rejection_properties,
+        )
+        with case.environment.migration_connection() as connection:
+            approval = connection.execute(
+                "SELECT decision,decision_status,consumed_attempt_id,consumed_by_run "
+                "FROM vnext.approval_request WHERE approval_ref=%s",
+                (approval_ref,),
+            ).fetchone()
+            call = connection.execute(
+                "SELECT status,latest_attempt_id FROM vnext.tool_call "
+                "WHERE tool_call_id=%s",
+                (original_binding.tool_call_id,),
+            ).fetchone()
+            attempts = connection.execute(
+                "SELECT count(*) FROM vnext.tool_attempt WHERE tool_call_id=%s",
+                (original_binding.tool_call_id,),
+            ).fetchone()[0]
+            current = connection.execute(
+                "SELECT access.can_read,access.can_write,access.can_model_output,"
+                "holder.manifest_ref,holder.session_lineage "
+                "FROM vnext.task_access access JOIN vnext.session_holder holder ON "
+                "(holder.tenant_id,holder.project_id,holder.task_id,holder.agent_run_id)="
+                "(access.tenant_id,access.project_id,access.task_id,%s) "
+                "WHERE access.subject=%s",
+                (
+                    resumed_assignment.identity.agent_run_id,
+                    resumed.credential.principal.subject,
+                ),
+            ).fetchone()
+        assert approval == ("reject", "decided", None, None)
+        assert call == ("cancelled", None)
+        assert attempts == 0
+        assert current == (
+            True,
+            True,
+            True,
+            case.runtime.session_receipt.manifest_ref,
+            case.credential.binding.session_lineage,
+        )
+
+
+def _published_session(case):
+    with case.control.uow.transaction(
+        case.scheduler.receiver_access,
+        TASK,
+        capability="observe",
+    ) as tx:
+        return case.sessions._load_in_transaction(
+            tx,
+            work_row(tx, case.assignment.identity.work_item_id),
+        )
+
+
+async def _consume_runtime(runtime, assignment):
+    events = [event async for event in runtime.execute(assignment)]
+    await runtime.aclose()
+    return events
 
 
 def test_mechanism_candidate_requires_exact_short_lived_binding_without_fake_pass():

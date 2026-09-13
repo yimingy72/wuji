@@ -50,8 +50,15 @@ def _positions(observed, messages):
     return tuple(found[key] for key in sorted(found))
 
 
-def _rejected_entry(history, binding, *, approval_ref, decision_version):
-    expected = native_rejection_content(binding.provider_call_id)
+def _rejected_entry(
+    history,
+    binding,
+    *,
+    approval_ref,
+    decision_version,
+    expected_content=None,
+):
+    expected = expected_content or native_rejection_content(binding.provider_call_id)
     matches = []
     for index, message in enumerate(history.messages):
         if message.get("role") != "tool":
@@ -145,6 +152,7 @@ class NativeSessionAdapter:
                 binding,
                 approval_ref=entry.approval_ref,
                 decision_version=entry.decision_version,
+                expected_content=entry.result_content,
             )
         for decision in rejections:
             binding = NativeCallBinding.model_validate(decision.call_binding)
@@ -159,6 +167,12 @@ class NativeSessionAdapter:
                 binding,
                 approval_ref=decision.approval_ref,
                 decision_version=decision.decision_version,
+                expected_content=native_rejection_content(
+                    binding.provider_call_id,
+                    additional_properties=decision.pending_content[
+                        "function_call"
+                    ].get("additional_properties", {}),
+                ),
             )
         pending_ids = {content.id for content in pending}
         return OperationFrontier(

@@ -139,6 +139,15 @@ class InputService:
                 (*tx.owner, source_id, input_id, observation.manifest_ref, native_digest, json_text(source), json_text(document(receipt)), level),
             )
             tx.connection.execute("UPDATE vnext.work_item SET input_request_id=%s,revision=revision+1 WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND work_item_id=%s", (input_id, *tx.owner, work["work_item_id"]))
+            tx.connection.execute(
+                "SELECT vnext.settle_session_input_boundary(%s,%s,%s,%s,%s,%s)",
+                (
+                    *tx.owner,
+                    run["agent_run_id"],
+                    input_id,
+                    observation.manifest_ref,
+                ),
+            ).fetchone()
             tx.semantic_event("input.registered", {"input_request_id": input_id, "work_item_id": work["work_item_id"], "source_receipt_id": source_id}, access_level=level)
             return receipt
 

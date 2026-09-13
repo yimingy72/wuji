@@ -43,7 +43,13 @@ def ref_key(ref):
 def document(value):
     if isinstance(value, (SessionManifest, SessionReceipt)):
         return value.model_dump(mode="json")
-    return value.model_dump(mode="python") if hasattr(value, "model_dump") else value
+    if hasattr(value, "model_dump"):
+        return value.model_dump(mode="python")
+    if isinstance(value, dict):
+        return {key: document(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [document(item) for item in value]
+    return value
 
 
 def equal(left, right):
@@ -59,6 +65,23 @@ def unique_refs(refs):
             raise DomainError("INPUT_DIGEST_CONFLICT", 409)
         found[ref_key(ref)] = ref
     return tuple(found[key] for key in sorted(found))
+
+
+def session_graph_digest(records):
+    return digest([
+        {
+            "id": record["entity_id"],
+            "revision": str(record["revision"]),
+            "sha256": record["sha256"],
+            "access_level": record["access_level"],
+            "agent_run_id": record["agent_run_id"],
+            "writer_subject": record["writer_subject"],
+            "tool_attempt_id": record["tool_attempt_id"],
+        }
+        for record in sorted(
+            records.values(), key=lambda value: (value["entity_id"], value["revision"])
+        )
+    ])
 
 
 def work_row(tx, work_id, *, lock=True):
@@ -99,23 +122,40 @@ def content_versions(history, position, archives):
     return versions
 
 
-def request_predecessor_positions(history, request_messages):
-    """Map provider-wire operation messages to unique earlier native positions."""
+def request_predecessor_positions(history, request_messages, *, instructions=None):
+    """Map each provider-wire history message to its unique native predecessor."""
 
-    positions = {}
-    for request in request_messages:
+    positions, seen = [], set()
+    for request_index, request in enumerate(request_messages):
         expected = []
+        if (
+            request_index == 0
+            and request.get("role") == "system"
+            and request.get("content") == instructions
+        ):
+            # Harness agent instructions are inserted by the fixed SDK client and
+            # are not persisted by HistoryProvider. Their exact bytes remain in
+            # the authoritative P06 request and the published Profile snapshot.
+            continue
         if request.get("role") == "assistant":
             for call in request.get("tool_calls", []):
                 expected.append(("function_call", call.get("id"), call.get("function")))
+            if not request.get("tool_calls") and isinstance(request.get("content"), str):
+                expected.append(("text", None, request["content"]))
         elif request.get("role") == "tool":
             expected.append(("function_result", request.get("tool_call_id"), request.get("content")))
+        elif request.get("role") in {"user", "system"} and isinstance(request.get("content"), str):
+            expected.append(("text", None, request["content"]))
         for kind, call_id, wire in expected:
             matches = []
             for message_index, message in enumerate(history.messages):
+                if message.get("role") != request.get("role"):
+                    continue
                 for content_index, content in enumerate(message.get("contents", [])):
                     native = content.get("function_call", content)
-                    if native.get("call_id") != call_id or native.get("type") != kind:
+                    if native.get("type") != kind or (
+                        call_id is not None and native.get("call_id") != call_id
+                    ):
                         continue
                     if kind == "function_call":
                         arguments = native.get("arguments")
@@ -123,7 +163,7 @@ def request_predecessor_positions(history, request_messages):
                             arguments = canonical_json_bytes(arguments).decode()
                         if not isinstance(wire, dict) or wire.get("name") != native.get("name") or wire.get("arguments") != arguments:
                             continue
-                    else:
+                    elif kind == "function_result":
                         result = native.get("result")
                         if isinstance(result, str):
                             try:
@@ -138,6 +178,8 @@ def request_predecessor_positions(history, request_messages):
                                 pass
                         if result != supplied:
                             continue
+                    elif native.get("text") != wire:
+                        continue
                     matches.append((
                         content.get("type") != kind,
                         message_index,
@@ -158,8 +200,31 @@ def request_predecessor_positions(history, request_messages):
                 ),
                 native_message_id=history.messages[message_index].get("message_id"),
             )
-            positions[(message_index, content_index)] = position
-    return tuple(positions[key] for key in sorted(positions))
+            key = (message_index, content_index)
+            if key in seen:
+                raise DomainError("SESSION_FRONTIER_MISMATCH", 409)
+            seen.add(key)
+            positions.append(position)
+    return tuple(positions)
+
+
+def predecessor_covers_result(history, predecessors, result_position):
+    result_key = (result_position.message_index, result_position.content_index)
+    if any(
+        (position.message_index, position.content_index) == result_key
+        for position in predecessors
+    ):
+        return True
+    original = history.messages[result_position.message_index]
+    original_id = original.get("message_id")
+    if not original.get("additional_properties", {}).get("_excluded") or not original_id:
+        return False
+    for position in predecessors:
+        summary = history.messages[position.message_index]
+        group = summary.get("additional_properties", {}).get("_group", {})
+        if original_id in group.get("_summary_of_message_ids", []):
+            return True
+    return False
 
 
 def provider_messages(body, content_type):
@@ -412,14 +477,20 @@ class SessionRepository:
             objects_by_key[obj.key] = ref
             if obj.key == "history-archive":
                 archives.append(ref)
-        model_entries, response_refs = [], {}
+        model_entries, response_refs, reused_refs = [], {}, []
         for entry in history.frontier.model_entries:
             record, raw, _, request = models[entry.model_attempt_id]
             request_digest, response_digest = record["input_digest"], sha256(raw).hexdigest()
             if ((entry.request_digest is not None and entry.request_digest != request_digest)
                     or (entry.response_digest is not None and entry.response_digest != response_digest)):
                 raise DomainError("INPUT_DIGEST_CONFLICT", 409)
-            response_ref = save(raw, record["content_type"], role="model_response")
+            if entry.response_ref is not None:
+                if entry.response_ref.sha256.root != response_digest:
+                    raise DomainError("INPUT_DIGEST_CONFLICT", 409)
+                response_ref = entry.response_ref
+                reused_refs.append(response_ref)
+            else:
+                response_ref = save(raw, record["content_type"], role="model_response")
             response_refs[entry.model_attempt_id] = response_ref
             request_messages = tuple(request.get("messages", ()))
             model_entries.append(entry.model_copy(update={
@@ -427,14 +498,25 @@ class SessionRepository:
                 "request_messages": request_messages,
                 "request_messages_digest": digest(request_messages),
                 "predecessor_positions": request_predecessor_positions(
-                    history, request_messages
+                    history,
+                    request_messages,
+                    instructions=history.compatibility.profile_snapshot["body"][
+                        "instructions"
+                    ],
                 ),
                 "response_digest": response_digest,
                 "response_ref": response_ref,
             }))
         enriched_calls = []
         for call in calls:
-            arguments_ref = save(call.native_arguments.encode("utf-8"), "application/json", role="native_arguments")
+            arguments_digest = sha256(call.native_arguments.encode("utf-8")).hexdigest()
+            if call.arguments_ref is not None:
+                if call.arguments_ref.sha256.root != arguments_digest:
+                    raise DomainError("INPUT_DIGEST_CONFLICT", 409)
+                arguments_ref = call.arguments_ref
+                reused_refs.append(arguments_ref)
+            else:
+                arguments_ref = save(call.native_arguments.encode("utf-8"), "application/json", role="native_arguments")
             enriched_calls.append(call.model_copy(update={"provider_response_ref": response_refs[call.model_attempt_id], "arguments_ref": arguments_ref}))
         observed_by_tool = {call.tool_call_id: call for call in calls}
         enriched_by_tool = {call.tool_call_id: call for call in enriched_calls}
@@ -454,12 +536,17 @@ class SessionRepository:
                 or history.messages[entry.result_position.message_index].get("role") != "tool"
                 or entry.result_content != result
                 or entry.result_digest != digest(result)
-                or result != native_rejection_content(observed.provider_call_id)
+                or result != native_rejection_content(
+                    observed.provider_call_id,
+                    additional_properties=entry.result_content.get(
+                        "additional_properties", {}
+                    ),
+                )
             ):
                 raise DomainError("SESSION_FRONTIER_MISMATCH", 409)
-            enriched_rejections.append(
-                entry.model_copy(update={"call_binding": enriched})
-            )
+            if not equal(enriched, entry.call_binding):
+                raise DomainError("SESSION_FRONTIER_MISMATCH", 409)
+            enriched_rejections.append(entry)
         files = []
         for file in memory.files:
             if file.object_key is not None:
@@ -490,7 +577,7 @@ class SessionRepository:
         memory_ref = save(canonical_json_bytes(document(memory)), "application/json", memory.object_refs, "memory_root")
         with self.uow.transaction(worker_access, assignment.identity.task_id, capability="tool_request") as tx:
             current_run(tx, self.registry.config(tx))
-            self._graph(
+            staged_records, _staged_bodies = self._graph(
                 tx,
                 (history_ref, provider_ref, memory_ref),
                 limits,
@@ -500,8 +587,32 @@ class SessionRepository:
                 source_subject=worker_access.principal.subject,
                 source_token_id=worker_access.principal.token_id,
             )
+            recorded = tx.connection.execute(
+                """SELECT vnext.record_session_stage(
+                %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                (
+                    *tx.owner,
+                    lease,
+                    assignment.identity.work_item_id,
+                    history.session_id,
+                    assignment.identity.agent_run_id,
+                    history_ref.id,
+                    history_ref.version.root,
+                    provider_ref.id,
+                    provider_ref.version.root,
+                    memory_ref.id,
+                    memory_ref.version.root,
+                    session_graph_digest(staged_records),
+                    max(record["access_level"] for record in staged_records.values()),
+                    history.compatibility.capability_ref,
+                    history.compatibility.capability_digest,
+                ),
+            ).fetchone()
+            if recorded != (lease,):
+                raise DomainError("INVALID_REFERENCE", 422)
         return StagedSessionObjects(history_root=history_ref, provider_state_ref=provider_ref,
-            memory_manifest_ref=memory_ref, object_refs=unique_refs(refs), lease_owner=lease,
+            memory_manifest_ref=memory_ref,
+            object_refs=unique_refs([*refs, *reused_refs]), lease_owner=lease,
             history=history, provider_state=provider, memory=memory)
 
     def _archives(self, tx, history):
@@ -540,11 +651,41 @@ class SessionRepository:
                     or entry.response_ref is None or entry.response_ref.sha256.root != entry.response_digest
                     or tuple(request.get("messages", ())) != entry.request_messages
                     or digest(entry.request_messages) != entry.request_messages_digest
-                    or request_predecessor_positions(history, entry.request_messages) != entry.predecessor_positions):
+                    or request_predecessor_positions(
+                        history,
+                        entry.request_messages,
+                        instructions=history.compatibility.profile_snapshot["body"][
+                            "instructions"
+                        ],
+                    ) != entry.predecessor_positions):
                 raise DomainError("SESSION_FRONTIER_MISMATCH", 409)
+            response_start = min(position.message_index for position in entry.positions)
             if entry.predecessor_positions and max(
                 position.message_index for position in entry.predecessor_positions
-            ) >= min(position.message_index for position in entry.positions):
+            ) >= response_start:
+                raise DomainError("SESSION_FRONTIER_MISMATCH", 409)
+            expected_results = []
+            for tool_entry in history.frontier.tool_entries:
+                expected_results.extend(
+                    position
+                    for position in tool_entry.positions
+                    if position.message_index < response_start
+                    and check_position(history, position).get("type")
+                    == "function_result"
+                )
+            expected_results.extend(
+                rejected_entry.result_position
+                for rejected_entry in history.frontier.rejected_calls
+                if rejected_entry.result_position.message_index < response_start
+            )
+            if any(
+                not predecessor_covers_result(
+                    history,
+                    entry.predecessor_positions,
+                    result_position,
+                )
+                for result_position in expected_results
+            ):
                 raise DomainError("SESSION_FRONTIER_MISMATCH", 409)
             observed_text, observed_calls = [], set()
             text_options = [""]
@@ -581,8 +722,12 @@ class SessionRepository:
                 raise DomainError("INVALID_REFERENCE", 422)
         tool_entries = {e.tool_attempt_id: e for e in history.frontier.tool_entries}
         actual_attempts = {r[0] for r in tx.connection.execute(
-            "SELECT a.tool_attempt_id FROM vnext.tool_attempt a JOIN vnext.agent_run r USING(tenant_id,project_id,task_id,agent_run_id) WHERE a.tenant_id=%s AND a.project_id=%s AND a.task_id=%s AND r.work_item_id=%s",
-            (*tx.owner, history.work_item_id),
+            "SELECT a.tool_attempt_id FROM vnext.tool_attempt a "
+            "JOIN vnext.tool_call c USING(tenant_id,project_id,task_id,tool_call_id) "
+            "JOIN vnext.agent_run r USING(tenant_id,project_id,task_id,agent_run_id) "
+            "WHERE a.tenant_id=%s AND a.project_id=%s AND a.task_id=%s "
+            "AND r.work_item_id=%s AND c.session_lineage=%s",
+            (*tx.owner, history.work_item_id, history.session_lineage),
         ).fetchall()}
         if set(tool_entries) != actual_attempts or len(tool_entries) != len(history.frontier.tool_entries):
             raise DomainError("SESSION_FRONTIER_MISMATCH", 409)
@@ -633,6 +778,13 @@ class SessionRepository:
             payload = InputPayload.model_validate(
                 strict_json_loads(approval["payload_json"])
             )
+            approval_content = strict_json_loads(approval["content_json"])
+            expected_rejection = native_rejection_content(
+                entry.call_binding.provider_call_id,
+                additional_properties=approval_content["function_call"].get(
+                    "additional_properties", {}
+                ),
+            )
             decisions = [
                 decision
                 for decision in payload.decisions
@@ -656,34 +808,13 @@ class SessionRepository:
                 or decisions[0].decision != "reject"
                 or str(decisions[0].decision_version) != entry.decision_version
                 or not equal(decisions[0].call_binding, entry.call_binding)
+                or not equal(decisions[0].pending_content, approval_content)
                 or not equal(strict_json_loads(approval["binding_json"]), entry.call_binding)
                 or history.messages[entry.result_position.message_index].get("role") != "tool"
                 or result != entry.result_content
                 or digest(result) != entry.result_digest
-                or result != native_rejection_content(entry.call_binding.provider_call_id)
+                or result != expected_rejection
             ):
-                raise DomainError("SESSION_FRONTIER_MISMATCH", 409)
-        consumed_positions = {
-            (position.message_index, position.content_index)
-            for model_entry in history.frontier.model_entries
-            for position in model_entry.predecessor_positions
-        }
-        for tool_entry in history.frontier.tool_entries:
-            results = [
-                position
-                for position in tool_entry.positions
-                if check_position(history, position).get("type") == "function_result"
-            ]
-            if len(results) != 1 or (
-                results[0].message_index,
-                results[0].content_index,
-            ) not in consumed_positions:
-                raise DomainError("SESSION_FRONTIER_MISMATCH", 409)
-        for rejected_entry in history.frontier.rejected_calls:
-            if (
-                rejected_entry.result_position.message_index,
-                rejected_entry.result_position.content_index,
-            ) not in consumed_positions:
                 raise DomainError("SESSION_FRONTIER_MISMATCH", 409)
         for call in calls:
             binding = by_id[call["tool_call_id"]]
@@ -821,11 +952,18 @@ class SessionRepository:
         history = PublishedHistoryRoot.model_validate(strict_json_loads(self.artifacts.checked_bytes(provisional)))
         capability = self.capability(tx, history)
         records, bodies = self._graph(tx, roots, capability["limits"], publication_id=value["publication_id"])
+        if value["graph_digest"] != session_graph_digest(records):
+            raise DomainError("INVALID_REFERENCE", 422)
         history = PublishedHistoryRoot.model_validate(strict_json_loads(bodies[ref_key(manifest.history_root)]))
         provider = PublishedProviderStateRoot.model_validate(strict_json_loads(bodies[ref_key(manifest.provider_state_ref)]))
         memory = PublishedMemoryManifestRoot.model_validate(strict_json_loads(bodies[ref_key(manifest.memory_manifest_ref)]))
         self._root_agreement(manifest, history, provider, memory, capability, records)
         if history.session_lineage != value["session_lineage"] or digest(document(history.frontier)) != value["frontier_digest"]:
+            raise DomainError("INVALID_REFERENCE", 422)
+        if (
+            history.compatibility.capability_ref != value["capability_ref"]
+            or history.compatibility.capability_digest != value["capability_digest"]
+        ):
             raise DomainError("INVALID_REFERENCE", 422)
         receipt = SessionReceipt(session_id=manifest.session_id, manifest_ref=value["manifest_ref"],
             checkpoint_revision=str(value["revision"]), manifest_digest=value["manifest_digest"],
@@ -908,6 +1046,27 @@ class SessionRepository:
             roots = (manifest.history_root, manifest.provider_state_ref, manifest.memory_manifest_ref)
             records, bodies = self._graph(tx, roots, capability["limits"], work_id=work["work_item_id"],
                 session_id=manifest.session_id, owner_run_id=run["agent_run_id"])
+            stage = tx.connection.execute(
+                """SELECT * FROM vnext.check_session_stage_for_publish(
+                %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                (
+                    *tx.owner,
+                    work["work_item_id"],
+                    manifest.session_id,
+                    run["agent_run_id"],
+                    manifest.history_root.id,
+                    manifest.history_root.version.root,
+                    manifest.provider_state_ref.id,
+                    manifest.provider_state_ref.version.root,
+                    manifest.memory_manifest_ref.id,
+                    manifest.memory_manifest_ref.version.root,
+                    session_graph_digest(records),
+                    history.compatibility.capability_ref,
+                    history.compatibility.capability_digest,
+                ),
+            ).fetchone()
+            if stage is None:
+                raise DomainError("STALE_EXECUTION", 409)
             for ref in roots:
                 r = records[ref_key(ref)]
                 if r["agent_run_id"] != run["agent_run_id"] or r["provenance"] != "model_output":
@@ -928,8 +1087,8 @@ class SessionRepository:
             for r in sorted(records.values(), key=lambda r: (r["entity_id"], r["revision"])):
                 tx.connection.execute("INSERT INTO vnext.publication_ref(tenant_id,project_id,task_id,publication_id,artifact_id,artifact_revision,access_level) VALUES(%s,%s,%s,%s,%s,%s,%s)", (*tx.owner, publication_id, r["entity_id"], r["revision"], level))
             published_at = tx.connection.execute(
-                "INSERT INTO vnext.session_manifest(tenant_id,project_id,task_id,session_id,revision,work_item_id,owner_run_id,manifest_json,publication_id,published_at,access_level,manifest_ref,manifest_digest,frontier_digest,session_lineage) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,clock_timestamp(),%s,%s,%s,%s,%s) RETURNING published_at",
-                (*tx.owner, manifest.session_id, manifest.checkpoint_revision.root, work["work_item_id"], run["agent_run_id"], json_text(document(manifest)), publication_id, level, manifest_ref, digest(document(manifest)), digest(document(history.frontier)), history.session_lineage),
+                "INSERT INTO vnext.session_manifest(tenant_id,project_id,task_id,session_id,revision,work_item_id,owner_run_id,manifest_json,publication_id,published_at,access_level,manifest_ref,manifest_digest,frontier_digest,graph_digest,session_lineage,capability_ref,capability_digest) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,clock_timestamp(),%s,%s,%s,%s,%s,%s,%s,%s) RETURNING published_at",
+                (*tx.owner, manifest.session_id, manifest.checkpoint_revision.root, work["work_item_id"], run["agent_run_id"], json_text(document(manifest)), publication_id, level, manifest_ref, digest(document(manifest)), digest(document(history.frontier)), session_graph_digest(records), history.session_lineage, history.compatibility.capability_ref, history.compatibility.capability_digest),
             ).fetchone()[0]
             updated = tx.connection.execute(
                 "UPDATE vnext.work_item SET session_id=%s,session_revision=%s,revision=revision+1 WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND work_item_id=%s AND current_run_id=%s AND run_epoch=%s AND session_revision IS NOT DISTINCT FROM %s RETURNING work_item_id",

@@ -176,6 +176,16 @@ def configuration_digest(value):
     return sha256(canonical_json_bytes(value)).hexdigest()
 
 
+def _storage_document(value):
+    if isinstance(value, datetime):
+        return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+    if isinstance(value, dict):
+        return {key: _storage_document(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_storage_document(item) for item in value]
+    return value
+
+
 def model_gateway_digest(url):
     return configuration_digest({"gateway_url": url})
 
@@ -214,7 +224,7 @@ def register_session_capability(connection, *, tenant_id, capability):
             raise DomainError("CAPABILITY_UNAVAILABLE", 503) from error
     # The owner must publish only after reviewing the referenced actual evidence.
     # Runtime consumers cannot create this record or turn a candidate into passed.
-    raw = json_text(capability.model_dump(mode="json"))
+    raw = json_text(_storage_document(capability.model_dump(mode="python")))
     old = connection.execute("SELECT document_json FROM vnext.session_capability WHERE tenant_id=%s AND ref=%s", (tenant_id, capability.ref)).fetchone()
     if old:
         if old[0] != raw:
@@ -278,23 +288,43 @@ def _validate_mechanism_candidate(connection, *, capability, run_binding):
         or binding.model_gateway_digest != model_gateway_digest(config.model.gateway_url)
     ):
         raise ValueError("mechanism candidate fixed profile/model mismatch")
-    receiver = row(connection.execute(
-        "SELECT * FROM vnext.scheduler_receiver WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND runtime_attempt=%s",
-        (*owner, binding.runtime_attempt),
-    ))
-    if (
-        receiver is None
-        or not receiver["enabled"]
-        or receiver["model_mode"] != "synthetic"
-        or receiver["receiver_id"] != binding.receiver_id
-        or receiver["pod_uid"] != binding.pod_uid
-        or canonical_json_bytes(
-            strict_json_loads(receiver["harness_profiles_json"]).get(
-                body["work_kind"]
+    schema_owner = connection.execute(
+        "SELECT current_user=pg_get_userbyid(nspowner) "
+        "FROM pg_namespace WHERE nspname='vnext'"
+    ).fetchone() == (True,)
+    if schema_owner:
+        receiver = row(connection.execute(
+            "SELECT * FROM vnext.scheduler_receiver WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND runtime_attempt=%s",
+            (*owner, binding.runtime_attempt),
+        ))
+        receiver_matches = (
+            receiver is not None
+            and receiver["enabled"]
+            and receiver["model_mode"] == "synthetic"
+            and receiver["receiver_id"] == binding.receiver_id
+            and receiver["pod_uid"] == binding.pod_uid
+            and canonical_json_bytes(
+                strict_json_loads(receiver["harness_profiles_json"]).get(
+                    body["work_kind"]
+                )
             )
+            == canonical_json_bytes(capability.profile_snapshot)
         )
-        != canonical_json_bytes(capability.profile_snapshot)
-    ):
+    else:
+        receiver_matches = connection.execute(
+            "SELECT vnext.mechanism_candidate_receiver_matches("
+            "%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+            (
+                *owner,
+                binding.runtime_attempt,
+                binding.receiver_id,
+                binding.pod_uid,
+                body["work_kind"],
+                canonical_json_bytes(capability.profile_snapshot).decode(),
+                "" if run_binding is None else run_binding.identity.agent_run_id,
+            ),
+        ).fetchone() == (True,)
+    if not receiver_matches:
         raise ValueError("mechanism candidate receiver mismatch")
     tool_refs = body.get("tool_definition_refs")
     if not tool_refs or set(tool_refs) - set(config.allowed_tool_refs) or set(tool_refs) - set(config.runtime.allowed_tool_refs):
@@ -328,12 +358,6 @@ def _validate_mechanism_candidate(connection, *, capability, run_binding):
             or set(tool_refs) - set(run_binding.allowed_tool_refs)
         ):
             raise ValueError("mechanism candidate current Run mismatch")
-        run = row(connection.execute(
-            "SELECT * FROM vnext.agent_run WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND agent_run_id=%s",
-            (*owner, identity.agent_run_id),
-        ))
-        if run is None or run["pod_uid"] != binding.pod_uid:
-            raise ValueError("mechanism candidate current Pod mismatch")
     return config
 
 

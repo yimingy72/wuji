@@ -251,7 +251,7 @@ class RemoteWorkerHost:
             {
                 "assignment": document(assignment),
                 "manifest": document(manifest),
-                "expected_revision": scalar(expected_revision),
+                "expected_revision": str(scalar(expected_revision)),
             }
         )
         return self._session_exchange(

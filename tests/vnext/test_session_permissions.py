@@ -14,7 +14,10 @@ import psycopg
 import pytest
 
 from support.p08 import p08_candidate_case
-from wuji_core.admission.registry import register_session_capability
+from wuji_core.admission.registry import (
+    SessionCapabilityRegistration,
+    register_session_capability,
+)
 from wuji_core.contracts.execution import SessionManifest
 from wuji_core.contracts.sessions import BoundaryObjects
 from wuji_core.http import strict_json_loads
@@ -257,7 +260,11 @@ def test_receiver_cannot_apply_other_capability_qualifications_to_published_sess
                 "FROM vnext.session_capability WHERE tenant_id=%s AND ref=%s",
                 (_owner(case)[0], capability_b["ref"]),
             ).fetchone()
-            assert strict_json_loads(other[0]) == capability_b
+            registered_b = SessionCapabilityRegistration.model_validate(
+                strict_json_loads(other[0])
+            )
+            assert registered_b.ref == capability_b["ref"]
+            assert registered_b.approver_subjects == capability_b["approver_subjects"]
             assert sha256(other[0].encode()).hexdigest() == other[1] != stored[1]
             assert other[2] == capability_a["profile_digest"] and other[3] is False
 

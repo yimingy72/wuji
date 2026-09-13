@@ -10,6 +10,42 @@ from wuji_core.contracts.admission import ToolCallRequest, ToolCallReceipt
 from wuji_core.http import canonical_json_bytes, strict_json_loads
 
 
+def _difference_paths(left, right, path="$", *, limit=16):
+    if limit <= 0:
+        return [path + ":more"]
+    if type(left) is not type(right):
+        return [path + ":type"]
+    if isinstance(left, dict):
+        differences = [path + "." + key + ":key" for key in sorted(set(left) ^ set(right))]
+        for key in sorted(set(left) & set(right)):
+            differences.extend(
+                _difference_paths(
+                    left[key],
+                    right[key],
+                    path + "." + key,
+                    limit=limit - len(differences),
+                )
+            )
+            if len(differences) >= limit:
+                break
+        return differences[:limit]
+    if isinstance(left, list):
+        differences = [] if len(left) == len(right) else [path + ":length"]
+        for index, (left_item, right_item) in enumerate(zip(left, right)):
+            differences.extend(
+                _difference_paths(
+                    left_item,
+                    right_item,
+                    f"{path}[{index}]",
+                    limit=limit - len(differences),
+                )
+            )
+            if len(differences) >= limit:
+                break
+        return differences[:limit]
+    return [] if left == right else [path]
+
+
 class ModelCallIdentity:
     """Gate-observed calls, including identity retained before native approval."""
 
@@ -22,6 +58,7 @@ class ModelCallIdentity:
         self._restored = {}
         self._pending_contents = {}
         self._decisions = {}
+        self._published_bindings = {}
         self._lineage = None
 
     async def request(self, request):
@@ -83,17 +120,47 @@ class ModelCallIdentity:
             binding = self._restored.get(occurrence)
             decision = self._decisions.get(occurrence)
             pending = self._pending_contents.get(occurrence)
-            if (
-                binding is None or pending is None or decision is None
-                or decision.decision != "approve" or lineage != self._lineage
-                or call_id != binding.provider_call_id
-                or definition["ref"] != binding.tool_definition_ref
-                or not isinstance(approval, Content)
-                or canonical_json_bytes(approval.to_dict()) != canonical_json_bytes(
-                    pending.to_function_approval_response(approved=True).to_dict()
+            approval_body = approval.to_dict() if isinstance(approval, Content) else None
+            expected_approval = (
+                pending.to_function_approval_response(approved=True).to_dict()
+                if pending is not None
+                else None
+            )
+            approval_request_id = None
+            if approval_body is not None:
+                approval_request_id = approval_body.get(
+                    "additional_properties", {}
+                ).pop("_approval_request_id", None)
+            checks = {
+                "binding": binding is not None,
+                "pending": pending is not None,
+                "decision": decision is not None,
+                "approved": decision is not None and decision.decision == "approve",
+                "lineage": lineage == self._lineage,
+                "call": binding is not None and call_id == binding.provider_call_id,
+                "definition": binding is not None
+                and definition["ref"] == binding.tool_definition_ref,
+                "approval_type": isinstance(approval, Content),
+                "approval_request_id": pending is not None
+                and approval_request_id == pending.id,
+                "approval_content": approval_body is not None
+                and expected_approval is not None
+                and canonical_json_bytes(approval_body)
+                == canonical_json_bytes(expected_approval),
+            }
+            if not all(checks.values()):
+                failed = ",".join(name for name, matched in checks.items() if not matched)
+                if not checks["approval_content"] and approval_body is not None and expected_approval is not None:
+                    differences = _difference_paths(
+                        approval_body,
+                        expected_approval,
+                    )
+                    failed += "[" + ";".join(differences) + "]"
+                raise ValueError(
+                    "approval callback differs from the fixed original "
+                    "call/decision: "
+                    + failed
                 )
-            ):
-                raise ValueError("approval callback differs from the fixed original call/decision")
             arguments = strict_json_loads(binding.native_arguments)
             supplied = context.arguments
             if hasattr(supplied, "model_dump"):
@@ -196,6 +263,16 @@ class ModelCallIdentity:
         for record in self.mapping:
             request = record["request"]
             original = record["native_arguments"]
+            published = self._published_bindings.get(request["sdk_content_id"])
+            if published is not None:
+                if (
+                    published.tool_call_id != record.get("tool_call_id")
+                    or published.native_arguments != original
+                    or published.sdk_content_id != request["sdk_content_id"]
+                ):
+                    raise ValueError("restored binding changed before export")
+                result.append(published)
+                continue
             result.append(NativeCallBinding(
                 model_attempt_id=record["model_attempt_id"], message_id=request["message_id"],
                 provider_call_id=request["provider_call_id"], sdk_content_id=request["sdk_content_id"],
@@ -222,6 +299,7 @@ class ModelCallIdentity:
             if binding.message_id != "model-attempt:" + binding.model_attempt_id + ":choice:0":
                 raise ValueError("published call does not retain its original model attempt")
             self._restored[binding.sdk_content_id] = binding
+            self._published_bindings[binding.sdk_content_id] = binding
             request = ToolCallRequest.model_validate({
                 "session_lineage": lineage, "message_id": binding.message_id,
                 "provider_call_id": binding.provider_call_id,
@@ -230,7 +308,8 @@ class ModelCallIdentity:
             })
             self.mapping.append({
                 "model_attempt_id": binding.model_attempt_id, "request": request.model_dump(mode="json"),
-                "native_arguments": binding.native_arguments, "tool_call_id": binding.tool_call_id,
+                "native_arguments": binding.native_arguments,
+                "tool_call_id": binding.tool_call_id,
             })
         for content in pending_contents:
             binding = self._restored.get(content.id)

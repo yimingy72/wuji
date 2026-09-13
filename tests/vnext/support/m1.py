@@ -244,7 +244,7 @@ def _receipt_from_tool_content(value):
 class NativeSseModel:
     """Native Chat Completions SSE peer deriving its claim from a real receipt."""
 
-    def __init__(self, audit_path: Path) -> None:
+    def __init__(self, audit_path: Path, *, expected_rejection=None) -> None:
         owner = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -270,21 +270,34 @@ class NativeSseModel:
                             response_body = owner._tool_call_stream()
                         elif ordinal == 1:
                             receipt = _receipt_from_tool_content(payload["messages"])
-                            if receipt is None:
-                                raise ValueError(
-                                    "second request lacks the actual tool receipt"
+                            rejections = [
+                                message
+                                for message in payload["messages"]
+                                if expected_rejection is not None
+                                and all(
+                                    message.get(key) == value
+                                    for key, value in expected_rejection.items()
                                 )
-                            evidence = receipt.get("evidence_receipt")
-                            observation_ref = (
-                                evidence.get("observation_ref")
-                                if isinstance(evidence, dict)
-                                else None
-                            )
-                            if not observation_ref:
+                            ]
+                            if receipt is None and len(rejections) != 1:
                                 raise ValueError(
-                                    "tool receipt lacks a persisted Observation"
+                                    "second request lacks the actual tool outcome"
                                 )
-                            owner.received_tool_receipt = receipt
+                            if receipt is not None:
+                                evidence = receipt.get("evidence_receipt")
+                                observation_ref = (
+                                    evidence.get("observation_ref")
+                                    if isinstance(evidence, dict)
+                                    else None
+                                )
+                                if not observation_ref:
+                                    raise ValueError(
+                                        "tool receipt lacks a persisted Observation"
+                                    )
+                                owner.received_tool_receipt = receipt
+                            else:
+                                observation_ref = "native-rejection-confirmed"
+                                owner.received_rejection = rejections[0]
                             response_body = owner._final_stream(observation_ref)
                         else:
                             raise ValueError(
@@ -343,6 +356,7 @@ class NativeSseModel:
         self.first_request_started = Event()
         self.release_first_response = Event()
         self.received_tool_receipt: dict[str, object] | None = None
+        self.received_rejection: dict[str, object] | None = None
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
         self.url = f"http://127.0.0.1:{self.server.server_port}/v1/chat/completions"
         self.thread = Thread(target=self.server.serve_forever, daemon=True)

@@ -23,7 +23,11 @@ NATIVE_REJECTION_TEXT_CORE_1_18_0 = (
 )
 
 
-def native_rejection_content(provider_call_id: str) -> dict[str, Any]:
+def native_rejection_content(
+    provider_call_id: str,
+    *,
+    additional_properties: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Canonical public Content observed for a rejected call in core 1.18.0."""
 
     return {
@@ -37,7 +41,7 @@ def native_rejection_content(provider_call_id: str) -> dict[str, Any]:
                 "additional_properties": {},
             }
         ],
-        "additional_properties": {},
+        "additional_properties": additional_properties or {},
     }
 
 
@@ -123,8 +127,14 @@ class RejectedCallFrontierEntry(SessionModel):
 
     @model_validator(mode="after")
     def native_shape(self):
-        if self.result_content != native_rejection_content(
-            self.call_binding.provider_call_id
+        properties = self.result_content.get("additional_properties", {})
+        valid_properties = properties == {} or (
+            set(properties) == {"tool_call_choice_index", "tool_call_index"}
+            and all(type(value) is int and value >= 0 for value in properties.values())
+        )
+        if not valid_properties or self.result_content != native_rejection_content(
+            self.call_binding.provider_call_id,
+            additional_properties=properties,
         ):
             raise ValueError("rejected call requires the fixed native SDK result")
         return self
