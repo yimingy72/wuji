@@ -8,6 +8,7 @@
 - 版本化记忆输入定向修复：[memory-context-fix/README.md](memory-context-fix/README.md)
 - SessionRepository 接口 GREEN：[platform-interface/README.md](platform-interface/README.md)
 - Candidate/0014 SOURCE_ONLY checks：[source-prep/README.md](source-prep/README.md)
+- 平台授权/恢复/原子性静态审查：[reviews/README.md](reviews/README.md)
 - 测试入口：`tests/vnext/test_session_approval.py`
 - fixture/support：`tests/vnext/support/p08.py`
 
