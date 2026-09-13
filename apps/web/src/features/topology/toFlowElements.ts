@@ -7,6 +7,7 @@ import type {
   TopologySnapshotInput,
 } from './contracts';
 import { layoutEntryForNode } from './layout';
+import { compareRevisionStrings } from './revision';
 
 export interface TopologyNodeData extends Record<string, unknown> {
   readonly ref: KnowledgeRef;
@@ -39,11 +40,19 @@ export function resolveSelectedNodeId(
   if (!selection) return null;
   if (selection.mode === 'explicit_revision') return exactKey(selection.ref);
 
-  const candidates = snapshot.nodes.filter(
-    (node) => node.ref.entity_type === selection.anchor.entity_type
-      && node.ref.id === selection.anchor.id,
-  );
-  return candidates.at(-1)?.id ?? null;
+  let latest: TopologySnapshotInput['nodes'][number] | null = null;
+  for (const node of snapshot.nodes) {
+    if (
+      node.ref.entity_type !== selection.anchor.entity_type
+      || node.ref.id !== selection.anchor.id
+    ) {
+      continue;
+    }
+    if (latest === null || compareRevisionStrings(node.ref.revision, latest.ref.revision) > 0) {
+      latest = node;
+    }
+  }
+  return latest?.id ?? null;
 }
 
 export function toFlowElements(

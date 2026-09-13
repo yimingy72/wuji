@@ -11,6 +11,7 @@ import type {
   ViewMode,
 } from './contracts';
 import { TopologyFlowCanvas } from './TopologyFlowCanvas';
+import { isRevisionString } from './revision';
 import styles from './topology.module.css';
 
 const entityTypes = new Set<NodeEntityType>([
@@ -67,7 +68,7 @@ function isRef(value: unknown): value is KnowledgeRef {
   }
   return entityTypes.has(value.entity_type as NodeEntityType)
     && isNonEmptyString(value.id)
-    && isNonEmptyString(value.revision);
+    && isRevisionString(value.revision);
 }
 
 function isTopologyNode(value: unknown): boolean {
@@ -105,7 +106,7 @@ export function parseTopologySnapshot(value: unknown): TopologySnapshotInput {
     || !hasOnlyKeys(value, snapshotKeys)
     || !isNonEmptyString(value.view_id)
     || !isNonEmptyString(value.snapshot_id)
-    || !isNonEmptyString(value.view_revision)
+    || !isRevisionString(value.view_revision)
     || !isNonEmptyString(value.query_digest)
     || !isNonEmptyString(value.access_scope_digest)
     || !isNonEmptyString(value.projection_version)
@@ -192,6 +193,18 @@ export async function readTopologySnapshot(
 
 export type TopologySnapshotReader = typeof readTopologySnapshot;
 
+const readerIdentities = new WeakMap<TopologySnapshotReader, number>();
+let nextReaderIdentity = 1;
+
+function readerIdentity(reader: TopologySnapshotReader): number {
+  const existing = readerIdentities.get(reader);
+  if (existing !== undefined) return existing;
+  const assigned = nextReaderIdentity;
+  nextReaderIdentity += 1;
+  readerIdentities.set(reader, assigned);
+  return assigned;
+}
+
 export interface TopologyContainerProps {
   readonly taskId: string;
   readonly mode: ViewMode;
@@ -203,6 +216,10 @@ export interface TopologyContainerProps {
   readonly onLayoutChange?: (layout: LayoutPreference) => void;
   readonly onCommandRequested?: (request: TopologyCommandRequest) => void;
   readonly onExpandRequested?: (request: TopologyExpandRequest) => void;
+}
+
+interface TopologyContainerRequestProps extends Omit<TopologyContainerProps, 'readSnapshot'> {
+  readonly readSnapshot: TopologySnapshotReader;
 }
 
 function initialLayout(mode: ViewMode): LayoutPreference {
@@ -240,18 +257,18 @@ function errorCopy(error: unknown): { title: string; description: string } {
   };
 }
 
-export function TopologyContainer({
+function TopologyContainerRequest({
   taskId,
   mode,
   snapshotId = null,
   layout: controlledLayout,
   selection: controlledSelection,
-  readSnapshot = readTopologySnapshot,
+  readSnapshot,
   onSelect,
   onLayoutChange,
   onCommandRequested,
   onExpandRequested,
-}: TopologyContainerProps) {
+}: TopologyContainerRequestProps) {
   const [snapshot, setSnapshot] = useState<TopologySnapshotInput | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
@@ -337,4 +354,15 @@ export function TopologyContainer({
       />
     </div>
   );
+}
+
+export function TopologyContainer(props: TopologyContainerProps) {
+  const reader = props.readSnapshot ?? readTopologySnapshot;
+  const requestKey = JSON.stringify([
+    props.taskId,
+    props.mode,
+    props.snapshotId ?? null,
+    readerIdentity(reader),
+  ]);
+  return <TopologyContainerRequest {...props} key={requestKey} readSnapshot={reader} />;
 }

@@ -112,6 +112,56 @@ describe('topology projection', () => {
       'claim:claim-1@2',
     ]);
   });
+
+  test('follow-latest compares decimal revisions instead of using projection order', () => {
+    const unordered = structuredClone(snapshot);
+    const claimTwo = unordered.nodes.find((node) => node.id === 'claim:claim-1@2')!;
+    unordered.nodes = [
+      ...unordered.nodes.filter((node) => node.ref.id !== 'claim-1'),
+      {
+        ...claimTwo,
+        id: 'claim:claim-1@10',
+        ref: { ...claimTwo.ref, revision: '10' },
+      },
+      claimTwo,
+    ];
+
+    const flow = toFlowElements(unordered, layout, {
+      mode: 'follow_latest',
+      anchor: { entity_type: 'claim', id: 'claim-1' },
+    });
+
+    expect(flow.nodes.filter((node) => node.selected).map((node) => node.id)).toEqual([
+      'claim:claim-1@10',
+    ]);
+  });
+
+  test('follow-latest preserves precision above the JavaScript safe integer range', () => {
+    const unordered = structuredClone(snapshot);
+    const claimTwo = unordered.nodes.find((node) => node.id === 'claim:claim-1@2')!;
+    unordered.nodes = [
+      ...unordered.nodes.filter((node) => node.ref.id !== 'claim-1'),
+      {
+        ...claimTwo,
+        id: 'claim:claim-1@9007199254740993',
+        ref: { ...claimTwo.ref, revision: '9007199254740993' },
+      },
+      {
+        ...claimTwo,
+        id: 'claim:claim-1@9007199254740992',
+        ref: { ...claimTwo.ref, revision: '9007199254740992' },
+      },
+    ];
+
+    const flow = toFlowElements(unordered, layout, {
+      mode: 'follow_latest',
+      anchor: { entity_type: 'claim', id: 'claim-1' },
+    });
+
+    expect(flow.nodes.filter((node) => node.selected).map((node) => node.id)).toEqual([
+      'claim:claim-1@9007199254740993',
+    ]);
+  });
 });
 
 describe('personal layout changes', () => {
@@ -205,6 +255,21 @@ describe('formal topology read boundary', () => {
       '拓扑响应不符合固定契约',
     );
     expect(() => parseTopologySnapshot(duplicateAction)).toThrowError(
+      '拓扑响应不符合固定契约',
+    );
+  });
+
+  test('the response parser rejects non-canonical decimal revisions', () => {
+    const invalidViewRevision = structuredClone(snapshot);
+    invalidViewRevision.view_revision = '01';
+    const invalidNodeRevision = structuredClone(snapshot);
+    invalidNodeRevision.nodes[0]!.ref.revision = '1.0';
+    invalidNodeRevision.nodes[0]!.id = 'origin:origin-1@1.0';
+
+    expect(() => parseTopologySnapshot(invalidViewRevision)).toThrowError(
+      '拓扑响应不符合固定契约',
+    );
+    expect(() => parseTopologySnapshot(invalidNodeRevision)).toThrowError(
       '拓扑响应不符合固定契约',
     );
   });

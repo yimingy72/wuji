@@ -44,7 +44,7 @@ export const snapshot = {
       display_kind: 'fact',
       label: '服务返回固定版本',
       state: 'supported',
-      allowed_actions: ['inspect'],
+      allowed_actions: ['inspect', '重新核对'],
     },
     {
       id: 'claim:claim-1@2',

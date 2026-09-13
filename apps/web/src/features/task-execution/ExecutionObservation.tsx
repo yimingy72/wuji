@@ -162,7 +162,7 @@ function Result({onAssessment, ...context}: Context & {onAssessment: () => void}
 }
 
 export function ExecutionObservation({session, projectId, task, timeline}: Omit<Context, 'visible'> & {timeline: ReactNode}) {
-  const [view, setView] = useState<MainView>('topology');
+  const [view, setView] = useState<MainView>('blackboard');
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>('agents');
   const [selection, setSelection] = useState<Selection>(null);
   const [agentRunId, setAgentRunId] = useState<string | undefined>();

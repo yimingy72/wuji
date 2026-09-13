@@ -47,12 +47,45 @@ test('fixed snapshot remains keyboard-readable and cannot issue graph mutations'
   await expect(page.getByTestId('layout-revision')).toHaveText('17');
 });
 
-test('history mode suppresses every projected action', async ({ page }) => {
+test('request dimensions isolate an old snapshot and ignore its late completion', async ({ page }) => {
+  await page.goto('/?theme=silver&case=request-isolation');
+  await expect(page.getByRole('button', { name: '执行 重新核对' })).toBeVisible();
+  await expect(page.getByText('任务 A 授权入口', { exact: true })).toBeVisible();
+
+  await page.getByRole('button', { name: '更换读取器' }).click();
+  await expect(page.getByText('任务 A 授权入口', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '执行 重新核对' })).toHaveCount(0);
+  await expect(page.getByText('正在读取拓扑', { exact: true })).toBeVisible();
+
+  await page.getByRole('button', { name: '切换任务 B' }).click();
+  await page.getByRole('button', { name: '完成旧任务 A 请求' }).click();
+  await expect(page.getByText('任务 A 授权入口', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('正在读取拓扑', { exact: true })).toBeVisible();
+
+  await page.getByRole('button', { name: '完成任务 B 请求' }).click();
+  await expect(page.getByText('任务 B 授权入口', { exact: true })).toBeVisible();
+  await expect(page.getByText('任务 A 授权入口', { exact: true })).toHaveCount(0);
+});
+
+test('live actions invoke callbacks while history exposes no action or callback path', async ({ page }) => {
+  await page.goto('/?theme=graphite');
+  const command = page.getByRole('button', { name: '执行 重新核对' });
+  await expect(command).toBeVisible();
+  await command.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByTestId('command-events')).toHaveText('1');
+  await expect(page.getByRole('button', { name: '展开关联' })).toBeVisible();
+  await page.getByRole('button', { name: '展开关联' }).click();
+  await expect(page.getByTestId('expand-events')).toHaveText('1');
+
   await page.goto('/?theme=graphite&mode=history');
   await expect(page.getByRole('region', { name: '任务拓扑图' })).toBeVisible();
-  await expect(page.getByRole('button', { name: /执行 expand/ })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: /执行 inspect/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '执行 重新核对' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '展开关联' })).toHaveCount(0);
+  await page.getByRole('button', { name: /Fact.*服务返回固定版本/ }).focus();
+  await page.keyboard.press('Enter');
   await expect(page.getByTestId('command-events')).toHaveText('0');
+  await expect(page.getByTestId('expand-events')).toHaveText('0');
 });
 
 test('the same formal component renders in all five shared themes', async ({ page }) => {
