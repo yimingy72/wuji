@@ -8,6 +8,8 @@
 
 2026-09-13 M3 接入入口：[P08 完整会话、原生审批与恢复实施合同](vnext/P08-implementation-contract.md)。它补齐已批准 P08 对现有 P05/P06/P09 和 M2 Worker 的接口，当前为实现准备，不代表恢复/审批验收通过。
 
+2026-09-13 M2 独立复核后的修复入口：[P10 实际投递与受信结果补交收口](vnext/P10-implementation-contract.md)。原直接 Node 启动场景的已测结果保留；生产 Outbox 消费和撤销后首次 intake 等四项缺口须按新证据关闭。Node settlement 自身的定向审查与证据见[永久审查入口](vnext/evidence/P10/reviews/README.md)，不与完整 M2 混为一项通过。
+
 更新：2026-09-11；当前文档与GitHub交付分支为 `codex/github-upload`，业务来源为 `codex/phase-2-web-assessment@40472c6`（旧运行检出保留），架构收口起点6ee84b5。此页负责恢复背景与导航；设计正文、阶段验收各有独立权威来源，不在此复制完整架构。先读根 [AGENTS.md](../AGENTS.md)。
 
 GitHub 克隆入口：默认分支 `codex/github-upload` 基于 W1 记录提交 `40472c6` 整理，本文档及阶段文档均在当前克隆内。下文工作树路径描述原开发机器的来源，不是克隆依赖；版本对应见[仓库交接说明](repository-handoff.md)。
