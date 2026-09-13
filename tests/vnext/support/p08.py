@@ -365,7 +365,7 @@ def p08_candidate_case(
             assignment = explore_assignment(scheduler.scheduler.tick(limit=2))
             process_identities = {}
 
-            def record_process(target, kind):
+            def record_process(target, kind, *, access=RECEIVER_ACCESS):
                 observed_at = datetime.now(timezone.utc)
                 observed_text = observed_at.isoformat().replace("+00:00", "Z")
                 exited = kind == "exited"
@@ -396,7 +396,7 @@ def p08_candidate_case(
                 }
                 source_receipt = canonical_json_bytes(observation_body).decode()
                 return control.control.record_observation(
-                    RECEIVER_ACCESS,
+                    access,
                     control.control_module.ExecutionObservation.model_validate(
                         {
                             **observation_body,

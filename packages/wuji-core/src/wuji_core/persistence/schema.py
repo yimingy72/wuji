@@ -49,8 +49,16 @@ from wuji_core.persistence.retained_result_schema import (
     upgrade as upgrade_retained_results,
 )
 from wuji_core.persistence.session_schema import (
-    HEAD,
+    HEAD as SESSION_HEAD,
     upgrade as upgrade_sessions,
+)
+from wuji_core.persistence.control_api_schema import (
+    HEAD as CONTROL_API_HEAD,
+    upgrade as upgrade_control_api,
+)
+from wuji_core.persistence.session_writer_exit_schema import (
+    HEAD,
+    upgrade as upgrade_session_writer_exit,
 )
 
 OWNER = "tenant_id,project_id,task_id"
@@ -415,6 +423,8 @@ def migrate(connection, *, application_role: str) -> None:
                 DISPATCH_FAIRNESS_HEAD,
                 PROJECTION_HEAD,
                 RETAINED_RESULT_HEAD,
+                SESSION_HEAD,
+                CONTROL_API_HEAD,
                 HEAD,
             ]
             if not heads or heads != set(chain[: len(heads)]):
@@ -433,6 +443,8 @@ def migrate(connection, *, application_role: str) -> None:
                 upgrade_projection,
                 upgrade_retained_results,
                 upgrade_sessions,
+                upgrade_control_api,
+                upgrade_session_writer_exit,
             ]
             for upgrade in upgrades[len(heads) - 1 :]:
                 upgrade(connection, application_role)
@@ -547,3 +559,5 @@ def migrate(connection, *, application_role: str) -> None:
         upgrade_projection(connection, application_role)
         upgrade_retained_results(connection, application_role)
         upgrade_sessions(connection, application_role)
+        upgrade_control_api(connection, application_role)
+        upgrade_session_writer_exit(connection, application_role)
