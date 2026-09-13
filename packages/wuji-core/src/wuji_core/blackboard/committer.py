@@ -17,6 +17,7 @@ from wuji_core.http.json_boundary import (
 from wuji_core.blackboard.relations import actor, resolve, batch_order
 from wuji_core.blackboard.claims import receipt
 from wuji_core.blackboard.fact_view import inputs_current
+from wuji_core.blackboard.result_state import project_submission
 
 
 class ResultCommitter:
@@ -85,6 +86,7 @@ class ResultCommitter:
                     artifact["access_level"],
                 ),
             )
+            project_submission(tx, run["agent_run_id"], envelope.submission_id)
             publication = "result:" + envelope.submission_id
             tx.connection.execute(
                 "INSERT INTO vnext.publication(tenant_id,project_id,task_id,publication_id,kind,access_level) VALUES(%s,%s,%s,%s,'result_submission',%s)",
@@ -245,6 +247,7 @@ class ResultCommitter:
                     level,
                 ),
             )
+            project_submission(tx, run["agent_run_id"], submission_id)
             tx.semantic_event(
                 "result_committed", final.model_dump(mode="python"), access_level=level
             )

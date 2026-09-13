@@ -620,11 +620,15 @@ export interface components {
             limits: components["schemas"]["ExecutionLimits"];
             resume_reason: string | null;
         };
+        GoalCriterionRef: {
+            criterion_id: string;
+            revision: components["schemas"]["RevisionString"];
+        };
         WorkDependency: {
             predecessor_work_id: string;
             condition: components["schemas"]["DependencyCondition"];
-            criterion_ref?: components["schemas"]["KnowledgeRef"] | null;
-        };
+            criterion_ref?: components["schemas"]["GoalCriterionRef"] | null;
+        } & unknown;
         WorkItemView: {
             work_item_id: string;
             task_id: string;

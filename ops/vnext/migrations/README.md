@@ -1,6 +1,59 @@
 # vnext migration head
 
-Current head: `vnext_0005_p04_input_freshness`. The fifth migration adds
+Current head: `vnext_0006_p05_control`, following the accepted P04 head
+`vnext_0005_p04_input_freshness`. P05 owns `persistence/control_schema.py`, the
+control extension of `UnitOfWork`, and `blackboard/result_state.py` plus the two
+publication-transaction calls in P04 ResultCommitter. Original submission and
+receipt rows remain authoritative; the migration reconstructs their Run
+projection without inventing Task activation. Populated legacy generic criterion
+references require an explicit mapping; the migration does not guess one.
+
+P05 service ports (no Task/Work HTTP routes until P11):
+
+- `ControlService(uow, artifacts=store).apply(ControlCommandContext(access,
+  task_id, operation_id, command, work_item_id=None)) -> CommandReceipt` uses
+  independent Task control_version / Work revision CAS and command namespaces.
+- `record_observation(access, ExecutionObservation)` validates the complete
+  stored-source receipt/digest, fixed RunIdentity, receiver/operation/environment/
+  pod identity and process birth/exit fields. Observer ACL and controller/reconciler
+  role are required; ordinary control and knowledge-write authority cannot submit
+  these observations. P10 supplies actual Supervisor observations later.
+- `reconcile(access, task_id, work_item_id)` and `refresh(...)` consume stored
+  execution or input/dependency changes. `dispatchable(...)` is an informational
+  read, never a permit. P09 repeats `can_dispatch(tx, work_row)` inside admission,
+  including its Scope/Profile/limits checks and atomic Run/Outbox registration.
+- `UnitOfWork.transaction(..., capability='control'|'observe'|'admit')` locks
+  frozen task_capacity_pool refs in global/model key order, then tenant pools,
+  before Task. ACLs are `can_control/can_observe/can_admit`; roles respectively
+  operator/controller, controller/reconciler, scheduler/controller; Agent is
+  excluded. New control writes must not reuse a Task-first knowledge transaction.
+- `CapacityService.reserve(tx, run_id)` requires the registered current Run and
+  rechecks Task/Work epochs, hold and reservation state. Stored observations drive
+  release; `run_operation_settlement` and resource_reservation retain independent
+  side-effect uncertainty. Pool limits and task definition/profile snapshots must
+  be explicitly provisioned, with no guessed defaults.
+- `DependencyService.add(access, task_id, work_id, WorkDependency)` reuses the
+  Task-locked DAG. `criterion_ref` now uses `GoalCriterionRef(criterion_id,
+  revision)`, with a real same-Task goal_criterion FK, never a knowledge alias.
+- `project_submission(tx, run_id, submission_id)` is called only by P04's actual
+  receive/reconcile transactions. `mark_missing_output(tx, run_id)` uses database
+  CAS, no submission, trusted final stop/operation settlement and final_output
+  expectation. Input boundaries remain separate. Application roles cannot update
+  agent_run.result_state directly; receipt replay cannot regress accepted.
+- SessionManifest/InputRequest/criterion judgment/completion decision tables are
+  minimal canonical producer headers. P08/P12 extend these same tables and their
+  publication/verification permissions; P05 provides no client write API or SDK
+  recovery claim. Session recovery checks sealed objects, exact published pins,
+  current access, Run/Work/version/lock identity and pending operations. Missing
+  headers/objects block execution. `apply_completion(access, task_id, receipt_id)`
+  requires controller + can_control and a P12-owned decision with exact control/
+  board versions; it cannot manufacture a Goal judgment or a report.
+
+P05 evidence and integration limitations are recorded in
+`docs/vnext/evidence/P05/report.md`. The following describes the preserved P04/P03
+foundation and its original evidence.
+
+The fifth migration adds
 `claim_input_current`, a scope/ACL-checked SECURITY DEFINER boolean over full
 Claim version state. It requires the referenced fixed revision to be readable,
 returns stale even when a newer revision is private, and never returns hidden

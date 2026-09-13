@@ -40,6 +40,7 @@ class Transaction:
     access: AccessContext
     permissions: dict[str, Any]
     task: dict[str, Any]
+    capacity_pools: tuple[dict[str, Any], ...] = ()
 
     def semantic_event(
         self,
@@ -64,7 +65,7 @@ class Transaction:
         values = (
             (None, None, None)
             if criterion is None
-            else (criterion.entity_type.value, criterion.id, criterion.revision.root)
+            else ("goal_criterion", criterion.criterion_id, criterion.revision.root)
         )
         self.connection.execute(
             "INSERT INTO vnext.work_dependency(tenant_id,project_id,task_id,work_item_id,predecessor_id,condition,criterion_type,criterion_id,criterion_revision) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)",
@@ -103,6 +104,9 @@ class UnitOfWork:
             "evidence",
             "snapshot",
             "model_output",
+            "control",
+            "observe",
+            "admit",
         }:
             raise ValueError("unsupported capability")
         with self.connection_factory() as connection:
@@ -127,6 +131,9 @@ class UnitOfWork:
                     "domain_write": "false",
                     "gc": "false",
                     "model_output": "false",
+                    "control": "false",
+                    "observe": "false",
+                    "admit": "false",
                 }.items():
                     connection.execute(
                         "SELECT set_config(%s,%s,true)", ("wuji." + key, value)
@@ -148,6 +155,7 @@ class UnitOfWork:
                 )
                 if not permission or not permission["can_read"] or not allowed:
                     raise DomainError("NOT_FOUND_OR_FORBIDDEN")
+                _require_control_actor(access, capability)
                 values = {
                     "project": permission["project_id"],
                     "task": task_id,
@@ -176,13 +184,21 @@ class UnitOfWork:
                         and "agent" not in access.principal.roles
                         and capability == "assess"
                     ).lower(),
+                    "control": str(capability == "control").lower(),
+                    "observe": str(capability == "observe").lower(),
+                    "admit": str(capability == "admit").lower(),
                 }
                 for key, value in values.items():
                     connection.execute(
                         "SELECT set_config(%s,%s,true)", ("wuji." + key, value)
                     ).fetchone()
                 owner = (permission["tenant_id"], permission["project_id"], task_id)
-                # Every write, including GC and publication, obtains Task before resources.
+                pools = ()
+                if capability in {"control", "observe", "admit"}:
+                    from wuji_core.execution.capacity import prelock_pools
+
+                    pools = prelock_pools(connection, owner)
+                # Capacity prelocks, when needed, already precede Task. Resources follow it.
                 lock = " FOR UPDATE" if capability != "read" else ""
                 task = row(
                     connection.execute(
@@ -193,7 +209,25 @@ class UnitOfWork:
                 )
                 if task is None:
                     raise DomainError("NOT_FOUND_OR_FORBIDDEN")
-                yield Transaction(connection, owner, access, permission, task)
+                if capability in {"control", "observe", "admit"}:
+                    current = row(
+                        connection.execute(
+                            "SELECT * FROM vnext.task_access WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND subject=%s",
+                            (*owner, access.principal.subject),
+                        )
+                    )
+                    if (
+                        not current
+                        or not current["can_read"]
+                        or not current["can_" + capability]
+                    ):
+                        raise DomainError("NOT_FOUND_OR_FORBIDDEN")
+                    permission = current
+                    connection.execute(
+                        "SELECT set_config('wuji.clearance',%s,true)",
+                        (str(permission["clearance"]),),
+                    ).fetchone()
+                yield Transaction(connection, owner, access, permission, task, pools)
 
     def locate_artifact(self, access, artifact_id, version):
         # A locator read is tenant/subject ACL filtered, then the scoped read reauthorizes.
@@ -215,3 +249,16 @@ class UnitOfWork:
                         (artifact_id, version),
                     )
                 )
+
+
+def _require_control_actor(access, capability):
+    roles = {
+        "control": {"operator", "controller"},
+        "observe": {"controller", "reconciler"},
+        "admit": {"scheduler", "controller"},
+    }
+    if capability in roles and (
+        "agent" in access.principal.roles
+        or not access.principal.roles.intersection(roles[capability])
+    ):
+        raise DomainError("NOT_FOUND_OR_FORBIDDEN")

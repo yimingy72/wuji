@@ -855,6 +855,14 @@ class GoalCriterionInput(_JsonSchemaRuntimeValidationBase):
     required: StrictBool
 
 
+class GoalCriterionRef(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    criterion_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    revision: RevisionString
+
+
 class GoalRecord(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -1571,7 +1579,7 @@ class WorkDependency(BaseModel):
     )
     predecessor_work_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
     condition: DependencyCondition
-    criterion_ref: KnowledgeRef | None = None
+    criterion_ref: GoalCriterionRef | None = None
 
 
 class WorkDesired(StrEnum):

@@ -1103,6 +1103,13 @@ components:
               minLength: 1
               maxLength: 8192
             - type: 'null'
+    GoalCriterionRef:
+      type: object
+      additionalProperties: false
+      required: [criterion_id, revision]
+      properties:
+        criterion_id: {type: string, minLength: 1, maxLength: 256}
+        revision: {$ref: '#/components/schemas/RevisionString'}
     WorkDependency:
       type: object
       additionalProperties: false
@@ -1112,8 +1119,19 @@ components:
         condition: {$ref: '#/components/schemas/DependencyCondition'}
         criterion_ref:
           oneOf:
-            - $ref: '#/components/schemas/KnowledgeRef'
+            - $ref: '#/components/schemas/GoalCriterionRef'
             - type: 'null'
+      allOf:
+        - if:
+            properties:
+              condition: {const: criterion_satisfied}
+          then:
+            required: [criterion_ref]
+            properties:
+              criterion_ref: {$ref: '#/components/schemas/GoalCriterionRef'}
+          else:
+            properties:
+              criterion_ref: {type: 'null'}
     WorkItemView:
       type: object
       additionalProperties: false

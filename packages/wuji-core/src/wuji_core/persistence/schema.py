@@ -11,11 +11,12 @@ EVIDENCE_HEAD = "vnext_0002_p03_evidence_authority"
 from wuji_core.persistence.knowledge_schema import (
     HEAD as KNOWLEDGE_HEAD,
     VISIBILITY_HEAD,
-    FRESHNESS_HEAD as HEAD,
+    FRESHNESS_HEAD,
     upgrade as upgrade_knowledge,
     upgrade_visibility,
     upgrade_input_freshness,
 )
+from wuji_core.persistence.control_schema import HEAD, upgrade as upgrade_control
 
 OWNER = "tenant_id,project_id,task_id"
 SCOPE_COLUMNS = (
@@ -367,6 +368,7 @@ def migrate(connection, *, application_role: str) -> None:
                 (EVIDENCE_HEAD,),
                 (KNOWLEDGE_HEAD,),
                 (VISIBILITY_HEAD,),
+                (FRESHNESS_HEAD,),
                 (HEAD,),
             }:
                 return
@@ -375,23 +377,36 @@ def migrate(connection, *, application_role: str) -> None:
                 (EVIDENCE_HEAD,),
                 (KNOWLEDGE_HEAD,),
                 (VISIBILITY_HEAD,),
+                (FRESHNESS_HEAD,),
+            }:
+                upgrade_control(connection, application_role)
+                return
+            if set(heads) == {
+                (BASE_HEAD,),
+                (EVIDENCE_HEAD,),
+                (KNOWLEDGE_HEAD,),
+                (VISIBILITY_HEAD,),
             }:
                 upgrade_input_freshness(connection, application_role)
+                upgrade_control(connection, application_role)
                 return
             if set(heads) == {(BASE_HEAD,), (EVIDENCE_HEAD,), (KNOWLEDGE_HEAD,)}:
                 upgrade_visibility(connection, application_role)
                 upgrade_input_freshness(connection, application_role)
+                upgrade_control(connection, application_role)
                 return
             if set(heads) == {(BASE_HEAD,)}:
                 _upgrade_evidence_authority(connection, application_role)
                 upgrade_knowledge(connection, application_role)
                 upgrade_visibility(connection, application_role)
                 upgrade_input_freshness(connection, application_role)
+                upgrade_control(connection, application_role)
                 return
             if set(heads) == {(BASE_HEAD,), (EVIDENCE_HEAD,)}:
                 upgrade_knowledge(connection, application_role)
                 upgrade_visibility(connection, application_role)
                 upgrade_input_freshness(connection, application_role)
+                upgrade_control(connection, application_role)
                 return
             raise ValueError("unrecognized vnext migration head")
         for statement in statements():
@@ -495,3 +510,4 @@ def migrate(connection, *, application_role: str) -> None:
         upgrade_knowledge(connection, application_role)
         upgrade_visibility(connection, application_role)
         upgrade_input_freshness(connection, application_role)
+        upgrade_control(connection, application_role)

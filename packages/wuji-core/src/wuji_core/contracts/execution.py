@@ -1,5 +1,7 @@
 """Execution wire types and the published WorkItem transition graph."""
 
+from pydantic import model_validator
+
 from wuji_core.contracts.generated import (
     AgentRunRecord,
     ApprovalDecision,
@@ -22,6 +24,7 @@ from wuji_core.contracts.generated import (
     DispatchReceipt,
     DispatchStatus,
     ExecutionLimits,
+    GoalCriterionRef,
     ModelMode,
     MoneyBudget,
     RecoveryClass,
@@ -42,7 +45,7 @@ from wuji_core.contracts.generated import (
     TokenUsage,
     WorkCommand,
     WorkCommandName,
-    WorkDependency,
+    WorkDependency as GeneratedWorkDependency,
     WorkDesired,
     WorkItemView,
     WorkKind,
@@ -50,6 +53,21 @@ from wuji_core.contracts.generated import (
     WorkerAssignment,
     WorkerControl,
 )
+
+
+class WorkDependency(GeneratedWorkDependency):
+    """Apply OpenAPI's conditional criterion requirement at the public boundary."""
+
+    @model_validator(mode="after")
+    def validate_condition_reference(self):
+        if (self.condition == DependencyCondition.criterion_satisfied) != (
+            self.criterion_ref is not None
+        ):
+            raise ValueError(
+                "criterion_satisfied requires exactly one GoalCriterionRef"
+            )
+        return self
+
 
 _ALLOWED_WORK_TRANSITIONS: frozenset[tuple[WorkState, WorkState]] = frozenset(
     {
@@ -114,6 +132,7 @@ __all__ = [
     "DispatchReceipt",
     "DispatchStatus",
     "ExecutionLimits",
+    "GoalCriterionRef",
     "ModelMode",
     "MoneyBudget",
     "RecoveryClass",
