@@ -1,0 +1,13 @@
+{
+  "tool": "mcp__cua_repl: in-app browser Tab.screenshot(fullPage=false)",
+  "url": "http://127.0.0.1:8767/result.html",
+  "source": "../result.html",
+  "source_sha256": "80ae25825f71fef0944eee6bc0b5ef7020b7ab1188d9bc1477b07924f058d6b5",
+  "screenshot": "p13-runtime.jpg",
+  "media_type": "image/jpeg",
+  "pixel_width": 1280,
+  "pixel_height": 720,
+  "screenshot_sha256": "e38d764797e8e59d87f9bce0cf24f9ecba30c871ca55350cded5e8b523941059",
+  "content": "Saved P13 command result and selected recorded ASGI responses; not a live product UI.",
+  "boundary": "Screenshot capture rendered existing files only and made no PostgreSQL or product API request."
+}

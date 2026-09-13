@@ -1,0 +1,18 @@
+{
+  "code_commit": "44ddc68e48e1c36974cec7e705d1cd3812c7a031",
+  "tested_as_working_tree_then_committed_without_content_change": true,
+  "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_view_snapshots.py -q",
+  "exit_code": 0,
+  "result": "12 passed in 8.16s",
+  "file_sha256": {
+    "packages/wuji-core/src/wuji_core/blackboard/fact_view.py": "f1c97d4443b9dc29635c4c8ee238b5cf8e27eec1cf93c5c14a4a9cae943d93da",
+    "packages/wuji-core/src/wuji_core/http/topology.py": "6e710927d7d1fa2fd233048228bec3209fa09f4a500eb9bd594806e7ebb7fbaf",
+    "packages/wuji-core/src/wuji_core/persistence/projection_schema.py": "2595cf27850ed0d05d19c0ce5b8e70e46bcee4183e879431747b913ecfc4430e",
+    "packages/wuji-core/src/wuji_core/persistence/schema.py": "cf784d0c6078a257e7eb35d83802e4596050f7116316216efb898b1f689cd6f6",
+    "packages/wuji-core/src/wuji_core/projection/access.py": "41731cd3a84e372fd36bbfe4fe0481b3eb35735deab9e5f93fd96ed9f918fd29",
+    "packages/wuji-core/src/wuji_core/projection/records.py": "e59829446e9931f97a27af411b35740c4b467428cd203612fd749143178b3ace",
+    "packages/wuji-core/src/wuji_core/projection/snapshots.py": "7ffb2b65f16fcdc0a7908b2c85d09ee8e235e9c25d52ac606becb7588ea2f60f",
+    "tests/vnext/support/p13.py": "fe1b0e0a94e10390ba438f1ac78b0ef07f04dc923df422f509affccec9103be7",
+    "tests/vnext/test_view_snapshots.py": "e7722e78f1cb2b24582ce9dd62c74a6b01d22ce287bb81d6c164adf8f9baa74f"
+  }
+}

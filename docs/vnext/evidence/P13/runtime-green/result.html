@@ -1,0 +1,72 @@
+<!doctype html><html lang="zh"><meta charset="utf-8">
+<title>P13 persistent projection verification</title>
+<style>body{font:16px system-ui;margin:32px;background:#f5f7fa;color:#182331}h1{font-size:28px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:white;border:1px solid #d5dee8;padding:16px;font:13px ui-monospace}.ok{color:#145c35;font-weight:700}.meta{color:#40546a}</style>
+<h1>P13 · 持久受权投影真实验证</h1>
+<p class="ok">12 passed in 8.16s · exit 0</p>
+<p class="meta">代码提交 44ddc68e48e1c36974cec7e705d1cd3812c7a031<br>真实签名 ASGI · 隔离 nonowner PostgreSQL · migration vnext_0012_p13_projection<br>本页渲染已保存响应，不是产品 UI，也未触发新的数据库或 HTTP 请求。</p>
+<h2>聚合命令</h2><pre>./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_view_snapshots.py -q
+............                                                             [100%]
+12 passed in 8.16s
+</pre>
+<h2>固定拓扑页</h2><pre>{
+  &quot;view_id&quot;: &quot;6f8bba73-f177-4c0c-b8bf-a860aa5dcc3a&quot;,
+  &quot;snapshot_id&quot;: &quot;b098e90b-1ba7-4d4e-bd4b-a09bcd59d01c&quot;,
+  &quot;view_revision&quot;: &quot;1&quot;,
+  &quot;query_digest&quot;: &quot;bf64b351435e915dd7f3db024bded3e055a4cabaa4c3585643fac61e2e8470bf&quot;,
+  &quot;access_scope_digest&quot;: &quot;0ff7582e396a2b74e3cb52eeae49f75a8414f7751104711a7dcaf5df2a01f246&quot;,
+  &quot;projection_version&quot;: &quot;wuji.topology.v1&quot;,
+  &quot;nodes&quot;: [
+    {
+      &quot;id&quot;: &quot;artifact:c3a4e15f-1efd-45eb-b5e4-1b4b7109e919@1&quot;,
+      &quot;ref&quot;: {
+        &quot;entity_type&quot;: &quot;artifact&quot;,
+        &quot;id&quot;: &quot;c3a4e15f-1efd-45eb-b5e4-1b4b7109e919&quot;,
+        &quot;revision&quot;: &quot;1&quot;
+      },
+      &quot;display_kind&quot;: &quot;artifact&quot;,
+      &quot;label&quot;: &quot;application/json · 14 B&quot;,
+      &quot;state&quot;: &quot;sealed&quot;,
+      &quot;allowed_actions&quot;: []
+    }
+  ],
+  &quot;edges&quot;: [],
+  &quot;opaque_cursor&quot;: &quot;pqj490DLMLx8D-y-mh6kn4g_O6bFeqPED3fHAY2PTFE&quot;,
+  &quot;truncated&quot;: true,
+  &quot;continuation&quot;: &quot;pqj490DLMLx8D-y-mh6kn4g_O6bFeqPED3fHAY2PTFE&quot;,
+  &quot;allowed_actions&quot;: []
+}</pre><h2>当前权限/历史拒绝</h2><pre>{
+  &quot;code&quot;: &quot;NOT_FOUND_OR_FORBIDDEN&quot;,
+  &quot;message&quot;: &quot;The request could not be completed.&quot;,
+  &quot;request_id&quot;: &quot;29a6933a-2187-475e-a947-10603f5d926e&quot;,
+  &quot;retryable&quot;: false,
+  &quot;details&quot;: {}
+}</pre><h2>真实来源 Run 详情</h2><pre>{
+  &quot;assessment&quot;: null,
+  &quot;ref&quot;: {
+    &quot;entity_type&quot;: &quot;agent_run&quot;,
+    &quot;id&quot;: &quot;aa09c282-e76e-434c-94e4-1ca9f113fa36&quot;,
+    &quot;revision&quot;: &quot;1&quot;
+  },
+  &quot;display_kind&quot;: &quot;agent_run&quot;,
+  &quot;record&quot;: {
+    &quot;identity&quot;: {
+      &quot;tenant_id&quot;: &quot;tenant-fixture&quot;,
+      &quot;project_id&quot;: &quot;project-fixture&quot;,
+      &quot;task_id&quot;: &quot;task-fixture&quot;,
+      &quot;work_item_id&quot;: &quot;008ce0c0-76ce-4b31-aa2b-a9b5f2c3d6d7&quot;,
+      &quot;agent_run_id&quot;: &quot;aa09c282-e76e-434c-94e4-1ca9f113fa36&quot;,
+      &quot;execution_epoch&quot;: &quot;2&quot;,
+      &quot;run_epoch&quot;: &quot;2&quot;,
+      &quot;runtime_attempt&quot;: &quot;1&quot;,
+      &quot;receiver_id&quot;: &quot;receiver-fixture&quot;
+    },
+    &quot;process_state&quot;: &quot;registered&quot;,
+    &quot;result_state&quot;: &quot;none&quot;,
+    &quot;model_mode&quot;: &quot;synthetic&quot;,
+    &quot;created_at&quot;: &quot;2026-09-13T07:19:11.361084Z&quot;,
+    &quot;exited_at&quot;: null,
+    &quot;session_manifest&quot;: null
+  }
+}</pre>
+<p>覆盖固定分页/详情、历史、当前权限、隐藏依据、opaque cursor、无执行、同 RR FactLedger、safe-field Run 来源。Layout/stream/P14 正式容器不在本次后端通过范围。</p>
+</html>
