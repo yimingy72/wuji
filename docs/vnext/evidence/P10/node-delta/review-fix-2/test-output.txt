@@ -1,0 +1,23 @@
+Code SHA: 87e13042a62768b5ad1206f6e7837dee7b28c607
+
+$ work/toolchain/bin/node --test tests/task-workers/maf-supervisor-persist-results.test.mjs tests/task-workers/maf-supervisor-last-known-process.test.mjs
+
+Captured aggregate from the completed targeted command:
+- unknown retains a verified running birth when guardian challenge fails
+- observe persists only actual files from the fixed worker directory
+- a result persistence failure cannot report the child as exited
+- produced result files with a missing settlement stay unknown
+- produced result files with an empty settlement stay unknown
+- produced result files with an invalid nested result settlement stay unknown
+- produced result files with a result-file BlobRef settlement stay unknown
+
+tests 7
+suites 0
+pass 7
+fail 0
+cancelled 0
+skipped 0
+todo 0
+duration_ms 880.645375
+
+The per-test timing stream was not retained after the completed command, so this file records only the exact retained aggregate and does not reconstruct missing timings.
