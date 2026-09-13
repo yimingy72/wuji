@@ -10,6 +10,7 @@
 - Candidate/0014 SOURCE_ONLY checks：[source-prep/README.md](source-prep/README.md)
 - Descartes 4P1+2P2 SOURCE_ONLY fixes：[review-fixes/README.md](review-fixes/README.md)
 - 平台授权/恢复/原子性静态审查：[reviews/README.md](reviews/README.md)
+- 原六项 SOURCE_ONLY 定向复审（固定 f4c3b76，残留 3P1+1P2；F1/F6 仅 source-addressed）：[P08-platform-rereview.md](reviews/P08-platform-rereview.md)
 - 测试入口：`tests/vnext/test_session_approval.py`
 - fixture/support：`tests/vnext/support/p08.py`
 
