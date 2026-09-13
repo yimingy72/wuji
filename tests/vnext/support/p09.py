@@ -248,6 +248,13 @@ def _configure_scheduler(
                 POD_UID,
             ),
         )
+        connection.execute(
+            """UPDATE vnext.task_access SET
+              can_settle=true,can_write=false,can_model_output=false
+              WHERE tenant_id=%s AND project_id=%s AND task_id=%s
+                AND subject='observer-fixture'""",
+            OWNER,
+        )
     case.scheduler_config = config
 
 

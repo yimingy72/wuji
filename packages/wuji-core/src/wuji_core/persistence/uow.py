@@ -292,7 +292,7 @@ class UnitOfWork:
                     and "worker" in access.principal.roles
                     and access.principal.subject.startswith("run.worker:")
                 ):
-                    binding = self._model_output_binding(connection, access, task_id)
+                    binding = self._model_output_binding(connection, access, owner)
                 yield Transaction(
                     connection, owner, access, permission, task, pools, binding,
                     capability, retained_binding,
@@ -317,7 +317,7 @@ class UnitOfWork:
             raise DomainError("STALE_EXECUTION", 409)
         return binding
 
-    def _model_output_binding(self, connection, access, task_id):
+    def _model_output_binding(self, connection, access, owner):
         """Recheck a Worker's actual credential inside every output write."""
         from datetime import datetime, timezone
         from wuji_core.admission.registry import RunCredentialBinding
@@ -327,11 +327,9 @@ class UnitOfWork:
             raise DomainError("NOT_FOUND_OR_FORBIDDEN")
         record = row(
             connection.execute(
-                """SELECT document_json,revoked FROM vnext.run_credential
-                WHERE tenant_id=%s AND task_id=%s AND subject=%s AND token_id=%s""",
+                "SELECT * FROM vnext.lock_current_run_credential(%s,%s,%s,%s,%s)",
                 (
-                    access.principal.tenant_id,
-                    task_id,
+                    *owner,
                     access.principal.subject,
                     access.principal.token_id,
                 ),
@@ -343,7 +341,7 @@ class UnitOfWork:
             strict_json_loads(record["document_json"])
         )
         if (
-            binding.identity.task_id != task_id
+            binding.identity.task_id != owner[2]
             or binding.subject != access.principal.subject
             or binding.token_id != access.principal.token_id
             or binding.expires_at <= datetime.now(timezone.utc)

@@ -128,6 +128,31 @@ def upgrade(connection, application_role):
           THEN RAISE EXCEPTION 'receiver result binding conflict' USING ERRCODE='23514'; END IF;
         END $$""",
         "REVOKE EXECUTE ON FUNCTION vnext.bind_receiver_result(text,text,text,text) FROM PUBLIC",
+        """CREATE FUNCTION vnext.lock_current_run_credential(
+          t text,p text,k text,s text,j text)
+        RETURNS TABLE(document_json text,revoked boolean)
+        LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$
+        BEGIN
+          IF current_setting('wuji.model_output',true) IS DISTINCT FROM 'true'
+            OR COALESCE(current_setting('wuji.request_purpose',true),'')<>''
+            OR NOT COALESCE(vnext.in_scope(t,p,k),false)
+            OR current_setting('wuji.tenant',true) IS DISTINCT FROM t
+            OR current_setting('wuji.project',true) IS DISTINCT FROM p
+            OR current_setting('wuji.task',true) IS DISTINCT FROM k
+            OR current_setting('wuji.subject',true) IS DISTINCT FROM s
+            OR current_setting('wuji.token_id',true) IS DISTINCT FROM j
+            OR NOT EXISTS(SELECT 1 FROM vnext.task_access acl WHERE
+              (acl.tenant_id,acl.project_id,acl.task_id,acl.subject)=
+              (t,p,k,s) AND acl.can_read AND acl.can_model_output)
+          THEN RAISE EXCEPTION 'current model-output credential required'
+            USING ERRCODE='42501'; END IF;
+          RETURN QUERY SELECT c.document_json,c.revoked
+            FROM vnext.run_credential c
+            WHERE (c.tenant_id,c.project_id,c.task_id,c.subject,c.token_id)=
+              (t,p,k,s,j)
+            FOR SHARE;
+        END $$""",
+        "REVOKE EXECUTE ON FUNCTION vnext.lock_current_run_credential(text,text,text,text,text) FROM PUBLIC",
         """CREATE FUNCTION vnext.open_receiver_result(
           t text,p text,k text,rid text,op text,digest text)
         RETURNS TABLE(source_writer_subject text,disposition text,access_level integer)
@@ -180,7 +205,8 @@ def upgrade(connection, application_role):
           SELECT * INTO source_credential FROM vnext.run_credential
             WHERE (tenant_id,project_id,task_id,agent_run_id,subject,token_id)=
               (t,p,k,rid,binding.source_writer_subject,
-               source_binding.binding_json::jsonb->>'token_id');
+               source_binding.binding_json::jsonb->>'token_id')
+            FOR SHARE;
           IF source_binding IS NULL OR source_credential IS NULL
             OR source_binding.binding_json IS DISTINCT FROM source_credential.document_json
             OR source_binding.binding_json::jsonb->>'subject'
@@ -231,6 +257,7 @@ def upgrade(connection, application_role):
     app = sql.Identifier(application_role)
     for signature in [
         "bind_receiver_result(text,text,text,text)",
+        "lock_current_run_credential(text,text,text,text,text)",
         "open_receiver_result(text,text,text,text,text,text)",
         "require_model_mutation(text,text,text,text,text)",
     ]:
