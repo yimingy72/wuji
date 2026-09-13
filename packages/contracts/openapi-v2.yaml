@@ -1880,6 +1880,9 @@ components:
     ChatCompletionRequest:
       type: object
       additionalProperties: false
+      allOf:
+        - not:
+            required: [max_tokens, max_completion_tokens]
       required: [model, messages, stream]
       properties:
         model: {type: string, minLength: 1, maxLength: 256}
@@ -1908,7 +1911,15 @@ components:
                   properties:
                     name: {type: string, minLength: 1, maxLength: 256}
         stream: {type: boolean}
+        parallel_tool_calls: {type: boolean}
+        stream_options:
+          type: object
+          additionalProperties: false
+          required: [include_usage]
+          properties:
+            include_usage: {type: boolean}
         max_tokens: {type: integer, minimum: 1, maximum: 1048576}
+        max_completion_tokens: {type: integer, minimum: 1, maximum: 1048576}
         temperature: {type: number, minimum: 0, maximum: 2}
     ChatCompletionChoice:
       type: object

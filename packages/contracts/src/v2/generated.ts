@@ -1089,9 +1089,14 @@ export interface components {
                 };
             };
             stream: boolean;
+            parallel_tool_calls?: boolean;
+            stream_options?: {
+                include_usage: boolean;
+            };
             max_tokens?: number;
+            max_completion_tokens?: number;
             temperature?: number;
-        };
+        } & unknown;
         ChatCompletionChoice: {
             index: number;
             message: components["schemas"]["ChatMessage"];

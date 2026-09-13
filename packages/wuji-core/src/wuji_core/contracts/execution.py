@@ -2,12 +2,13 @@
 
 from pydantic import model_validator
 
+from wuji_core.contracts import generated as _wire
 from wuji_core.contracts.generated import (
     AgentRunRecord,
     ApprovalDecision,
     ApprovalDecisionValue,
     AuthorizationScopeEntry,
-    ChatCompletionRequest,
+    ChatCompletionRequest as GeneratedChatCompletionRequest,
     ChatCompletionResponse,
     ChatMessage,
     ChatToolCall,
@@ -53,6 +54,32 @@ from wuji_core.contracts.generated import (
     WorkerAssignment,
     WorkerControl,
 )
+
+
+class ChatCompletionRequest(GeneratedChatCompletionRequest):
+    """Keep the two released OpenAI token-limit dialects mutually exclusive."""
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_token_limit_dialect(cls, value):
+        if (
+            isinstance(value, dict)
+            and "max_tokens" in value
+            and "max_completion_tokens" in value
+        ):
+            raise ValueError(
+                "max_tokens and max_completion_tokens are mutually exclusive"
+            )
+        return value
+
+    @model_validator(mode="after")
+    def validate_stream_options(self):
+        if self.stream_options is not None and not self.stream:
+            raise ValueError("stream_options requires stream=true")
+        return self
+
+
+ChatCompletionRequest.model_rebuild(_types_namespace=vars(_wire))
 
 
 class WorkDependency(GeneratedWorkDependency):

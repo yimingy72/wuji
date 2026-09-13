@@ -655,11 +655,12 @@ def m1_case(environment, tmp_path: Path, audit_directory: Path):
                 lock_digest=lock_digest,
             )
 
-            def new_runtime():
+            def new_runtime(*, run_credential=None):
                 return runtime_module.MafRuntime(
                     host=host,
                     context=context,
-                    run_credential=credential.token,
+                    run_credential=run_credential or credential.token,
+                    token_verifier=credential.verifier,
                     model_gate_url=gate_server.url + "/internal/v2/model",
                     tool_gate_url=gate_server.url + TOOL_ROUTE,
                 )

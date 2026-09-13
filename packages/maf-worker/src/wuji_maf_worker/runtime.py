@@ -9,7 +9,8 @@ from urllib.parse import urlsplit
 import httpx
 
 from wuji_core.contracts.envelopes import RunIdentity, WorkerAssignment
-from wuji_core.http import canonical_json_bytes
+from wuji_core.http import canonical_json_bytes, strict_json_loads
+from wuji_core.http.auth import TokenVerifier
 from wuji_maf_worker.context import ContextBundle
 from wuji_maf_worker.factory import HarnessProfile, build_agent
 from wuji_maf_worker.tools import GateFunctions, ModelCallIdentity
@@ -29,21 +30,25 @@ class AgentRuntimePort(Protocol):
 
 
 class WorkerHostPort(Protocol):
-    def resolve(self, assignment, context): ...
+    def resolve(self, assignment, context, *, verified_principal): ...
     def archive_sdk(self, assignment, body: bytes): ...
     def submit_result(self, assignment, *, raw_output, context, tool_receipts, sdk_output): ...
 
 
 class MafRuntime:
     def __init__(self, *, host: WorkerHostPort, context: ContextBundle,
-                 run_credential: str, model_gate_url: str, tool_gate_url: str):
+                 run_credential: str, token_verifier: TokenVerifier,
+                 model_gate_url: str, tool_gate_url: str):
         for url, suffix in ((model_gate_url, "/internal/v2/model"), (tool_gate_url, "/internal/v2/tool-calls")):
             parsed = urlsplit(url)
             if parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment or parsed.path.rstrip("/") != suffix:
                 raise ValueError("a deployment-owned Wuji Gate endpoint is required")
         if not run_credential or "\n" in run_credential or "\r" in run_credential:
             raise ValueError("a Run credential is required")
+        if not isinstance(token_verifier, TokenVerifier):
+            raise TypeError("the deployment TokenVerifier is required")
         self._host, self._context, self._credential = host, context, run_credential
+        self._token_verifier = token_verifier
         self._model_url, self._tool_url = model_gate_url, tool_gate_url
         self._assignment = None
         self._task = None
@@ -106,7 +111,15 @@ class MafRuntime:
     async def _run(self, assignment):
         if assignment.session_manifest_ref is not None or assignment.resume_reason is not None:
             raise NotImplementedError("M1 only executes fresh work; manifest restoration is unavailable")
-        resolved = await asyncio.to_thread(self._host.resolve, assignment, self._context)
+        verified_principal = await asyncio.to_thread(
+            self._token_verifier.verify, self._credential
+        )
+        resolved = await asyncio.to_thread(
+            self._host.resolve,
+            assignment,
+            self._context,
+            verified_principal=verified_principal,
+        )
         profile = HarnessProfile.from_snapshot(resolved["profile"])
         if (
             self._context.snapshot_id != assignment.snapshot_id
@@ -130,10 +143,19 @@ class MafRuntime:
             sdk_lines.append(body)
 
         def archive_bytes():
+            rendered_context = strict_json_loads(self._context.text)
             return b"\n".join(sdk_lines + [canonical_json_bytes({
                 "source": "wuji_worker_adapter", "identity_mapping": identity.mapping,
                 "tool_receipts": [r.model_dump(mode="python") for r in self.tool_receipts],
-                "snapshot_id": self._context.snapshot_id, "input_digest": self._context.input_digest,
+                "context": {
+                    "schema_version": rendered_context["schema_version"],
+                    "snapshot_id": self._context.snapshot_id,
+                    "input_digest": self._context.input_digest,
+                    "text_digest": sha256(self._context.text.encode()).hexdigest(),
+                    "read_set": [r.model_dump(mode="json") for r in self._context.read_set],
+                    "record_refs": [r.model_dump(mode="json") for r in self._context.record_refs],
+                    "relations_digest": sha256(canonical_json_bytes(rendered_context["relations"])).hexdigest(),
+                },
             })]) + b"\n"
 
         async with httpx.AsyncClient(

@@ -4,8 +4,12 @@ from __future__ import annotations
 
 import asyncio
 from copy import deepcopy
+from dataclasses import replace
+from hashlib import sha256
 
 import httpx
+import pytest
+from pydantic import ValidationError
 
 from support.m1 import (
     MODEL_ROUTE,
@@ -17,14 +21,35 @@ from support.m1 import (
     recorded_requests,
     table_count,
 )
-from support.p06 import NATIVE_MODEL_REQUEST
+from support.p06 import NATIVE_MODEL_REQUEST, bind_secondary_model_run
+from wuji_core.contracts.execution import ChatCompletionRequest
 from wuji_core.http import canonical_json_bytes, strict_json_loads
+from wuji_core.persistence.uow import DomainError
 
 
 def test_maf_runtime_exposes_the_formal_execute_operation_port():
     runtime_type = maf_runtime_type()
 
     assert callable(getattr(runtime_type, "execute", None))
+
+
+def test_native_stream_contract_preserves_released_sdk_fields_and_token_dialect():
+    native = {
+        **NATIVE_MODEL_REQUEST,
+        "stream": True,
+        "parallel_tool_calls": False,
+        "stream_options": {"include_usage": True},
+        "max_completion_tokens": 64,
+    }
+    native.pop("max_tokens")
+
+    parsed = ChatCompletionRequest.model_validate(native)
+
+    assert parsed.model_dump(mode="json", exclude_none=True) == native
+    with pytest.raises(ValidationError):
+        ChatCompletionRequest.model_validate(
+            {**native, "max_tokens": native["max_completion_tokens"]}
+        )
 
 
 async def _finish_after_event_consumer_disconnects(case, runtime):
@@ -60,6 +85,24 @@ def _model_gate_exchanges(case):
     ]
 
 
+def test_verified_bearer_must_match_host_and_assignment_before_model_request(
+    db_environment, tmp_path, audit_directory
+):
+    """Catch two valid Runs being spliced across Host and Gate transport."""
+
+    with m1_case(db_environment, tmp_path, audit_directory) as case:
+        other_run = bind_secondary_model_run(case)
+        runtime = case.new_runtime(run_credential=other_run.token)
+
+        with pytest.raises(DomainError) as mismatch:
+            asyncio.run(_finish_with_worker_consumer(case, runtime))
+
+        assert mismatch.value.code == "STALE_EXECUTION"
+        assert case.upstream.exchanges == []
+        assert _model_gate_exchanges(case) == []
+        assert table_count(case, "model_attempt") == 0
+
+
 def test_actual_maf_stream_tool_evidence_claim_and_result_replay(
     db_environment, tmp_path, audit_directory
 ):
@@ -89,6 +132,13 @@ def test_actual_maf_stream_tool_evidence_claim_and_result_replay(
         assert [request["stream"] for request in upstream_requests] == [True, True]
         assert all(
             request["model"] == "fixture-upstream-model"
+            for request in upstream_requests
+        )
+        assert all(
+            request["parallel_tool_calls"] is False
+            and request["stream_options"] == {"include_usage": True}
+            and request["max_completion_tokens"] == 2_048
+            and "max_tokens" not in request
             for request in upstream_requests
         )
         advertised = upstream_requests[0]["tools"]
@@ -193,6 +243,78 @@ def test_actual_maf_stream_tool_evidence_claim_and_result_replay(
         assert envelope["read_set"] == []
         assert observation[1] == tool_receipt.tool_attempt_id.root
 
+        publication_id = "result:" + result.submission_id
+        with db_environment.migration_connection() as connection:
+            published = connection.execute(
+                """SELECT a.entity_id,a.revision,a.media_type,a.sha256
+                FROM vnext.publication_ref p JOIN vnext.artifact a
+                ON (a.tenant_id,a.project_id,a.task_id,a.entity_id,a.revision)=
+                   (p.tenant_id,p.project_id,p.task_id,p.artifact_id,p.artifact_revision)
+                WHERE p.task_id=%s AND p.publication_id=%s ORDER BY a.media_type""",
+                ("task-fixture", publication_id),
+            ).fetchall()
+        by_media_type = {row[2]: row for row in published}
+        assert set(by_media_type) == {
+            "application/vnd.wuji.maf-result-binding+json",
+            "application/x-ndjson",
+            "text/plain; charset=utf-8",
+        }
+        sdk_row = by_media_type["application/x-ndjson"]
+        assert sdk_row[3] == sha256(runtime.sdk_output).hexdigest()
+        binding_row = by_media_type[
+            "application/vnd.wuji.maf-result-binding+json"
+        ]
+        binding_bytes, _digest = case.control.store.read(
+            case.host_access, binding_row[0], str(binding_row[1])
+        )
+        binding = strict_json_loads(binding_bytes)
+        assert binding["schema_version"] == "wuji.maf-result-binding.v1"
+        assert binding["submission_id"] == result.submission_id
+        assert binding["identity"] == case.assignment.identity.model_dump(mode="json")
+        assert binding["operation_id"] == case.assignment.operation_id
+        assert binding["raw_output"]["sha256"] == sha256(
+            runtime.raw_output
+        ).hexdigest()
+        assert binding["sdk_output"] == {
+            "ref": {
+                "id": sdk_row[0],
+                "version": str(sdk_row[1]),
+                "sha256": sdk_row[3],
+            },
+            "sha256": sha256(runtime.sdk_output).hexdigest(),
+            "size_bytes": len(runtime.sdk_output),
+        }
+        rendered_context = strict_json_loads(case.context.text)
+        assert binding["context"] == {
+            "schema_version": "wuji.context.v2",
+            "snapshot_id": case.context.snapshot_id,
+            "input_digest": case.context.input_digest,
+            "text_digest": sha256(
+                case.context.text.encode("utf-8")
+            ).hexdigest(),
+            "read_set": [],
+            "record_refs": [],
+            "relations_digest": sha256(
+                canonical_json_bytes(rendered_context["relations"])
+            ).hexdigest(),
+        }
+        assert binding["tool_receipts"] == [
+            {
+                "tool_call_id": tool_receipt.tool_call_id,
+                "operation_id": tool_receipt.operation_id,
+                "tool_attempt_id": tool_receipt.tool_attempt_id.root,
+                "receipt_digest": sha256(
+                    canonical_json_bytes(tool_receipt.model_dump(mode="python"))
+                ).hexdigest(),
+                "observation_ref": observation_ref.model_dump(mode="json"),
+                "artifact_refs": [
+                    ref.model_dump(mode="json")
+                    for ref in tool_receipt.evidence_receipt.artifact_refs
+                ],
+                "result_ref": tool_receipt.result_ref.model_dump(mode="json"),
+            }
+        ]
+
         before = {
             name: table_count(case, name)
             for name in (
@@ -223,6 +345,30 @@ def test_actual_maf_stream_tool_evidence_claim_and_result_replay(
             len(case.upstream.exchanges),
             len(case.gate_server.exchanges),
         ) == network_before
+        for changed in (
+            {"sdk_output": runtime.sdk_output + b"changed"},
+            {"tool_receipts": ()},
+            {
+                "context": replace(
+                    case.context,
+                    input_digest="0" * 64,
+                    record_refs=(observation_ref,),
+                )
+            },
+        ):
+            replay_values = {
+                "raw_output": runtime.raw_output,
+                "context": case.context,
+                "tool_receipts": tuple(runtime.tool_receipts),
+                "sdk_output": runtime.sdk_output,
+                **changed,
+            }
+            with pytest.raises(DomainError) as conflict:
+                case.host.submit_result(case.assignment, **replay_values)
+            assert conflict.value.code == "INPUT_DIGEST_CONFLICT"
+        assert {
+            name: table_count(case, name) for name in before
+        } == before
 
         audit_directory.joinpath("m1-result-summary.json").write_bytes(
             canonical_json_bytes(

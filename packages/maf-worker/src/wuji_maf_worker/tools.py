@@ -3,7 +3,6 @@
 from contextvars import ContextVar
 from uuid import uuid4
 
-import httpx
 from agent_framework import FunctionMiddleware, FunctionTool, MiddlewareFailure
 
 from wuji_core.contracts.admission import ToolCallRequest, ToolCallReceipt
@@ -24,24 +23,19 @@ class ModelCallIdentity:
         body = strict_json_loads(request.content)
         if body.get("n", 1) != 1 or body.get("stream") is not True:
             raise ValueError("M1 requires single-choice native streaming")
-        max_tokens = body.pop("max_completion_tokens", None)
         if (
-            not isinstance(max_tokens, int)
-            or isinstance(max_tokens, bool)
+            not isinstance(body.get("max_completion_tokens"), int)
+            or isinstance(body.get("max_completion_tokens"), bool)
             or "max_tokens" in body
-            or body.pop("parallel_tool_calls", None) is not False
-            or body.pop("stream_options", None) != {"include_usage": True}
+            or body.get("parallel_tool_calls") is not False
+            or body.get("stream_options") != {"include_usage": True}
         ):
             raise ValueError("SDK request does not match the frozen M1 transport")
-        body["max_tokens"] = max_tokens
         for advertised in body.get("tools", []):
             proposed = advertised["function"]
             definition = self.definitions.get(proposed["name"])
             if definition is None or canonical_json_bytes(proposed["parameters"]) != canonical_json_bytes(definition["input_schema"]):
                 raise ValueError("SDK advertised a tool outside the frozen profile")
-        encoded = canonical_json_bytes(body)
-        request.stream = httpx.ByteStream(encoded)
-        request.headers["Content-Length"] = str(len(encoded))
         request.headers["X-Wuji-Request-ID"] = str(uuid4())
         self.attempt_id = None
         self.calls = {}

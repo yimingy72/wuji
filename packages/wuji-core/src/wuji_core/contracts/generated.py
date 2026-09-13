@@ -449,7 +449,10 @@ class ChatCompletionRequest(BaseModel):
     tools: Annotated[list[ChatToolDefinition] | None, Field(max_length=256)] = None
     tool_choice: ToolChoice | ToolChoice1 | None = None
     stream: StrictBool
+    parallel_tool_calls: StrictBool | None = None
+    stream_options: StreamOptions | None = None
     max_tokens: Annotated[StrictInt | None, Field(ge=1, le=1048576)] = None
+    max_completion_tokens: Annotated[StrictInt | None, Field(ge=1, le=1048576)] = None
     temperature: Annotated[StrictFloat | None, Field(ge=0.0, le=2.0)] = None
 
 
@@ -1375,6 +1378,13 @@ class Status(StrEnum):
     cancel_requested = 'cancel_requested'
     cancelled = 'cancelled'
     failed = 'failed'
+
+
+class StreamOptions(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    include_usage: StrictBool
 
 
 class SupersedesAssessmentId(RootModel[StrictStr]):
