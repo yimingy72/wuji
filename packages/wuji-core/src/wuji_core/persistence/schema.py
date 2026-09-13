@@ -57,8 +57,12 @@ from wuji_core.persistence.control_api_schema import (
     upgrade as upgrade_control_api,
 )
 from wuji_core.persistence.session_writer_exit_schema import (
-    HEAD,
+    HEAD as SESSION_WRITER_EXIT_HEAD,
     upgrade as upgrade_session_writer_exit,
+)
+from wuji_core.persistence.pod_receiver_schema import (
+    HEAD,
+    upgrade as upgrade_pod_receivers,
 )
 
 OWNER = "tenant_id,project_id,task_id"
@@ -425,6 +429,7 @@ def migrate(connection, *, application_role: str) -> None:
                 RETAINED_RESULT_HEAD,
                 SESSION_HEAD,
                 CONTROL_API_HEAD,
+                SESSION_WRITER_EXIT_HEAD,
                 HEAD,
             ]
             if not heads or heads != set(chain[: len(heads)]):
@@ -445,6 +450,7 @@ def migrate(connection, *, application_role: str) -> None:
                 upgrade_sessions,
                 upgrade_control_api,
                 upgrade_session_writer_exit,
+                upgrade_pod_receivers,
             ]
             for upgrade in upgrades[len(heads) - 1 :]:
                 upgrade(connection, application_role)
@@ -561,3 +567,4 @@ def migrate(connection, *, application_role: str) -> None:
         upgrade_sessions(connection, application_role)
         upgrade_control_api(connection, application_role)
         upgrade_session_writer_exit(connection, application_role)
+        upgrade_pod_receivers(connection, application_role)

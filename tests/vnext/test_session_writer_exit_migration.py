@@ -8,6 +8,7 @@ from support.p03 import access
 from support.p08 import p08_candidate_case
 from test_knowledge_admission import OWNER, TASK
 from wuji_core.persistence import schema
+from wuji_core.persistence import session_writer_exit_schema
 
 
 @pytest.mark.parametrize(
@@ -22,6 +23,7 @@ def test_0016_upgrades_both_known_0014_shapes_without_replaying_session_ddl(
     with monkeypatch.context() as patch:
         patch.setattr(schema, "upgrade_control_api", lambda *_args: None)
         patch.setattr(schema, "upgrade_session_writer_exit", lambda *_args: None)
+        patch.setattr(schema, "upgrade_pod_receivers", lambda *_args: None)
         with db_environment.migration_connection() as connection:
             schema.migrate(
                 connection,
@@ -35,6 +37,7 @@ def test_0016_upgrades_both_known_0014_shapes_without_replaying_session_ddl(
             }
             assert schema.SESSION_HEAD in heads
             assert schema.CONTROL_API_HEAD not in heads
+            assert session_writer_exit_schema.HEAD not in heads
             assert schema.HEAD not in heads
 
     with db_environment.migration_connection() as connection:
@@ -61,7 +64,13 @@ def test_0016_upgrades_both_known_0014_shapes_without_replaying_session_ddl(
         )
         assert connection.execute(
             "SELECT count(*) FROM vnext.schema_migration WHERE head=ANY(%s)",
-            ([schema.SESSION_HEAD, schema.CONTROL_API_HEAD, schema.HEAD],),
+            (
+                [
+                    schema.SESSION_HEAD,
+                    schema.CONTROL_API_HEAD,
+                    session_writer_exit_schema.HEAD,
+                ],
+            ),
         ).fetchone() == (3,)
         assert connection.execute(
             "SELECT count(*) FROM vnext.tenant WHERE tenant_id='upgrade-tenant'"
