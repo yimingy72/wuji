@@ -1728,6 +1728,18 @@ components:
         max_context_bytes: {type: integer, minimum: 1, maximum: 16777216}
         max_output_tokens: {type: integer, minimum: 1, maximum: 1048576}
         capabilities: {$ref: '#/components/schemas/WorkerHarnessCapabilities'}
+    WorkerSessionMemoryInput:
+      type: object
+      additionalProperties: false
+      required: [path, ref]
+      properties:
+        path:
+          type: string
+          minLength: 1
+          maxLength: 1024
+          description: Relative logical memory path; domain validation additionally limits UTF-8 bytes and rejects traversal, control characters and duplicate paths.
+        ref: {$ref: '#/components/schemas/KnowledgeRef'}
+      description: Fixed artifact reference only; bytes and current authorization are resolved by the platform.
     WorkerSessionHarnessProfileBody:
       type: object
       additionalProperties: false
@@ -1754,6 +1766,10 @@ components:
         session_limits: {$ref: '#/components/schemas/WorkerSessionLimits'}
         max_context_window_tokens: {type: integer, minimum: 1, maximum: 1073741824}
         compaction_enabled: {type: boolean}
+        memory_inputs:
+          type: array
+          items: {$ref: '#/components/schemas/WorkerSessionMemoryInput'}
+          description: Optional fixed memory inputs, bounded by session_limits.max_objects. Absence preserves the original Profile document; content bytes use the existing resolved memory_files field.
     WorkerHarnessProfile:
       type: object
       additionalProperties: false
