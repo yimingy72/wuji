@@ -251,4 +251,7 @@ class PinnedMemoryContextProvider(ContextProvider):
             raise ValueError("native memory provider no longer matches its fixed publication")
         state["content_digest"] = observed
         if files:
-            context.extend_messages(self, [Message(role="user", contents=rendered.decode("utf-8"))])
+            context.extend_messages(
+                self,
+                [Message(role="user", contents=[rendered.decode("utf-8")])],
+            )

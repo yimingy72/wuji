@@ -1,0 +1,19 @@
+$ p08_worker_unit_sha=$(git rev-parse HEAD)
+$ printf 'P08_WORKER_UNIT_SHA=%s\n' "$p08_worker_unit_sha"
+P08_WORKER_UNIT_SHA=00bc81432a74bcdda5c9a21295634cf995d46a00
+$ git diff --name-status 65e44725ecb62352f4d599495847c12fa388048c "$P08_WORKER_UNIT_SHA" -- <seven Worker owned paths>
+<no output: the seven Worker paths are byte-identical to SOURCE_ONLY commit 65e44725ecb62352f4d599495847c12fa388048c>
+$ shasum -a 256 packages/wuji-core/src/wuji_core/contracts/sessions.py
+845d7875bf32c1916e821feb2aceacf4d9f9947f2a93cc75df90982af903ca8d  packages/wuji-core/src/wuji_core/contracts/sessions.py
+$ ./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_session_approval.py::test_existing_m1_profile_snapshot_remains_the_original_false_capability_shape tests/vnext/test_session_approval.py::test_pre_invocation_identity_capture_preserves_public_native_approval_content tests/vnext/test_session_approval.py::test_restored_approved_callback_uses_original_lineage_attempt_and_approval_ref tests/vnext/test_session_approval.py::test_versioned_memory_store_keeps_only_fixed_relative_utf8_bytes -q
+....                                                                     [100%]
+=============================== warnings summary ===============================
+packages/maf-worker/src/wuji_maf_worker/history.py:134
+  /Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/packages/maf-worker/src/wuji_maf_worker/history.py:134: ExperimentalWarning: [HARNESS] AgentFileStore is experimental and may change or be removed in future versions without notice.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+4 passed, 1 warning in 1.20s
+
+exit_code=0
+
+Scope: pure Worker unit behavior only. No SDK model request, ToolGate request, Host call, PostgreSQL transaction, HTTP request, browser, or capability publication was executed.

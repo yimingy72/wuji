@@ -1,0 +1,13 @@
+$ p08_memory_fix_sha=$(git rev-parse HEAD)
+$ printf 'P08_MEMORY_FIX_BASE_SHA=%s\n' "$p08_memory_fix_sha"
+P08_MEMORY_FIX_BASE_SHA=00bc81432a74bcdda5c9a21295634cf995d46a00
+$ ./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_session_approval.py::test_pinned_memory_context_injects_complete_versioned_input_without_tools_or_model -q
+.                                                                        [100%]
+=============================== warnings summary ===============================
+packages/maf-worker/src/wuji_maf_worker/history.py:134
+  /Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/packages/maf-worker/src/wuji_maf_worker/history.py:134: ExperimentalWarning: [HARNESS] AgentFileStore is experimental and may change or be removed in future versions without notice.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 1 warning in 0.87s
+
+exit_code=0

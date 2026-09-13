@@ -1,0 +1,20 @@
+$ p08_collect_sha=$(git rev-parse HEAD)
+$ printf 'P08_COLLECT_SHA=%s\n' "$p08_collect_sha"
+P08_COLLECT_SHA=33e61e918987a0a561bc04b27f09599c9e742ce3
+$ ./scripts/vnext/uv.sh run --frozen pytest --collect-only tests/vnext/test_session_approval.py -q
+tests/vnext/test_session_approval.py::test_session_repository_exposes_frozen_publish_and_load_contract
+tests/vnext/test_session_approval.py::test_existing_m1_profile_snapshot_remains_the_original_false_capability_shape
+tests/vnext/test_session_approval.py::test_pre_invocation_identity_capture_preserves_public_native_approval_content
+tests/vnext/test_session_approval.py::test_restored_approved_callback_uses_original_lineage_attempt_and_approval_ref
+tests/vnext/test_session_approval.py::test_versioned_memory_store_keeps_only_fixed_relative_utf8_bytes
+
+=============================== warnings summary ===============================
+packages/maf-worker/src/wuji_maf_worker/history.py:134
+  /Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/packages/maf-worker/src/wuji_maf_worker/history.py:134: ExperimentalWarning: [HARNESS] AgentFileStore is experimental and may change or be removed in future versions without notice.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+5 tests collected in 0.80s
+
+exit_code=0
+
+This was collection only. No test body, SDK model call, ToolGate, PostgreSQL, HTTP request, browser, or capability publication was executed.

@@ -1,0 +1,31 @@
+$ p08_memory_unit_sha=$(git rev-parse HEAD)
+$ printf 'P08_MEMORY_UNIT_SHA=%s\n' "$p08_memory_unit_sha"
+P08_MEMORY_UNIT_SHA=00bc81432a74bcdda5c9a21295634cf995d46a00
+$ ./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_session_approval.py::test_pinned_memory_context_injects_complete_versioned_input_without_tools_or_model -q
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_ test_pinned_memory_context_injects_complete_versioned_input_without_tools_or_model _
+
+>       assert strict_json_loads(messages[0].text) == {
+            "schema_version": "wuji.session.memory-context.v1",
+            "session_id": session.session_id,
+            "files": [
+                {
+                    "path": "counterevidence.txt",
+                    "text": "hypothesis remains unconfirmed",
+                },
+                {"path": "facts/current.txt", "text": "fixed revision one"},
+            ],
+        }
+E       AssertionError: assert {' f i l e s ...o n - p 0 8 '} == {'schema_vers...vision one'}]}
+E         Left contains keys and values split by spaces between every character.
+
+tests/vnext/test_session_approval.py:231: AssertionError
+=============================== warnings summary ===============================
+packages/maf-worker/src/wuji_maf_worker/history.py:134
+  ExperimentalWarning: [HARNESS] AgentFileStore is experimental and may change or be removed in future versions without notice.
+=========================== short test summary info ============================
+FAILED tests/vnext/test_session_approval.py::test_pinned_memory_context_injects_complete_versioned_input_without_tools_or_model
+1 failed, 1 warning in 1.02s
+
+exit_code=1
