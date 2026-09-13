@@ -18,16 +18,31 @@ def run(scheduler, *, stop, interval_seconds=1.0):
         while not stop.is_set():
             receipt = scheduler.tick()
             # No Assignment body, credential, prompt or Task definition in logs.
-            print(json.dumps({"event": "scheduler_tick", "admitted": len(receipt.assignments),
-                              "selected": len(receipt.selected), "blocked": len(receipt.blocked)}), flush=True)
+            print(
+                json.dumps(
+                    {
+                        "event": "scheduler_tick",
+                        "admitted": len(receipt.assignments),
+                        "selected": len(receipt.selected),
+                        "blocked": len(receipt.blocked),
+                    }
+                ),
+                flush=True,
+            )
             stop.wait(interval_seconds)
     finally:
         scheduler.ownership.close()
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Run the deployment-configured Wuji Scheduler")
-    parser.add_argument("--factory", required=True, help="Installed deployment module:factory returning Scheduler")
+    parser = argparse.ArgumentParser(
+        description="Run the deployment-configured Wuji Scheduler"
+    )
+    parser.add_argument(
+        "--factory",
+        required=True,
+        help="Installed deployment module:factory returning Scheduler",
+    )
     parser.add_argument("--interval-seconds", type=float, default=1.0)
     args = parser.parse_args()
     module, separator, attribute = args.factory.partition(":")
@@ -36,8 +51,10 @@ def main():
     factory = getattr(importlib.import_module(module), attribute)
     scheduler = factory()
     stop = Event()
+
     def stopping(_signal, _frame):
         stop.set()
+
     signal.signal(signal.SIGTERM, stopping)
     signal.signal(signal.SIGINT, stopping)
     run(scheduler, stop=stop, interval_seconds=args.interval_seconds)

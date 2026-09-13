@@ -16,7 +16,10 @@ from wuji_core.persistence.knowledge_schema import (
     upgrade_visibility,
     upgrade_input_freshness,
 )
-from wuji_core.persistence.control_schema import HEAD as CONTROL_HEAD, upgrade as upgrade_control
+from wuji_core.persistence.control_schema import (
+    HEAD as CONTROL_HEAD,
+    upgrade as upgrade_control,
+)
 from wuji_core.persistence.admission_schema import (
     HEAD as ADMISSION_HEAD,
     upgrade as upgrade_admission,
@@ -373,12 +376,38 @@ def migrate(connection, *, application_role: str) -> None:
             "SELECT to_regclass('vnext.schema_migration')"
         ).fetchone()[0]
         if existing:
-            heads = {r[0] for r in connection.execute("SELECT head FROM vnext.schema_migration").fetchall()}
-            chain = [BASE_HEAD, EVIDENCE_HEAD, KNOWLEDGE_HEAD, VISIBILITY_HEAD, FRESHNESS_HEAD, CONTROL_HEAD, ADMISSION_HEAD, ADMISSION_HARDENING_HEAD, ADMISSION_REQUEST_GUARD_HEAD, HEAD]
-            if not heads or heads != set(chain[:len(heads)]):
+            heads = {
+                r[0]
+                for r in connection.execute(
+                    "SELECT head FROM vnext.schema_migration"
+                ).fetchall()
+            }
+            chain = [
+                BASE_HEAD,
+                EVIDENCE_HEAD,
+                KNOWLEDGE_HEAD,
+                VISIBILITY_HEAD,
+                FRESHNESS_HEAD,
+                CONTROL_HEAD,
+                ADMISSION_HEAD,
+                ADMISSION_HARDENING_HEAD,
+                ADMISSION_REQUEST_GUARD_HEAD,
+                HEAD,
+            ]
+            if not heads or heads != set(chain[: len(heads)]):
                 raise ValueError("unrecognized vnext migration head")
-            upgrades = [_upgrade_evidence_authority, upgrade_knowledge, upgrade_visibility, upgrade_input_freshness, upgrade_control, upgrade_admission, upgrade_admission_hardening, upgrade_admission_request_guards, upgrade_scheduler]
-            for upgrade in upgrades[len(heads)-1:]:
+            upgrades = [
+                _upgrade_evidence_authority,
+                upgrade_knowledge,
+                upgrade_visibility,
+                upgrade_input_freshness,
+                upgrade_control,
+                upgrade_admission,
+                upgrade_admission_hardening,
+                upgrade_admission_request_guards,
+                upgrade_scheduler,
+            ]
+            for upgrade in upgrades[len(heads) - 1 :]:
                 upgrade(connection, application_role)
             return
         for statement in statements():

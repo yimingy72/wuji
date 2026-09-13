@@ -12,10 +12,14 @@ from wuji_core.persistence.uow import DomainError, json_text, row
 
 
 def require_admission(tx):
-    if (tx.purpose != "admit" or not tx.permissions.get("can_admit")
-        or not tx.permissions.get("can_read") or "agent" in tx.access.principal.roles
+    if (
+        tx.purpose != "admit"
+        or not tx.permissions.get("can_admit")
+        or not tx.permissions.get("can_read")
+        or "agent" in tx.access.principal.roles
         or not tx.access.principal.roles.intersection({"scheduler", "controller"})
-        or not tx.capacity_pools):
+        or not tx.capacity_pools
+    ):
         raise DomainError("NOT_FOUND_OR_FORBIDDEN")
 
 
@@ -29,14 +33,26 @@ def rows(cursor):
 def state_row(tx):
     require_admission(tx)
     tx.connection.execute(
-        "INSERT INTO vnext.scheduler_state(tenant_id,project_id,task_id) VALUES(%s,%s,%s) ON CONFLICT DO NOTHING", tx.owner,
+        "INSERT INTO vnext.scheduler_state(tenant_id,project_id,task_id) VALUES(%s,%s,%s) ON CONFLICT DO NOTHING",
+        tx.owner,
     )
-    return row(tx.connection.execute(
-        "SELECT * FROM vnext.scheduler_state WHERE tenant_id=%s AND project_id=%s AND task_id=%s", tx.owner,
-    ))
+    return row(
+        tx.connection.execute(
+            "SELECT * FROM vnext.scheduler_state WHERE tenant_id=%s AND project_id=%s AND task_id=%s",
+            tx.owner,
+        )
+    )
 
 
-def block(tx, work_id, code, *, responsible="task_operator", remedy="Review the blocked work and supply an explicit resolution", machine=False):
+def block(
+    tx,
+    work_id,
+    code,
+    *,
+    responsible="task_operator",
+    remedy="Review the blocked work and supply an explicit resolution",
+    machine=False,
+):
     require_admission(tx)
     tx.connection.execute(
         """INSERT INTO vnext.scheduler_block(tenant_id,project_id,task_id,work_item_id,
@@ -57,10 +73,12 @@ def block(tx, work_id, code, *, responsible="task_operator", remedy="Review the 
 
 def _bump(tx, *, event_key, reason, event_seq=None):
     current = state_row(tx)
-    existing = row(tx.connection.execute(
-        "SELECT generation FROM vnext.scheduler_trigger WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND event_key=%s",
-        (*tx.owner, event_key),
-    ))
+    existing = row(
+        tx.connection.execute(
+            "SELECT generation FROM vnext.scheduler_trigger WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND event_key=%s",
+            (*tx.owner, event_key),
+        )
+    )
     if existing is not None:
         return existing["generation"]
     generation = current["trigger_generation"] + 1 if reason is not None else None
@@ -101,9 +119,17 @@ class TriggerRepository:
     def read(self, tx):
         state = state_row(tx)
         return TriggerState(
-            state["trigger_generation"], state["consumed_generation"],
-            state["trigger_generation"] if state["trigger_generation"] > state["consumed_generation"] else None,
-            state["inflight_reason_work_id"], state["failure_count"], state["retry_at"], state["blocked_reason"],
+            state["trigger_generation"],
+            state["consumed_generation"],
+            (
+                state["trigger_generation"]
+                if state["trigger_generation"] > state["consumed_generation"]
+                else None
+            ),
+            state["inflight_reason_work_id"],
+            state["failure_count"],
+            state["retry_at"],
+            state["blocked_reason"],
         )
 
     def start(self, tx):
@@ -114,63 +140,85 @@ class TriggerRepository:
 
     def record(self, tx, *, event_seq):
         require_admission(tx)
-        event = row(tx.connection.execute(
-            "SELECT * FROM vnext.outbox WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND event_seq=%s",
-            (*tx.owner, event_seq),
-        ))
+        event = row(
+            tx.connection.execute(
+                "SELECT * FROM vnext.outbox WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND event_seq=%s",
+                (*tx.owner, event_seq),
+            )
+        )
         if event is None:
             raise DomainError("INVALID_REFERENCE", 422)
         payload = strict_json_loads(event["payload_json"])
         kind = event["kind"]
         accepted = self._event_relevant(tx, kind, payload)
-        generation = _bump(tx, event_key="outbox:" + str(event_seq),
-                           reason=kind if accepted else None, event_seq=event_seq)
+        generation = _bump(
+            tx,
+            event_key="outbox:" + str(event_seq),
+            reason=kind if accepted else None,
+            event_seq=event_seq,
+        )
         if accepted:
             self._progress(tx, event, payload)
             from wuji_core.scheduling.waiters import WaiterRepository
+
             WaiterRepository().scan(tx)
         return generation
 
     def _event_relevant(self, tx, kind, payload):
         if kind == "result_committed":
-            result = row(tx.connection.execute(
-                """SELECT w.kind,r.receipt_json FROM vnext.result_submission s
+            result = row(
+                tx.connection.execute(
+                    """SELECT w.kind,r.receipt_json FROM vnext.result_submission s
                 JOIN vnext.result_receipt r USING(tenant_id,project_id,task_id,submission_id)
                 JOIN vnext.agent_run a USING(tenant_id,project_id,task_id,agent_run_id)
                 JOIN vnext.work_item w USING(tenant_id,project_id,task_id,work_item_id)
                 WHERE s.tenant_id=%s AND s.project_id=%s AND s.task_id=%s AND s.submission_id=%s""",
-                (*tx.owner, payload.get("submission_id")),
-            ))
+                    (*tx.owner, payload.get("submission_id")),
+                )
+            )
             if not result or result["kind"] == "reason":
                 return False
             receipt = strict_json_loads(result["receipt_json"])
             return receipt["status"] == "accepted" and any(
-                c.get("canonical_ref") and not c.get("code") for c in receipt["components"]
+                c.get("canonical_ref") and not c.get("code")
+                for c in receipt["components"]
             )
         if kind in {"claim_shared", "intent_shared"}:
             ref = payload.get("canonical_ref")
             if not ref or payload.get("code"):
                 return False
             table = "intent_revision" if kind == "intent_shared" else "claim_revision"
-            producer = row(tx.connection.execute(
-                f"""SELECT x.agent_run_id,w.kind FROM vnext.{table} x
+            producer = row(
+                tx.connection.execute(
+                    f"""SELECT x.agent_run_id,w.kind FROM vnext.{table} x
                 LEFT JOIN vnext.agent_run a USING(tenant_id,project_id,task_id,agent_run_id)
                 LEFT JOIN vnext.work_item w USING(tenant_id,project_id,task_id,work_item_id)
                 WHERE x.tenant_id=%s AND x.project_id=%s AND x.task_id=%s AND x.entity_id=%s AND x.revision=%s""",
-                (*tx.owner, ref["id"], ref["revision"]),
-            ))
-            return producer is not None and (producer["agent_run_id"] is None or producer["kind"] != "reason")
+                    (*tx.owner, ref["id"], ref["revision"]),
+                )
+            )
+            return producer is not None and (
+                producer["agent_run_id"] is None or producer["kind"] != "reason"
+            )
         if kind in {"work.reconciled", "work.condition_changed"}:
-            work = row(tx.connection.execute(
-                "SELECT kind,state FROM vnext.work_item WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND work_item_id=%s",
-                (*tx.owner, payload.get("work_item_id")),
-            ))
-            return bool(work and work["kind"] != "reason" and work["state"] in {"done", "failed", "cancelled", "ready"})
+            work = row(
+                tx.connection.execute(
+                    "SELECT kind,state FROM vnext.work_item WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND work_item_id=%s",
+                    (*tx.owner, payload.get("work_item_id")),
+                )
+            )
+            return bool(
+                work
+                and work["kind"] != "reason"
+                and work["state"] in {"done", "failed", "cancelled", "ready"}
+            )
         # These names are emitted by platform producers, not Agent role text.
         # Tokens, heartbeat, layout, control acknowledgements and proposed starts
         # are deliberately absent. Future producers need explicit registration.
         if kind == "evidence_ingested":
-            return payload.get("status") == "accepted" and bool(payload.get("observation_ref"))
+            return payload.get("status") == "accepted" and bool(
+                payload.get("observation_ref")
+            )
         return kind in {"assessment_recorded", "assessment_invalidated"}
 
     def _progress(self, tx, event, payload):
@@ -181,21 +229,34 @@ class TriggerRepository:
         ref = payload.get("observation_ref")
         if not ref:
             return
-        observation = row(tx.connection.execute(
-            "SELECT * FROM vnext.observation WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND entity_id=%s AND revision=%s",
-            (*tx.owner, ref["id"], ref["revision"]),
-        ))
+        observation = row(
+            tx.connection.execute(
+                "SELECT * FROM vnext.observation WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND entity_id=%s AND revision=%s",
+                (*tx.owner, ref["id"], ref["revision"]),
+            )
+        )
         if not observation:
             return
-        source = {k: observation[k] for k in ("environment_ref", "conditions_json", "evidence_origin", "capture_layer", "completeness")}
-        artifacts = rows(tx.connection.execute(
-            """SELECT a.sha256,a.size_bytes,a.provenance FROM vnext.observation_artifact o
+        source = {
+            k: observation[k]
+            for k in (
+                "environment_ref",
+                "conditions_json",
+                "evidence_origin",
+                "capture_layer",
+                "completeness",
+            )
+        }
+        artifacts = rows(
+            tx.connection.execute(
+                """SELECT a.sha256,a.size_bytes,a.provenance FROM vnext.observation_artifact o
             JOIN vnext.artifact a ON (a.tenant_id,a.project_id,a.task_id,a.entity_id,a.revision)=
             (o.tenant_id,o.project_id,o.task_id,o.artifact_id,o.artifact_revision)
             WHERE o.tenant_id=%s AND o.project_id=%s AND o.task_id=%s AND o.observation_id=%s
             AND o.observation_revision=%s AND a.state='sealed' ORDER BY o.ordinal""",
-            (*tx.owner, ref["id"], ref["revision"]),
-        ))
+                (*tx.owner, ref["id"], ref["revision"]),
+            )
+        )
         if not artifacts:
             return
         source["artifacts"] = artifacts
@@ -207,19 +268,27 @@ class TriggerRepository:
 
     def begin_reason(self, tx, *, work_item_id, snapshot_id):
         state = state_row(tx)
-        work = row(tx.connection.execute(
-            "SELECT * FROM vnext.work_item WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND work_item_id=%s FOR UPDATE",
-            (*tx.owner, work_item_id),
-        ))
+        work = row(
+            tx.connection.execute(
+                "SELECT * FROM vnext.work_item WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND work_item_id=%s FOR UPDATE",
+                (*tx.owner, work_item_id),
+            )
+        )
         snapshot = tx.connection.execute(
             "SELECT 1 FROM vnext.snapshot_manifest WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND snapshot_id=%s AND expires_at>clock_timestamp()",
             (*tx.owner, snapshot_id),
         ).fetchone()
-        if (not work or work["kind"] != "reason" or work["state"] not in {"ready", "leased"}
-            or not snapshot or state["blocked_reason"]
+        if (
+            not work
+            or work["kind"] != "reason"
+            or work["state"] not in {"ready", "leased"}
+            or not snapshot
+            or state["blocked_reason"]
             or state["trigger_generation"] <= state["consumed_generation"]
             or state["inflight_reason_work_id"] is not None
-            or state["retry_at"] is not None and state["retry_at"] > datetime.now(timezone.utc)):
+            or state["retry_at"] is not None
+            and state["retry_at"] > datetime.now(timezone.utc)
+        ):
             raise DomainError("STALE_EXECUTION", 409)
         generation = state["trigger_generation"]
         tx.connection.execute(
@@ -234,42 +303,60 @@ class TriggerRepository:
 
     def consume(self, tx, *, submission_id):
         state = state_row(tx)
-        old = row(tx.connection.execute(
-            "SELECT status FROM vnext.scheduler_decision WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND submission_id=%s",
-            (*tx.owner, submission_id),
-        ))
+        old = row(
+            tx.connection.execute(
+                "SELECT status FROM vnext.scheduler_decision WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND submission_id=%s",
+                (*tx.owner, submission_id),
+            )
+        )
         if old:
             return old["status"] == "accepted"
-        value = row(tx.connection.execute(
-            """SELECT s.*,r.receipt_json,a.work_item_id,a.execution_epoch,a.run_epoch,a.runtime_attempt,
+        value = row(
+            tx.connection.execute(
+                """SELECT s.*,r.receipt_json,a.work_item_id,a.execution_epoch,a.run_epoch,a.runtime_attempt,
             a.receiver_id,w.kind,w.current_run_id,w.desired_state,l.processing_generation,l.snapshot_id,l.status AS lease_status
             FROM vnext.result_submission s JOIN vnext.result_receipt r USING(tenant_id,project_id,task_id,submission_id)
             JOIN vnext.agent_run a USING(tenant_id,project_id,task_id,agent_run_id)
             JOIN vnext.work_item w USING(tenant_id,project_id,task_id,work_item_id)
             JOIN vnext.scheduler_reason_lease l USING(tenant_id,project_id,task_id,work_item_id)
             WHERE s.tenant_id=%s AND s.project_id=%s AND s.task_id=%s AND s.submission_id=%s""",
-            (*tx.owner, submission_id),
-        ))
-        if (not value or value["kind"] != "reason" or value["lease_status"] != "inflight"
+                (*tx.owner, submission_id),
+            )
+        )
+        if (
+            not value
+            or value["kind"] != "reason"
+            or value["lease_status"] != "inflight"
             or state["inflight_reason_work_id"] != value["work_item_id"]
-            or value["current_run_id"] != value["agent_run_id"]):
+            or value["current_run_id"] != value["agent_run_id"]
+        ):
             raise DomainError("STALE_EXECUTION", 409)
-        envelope = ResultEnvelope.model_validate(strict_json_loads(value["envelope_json"]))
+        envelope = ResultEnvelope.model_validate(
+            strict_json_loads(value["envelope_json"])
+        )
         receipt = ResultReceipt.model_validate(strict_json_loads(value["receipt_json"]))
-        if (receipt.status.value != "accepted" or receipt.code is not None
+        if (
+            receipt.status.value != "accepted"
+            or receipt.code is not None
             or envelope.snapshot_id != value["snapshot_id"]
-            or any(str(value[k]) != str(v) for k, v in envelope.identity.model_dump(mode="json").items())
+            or any(
+                str(value[k]) != str(v)
+                for k, v in envelope.identity.model_dump(mode="json").items()
+            )
             or value["execution_epoch"] != tx.task["execution_epoch"]
             or value["runtime_attempt"] != tx.task["runtime_attempt"]
-            or value["desired_state"] != "run"):
+            or value["desired_state"] != "run"
+        ):
             raise DomainError("STALE_EXECUTION", 409)
         if self.artifacts is None:
             raise DomainError("reason_raw_reader_unavailable", 503)
         record = self.artifacts.record(tx, envelope.raw_output_ref)
         raw = self.artifacts.checked_bytes(record)
-        if (sha256(raw).hexdigest() != envelope.raw_output_digest.root
+        if (
+            sha256(raw).hexdigest() != envelope.raw_output_digest.root
             or record["agent_run_id"] != value["agent_run_id"]
-            or record["writer_subject"] != value["writer_subject"]):
+            or record["writer_subject"] != value["writer_subject"]
+        ):
             raise DomainError("INVALID_REFERENCE", 422)
         payload = AgentPayload.model_validate(strict_json_loads(raw.decode("utf-8")))
         decision = payload.reason_decision
@@ -277,7 +364,10 @@ class TriggerRepository:
         try:
             if decision is None:
                 raise DomainError("reason_decision_missing", 422)
-            if any(c.code is not None and c.code.value == "STALE_INPUT" for c in receipt.components):
+            if any(
+                c.code is not None and c.code.value == "STALE_INPUT"
+                for c in receipt.components
+            ):
                 raise DomainError("STALE_INPUT", 409)
             with tx.connection.transaction():
                 self._apply_decision(tx, value, decision, receipt)
@@ -287,12 +377,24 @@ class TriggerRepository:
             """INSERT INTO vnext.scheduler_decision(tenant_id,project_id,task_id,submission_id,
             work_item_id,processing_generation,status,reason_code,decision_json,raw_digest)
             VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
-            (*tx.owner, submission_id, value["work_item_id"], value["processing_generation"],
-             "rejected" if code else "accepted", code,
-             json_text(decision.model_dump(mode="json") if decision else None), envelope.raw_output_digest.root),
+            (
+                *tx.owner,
+                submission_id,
+                value["work_item_id"],
+                value["processing_generation"],
+                "rejected" if code else "accepted",
+                code,
+                json_text(decision.model_dump(mode="json") if decision else None),
+                envelope.raw_output_digest.root,
+            ),
         )
         if code:
-            block(tx, value["work_item_id"], code, remedy="Wait for terminal Run settlement, then bounded Reason retry or operator review")
+            block(
+                tx,
+                value["work_item_id"],
+                code,
+                remedy="Wait for terminal Run settlement, then bounded Reason retry or operator review",
+            )
             return False
         new_material = tx.connection.execute(
             """SELECT 1 FROM vnext.scheduler_progress p JOIN vnext.scheduler_trigger t
@@ -315,54 +417,93 @@ class TriggerRepository:
 
     def _apply_decision(self, tx, lease, decision, receipt):
         from wuji_core.scheduling.waiters import WaiterRepository
+
         if decision.decision.value == "wait":
             waiters = WaiterRepository()
             predicates = waiters.from_result(tx, decision.wait_refs, receipt.components)
-            waiters.register(tx, work_item_id=lease["work_item_id"],
-                             processing_generation=lease["processing_generation"], predicates=predicates)
+            waiters.register(
+                tx,
+                work_item_id=lease["work_item_id"],
+                processing_generation=lease["processing_generation"],
+                predicates=predicates,
+            )
         elif decision.wait_refs:
             raise DomainError("INVALID_REFERENCE", 422)
         elif decision.decision.value == "blocked":
             block(tx, lease["work_item_id"], "reason_operator_review")
             tx.connection.execute(
-                "UPDATE vnext.scheduler_state SET blocked_reason='reason_operator_review' WHERE tenant_id=%s AND project_id=%s AND task_id=%s", tx.owner,
+                "UPDATE vnext.scheduler_state SET blocked_reason='reason_operator_review' WHERE tenant_id=%s AND project_id=%s AND task_id=%s",
+                tx.owner,
             )
         elif decision.decision.value == "propose_completion":
             # A request to P12, never an assertion that Goal met or Task closed.
-            tx.semantic_event("reason.completion_requested", {"work_item_id": lease["work_item_id"], "processing_generation": str(lease["processing_generation"])})
+            tx.semantic_event(
+                "reason.completion_requested",
+                {
+                    "work_item_id": lease["work_item_id"],
+                    "processing_generation": str(lease["processing_generation"]),
+                },
+            )
 
     def fail(self, tx, *, work_item_id, reason_code, now):
         state = state_row(tx)
-        if now.tzinfo is None or reason_code not in {"invalid_result", "missing_result", "run_failed", "decision_rejected"}:
+        if now.tzinfo is None or reason_code not in {
+            "invalid_result",
+            "missing_result",
+            "run_failed",
+            "decision_rejected",
+        }:
             raise DomainError("INVALID_SCHEMA", 422)
         if state["inflight_reason_work_id"] != work_item_id:
             raise DomainError("STALE_EXECUTION", 409)
-        run = row(tx.connection.execute(
-            """SELECT a.*,e.kind AS observation_kind FROM vnext.work_item w
+        run = row(
+            tx.connection.execute(
+                """SELECT a.*,e.kind AS observation_kind FROM vnext.work_item w
             JOIN vnext.agent_run a ON (a.tenant_id,a.project_id,a.task_id,a.agent_run_id)=
             (w.tenant_id,w.project_id,w.task_id,w.current_run_id)
             JOIN vnext.execution_observation e ON (e.tenant_id,e.project_id,e.task_id,e.receipt_id,e.agent_run_id)=
             (a.tenant_id,a.project_id,a.task_id,a.last_observation_id,a.agent_run_id)
             WHERE w.tenant_id=%s AND w.project_id=%s AND w.task_id=%s AND w.work_item_id=%s AND w.kind='reason'""",
-            (*tx.owner, work_item_id),
-        ))
-        if (not run or run["process_state"] != "exited"
-            or run["observation_kind"] not in {"not_started", "exited", "environment_stopped"}
-            or not operations_settled(tx, run["agent_run_id"])):
+                (*tx.owner, work_item_id),
+            )
+        )
+        if (
+            not run
+            or run["process_state"] != "exited"
+            or run["observation_kind"]
+            not in {"not_started", "exited", "environment_stopped"}
+            or not operations_settled(tx, run["agent_run_id"])
+        ):
             raise DomainError("OPERATION_UNKNOWN", 409)
         limits = AdmissionRegistry(None).config(tx).runtime.limits
         failures = state["failure_count"] + 1
-        exhausted = failures >= min(limits.max_attempts_per_work, limits.repair_attempts + 1)
-        retry_at = None if exhausted else now + timedelta(seconds=min(300, 2 ** min(failures, 8)))
+        exhausted = failures >= min(
+            limits.max_attempts_per_work, limits.repair_attempts + 1
+        )
+        retry_at = (
+            None
+            if exhausted
+            else now + timedelta(seconds=min(300, 2 ** min(failures, 8)))
+        )
         tx.connection.execute(
             """UPDATE vnext.scheduler_state SET inflight_reason_work_id=NULL,failure_count=%s,
             retry_at=%s,blocked_reason=%s WHERE tenant_id=%s AND project_id=%s AND task_id=%s""",
-            (failures, retry_at, "reason_retry_exhausted" if exhausted else None, *tx.owner),
+            (
+                failures,
+                retry_at,
+                "reason_retry_exhausted" if exhausted else None,
+                *tx.owner,
+            ),
         )
         tx.connection.execute(
             "UPDATE vnext.scheduler_reason_lease SET status='failed' WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND work_item_id=%s",
             (*tx.owner, work_item_id),
         )
         if exhausted:
-            block(tx, work_item_id, "reason_retry_exhausted", remedy="Operator reviews the failed Reason series; ticks cannot reset its attempt budget")
+            block(
+                tx,
+                work_item_id,
+                "reason_retry_exhausted",
+                remedy="Operator reviews the failed Reason series; ticks cannot reset its attempt budget",
+            )
         return self.read(tx)

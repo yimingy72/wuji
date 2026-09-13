@@ -11,9 +11,17 @@ O = "tenant_id,project_id,task_id"
 S = "tenant_id text NOT NULL,project_id text NOT NULL,task_id text NOT NULL"
 F = f"FOREIGN KEY({O}) REFERENCES vnext.task({O})"
 TABLES = (
-    "scheduler_state", "scheduler_work", "scheduler_trigger", "scheduler_reason_lease",
-    "scheduler_decision", "scheduler_waiter", "scheduler_wait_predicate",
-    "scheduler_assignment", "scheduler_block", "scheduler_progress", "scheduler_receiver",
+    "scheduler_state",
+    "scheduler_work",
+    "scheduler_trigger",
+    "scheduler_reason_lease",
+    "scheduler_decision",
+    "scheduler_waiter",
+    "scheduler_wait_predicate",
+    "scheduler_assignment",
+    "scheduler_block",
+    "scheduler_progress",
+    "scheduler_receiver",
     "scheduler_identity_template",
 )
 
@@ -32,7 +40,12 @@ def upgrade(connection, application_role):
         AND a.project_id=current_setting('wuji.project',true)
         AND a.task_id=current_setting('wuji.task',true)
         AND a.subject=current_setting('wuji.subject',true) AND a.can_read AND a.can_admit)"""
-    for table in ("publication", "publication_ref", "snapshot_manifest", "snapshot_ref"):
+    for table in (
+        "publication",
+        "publication_ref",
+        "snapshot_manifest",
+        "snapshot_ref",
+    ):
         qualifier = ""
         if table == "publication":
             qualifier = " AND kind='snapshot'"
@@ -46,7 +59,9 @@ def upgrade(connection, application_role):
               WHERE (p.tenant_id,p.project_id,p.task_id,p.publication_id)=
               (snapshot_manifest.tenant_id,snapshot_manifest.project_id,snapshot_manifest.task_id,snapshot_manifest.publication_id)
               AND p.kind='snapshot')"""
-        connection.execute(f"CREATE POLICY scheduler_snapshot_insert ON vnext.{table} FOR INSERT WITH CHECK(vnext.in_scope(tenant_id,project_id,task_id,access_level) AND {power}{qualifier})")
+        connection.execute(
+            f"CREATE POLICY scheduler_snapshot_insert ON vnext.{table} FOR INSERT WITH CHECK(vnext.in_scope(tenant_id,project_id,task_id,access_level) AND {power}{qualifier})"
+        )
     connection.execute("INSERT INTO vnext.schema_migration(head) VALUES(%s)", (HEAD,))
 
 
@@ -164,7 +179,9 @@ def privileges(application_role):
         # Internal scheduler rows may carry sensitive references. Scheduler ACL
         # is required even for read; they are not a public topology projection.
         yield sql.SQL("ALTER TABLE {} ENABLE ROW LEVEL SECURITY").format(target)
-        yield sql.SQL(f"CREATE POLICY scheduler_read ON {{}} FOR SELECT USING({scope} AND {power})").format(target)
+        yield sql.SQL(
+            f"CREATE POLICY scheduler_read ON {{}} FOR SELECT USING({scope} AND {power})"
+        ).format(target)
         yield sql.SQL("GRANT SELECT ON {} TO {}").format(target, app)
         if table == "scheduler_assignment":
             receiver = """current_setting('wuji.observe',true)='true'
@@ -174,15 +191,21 @@ def privileges(application_role):
                 WHERE (a.tenant_id,a.project_id,a.task_id,a.agent_run_id)=
                 (scheduler_assignment.tenant_id,scheduler_assignment.project_id,scheduler_assignment.task_id,scheduler_assignment.agent_run_id)
                 AND r.receiver_subject=current_setting('wuji.subject',true))"""
-            yield sql.SQL(f"CREATE POLICY receiver_read ON {{}} FOR SELECT USING({scope} AND {receiver})").format(target)
+            yield sql.SQL(
+                f"CREATE POLICY receiver_read ON {{}} FOR SELECT USING({scope} AND {receiver})"
+            ).format(target)
         if table == "scheduler_receiver":
-            yield sql.SQL(f"""CREATE POLICY receiver_read ON {{}} FOR SELECT USING({scope}
+            yield sql.SQL(
+                f"""CREATE POLICY receiver_read ON {{}} FOR SELECT USING({scope}
                 AND current_setting('wuji.observe',true)='true'
                 AND receiver_subject=current_setting('wuji.subject',true)
-                AND COALESCE(current_setting('wuji.request_purpose',true),'')='')""").format(target)
+                AND COALESCE(current_setting('wuji.request_purpose',true),'')='')"""
+            ).format(target)
         if table in {"scheduler_receiver", "scheduler_identity_template"}:
             continue
-        yield sql.SQL(f"CREATE POLICY scheduler_insert ON {{}} FOR INSERT WITH CHECK({scope} AND {power})").format(target)
+        yield sql.SQL(
+            f"CREATE POLICY scheduler_insert ON {{}} FOR INSERT WITH CHECK({scope} AND {power})"
+        ).format(target)
         yield sql.SQL("GRANT INSERT ON {} TO {}").format(target, app)
         columns = {
             "scheduler_state": "trigger_generation,consumed_generation,inflight_reason_work_id,failure_count,retry_at,blocked_reason,last_selected,no_progress_count,preparation_block_reason,preparation_release_condition",
@@ -191,13 +214,23 @@ def privileges(application_role):
             "scheduler_block": "reason_code,responsible_role,release_condition,machine_recheck",
         }.get(table)
         if columns:
-            yield sql.SQL(f"CREATE POLICY scheduler_update ON {{}} FOR UPDATE USING({scope} AND {power}) WITH CHECK({scope} AND {power})").format(target)
-            yield sql.SQL(f"GRANT UPDATE({columns}) ON {{}} TO {{}}").format(target, app)
+            yield sql.SQL(
+                f"CREATE POLICY scheduler_update ON {{}} FOR UPDATE USING({scope} AND {power}) WITH CHECK({scope} AND {power})"
+            ).format(target)
+            yield sql.SQL(f"GRANT UPDATE({columns}) ON {{}} TO {{}}").format(
+                target, app
+            )
         if table == "scheduler_block":
-            yield sql.SQL(f"CREATE POLICY scheduler_delete ON {{}} FOR DELETE USING({scope} AND {power})").format(target)
+            yield sql.SQL(
+                f"CREATE POLICY scheduler_delete ON {{}} FOR DELETE USING({scope} AND {power})"
+            ).format(target)
             yield sql.SQL("GRANT DELETE ON {} TO {}").format(target, app)
-    yield sql.SQL("GRANT USAGE ON SEQUENCE vnext.scheduler_selection_order TO {}").format(app)
-    yield sql.SQL("GRANT EXECUTE ON FUNCTION vnext.guard_scheduler_state() TO {}").format(app)
+    yield sql.SQL(
+        "GRANT USAGE ON SEQUENCE vnext.scheduler_selection_order TO {}"
+    ).format(app)
+    yield sql.SQL(
+        "GRANT EXECUTE ON FUNCTION vnext.guard_scheduler_state() TO {}"
+    ).format(app)
     for signature in (
         "stage_scheduler_credential(text,text,text,text,text,text,bytea,bytea)",
         "bind_scheduler_credential(text,text,text,text,text)",
@@ -205,7 +238,9 @@ def privileges(application_role):
         "bind_scheduler_snapshot(text,text,text,text,text)",
         "can_read_scheduler_snapshot(text,text,text,text)",
     ):
-        yield sql.SQL(f"GRANT EXECUTE ON FUNCTION vnext.{signature} TO {{}}").format(app)
+        yield sql.SQL(f"GRANT EXECUTE ON FUNCTION vnext.{signature} TO {{}}").format(
+            app
+        )
 
 
 def snapshot_reader_statements():
@@ -239,11 +274,39 @@ def snapshot_reader_statements():
         SELECT COALESCE(vnext.in_scope(t,p,k),false) AND EXISTS(
           SELECT 1 FROM vnext.scheduler_snapshot_reader r JOIN vnext.task_access a
             USING(tenant_id,project_id,task_id,subject)
-          JOIN vnext.run_writer w USING(tenant_id,project_id,task_id,agent_run_id,subject)
+          JOIN vnext.run_writer rw USING(tenant_id,project_id,task_id,agent_run_id,subject)
           JOIN vnext.scheduler_assignment d USING(tenant_id,project_id,task_id,agent_run_id,snapshot_id)
+          JOIN vnext.run_credential c
+            ON (c.tenant_id,c.project_id,c.task_id,c.agent_run_id,c.subject)=
+               (r.tenant_id,r.project_id,r.task_id,r.agent_run_id,r.subject)
+          JOIN vnext.agent_run ar
+            ON (ar.tenant_id,ar.project_id,ar.task_id,ar.agent_run_id)=
+               (r.tenant_id,r.project_id,r.task_id,r.agent_run_id)
+          JOIN vnext.task z
+            ON (z.tenant_id,z.project_id,z.task_id)=(r.tenant_id,r.project_id,r.task_id)
+          JOIN vnext.work_item wi
+            ON (wi.tenant_id,wi.project_id,wi.task_id,wi.work_item_id,wi.current_run_id)=
+               (ar.tenant_id,ar.project_id,ar.task_id,ar.work_item_id,ar.agent_run_id)
           WHERE r.tenant_id=t AND r.project_id=p AND r.task_id=k AND r.snapshot_id=s
-            AND r.subject=current_setting('wuji.subject',true) AND a.can_read AND NOT w.revoked
-            AND a.clearance=r.clearance AND a.clearance=COALESCE(NULLIF(current_setting('wuji.clearance',true),'')::integer,-1)) $$"""
+            AND r.subject=current_setting('wuji.subject',true)
+            AND c.token_id=current_setting('wuji.token_id',true)
+            AND c.document_json::jsonb->>'subject'=r.subject
+            AND c.document_json::jsonb->>'token_id'=c.token_id
+            AND c.document_json::jsonb->'identity'=jsonb_build_object(
+              'tenant_id',t,'project_id',p,'task_id',k,'work_item_id',ar.work_item_id,
+              'agent_run_id',ar.agent_run_id,'execution_epoch',ar.execution_epoch::text,
+              'run_epoch',ar.run_epoch::text,'runtime_attempt',ar.runtime_attempt::text,
+              'receiver_id',ar.receiver_id)
+            AND NOT c.revoked AND (c.document_json::jsonb->>'expires_at')::timestamptz>clock_timestamp()
+            AND a.can_read AND NOT rw.revoked AND a.clearance=r.clearance
+            AND a.clearance=COALESCE(NULLIF(current_setting('wuji.clearance',true),'')::integer,-1)
+            AND ar.execution_allowed AND ar.stop_kind IS NULL
+            AND ar.process_state IN ('registered','starting','running')
+            AND ar.execution_epoch=z.execution_epoch AND ar.runtime_attempt=z.runtime_attempt
+            AND wi.run_epoch=ar.run_epoch AND wi.desired_state='run'
+            AND wi.state IN ('leased','running')
+            AND z.execution_allowed AND z.desired_state='run' AND z.observed_state='running'
+            AND z.completion_epoch_id IS NULL) $$"""
     yield "REVOKE EXECUTE ON FUNCTION vnext.bind_scheduler_snapshot(text,text,text,text,text) FROM PUBLIC"
     yield "REVOKE EXECUTE ON FUNCTION vnext.can_read_scheduler_snapshot(text,text,text,text) FROM PUBLIC"
 
@@ -295,8 +358,8 @@ def credential_statements():
             OR expiry>(taskrow.definition_json::jsonb->'task'->>'authorization_expires_at')::timestamptz
             OR expiry>taskrow.activated_at+((cfg->'runtime'->'limits'->>'max_elapsed_seconds')::integer*interval '1 second')
             OR b->'allowed_tool_refs' IS DISTINCT FROM profile->'body'->'tool_definition_refs'
-            OR NOT (b->'allowed_tool_refs' <@ cfg->'allowed_tool_refs')
-            OR NOT (b->'allowed_tool_refs' <@ cfg->'runtime'->'allowed_tool_refs')
+            OR NOT ((b->'allowed_tool_refs') <@ (cfg->'allowed_tool_refs'))
+            OR NOT ((b->'allowed_tool_refs') <@ ((cfg->'runtime')->'allowed_tool_refs'))
             OR NOT EXISTS(SELECT 1 FROM vnext.capacity_reservation r WHERE r.tenant_id=t AND r.project_id=p AND r.task_id=k AND r.agent_run_id=a.agent_run_id)
             OR EXISTS(SELECT 1 FROM vnext.task_capacity_pool q LEFT JOIN vnext.capacity_reservation r
               ON (r.tenant_id,r.project_id,r.task_id,r.pool_key,r.agent_run_id)=(q.tenant_id,q.project_id,q.task_id,q.pool_key,a.agent_run_id)

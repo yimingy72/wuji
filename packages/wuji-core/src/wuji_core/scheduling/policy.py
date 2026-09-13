@@ -19,21 +19,30 @@ class WorkKey:
     output_contract: str
 
     def __post_init__(self):
-        if any(not isinstance(x, str) or not x for x in (
-            self.problem_id, self.method_ref, self.profile_digest,
-            self.environment_ref, self.output_contract,
-        )) or (self.intent_id is None) != (self.intent_revision is None):
+        if any(
+            not isinstance(x, str) or not x
+            for x in (
+                self.problem_id,
+                self.method_ref,
+                self.profile_digest,
+                self.environment_ref,
+                self.output_contract,
+            )
+        ) or (self.intent_id is None) != (self.intent_revision is None):
             raise ValueError("incomplete exact work identity")
         if self.intent_revision is not None and (
-            not self.intent_id or not self.intent_revision.isdecimal()
+            not self.intent_id
+            or not self.intent_revision.isdecimal()
             or str(int(self.intent_revision)) != self.intent_revision
         ):
             raise ValueError("invalid fixed intent revision")
         if not isinstance(self.basis, tuple) or any(
-            not isinstance(ref, tuple) or len(ref) != 3
+            not isinstance(ref, tuple)
+            or len(ref) != 3
             or ref[0] not in {"artifact", "observation", "claim", "intent"}
             or not all(isinstance(x, str) and x for x in ref)
-            or not ref[2].isdecimal() or str(int(ref[2])) != ref[2]
+            or not ref[2].isdecimal()
+            or str(int(ref[2])) != ref[2]
             for ref in self.basis
         ):
             raise ValueError("invalid exact basis")
@@ -54,9 +63,14 @@ class Candidate:
     eligible: bool = True
 
     def __post_init__(self):
-        if not all(isinstance(v, str) and v for v in (
-            self.tenant_id, self.task_id, self.work_item_id,
-        )) or self.kind not in {"reason", "explore", "report"}:
+        if not all(
+            isinstance(v, str) and v
+            for v in (
+                self.tenant_id,
+                self.task_id,
+                self.work_item_id,
+            )
+        ) or self.kind not in {"reason", "explore", "report"}:
             raise ValueError("invalid candidate identity")
         if type(self.priority) is not int or not -10 <= self.priority <= 10:
             raise ValueError("priority must be bounded to -10..10")
@@ -74,13 +88,20 @@ class SchedulingSnapshot:
     aging_seconds: int = 60
 
     def __post_init__(self):
-        if (not isinstance(self.candidates, tuple) or self.now.tzinfo is None
-            or type(self.limit) is not int or not 1 <= self.limit <= 256
-            or type(self.aging_seconds) is not int or self.aging_seconds < 1
-            or not isinstance(self.task_cursors, tuple)):
+        if (
+            not isinstance(self.candidates, tuple)
+            or self.now.tzinfo is None
+            or type(self.limit) is not int
+            or not 1 <= self.limit <= 256
+            or type(self.aging_seconds) is not int
+            or self.aging_seconds < 1
+            or not isinstance(self.task_cursors, tuple)
+        ):
             raise ValueError("invalid frozen scheduling snapshot")
         keys = [(c.tenant_id, c.task_id, c.work_item_id) for c in self.candidates]
-        if len(set(keys)) != len(keys) or len(dict(self.task_cursors)) != len(self.task_cursors):
+        if len(set(keys)) != len(keys) or len(dict(self.task_cursors)) != len(
+            self.task_cursors
+        ):
             raise ValueError("duplicate candidate or cursor")
 
 
@@ -113,8 +134,10 @@ class SchedulerPolicy:
         def rank(candidate):
             age = max(0, int((snapshot.now - candidate.ready_since).total_seconds()))
             # A finite control bonus cannot defeat unbounded waiting age.
-            score = age // snapshot.aging_seconds + candidate.priority + (
-                3 if candidate.kind in {"reason", "report"} else 0
+            score = (
+                age // snapshot.aging_seconds
+                + candidate.priority
+                + (3 if candidate.kind in {"reason", "report"} else 0)
             )
             return -score, candidate.ready_since, candidate.work_item_id
 
@@ -146,13 +169,20 @@ class ProgressSummary:
     classification: str = "unknown"
 
     def __post_init__(self):
-        if any(type(n) is not int or n < 0 for n in (
-            self.new_material, self.resolved_blockers, self.new_problem_classes,
-        )) or self.classification not in {"known", "unknown"}:
+        if any(
+            type(n) is not int or n < 0
+            for n in (
+                self.new_material,
+                self.resolved_blockers,
+                self.new_problem_classes,
+            )
+        ) or self.classification not in {"known", "unknown"}:
             raise ValueError("invalid observable progress")
 
     @property
     def made_progress(self):
-        return bool(self.new_material or self.resolved_blockers or (
-            self.classification == "known" and self.new_problem_classes
-        ))
+        return bool(
+            self.new_material
+            or self.resolved_blockers
+            or (self.classification == "known" and self.new_problem_classes)
+        )

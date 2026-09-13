@@ -101,20 +101,32 @@ class SnapshotRepository:
             raise ValueError("query must be a SnapshotQuery")
         if tx.purpose == "admit":
             from wuji_core.scheduling.triggers import require_admission
+
             require_admission(tx)
         elif tx.purpose != "snapshot" or not tx.permissions.get("can_read"):
             raise DomainError("NOT_FOUND_OR_FORBIDDEN")
         if reader_clearance is not None:
-            if (tx.purpose != "admit" or type(reader_clearance) is not int
-                or not 0 <= reader_clearance <= tx.permissions["clearance"]):
+            if (
+                tx.purpose != "admit"
+                or type(reader_clearance) is not int
+                or not 0 <= reader_clearance <= tx.permissions["clearance"]
+            ):
                 raise DomainError("NOT_FOUND_OR_FORBIDDEN")
             # A savepoint rolls back the temporary GUC on errors; successful
             # completion restores it before leaving the caller's transaction.
             with tx.connection.transaction():
-                tx.connection.execute("SELECT set_config('wuji.clearance',%s,true)", (str(reader_clearance),))
-                narrowed = replace(tx, permissions=dict(tx.permissions, clearance=reader_clearance))
+                tx.connection.execute(
+                    "SELECT set_config('wuji.clearance',%s,true)",
+                    (str(reader_clearance),),
+                )
+                narrowed = replace(
+                    tx, permissions=dict(tx.permissions, clearance=reader_clearance)
+                )
                 result = self._create(narrowed, query)
-                tx.connection.execute("SELECT set_config('wuji.clearance',%s,true)", (str(tx.permissions["clearance"]),))
+                tx.connection.execute(
+                    "SELECT set_config('wuji.clearance',%s,true)",
+                    (str(tx.permissions["clearance"]),),
+                )
                 return result
         return self._create(tx, query)
 
@@ -216,7 +228,11 @@ class SnapshotRepository:
                 "predecessor_id": p,
                 "condition": c,
                 "criterion_ref": (
-                    None if i is None else GoalCriterionRef(criterion_id=i, revision=str(v)).model_dump(mode="json")
+                    None
+                    if i is None
+                    else GoalCriterionRef(criterion_id=i, revision=str(v)).model_dump(
+                        mode="json"
+                    )
                 ),
             }
             for w, p, c, t, i, v in tx.connection.execute(
@@ -252,9 +268,9 @@ class SnapshotRepository:
                     (task_id,),
                 ).fetchone()
                 if bound:
-                    states["claim_assessments"][entity_id + "@" + revision] = (
-                        aggregate(tx, claim).model_dump(mode="python")
-                    )
+                    states["claim_assessments"][entity_id + "@" + revision] = aggregate(
+                        tx, claim
+                    ).model_dump(mode="python")
         snapshot_id = str(uuid4())
         now = datetime.now(timezone.utc)
         expires = now + timedelta(seconds=self.ttl_seconds)

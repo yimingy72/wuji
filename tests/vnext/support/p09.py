@@ -1,0 +1,432 @@
+"""P09 real PostgreSQL and identity prerequisites; no scheduler policy or ledger fakes."""
+
+from __future__ import annotations
+
+from contextlib import contextmanager
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
+from hashlib import sha256
+from pathlib import Path
+import subprocess
+from types import SimpleNamespace
+from types import ModuleType
+from uuid import uuid4
+
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from joserfc import jwt
+from joserfc.jwk import RSAKey
+
+from support.p03 import access
+from support.p06 import (
+    ENVIRONMENT,
+    OWNER,
+    RECEIVER,
+    TASK,
+    register_workspace_components,
+    task_admission_config,
+)
+from test_work_state_guards import command, control_case
+from wuji_core.admission.registry import AdmissionRegistry
+from wuji_core.http import canonical_json_bytes, strict_json_loads
+from wuji_core.http.auth import TokenVerifier
+from wuji_core.persistence.snapshots import SnapshotRepository
+from wuji_core.persistence.uow import AccessContext
+from wuji_core.scheduling.claims import (
+    DispatchRepository,
+    Scheduler,
+    SchedulerOwnership,
+)
+from wuji_core.scheduling.credentials import RunCredentialIssuer
+from wuji_maf_worker.factory import HarnessProfile
+
+SCHEDULER = access("scheduler-fixture", role="scheduler")
+RECEIVER_ACCESS = access("observer-fixture", role="controller")
+TOOL_REF = "fixture-reader-v1"
+TEMPLATE_REF = "scheduler-worker-template-v1"
+SIGNING_KEY_REF = "scheduler-signing-key-v1"
+ENCRYPTION_KEY_REF = "scheduler-encryption-key-v1"
+ISSUER = "https://scheduler.identity.fixture.invalid"
+AUDIENCE = "wuji-vnext-scheduler-tests"
+REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
+P06_SCHEMA_REVISION = "64bbdf2974b39856a2cb29dd1eee97cb1a70ca93"
+
+
+@dataclass(frozen=True)
+class SchedulerKeys:
+    private_pem: bytes
+    public_pem: bytes
+    encryption_key: bytes
+
+    @classmethod
+    def generate(cls) -> "SchedulerKeys":
+        private = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        return cls(
+            private_pem=private.private_bytes(
+                serialization.Encoding.PEM,
+                serialization.PrivateFormat.PKCS8,
+                serialization.NoEncryption(),
+            ),
+            public_pem=private.public_key().public_bytes(
+                serialization.Encoding.PEM,
+                serialization.PublicFormat.SubjectPublicKeyInfo,
+            ),
+            encryption_key=bytes(range(32)),
+        )
+
+    def signing(self, ref: str) -> bytes:
+        if ref != SIGNING_KEY_REF:
+            raise KeyError(ref)
+        return self.private_pem
+
+    def public(self, ref: str) -> bytes:
+        if ref != SIGNING_KEY_REF:
+            raise KeyError(ref)
+        return self.public_pem
+
+    def encryption(self, ref: str) -> bytes:
+        if ref != ENCRYPTION_KEY_REF:
+            raise KeyError(ref)
+        return self.encryption_key
+
+
+def _lock_digest() -> str:
+    return sha256(
+        (REPOSITORY_ROOT / "packages/maf-worker/uv.lock").read_bytes()
+    ).hexdigest()
+
+
+def migrate_p06_head_then_current(environment) -> None:
+    source = subprocess.check_output(
+        [
+            "git",
+            "show",
+            P06_SCHEMA_REVISION
+            + ":packages/wuji-core/src/wuji_core/persistence/schema.py",
+        ],
+        cwd=REPOSITORY_ROOT,
+        text=True,
+    )
+    historical = ModuleType("p09_p06_schema")
+    historical.__file__ = "git:" + P06_SCHEMA_REVISION + "/schema.py"
+    exec(compile(source, historical.__file__, "exec"), historical.__dict__)
+
+    with environment.migration_connection() as connection:
+        historical.migrate(connection, application_role=environment.application_role)
+        heads = {
+            row[0]
+            for row in connection.execute(
+                "SELECT head FROM vnext.schema_migration"
+            ).fetchall()
+        }
+        if "vnext_0009_p06_request_write_guards" not in heads:
+            raise AssertionError("historical P06 migration head was not established")
+        if "vnext_0010_p09_scheduler" in heads:
+            raise AssertionError("historical P06 setup unexpectedly contains P09")
+
+    from wuji_core.persistence.schema import migrate
+
+    with environment.migration_connection() as connection:
+        migrate(connection, application_role=environment.application_role)
+        migrate(connection, application_role=environment.application_role)
+        assert connection.execute(
+            "SELECT count(*) FROM vnext.schema_migration WHERE head='vnext_0010_p09_scheduler'"
+        ).fetchone() == (1,)
+        assert connection.execute(
+            "SELECT to_regclass('vnext.scheduler_state')"
+        ).fetchone() == ("vnext.scheduler_state",)
+
+
+def _profiles(lock_digest: str) -> dict[str, dict[str, object]]:
+    profiles = {}
+    for kind in ("explore", "reason", "report"):
+        profile = HarnessProfile(
+            ref=f"harness.{kind}.p09.v1",
+            revision="1",
+            work_kind=kind,
+            instructions=f"Use the fixed P09 {kind} fixture inputs and registered tool.",
+            tool_definition_refs=(TOOL_REF,),
+            lock_digest=lock_digest,
+            max_context_records=128,
+            max_context_bytes=65_536,
+            max_output_tokens=2_048,
+        )
+        profiles[kind] = profile.snapshot()
+    return profiles
+
+
+def _configure_scheduler(
+    case,
+    *,
+    profiles: dict[str, dict[str, object]],
+    template_clearance: int,
+    max_work_items: int,
+    capacity: int,
+) -> None:
+    registry = __import__(
+        "wuji_core.admission.registry", fromlist=["TaskAdmissionConfig"]
+    )
+    lock_digest = _lock_digest()
+    config = task_admission_config(
+        registry,
+        gateway_url="https://model.fixture.invalid/v1",
+        max_model_requests=8,
+        max_tool_calls=8,
+        max_total_output_bytes=65_536,
+        allowed_tool_refs=[TOOL_REF],
+    )
+    config = config.model_copy(
+        update={
+            "runtime": config.runtime.model_copy(
+                update={
+                    "lock_digest": lock_digest,
+                    "limits": config.runtime.limits.model_copy(
+                        update={"max_work_items": max_work_items}
+                    ),
+                }
+            )
+        }
+    )
+    with case.env.migration_connection() as connection:
+        definition = strict_json_loads(
+            connection.execute(
+                "SELECT definition_json FROM vnext.task WHERE task_id=%s", (TASK,)
+            ).fetchone()[0]
+        )
+        definition["lock_digest"] = lock_digest
+        definition["worker_profiles"] = profiles
+        body = canonical_json_bytes(definition).decode("utf-8")
+        connection.execute(
+            "UPDATE vnext.task SET definition_json=%s,definition_digest=%s WHERE task_id=%s",
+            (body, sha256(body.encode("utf-8")).hexdigest(), TASK),
+        )
+        connection.execute(
+            "UPDATE vnext.capacity_pool SET capacity=%s WHERE pool_key IN ('platform','tenant-fixture')",
+            (capacity,),
+        )
+        connection.execute(
+            "INSERT INTO vnext.capacity_pool(pool_key,tier,tenant_id,capacity,published_ref) VALUES('model:fixture-model-v1','model',NULL,%s,'fixture-capacity-v1')",
+            (capacity,),
+        )
+        connection.execute(
+            "INSERT INTO vnext.task_capacity_pool(tenant_id,project_id,task_id,pool_key) VALUES(%s,%s,%s,'model:fixture-model-v1')",
+            OWNER,
+        )
+        register_workspace_components(registry, connection)
+        registry.register_task_config(connection, owner=OWNER, config=config)
+        connection.execute(
+            """INSERT INTO vnext.scheduler_identity_template(
+            tenant_id,project_id,task_id,template_ref,issuer,audience,
+            signing_key_ref,signing_kid,encryption_key_ref,clearance,enabled)
+            VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,true)""",
+            (
+                *OWNER,
+                TEMPLATE_REF,
+                ISSUER,
+                AUDIENCE,
+                SIGNING_KEY_REF,
+                "p09-test-key",
+                ENCRYPTION_KEY_REF,
+                template_clearance,
+            ),
+        )
+        connection.execute(
+            """INSERT INTO vnext.scheduler_receiver(
+            tenant_id,project_id,task_id,runtime_attempt,receiver_id,environment_ref,
+            model_mode,receiver_subject,credential_template_ref,harness_profiles_json,enabled)
+            VALUES(%s,%s,%s,1,%s,%s,'synthetic','observer-fixture',%s,%s,true)""",
+            (
+                *OWNER,
+                RECEIVER,
+                ENVIRONMENT,
+                TEMPLATE_REF,
+                canonical_json_bytes(profiles).decode(),
+            ),
+        )
+    case.scheduler_config = config
+
+
+def _publish_intent(case, *, access_level: int):
+    command(case, "start")
+    artifact = case.store.stage(
+        access("collector-fixture", role="collector"),
+        TASK,
+        "attempt-fixture",
+        b"P09 authorized fixed input\n",
+        "text/plain",
+        conditions=("isolated P09 input",),
+        provenance="capture",
+        access_level=access_level,
+    )
+    case.store.seal(access("collector-fixture", role="collector"), TASK, artifact)
+    human = access("reader-fixture", role="human")
+    claim = case.claims.propose(
+        human,
+        TASK,
+        {
+            "client_ref": "p09-input-claim",
+            "kind": "observation-summary",
+            "assertion_role": "candidate_fact",
+            "text": "The isolated P09 input is available.",
+            "structured_assertion": {"fixture": "p09"},
+            "basis_refs": [
+                {
+                    "entity_type": "artifact",
+                    "id": artifact.id,
+                    "revision": artifact.version.root,
+                }
+            ],
+            "limitations": ["isolated fixture"],
+        },
+        idempotency_key="p09-input-claim",
+    )
+    intent = case.claims.propose_intent(
+        human,
+        TASK,
+        {
+            "client_ref": "p09-intent",
+            "question": "Read the isolated P09 input.",
+            "basis_refs": [claim.canonical_ref.model_dump(mode="json")],
+            "expected_output": "wuji.agent-payload.v2",
+        },
+        idempotency_key="p09-intent",
+    )
+    return artifact, claim.canonical_ref, intent.canonical_ref
+
+
+@contextmanager
+def scheduler_case(
+    environment,
+    tmp_path: Path,
+    audit_directory: Path,
+    *,
+    template_clearance: int = 1,
+    input_access_level: int = 1,
+    max_work_items: int = 4,
+    capacity: int = 2,
+):
+    keys = SchedulerKeys.generate()
+    profiles = _profiles(_lock_digest())
+    with control_case(environment, tmp_path, audit_directory) as control:
+        _configure_scheduler(
+            control,
+            profiles=profiles,
+            template_clearance=template_clearance,
+            max_work_items=max_work_items,
+            capacity=capacity,
+        )
+        artifact_ref, claim_ref, intent_ref = _publish_intent(
+            control, access_level=input_access_level
+        )
+        issuer = RunCredentialIssuer(
+            signing_key_resolver=keys.signing,
+            encryption_key_resolver=keys.encryption,
+            public_key_resolver=keys.public,
+        )
+        registry = AdmissionRegistry(control.uow)
+        snapshots = SnapshotRepository(control.uow)
+        with environment.additional_app_connection() as scheduler_connection:
+            ownership = SchedulerOwnership(scheduler_connection)
+            if not ownership.acquire():
+                raise AssertionError(
+                    "isolated P09 scheduler could not acquire ownership"
+                )
+            scheduler = Scheduler(
+                control.uow,
+                ownership=ownership,
+                accesses=(SCHEDULER,),
+                snapshots=snapshots,
+                registry=registry,
+                control=control.control,
+                credential_issuer=issuer,
+            )
+            try:
+                yield SimpleNamespace(
+                    control=control,
+                    scheduler=scheduler,
+                    ownership=ownership,
+                    issuer=issuer,
+                    registry=registry,
+                    snapshots=snapshots,
+                    keys=keys,
+                    profiles=profiles,
+                    artifact_ref=artifact_ref,
+                    claim_ref=claim_ref,
+                    intent_ref=intent_ref,
+                    scheduler_access=SCHEDULER,
+                    receiver_access=RECEIVER_ACCESS,
+                )
+            finally:
+                ownership.close()
+
+
+def publish_additional_intent(case, suffix: str):
+    receipt = case.control.claims.propose_intent(
+        access("reader-fixture", role="human"),
+        TASK,
+        {
+            "client_ref": "p09-intent-" + suffix,
+            "question": "Read another isolated P09 input: " + suffix,
+            "basis_refs": [case.claim_ref.model_dump(mode="json")],
+            "expected_output": "wuji.agent-payload.v2",
+        },
+        idempotency_key="p09-intent-" + suffix,
+    )
+    if receipt.canonical_ref is None:
+        raise AssertionError("production intent proposal was not accepted")
+    return receipt.canonical_ref
+
+
+def explore_assignment(receipt):
+    return next(
+        item for item in receipt.assignments if item.work_kind.value == "explore"
+    )
+
+
+def worker_credential(case, assignment):
+    with case.control.uow.transaction(
+        case.receiver_access, TASK, capability="observe"
+    ) as tx:
+        persisted, credential_ref = DispatchRepository().read(
+            tx, operation_id=assignment.operation_id
+        )
+        if persisted != assignment:
+            raise AssertionError("dispatch lookup changed the immutable assignment")
+        token = case.issuer.retrieve(
+            tx, credential_ref=credential_ref, identity=assignment.identity
+        )
+    verifier = TokenVerifier(
+        public_key_pem=case.keys.public_pem, issuer=ISSUER, audience=AUDIENCE
+    )
+    principal = verifier.verify(token)
+    return SimpleNamespace(
+        token=token,
+        principal=principal,
+        access=AccessContext(principal, "p09-worker"),
+        credential_ref=credential_ref,
+        binding=case.registry.binding(AccessContext(principal, "p09-binding")),
+    )
+
+
+def signed_sibling_worker(case, *, subject: str) -> AccessContext:
+    now = int(datetime.now(UTC).timestamp())
+    token = jwt.encode(
+        {"alg": "RS256", "kid": "p09-test-key"},
+        {
+            "iss": ISSUER,
+            "aud": AUDIENCE,
+            "sub": subject,
+            "tenant_id": OWNER[0],
+            "roles": ["worker"],
+            "iat": now,
+            "nbf": now,
+            "exp": now + int(timedelta(minutes=5).total_seconds()),
+            "jti": str(uuid4()),
+        },
+        RSAKey.import_key(case.keys.private_pem),
+        algorithms=["RS256"],
+    )
+    principal = TokenVerifier(
+        public_key_pem=case.keys.public_pem, issuer=ISSUER, audience=AUDIENCE
+    ).verify(token)
+    return AccessContext(principal, "p09-unregistered-sibling-token")
