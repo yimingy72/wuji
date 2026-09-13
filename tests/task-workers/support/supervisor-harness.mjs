@@ -162,7 +162,10 @@ export async function createSupervisorFixture(label, options = {}) {
   }
 
   async function request(host, method, path, body) {
-    const headers = { Authorization: `Bearer ${controllerToken}` };
+    const headers = {
+      Accept: "application/json",
+      Authorization: `Bearer ${controllerToken}`,
+    };
     if (body !== undefined) headers["Content-Type"] = "application/json";
     const url = `http://${host.ready.host}:${host.ready.port}${path}`;
     const requestRecord = {
