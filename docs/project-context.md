@@ -6,9 +6,11 @@
 
 本轮最新模型分工见实施决定 D10：修复、验证及轻量重复工作使用 SOL/xhigh，核心开发或重大复杂问题才使用 GPT-6/xhigh；下文及历史报告中的旧模型限定仅描述当时约定。
 
-2026-09-13 M3 接入入口：[P08 完整会话、原生审批与恢复实施合同](vnext/P08-implementation-contract.md)。它补齐已批准 P08 对现有 P05/P06/P09 和 M2 Worker 的接口，当前为实现准备，不代表恢复/审批验收通过。
+2026-09-13 当前进度与下一步：[代码6f6892a截面的审核及开发安排](stages/vnext-maf/progress-audit-2026-09-13.md)。限定 hosted Explore 的 M2 已通过并[永久归档](vnext/evidence/P10/M2/README.md)；P08 后续两代真实 child 的 approve/reject 已有局部实测，原生压缩、记忆与其他核心边界仍待收口。正式入口/控制、可信完成和工作台整合尚未完成；以[当前验收表](stages/vnext-maf/acceptance.md)区分范围。本次审核未重跑测试。
 
-2026-09-13 M2 独立复核后的修复入口：[P10 实际投递与受信结果补交收口](vnext/P10-implementation-contract.md)。原直接 Node 启动场景的已测结果保留；生产 Outbox 消费和撤销后首次 intake 等四项缺口须按新证据关闭。Node settlement 自身的定向审查与证据见[永久审查入口](vnext/evidence/P10/reviews/README.md)，不与完整 M2 混为一项通过。
+2026-09-13 M3 接入入口：[P08 完整会话、原生审批与恢复实施合同](vnext/P08-implementation-contract.md)。产品合同继续适用；其中首RED/旧共享窗口等编排已由停止 Superpowers 的用户决定和[当前计划](stages/vnext-maf/plan.md)替代，不能把实现准备时的状态当作最新进度。
+
+2026-09-13 M2 独立复核后的修复入口：[P10 实际投递与受信结果补交收口](vnext/P10-implementation-contract.md)。原四项缺口已按[永久M2证据](vnext/evidence/P10/M2/README.md)关闭，范围限该host/child切片。Node settlement 自身的定向审查与证据见[永久审查入口](vnext/evidence/P10/reviews/README.md)，不扩大为完整P10/K8s通过。
 
 更新：2026-09-11；当前文档与GitHub交付分支为 `codex/github-upload`，业务来源为 `codex/phase-2-web-assessment@40472c6`（旧运行检出保留），架构收口起点6ee84b5。此页负责恢复背景与导航；设计正文、阶段验收各有独立权威来源，不在此复制完整架构。先读根 [AGENTS.md](../AGENTS.md)。
 

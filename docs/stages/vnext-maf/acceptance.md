@@ -4,6 +4,10 @@
 
 用户已批准实施；原始 [75条验收定义](../../vnext/ACCEPTANCE.md)中的 not_run 是导入时状态，不能当作当前代码结果。实际执行证据将在本阶段按任务、命令和被测提交追加。此时没有产品通过结论。
 
+2026-09-13 最新进度审核以代码 `6f6892a` 为截面，见[审核与后续安排](progress-audit-2026-09-13.md)。本次只核对既有记录，不重跑测试；下表区分历史切片通过、最新局部实测和完整产品未覆盖项。
+
+该次定向审核发现：P08 reject 虽满足原调用拒绝零执行与两代恢复断言，最终 P04 回执却为 `rejected / INVALID_SCHEMA`，测试未检查结果接纳。此项待定位，不宣称拒绝场景完整业务闭环通过。`6f6892a` 另有退出撤销 SQL 新路径，其权限负例及已有旧0014库的升级方式待明确；具体原始记录和范围见审核正文。
+
 | 范围 | 状态 | 说明 |
 | --- | --- | --- |
 | P00 基线与来源 | accepted（本项） | 基线 c9871a6；源文件保留与实际环境已核对，GPT-6/xhigh 审查无发现 |
@@ -17,9 +21,11 @@
 | P07 M1 hosted runtime slice | reviewed / passed（本切片） | 修复代码 `5cfd581129c7991deaddaad9bfdaf8b4ee34b140`、[证据](../../vnext/evidence/P07/M1/review-fixes/README.md)提交 `57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012`；M1 5 项与直接受影响 P06 native consumer 2 项通过，[初审](../../vnext/evidence/P07/M1/reviews/P07-M1-review.md)的 2 个 P1/1 个 P2 已由 [PASS 复审](../../vnext/evidence/P07/M1/reviews/P07-M1-rereview.md)全部关闭；只确认 hosted M1 |
 | P07 完整 SDK/runtime 合同 | partial / not accepted | M1 不覆盖原生审批、压缩、Session 恢复、完整负控、Supervisor/process truth、Scheduler、Task completion、Kubernetes/Pod 或真实模型效果；完整 P07 未 accepted |
 | M2 host/child transport | reviewed / passed（限定切片） | [永久证据](../../vnext/evidence/P10/M2/README.md)提交 `bdee147`：原四项 P2 全部关闭，真实 Scheduler/Outbox→Node→MAF child→Gates→P03/P04、当前/历史补交和半提交恢复已按分 SHA 验证。最终 current 场景 `d61cb91`（产品 `4268b6a`、测试 `0f545ba`、冻结0013）1项/11.55s；其余撤销、Pod、profile、基础与真实 Thread 检查复用各自记录，不合称一次全量运行。r1–r6 FAIL 保留。范围仅 hosted Explore，不覆盖完整P07/P10/P08、其他work kind或Kubernetes |
-| P09 Scheduler 已验证切片与定向复审 | reviewed / partial；非完整 accepted | 基线 `a3f7a95eacce20cbdeeaf654ea8f86064222ba0c` 原 31 项、直接消费者 4 项、共享容量竞态 1 项；修复 `e0a10b586905ed705b0d7f520bda6f6f96b26cac` 提交前 A/B/C RED 3→GREEN 3、0010→0011 升级 1、synthetic receiver UID 复制 1。[永久证据与缺口](../../vnext/evidence/P09/README.md)、[machine index](../../vnext/evidence/P09/index.json)、[初审](../../vnext/evidence/P09/reviews/P09-review.md)和 [Dalton 独立定向复审 PASS](../../vnext/evidence/P09/reviews/P09-rereview.md)；本次只归档原输出，不重跑。逐查询 SQL/参数/结果及临时原始输入缺失已登记；真实 P10/M2、P08 非知识事件、真实退出 failure/retry 闭环与恢复仍 partial，关联 AC 不标全通过 |
-| P08 会话与审批 | in-progress / changes required | 平台源码 `a755847`、Worker `65e4472`、B2 `1f17179` 已接入后续修复；`f4c3b76` 的[定向复审](../../vnext/evidence/P08/reviews/P08-platform-rereview.md)仍有 F2/F3/F4/F5 四项残留（3P1+1P2），F1/F6仅source-addressed。SOL正直接修复并准备真实0014/SDK/跨进程审批验证；现有局部source/wire检查不代表完整P08通过 |
-| P10—P12 完整机制验收 | partial / not accepted | 已有切片按各自行记录；真实 Outbox、完整控制/恢复/完成与相应集成尚未通过，不以 P09 局部结果或迁移关口代替 |
+| P09 Scheduler 已验证切片与定向复审 | reviewed / partial；非完整 accepted | 基线 `a3f7a95eacce20cbdeeaf654ea8f86064222ba0c` 原 31 项、直接消费者 4 项、共享容量竞态 1 项；修复 `e0a10b586905ed705b0d7f520bda6f6f96b26cac` 提交前 A/B/C RED 3→GREEN 3、0010→0011 升级 1、synthetic receiver UID 复制 1。[永久证据与缺口](../../vnext/evidence/P09/README.md)、[machine index](../../vnext/evidence/P09/index.json)、[初审](../../vnext/evidence/P09/reviews/P09-review.md)和 [Dalton 独立定向复审 PASS](../../vnext/evidence/P09/reviews/P09-rereview.md)保留。其后真实 Outbox/child 的限定 Explore M2 已通过，按上行证据；P08 两代 child 输入恢复按下行局部实测。其他非知识事件、完整 failure/retry 与各 work kind 仍未全验收；旧逐查询输入缺口不追写成已有 |
+| P08 会话与审批 | in-progress / runtime partial；not accepted | 后续产品/测试已至 `dd400bf`、`6f6892a`。两代真实 Node/Python child 的 approve/reject 为 2 passed / 60.37s / exit 0，运行时 HEAD=`dd400bf` 加保存的 diff，随后提交 `6f6892a`；旧混合 cold 批 5 项与权限 3 项分别保留原范围。真实0014/native boundary已有局部结果。见[本地原始入口与缺口](progress-audit-2026-09-13.md)：压缩、真实 child 记忆、原子失败、并发/CAS/旧 writer、半发布/GC、旧批准控制边界等尚待收口；候选未发布 verified。`f4c3b76` [历史四残留复审](../../vnext/evidence/P08/reviews/P08-platform-rereview.md)不代表最新源码结论，也不能被两项成功路径整体关闭；最新证据仍待永久归档 |
+| P11 控制 API 与恢复集成 | source / runtime partial；not accepted | `64f4c29` 审批路由已被 P08 真实 HTTP 消费；`f6cad17` Task/Work command API、受限 Work locator 和预留0015已提交，两项控制检查仅 collection，未执行PG/HTTP；0015尚未统一装配。正式创建/项目权限/浏览器身份、完整hold/pause/cancel恢复与失败域集成待完成 |
+| P12 可信完成 | not implemented / not accepted | 已有冻结合同与前置服务；可信 precheck、quiescing/settlement、ReportCommit/Delivery 与实际完成协议尚未交付。P10真实退出与P04结果接纳均不替代Task完成 |
+| P10—P12 完整机制验收 | partial / not accepted | 真实 Outbox/child 限定 M2 已通过；完整控制/恢复/可信完成、其他 work kind 与部署仍待实际集成，不扩大已有切片结论 |
 | P13 受权图投影与持久视图 | backend reviewed / M4 partial | core `3015ca6`、P04 port `592bed2`、0012迁移与测试 `44ddc68` 的[真实结果](../../vnext/evidence/P13/runtime-green/report.md)为 12 项通过。独立审查发现的两项 P2 已在 `69e3a1d` 修复，[定向证据](../../vnext/evidence/P13/review-fix/report.md)为 3 项 / 3.16s、生成检查、22 组 HTTP 与截图；[独立复审](../../vnext/evidence/P13/reviews/P13-rereview.md)关闭两项，[完整证据入口](../../vnext/evidence/P13/README.md)。原 12 项及 pure builder 9项未重跑。Layout、ViewStream、P14正式容器与后续P12类型仍未验收，故不标 M4 全过 |
 | P14 TopologyFlowCanvas fixed DTO slice | reviewed / partial | 原代码 `9a1c8e20ccd57b19e74d748129a3d5d524eab6f4`，修复代码 `bd3111a62a624aa5acef7d167ffe96b18747934a`，证据 `64bbdf2974b39856a2cb29dd1eee97cb1a70ca93`；[实施与截图](../../../tests/topology/report.md)、[修复证据](../../../tests/topology/review-fix-report.md)、[初审归档](../../../tests/topology/P14-review.md)与[PASS 复审](../../../tests/topology/P14-rereview.md)固定实际范围。16 Vitest、2 个受影响 Chromium 用例及 web typecheck 通过；复用原五主题截图。真实 P13 API/Auth、Layout CAS、ViewStream、记录详情与规模 p95 仍 pending/not_run，不是 M4 闭环 |
 | P15—P20 开发和机制验收 | not_run | 按依赖执行，未验证不标通过 |
