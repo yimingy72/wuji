@@ -10,7 +10,7 @@
 
 P08 核心目标文件为原 Plan 的 worker `sessions.py/history.py/approvals.py` 和 core `execution/inputs.py/approvals.py`；增加 core `execution/sessions.py`、内部 `contracts/sessions.py` 及无编号 `execution/session_schema_draft.sql`。必要的既有 runtime/factory/tools、P05/P06/P09 接缝逐项列入 handoff 后由主代理分配，不能靠测试夹具补齐生产缺口。最终必须在实际 hosted/child Worker 消费这些能力，不停在独立仓库 helper。
 
-当前实施分为平台核心与原生 Worker 两个不重叠源码 lane：平台核心拥有内部合同、持久服务与 P05/P06/P09/Host 接缝；Worker 核心拥有原生适配及 runtime/factory/tools/entrypoint。迁移/UoW 与测试由指定 SOL 集成，`vnext_0013_p08_session_approval` 已由主代理预留，尚未执行。M2 bridge/Node 的修复归其原 SOL owner，共享端口通过主代理协调，不能并发改同一文件。
+当前实施分为平台核心与原生 Worker 两个不重叠源码 lane：平台核心拥有内部合同、持久服务与 P05/P06/P09/Host 接缝；Worker 核心拥有原生适配及 runtime/factory/tools/entrypoint。迁移/UoW 与测试由指定 SOL 集成。2026-09-13 原预留但未执行的 P08 0013 顺延为 `vnext_0014_p08_session_approval`；0013 分配给 M2 `vnext_0013_receiver_results` 的受限补交修复，实际当前 head 仍以迁移运行证据为准。M2 bridge/Node 的修复归其原 SOL owner，共享端口通过主代理协调，不能并发改同一文件。
 
 ## 完整发布与单写者
 
