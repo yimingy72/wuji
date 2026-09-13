@@ -403,16 +403,18 @@ def m2_case(
     runtime = None
     try:
         with scheduler_case(environment, tmp_path, audit_directory) as scheduled:
-            # Deployment explicitly grants its registered receiver settlement
-            # authority. v0013 refuses to infer or self-grant this ACL.
+            # P09's deployment fixture explicitly grants this receiver; M2 only
+            # verifies the prerequisite and never self-grants settlement power.
             with environment.migration_connection() as connection:
-                connection.execute(
-                    """UPDATE vnext.task_access SET can_settle=true
+                receiver_acl = connection.execute(
+                    """SELECT can_read,can_observe,can_settle,can_write,
+                    can_model_output FROM vnext.task_access
                     WHERE tenant_id=%s AND project_id=%s AND task_id=%s
-                    AND subject='observer-fixture' AND can_read AND can_observe
-                    AND NOT can_write AND NOT can_model_output""",
+                    AND subject='observer-fixture'""",
                     OWNER,
-                )
+                ).fetchone()
+            if receiver_acl != (True, True, True, False, False):
+                raise AssertionError("P09 receiver settlement ACL was not provisioned")
             assignment = explore_assignment(scheduled.scheduler.tick(limit=2))
             worker = worker_credential(scheduled, assignment)
             worker_write_state = {"revocations": 0}
