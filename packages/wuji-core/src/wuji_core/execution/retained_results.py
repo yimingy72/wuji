@@ -9,6 +9,7 @@ from hashlib import sha256
 from wuji_core.contracts.envelopes import RunIdentity, WorkerAssignment
 from wuji_core.http import canonical_json_bytes
 from wuji_core.persistence.uow import DomainError, row
+from wuji_core.scheduling.credentials import worker_subject
 
 
 @dataclass(frozen=True)
@@ -50,31 +51,37 @@ def bound_retained_run(
         not in {"accepted", "historical_only"}
     ):
         raise DomainError("NOT_FOUND_OR_FORBIDDEN", 403)
+    selected = tx.connection.execute(
+        """SELECT current_setting('wuji.retained_run',true),
+        current_setting('wuji.retained_assignment_digest',true)"""
+    ).fetchone()
+    source_writer = tx.retained_result.get("source_writer_subject")
+    if (
+        selected != (key.agent_run_id, key.assignment_digest)
+        or source_writer != worker_subject(key.agent_run_id)
+        or source_writer == tx.access.principal.subject
+        or type(tx.retained_result.get("access_level")) is not int
+        or tx.retained_result["access_level"] > tx.permissions["clearance"]
+    ):
+        raise DomainError("NOT_FOUND_OR_FORBIDDEN", 403)
     record = row(
         tx.connection.execute(
-            """SELECT a.*,b.source_writer_subject,b.assignment_digest AS retained_digest,
-            b.receiver_subject,b.access_level AS retained_access_level
-            FROM vnext.agent_run a JOIN vnext.retained_result_binding b
+            """SELECT a.*,w.agent_subject,
+            w.can_settle AS binding_can_settle
+            FROM vnext.agent_run a JOIN vnext.run_writer w
               USING(tenant_id,project_id,task_id,agent_run_id)
             WHERE a.tenant_id=%s AND a.project_id=%s AND a.task_id=%s
               AND a.agent_run_id=%s AND a.start_operation_id=%s
-              AND b.assignment_digest=%s AND b.receiver_subject=%s""",
+              AND w.subject=%s AND NOT w.revoked AND NOT w.can_settle""",
             (
                 *tx.owner,
                 key.agent_run_id,
                 key.operation_id,
-                key.assignment_digest,
-                tx.access.principal.subject,
+                source_writer,
             ),
         )
     )
-    if (
-        record is None
-        or record["source_writer_subject"]
-        != tx.retained_result.get("source_writer_subject")
-        or record["retained_access_level"]
-        != tx.retained_result.get("access_level")
-    ):
+    if record is None:
         raise DomainError("NOT_FOUND_OR_FORBIDDEN", 403)
     if identity is not None:
         identity = RunIdentity.model_validate(identity)
