@@ -58,9 +58,18 @@ def consume_attempt(tx, *, model, maximum):
     tx.connection.execute(f"UPDATE vnext.admission_counter SET {name}={name}+1 WHERE tenant_id=%s AND project_id=%s AND task_id=%s", tx.owner)
 
 
-def allocate_output(tx, size, *, already, runtime):
+def allocate_output(tx, size, *, already, runtime, allow_partial=False):
     counts = counter(tx)
-    accepted = already + size <= runtime.limits.max_single_output_bytes and counts["output_bytes"] + size <= runtime.limits.max_total_output_bytes
+    remaining = max(
+        0,
+        min(
+            runtime.limits.max_single_output_bytes - already,
+            runtime.limits.max_total_output_bytes - counts["output_bytes"],
+        ),
+    )
+    accepted_size = min(size, remaining)
+    if not allow_partial and accepted_size != size:
+        accepted_size = 0
     # received is the observed application chunk; rejected bytes aren't retained.
-    tx.connection.execute("UPDATE vnext.admission_counter SET received_bytes=received_bytes+%s,output_bytes=output_bytes+%s,retained_bytes=retained_bytes+%s WHERE tenant_id=%s AND project_id=%s AND task_id=%s", (size, size if accepted else 0, size if accepted else 0, *tx.owner))
-    return accepted
+    tx.connection.execute("UPDATE vnext.admission_counter SET received_bytes=received_bytes+%s,output_bytes=output_bytes+%s,retained_bytes=retained_bytes+%s WHERE tenant_id=%s AND project_id=%s AND task_id=%s", (size, accepted_size, accepted_size, *tx.owner))
+    return accepted_size if allow_partial else accepted_size == size

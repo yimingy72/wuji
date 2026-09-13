@@ -36,7 +36,10 @@ def tool_receipt(tx, call):
         result = strict_json_loads(attempt["result_receipt_json"])
         result["status"] = call["status"]
         return ToolCallReceipt.model_validate(result)
-    return ToolCallReceipt.model_validate({"tool_call_id": call["tool_call_id"], "operation_id": call["tool_call_id"], "tool_attempt_id": call["latest_attempt_id"], "status": call["status"], "evidence_receipt": None, "result_ref": None, "reason_code": "OPERATION_UNKNOWN" if call["status"] == "unknown" else None})
+    reason = "OPERATION_UNKNOWN" if call["status"] == "unknown" else None
+    if attempt and attempt.get("limit_reason") == "LIMIT_BLOCKED":
+        reason = "LIMIT_BLOCKED"
+    return ToolCallReceipt.model_validate({"tool_call_id": call["tool_call_id"], "operation_id": call["tool_call_id"], "tool_attempt_id": call["latest_attempt_id"], "status": call["status"], "evidence_receipt": None, "result_ref": None, "reason_code": reason})
 
 
 class AdmissionLedger:
@@ -55,6 +58,38 @@ class AdmissionLedger:
         with self.uow.transaction(access, task_id) as tx:
             record = self.model_row(tx, model_attempt_id)
             return model_receipt(record)
+
+    def reconcile_not_sent(self, access, model_attempt_id):
+        """End a durably admitted attempt that never crossed the send fence."""
+        task_id = self.uow.locate_model_attempt(access, model_attempt_id)
+        with self.uow.transaction(access, task_id, capability="model_settle") as tx:
+            record = self.model_row(tx, model_attempt_id)
+            binding = tx.run_binding
+            if (
+                record["agent_run_id"] != binding.identity.agent_run_id
+                or record["subject"] != access.principal.subject
+                or record["token_id"] != access.principal.token_id
+            ):
+                raise DomainError("NOT_FOUND_OR_FORBIDDEN")
+            if record["send_state"] != "not_sent" or not record["inflight"]:
+                return model_receipt(record)
+            settlement = {
+                "source": "trusted_not_sent_reconcile",
+                "reason": "admission_committed_before_send",
+                "model_attempt_id": model_attempt_id,
+                "local_ended": True,
+            }
+            updated = tx.connection.execute(
+                "UPDATE vnext.model_call SET local_state='ended',inflight=false,response_state='unknown',response_available=false,settlement_json=%s WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND model_attempt_id=%s AND send_state='not_sent' AND local_state='inflight' AND inflight RETURNING model_attempt_id",
+                (json_text(settlement), *tx.owner, model_attempt_id),
+            ).fetchone()
+            if updated:
+                audit(
+                    tx,
+                    "model.not_sent_reconciled",
+                    {"model_attempt_id": model_attempt_id},
+                )
+            return model_receipt(self.model_row(tx, model_attempt_id))
 
     def model_row(self, tx, attempt_id):
         record = row(tx.connection.execute("SELECT * FROM vnext.model_call WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND model_attempt_id=%s", (*tx.owner, attempt_id)))

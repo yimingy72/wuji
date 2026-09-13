@@ -37,6 +37,10 @@ class TaskGatewayKeyResolver(Protocol):
     def resolve(self, secret_ref: str) -> str: ...
 
 
+class ToolCapabilityResolverPort(Protocol):
+    def require_available(self, access, tools) -> None: ...
+
+
 class ModelAdmission:
     def __init__(self, uow, *, registry, ledger):
         self.uow, self.registry, self.ledger = uow, registry, ledger
@@ -61,7 +65,7 @@ class ModelAdmission:
                 definitions = {self.registry.tool(tx, ref).name: self.registry.tool(tx, ref) for ref in allowed}
                 if len(definitions) != len(allowed):
                     raise DomainError("CAPABILITY_UNAVAILABLE", 503)
-                for tool in source.get("tools", []):
+                for tool in source.get("tools") or []:
                     proposed = tool["function"]
                     registered = definitions.get(proposed["name"])
                     if not registered or digest(proposed["parameters"]) != digest(registered.input_schema):
@@ -93,9 +97,19 @@ class ModelAdmission:
         with self.uow.transaction(access, permit.identity.task_id, capability="model_request") as tx:
             current_run(tx, self.registry.config(tx))
             record = self.ledger._permit_row(tx, permit)
-            if permit.replay or record["send_state"] != "not_sent":
+            if (
+                permit.replay
+                or record["send_state"] != "not_sent"
+                or record["local_state"] != "inflight"
+                or not record["inflight"]
+            ):
                 raise DomainError("OPERATION_UNKNOWN", 409)
-            tx.connection.execute("UPDATE vnext.model_call SET send_state='sending' WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND model_attempt_id=%s", (*tx.owner, permit.model_attempt_id))
+            updated = tx.connection.execute(
+                "UPDATE vnext.model_call SET send_state='sending' WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND model_attempt_id=%s AND send_state='not_sent' AND local_state='inflight' AND inflight RETURNING model_attempt_id",
+                (*tx.owner, permit.model_attempt_id),
+            ).fetchone()
+            if not updated:
+                raise DomainError("OPERATION_UNKNOWN", 409)
             audit(tx, "model.sending", {"model_attempt_id": permit.model_attempt_id})
 
 
@@ -226,11 +240,27 @@ class _FinalizingStreamResponse(StreamingResponse):
 
 
 class ModelGate:
-    def __init__(self, admission, *, registry, ledger, key_resolver, transport):
+    def __init__(
+        self,
+        admission,
+        *,
+        registry,
+        ledger,
+        key_resolver,
+        transport,
+        tool_capabilities: ToolCapabilityResolverPort | None = None,
+    ):
         self.admission, self.registry, self.ledger = admission, registry, ledger
         self.key_resolver, self.transport = key_resolver, transport
+        self.tool_capabilities = tool_capabilities
 
     async def request(self, access, request, *, request_id, original_json=None):
+        if request.tools:
+            if self.tool_capabilities is None:
+                raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+            await run_in_threadpool(
+                self.tool_capabilities.require_available, access, request.tools
+            )
         permit = await run_in_threadpool(self.admission.authorize, access, request, request_id=request_id, original_json=original_json)
         headers = {"X-Wuji-Model-Attempt-ID": permit.model_attempt_id, "X-Wuji-Replayed": str(permit.replay).lower(), "Cache-Control": "no-store"}
         if permit.replay:
@@ -284,4 +314,6 @@ class ModelGate:
 
     async def reconcile(self, access, model_attempt_id):
         # Persisted transport receipts only. No caller boolean can release a slot.
-        return await run_in_threadpool(self.ledger.model_attempt, access, model_attempt_id)
+        return await run_in_threadpool(
+            self.ledger.reconcile_not_sent, access, model_attempt_id
+        )

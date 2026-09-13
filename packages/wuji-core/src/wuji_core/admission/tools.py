@@ -3,6 +3,7 @@
 import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
+from hashlib import sha256
 from hmac import compare_digest
 import os
 from pathlib import Path, PurePosixPath
@@ -251,6 +252,43 @@ class ToolAdmission:
             return self._new_attempt(tx, prepared, retry_request_id=retry_request_id)
 
 
+class ToolCapabilityResolver:
+    """Resolve model-advertised tools against the actual ToolGate assembly."""
+
+    def __init__(self, gate):
+        self.gate = gate
+
+    def require_available(self, access, tools):
+        binding = self.gate.registry.binding(access)
+        with self.gate.admission.uow.transaction(
+            access, binding.identity.task_id
+        ) as tx:
+            config = self.gate.registry.config(tx)
+            allowed = (
+                set(config.allowed_tool_refs)
+                & set(config.runtime.allowed_tool_refs)
+                & set(binding.allowed_tool_refs)
+            )
+            definitions = {
+                self.gate.registry.tool(tx, ref).name: self.gate.registry.tool(tx, ref)
+                for ref in allowed
+            }
+            refs = []
+            for advertised in tools:
+                value = advertised.model_dump(mode="python")
+                function = value["function"]
+                definition = definitions.get(function["name"])
+                if (
+                    definition is None
+                    or digest(function["parameters"])
+                    != digest(definition.input_schema)
+                ):
+                    raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+                refs.append(definition.ref)
+        for ref in refs:
+            self.gate._assembly(access, ref)
+
+
 class ToolGate:
     def __init__(self, admission, *, registry, ledger, artifacts, evidence, executors, collector_accesses):
         self.admission, self.registry, self.ledger = admission, registry, ledger
@@ -325,10 +363,21 @@ class ToolGate:
             if receipt.status == "not_started" and (receipt.started_at is not None or receipt.output is not None):
                 raise DomainError("INVALID_REFERENCE", 422)
             saved = receipt.model_dump(mode="json", exclude={"output"})
+            raw_output = receipt.output
+            raw_digest = sha256(raw_output).hexdigest() if raw_output is not None else None
+            if raw_output is not None and (
+                source.get("output_bytes") != len(raw_output)
+                or source.get("output_sha256") != raw_digest
+            ):
+                raise DomainError("INVALID_REFERENCE", 422)
             if record["receipt_json"] != "{}":
                 previous = strict_json_loads(record["receipt_json"])
                 if previous.get("receipt_id") == receipt.receipt_id:
-                    if digest(previous) != digest(saved) or (record["output"] is not None and bytes(record["output"]) != receipt.output):
+                    if (
+                        digest(previous) != digest(saved)
+                        or int(record["received_bytes"]) != len(raw_output or b"")
+                        or record["received_digest"] != raw_digest
+                    ):
                         raise DomainError("INPUT_DIGEST_CONFLICT", 409)
                     return
                 if record["status"] in {"complete", "failed", "cancelled", "evidence_pending"}:
@@ -337,12 +386,28 @@ class ToolGate:
                 raise DomainError("INVALID_REFERENCE", 422)  # Receiver skipped check_execution.
             status = "unknown" if receipt.status == "unknown" else "running" if receipt.status == "running" else "cancelled" if receipt.status == "not_started" else "failed" if receipt.output is None else "evidence_pending"
             data = receipt.output
+            effective_completeness = receipt.completeness
+            limit_reason = None
             if data is not None:
                 if not isinstance(receipt.media_type, str) or not 1 <= len(receipt.media_type) <= 256 or "\r" in receipt.media_type or "\n" in receipt.media_type:
                     raise DomainError("INVALID_SCHEMA", 422)
-                if not allocate_output(tx, len(data), already=record["output_bytes"], runtime=permit.runtime):
-                    data, status = None, "failed" if receipt.status == "exited" else "unknown"
-            tx.connection.execute("UPDATE vnext.tool_attempt SET status=%s,started_at=COALESCE(started_at,%s),receipt_json=%s,output=%s,output_media_type=%s,output_completeness=%s,received_bytes=received_bytes+%s,retained_bytes=retained_bytes+%s,output_bytes=output_bytes+%s WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND tool_attempt_id=%s", (status, receipt.started_at, json_text(saved), data, receipt.media_type, receipt.completeness, len(receipt.output or b""), len(data or b""), len(data or b""), *tx.owner, permit.tool_attempt_id))
+                accepted_size = allocate_output(
+                    tx,
+                    len(data),
+                    already=record["output_bytes"],
+                    runtime=permit.runtime,
+                    allow_partial=True,
+                )
+                if accepted_size < len(data):
+                    data = data[:accepted_size] or None
+                    effective_completeness = "partial"
+                    limit_reason = "LIMIT_BLOCKED"
+                    status = (
+                        "evidence_pending"
+                        if data is not None
+                        else "failed" if receipt.status == "exited" else "unknown"
+                    )
+            tx.connection.execute("UPDATE vnext.tool_attempt SET status=%s,started_at=COALESCE(started_at,%s),receipt_json=%s,output=%s,output_media_type=%s,output_completeness=%s,received_bytes=received_bytes+%s,received_digest=%s,retained_bytes=retained_bytes+%s,output_bytes=output_bytes+%s,limit_reason=%s WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND tool_attempt_id=%s", (status, receipt.started_at, json_text(saved), data, receipt.media_type, effective_completeness, len(raw_output or b""), raw_digest, len(data or b""), len(data or b""), limit_reason, *tx.owner, permit.tool_attempt_id))
             tx.connection.execute("UPDATE vnext.tool_call SET status=%s WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND tool_call_id=%s", (status, *tx.owner, permit.tool_call_id))
             if receipt.status in {"exited", "not_started"}:
                 self._release(tx, permit)
@@ -379,7 +444,7 @@ class ToolGate:
             current = _attempt(tx, permit.tool_attempt_id)
             if current["result_receipt_json"]:
                 return
-            result = ToolCallReceipt.model_validate({"tool_call_id": permit.tool_call_id, "operation_id": permit.tool_call_id, "tool_attempt_id": permit.tool_attempt_id, "status": "complete", "evidence_receipt": evidence_receipt.model_dump(mode="python"), "result_ref": envelope.artifact_refs[0].model_dump(mode="python"), "reason_code": None})
+            result = ToolCallReceipt.model_validate({"tool_call_id": permit.tool_call_id, "operation_id": permit.tool_call_id, "tool_attempt_id": permit.tool_attempt_id, "status": "complete", "evidence_receipt": evidence_receipt.model_dump(mode="python"), "result_ref": envelope.artifact_refs[0].model_dump(mode="python"), "reason_code": current["limit_reason"]})
             tx.connection.execute("UPDATE vnext.tool_attempt SET status='complete',result_receipt_json=%s WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND tool_attempt_id=%s", (json_text(result.model_dump(mode="json")), *tx.owner, permit.tool_attempt_id))
             tx.connection.execute("UPDATE vnext.tool_call SET status='complete' WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND tool_call_id=%s", (*tx.owner, permit.tool_call_id))
             _settlement(tx, permit.identity.agent_run_id)
@@ -431,7 +496,7 @@ class ToolGate:
                 audit(tx, "tool.cancel_requested", {"tool_call_id": tool_call_id, "operation_id": operation_id})
                 return result, False
         result, replay = await run_in_threadpool(register)
-        if not replay and result.status == "cancel_requested":
+        if result.status == "cancel_requested":
             permit = await run_in_threadpool(self._existing_permit, access, tool_call_id)
             receiver = self.executors.get(permit.executor_ref)
             if receiver is not None:
@@ -485,7 +550,11 @@ class WorkspaceReadExecutor:
 
     def _receipt(self, permit, *, status, started=None, exited=None, output=None, completeness="unknown", error=None):
         receipt_id = str(uuid4())
-        return ToolExecutionReceipt(tool_attempt_id=permit.tool_attempt_id, receiver_id=self.receiver_id, receipt_id=receipt_id, status=status, started_at=started, exited_at=exited, source_receipt=self._source(permit, receipt_id), output=output, media_type="application/octet-stream" if output is not None else None, completeness=completeness, error_code=error)
+        source = self._source(permit, receipt_id)
+        if output is not None:
+            source["output_bytes"] = len(output)
+            source["output_sha256"] = sha256(output).hexdigest()
+        return ToolExecutionReceipt(tool_attempt_id=permit.tool_attempt_id, receiver_id=self.receiver_id, receipt_id=receipt_id, status=status, started_at=started, exited_at=exited, source_receipt=source, output=output, media_type="application/octet-stream" if output is not None else None, completeness=completeness, error_code=error)
 
     def _write(self, path, receipt, *, exclusive=False):
         import base64
@@ -526,7 +595,14 @@ class WorkspaceReadExecutor:
         body = value.pop("output_base64")
         value["output"] = base64.b64decode(body, validate=True) if body is not None else None
         receipt = ToolExecutionReceipt.model_validate(value)
-        if receipt.source_receipt != self._source(permit, receipt.receipt_id):
+        expected = self._source(permit, receipt.receipt_id)
+        if any(receipt.source_receipt.get(key) != value for key, value in expected.items()):
+            raise DomainError("INPUT_DIGEST_CONFLICT", 409)
+        if receipt.output is not None and (
+            receipt.source_receipt.get("output_bytes") != len(receipt.output)
+            or receipt.source_receipt.get("output_sha256")
+            != sha256(receipt.output).hexdigest()
+        ):
             raise DomainError("INPUT_DIGEST_CONFLICT", 409)
         return receipt
 

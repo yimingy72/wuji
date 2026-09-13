@@ -1691,6 +1691,10 @@ export interface operations {
             /** @description Admitted model protocol response */
             200: {
                 headers: {
+                    /** @description Durable model attempt identifier for receipt lookup. */
+                    "X-Wuji-Model-Attempt-ID": string;
+                    /** @description Whether the response was replayed from retained bytes. */
+                    "X-Wuji-Replayed": "true" | "false";
                     [name: string]: unknown;
                 };
                 content: {

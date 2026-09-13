@@ -331,6 +331,15 @@ paths:
       responses:
         '200':
           description: Admitted model protocol response
+          headers:
+            X-Wuji-Model-Attempt-ID:
+              required: true
+              description: Durable model attempt identifier for receipt lookup.
+              schema: {type: string, minLength: 1, maxLength: 256}
+            X-Wuji-Replayed:
+              required: true
+              description: Whether the response was replayed from retained bytes.
+              schema: {type: string, enum: ['true', 'false']}
           content:
             application/json:
               schema:
