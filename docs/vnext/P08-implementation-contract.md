@@ -44,6 +44,8 @@ M1 已发布 Profile 的关闭能力和摘要保持不变。新增恢复、记�
 
 机制验收可装配固定的候选组合完成首次真实检查，不伪造其此前已通过的证明，也不要求先有本次 PASS 才允许执行本次验证。运行端只信任部署固定的版本/组合配置，不接受请求中的 passed 布尔值；正式发布与本轮验收结论由实际证据收口。
 
+首次机制候选使用明确的 `validation_status=mechanism_candidate`，与 `verified` 分开。仍由受限部署 owner 登记，绑定确切 tenant/project/task、receiver/runtime_attempt/pod_uid、Profile/client/runtime/framework/lock 组合与短期有效期。Task 激活前必须把 `evaluation_mode=mechanism_synthetic` 固定在不可变定义中；只可连接部署登记的 loopback 合成模型夹具，工具限已登记 workspace_read，执行器来源为 fixture_capture。候选的证据列表如实反映已有资料，允许首次运行前为空；verified 登记仍要求实际完整证据引用。普通身份、Scope、资源/次数限制、真实 SDK、frontier 与发布事务检查都照常执行。验收通过后以新 ref/digest 登记正式组合，不能原地改写候选或自动推广到其他 Task/接收者。
+
 本轮记忆组合采用公开 ContextProvider/AgentFileStore 的固定版本只读输入，Harness FileMemoryProvider 保持关闭；它不自动提取记忆、生成摘要或新增默认文件工具。该候选需证明实际存储/恢复及上下文内容一致，不能把其通过写成自动记忆学习或原生 FileMemoryProvider 已验收。原生压缩另按实际 SDK 行为验证。
 
 ## 输入和批准

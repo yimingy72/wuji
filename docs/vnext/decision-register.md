@@ -15,6 +15,7 @@
 | D09 | 产品 DeliveryProfile 按 v2 S15/AC-069 的证据媒介要求实现；开发验收对实际 HTTP/UI 路径保留完整交换与截图，纯离线材料保留原生字节/摘要/定位，不伪造不适用 HTTP | 若未来用户要求更严格交付，调整对应 Profile，不篡改原始证据 |
 | D10 | 用户后续明确：修复、测试、验证、代码复核和轻量重复工作统一使用 `gpt-5.6-sol/xhigh`，核心功能开发或重大复杂问题才使用 `gpt-6-astra/xhigh`。常规失败不自动升级；保留主代理架构与集成职责，交接复用已有证据 | 核心开发与验证有明确交接，不为模型切换重跑或改写历史执行者 |
 | D11 | 采纳用户补充材料中经主代理裁定的交付组织：保持 P00–P20、架构和 75 AC 编号不变，以 M0–M5 组织可运行交付；补入 checkpoint 已纳入操作/原生消息与持久模型/工具回执的操作前沿核对；区分工程验证的原生证据媒介与客户安全成果既有截图/完整 HTTP 包要求；用六类既有合同交接索引承接，不新建框架或平行事实源。原文件作为 review reference 原字节归档，摘要与详细映射见[交付里程碑](delivery-milestones.md) | M0 先关闭 P06 最终消费者与公开交接，M1 先证明最小真实闭环；后续里程碑不能被当作新增 AC、付费试验、部署授权或已完成状态 |
+| D12 | P08 首次真实机制验证采用受限部署 owner 登记的 mechanism_candidate，与 verified 能力状态明确区分；固定 Task/receiver/版本/有效期、不可变 mechanism_synthetic 定义、loopback 合成模型与 fixture workspace_read 工具；所有真实执行/恢复/事务守卫保留。详见[P08 合同](P08-implementation-contract.md) | 避免“必须先有本次 PASS 才能做首次验证”的循环；候选不是已验证证明、生产发布或收费/外部目标许可，通过后以新正式 ref/digest 收口 |
 
 21 项任务及共享接口逐项检查表在本工作树的忽略台账 `.superpowers/sdd/vnext-v2/preflight.md`，任务完成以提交、具体测试和审查记录为准。源包 `ACCEPTANCE.md` / `VALIDATION_REPORT.md` 保持原始文档检查事实；实施结果另记，不覆盖原包。
 
