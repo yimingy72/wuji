@@ -192,49 +192,97 @@ class FactLedger:
     def read(self, access, task_id, ref, *, snapshot_id=None):
         ref = KnowledgeRef.model_validate(ref)
         with self.uow.transaction(access, task_id, repeatable_read=True) as tx:
-            record = resolve(tx, ref)
             manifest = None
             if snapshot_id:
-                if ref.entity_type.value == "claim":
-                    require_complete_assessments(tx, record)
                 from wuji_core.persistence.snapshots import SnapshotRepository
 
                 manifest = SnapshotRepository(self.uow)._get(tx, snapshot_id)
-                if ref not in manifest.refs:
-                    raise DomainError("INVALID_REFERENCE", 422)
-                for basis in manifest.refs:
-                    resolve(tx, basis)
-            if ref.entity_type.value == "intent":
-                value = IntentRecord.model_validate(
-                    dict(
-                        intent_id=ref.id,
-                        revision=ref.revision.root,
-                        task_id=task_id,
-                        question=record["question"],
-                        basis_refs=strict_json_loads(record["basis_json"]),
-                        expected_output=record["expected_output"],
-                        acceptance_state=record["acceptance_state"],
-                        created_at=record["created_at"],
-                    )
+            return self.read_in_transaction(tx, ref, manifest=manifest)
+
+    def read_in_transaction(self, tx, ref, *, manifest=None) -> RecordView:
+        ref = KnowledgeRef.model_validate(ref)
+        record = resolve(tx, ref)
+        canonical_manifest = None
+        if manifest is not None:
+            if (
+                tuple(
+                    getattr(manifest, key, None)
+                    for key in ("tenant_id", "project_id", "task_id")
                 )
-                return RecordView.model_validate(
-                    dict(ref=ref, display_kind="intent", record=value)
+                != tuple(tx.owner)
+            ):
+                raise DomainError("NOT_FOUND_OR_FORBIDDEN")
+            snapshot_id = getattr(manifest, "snapshot_id", None)
+            if not snapshot_id:
+                raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+            from wuji_core.persistence.snapshots import SnapshotRepository
+
+            canonical_manifest = SnapshotRepository(self.uow)._get(tx, snapshot_id)
+            if (
+                (
+                    canonical_manifest.tenant_id,
+                    canonical_manifest.project_id,
+                    canonical_manifest.task_id,
                 )
-            if ref.entity_type.value != "claim":
+                != tuple(tx.owner)
+            ):
+                raise DomainError("NOT_FOUND_OR_FORBIDDEN")
+            manifest_fields = (
+                "snapshot_id",
+                "tenant_id",
+                "project_id",
+                "task_id",
+                "query_digest",
+                "access_digest",
+                "created_at",
+                "expires_at",
+                "refs",
+                "states",
+                "dependencies",
+                "relations",
+            )
+            if any(
+                getattr(manifest, key, None) != getattr(canonical_manifest, key)
+                for key in manifest_fields
+            ):
+                raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+            if ref not in canonical_manifest.refs:
                 raise DomainError("INVALID_REFERENCE", 422)
-            if snapshot_id:
-                key = ref.id + "@" + ref.revision.root
-                frozen = manifest.states.get("claim_assessments", {}).get(key)
-                if frozen is None:
-                    raise DomainError("HISTORY_UNAVAILABLE", 410)
-                assessment = ClaimAssessmentView.model_validate(frozen)
-            else:
-                assessment = aggregate(tx, record)
-            return RecordView.model_validate(
+            if ref.entity_type.value == "claim":
+                require_complete_assessments(tx, record)
+            for basis in canonical_manifest.refs:
+                resolve(tx, basis)
+        if ref.entity_type.value == "intent":
+            value = IntentRecord.model_validate(
                 dict(
-                    ref=ref,
-                    display_kind="fact" if assessment.eligible else "claim",
-                    record=claim_record(tx, record),
-                    assessment=assessment,
+                    intent_id=ref.id,
+                    revision=ref.revision.root,
+                    task_id=tx.owner[2],
+                    question=record["question"],
+                    basis_refs=strict_json_loads(record["basis_json"]),
+                    expected_output=record["expected_output"],
+                    acceptance_state=record["acceptance_state"],
+                    created_at=record["created_at"],
                 )
             )
+            return RecordView.model_validate(
+                dict(ref=ref, display_kind="intent", record=value)
+            )
+        if ref.entity_type.value != "claim":
+            raise DomainError("INVALID_REFERENCE", 422)
+        if canonical_manifest is not None:
+            key = ref.id + "@" + ref.revision.root
+            frozen = canonical_manifest.states.get("claim_assessments", {}).get(key)
+            if frozen is None:
+                raise DomainError("HISTORY_UNAVAILABLE", 410)
+            assessment = ClaimAssessmentView.model_validate(frozen)
+        else:
+            assessment = aggregate(tx, record)
+        return RecordView.model_validate(
+            dict(
+                ref=ref,
+                display_kind="fact" if assessment.eligible else "claim",
+                record=claim_record(tx, record),
+                assessment=assessment,
+            )
+        )
