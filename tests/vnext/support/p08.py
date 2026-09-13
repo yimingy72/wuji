@@ -22,7 +22,7 @@ from openai.types.chat.chat_completion_chunk import (
 
 from wuji_core.contracts.admission import ToolCallReceipt
 from wuji_core.contracts.sessions import NATIVE_REJECTION_TEXT_CORE_1_18_0, SessionLimits
-from wuji_core.http import canonical_json_bytes, create_app
+from wuji_core.http import canonical_json_bytes, create_app, strict_json_loads
 from wuji_core.persistence.snapshots import SnapshotRepository
 from wuji_maf_worker.context import ContextLimits, build_context_bundle
 from wuji_maf_worker.tools import ModelCallIdentity
@@ -156,7 +156,14 @@ def pending_native_identity():
 
 
 @contextmanager
-def p08_candidate_case(environment, tmp_path, audit_directory, *, reject=False):
+def p08_candidate_case(
+    environment,
+    tmp_path,
+    audit_directory,
+    *,
+    reject=False,
+    initial_child=False,
+):
     """One production Scheduler assignment through PG, Gates and released MAF."""
 
     factory = import_module("wuji_maf_worker.factory")
@@ -189,7 +196,7 @@ def p08_candidate_case(environment, tmp_path, audit_directory, *, reject=False):
     fixed_limits = SessionLimits(
         max_objects=64,
         max_reference_depth=8,
-        max_object_bytes=16_384,
+        max_object_bytes=32_768,
         max_total_bytes=65_536,
         max_messages=128,
         max_pending_approvals=4,
@@ -493,7 +500,7 @@ def p08_candidate_case(environment, tmp_path, audit_directory, *, reject=False):
                 audit_directory / "platform-gate-http.jsonl",
             )
 
-            def child_execute(target):
+            def child_execute(target, *, expect_input=False):
                 from support.m2 import (
                     NodeBridgeSupervisor,
                     _context_builder,
@@ -612,9 +619,23 @@ def p08_candidate_case(environment, tmp_path, audit_directory, *, reject=False):
                     launch_directory = worker_directory.parent
                     deadline = time.monotonic() + 20
                     while time.monotonic() < deadline:
-                        if (
-                            (worker_directory / "result-request.json").is_file()
-                            and (worker_directory / "sdk-request.json").is_file()
+                        session_published = list(
+                            worker_directory.glob(
+                                "p08-publish-session-response-*.json"
+                            )
+                        )
+                        input_registered = list(
+                            worker_directory.glob(
+                                "p08-register-input-response-*.json"
+                            )
+                        )
+                        if (worker_directory / "sdk-request.json").is_file() and (
+                            bool(session_published)
+                            and (
+                                bool(input_registered)
+                                if expect_input
+                                else (worker_directory / "result-request.json").is_file()
+                            )
                         ):
                             break
                         time.sleep(0.05)
@@ -631,6 +652,26 @@ def p08_candidate_case(environment, tmp_path, audit_directory, *, reject=False):
                         if stderr_path.is_file()
                         else ""
                     )
+                    session_receipt = None
+                    input_receipt = None
+                    published_responses = list(
+                        worker_directory.glob(
+                            "p08-publish-session-response-*.json"
+                        )
+                    )
+                    if len(published_responses) == 1:
+                        session_receipt = controller.session_codec.decode_receipt(
+                            strict_json_loads(published_responses[0].read_bytes())
+                        )
+                    input_responses = list(
+                        worker_directory.glob(
+                            "p08-register-input-response-*.json"
+                        )
+                    )
+                    if len(input_responses) == 1:
+                        input_receipt = controller.session_codec.decode_input_receipt(
+                            strict_json_loads(input_responses[0].read_bytes())
+                        )
                     exited = None
                     query_deadline = time.monotonic() + 10
                     while time.monotonic() < query_deadline:
@@ -651,6 +692,8 @@ def p08_candidate_case(environment, tmp_path, audit_directory, *, reject=False):
                         worker_directory=worker_directory,
                         worker_files=worker_files,
                         worker_stderr=worker_stderr,
+                        session_receipt=session_receipt,
+                        input_receipt=input_receipt,
                     )
                 finally:
                     controller.close()
@@ -700,12 +743,12 @@ def p08_candidate_case(environment, tmp_path, audit_directory, *, reject=False):
                     runtime=target_runtime,
                 )
 
-            initial = runtime_for(assignment)
-            credential = initial.credential
-            snapshot = initial.snapshot
-            context = initial.context
-            host = initial.host
-            runtime = initial.runtime
+            initial = None if initial_child else runtime_for(assignment)
+            credential = None if initial is None else initial.credential
+            snapshot = None if initial is None else initial.snapshot
+            context = None if initial is None else initial.context
+            host = None if initial is None else initial.host
+            runtime = None if initial is None else initial.runtime
             yield SimpleNamespace(**locals())
     finally:
         if approval_client is not None:

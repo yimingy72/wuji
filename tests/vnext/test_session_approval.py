@@ -266,14 +266,17 @@ def test_real_approval_http_resumes_original_session_and_executes_once(
         db_environment,
         tmp_path,
         audit_directory,
+        initial_child=True,
     ) as case:
         case.upstream.release_first_response.set()
-        initial_events = asyncio.run(
-            _consume_runtime(case.runtime, case.assignment)
-        )
-        assert [event.kind for event in initial_events] == ["input_receipt"]
+        initial = case.child_execute(case.assignment, expect_input=True)
+        assert initial.exited["observation"]["process"]["exit_code"] == 0
+        assert initial.started.observation.process.pid == initial.exited[
+            "observation"
+        ]["process"]["pid"]
+        assert initial.input_receipt is not None
+        assert initial.session_receipt is not None
         original_binding = _published_session(case).history.frontier.pending_approvals[0]
-        case.record_process(case.assignment, "exited")
         with case.control.uow.transaction(
             case.scheduler.receiver_access,
             TASK,
@@ -285,7 +288,7 @@ def test_real_approval_http_resumes_original_session_and_executes_once(
             )
         assert recovery.resumable, recovery
 
-        approval_ref = case.runtime.input_receipt.approval_refs[0]
+        approval_ref = initial.input_receipt.approval_refs[0]
         response = case.approval_client.post(
             f"/api/v2/approvals/{approval_ref}/decisions",
             json={
@@ -309,7 +312,7 @@ def test_real_approval_http_resumes_original_session_and_executes_once(
         assert resumed_assignment.session_manifest_ref is not None
         assert (
             resumed_assignment.session_manifest_ref.root
-            == case.runtime.session_receipt.manifest_ref
+            == initial.session_receipt.manifest_ref
         )
         resumed = case.child_execute(resumed_assignment)
 
@@ -318,7 +321,7 @@ def test_real_approval_http_resumes_original_session_and_executes_once(
         )
         assert resumed.final.state == "exited"
         assert resumed.credential.binding.session_lineage == (
-            case.credential.binding.session_lineage
+            initial.credential.binding.session_lineage
         )
         assert case.upstream.received_tool_receipt is not None
         restored_binding = _published_session(case).provider_state.call_bindings[0]
@@ -343,7 +346,23 @@ def test_real_approval_http_resumes_original_session_and_executes_once(
             manifests = connection.execute(
                 "SELECT manifest_json::jsonb->>'recovery_class' "
                 "FROM vnext.session_manifest WHERE session_id=%s ORDER BY revision",
-                (case.runtime.session_receipt.session_id,),
+                (initial.session_receipt.session_id,),
+            ).fetchall()
+            retired = connection.execute(
+                "SELECT credential.revoked,writer.revoked FROM vnext.run_credential credential "
+                "JOIN vnext.run_writer writer USING(tenant_id,project_id,task_id,agent_run_id,subject) "
+                "WHERE credential.agent_run_id=%s AND credential.subject=%s "
+                "AND credential.token_id=%s",
+                (
+                    case.assignment.identity.agent_run_id,
+                    initial.credential.principal.subject,
+                    initial.credential.principal.token_id,
+                ),
+            ).fetchone()
+            capacity = connection.execute(
+                "SELECT state FROM vnext.capacity_reservation WHERE agent_run_id=%s "
+                "ORDER BY pool_key",
+                (case.assignment.identity.agent_run_id,),
             ).fetchall()
         assert approval[0:2] == ("approve", "consumed")
         assert approval[2] == call[1]
@@ -351,6 +370,8 @@ def test_real_approval_http_resumes_original_session_and_executes_once(
         assert call[0] == "complete"
         assert attempts == 1
         assert manifests == [("approval_boundary",), ("settled_boundary",)]
+        assert retired == (True, True)
+        assert capacity and {state for (state,) in capacity} == {"released"}
 
 
 def test_real_rejection_http_restores_native_denial_without_execution(
@@ -363,17 +384,20 @@ def test_real_rejection_http_restores_native_denial_without_execution(
         tmp_path,
         audit_directory,
         reject=True,
+        initial_child=True,
     ) as case:
         case.upstream.release_first_response.set()
-        initial_events = asyncio.run(
-            _consume_runtime(case.runtime, case.assignment)
-        )
-        assert [event.kind for event in initial_events] == ["input_receipt"]
+        initial = case.child_execute(case.assignment, expect_input=True)
+        assert initial.exited["observation"]["process"]["exit_code"] == 0
+        assert initial.started.observation.process.pid == initial.exited[
+            "observation"
+        ]["process"]["pid"]
+        assert initial.input_receipt is not None
+        assert initial.session_receipt is not None
         original = _published_session(case)
         original_binding = original.history.frontier.pending_approvals[0]
-        case.record_process(case.assignment, "exited")
 
-        approval_ref = case.runtime.input_receipt.approval_refs[0]
+        approval_ref = initial.input_receipt.approval_refs[0]
         response = case.approval_client.post(
             f"/api/v2/approvals/{approval_ref}/decisions",
             json={
@@ -400,9 +424,9 @@ def test_real_rejection_http_restores_native_denial_without_execution(
             resumed.worker_stderr
         )
         assert resumed.final.state == "exited"
-        assert resumed.credential.principal.token_id != case.credential.principal.token_id
+        assert resumed.credential.principal.token_id != initial.credential.principal.token_id
         assert resumed.credential.binding.session_lineage == (
-            case.credential.binding.session_lineage
+            initial.credential.binding.session_lineage
         )
         assert case.upstream.received_tool_receipt is None
         assert case.upstream.received_rejection == {
@@ -453,6 +477,22 @@ def test_real_rejection_http_restores_native_denial_without_execution(
                     resumed.credential.principal.subject,
                 ),
             ).fetchone()
+            retired = connection.execute(
+                "SELECT credential.revoked,writer.revoked FROM vnext.run_credential credential "
+                "JOIN vnext.run_writer writer USING(tenant_id,project_id,task_id,agent_run_id,subject) "
+                "WHERE credential.agent_run_id=%s AND credential.subject=%s "
+                "AND credential.token_id=%s",
+                (
+                    case.assignment.identity.agent_run_id,
+                    initial.credential.principal.subject,
+                    initial.credential.principal.token_id,
+                ),
+            ).fetchone()
+            capacity = connection.execute(
+                "SELECT state FROM vnext.capacity_reservation WHERE agent_run_id=%s "
+                "ORDER BY pool_key",
+                (case.assignment.identity.agent_run_id,),
+            ).fetchall()
         assert approval == ("reject", "decided", None, None)
         assert call == ("cancelled", None)
         assert attempts == 0
@@ -460,9 +500,11 @@ def test_real_rejection_http_restores_native_denial_without_execution(
             True,
             True,
             True,
-            case.runtime.session_receipt.manifest_ref,
-            case.credential.binding.session_lineage,
+            initial.session_receipt.manifest_ref,
+            initial.credential.binding.session_lineage,
         )
+        assert retired == (True, True)
+        assert capacity and {state for (state,) in capacity} == {"released"}
 
 
 def _published_session(case):
