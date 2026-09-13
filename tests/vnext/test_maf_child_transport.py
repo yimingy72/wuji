@@ -1,8 +1,12 @@
 """M2 tests for the actual MAF controller/child transport."""
 
 import base64
+import runpy
+import sqlite3
 import time
 from hashlib import sha256
+from pathlib import Path
+from threading import Event, Thread
 
 import httpx
 import pytest
@@ -18,9 +22,12 @@ from support.m2 import (
 )
 from wuji_core.admission.registry import revoke_run_credential
 from wuji_core.contracts.envelopes import ResultReceipt, WorkerAssignment
+from wuji_core.execution.dispatch_outbox import DispatchOutbox
 from wuji_core.execution.reconcile import RegisteredRun, validate_receipt
+from wuji_core.execution.runtime_dispatcher import RuntimeDispatcher
 from wuji_core.http import canonical_json_bytes, strict_json_loads
-from wuji_core.persistence.uow import DomainError
+from wuji_core.http.auth import Principal
+from wuji_core.persistence.uow import AccessContext, DomainError
 
 
 def test_worker_host_bridge_exposes_the_start_permission_boundary():
@@ -69,6 +76,88 @@ def test_process_receipt_rejects_a_non_harness_assignment_profile():
 
     with pytest.raises(DomainError, match="STALE_EXECUTION"):
         validate_receipt(run, receipt)
+
+
+def test_runtime_service_owns_its_real_dispatch_journal_thread(tmp_path):
+    body = assignment_body()
+    body["profile_refs"] = [
+        body["profile_refs"][0],
+        "fixture-model-v1",
+        "fixture-runtime-v1",
+    ]
+    assignment = WorkerAssignment.model_validate(body)
+    receiver = receiver_body()
+    registered = RegisteredRun(
+        identity=assignment.identity,
+        start_operation_id=assignment.operation_id,
+        environment_ref=receiver["environment_ref"],
+        pod_uid=receiver["pod_uid"],
+        assignment_digest=sha256(
+            canonical_json_bytes(assignment.model_dump(mode="json"))
+        ).hexdigest(),
+        work_kind=assignment.work_kind.value,
+        harness_profile_id=assignment.profile_refs[0].root,
+        harness_profile_digest="a" * 64,
+    )
+    access = AccessContext(
+        Principal(
+            subject="observer-fixture",
+            tenant_id="tenant-fixture",
+            roles=frozenset({"controller"}),
+            token_id="runtime-service-token",
+        ),
+        "runtime-service-thread",
+    )
+    journal_path = tmp_path / "runtime-dispatch.sqlite3"
+    outbox = DispatchOutbox(
+        None,
+        access=access,
+        transport=object(),
+        journal_path=journal_path,
+    )
+    stop = Event()
+
+    class JournalRuntime(RuntimeDispatcher):
+        def run_once(self, *, limit=16):
+            del limit
+            stop.set()
+            self.outbox.journal.reserve_send(registered)
+            return ()
+
+    dispatcher = JournalRuntime(
+        None,
+        access=access,
+        authorized_task_ids=(),
+        work_kinds=("explore",),
+        outbox=outbox,
+        reconciler=object(),
+    )
+    service = runpy.run_path(
+        str(Path(__file__).resolve().parents[2] / "services/wuji-runtime/main.py")
+    )
+    errors = []
+
+    def invoke():
+        try:
+            service["run"](
+                dispatcher,
+                stop=stop,
+                interval_seconds=0.001,
+                batch_limit=1,
+            )
+        except Exception as error:
+            errors.append(error)
+
+    worker = Thread(target=invoke, name="runtime-service-test")
+    worker.start()
+    worker.join(timeout=2)
+
+    assert not worker.is_alive()
+    assert errors == []
+    with sqlite3.connect(journal_path) as connection:
+        assert connection.execute(
+            "SELECT attempted FROM delivery"
+        ).fetchall() == [(1,)]
 
 
 def test_generated_worker_bridge_wire_is_bounded_and_strict():
@@ -254,9 +343,25 @@ def test_worker_revoked_after_ready_is_rejected_at_result_writepoint(
     ) as case:
         started = case.dispatcher.deliver_pending(limit=1)[0]
         case.dispatcher.reconcile(started.run)
-        assert case.upstream.first_request_started.wait(timeout=5)
+        # This case verifies the output writepoint, not model-start timing. Let
+        # the localhost peer respond immediately, then wait on actual durable
+        # Worker files and the real revoked write response.
         case.upstream.release_first_response.set()
         worker_directory = case.node.worker_directory()
+        assert _wait_for(
+            lambda: (
+                (worker_directory / "result-request.json").is_file()
+                and (worker_directory / "sdk-request.json").is_file()
+                and case.worker_write_state["revocations"] == 1
+                and any(
+                    exchange.path
+                    == "/internal/v2/worker-host/submit-result"
+                    and exchange.status_code == 409
+                    for exchange in case.controller_server.exchanges
+                )
+            ),
+            timeout=15,
+        )
         _wait_for(
             lambda: (
                 response
@@ -268,12 +373,6 @@ def test_worker_revoked_after_ready_is_rejected_at_result_writepoint(
         )
 
         assert case.worker_write_state["revocations"] == 1
-        assert (worker_directory / "result-request.json").is_file()
-        assert any(
-            exchange.path == "/internal/v2/worker-host/submit-result"
-            and exchange.status_code == 409
-            for exchange in case.controller_server.exchanges
-        )
         with db_environment.migration_connection() as connection:
             result_row = connection.execute(
                 """SELECT r.receipt_json FROM vnext.result_submission s
@@ -334,6 +433,29 @@ def test_actual_supervisor_child_waits_for_start_and_receiver_replays_bytes(
         assert case.upstream.first_request_started.wait(timeout=5)
         case.upstream.release_first_response.set()
 
+        # The two restricted files prove the child produced the exact retained
+        # requests. Do not query Node yet: query invokes persistResults.
+        assert _wait_for(
+            lambda: (
+                (worker_directory / "result-request.json").is_file()
+                and (worker_directory / "sdk-request.json").is_file()
+                and case.controller_fault.rejections == 1
+            ),
+            timeout=15,
+        )
+        before_network = (
+            len(case.upstream.exchanges),
+            len(case.gate_server.exchanges),
+        )
+        if revoke_before_first_intake:
+            with db_environment.migration_connection() as connection:
+                revoke_run_credential(
+                    connection,
+                    tenant_id=case.worker.principal.tenant_id,
+                    subject=case.worker.principal.subject,
+                    token_id=case.worker.principal.token_id,
+                )
+        # This is the first Node observation allowed to invoke persistResults.
         exited_response = _wait_for(
             lambda: (
                 response
@@ -348,24 +470,8 @@ def test_actual_supervisor_child_waits_for_start_and_receiver_replays_bytes(
         assert exited["observation"]["process"]["birth_id"] == process.birth_id
         assert exited["observation"]["process"]["exit_code"] == 1
         assert case.controller_fault.rejections == 1
-        assert (worker_directory / "result-request.json").is_file()
-        assert (worker_directory / "sdk-request.json").is_file()
         assert not (worker_directory / "result-receipt.json").exists()
 
-        before_network = (
-            len(case.upstream.exchanges),
-            len(case.gate_server.exchanges),
-        )
-        if revoke_before_first_intake:
-            # Revoke the actual Worker before the first controller intake. The
-            # receiver may settle the retained bytes only as historical output.
-            with db_environment.migration_connection() as connection:
-                revoke_run_credential(
-                    connection,
-                    tenant_id=case.worker.principal.tenant_id,
-                    subject=case.worker.principal.subject,
-                    token_id=case.worker.principal.token_id,
-                )
         final = case.dispatcher.reconcile(registered)
         assert final.state == "exited"
         with db_environment.migration_connection() as connection:
@@ -419,9 +525,10 @@ def test_actual_supervisor_child_waits_for_start_and_receiver_replays_bytes(
 
         replay = case.runtime.outbox.deliver(TASK, case.assignment.operation_id)
         assert replay.state == "exited"
-        assert replay.observation.process.model_dump(mode="json") == exited[
-            "observation"
-        ]["process"]
+        expected_process = type(replay.observation.process).model_validate(
+            exited["observation"]["process"]
+        )
+        assert replay.observation.process == expected_process
         assert len(list((case.node.directory / "inbox/launches").iterdir())) == 1
         launch = worker_directory.parent
         public_bytes = b"".join(
