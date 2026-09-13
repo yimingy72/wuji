@@ -121,15 +121,141 @@ def upgrade(connection, application_role):
         "vnext.guard_admission_counter_purpose()"
     )
     connection.execute(
-        "REVOKE EXECUTE ON FUNCTION vnext.guard_admission_counter_purpose() "
-        "FROM PUBLIC"
+        """CREATE FUNCTION vnext.guard_model_call_purpose()
+        RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog AS $$
+        DECLARE purpose text := current_setting('wuji.request_purpose',true);
+        BEGIN
+          IF purpose='model_request' THEN
+            IF OLD.send_state<>'not_sent' OR NEW.send_state<>'sending'
+               OR ROW(NEW.response_state,NEW.billing_state,NEW.local_state,NEW.inflight,
+                      NEW.upstream_status,NEW.content_type,NEW.gateway_usage_ref,
+                      NEW.gateway_spend_ref,NEW.response_available,NEW.received_bytes,
+                      NEW.retained_bytes,NEW.forwarded_bytes,NEW.output_bytes,
+                      NEW.settlement_json)
+                  IS DISTINCT FROM
+                  ROW(OLD.response_state,OLD.billing_state,OLD.local_state,OLD.inflight,
+                      OLD.upstream_status,OLD.content_type,OLD.gateway_usage_ref,
+                      OLD.gateway_spend_ref,OLD.response_available,OLD.received_bytes,
+                      OLD.retained_bytes,OLD.forwarded_bytes,OLD.output_bytes,
+                      OLD.settlement_json) THEN
+              RAISE EXCEPTION 'model request cannot mutate settlement fields' USING ERRCODE='42501';
+            END IF;
+          ELSIF purpose='model_settle' THEN
+            IF OLD.send_state='not_sent' AND NEW.send_state IS DISTINCT FROM OLD.send_state THEN
+              RAISE EXCEPTION 'model settlement cannot cross the send fence' USING ERRCODE='42501';
+            END IF;
+          ELSE
+            RAISE EXCEPTION 'model write purpose required' USING ERRCODE='42501';
+          END IF;
+          RETURN NEW;
+        END $$"""
     )
     connection.execute(
-        sql.SQL(
-            "GRANT EXECUTE ON FUNCTION "
-            "vnext.guard_admission_counter_purpose() TO {}"
-        ).format(app)
+        "CREATE TRIGGER model_call_purpose BEFORE UPDATE ON vnext.model_call "
+        "FOR EACH ROW EXECUTE FUNCTION vnext.guard_model_call_purpose()"
     )
+    connection.execute(
+        """CREATE FUNCTION vnext.guard_tool_attempt_purpose()
+        RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog AS $$
+        DECLARE purpose text := current_setting('wuji.request_purpose',true);
+        BEGIN
+          IF purpose='tool_request' THEN
+            IF OLD.status<>'admitted' OR NEW.status<>'dispatched'
+               OR ROW(NEW.started_at,NEW.receipt_json,NEW.output,NEW.output_media_type,
+                      NEW.output_completeness,NEW.capture_json,NEW.result_receipt_json,
+                      NEW.received_bytes,NEW.retained_bytes,NEW.forwarded_bytes,
+                      NEW.output_bytes,NEW.received_digest,NEW.limit_reason)
+                  IS DISTINCT FROM
+                  ROW(OLD.started_at,OLD.receipt_json,OLD.output,OLD.output_media_type,
+                      OLD.output_completeness,OLD.capture_json,OLD.result_receipt_json,
+                      OLD.received_bytes,OLD.retained_bytes,OLD.forwarded_bytes,
+                      OLD.output_bytes,OLD.received_digest,OLD.limit_reason) THEN
+              RAISE EXCEPTION 'tool request cannot mutate settlement fields' USING ERRCODE='42501';
+            END IF;
+          ELSIF purpose<>'tool_settle' THEN
+            RAISE EXCEPTION 'tool write purpose required' USING ERRCODE='42501';
+          END IF;
+          RETURN NEW;
+        END $$"""
+    )
+    connection.execute(
+        "CREATE TRIGGER tool_attempt_purpose BEFORE UPDATE ON vnext.tool_attempt "
+        "FOR EACH ROW EXECUTE FUNCTION vnext.guard_tool_attempt_purpose()"
+    )
+    connection.execute(
+        """CREATE FUNCTION vnext.guard_tool_call_purpose()
+        RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog AS $$
+        DECLARE purpose text := current_setting('wuji.request_purpose',true);
+        BEGIN
+          IF purpose='tool_request' THEN
+            IF NEW.status NOT IN ('pending_approval','admitted','dispatched','cancel_requested','cancelled')
+               OR (OLD.status IN ('complete','failed','cancelled') AND NEW IS DISTINCT FROM OLD) THEN
+              RAISE EXCEPTION 'tool request cannot forge settlement status' USING ERRCODE='42501';
+            END IF;
+          ELSIF purpose<>'tool_settle' THEN
+            RAISE EXCEPTION 'tool write purpose required' USING ERRCODE='42501';
+          END IF;
+          RETURN NEW;
+        END $$"""
+    )
+    connection.execute(
+        "CREATE TRIGGER tool_call_purpose BEFORE UPDATE ON vnext.tool_call "
+        "FOR EACH ROW EXECUTE FUNCTION vnext.guard_tool_call_purpose()"
+    )
+    connection.execute(
+        """CREATE FUNCTION vnext.guard_resource_reservation_purpose()
+        RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog AS $$
+        DECLARE purpose text := current_setting('wuji.request_purpose',true);
+        BEGIN
+          IF purpose='tool_request' THEN
+            IF OLD.state<>'released' OR NEW.state<>'reserved' THEN
+              RAISE EXCEPTION 'tool request cannot release or settle resources' USING ERRCODE='42501';
+            END IF;
+          ELSIF purpose<>'tool_settle' THEN
+            RAISE EXCEPTION 'tool resource write purpose required' USING ERRCODE='42501';
+          END IF;
+          RETURN NEW;
+        END $$"""
+    )
+    connection.execute(
+        "CREATE TRIGGER resource_reservation_purpose BEFORE UPDATE ON "
+        "vnext.resource_reservation FOR EACH ROW EXECUTE FUNCTION "
+        "vnext.guard_resource_reservation_purpose()"
+    )
+    connection.execute(
+        """CREATE FUNCTION vnext.guard_run_settlement_purpose()
+        RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog AS $$
+        DECLARE purpose text := current_setting('wuji.request_purpose',true);
+        BEGIN
+          IF purpose='tool_request' AND NEW.status<>'pending' THEN
+            RAISE EXCEPTION 'tool request cannot forge settled operations' USING ERRCODE='42501';
+          ELSIF purpose NOT IN ('tool_request','tool_settle') THEN
+            RAISE EXCEPTION 'tool settlement purpose required' USING ERRCODE='42501';
+          END IF;
+          RETURN NEW;
+        END $$"""
+    )
+    connection.execute(
+        "CREATE TRIGGER run_settlement_purpose BEFORE UPDATE ON "
+        "vnext.run_operation_settlement FOR EACH ROW EXECUTE FUNCTION "
+        "vnext.guard_run_settlement_purpose()"
+    )
+    for function in (
+        "guard_admission_counter_purpose",
+        "guard_model_call_purpose",
+        "guard_tool_attempt_purpose",
+        "guard_tool_call_purpose",
+        "guard_resource_reservation_purpose",
+        "guard_run_settlement_purpose",
+    ):
+        connection.execute(
+            f"REVOKE EXECUTE ON FUNCTION vnext.{function}() FROM PUBLIC"
+        )
+        connection.execute(
+            sql.SQL(f"GRANT EXECUTE ON FUNCTION vnext.{function}() TO {{}}").format(
+                app
+            )
+        )
     connection.execute(
         "INSERT INTO vnext.schema_migration(head) VALUES(%s)", (HEAD,)
     )
