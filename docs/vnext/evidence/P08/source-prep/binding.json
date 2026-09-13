@@ -1,0 +1,30 @@
+{
+  "schema_version": "wuji.p08.source-prep-binding.v1",
+  "code_commit": "c021be3",
+  "scope": "SOURCE_ONLY no-DB interface, candidate contract, identity and migration parsing checks",
+  "tested_files": {
+    "packages/wuji-core/src/wuji_core/admission/registry.py": "fe0c6b3aaa25a4894ad68ab8e4fa11fd61f1bcc516943c40ad506e96b9a75b73",
+    "packages/wuji-core/src/wuji_core/contracts/sessions.py": "f97cf952b0c96ef7a168d56f0d178b2807542a964e921f70e103909f7f2f5df8",
+    "packages/wuji-core/src/wuji_core/persistence/session_schema.py": "c3de2942de759f43b9f48920502520e444aebbcd18391c044cb8fb959ba3ff80",
+    "packages/wuji-core/src/wuji_core/persistence/schema.py": "edf020a0850bcd5a8a6551bcb293e90b9d580ba3f96d603058847086e6fe0cfd",
+    "ops/vnext/migrations/README.md": "99a884198c7504694bd0ce52010e3d80cabe4f29d2ae18e63c99769876f9fb3e",
+    "tests/vnext/test_session_approval.py": "60ac36db8d24668aae5df5712636bab66775aa9262e696c847ac9b4a097a6dfb"
+  },
+  "raw_runs": {
+    "platform-interface-a755847-1": {"result": "exit 0; 1 passed in 2.05s", "stdout_sha256": "90fc736589444c2f8d43b089c2fb5165bc2434b3696fd0774aaf1df2c84e135b", "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
+    "platform-pure-a755847-1": {"result": "exit 0; 2 passed in 1.04s", "stdout_sha256": "b9df1690bd9da59a1cbf5d661b9767a780f87f17d6dfe465e9b893e4ef630620", "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
+    "candidate-contract-red-a755847-1": {"result": "exit 1; 1 failed in 1.01s", "stdout_sha256": "a2074d9d04d94256644589c1b23f17458108c35d0febbb70987e7f6c6b7cf67a", "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
+    "candidate-identity-red-7c08a5e-1": {"result": "exit 1; 1 failed in 1.29s", "stdout_sha256": "ffe3859300659ed92615b5bca0de310c088a79a135989a6c2b68cb408f6896db", "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
+    "candidate-identity-green-7c08a5e-1": {"result": "exit 0; 1 passed in 1.19s", "stdout_sha256": "cd62650992875d2bd91739d1835471a97c2dcc902280688a10571141a5550ba4", "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
+    "candidate-verified-green-7c08a5e-1": {"result": "exit 0; 1 passed in 0.71s", "stdout_sha256": "03136b334d3b5391af599f5e5786026456647ea8fa71aee735c017115bb88633", "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
+    "migration-interface-red-1304e93-1": {"result": "exit 1; 1 failed in 0.99s", "stdout_sha256": "77381e62f0164715c8de63181ab9500729370a9db266160844efbe9131f440c8", "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
+    "migration-interface-green-b8b2b48-1": {"result": "exit 0; 1 passed in 0.83s", "stdout_sha256": "ec14057963304e4844c7825b2ffca52d867a33ae2c25c4b73d5fca5911ef0a69", "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}
+  },
+  "not_run": [
+    "candidate owner registration and runtime consumption",
+    "vnext_0014 DDL/RLS/upgrade",
+    "Session publication/CAS/GC",
+    "approval atomic consumption",
+    "real SDK/Gate/child/Host/HTTP"
+  ]
+}

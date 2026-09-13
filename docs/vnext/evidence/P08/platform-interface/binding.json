@@ -1,0 +1,22 @@
+{
+  "schema_version": "wuji.p08.platform-interface-binding.v1",
+  "code_commit": "a75584777af917d269480f48af97a696ecb0a821",
+  "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_session_approval.py::test_session_repository_exposes_frozen_publish_and_load_contract -q",
+  "exit_code": 0,
+  "result": "1 passed, 1 warning in 2.05s",
+  "raw_source": {
+    "directory": "work/p08/platform-interface-a755847-1",
+    "retention": "ignored restricted local evidence",
+    "stdout_sha256": "90fc736589444c2f8d43b089c2fb5165bc2434b3696fd0774aaf1df2c84e135b",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "exit_code_sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "head_sha256": "53e2dfbc02821da76d98c12e2024305548e1e39dd18d883e3313e0a6ef3fdd61",
+    "file_sha256_manifest_sha256": "f6796a985bd1478a986d1d9daa933171e8b4496c856e57775b8c8568e1fa7440"
+  },
+  "tested_files": {
+    "packages/wuji-core/src/wuji_core/execution/sessions.py": "5f8a94a5617cf595c9b75e58bc8511c6004b2e9c496188e2beb716be58d3d76b",
+    "tests/vnext/test_session_approval.py": "6b5335e126f979886fffc0283b247eb4ef125d43e523ad5eae94e5914dc60d70",
+    "tests/vnext/support/p08.py": "082b32c1125846f3d6eda48e6e59b2da4e9a21e92b117a6037736a7f3d41921b"
+  },
+  "scope": "public interface shape only; no UoW, DB, Host, SDK model request, ToolGate, HTTP, B2 transport, or capability publication"
+}
