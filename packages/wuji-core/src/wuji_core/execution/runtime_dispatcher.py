@@ -211,6 +211,7 @@ def build_runtime_controller(
     child_config,
     journal_path,
     spool_directory,
+    approval_service=None,
     json_limits: JsonBoundaryLimits = DEFAULT_JSON_LIMITS,
     max_configured_tasks: int = 10_000,
 ) -> RuntimeController:
@@ -253,6 +254,12 @@ def build_runtime_controller(
         session_resolve_encoder=session_resolve_encoder,
     )
     routers = [create_worker_host_router(bridge)]
+    if approval_service is not None:
+        if not callable(getattr(approval_service, "decide", None)):
+            raise ValueError("a real ApprovalService decision port is required")
+        from wuji_core.http.approvals import create_approval_router
+
+        routers.append(create_approval_router(approval_service))
     if session_transport:
         from wuji_core.http.session_host import create_session_host_router
 
