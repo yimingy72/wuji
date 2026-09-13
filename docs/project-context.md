@@ -2,6 +2,8 @@
 
 2026-09-13 当前实施：用户批准按完整 [vNext v2 Spec](vnext/SPEC.md) / [Plan](vnext/PLAN.md)进入重构。执行工作树为 `work/worktrees/vnext-maf`，分支 `codex/vnext-maf`，起点 `1d73a767599732d9a53f81ad2cc553f4bf11d84e`。见[阶段入口](stages/vnext-maf/spec.md)、[实施决定](vnext/decision-register.md)与[验收状态](stages/vnext-maf/acceptance.md)。下文 Cairn/Pi 为旧实现及历史来源，不再约束新核心；新链路不允许运行旧内核。主目录上一轮草案未提交变更保留。
 
+2026-09-13 D11 已按主代理裁定登记用户交付补充：[M0–M5 里程碑、操作前沿和六类合同交接](vnext/delivery-milestones.md)只组织现有 P/AC 的交付顺序，不替换 Spec/Plan/Acceptance；[原字节参考副本](vnext/references/WUJI_DEVELOPMENT_DIRECTION_AND_DELIVERY_ADDENDUM.md)仅为 review reference。报告中的 P06 `21` 项/`f32678d` 是历史截面；D11 登记时工作树实际 HEAD 为 `5c0778d19921216187cad6c7075c4e48d81ebb4e`，其中 `78095e6` 及其 35 项聚焦检查/审查证据更新，P06 最终消费者和公开交接仍按 M0 收尾，最终状态只由对应阶段验收记录确认。
+
 本轮最新模型分工见实施决定 D10：修复、验证及轻量重复工作使用 SOL/xhigh，核心开发或重大复杂问题才使用 GPT-6/xhigh；下文及历史报告中的旧模型限定仅描述当时约定。
 
 更新：2026-09-11；当前文档与GitHub交付分支为 `codex/github-upload`，业务来源为 `codex/phase-2-web-assessment@40472c6`（旧运行检出保留），架构收口起点6ee84b5。此页负责恢复背景与导航；设计正文、阶段验收各有独立权威来源，不在此复制完整架构。先读根 [AGENTS.md](../AGENTS.md)。
