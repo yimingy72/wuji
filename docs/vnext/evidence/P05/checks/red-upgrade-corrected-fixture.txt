@@ -1,0 +1,53 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+______ test_upgrade_projects_real_p04_receipts_without_activating_history ______
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x105db8440>
+tmp_path = PosixPath('<PYTEST_TMP>/pytest-93/test_upgrade_projects_real_p040')
+
+    def test_upgrade_projects_real_p04_receipts_without_activating_history(db_environment,tmp_path):
+        # Run the exact accepted previous migrator/committer only to construct an upgrade prerequisite.
+        # This is a migration test, not a rerun of any P04 baseline suite.
+        import subprocess
+        from support.p03 import seed
+        from wuji_core.persistence.schema import migrate
+        from wuji_core.persistence.uow import UnitOfWork
+        from wuji_core.evidence.artifacts import ArtifactStore
+        from wuji_core.blackboard.claims import ClaimService
+        from wuji_core.persistence.snapshots import SnapshotRepository
+        def accepted_module(path):
+            source=subprocess.check_output(["git","show","2ce5250:packages/wuji-core/src/wuji_core/"+path],text=True)
+            namespace={"__name__":"accepted_p04_migration_prerequisite"}
+            exec(compile(source,path,"exec"),namespace)
+            return namespace
+        old_schema=accepted_module("persistence/schema.py")
+        old_commit=accepted_module("blackboard/committer.py")
+        with db_environment.migration_connection() as m:
+            old_schema["migrate"](m,application_role=db_environment.application_role)
+            seed(m)
+            m.execute("INSERT INTO vnext.knowledge_actor(tenant_id,project_id,task_id,subject,producer_kind) VALUES(%s,%s,%s,'agent-fixture','agent')",OWNER)
+            m.execute("INSERT INTO vnext.task_access(tenant_id,project_id,task_id,subject,can_read,can_write,can_settle,can_model_output,clearance) VALUES(%s,%s,%s,'worker-fixture',true,true,true,true,1)",OWNER)
+            m.execute("INSERT INTO vnext.run_writer(tenant_id,project_id,task_id,agent_run_id,subject,agent_subject,can_settle) VALUES(%s,%s,%s,'run-fixture','worker-fixture','agent-fixture',true)",OWNER)
+        uow=UnitOfWork(db_environment.additional_app_connection)
+        store=ArtifactStore(uow,tmp_path/"objects")
+        worker=access("worker-fixture",role="worker")
+        ref=store.stage_model_output(worker,TASK,"run-fixture",canonical_json_bytes(payload()),"application/json")
+        store.seal(worker,TASK,ref)
+        snap=SnapshotRepository(uow).create(TASK,worker)
+        envelope={"schema_version":"wuji.result-envelope.v2","submission_id":"old-result","identity":IDENTITY,"snapshot_id":snap.snapshot_id,"read_set":[],"raw_output_ref":ref.model_dump(mode="json"),"raw_output_digest":ref.sha256.root,"payload":payload(),"producer_version":"accepted-P04-prerequisite"}
+        commit=old_commit["ResultCommitter"](uow,store,ClaimService(uow))
+        assert commit.submit(worker,envelope).status.value=="accepted"
+        with db_environment.migration_connection() as m:
+            before=m.execute("SELECT receipt_json FROM vnext.result_receipt").fetchone()[0]
+            migrate(m,application_role=db_environment.application_role)
+            migrate(m,application_role=db_environment.application_role)
+>           assert m.execute("SELECT result_state,result_submission_id FROM vnext.agent_run").fetchone()==("accepted","old-result")
+E           AssertionError: assert ('none', None) == ('accepted', 'old-result')
+E             
+E             At index 0 diff: 'none' != 'accepted'
+E             Use -v to get more diff
+
+tests/vnext/test_work_state_guards.py:553: AssertionError
+=========================== short test summary info ============================
+FAILED tests/vnext/test_work_state_guards.py::test_upgrade_projects_real_p04_receipts_without_activating_history
+1 failed, 23 deselected in 0.80s

@@ -1,0 +1,67 @@
+FFF                                                                      [100%]
+=================================== FAILURES ===================================
+________ test_capacity_rechecks_work_hold_even_with_old_run_permission _________
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x106ad0830>
+tmp_path = PosixPath('<PYTEST_TMP>/pytest-95/test_capacity_rechecks_work_ho0')
+audit_directory = PosixPath('<PYTEST_TMP>/pytest-95/test_capacity_rechecks_work_ho0')
+
+    def test_capacity_rechecks_work_hold_even_with_old_run_permission(db_environment,tmp_path,audit_directory):
+        with control_case(db_environment,tmp_path,audit_directory) as c:
+            prepared_run(c)
+            with c.env.migration_connection() as m:
+                m.execute("UPDATE vnext.work_item SET desired_state='hold' WHERE task_id='task-fixture' AND work_item_id='work-fixture'")
+>           with pytest.raises(DomainError,match="STALE_EXECUTION"):
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           Failed: DID NOT RAISE DomainError
+
+tests/vnext/test_work_state_guards.py:1165: Failed
+___ test_unknown_external_operation_keeps_task_reconciling_after_local_exit ____
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x106a7c410>
+tmp_path = PosixPath('<PYTEST_TMP>/pytest-95/test_unknown_external_operatio0')
+audit_directory = PosixPath('<PYTEST_TMP>/pytest-95/test_unknown_external_operatio0')
+
+    def test_unknown_external_operation_keeps_task_reconciling_after_local_exit(db_environment,tmp_path,audit_directory):
+        with control_case(db_environment,tmp_path,audit_directory) as c:
+            prepared_run(c)
+            observe(c,"started",process=process())
+            observe(c,"exited",process=process(exited=True))
+            command(c,"pause")
+>           assert c.control.read_task(OPERATOR,TASK)["observed_state"]=="reconciling"
+E           AssertionError: assert 'paused' == 'reconciling'
+E             
+E             - reconciling
+E             + paused
+
+tests/vnext/test_work_state_guards.py:1176: AssertionError
+______ test_real_superseded_intent_cancels_work_with_reason_not_new_state ______
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x1071e0a50>
+tmp_path = PosixPath('<PYTEST_TMP>/pytest-95/test_real_superseded_intent_ca0')
+audit_directory = PosixPath('<PYTEST_TMP>/pytest-95/test_real_superseded_intent_ca0')
+
+    def test_real_superseded_intent_cancels_work_with_reason_not_new_state(db_environment,tmp_path,audit_directory):
+        from wuji_core.contracts.knowledge import IntentProposal
+        with control_case(db_environment,tmp_path,audit_directory) as c:
+            command(c,"start")
+            proposal=IntentProposal.model_validate({"client_ref":"i","question":"unverified question","basis_refs":[],"expected_output":"record evidence"})
+            receipt=c.claims.propose_intent(access("agent-fixture",role="agent"),TASK,proposal,idempotency_key="intent")
+            ref=receipt.canonical_ref
+            with c.env.migration_connection() as m:
+                m.execute("UPDATE vnext.work_item SET intent_id=%s,intent_revision=%s WHERE task_id='task-fixture' AND work_item_id='work-b'",(ref.id,ref.revision.root))
+            assert c.control.dispatchable(OPERATOR,TASK,"work-b")
+            with c.env.migration_connection() as m:
+                m.execute("UPDATE vnext.intent_revision SET acceptance_state='superseded' WHERE entity_id=%s",(ref.id,))
+>           assert not c.control.dispatchable(OPERATOR,TASK,"work-b")
+E           AssertionError: assert not True
+E            +  where True = dispatchable(AccessContext(principal=Principal(subject='operator-fixture', tenant_id='tenant-fixture', roles=frozenset({'operator'}), token_id='fixture-token-id'), request_id='fixture-request'), 'task-fixture', 'work-b')
+E            +    where dispatchable = <wuji_core.execution.control.ControlService object at 0x1071e2ad0>.dispatchable
+E            +      where <wuji_core.execution.control.ControlService object at 0x1071e2ad0> = namespace(env=<support.postgres.IsolatedDatabaseEnvironment object at 0x1071e0a50>, tmp_path=PosixPath('/private/var/f...'<WORKTREE>/packages/wuji-core/src/wuji_core/execution/control.py'>).control
+
+tests/vnext/test_work_state_guards.py:1191: AssertionError
+=========================== short test summary info ============================
+FAILED tests/vnext/test_work_state_guards.py::test_capacity_rechecks_work_hold_even_with_old_run_permission
+FAILED tests/vnext/test_work_state_guards.py::test_unknown_external_operation_keeps_task_reconciling_after_local_exit
+FAILED tests/vnext/test_work_state_guards.py::test_real_superseded_intent_cancels_work_with_reason_not_new_state
+3 failed, 24 deselected in 1.79s

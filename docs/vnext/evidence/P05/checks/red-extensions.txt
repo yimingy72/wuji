@@ -1,0 +1,141 @@
+FFF                                                                      [100%]
+=================================== FAILURES ===================================
+____________ test_waiting_input_survives_pause_and_published_resume ____________
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x1182702f0>
+tmp_path = PosixPath('<PYTEST_TMP>/pytest-88/test_waiting_input_survives_pa0')
+audit_directory = PosixPath('<PYTEST_TMP>/pytest-88/test_waiting_input_survives_pa0')
+
+    def test_waiting_input_survives_pause_and_published_resume(db_environment,tmp_path,audit_directory):
+        with control_case(db_environment,tmp_path,audit_directory) as c:
+            prepared_run(c)
+            observe(c,"started",process=process())
+>           seed_session(c)
+
+tests/vnext/test_work_state_guards.py:276: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/vnext/test_work_state_guards.py:267: in seed_session
+    m.execute("UPDATE vnext.work_item SET input_request_id='input-fixture',session_id='session-fixture',session_revision=1 WHERE work_item_id='work-fixture'")
+tests/vnext/support/postgres.py:193: in execute
+    cursor = self._connection.execute(query, params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <psycopg.Connection [BAD] at 0x1189ab3e0>
+query = "UPDATE vnext.work_item SET input_request_id='input-fixture',session_id='session-fixture',session_revision=1 WHERE work_item_id='work-fixture'"
+params = None, prepare = None, binary = False
+
+    def execute(
+        self,
+        query: Query,
+        params: Params | None = None,
+        *,
+        prepare: bool | None = None,
+        binary: bool = False,
+    ) -> Cursor[Row]:
+        """Execute a query and return a cursor to read its results."""
+        try:
+            cur = self.cursor()
+            if binary:
+                cur.format = BINARY
+    
+            if isinstance(query, Template):
+                if params is not None:
+                    raise TypeError(
+                        "'execute()' with string template query doesn't support parameters"
+                    )
+                return cur.execute(query, prepare=prepare)
+            else:
+                return cur.execute(query, params, prepare=prepare)
+        except e._NO_TRACEBACK as ex:
+>           raise ex.with_traceback(None)
+E           psycopg.errors.ForeignKeyViolation: insert or update on table "work_item" violates foreign key constraint "work_item_tenant_id_project_id_task_id_input_request_id_fkey"
+E           DETAIL:  Key (tenant_id, project_id, task_id, input_request_id)=(tenant-fixture, project-other, task-sibling, input-fixture) is not present in table "input_request".
+
+packages/maf-worker/.venv/lib/python3.13/site-packages/psycopg/connection.py:300: ForeignKeyViolation
+____________ test_completion_epoch_abort_only_removes_its_own_cause ____________
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x11825c190>
+tmp_path = PosixPath('<PYTEST_TMP>/pytest-88/test_completion_epoch_abort_on0')
+audit_directory = PosixPath('<PYTEST_TMP>/pytest-88/test_completion_epoch_abort_on0')
+
+    def test_completion_epoch_abort_only_removes_its_own_cause(db_environment,tmp_path,audit_directory):
+        with control_case(db_environment,tmp_path,audit_directory) as c:
+            command(c,"start")
+            command(c,"hold",work="work-b")
+>           completion(c,receipt="quiesce-1")
+
+tests/vnext/test_work_state_guards.py:319: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+c = namespace(env=<support.postgres.IsolatedDatabaseEnvironment object at 0x11825c190>, tmp_path=PosixPath('/private/var/f...'<WORKTREE>/packages/wuji-core/src/wuji_core/execution/control.py'>)
+receipt = 'quiesce-1', epoch = 'epoch-1', action = 'quiesce'
+trigger = 'budget_exhausted', outcome = 'partial'
+
+    def completion(c, *, receipt, epoch="epoch-1", action="quiesce", trigger="budget_exhausted",outcome="partial"):
+        task=c.control.read_task(OPERATOR,TASK)
+        with c.env.migration_connection() as m:
+            m.execute("INSERT INTO vnext.completion_decision(tenant_id,project_id,task_id,receipt_id,epoch_id,action,expected_control_version,board_revision,deadline,close_trigger,result_outcome,source_receipt_json) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,'2099-01-01',%s,%s,%s)",(*OWNER,receipt,epoch,action,task["control_version"],task["board_revision"],trigger,outcome,'{"source":"P12 decision header fixture; not a completed review"}'))
+>       return c.control.apply_completion(OPERATOR,TASK,receipt)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'ControlService' object has no attribute 'apply_completion'
+
+tests/vnext/test_work_state_guards.py:312: AttributeError
+____________ test_capacity_limit_atomic_rollback_and_prelock_order _____________
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x118ad4b90>
+tmp_path = PosixPath('<PYTEST_TMP>/pytest-88/test_capacity_limit_atomic_rol0')
+audit_directory = PosixPath('<PYTEST_TMP>/pytest-88/test_capacity_limit_atomic_rol0')
+
+    def test_capacity_limit_atomic_rollback_and_prelock_order(db_environment,tmp_path,audit_directory):
+        with control_case(db_environment,tmp_path,audit_directory) as c:
+            prepared_run(c)
+            with c.env.migration_connection() as m:
+                m.execute("UPDATE vnext.capacity_pool SET capacity=1 WHERE pool_key='tenant-fixture'")
+                m.execute("INSERT INTO vnext.agent_run(tenant_id,project_id,task_id,agent_run_id,work_item_id,receiver_id,environment_ref,model_mode,start_operation_id,pod_uid) VALUES(%s,%s,%s,'run-b','work-b','receiver-fixture','environment-fixture','synthetic','start-run-b','pod-fixture')",OWNER)
+>               m.execute("UPDATE vnext.work_item SET state='leased',current_run_id='run-b' WHERE work_item_id='work-b'")
+
+tests/vnext/test_work_state_guards.py:394: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/vnext/support/postgres.py:193: in execute
+    cursor = self._connection.execute(query, params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <psycopg.Connection [BAD] at 0x118396120>
+query = "UPDATE vnext.work_item SET state='leased',current_run_id='run-b' WHERE work_item_id='work-b'"
+params = None, prepare = None, binary = False
+
+    def execute(
+        self,
+        query: Query,
+        params: Params | None = None,
+        *,
+        prepare: bool | None = None,
+        binary: bool = False,
+    ) -> Cursor[Row]:
+        """Execute a query and return a cursor to read its results."""
+        try:
+            cur = self.cursor()
+            if binary:
+                cur.format = BINARY
+    
+            if isinstance(query, Template):
+                if params is not None:
+                    raise TypeError(
+                        "'execute()' with string template query doesn't support parameters"
+                    )
+                return cur.execute(query, prepare=prepare)
+            else:
+                return cur.execute(query, params, prepare=prepare)
+        except e._NO_TRACEBACK as ex:
+>           raise ex.with_traceback(None)
+E           psycopg.errors.ForeignKeyViolation: insert or update on table "work_item" violates foreign key constraint "work_item_tenant_id_project_id_task_id_work_item_id_curren_fkey"
+E           DETAIL:  Key (tenant_id, project_id, task_id, work_item_id, current_run_id)=(tenant-fixture, project-other, task-sibling, work-b, run-b) is not present in table "agent_run".
+
+packages/maf-worker/.venv/lib/python3.13/site-packages/psycopg/connection.py:300: ForeignKeyViolation
+=========================== short test summary info ============================
+FAILED tests/vnext/test_work_state_guards.py::test_waiting_input_survives_pause_and_published_resume
+FAILED tests/vnext/test_work_state_guards.py::test_completion_epoch_abort_only_removes_its_own_cause
+FAILED tests/vnext/test_work_state_guards.py::test_capacity_limit_atomic_rollback_and_prelock_order
+3 failed, 14 deselected in 1.77s

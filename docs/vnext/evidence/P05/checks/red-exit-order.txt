@@ -1,0 +1,39 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+__ test_exit_receipt_before_running_notification_settles_without_illegal_edge __
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x10a5c0440>
+tmp_path = PosixPath('<PYTEST_TMP>/pytest-92/test_exit_receipt_before_runni0')
+audit_directory = PosixPath('<PYTEST_TMP>/pytest-92/test_exit_receipt_before_runni0')
+
+    def test_exit_receipt_before_running_notification_settles_without_illegal_edge(db_environment,tmp_path,audit_directory):
+        with control_case(db_environment,tmp_path,audit_directory) as c:
+            prepared_run(c)
+            assert submit(c,result(c,payload())).json()["status"]=="accepted"
+            settled(c)
+>           observe(c,"exited",process=process(exited=True))
+
+tests/vnext/test_work_state_guards.py:563: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/vnext/test_work_state_guards.py:94: in observe
+    return c.control.record_observation(OBSERVER, observation)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+packages/wuji-core/src/wuji_core/execution/control.py:414: in record_observation
+    self._settle(tx,work,run)
+packages/wuji-core/src/wuji_core/execution/control.py:516: in _settle
+    _update_work(tx,work,state="done",blocked_reason=None)
+packages/wuji-core/src/wuji_core/execution/control.py:120: in _update_work
+    require_transition(work["state"],changes["state"])
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+current = 'leased', target = 'done'
+
+    def require_transition(current, target):
+        if current != target and not can_transition_work(WorkState(current), WorkState(target)):
+>           raise DomainError("STALE_EXECUTION", 409)
+E           wuji_core.persistence.uow.DomainError: STALE_EXECUTION
+
+packages/wuji-core/src/wuji_core/execution/states.py:15: DomainError
+=========================== short test summary info ============================
+FAILED tests/vnext/test_work_state_guards.py::test_exit_receipt_before_running_notification_settles_without_illegal_edge
+1 failed, 23 deselected in 0.83s

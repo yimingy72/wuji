@@ -1,0 +1,96 @@
+FF.                                                                      [100%]
+=================================== FAILURES ===================================
+____________ test_waiting_input_survives_pause_and_published_resume ____________
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x111b082f0>
+tmp_path = PosixPath('<PYTEST_TMP>/pytest-89/test_waiting_input_survives_pa0')
+audit_directory = PosixPath('<PYTEST_TMP>/pytest-89/test_waiting_input_survives_pa0')
+
+    def test_waiting_input_survives_pause_and_published_resume(db_environment,tmp_path,audit_directory):
+        with control_case(db_environment,tmp_path,audit_directory) as c:
+            prepared_run(c)
+            observe(c,"started",process=process())
+            seed_session(c)
+            settled(c)
+            observe(c,"exited",process=process(exited=True))
+            assert c.control.read_work(OPERATOR,TASK,"work-fixture")["state"]=="waiting_input"
+            command(c,"pause")
+            command(c,"resume")
+            work=c.control.read_work(OPERATOR,TASK,"work-fixture")
+            assert work["state"]=="waiting_input" and work["input_request"]["status"]=="pending"
+            assert "call-fixture" in work["input_request"]["wait_ref_json"]
+            assert work["result_state"]=="none"
+            with c.env.migration_connection() as m:
+>               m.execute("UPDATE vnext.input_request SET status='resolved' WHERE input_request_id='input-fixture'")
+
+tests/vnext/test_work_state_guards.py:287: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/vnext/support/postgres.py:193: in execute
+    cursor = self._connection.execute(query, params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <psycopg.Connection [BAD] at 0x112363c50>
+query = "UPDATE vnext.input_request SET status='resolved' WHERE input_request_id='input-fixture'"
+params = None, prepare = None, binary = False
+
+    def execute(
+        self,
+        query: Query,
+        params: Params | None = None,
+        *,
+        prepare: bool | None = None,
+        binary: bool = False,
+    ) -> Cursor[Row]:
+        """Execute a query and return a cursor to read its results."""
+        try:
+            cur = self.cursor()
+            if binary:
+                cur.format = BINARY
+    
+            if isinstance(query, Template):
+                if params is not None:
+                    raise TypeError(
+                        "'execute()' with string template query doesn't support parameters"
+                    )
+                return cur.execute(query, prepare=prepare)
+            else:
+                return cur.execute(query, params, prepare=prepare)
+        except e._NO_TRACEBACK as ex:
+>           raise ex.with_traceback(None)
+E           psycopg.errors.InsufficientPrivilege: P08 owns input resolution
+E           CONTEXT:  PL/pgSQL function vnext.guard_input_revoke() line 1 at RAISE
+
+packages/maf-worker/.venv/lib/python3.13/site-packages/psycopg/connection.py:300: InsufficientPrivilege
+____________ test_completion_epoch_abort_only_removes_its_own_cause ____________
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x112314190>
+tmp_path = PosixPath('<PYTEST_TMP>/pytest-89/test_completion_epoch_abort_on0')
+audit_directory = PosixPath('<PYTEST_TMP>/pytest-89/test_completion_epoch_abort_on0')
+
+    def test_completion_epoch_abort_only_removes_its_own_cause(db_environment,tmp_path,audit_directory):
+        with control_case(db_environment,tmp_path,audit_directory) as c:
+            command(c,"start")
+            command(c,"hold",work="work-b")
+>           completion(c,receipt="quiesce-1")
+
+tests/vnext/test_work_state_guards.py:319: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+c = namespace(env=<support.postgres.IsolatedDatabaseEnvironment object at 0x112314190>, tmp_path=PosixPath('/private/var/f...'<WORKTREE>/packages/wuji-core/src/wuji_core/execution/control.py'>)
+receipt = 'quiesce-1', epoch = 'epoch-1', action = 'quiesce'
+trigger = 'budget_exhausted', outcome = 'partial'
+
+    def completion(c, *, receipt, epoch="epoch-1", action="quiesce", trigger="budget_exhausted",outcome="partial"):
+        task=c.control.read_task(OPERATOR,TASK)
+        with c.env.migration_connection() as m:
+            m.execute("INSERT INTO vnext.completion_decision(tenant_id,project_id,task_id,receipt_id,epoch_id,action,expected_control_version,board_revision,deadline,close_trigger,result_outcome,source_receipt_json) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,'2099-01-01',%s,%s,%s)",(*OWNER,receipt,epoch,action,task["control_version"],task["board_revision"],trigger,outcome,'{"source":"P12 decision header fixture; not a completed review"}'))
+>       return c.control.apply_completion(OPERATOR,TASK,receipt)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'ControlService' object has no attribute 'apply_completion'
+
+tests/vnext/test_work_state_guards.py:312: AttributeError
+=========================== short test summary info ============================
+FAILED tests/vnext/test_work_state_guards.py::test_waiting_input_survives_pause_and_published_resume
+FAILED tests/vnext/test_work_state_guards.py::test_completion_epoch_abort_only_removes_its_own_cause
+2 failed, 1 passed, 14 deselected in 2.29s

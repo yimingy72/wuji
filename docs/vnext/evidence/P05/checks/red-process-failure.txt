@@ -1,0 +1,26 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_________ test_explicit_process_failure_keeps_accepted_result_separate _________
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x107044590>
+tmp_path = PosixPath('<PYTEST_TMP>/pytest-97/test_explicit_process_failure_0')
+audit_directory = PosixPath('<PYTEST_TMP>/pytest-97/test_explicit_process_failure_0')
+
+    def test_explicit_process_failure_keeps_accepted_result_separate(db_environment,tmp_path,audit_directory):
+        with control_case(db_environment,tmp_path,audit_directory) as c:
+            prepared_run(c)
+            observe(c,"started",process=process())
+            assert submit(c,result(c,payload())).json()["status"]=="accepted"
+            settled(c)
+            observe(c,"exited",process=process(exited=True,code=1))
+            work=c.control.read_work(OPERATOR,TASK,"work-fixture")
+>           assert work["state"]=="failed" and work["result_state"]=="accepted"
+E           AssertionError: assert ('done' == 'failed'
+E             
+E             - failed
+E             + done)
+
+tests/vnext/test_work_state_guards.py:1237: AssertionError
+=========================== short test summary info ============================
+FAILED tests/vnext/test_work_state_guards.py::test_explicit_process_failure_keeps_accepted_result_separate
+1 failed, 27 deselected in 0.89s

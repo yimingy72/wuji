@@ -1,0 +1,131 @@
+{
+  "tested_code_sha": "71741c4eec7b7e3b10beaff05fd300ec1ace3b55",
+  "archive_hash_policy": "archive-members.json hashes the final redacted archive members",
+  "files": [
+    {
+      "path": "archive-members.json",
+      "bytes": 11874,
+      "sha256": "a3ae92c43fa827d25cb75196c732fb9815fd9f6198692de4ba917ef13e42b121"
+    },
+    {
+      "path": "checks/contracts-check.txt",
+      "bytes": 1847,
+      "sha256": "e178c170f77af86f3538ff4ff6145cb405cd61248b2ca0e6e5ceda0e309b7c46"
+    },
+    {
+      "path": "checks/final-green.txt",
+      "bytes": 100,
+      "sha256": "f3ae17acb084af64aa9451b15851d816c4add769d4bf40a2b29f210b9cce2076"
+    },
+    {
+      "path": "checks/final-junit.xml",
+      "bytes": 4148,
+      "sha256": "259ffc8afe574646c9775d80eda476c9cb8d81cfcf1e10296a8261ac29c0abe9"
+    },
+    {
+      "path": "checks/format.txt",
+      "bytes": 161,
+      "sha256": "703f345f5bab3012f021234a08837f589bceac708d646a189d3cf0e590a4ca62"
+    },
+    {
+      "path": "checks/green-extensions.txt",
+      "bytes": 100,
+      "sha256": "c91b6b8e4a51bfc3f287cdafe39a3bf604b6248414891c5e57f8a01db86d7ac4"
+    },
+    {
+      "path": "checks/green-final-guards.txt",
+      "bytes": 113,
+      "sha256": "35ee2762c6b2e3cb176adbfa8743f22f676462262bdded8e645a93e57db1eedb"
+    },
+    {
+      "path": "checks/green-initial.txt",
+      "bytes": 98,
+      "sha256": "2b4a6b63c7e6df17347a3dd505a613c7709a218ab0c9f489827496a73b99fb71"
+    },
+    {
+      "path": "checks/green-process-failure.txt",
+      "bytes": 113,
+      "sha256": "f021fa8c38d448b20146a20212cc8b20c235ad9d9878335e39abd8cba129747d"
+    },
+    {
+      "path": "checks/green-review-guards.txt",
+      "bytes": 113,
+      "sha256": "fcf951171c030f85da72260b3800b3679f12d409bc955dd856c34a96e9b0463b"
+    },
+    {
+      "path": "checks/red-exit-order.txt",
+      "bytes": 2245,
+      "sha256": "014b217c837bc63ea989ba9e896ff9f22a04015c3cce65644f64d9c60c8632b5"
+    },
+    {
+      "path": "checks/red-extensions-corrected-fixture.txt",
+      "bytes": 5414,
+      "sha256": "2aa3f835bc9bc15516509bb7d5c055cf60d2cf749535b0cc0dd76813f8f21971"
+    },
+    {
+      "path": "checks/red-extensions.txt",
+      "bytes": 8254,
+      "sha256": "f31e830966fbd71fd84cfd2fad9dbdeaadff8b617ca24259007253c2b53d8f5b"
+    },
+    {
+      "path": "checks/red-process-failure.txt",
+      "bytes": 1470,
+      "sha256": "a2968eeafd87e736d44bb05b2aa07064a85abd2c805998fcf7c3f786ce5151d3"
+    },
+    {
+      "path": "checks/red-review-guards.txt",
+      "bytes": 4792,
+      "sha256": "f7d11097deacd11a1f98484414dbeceae23f4ea32bdcbb3fc9cf6ab48b3730de"
+    },
+    {
+      "path": "checks/red-upgrade-corrected-fixture.txt",
+      "bytes": 3956,
+      "sha256": "03c13e766e8f7b22bb7ab4eb2e6b81e455185e00f2175d429b0d7f43ad9873b4"
+    },
+    {
+      "path": "checks/red-upgrade.txt",
+      "bytes": 3485,
+      "sha256": "143866d71734d82f5fa6e56d481167c604031d91a4351e2eb5d390126c83899a"
+    },
+    {
+      "path": "checks/red.txt",
+      "bytes": 21478,
+      "sha256": "8b2c8fc15c45877c6371b69b3868fa81cfadec966031fbae028205fb25f29ecc"
+    },
+    {
+      "path": "checks/typescript-check.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "http-reproduction.md",
+      "bytes": 12401,
+      "sha256": "cca0cd67dc88afe3a0f475766c61e00953afb4d3947778a17b03de845c66c17c"
+    },
+    {
+      "path": "report.md",
+      "bytes": 7812,
+      "sha256": "a28da4b45bfe9bf4b3d42948478d32f27c63e47efc16cd81883d8e68319fe515"
+    },
+    {
+      "path": "result.html",
+      "bytes": 4482,
+      "sha256": "6d7d5db49fc5a885720c5f3075788512e08c0185dab4590376d2b4d2c973b763"
+    },
+    {
+      "path": "runtime-redacted.tar.gz",
+      "bytes": 565958,
+      "sha256": "beb9c64900706a19907575bd8a41a1a702d737052ed7325b71d56e1e9e8f1eed"
+    },
+    {
+      "path": "screenshots/control-verification.jpg",
+      "bytes": 110175,
+      "sha256": "346404f284c1ec999b7ea147c4340e132a89b105b77126d670b0f21e39d1f6c3"
+    },
+    {
+      "path": "test-results.json",
+      "bytes": 5615,
+      "sha256": "c0662479c930ea54350cbfffa5fcb6debbceecc100be822775a69ffe84124566"
+    }
+  ]
+}

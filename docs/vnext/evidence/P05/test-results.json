@@ -1,0 +1,176 @@
+{
+  "tested_code_sha": "71741c4eec7b7e3b10beaff05fd300ec1ace3b55",
+  "command": "WUJI_TEST_EVIDENCE_DIR=.superpowers/sdd/vnext-v2/P05-evidence/final-runtime ./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_work_state_guards.py -q --junitxml=.superpowers/sdd/vnext-v2/P05-evidence/final-junit.xml",
+  "exit_code": 0,
+  "outcome": "28 passed in 16.47s",
+  "tests": [
+    {
+      "test_name": "test_result_is_not_exit_rule",
+      "status": "pass",
+      "seconds": "0.001",
+      "runtime_directory": "74843220169a"
+    },
+    {
+      "test_name": "test_criterion_reference_is_dedicated_and_condition_checked",
+      "status": "pass",
+      "seconds": "0.001",
+      "runtime_directory": "b0472f849215"
+    },
+    {
+      "test_name": "test_start_cas_idempotency_and_knowledge_cannot_control",
+      "status": "pass",
+      "seconds": "0.766",
+      "runtime_directory": "6c4fdbb478fe"
+    },
+    {
+      "test_name": "test_task_pause_preserves_hold_and_fresh_unstarted_work",
+      "status": "pass",
+      "seconds": "0.702",
+      "runtime_directory": "3a3e1e2e9c21"
+    },
+    {
+      "test_name": "test_accepted_result_keeps_capacity_until_stored_exit",
+      "status": "pass",
+      "seconds": "0.987",
+      "runtime_directory": "9412ae1f943a"
+    },
+    {
+      "test_name": "test_hold_revokes_only_one_work_and_unknown_keeps_reservation",
+      "status": "pass",
+      "seconds": "0.611",
+      "runtime_directory": "1bd2dc221303"
+    },
+    {
+      "test_name": "test_dependencies_use_real_settlement_and_criterion_rows",
+      "status": "pass",
+      "seconds": "0.563",
+      "runtime_directory": "33c08f78ff04"
+    },
+    {
+      "test_name": "test_close_intent_preserves_partial_outcome_and_never_marks_unrun_done",
+      "status": "pass",
+      "seconds": "0.523",
+      "runtime_directory": "8aa3fa197d8d"
+    },
+    {
+      "test_name": "test_waiting_input_survives_pause_and_published_resume",
+      "status": "pass",
+      "seconds": "0.841",
+      "runtime_directory": "a685ed2f61d6"
+    },
+    {
+      "test_name": "test_missing_session_pins_and_unsettled_operations_block_resume",
+      "status": "pass",
+      "seconds": "0.811",
+      "runtime_directory": "557d799c7403"
+    },
+    {
+      "test_name": "test_completion_epoch_abort_only_removes_its_own_cause",
+      "status": "pass",
+      "seconds": "0.599",
+      "runtime_directory": "3fdd20b58d18"
+    },
+    {
+      "test_name": "test_observer_acl_digest_birth_identity_and_no_raw_control_escalation",
+      "status": "pass",
+      "seconds": "0.558",
+      "runtime_directory": "215be34458b8"
+    },
+    {
+      "test_name": "test_result_projection_replay_incomplete_and_late_receipt",
+      "status": "pass",
+      "seconds": "0.752",
+      "runtime_directory": "78cbb3710508"
+    },
+    {
+      "test_name": "test_missing_final_output_cas_preserves_late_history",
+      "status": "pass",
+      "seconds": "0.838",
+      "runtime_directory": "a909c6f614bd"
+    },
+    {
+      "test_name": "test_capacity_limit_atomic_rollback_and_prelock_order",
+      "status": "pass",
+      "seconds": "0.709",
+      "runtime_directory": "25f166ad43b8"
+    },
+    {
+      "test_name": "test_criterion_current_fixed_judgment_and_failed_not_success",
+      "status": "pass",
+      "seconds": "0.530",
+      "runtime_directory": "cbe24a9d975b"
+    },
+    {
+      "test_name": "test_cancel_preserves_independent_captured_evidence_without_fact",
+      "status": "pass",
+      "seconds": "0.750",
+      "runtime_directory": "04d8545e623e"
+    },
+    {
+      "test_name": "test_known_not_started_receipt_allows_fresh_resume_and_releases_once",
+      "status": "pass",
+      "seconds": "0.604",
+      "runtime_directory": "4ea123a12950"
+    },
+    {
+      "test_name": "test_shared_global_pool_serializes_two_tenants",
+      "status": "pass",
+      "seconds": "0.423",
+      "runtime_directory": "965c842cf721"
+    },
+    {
+      "test_name": "test_two_connections_cannot_commit_dependency_cycle",
+      "status": "pass",
+      "seconds": "0.424",
+      "runtime_directory": "353d23d79510"
+    },
+    {
+      "test_name": "test_missing_definition_and_pool_configuration_fail_closed",
+      "status": "pass",
+      "seconds": "0.538",
+      "runtime_directory": "b217c3439dc6"
+    },
+    {
+      "test_name": "test_upgrade_projects_real_p04_receipts_without_activating_history",
+      "status": "pass",
+      "seconds": "0.469",
+      "runtime_directory": "f3f7b8f429d2"
+    },
+    {
+      "test_name": "test_exit_receipt_before_running_notification_settles_without_illegal_edge",
+      "status": "pass",
+      "seconds": "0.634",
+      "runtime_directory": "2472dd4e55bd"
+    },
+    {
+      "test_name": "test_completion_closes_with_partial_and_cancels_only_unsettled_work",
+      "status": "pass",
+      "seconds": "0.690",
+      "runtime_directory": "5a1e0dcdc461"
+    },
+    {
+      "test_name": "test_capacity_rechecks_work_hold_even_with_old_run_permission",
+      "status": "pass",
+      "seconds": "0.449",
+      "runtime_directory": "3fcfab202cb6"
+    },
+    {
+      "test_name": "test_unknown_external_operation_keeps_task_reconciling_after_local_exit",
+      "status": "pass",
+      "seconds": "0.522",
+      "runtime_directory": "04463bc79a21"
+    },
+    {
+      "test_name": "test_real_superseded_intent_cancels_work_with_reason_not_new_state",
+      "status": "pass",
+      "seconds": "0.499",
+      "runtime_directory": "1900d8059615"
+    },
+    {
+      "test_name": "test_explicit_process_failure_keeps_accepted_result_separate",
+      "status": "pass",
+      "seconds": "0.638",
+      "runtime_directory": "55ef7436c5f9"
+    }
+  ]
+}
