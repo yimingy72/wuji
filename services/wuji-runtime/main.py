@@ -7,8 +7,6 @@ import importlib
 import json
 from threading import Event, Thread
 
-import uvicorn
-
 from wuji_core.execution.runtime_dispatcher import RuntimeController, RuntimeDispatcher
 
 
@@ -73,6 +71,8 @@ def _load_factory(spec: str):
 
 
 def main() -> None:
+    import uvicorn
+
     parser = argparse.ArgumentParser(
         description="Run the deployment-configured Wuji runtime controller"
     )

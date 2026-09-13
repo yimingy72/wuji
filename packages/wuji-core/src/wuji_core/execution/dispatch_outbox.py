@@ -11,6 +11,7 @@ from ipaddress import ip_address
 from pathlib import Path
 import os
 import sqlite3
+from threading import Lock, get_ident
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlsplit
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
@@ -153,14 +154,44 @@ class DispatchJournal:
         path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         if path.is_symlink():
             raise ValueError("journal must not be a symlink")
-        self.connection = sqlite3.connect(path, timeout=5, isolation_level=None)
-        os.chmod(path, 0o600)
-        self.connection.execute("PRAGMA journal_mode=DELETE")
-        self.connection.execute("PRAGMA synchronous=FULL")
-        self.connection.execute("""CREATE TABLE IF NOT EXISTS delivery(
-            operation_key TEXT PRIMARY KEY, assignment_digest TEXT NOT NULL,
-            attempted INTEGER NOT NULL DEFAULT 0 CHECK(attempted IN(0,1)),
-            receipt_json TEXT)""")
+        self.path = path
+        self.connection = None
+        self.owner_thread = None
+        self.owner_lock = Lock()
+        self.closed = False
+
+    def _connection(self):
+        current = get_ident()
+        with self.owner_lock:
+            if self.closed:
+                raise RuntimeError("dispatch journal is closed")
+            if self.owner_thread is None:
+                self.owner_thread = current
+            elif self.owner_thread != current:
+                raise RuntimeError("dispatch journal belongs to another thread")
+            if self.connection is None:
+                if self.path.is_symlink():
+                    self.owner_thread = None
+                    raise ValueError("journal must not be a symlink")
+                connection = None
+                try:
+                    connection = sqlite3.connect(
+                        self.path, timeout=5, isolation_level=None
+                    )
+                    os.chmod(self.path, 0o600)
+                    connection.execute("PRAGMA journal_mode=DELETE")
+                    connection.execute("PRAGMA synchronous=FULL")
+                    connection.execute("""CREATE TABLE IF NOT EXISTS delivery(
+                        operation_key TEXT PRIMARY KEY, assignment_digest TEXT NOT NULL,
+                        attempted INTEGER NOT NULL DEFAULT 0 CHECK(attempted IN(0,1)),
+                        receipt_json TEXT)""")
+                    self.connection = connection
+                except BaseException:
+                    if connection is not None:
+                        connection.close()
+                    self.owner_thread = None
+                    raise
+            return self.connection
 
     @staticmethod
     def key(run):
@@ -169,23 +200,24 @@ class DispatchJournal:
 
     def reserve_send(self, run):
         key = self.key(run)
-        self.connection.execute("BEGIN IMMEDIATE")
+        connection = self._connection()
+        connection.execute("BEGIN IMMEDIATE")
         try:
-            self.connection.execute("INSERT OR IGNORE INTO delivery VALUES(?,?,0,NULL)", (key, run.assignment_digest))
-            record = self.connection.execute("SELECT assignment_digest,attempted FROM delivery WHERE operation_key=?", (key,)).fetchone()
+            connection.execute("INSERT OR IGNORE INTO delivery VALUES(?,?,0,NULL)", (key, run.assignment_digest))
+            record = connection.execute("SELECT assignment_digest,attempted FROM delivery WHERE operation_key=?", (key,)).fetchone()
             if record[0] != run.assignment_digest:
                 raise DomainError("INPUT_DIGEST_CONFLICT", 409)
             reserved = record[1] == 0
             if reserved:
-                self.connection.execute("UPDATE delivery SET attempted=1 WHERE operation_key=?", (key,))
-            self.connection.execute("COMMIT")
+                connection.execute("UPDATE delivery SET attempted=1 WHERE operation_key=?", (key,))
+            connection.execute("COMMIT")
             return reserved
         except BaseException:
-            self.connection.execute("ROLLBACK")
+            connection.execute("ROLLBACK")
             raise
 
     def attempted(self, run):
-        record = self.connection.execute("SELECT assignment_digest,attempted FROM delivery WHERE operation_key=?", (self.key(run),)).fetchone()
+        record = self._connection().execute("SELECT assignment_digest,attempted FROM delivery WHERE operation_key=?", (self.key(run),)).fetchone()
         if record and record[0] != run.assignment_digest:
             raise DomainError("INPUT_DIGEST_CONFLICT", 409)
         return bool(record and record[1])
@@ -193,11 +225,20 @@ class DispatchJournal:
     def save(self, run, receipt):
         # Monotonic sent marker, including observations first found by query.
         self.reserve_send(run)
-        self.connection.execute("UPDATE delivery SET receipt_json=? WHERE operation_key=?",
-                                (canonical_json_bytes(receipt).decode(), self.key(run)))
+        self._connection().execute("UPDATE delivery SET receipt_json=? WHERE operation_key=?",
+                                   (canonical_json_bytes(receipt).decode(), self.key(run)))
 
     def close(self):
-        self.connection.close()
+        current = get_ident()
+        with self.owner_lock:
+            if self.closed:
+                return
+            if self.owner_thread is not None and self.owner_thread != current:
+                raise RuntimeError("dispatch journal must close on its owner thread")
+            if self.connection is not None:
+                self.connection.close()
+            self.connection = None
+            self.closed = True
 
 
 class DispatchOutbox:
