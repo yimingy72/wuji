@@ -15,6 +15,7 @@ import httpx
 
 from wuji_core.contracts import generated as wire
 from wuji_core.contracts.envelopes import BlobRef, ResultReceipt, WorkerAssignment
+from wuji_core.execution.session_bridge import SessionTransportCodec
 from wuji_core.http import canonical_json_bytes, strict_json_loads
 from wuji_core.http.auth import TokenVerifier
 from wuji_maf_worker.context import ContextBundle
@@ -105,6 +106,9 @@ class RemoteWorkerHost:
         self.verifier = token_verifier
         self.receiver = wire.WorkerReceiver.model_validate(receiver)
         self.timeout, self.maximum = timeout, max_transport_bytes
+        self.session_codec = SessionTransportCodec(
+            max_transport_bytes=max_transport_bytes
+        )
         self.directory = Path(spool_directory)
         self.directory.mkdir(parents=True, exist_ok=True, mode=0o700)
         if self.directory.is_symlink() or self.directory.stat().st_mode & 0o077:
@@ -207,7 +211,111 @@ class RemoteWorkerHost:
         reply = self._resolved(assignment)
         if canonical_json_bytes(document(reply.context)) != canonical_json_bytes(context_document(context)):
             raise HostTransportError("frozen context changed")
-        return document(reply.resolved)
+        return self.session_codec.decode_resolved(document(reply.resolved))
+
+    def _session_exchange(self, assignment, action, payload, decode):
+        if payload.assignment != assignment:
+            raise HostTransportError("Session request assignment changed")
+        request_body = canonical_json_bytes(document(payload))
+        request_digest = sha256(request_body).hexdigest()
+        prefix = "p08-" + action + "-"
+        private_save(
+            self.directory / (prefix + "request-" + request_digest + ".json"),
+            request_body,
+            self.maximum,
+        )
+        response = self._request(action, payload)
+        response_body = canonical_json_bytes(response)
+        private_save(
+            self.directory / (prefix + "response-" + request_digest + ".json"),
+            response_body,
+            self.maximum,
+        )
+        return decode(response)
+
+    def stage_session(self, assignment, objects):
+        assignment = self._bind(assignment)
+        payload = wire.WorkerStageSessionRequest.model_validate(
+            {
+                "assignment": document(assignment),
+                "boundary": document(self.session_codec.encode_boundary(objects)),
+            }
+        )
+        return self._session_exchange(
+            assignment, "stage-session", payload, self.session_codec.decode_staged
+        )
+
+    def publish_session(self, assignment, manifest, *, expected_revision):
+        assignment = self._bind(assignment)
+        payload = wire.WorkerPublishSessionRequest.model_validate(
+            {
+                "assignment": document(assignment),
+                "manifest": document(manifest),
+                "expected_revision": scalar(expected_revision),
+            }
+        )
+        return self._session_exchange(
+            assignment, "publish-session", payload, self.session_codec.decode_receipt
+        )
+
+    def load_session(self, assignment, *, manifest_ref):
+        assignment = self._bind(assignment)
+        payload = wire.WorkerLoadSessionRequest.model_validate(
+            {
+                "assignment": document(assignment),
+                "manifest_ref": scalar(manifest_ref),
+            }
+        )
+        return self._session_exchange(
+            assignment, "load-session", payload, self.session_codec.decode_published
+        )
+
+    def register_input(self, assignment, observation):
+        assignment = self._bind(assignment)
+        payload = wire.WorkerRegisterInputRequest.model_validate(
+            {
+                "assignment": document(assignment),
+                "observation": document(
+                    self.session_codec.encode_observation(observation)
+                ),
+            }
+        )
+        return self._session_exchange(
+            assignment,
+            "register-input",
+            payload,
+            self.session_codec.decode_input_receipt,
+        )
+
+    def load_delivery(self, assignment, *, delivery_id):
+        assignment = self._bind(assignment)
+        payload = wire.WorkerLoadDeliveryRequest.model_validate(
+            {
+                "assignment": document(assignment),
+                "delivery_id": scalar(delivery_id),
+            }
+        )
+        return self._session_exchange(
+            assignment, "load-delivery", payload, self.session_codec.decode_human_input
+        )
+
+    def acknowledge_delivery(
+        self, assignment, *, delivery_id, payload_digest
+    ):
+        assignment = self._bind(assignment)
+        payload = wire.WorkerAcknowledgeDeliveryRequest.model_validate(
+            {
+                "assignment": document(assignment),
+                "delivery_id": scalar(delivery_id),
+                "payload_digest": scalar(payload_digest),
+            }
+        )
+        return self._session_exchange(
+            assignment,
+            "acknowledge-delivery",
+            payload,
+            self.session_codec.decode_delivery_receipt,
+        )
 
     def archive_sdk(self, assignment, body):
         assignment = self._bind(assignment)

@@ -7,12 +7,20 @@ from pathlib import Path
 import sys
 
 from wuji_core.contracts import generated as wire
-from wuji_core.contracts.envelopes import WorkerAssignment
+from wuji_core.contracts.envelopes import ResultReceipt, WorkerAssignment
+from wuji_core.contracts.sessions import InputReceipt
 from wuji_core.http import canonical_json_bytes, strict_json_loads
 from wuji_core.http.auth import TokenVerifier
 from wuji_maf_worker.remote_host import (
     HostTransportError, RemoteWorkerHost, document, private_read, scalar,
 )
+
+
+def validate_completion_receipt(value):
+    """Keep saved Input and result receipts distinct from process observations."""
+    if not isinstance(value, (ResultReceipt, InputReceipt)):
+        raise TypeError("child completion requires a typed result or saved input receipt")
+    return value
 
 
 async def run_child(*, assignment_file, bootstrap_directory):
@@ -55,11 +63,16 @@ async def run_child(*, assignment_file, bootstrap_directory):
     # platform barrier. Reuse its existing native stream/tool loop verbatim.
     from wuji_maf_worker.entrypoint import run_assignment
 
-    return await run_assignment(
-        assignment, host=host, context=context, run_credential=bootstrap.run_credential,
-        token_verifier=verifier, model_gate_url=bootstrap.model_gate_url,
+    receipt = await run_assignment(
+        assignment,
+        host=host,
+        context=context,
+        run_credential=bootstrap.run_credential,
+        token_verifier=verifier,
+        model_gate_url=bootstrap.model_gate_url,
         tool_gate_url=bootstrap.tool_gate_url,
     )
+    return validate_completion_receipt(receipt)
 
 
 def main():

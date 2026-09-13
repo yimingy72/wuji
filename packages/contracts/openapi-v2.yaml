@@ -501,6 +501,84 @@ paths:
         '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/InvalidSchema'}
         '503': {$ref: '#/components/responses/Unavailable'}
+  /internal/v2/worker-host/stage-session:
+    post:
+      operationId: stageWorkerSessionV2
+      summary: Stage one bounded native Session boundary
+      tags: [Internal]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/WorkerStageSessionRequest'}}}}
+      responses:
+        '200': {description: Staged immutable Session objects, content: {application/json: {schema: {$ref: '#/components/schemas/WorkerSessionPayload'}}}}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /internal/v2/worker-host/publish-session:
+    post:
+      operationId: publishWorkerSessionV2
+      summary: Publish one exact staged Session revision
+      tags: [Internal]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/WorkerPublishSessionRequest'}}}}
+      responses:
+        '200': {description: Authoritative Session publication receipt, content: {application/json: {schema: {$ref: '#/components/schemas/WorkerSessionPayload'}}}}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /internal/v2/worker-host/load-session:
+    post:
+      operationId: loadWorkerSessionV2
+      summary: Load one exact authorized published Session
+      tags: [Internal]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/WorkerLoadSessionRequest'}}}}
+      responses:
+        '200': {description: Fixed published Session closure, content: {application/json: {schema: {$ref: '#/components/schemas/WorkerSessionPayload'}}}}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /internal/v2/worker-host/register-input:
+    post:
+      operationId: registerWorkerInputV2
+      summary: Register an observed native input boundary
+      tags: [Internal]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/WorkerRegisterInputRequest'}}}}
+      responses:
+        '200': {description: Persisted input receipt, content: {application/json: {schema: {$ref: '#/components/schemas/WorkerSessionPayload'}}}}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /internal/v2/worker-host/load-delivery:
+    post:
+      operationId: loadWorkerDeliveryV2
+      summary: Load one exact persisted human input delivery
+      tags: [Internal]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/WorkerLoadDeliveryRequest'}}}}
+      responses:
+        '200': {description: Fixed authorized human input, content: {application/json: {schema: {$ref: '#/components/schemas/WorkerSessionPayload'}}}}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /internal/v2/worker-host/acknowledge-delivery:
+    post:
+      operationId: acknowledgeWorkerDeliveryV2
+      summary: Persist receipt of one exact human input delivery
+      tags: [Internal]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/WorkerAcknowledgeDeliveryRequest'}}}}
+      responses:
+        '200': {description: Authoritative delivery receipt, content: {application/json: {schema: {$ref: '#/components/schemas/WorkerSessionPayload'}}}}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+        '503': {$ref: '#/components/responses/Unavailable'}
   /internal/v2/worker-host/archive-sdk:
     post:
       operationId: archiveWorkerSdkV2
@@ -1306,6 +1384,99 @@ components:
           items: {$ref: '#/components/schemas/KnowledgeRef'}
         text: {type: string, maxLength: 16777216}
         input_digest: {$ref: '#/components/schemas/Sha256Digest'}
+    WorkerSessionLimits:
+      type: object
+      additionalProperties: false
+      required: [max_objects, max_reference_depth, max_object_bytes, max_total_bytes, max_messages, max_pending_approvals]
+      properties:
+        max_objects: {type: integer, minimum: 1, maximum: 10000}
+        max_reference_depth: {type: integer, minimum: 1, maximum: 64}
+        max_object_bytes: {type: integer, minimum: 1, maximum: 67108864}
+        max_total_bytes: {type: integer, minimum: 1, maximum: 67108864}
+        max_messages: {type: integer, minimum: 1, maximum: 100000}
+        max_pending_approvals: {type: integer, minimum: 1, maximum: 512}
+    WorkerSessionPayloadVersion:
+      type: string
+      enum:
+        - wuji.worker.session.boundary.v1
+        - wuji.worker.session.staged.v1
+        - wuji.worker.session.receipt.v1
+        - wuji.worker.session.published.v1
+        - wuji.worker.session.approval-observation.v1
+        - wuji.worker.session.input-receipt.v1
+        - wuji.worker.session.human-input.v1
+        - wuji.worker.session.delivery-receipt.v1
+        - wuji.worker.session.compatibility.v1
+    WorkerSessionBinarySlot:
+      type: string
+      enum: [boundary_object_data, published_object_bytes, resolved_memory_file]
+    WorkerSessionBinary:
+      type: object
+      additionalProperties: false
+      required: [slot, key, data_base64, data_sha256, size_bytes]
+      properties:
+        slot: {$ref: '#/components/schemas/WorkerSessionBinarySlot'}
+        key: {type: string, minLength: 1, maxLength: 2048}
+        data_base64: {type: string, maxLength: 67108864}
+        data_sha256: {$ref: '#/components/schemas/Sha256Digest'}
+        size_bytes: {type: integer, minimum: 0, maximum: 67108864}
+    WorkerSessionPayload:
+      type: object
+      additionalProperties: false
+      required: [schema_version, payload, payload_sha256, payload_size_bytes, binaries]
+      properties:
+        schema_version: {$ref: '#/components/schemas/WorkerSessionPayloadVersion'}
+        payload: {type: object, additionalProperties: true}
+        payload_sha256: {$ref: '#/components/schemas/Sha256Digest'}
+        payload_size_bytes: {type: integer, minimum: 2, maximum: 67108864}
+        binaries:
+          type: array
+          maxItems: 10000
+          items: {$ref: '#/components/schemas/WorkerSessionBinary'}
+    WorkerStageSessionRequest:
+      type: object
+      additionalProperties: false
+      required: [assignment, boundary]
+      properties:
+        assignment: {$ref: '#/components/schemas/WorkerAssignment'}
+        boundary: {$ref: '#/components/schemas/WorkerSessionPayload'}
+    WorkerPublishSessionRequest:
+      type: object
+      additionalProperties: false
+      required: [assignment, manifest, expected_revision]
+      properties:
+        assignment: {$ref: '#/components/schemas/WorkerAssignment'}
+        manifest: {$ref: '#/components/schemas/SessionManifest'}
+        expected_revision: {$ref: '#/components/schemas/RevisionString'}
+    WorkerLoadSessionRequest:
+      type: object
+      additionalProperties: false
+      required: [assignment, manifest_ref]
+      properties:
+        assignment: {$ref: '#/components/schemas/WorkerAssignment'}
+        manifest_ref: {type: string, minLength: 1, maxLength: 256}
+    WorkerRegisterInputRequest:
+      type: object
+      additionalProperties: false
+      required: [assignment, observation]
+      properties:
+        assignment: {$ref: '#/components/schemas/WorkerAssignment'}
+        observation: {$ref: '#/components/schemas/WorkerSessionPayload'}
+    WorkerLoadDeliveryRequest:
+      type: object
+      additionalProperties: false
+      required: [assignment, delivery_id]
+      properties:
+        assignment: {$ref: '#/components/schemas/WorkerAssignment'}
+        delivery_id: {type: string, minLength: 1, maxLength: 256}
+    WorkerAcknowledgeDeliveryRequest:
+      type: object
+      additionalProperties: false
+      required: [assignment, delivery_id, payload_digest]
+      properties:
+        assignment: {$ref: '#/components/schemas/WorkerAssignment'}
+        delivery_id: {type: string, minLength: 1, maxLength: 256}
+        payload_digest: {$ref: '#/components/schemas/Sha256Digest'}
     WorkerHarnessCapabilities:
       type: object
       additionalProperties: false
@@ -1324,6 +1495,26 @@ components:
         compaction: {type: boolean}
         restoration: {type: boolean}
         mcp: {type: boolean}
+    WorkerSessionHarnessCapabilities:
+      type: object
+      additionalProperties: false
+      required: [todo, mode, file_memory, file_access, skills, shell, web_search, background_agents, outer_loop, auto_approval, compaction, restoration, mcp, native_approval, versioned_memory]
+      properties:
+        todo: {type: boolean}
+        mode: {type: boolean}
+        file_memory: {type: boolean}
+        file_access: {type: boolean}
+        skills: {type: boolean}
+        shell: {type: boolean}
+        web_search: {type: boolean}
+        background_agents: {type: boolean}
+        outer_loop: {type: boolean}
+        auto_approval: {type: boolean}
+        compaction: {type: boolean}
+        restoration: {type: boolean}
+        mcp: {type: boolean}
+        native_approval: {type: boolean}
+        versioned_memory: {type: boolean}
     WorkerHarnessProfileBody:
       type: object
       additionalProperties: false
@@ -1343,6 +1534,32 @@ components:
         max_context_bytes: {type: integer, minimum: 1, maximum: 16777216}
         max_output_tokens: {type: integer, minimum: 1, maximum: 1048576}
         capabilities: {$ref: '#/components/schemas/WorkerHarnessCapabilities'}
+    WorkerSessionHarnessProfileBody:
+      type: object
+      additionalProperties: false
+      required: [ref, revision, work_kind, instructions, tool_definition_refs, lock_digest, max_context_records, max_context_bytes, max_output_tokens, capabilities, schema_version, history_source_id, memory_mode, memory_source_id, session_limits, max_context_window_tokens, compaction_enabled]
+      properties:
+        ref: {type: string, minLength: 1, maxLength: 256}
+        revision: {$ref: '#/components/schemas/RevisionString'}
+        work_kind: {$ref: '#/components/schemas/WorkKind'}
+        instructions: {type: string, minLength: 1, maxLength: 32768}
+        tool_definition_refs:
+          type: array
+          minItems: 1
+          maxItems: 256
+          items: {type: string, minLength: 1, maxLength: 256}
+        lock_digest: {$ref: '#/components/schemas/Sha256Digest'}
+        max_context_records: {type: integer, minimum: 1, maximum: 5000}
+        max_context_bytes: {type: integer, minimum: 1, maximum: 16777216}
+        max_output_tokens: {type: integer, minimum: 1, maximum: 1048576}
+        capabilities: {$ref: '#/components/schemas/WorkerSessionHarnessCapabilities'}
+        schema_version: {type: string, const: wuji.harness.session.v1}
+        history_source_id: {type: string, pattern: '^[a-z][a-z0-9_]{0,63}$'}
+        memory_mode: {type: string, enum: [disabled, pinned_context]}
+        memory_source_id: {type: string, pattern: '^[a-z][a-z0-9_]{0,63}$'}
+        session_limits: {$ref: '#/components/schemas/WorkerSessionLimits'}
+        max_context_window_tokens: {type: integer, minimum: 1, maximum: 1073741824}
+        compaction_enabled: {type: boolean}
     WorkerHarnessProfile:
       type: object
       additionalProperties: false
@@ -1351,7 +1568,10 @@ components:
         ref: {type: string, minLength: 1, maxLength: 256}
         revision: {$ref: '#/components/schemas/RevisionString'}
         digest: {$ref: '#/components/schemas/Sha256Digest'}
-        body: {$ref: '#/components/schemas/WorkerHarnessProfileBody'}
+        body:
+          oneOf:
+            - {$ref: '#/components/schemas/WorkerHarnessProfileBody'}
+            - {$ref: '#/components/schemas/WorkerSessionHarnessProfileBody'}
     WorkerToolDefinition:
       type: object
       additionalProperties: false
@@ -1384,13 +1604,41 @@ components:
           maxItems: 256
           items: {$ref: '#/components/schemas/WorkerToolDefinition'}
         session_lineage: {type: string, minLength: 1, maxLength: 256}
+    WorkerSessionResolvedHost:
+      type: object
+      additionalProperties: false
+      required: [profile, client_model, limits, request_timeout_seconds, tools, session_lineage, session_compatibility, session_limits, delivery_id, memory_files]
+      properties:
+        profile: {$ref: '#/components/schemas/WorkerHarnessProfile'}
+        client_model: {type: string, minLength: 1, maxLength: 256}
+        limits: {$ref: '#/components/schemas/ExecutionLimits'}
+        request_timeout_seconds: {type: number, exclusiveMinimum: 0, maximum: 300}
+        tools:
+          type: array
+          minItems: 1
+          maxItems: 256
+          items: {$ref: '#/components/schemas/WorkerToolDefinition'}
+        session_lineage: {type: string, minLength: 1, maxLength: 256}
+        session_compatibility: {$ref: '#/components/schemas/WorkerSessionPayload'}
+        session_limits: {$ref: '#/components/schemas/WorkerSessionLimits'}
+        delivery_id:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 256}
+            - {type: 'null'}
+        memory_files:
+          type: array
+          maxItems: 10000
+          items: {$ref: '#/components/schemas/WorkerSessionBinary'}
     WorkerResolvedContext:
       type: object
       additionalProperties: false
       required: [context, resolved, assignment_digest]
       properties:
         context: {$ref: '#/components/schemas/WorkerContext'}
-        resolved: {$ref: '#/components/schemas/WorkerResolvedHost'}
+        resolved:
+          oneOf:
+            - {$ref: '#/components/schemas/WorkerResolvedHost'}
+            - {$ref: '#/components/schemas/WorkerSessionResolvedHost'}
         assignment_digest: {$ref: '#/components/schemas/Sha256Digest'}
     WorkerArchiveRequest:
       type: object

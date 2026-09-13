@@ -446,6 +446,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/internal/v2/worker-host/stage-session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Stage one bounded native Session boundary */
+        post: operations["stageWorkerSessionV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/v2/worker-host/publish-session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publish one exact staged Session revision */
+        post: operations["publishWorkerSessionV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/v2/worker-host/load-session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Load one exact authorized published Session */
+        post: operations["loadWorkerSessionV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/v2/worker-host/register-input": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Register an observed native input boundary */
+        post: operations["registerWorkerInputV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/v2/worker-host/load-delivery": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Load one exact persisted human input delivery */
+        post: operations["loadWorkerDeliveryV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/v2/worker-host/acknowledge-delivery": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Persist receipt of one exact human input delivery */
+        post: operations["acknowledgeWorkerDeliveryV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/internal/v2/worker-host/archive-sdk": {
         parameters: {
             query?: never;
@@ -871,6 +973,60 @@ export interface components {
             text: string;
             input_digest: components["schemas"]["Sha256Digest"];
         };
+        WorkerSessionLimits: {
+            max_objects: number;
+            max_reference_depth: number;
+            max_object_bytes: number;
+            max_total_bytes: number;
+            max_messages: number;
+            max_pending_approvals: number;
+        };
+        /** @enum {string} */
+        WorkerSessionPayloadVersion: "wuji.worker.session.boundary.v1" | "wuji.worker.session.staged.v1" | "wuji.worker.session.receipt.v1" | "wuji.worker.session.published.v1" | "wuji.worker.session.approval-observation.v1" | "wuji.worker.session.input-receipt.v1" | "wuji.worker.session.human-input.v1" | "wuji.worker.session.delivery-receipt.v1" | "wuji.worker.session.compatibility.v1";
+        /** @enum {string} */
+        WorkerSessionBinarySlot: "boundary_object_data" | "published_object_bytes" | "resolved_memory_file";
+        WorkerSessionBinary: {
+            slot: components["schemas"]["WorkerSessionBinarySlot"];
+            key: string;
+            data_base64: string;
+            data_sha256: components["schemas"]["Sha256Digest"];
+            size_bytes: number;
+        };
+        WorkerSessionPayload: {
+            schema_version: components["schemas"]["WorkerSessionPayloadVersion"];
+            payload: {
+                [key: string]: unknown;
+            };
+            payload_sha256: components["schemas"]["Sha256Digest"];
+            payload_size_bytes: number;
+            binaries: components["schemas"]["WorkerSessionBinary"][];
+        };
+        WorkerStageSessionRequest: {
+            assignment: components["schemas"]["WorkerAssignment"];
+            boundary: components["schemas"]["WorkerSessionPayload"];
+        };
+        WorkerPublishSessionRequest: {
+            assignment: components["schemas"]["WorkerAssignment"];
+            manifest: components["schemas"]["SessionManifest"];
+            expected_revision: components["schemas"]["RevisionString"];
+        };
+        WorkerLoadSessionRequest: {
+            assignment: components["schemas"]["WorkerAssignment"];
+            manifest_ref: string;
+        };
+        WorkerRegisterInputRequest: {
+            assignment: components["schemas"]["WorkerAssignment"];
+            observation: components["schemas"]["WorkerSessionPayload"];
+        };
+        WorkerLoadDeliveryRequest: {
+            assignment: components["schemas"]["WorkerAssignment"];
+            delivery_id: string;
+        };
+        WorkerAcknowledgeDeliveryRequest: {
+            assignment: components["schemas"]["WorkerAssignment"];
+            delivery_id: string;
+            payload_digest: components["schemas"]["Sha256Digest"];
+        };
         WorkerHarnessCapabilities: {
             todo: boolean;
             mode: boolean;
@@ -886,6 +1042,23 @@ export interface components {
             restoration: boolean;
             mcp: boolean;
         };
+        WorkerSessionHarnessCapabilities: {
+            todo: boolean;
+            mode: boolean;
+            file_memory: boolean;
+            file_access: boolean;
+            skills: boolean;
+            shell: boolean;
+            web_search: boolean;
+            background_agents: boolean;
+            outer_loop: boolean;
+            auto_approval: boolean;
+            compaction: boolean;
+            restoration: boolean;
+            mcp: boolean;
+            native_approval: boolean;
+            versioned_memory: boolean;
+        };
         WorkerHarnessProfileBody: {
             ref: string;
             revision: components["schemas"]["RevisionString"];
@@ -898,11 +1071,32 @@ export interface components {
             max_output_tokens: number;
             capabilities: components["schemas"]["WorkerHarnessCapabilities"];
         };
+        WorkerSessionHarnessProfileBody: {
+            ref: string;
+            revision: components["schemas"]["RevisionString"];
+            work_kind: components["schemas"]["WorkKind"];
+            instructions: string;
+            tool_definition_refs: string[];
+            lock_digest: components["schemas"]["Sha256Digest"];
+            max_context_records: number;
+            max_context_bytes: number;
+            max_output_tokens: number;
+            capabilities: components["schemas"]["WorkerSessionHarnessCapabilities"];
+            /** @constant */
+            schema_version: "wuji.harness.session.v1";
+            history_source_id: string;
+            /** @enum {string} */
+            memory_mode: "disabled" | "pinned_context";
+            memory_source_id: string;
+            session_limits: components["schemas"]["WorkerSessionLimits"];
+            max_context_window_tokens: number;
+            compaction_enabled: boolean;
+        };
         WorkerHarnessProfile: {
             ref: string;
             revision: components["schemas"]["RevisionString"];
             digest: components["schemas"]["Sha256Digest"];
-            body: components["schemas"]["WorkerHarnessProfileBody"];
+            body: components["schemas"]["WorkerHarnessProfileBody"] | components["schemas"]["WorkerSessionHarnessProfileBody"];
         };
         WorkerToolDefinition: {
             ref: string;
@@ -925,9 +1119,21 @@ export interface components {
             tools: components["schemas"]["WorkerToolDefinition"][];
             session_lineage: string;
         };
+        WorkerSessionResolvedHost: {
+            profile: components["schemas"]["WorkerHarnessProfile"];
+            client_model: string;
+            limits: components["schemas"]["ExecutionLimits"];
+            request_timeout_seconds: number;
+            tools: components["schemas"]["WorkerToolDefinition"][];
+            session_lineage: string;
+            session_compatibility: components["schemas"]["WorkerSessionPayload"];
+            session_limits: components["schemas"]["WorkerSessionLimits"];
+            delivery_id: string | null;
+            memory_files: components["schemas"]["WorkerSessionBinary"][];
+        };
         WorkerResolvedContext: {
             context: components["schemas"]["WorkerContext"];
-            resolved: components["schemas"]["WorkerResolvedHost"];
+            resolved: components["schemas"]["WorkerResolvedHost"] | components["schemas"]["WorkerSessionResolvedHost"];
             assignment_digest: components["schemas"]["Sha256Digest"];
         };
         WorkerArchiveRequest: {
@@ -2343,6 +2549,180 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkerResolvedContext"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidSchema"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    stageWorkerSessionV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkerStageSessionRequest"];
+            };
+        };
+        responses: {
+            /** @description Staged immutable Session objects */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkerSessionPayload"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidSchema"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    publishWorkerSessionV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkerPublishSessionRequest"];
+            };
+        };
+        responses: {
+            /** @description Authoritative Session publication receipt */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkerSessionPayload"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidSchema"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    loadWorkerSessionV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkerLoadSessionRequest"];
+            };
+        };
+        responses: {
+            /** @description Fixed published Session closure */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkerSessionPayload"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidSchema"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    registerWorkerInputV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkerRegisterInputRequest"];
+            };
+        };
+        responses: {
+            /** @description Persisted input receipt */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkerSessionPayload"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidSchema"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    loadWorkerDeliveryV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkerLoadDeliveryRequest"];
+            };
+        };
+        responses: {
+            /** @description Fixed authorized human input */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkerSessionPayload"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidSchema"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    acknowledgeWorkerDeliveryV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkerAcknowledgeDeliveryRequest"];
+            };
+        };
+        responses: {
+            /** @description Authoritative delivery receipt */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkerSessionPayload"];
                 };
             };
             401: components["responses"]["Unauthenticated"];

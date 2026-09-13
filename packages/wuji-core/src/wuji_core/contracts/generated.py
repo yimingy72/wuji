@@ -699,6 +699,10 @@ class DecimalString(RootModel[StrictStr]):
     root: Annotated[StrictStr, Field(pattern='^(0|[1-9][0-9]*)(\\.[0-9]+)?$')]
 
 
+class DeliveryId(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+
+
 class DependencyCondition(StrEnum):
     settled = 'settled'
     accepted_result = 'accepted_result'
@@ -1028,6 +1032,11 @@ class LocalState(StrEnum):
 
 class LogicalRequestId(RootModel[StrictStr]):
     root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+
+
+class MemoryMode(StrEnum):
+    disabled = 'disabled'
+    pinned_context = 'pinned_context'
 
 
 class ModelAttemptReceipt(BaseModel):
@@ -1829,6 +1838,15 @@ class WorkState(StrEnum):
     cancelled = 'cancelled'
 
 
+class WorkerAcknowledgeDeliveryRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    assignment: WorkerAssignment
+    delivery_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    payload_digest: Sha256Digest
+
+
 class WorkerArchiveRequest(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -1935,7 +1953,7 @@ class WorkerHarnessProfile(BaseModel):
     ref: Annotated[StrictStr, Field(max_length=256, min_length=1)]
     revision: RevisionString
     digest: Sha256Digest
-    body: WorkerHarnessProfileBody
+    body: WorkerHarnessProfileBody | WorkerSessionHarnessProfileBody
 
 
 class WorkerHarnessProfileBody(BaseModel):
@@ -1956,6 +1974,31 @@ class WorkerHarnessProfileBody(BaseModel):
     capabilities: WorkerHarnessCapabilities
 
 
+class WorkerLoadDeliveryRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    assignment: WorkerAssignment
+    delivery_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+
+
+class WorkerLoadSessionRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    assignment: WorkerAssignment
+    manifest_ref: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+
+
+class WorkerPublishSessionRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    assignment: WorkerAssignment
+    manifest: SessionManifest
+    expected_revision: RevisionString
+
+
 class WorkerReceiver(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -1966,12 +2009,20 @@ class WorkerReceiver(BaseModel):
     pod_uid: Annotated[StrictStr, Field(max_length=256, min_length=1)]
 
 
+class WorkerRegisterInputRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    assignment: WorkerAssignment
+    observation: WorkerSessionPayload
+
+
 class WorkerResolvedContext(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
     )
     context: WorkerContext
-    resolved: WorkerResolvedHost
+    resolved: WorkerResolvedHost | WorkerSessionResolvedHost
     assignment_digest: Sha256Digest
 
 
@@ -1985,6 +2036,128 @@ class WorkerResolvedHost(BaseModel):
     request_timeout_seconds: Annotated[StrictFloat, Field(gt=0.0, le=300.0)]
     tools: Annotated[list[WorkerToolDefinition], Field(max_length=256, min_length=1)]
     session_lineage: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+
+
+class WorkerSessionBinary(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    slot: WorkerSessionBinarySlot
+    key: Annotated[StrictStr, Field(max_length=2048, min_length=1)]
+    data_base64: Annotated[StrictStr, Field(max_length=67108864)]
+    data_sha256: Sha256Digest
+    size_bytes: Annotated[StrictInt, Field(ge=0, le=67108864)]
+
+
+class WorkerSessionBinarySlot(StrEnum):
+    boundary_object_data = 'boundary_object_data'
+    published_object_bytes = 'published_object_bytes'
+    resolved_memory_file = 'resolved_memory_file'
+
+
+class WorkerSessionHarnessCapabilities(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    todo: StrictBool
+    mode: StrictBool
+    file_memory: StrictBool
+    file_access: StrictBool
+    skills: StrictBool
+    shell: StrictBool
+    web_search: StrictBool
+    background_agents: StrictBool
+    outer_loop: StrictBool
+    auto_approval: StrictBool
+    compaction: StrictBool
+    restoration: StrictBool
+    mcp: StrictBool
+    native_approval: StrictBool
+    versioned_memory: StrictBool
+
+
+class WorkerSessionHarnessProfileBody(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    ref: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    revision: RevisionString
+    work_kind: WorkKind
+    instructions: Annotated[StrictStr, Field(max_length=32768, min_length=1)]
+    tool_definition_refs: Annotated[
+        list[ToolDefinitionRef], Field(max_length=256, min_length=1)
+    ]
+    lock_digest: Sha256Digest
+    max_context_records: Annotated[StrictInt, Field(ge=1, le=5000)]
+    max_context_bytes: Annotated[StrictInt, Field(ge=1, le=16777216)]
+    max_output_tokens: Annotated[StrictInt, Field(ge=1, le=1048576)]
+    capabilities: WorkerSessionHarnessCapabilities
+    schema_version: Literal['wuji.harness.session.v1']
+    history_source_id: Annotated[StrictStr, Field(pattern='^[a-z][a-z0-9_]{0,63}$')]
+    memory_mode: MemoryMode
+    memory_source_id: Annotated[StrictStr, Field(pattern='^[a-z][a-z0-9_]{0,63}$')]
+    session_limits: WorkerSessionLimits
+    max_context_window_tokens: Annotated[StrictInt, Field(ge=1, le=1073741824)]
+    compaction_enabled: StrictBool
+
+
+class WorkerSessionLimits(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    max_objects: Annotated[StrictInt, Field(ge=1, le=10000)]
+    max_reference_depth: Annotated[StrictInt, Field(ge=1, le=64)]
+    max_object_bytes: Annotated[StrictInt, Field(ge=1, le=67108864)]
+    max_total_bytes: Annotated[StrictInt, Field(ge=1, le=67108864)]
+    max_messages: Annotated[StrictInt, Field(ge=1, le=100000)]
+    max_pending_approvals: Annotated[StrictInt, Field(ge=1, le=512)]
+
+
+class WorkerSessionPayload(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    schema_version: WorkerSessionPayloadVersion
+    payload: dict[str, Any]
+    payload_sha256: Sha256Digest
+    payload_size_bytes: Annotated[StrictInt, Field(ge=2, le=67108864)]
+    binaries: Annotated[list[WorkerSessionBinary], Field(max_length=10000)]
+
+
+class WorkerSessionPayloadVersion(StrEnum):
+    wuji_worker_session_boundary_v1 = 'wuji.worker.session.boundary.v1'
+    wuji_worker_session_staged_v1 = 'wuji.worker.session.staged.v1'
+    wuji_worker_session_receipt_v1 = 'wuji.worker.session.receipt.v1'
+    wuji_worker_session_published_v1 = 'wuji.worker.session.published.v1'
+    wuji_worker_session_approval_observation_v1 = 'wuji.worker.session.approval-observation.v1'
+    wuji_worker_session_input_receipt_v1 = 'wuji.worker.session.input-receipt.v1'
+    wuji_worker_session_human_input_v1 = 'wuji.worker.session.human-input.v1'
+    wuji_worker_session_delivery_receipt_v1 = 'wuji.worker.session.delivery-receipt.v1'
+    wuji_worker_session_compatibility_v1 = 'wuji.worker.session.compatibility.v1'
+
+
+class WorkerSessionResolvedHost(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    profile: WorkerHarnessProfile
+    client_model: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    limits: ExecutionLimits
+    request_timeout_seconds: Annotated[StrictFloat, Field(gt=0.0, le=300.0)]
+    tools: Annotated[list[WorkerToolDefinition], Field(max_length=256, min_length=1)]
+    session_lineage: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    session_compatibility: WorkerSessionPayload
+    session_limits: WorkerSessionLimits
+    delivery_id: DeliveryId | None
+    memory_files: Annotated[list[WorkerSessionBinary], Field(max_length=10000)]
+
+
+class WorkerStageSessionRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    assignment: WorkerAssignment
+    boundary: WorkerSessionPayload
 
 
 class WorkerStartPermission(BaseModel):
