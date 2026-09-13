@@ -26,6 +26,7 @@ from support.p06 import ENVIRONMENT, RECEIVER, SyntheticTaskKeyResolver
 from support.p09 import (
     AUDIENCE,
     ISSUER,
+    OWNER,
     POD_UID,
     TASK,
     explore_assignment,
@@ -34,6 +35,7 @@ from support.p09 import (
 )
 from wuji_core.admission.ledger import AdmissionLedger
 from wuji_core.admission.models import HttpxModelTransport, ModelAdmission, ModelGate
+from wuji_core.admission.registry import revoke_run_credential
 from wuji_core.admission.tools import (
     ToolAdmission,
     ToolCapabilityResolver,
@@ -42,14 +44,12 @@ from wuji_core.admission.tools import (
 )
 from wuji_core.evidence.observations import EvidenceService
 from wuji_core.execution.dispatch_outbox import SupervisorHttpTransport
-from wuji_core.execution.reconcile import Reconciler
-from wuji_core.execution.worker_bridge import WorkerHostBridge
+from wuji_core.execution.runtime_dispatcher import build_runtime_controller
 from wuji_core.http import JsonBoundaryLimits, canonical_json_bytes, create_app
 from wuji_core.http.auth import TokenVerifier
 from wuji_core.http.model_gate import create_model_router
 from wuji_core.http.tool_gate import create_tool_router
-from wuji_core.http.worker_host import create_worker_host_router
-from wuji_core.persistence.uow import AccessContext, DomainError
+from wuji_core.persistence.uow import AccessContext
 from wuji_core.worker_host import PlatformWorkerHost
 from wuji_maf_worker.context import ContextLimits, ContextRelation, build_context_bundle
 from wuji_core.contracts.knowledge import KnowledgeRef
@@ -388,15 +388,34 @@ class NodeBridgeSupervisor:
 
 
 @contextmanager
-def m2_case(environment, tmp_path: Path, audit_directory: Path):
+def m2_case(
+    environment,
+    tmp_path: Path,
+    audit_directory: Path,
+    *,
+    reject_first_submit: bool = True,
+    revoke_worker_on_result_write: bool = False,
+):
     upstream = NativeSseModel(audit_directory / "m2-model-upstream-http.jsonl")
     gate_server = None
     controller_server = None
     node = None
+    runtime = None
     try:
         with scheduler_case(environment, tmp_path, audit_directory) as scheduled:
+            # Deployment explicitly grants its registered receiver settlement
+            # authority. v0013 refuses to infer or self-grant this ACL.
+            with environment.migration_connection() as connection:
+                connection.execute(
+                    """UPDATE vnext.task_access SET can_settle=true
+                    WHERE tenant_id=%s AND project_id=%s AND task_id=%s
+                    AND subject='observer-fixture' AND can_read AND can_observe
+                    AND NOT can_write AND NOT can_model_output""",
+                    OWNER,
+                )
             assignment = explore_assignment(scheduled.scheduler.tick(limit=2))
             worker = worker_credential(scheduled, assignment)
+            worker_write_state = {"revocations": 0}
             receiver_credential = _receiver_credential(scheduled, audit_directory)
             receiver = {
                 "receiver_id": RECEIVER,
@@ -457,13 +476,21 @@ def m2_case(environment, tmp_path: Path, audit_directory: Path):
                 None, audit_directory / "m2-controller-http.jsonl"
             )
 
-            def receiver_access(value):
-                identity = value.identity
-                if identity != assignment.identity:
-                    raise DomainError("STALE_EXECUTION", 409)
-                return receiver_credential.access
-
             def host_factory(worker_access):
+                if (
+                    revoke_worker_on_result_write
+                    and runtime is not None
+                    and runtime.bridge.intake.read(assignment, "result") is not None
+                    and worker_write_state["revocations"] == 0
+                ):
+                    with environment.migration_connection() as connection:
+                        revoke_run_credential(
+                            connection,
+                            tenant_id=worker.principal.tenant_id,
+                            subject=worker.principal.subject,
+                            token_id=worker.principal.token_id,
+                        )
+                    worker_write_state["revocations"] += 1
                 return PlatformWorkerHost(
                     uow=scheduled.control.uow,
                     registry=registry,
@@ -474,34 +501,18 @@ def m2_case(environment, tmp_path: Path, audit_directory: Path):
                     lock_digest=scheduled.control.scheduler_config.runtime.lock_digest,
                 )
 
-            bridge = WorkerHostBridge(
-                scheduled.control.uow,
-                registry=registry,
-                credentials=scheduled.issuer,
-                receiver_access=receiver_access,
-                host_factory=host_factory,
-                context_builder=_context_builder,
-                ledger=scheduled.control.view,
-                child_config={
-                    "public_key_pem": scheduled.keys.public_pem.decode("utf-8"),
-                    "issuer": ISSUER,
-                    "audience": AUDIENCE,
-                    "host_origin": controller_server.url,
-                    "model_gate_url": gate_server.url + "/internal/v2/model",
-                    "tool_gate_url": gate_server.url + "/internal/v2/tool-calls",
-                    "wait_timeout_seconds": 20,
-                    "transport_timeout_seconds": 10,
-                    "max_transport_bytes": 1_048_576,
-                },
-                spool_directory=tmp_path / "m2-controller-intake",
-            )
-            controller_app = create_app(
-                token_verifier=receiver_credential.verifier,
-                routers=[create_worker_host_router(bridge)],
-                json_limits=JsonBoundaryLimits(max_body_bytes=1_048_576),
-            )
-            controller_fault = RejectFirstWorkerSubmit(controller_app)
-            controller_server.app = controller_fault
+            def retained_host_factory(receiver_access, retained_result):
+                return PlatformWorkerHost(
+                    uow=scheduled.control.uow,
+                    registry=registry,
+                    access=receiver_access,
+                    artifacts=scheduled.control.store,
+                    committer=scheduled.control.committer,
+                    profiles=tuple(scheduled.profiles.values()),
+                    lock_digest=scheduled.control.scheduler_config.runtime.lock_digest,
+                    retained_result=retained_result,
+                )
+
             node = NodeBridgeSupervisor(
                 directory=tmp_path / "m2-node",
                 assignment=assignment,
@@ -516,15 +527,46 @@ def m2_case(environment, tmp_path: Path, audit_directory: Path):
                 timeout=10,
                 max_response_bytes=1_048_576,
             )
-            reconciler = Reconciler(
+            runtime = build_runtime_controller(
                 scheduled.control.uow,
                 access=receiver_credential.access,
+                authorized_task_ids=(TASK,),
+                credentials=scheduled.issuer,
+                registry=registry,
                 control=scheduled.control.control,
-                transport=transport,
-                persist_results=bridge.reconcile_results,
+                supervisor_transport=transport,
+                host_factory=host_factory,
+                retained_host_factory=retained_host_factory,
+                context_builder=_context_builder,
+                ledger=scheduled.control.view,
+                child_config={
+                    "public_key_pem": scheduled.keys.public_pem.decode("utf-8"),
+                    "issuer": ISSUER,
+                    "audience": AUDIENCE,
+                    "host_origin": controller_server.url,
+                    "model_gate_url": gate_server.url + "/internal/v2/model",
+                    "tool_gate_url": gate_server.url + "/internal/v2/tool-calls",
+                    "wait_timeout_seconds": 20,
+                    "transport_timeout_seconds": 10,
+                    "max_transport_bytes": 1_048_576,
+                },
+                journal_path=tmp_path / "m2-runtime/dispatch.sqlite3",
+                spool_directory=tmp_path / "m2-controller-intake",
+                json_limits=JsonBoundaryLimits(max_body_bytes=1_048_576),
             )
+            bridge = runtime.bridge
+            reconciler = runtime.reconciler
+            dispatcher = runtime.dispatcher
+            if reject_first_submit:
+                controller_fault = RejectFirstWorkerSubmit(runtime.app)
+                controller_server.app = controller_fault
+            else:
+                controller_fault = SimpleNamespace(rejections=0)
+                controller_server.app = runtime.app
             yield SimpleNamespace(**locals())
     finally:
+        if runtime is not None:
+            runtime.close()
         if node is not None:
             node.close()
         if controller_server is not None:

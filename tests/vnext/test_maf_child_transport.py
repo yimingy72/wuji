@@ -17,14 +17,58 @@ from support.m2 import (
     worker_host_bridge_type,
 )
 from wuji_core.admission.registry import revoke_run_credential
-from wuji_core.contracts.envelopes import ResultReceipt
+from wuji_core.contracts.envelopes import ResultReceipt, WorkerAssignment
+from wuji_core.execution.reconcile import RegisteredRun, validate_receipt
 from wuji_core.http import canonical_json_bytes, strict_json_loads
+from wuji_core.persistence.uow import DomainError
 
 
 def test_worker_host_bridge_exposes_the_start_permission_boundary():
     bridge_type = worker_host_bridge_type()
 
     assert callable(getattr(bridge_type, "await_start", None))
+
+
+def test_runtime_dispatcher_exposes_the_product_outbox_entrypoint():
+    from wuji_core.execution.runtime_dispatcher import RuntimeDispatcher
+
+    assert callable(getattr(RuntimeDispatcher, "deliver_pending", None))
+
+
+def test_process_receipt_rejects_a_non_harness_assignment_profile():
+    body = assignment_body()
+    body["profile_refs"] = [
+        body["profile_refs"][0],
+        "fixture-model-v1",
+        "fixture-runtime-v1",
+    ]
+    assignment = WorkerAssignment.model_validate(body)
+    receiver = receiver_body()
+    run = RegisteredRun(
+        identity=assignment.identity,
+        start_operation_id=assignment.operation_id,
+        environment_ref=receiver["environment_ref"],
+        pod_uid=receiver["pod_uid"],
+        assignment_digest=sha256(
+            canonical_json_bytes(assignment.model_dump(mode="json"))
+        ).hexdigest(),
+        work_kind=assignment.work_kind.value,
+        harness_profile_id=assignment.profile_refs[0].root,
+        harness_profile_digest="a" * 64,
+    )
+    receipt = {
+        "operation_id": assignment.operation_id,
+        "identity": assignment.identity.model_dump(mode="json"),
+        "receiver": receiver,
+        "assignment_digest": run.assignment_digest,
+        # This is the assigned model profile, not the fixed harness profile.
+        "profile_id": assignment.profile_refs[1].root,
+        "state": "prepared",
+        "observation": None,
+    }
+
+    with pytest.raises(DomainError, match="STALE_EXECUTION"):
+        validate_receipt(run, receipt)
 
 
 def test_generated_worker_bridge_wire_is_bounded_and_strict():
@@ -102,20 +146,171 @@ def _wait_for(check, *, timeout=10):
     raise AssertionError(f"M2 condition was not met; last={last!r}")
 
 
-def test_actual_supervisor_child_waits_for_start_and_receiver_replays_bytes(
+class _WrongProfileReceiptTransport:
+    """Mutate only the profile field of an actual Supervisor receipt."""
+
+    def __init__(self, delegate, profile_id):
+        self.delegate = delegate
+        self.profile_id = profile_id
+
+    def query(self, operation_id):
+        return self.delegate.query(operation_id)
+
+    def start(self, assignment, *, profile_id):
+        receipt = self.delegate.start(assignment, profile_id=profile_id)
+        changed = strict_json_loads(canonical_json_bytes(receipt))
+        changed["profile_id"] = self.profile_id
+        return changed
+
+    def control(self, *args, **kwargs):
+        return self.delegate.control(*args, **kwargs)
+
+
+def _registered_process_state(db_environment, assignment):
+    with db_environment.migration_connection() as connection:
+        run = connection.execute(
+            """SELECT process_state,last_observation_id FROM vnext.agent_run
+            WHERE agent_run_id=%s""",
+            (assignment.identity.agent_run_id,),
+        ).fetchone()
+        reservations = connection.execute(
+            """SELECT state FROM vnext.capacity_reservation
+            WHERE agent_run_id=%s ORDER BY pool_key""",
+            (assignment.identity.agent_run_id,),
+        ).fetchall()
+    return run, reservations
+
+
+def test_actual_receipt_with_a_wrong_harness_profile_cannot_advance_p05(
     db_environment, tmp_path, audit_directory
+):
+    with m2_case(db_environment, tmp_path, audit_directory) as case:
+        case.runtime.outbox.transport = _WrongProfileReceiptTransport(
+            case.transport, case.assignment.profile_refs[1].root
+        )
+        with pytest.raises(DomainError, match="STALE_EXECUTION"):
+            case.dispatcher.deliver_pending(limit=1)
+
+        run, reservations = _registered_process_state(
+            db_environment, case.assignment
+        )
+        assert run == ("registered", None)
+        assert reservations and {state for (state,) in reservations} == {"reserved"}
+        assert case.upstream.exchanges == []
+
+
+def test_mismatched_registered_pod_is_rejected_before_node_launch(
+    db_environment, tmp_path, audit_directory
+):
+    with m2_case(db_environment, tmp_path, audit_directory) as case:
+        with db_environment.migration_connection() as connection:
+            connection.execute(
+                """UPDATE vnext.scheduler_receiver SET pod_uid='wrong-pod-uid'
+                WHERE tenant_id=%s AND project_id=%s AND task_id=%s
+                AND runtime_attempt=%s""",
+                (
+                    case.assignment.identity.tenant_id,
+                    case.assignment.identity.project_id,
+                    case.assignment.identity.task_id,
+                    case.assignment.identity.runtime_attempt.root,
+                ),
+            )
+        delivered = case.dispatcher.deliver_pending(limit=1)
+
+        assert len(delivered) == 1
+        assert delivered[0].state == "unknown"
+        repeated = case.dispatcher.deliver_pending(limit=1)
+        assert len(repeated) == 1
+        assert repeated[0].state == "unknown"
+        node_requests = [
+            strict_json_loads(line)
+            for line in case.node.audit_path.read_text().splitlines()
+        ]
+        assert [
+            request["request"]["method"] for request in node_requests[:2]
+        ] == ["GET", "PUT"]
+        assert sum(
+            request["request"]["method"] == "PUT" for request in node_requests
+        ) == 1
+        launches = case.node.directory / "inbox/launches"
+        assert not launches.exists() or list(launches.iterdir()) == []
+        run, reservations = _registered_process_state(
+            db_environment, case.assignment
+        )
+        assert run == ("registered", None)
+        assert reservations and {state for (state,) in reservations} == {"reserved"}
+        assert case.upstream.exchanges == []
+
+
+def test_worker_revoked_after_ready_is_rejected_at_result_writepoint(
+    db_environment, tmp_path, audit_directory
+):
+    with m2_case(
+        db_environment,
+        tmp_path,
+        audit_directory,
+        reject_first_submit=False,
+        revoke_worker_on_result_write=True,
+    ) as case:
+        started = case.dispatcher.deliver_pending(limit=1)[0]
+        case.dispatcher.reconcile(started.run)
+        assert case.upstream.first_request_started.wait(timeout=5)
+        case.upstream.release_first_response.set()
+        worker_directory = case.node.worker_directory()
+        _wait_for(
+            lambda: (
+                response
+                if (response := case.node.query()).status_code == 200
+                and response.json()["state"] == "exited"
+                else None
+            ),
+            timeout=15,
+        )
+
+        assert case.worker_write_state["revocations"] == 1
+        assert (worker_directory / "result-request.json").is_file()
+        assert any(
+            exchange.path == "/internal/v2/worker-host/submit-result"
+            and exchange.status_code == 409
+            for exchange in case.controller_server.exchanges
+        )
+        with db_environment.migration_connection() as connection:
+            result_count = connection.execute(
+                """SELECT count(*) FROM vnext.result_submission
+                WHERE agent_run_id=%s""",
+                (case.assignment.identity.agent_run_id,),
+            ).fetchone()[0]
+            claim_count = connection.execute(
+                """SELECT count(*) FROM vnext.claim_revision
+                WHERE agent_run_id=%s""",
+                (case.assignment.identity.agent_run_id,),
+            ).fetchone()[0]
+        assert result_count == 0
+        assert claim_count == 0
+
+
+@pytest.mark.parametrize(
+    "revoke_before_first_intake",
+    [False, True],
+    ids=["current-receiver-intake", "revoked-first-intake"],
+)
+def test_actual_supervisor_child_waits_for_start_and_receiver_replays_bytes(
+    db_environment,
+    tmp_path,
+    audit_directory,
+    revoke_before_first_intake,
 ):
     """Catch an early SDK call, hosted substitute, or fake late-result ack."""
 
     with m2_case(db_environment, tmp_path, audit_directory) as case:
-        started = case.node.start()
-        assert started.status_code == 200, started.text
-        started_body = started.json()
-        assert started_body["state"] == "running"
-        assert started_body["observation"]["kind"] == "started"
-        process = started_body["observation"]["process"]
-        assert process["pid"] > 0
-        assert process["birth_id"] != str(process["pid"])
+        deliveries = case.dispatcher.deliver_pending(limit=1)
+        assert len(deliveries) == 1
+        started = deliveries[0]
+        assert started.state == "running"
+        assert started.observation.kind == "started"
+        process = started.observation.process
+        assert process.pid > 0
+        assert process.birth_id != str(process.pid)
 
         # The child exists and polls the controller, but P05 has not accepted its
         # birth observation. No MAF model request may start in this interval.
@@ -128,12 +323,10 @@ def test_actual_supervisor_child_waits_for_start_and_receiver_replays_bytes(
         worker_directory = case.node.worker_directory()
         assert _wait_for(lambda: (worker_directory / "child-entered").exists())
 
-        registered = case.reconciler.registered(
-            task_id=TASK, operation_id=case.assignment.operation_id
-        )
-        running = case.reconciler.reconcile(registered)
+        registered = started.run
+        running = case.dispatcher.reconcile(registered)
         assert running.state == "running"
-        assert running.observation.process.birth_id == process["birth_id"]
+        assert running.observation.process.birth_id == process.birth_id
         assert case.upstream.first_request_started.wait(timeout=5)
         case.upstream.release_first_response.set()
 
@@ -147,15 +340,29 @@ def test_actual_supervisor_child_waits_for_start_and_receiver_replays_bytes(
             timeout=15,
         )
         exited = exited_response.json()
-        assert exited["observation"]["process"]["pid"] == process["pid"]
-        assert exited["observation"]["process"]["birth_id"] == process["birth_id"]
+        assert exited["observation"]["process"]["pid"] == process.pid
+        assert exited["observation"]["process"]["birth_id"] == process.birth_id
         assert exited["observation"]["process"]["exit_code"] == 1
         assert case.controller_fault.rejections == 1
         assert (worker_directory / "result-request.json").is_file()
         assert (worker_directory / "sdk-request.json").is_file()
         assert not (worker_directory / "result-receipt.json").exists()
 
-        final = case.reconciler.reconcile(registered)
+        before_network = (
+            len(case.upstream.exchanges),
+            len(case.gate_server.exchanges),
+        )
+        if revoke_before_first_intake:
+            # Revoke the actual Worker before the first controller intake. The
+            # receiver may settle the retained bytes only as historical output.
+            with db_environment.migration_connection() as connection:
+                revoke_run_credential(
+                    connection,
+                    tenant_id=case.worker.principal.tenant_id,
+                    subject=case.worker.principal.subject,
+                    token_id=case.worker.principal.token_id,
+                )
+        final = case.dispatcher.reconcile(registered)
         assert final.state == "exited"
         with db_environment.migration_connection() as connection:
             result_row = connection.execute(
@@ -181,9 +388,16 @@ def test_actual_supervisor_child_waits_for_start_and_receiver_replays_bytes(
             ).fetchone()[0]
         assert result_row is not None
         result = ResultReceipt.model_validate(strict_json_loads(result_row[0]))
-        assert result.status.value == "accepted"
-        assert claim[0:2] == ("agent", case.assignment.identity.agent_run_id)
-        assert len(strict_json_loads(claim[2])) == 1
+        if revoke_before_first_intake:
+            assert result.status.value == "historical_only"
+            assert claim is None
+        else:
+            assert result.status.value == "accepted"
+            assert claim[0:2] == (
+                "agent",
+                case.assignment.identity.agent_run_id,
+            )
+            assert len(strict_json_loads(claim[2])) == 1
         assert observation_count == 1
         assert task_state == "running"
 
@@ -199,11 +413,11 @@ def test_actual_supervisor_child_waits_for_start_and_receiver_replays_bytes(
         assert first_request["max_completion_tokens"] == 2_048
         assert "max_tokens" not in first_request
 
-        replay = case.node.start()
-        assert replay.status_code == 200
-        assert (
-            replay.json()["observation"]["process"] == exited["observation"]["process"]
-        )
+        replay = case.runtime.outbox.deliver(TASK, case.assignment.operation_id)
+        assert replay.state == "exited"
+        assert replay.observation.process.model_dump(mode="json") == exited[
+            "observation"
+        ]["process"]
         assert len(list((case.node.directory / "inbox/launches").iterdir())) == 1
         launch = worker_directory.parent
         public_bytes = b"".join(
@@ -218,20 +432,17 @@ def test_actual_supervisor_child_waits_for_start_and_receiver_replays_bytes(
         assert case.receiver_credential.token.encode("utf-8") not in public_bytes
         assert case.worker.token in (worker_directory / "bridge.json").read_text()
 
-        before_network = (
-            len(case.upstream.exchanges),
-            len(case.gate_server.exchanges),
-        )
-        with db_environment.migration_connection() as connection:
-            revoke_run_credential(
-                connection,
-                tenant_id=case.worker.principal.tenant_id,
-                subject=case.worker.principal.subject,
-                token_id=case.worker.principal.token_id,
-            )
         original_result_request = (
             worker_directory / "result-request.json"
         ).read_bytes()
+        if not revoke_before_first_intake:
+            with db_environment.migration_connection() as connection:
+                revoke_run_credential(
+                    connection,
+                    tenant_id=case.worker.principal.tenant_id,
+                    subject=case.worker.principal.subject,
+                    token_id=case.worker.principal.token_id,
+                )
         with httpx.Client(
             timeout=10, trust_env=False, follow_redirects=False
         ) as client:
@@ -275,6 +486,7 @@ def test_actual_supervisor_child_waits_for_start_and_receiver_replays_bytes(
                     "result": result.model_dump(mode="json"),
                     "receiver_replay_status": receiver_replay.status_code,
                     "old_worker_status": old_worker.status_code,
+                    "revoke_before_first_intake": revoke_before_first_intake,
                     "task_state": task_state,
                 }
             )
