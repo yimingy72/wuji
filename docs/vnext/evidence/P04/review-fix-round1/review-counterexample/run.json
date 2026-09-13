@@ -1,0 +1,13 @@
+{
+  "command": "PYTHONDONTWRITEBYTECODE=1 packages/maf-worker/.venv/bin/python /tmp/wuji-p04-review-20260913/counterexample.py",
+  "exit_code": 0,
+  "counterexample_count": 1,
+  "counterexample_reproduced": true,
+  "code_commit": "18d03323e9da1d23cca33b4dcc82bee170e7eee8",
+  "source_script_sha256": "407b9c294bde0801c48d8997aab2a64fab1beddb2a123e69f40eeeca69e38d83",
+  "http_exchanges": 8,
+  "body_length_or_credential_pattern_errors": [],
+  "postgres_original_bytes": 283337,
+  "postgres_original_sha256": "8124da68293d742a3ad7999fa51d25e6f38c4695fc3864f699e01c4f4b0db65b",
+  "replay_note": "Copy counterexample.py into a fresh temporary directory, run it from this worktree with the existing isolated test manifest and pinned local venv; no tracked source or tests are modified. It creates/cleans only its own generated fixture DB and roles."
+}

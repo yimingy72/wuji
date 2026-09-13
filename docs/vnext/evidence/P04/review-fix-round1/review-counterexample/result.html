@@ -1,0 +1,117 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>P04 review counterexample</title><style>body{font:16px system-ui;margin:28px;background:#f6f7fa;color:#182331}h1{font-size:25px}h2{font-size:20px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:white;border:1px solid #cbd2da;padding:14px;font:13px ui-monospace}small{color:#495765}</style><h1>P04 review: hidden newer input revision preserves a false current Fact</h1><p><b>One isolated production ASGI/PostgreSQL counterexample reproduced.</b></p><small>Code: 18d03323e9da1d23cca33b4dcc82bee170e7eee8<br>Saved actual responses, not a product UI or live server response. Synthetic fixture only; no model/target calls.<br>Input claim revision 1 is public; revision 2 is private. Nonowner application role: rolsuper=false, rolbypassrls=false.</small><div class="grid"><section><h2>High clearance: stale / eligible=false</h2><pre>HTTP 200
+{
+  &quot;policy_version&quot;: &quot;assessment-policy-v1&quot;,
+  &quot;grounding_state&quot;: &quot;linked&quot;,
+  &quot;evidence_state&quot;: &quot;unassessed&quot;,
+  &quot;applicability_state&quot;: &quot;stale&quot;,
+  &quot;eligible&quot;: false,
+  &quot;assessment_ids&quot;: [],
+  &quot;conditions&quot;: [],
+  &quot;limitations&quot;: [
+    &quot;isolated fixture&quot;
+  ]
+}</pre></section><section><h2>Low clearance: current / eligible=true</h2><pre>HTTP 200
+{
+  &quot;policy_version&quot;: &quot;assessment-policy-v1&quot;,
+  &quot;grounding_state&quot;: &quot;content_checked&quot;,
+  &quot;evidence_state&quot;: &quot;supported&quot;,
+  &quot;applicability_state&quot;: &quot;current&quot;,
+  &quot;eligible&quot;: true,
+  &quot;assessment_ids&quot;: [
+    &quot;1e261aad-2186-4ada-9c1c-b70b6c2be01d&quot;
+  ],
+  &quot;conditions&quot;: [
+    &quot;isolated fixture&quot;
+  ],
+  &quot;limitations&quot;: [
+    &quot;isolated fixture&quot;
+  ]
+}</pre></section></div><p>Failure: latest input revision is computed from RLS-visible rows. The visibility guard only covers the referenced revision.</p><h2>high complete response body</h2><pre>{
+  &quot;assessment&quot;: {
+    &quot;policy_version&quot;: &quot;assessment-policy-v1&quot;,
+    &quot;grounding_state&quot;: &quot;linked&quot;,
+    &quot;evidence_state&quot;: &quot;unassessed&quot;,
+    &quot;applicability_state&quot;: &quot;stale&quot;,
+    &quot;eligible&quot;: false,
+    &quot;assessment_ids&quot;: [],
+    &quot;conditions&quot;: [],
+    &quot;limitations&quot;: [
+      &quot;isolated fixture&quot;
+    ]
+  },
+  &quot;ref&quot;: {
+    &quot;entity_type&quot;: &quot;claim&quot;,
+    &quot;id&quot;: &quot;306660bb-a371-454b-a890-bc29e4689684&quot;,
+    &quot;revision&quot;: &quot;1&quot;
+  },
+  &quot;display_kind&quot;: &quot;claim&quot;,
+  &quot;record&quot;: {
+    &quot;claim_id&quot;: &quot;306660bb-a371-454b-a890-bc29e4689684&quot;,
+    &quot;revision&quot;: &quot;1&quot;,
+    &quot;task_id&quot;: &quot;task-fixture&quot;,
+    &quot;kind&quot;: &quot;derived-conclusion&quot;,
+    &quot;assertion_role&quot;: &quot;candidate_fact&quot;,
+    &quot;text&quot;: &quot;Conclusion supported by the premise&quot;,
+    &quot;structured_assertion&quot;: null,
+    &quot;basis_refs&quot;: [
+      {
+        &quot;entity_type&quot;: &quot;claim&quot;,
+        &quot;id&quot;: &quot;91314a38-cc48-4423-a8d0-5addd8f17ee1&quot;,
+        &quot;revision&quot;: &quot;1&quot;
+      }
+    ],
+    &quot;limitations&quot;: [
+      &quot;isolated fixture&quot;
+    ],
+    &quot;producer_kind&quot;: &quot;agent&quot;,
+    &quot;producer_ref&quot;: &quot;agent-fixture&quot;,
+    &quot;created_at&quot;: &quot;2026-09-12T23:43:57.467194Z&quot;,
+    &quot;supersedes&quot;: null
+  }
+}</pre><h2>low complete response body</h2><pre>{
+  &quot;assessment&quot;: {
+    &quot;policy_version&quot;: &quot;assessment-policy-v1&quot;,
+    &quot;grounding_state&quot;: &quot;content_checked&quot;,
+    &quot;evidence_state&quot;: &quot;supported&quot;,
+    &quot;applicability_state&quot;: &quot;current&quot;,
+    &quot;eligible&quot;: true,
+    &quot;assessment_ids&quot;: [
+      &quot;1e261aad-2186-4ada-9c1c-b70b6c2be01d&quot;
+    ],
+    &quot;conditions&quot;: [
+      &quot;isolated fixture&quot;
+    ],
+    &quot;limitations&quot;: [
+      &quot;isolated fixture&quot;
+    ]
+  },
+  &quot;ref&quot;: {
+    &quot;entity_type&quot;: &quot;claim&quot;,
+    &quot;id&quot;: &quot;306660bb-a371-454b-a890-bc29e4689684&quot;,
+    &quot;revision&quot;: &quot;1&quot;
+  },
+  &quot;display_kind&quot;: &quot;fact&quot;,
+  &quot;record&quot;: {
+    &quot;claim_id&quot;: &quot;306660bb-a371-454b-a890-bc29e4689684&quot;,
+    &quot;revision&quot;: &quot;1&quot;,
+    &quot;task_id&quot;: &quot;task-fixture&quot;,
+    &quot;kind&quot;: &quot;derived-conclusion&quot;,
+    &quot;assertion_role&quot;: &quot;candidate_fact&quot;,
+    &quot;text&quot;: &quot;Conclusion supported by the premise&quot;,
+    &quot;structured_assertion&quot;: null,
+    &quot;basis_refs&quot;: [
+      {
+        &quot;entity_type&quot;: &quot;claim&quot;,
+        &quot;id&quot;: &quot;91314a38-cc48-4423-a8d0-5addd8f17ee1&quot;,
+        &quot;revision&quot;: &quot;1&quot;
+      }
+    ],
+    &quot;limitations&quot;: [
+      &quot;isolated fixture&quot;
+    ],
+    &quot;producer_kind&quot;: &quot;agent&quot;,
+    &quot;producer_ref&quot;: &quot;agent-fixture&quot;,
+    &quot;created_at&quot;: &quot;2026-09-12T23:43:57.467194Z&quot;,
+    &quot;supersedes&quot;: null
+  }
+}</pre></html>

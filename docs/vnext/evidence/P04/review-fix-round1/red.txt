@@ -1,0 +1,60 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+________ test_private_new_premise_revision_invalidates_low_reader_fact _________
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x10614f4d0>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-84/test_private_new_premise_revis0')
+audit_directory = PosixPath('/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/work/vnext/p04-review-fix1-red/2d6122cff219')
+
+    def test_private_new_premise_revision_invalidates_low_reader_fact(db_environment, tmp_path, audit_directory):
+        with case(db_environment, tmp_path, audit_directory) as c:
+            with c.env.migration_connection() as m:
+                m.execute("UPDATE vnext.task_access SET clearance=0 WHERE task_id=%s AND subject='reader-fixture'", (TASK,))
+            premise = post_claim(c, proposal('Public premise v1', kind='observation-summary')).json()['canonical_ref']
+            derived = post_claim(c, proposal('Conclusion supported by premise', kind='derived-conclusion', basis=[premise])).json()['canonical_ref']
+            assert assess(c, derived, [premise], kind='human_attestation', method='human-attestation-v1', role='human').status_code == 202
+            assert get_claim(c, derived, role='reader').json()['assessment']['eligible'] is True
+            private, private_obs = captured(c, body=b'{"updated_premise":false}', access_level=1)
+            changed = post_claim(c, proposal('Revised private premise v2', kind='observation-summary', basis=[private_obs], revises=premise))
+            assert changed.status_code == 202 and changed.json()['canonical_ref']['revision'] == '2'
+            high = get_claim(c, derived, role='agent')
+            low = get_claim(c, derived, role='reader')
+            assert high.status_code == low.status_code == 200
+            assert high.json()['assessment']['applicability_state'] == 'stale'
+>           assert low.json()['assessment']['applicability_state'] == 'stale', low.text
+E           AssertionError: {"assessment":{"policy_version":"assessment-policy-v1","grounding_state":"content_checked","evidence_state":"supported","applicability_state":"current","eligible":true,"assessment_ids":["e8f26504-832b-4807-8149-4c669cf9bc37"],"conditions":["isolated fixture"],"limitations":["isolated fixture"]},"ref":{"entity_type":"claim","id":"15ec1468-3d19-49ba-8da2-df2b77dc975b","revision":"1"},"display_kind":"fact","record":{"claim_id":"15ec1468-3d19-49ba-8da2-df2b77dc975b","revision":"1","task_id":"task-fixture","kind":"derived-conclusion","assertion_role":"candidate_fact","text":"Conclusion supported by premise","structured_assertion":null,"basis_refs":[{"entity_type":"claim","id":"30b5b42c-8c48-499c-bb19-fbfc659a6d25","revision":"1"}],"limitations":["isolated fixture"],"producer_kind":"agent","producer_ref":"agent-fixture","created_at":"2026-09-12T23:55:31.773782Z","supersedes":null}}
+E           assert 'current' == 'stale'
+E             
+E             - stale
+E             + current
+
+tests/vnext/test_knowledge_admission.py:1074: AssertionError
+___ test_result_readset_uses_authoritative_freshness_for_private_new_version ___
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x1061d3c50>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-84/test_result_readset_uses_autho0')
+audit_directory = PosixPath('/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/work/vnext/p04-review-fix1-red/1d7bfcbaf4fc')
+
+    def test_result_readset_uses_authoritative_freshness_for_private_new_version(db_environment, tmp_path, audit_directory):
+        with case(db_environment, tmp_path, audit_directory) as c:
+            with c.env.migration_connection() as m:
+                m.execute("UPDATE vnext.task_access SET clearance=0 WHERE task_id=%s AND subject='worker-fixture'", (TASK,))
+            premise = post_claim(c, proposal('Public premise')).json()['canonical_ref']
+            snapshot = SnapshotRepository(c.uow).create(TASK, access('worker-fixture', role='worker'))
+            private, private_obs = captured(c, body=b'{"private_update":true}', access_level=1)
+            changed = post_claim(c, proposal('Private successor', basis=[private_obs], revises=premise))
+            assert changed.status_code == 202 and changed.json()['canonical_ref']['revision'] == '2'
+            envelope = result(c, payload([proposal('Old snapshot analysis', basis=[premise])]), snapshot=snapshot.snapshot_id, read_set=[premise])
+            response = submit(c, envelope)
+            assert response.status_code == 202, response.text
+            assert response.json()['status'] == 'accepted'
+            component = response.json()['components'][0]
+>           assert component['code'] == 'STALE_INPUT', response.text
+E           AssertionError: {"submission_id":"debbb68f-29bc-45be-8d55-df2e3d8b5661","status":"accepted","components":[{"status":"accepted_shared","local_ref":"c","request_id":"640ddcae-0864-4151-a334-f8c6ff0cda71","canonical_ref":{"entity_type":"claim","id":"36b2a763-1aed-401a-b0aa-8898e9ed9c53","revision":"1"},"code":null}],"request_id":"640ddcae-0864-4151-a334-f8c6ff0cda71","code":null}
+E           assert None == 'STALE_INPUT'
+
+tests/vnext/test_knowledge_admission.py:1100: AssertionError
+=========================== short test summary info ============================
+FAILED tests/vnext/test_knowledge_admission.py::test_private_new_premise_revision_invalidates_low_reader_fact
+FAILED tests/vnext/test_knowledge_admission.py::test_result_readset_uses_authoritative_freshness_for_private_new_version
+2 failed, 25 deselected in 1.39s

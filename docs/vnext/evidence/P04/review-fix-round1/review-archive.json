@@ -1,0 +1,21 @@
+{
+  "source": ".superpowers/sdd/vnext-v2/P04-review-evidence",
+  "reviewed_base": "18d03323e9da1d23cca33b4dcc82bee170e7eee8",
+  "files": {
+    "http-reproduction.md": "8e4f4bd1a016db503d3f33ce8e5b14aa20af3a9467daba24312b7db7db8aef3f",
+    "http-exchanges.jsonl": "5ad8dd247e8a36a9589ae1b9b28970e1d35cde7b31861315a88d8b47157f7c26",
+    "identity-events.jsonl": "af73eb24a073ce8367f786aeb02873a8d0031067d3131163f9ff2a6266c3ccd8",
+    "sha256.json": "a9fc9339fdda0632bbfe25ff1cca232f27a4032d1ed65195049b6e5274bf2018",
+    "existing-evidence-audit.json": "efa1e3f92e2910877a11bab33e71d164aea006c39a2533bda5422ac09a97e579",
+    "capture-1b577173-3e2b-479b-bc35-f7c8aa1f5d40.bin": "6229aa30275316d05bbd53735691f7885ec7eabd67d54ca2308e4818126a6ba9",
+    "result.html": "5538a27586d065a6d92d2e90c8f4b58a25c92838e06ef1d6d14fa942a035b9df",
+    "run.json": "4e2a483aee2df332b3a28477c6a86aca95a0063d9fb798f6e5b9e8a7140b8ee4",
+    "counterexample.py": "407b9c294bde0801c48d8997aab2a64fab1beddb2a123e69f40eeeca69e38d83",
+    "observed.json": "2afa0af2cff8d9def9f534e92003be7e64474c7e1f34d2415cc4809fede46c44",
+    "postgres-events.jsonl.gz": "6240b3a34133e78b32130b6f0dfe2d397e628fe2852eb2c96bc7e453c05d39bd",
+    "screenshots/provenance.json": "19547cf7abd71779b1b0238bc3d0b0a576768c86ff775a0d06bebd8a13eb7cec",
+    "screenshots/hidden-newer-revision.jpg": "b3ffb72ea2dcdb09d1906f425a45e8df095286050218ded1529814446e5d06e8",
+    "objects/3b18e1c0-5de7-4123-80c4-8e40ea1734be.blob": "6229aa30275316d05bbd53735691f7885ec7eabd67d54ca2308e4818126a6ba9"
+  },
+  "copied_without_byte_changes": true
+}

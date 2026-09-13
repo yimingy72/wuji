@@ -1,0 +1,183 @@
+{
+  "head": "18d03323e9da1d23cca33b4dcc82bee170e7eee8",
+  "scenario": "Public assessment input v1 has an actual private v2; lower-clearance latest-version query misses v2",
+  "premise_ref": {
+    "entity_type": "claim",
+    "id": "91314a38-cc48-4423-a8d0-5addd8f17ee1",
+    "revision": "1"
+  },
+  "derived_ref": {
+    "entity_type": "claim",
+    "id": "306660bb-a371-454b-a890-bc29e4689684",
+    "revision": "1"
+  },
+  "new_revision_ref": {
+    "entity_type": "claim",
+    "id": "91314a38-cc48-4423-a8d0-5addd8f17ee1",
+    "revision": "2"
+  },
+  "application_role": [
+    "wuji_app_875a06e3986b",
+    false,
+    false
+  ],
+  "actual_premise_revisions": [
+    [
+      "91314a38-cc48-4423-a8d0-5addd8f17ee1",
+      "1",
+      0
+    ],
+    [
+      "91314a38-cc48-4423-a8d0-5addd8f17ee1",
+      "2",
+      1
+    ]
+  ],
+  "before": {
+    "status": 200,
+    "body": {
+      "assessment": {
+        "policy_version": "assessment-policy-v1",
+        "grounding_state": "content_checked",
+        "evidence_state": "supported",
+        "applicability_state": "current",
+        "eligible": true,
+        "assessment_ids": [
+          "1e261aad-2186-4ada-9c1c-b70b6c2be01d"
+        ],
+        "conditions": [
+          "isolated fixture"
+        ],
+        "limitations": [
+          "isolated fixture"
+        ]
+      },
+      "ref": {
+        "entity_type": "claim",
+        "id": "306660bb-a371-454b-a890-bc29e4689684",
+        "revision": "1"
+      },
+      "display_kind": "fact",
+      "record": {
+        "claim_id": "306660bb-a371-454b-a890-bc29e4689684",
+        "revision": "1",
+        "task_id": "task-fixture",
+        "kind": "derived-conclusion",
+        "assertion_role": "candidate_fact",
+        "text": "Conclusion supported by the premise",
+        "structured_assertion": null,
+        "basis_refs": [
+          {
+            "entity_type": "claim",
+            "id": "91314a38-cc48-4423-a8d0-5addd8f17ee1",
+            "revision": "1"
+          }
+        ],
+        "limitations": [
+          "isolated fixture"
+        ],
+        "producer_kind": "agent",
+        "producer_ref": "agent-fixture",
+        "created_at": "2026-09-12T23:43:57.467194Z",
+        "supersedes": null
+      }
+    }
+  },
+  "high": {
+    "status": 200,
+    "body": {
+      "assessment": {
+        "policy_version": "assessment-policy-v1",
+        "grounding_state": "linked",
+        "evidence_state": "unassessed",
+        "applicability_state": "stale",
+        "eligible": false,
+        "assessment_ids": [],
+        "conditions": [],
+        "limitations": [
+          "isolated fixture"
+        ]
+      },
+      "ref": {
+        "entity_type": "claim",
+        "id": "306660bb-a371-454b-a890-bc29e4689684",
+        "revision": "1"
+      },
+      "display_kind": "claim",
+      "record": {
+        "claim_id": "306660bb-a371-454b-a890-bc29e4689684",
+        "revision": "1",
+        "task_id": "task-fixture",
+        "kind": "derived-conclusion",
+        "assertion_role": "candidate_fact",
+        "text": "Conclusion supported by the premise",
+        "structured_assertion": null,
+        "basis_refs": [
+          {
+            "entity_type": "claim",
+            "id": "91314a38-cc48-4423-a8d0-5addd8f17ee1",
+            "revision": "1"
+          }
+        ],
+        "limitations": [
+          "isolated fixture"
+        ],
+        "producer_kind": "agent",
+        "producer_ref": "agent-fixture",
+        "created_at": "2026-09-12T23:43:57.467194Z",
+        "supersedes": null
+      }
+    }
+  },
+  "low": {
+    "status": 200,
+    "body": {
+      "assessment": {
+        "policy_version": "assessment-policy-v1",
+        "grounding_state": "content_checked",
+        "evidence_state": "supported",
+        "applicability_state": "current",
+        "eligible": true,
+        "assessment_ids": [
+          "1e261aad-2186-4ada-9c1c-b70b6c2be01d"
+        ],
+        "conditions": [
+          "isolated fixture"
+        ],
+        "limitations": [
+          "isolated fixture"
+        ]
+      },
+      "ref": {
+        "entity_type": "claim",
+        "id": "306660bb-a371-454b-a890-bc29e4689684",
+        "revision": "1"
+      },
+      "display_kind": "fact",
+      "record": {
+        "claim_id": "306660bb-a371-454b-a890-bc29e4689684",
+        "revision": "1",
+        "task_id": "task-fixture",
+        "kind": "derived-conclusion",
+        "assertion_role": "candidate_fact",
+        "text": "Conclusion supported by the premise",
+        "structured_assertion": null,
+        "basis_refs": [
+          {
+            "entity_type": "claim",
+            "id": "91314a38-cc48-4423-a8d0-5addd8f17ee1",
+            "revision": "1"
+          }
+        ],
+        "limitations": [
+          "isolated fixture"
+        ],
+        "producer_kind": "agent",
+        "producer_ref": "agent-fixture",
+        "created_at": "2026-09-12T23:43:57.467194Z",
+        "supersedes": null
+      }
+    }
+  },
+  "counterexample_reproduced": true
+}

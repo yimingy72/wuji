@@ -1,0 +1,21 @@
+{
+  "base_head": "18d03323e9da1d23cca33b4dcc82bee170e7eee8",
+  "file_sha256": {
+    "packages/wuji-core/src/wuji_core/blackboard/fact_view.py": "bab2eef376de1461b35a48b1d86a67f123033a324830f5839e94dfd7bd07ac52",
+    "packages/wuji-core/src/wuji_core/persistence/knowledge_schema.py": "0a61f9d8bf5c0583ffd46a9f03e0099c77a0ab6d0c5973aa0342d20dda749207",
+    "packages/wuji-core/src/wuji_core/persistence/schema.py": "0cd9ed3dbc167ba6ee3891186deeab4612f7025084588c6f2925d0229a62d5d8",
+    "tests/vnext/test_knowledge_admission.py": "8286318751a837243984c6736d4c0c07be0ac86afc3f7fdca5cba06a6aad412d"
+  },
+  "command": [
+    "./scripts/vnext/uv.sh",
+    "run",
+    "--frozen",
+    "pytest",
+    "tests/vnext/test_knowledge_admission.py",
+    "-q",
+    "-k",
+    "private_new_premise or authoritative_freshness_for_private or migration_preserves_heads",
+    "--junitxml=docs/vnext/evidence/P04/review-fix-round1/junit.xml"
+  ],
+  "exit_code": 0
+}

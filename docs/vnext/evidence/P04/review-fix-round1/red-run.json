@@ -1,0 +1,14 @@
+{
+  "base_head": "18d03323e9da1d23cca33b4dcc82bee170e7eee8",
+  "command": [
+    "./scripts/vnext/uv.sh",
+    "run",
+    "--frozen",
+    "pytest",
+    "tests/vnext/test_knowledge_admission.py",
+    "-q",
+    "-k",
+    "private_new_premise or authoritative_freshness_for_private"
+  ],
+  "exit_code": 1
+}

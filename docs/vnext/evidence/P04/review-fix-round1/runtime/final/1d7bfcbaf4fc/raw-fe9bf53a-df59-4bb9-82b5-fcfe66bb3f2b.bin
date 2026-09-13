@@ -1,0 +1,1 @@
+{"claims":[{"assertion_role":"candidate_fact","basis_refs":[{"entity_type":"claim","id":"a1df77bd-7db1-466d-ad83-08c62c0eddd2","revision":"1"}],"client_ref":"c","kind":"hypothesis","limitations":["isolated fixture"],"text":"Old snapshot analysis"}],"intent_proposals":[],"limitations":[],"schema_version":"wuji.agent-payload.v2"}

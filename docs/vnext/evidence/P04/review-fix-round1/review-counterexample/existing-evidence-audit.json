@@ -1,0 +1,82 @@
+{
+  "reviewed_head": "18d03323e9da1d23cca33b4dcc82bee170e7eee8",
+  "business_suite_rerun": false,
+  "bindings": [
+    {
+      "manifest": "docs/vnext/evidence/P04/final-run.json",
+      "commit": "638c335",
+      "files_checked": 16,
+      "mismatches": []
+    },
+    {
+      "manifest": "docs/vnext/evidence/P04/fix-round1/green.txt.json",
+      "commit": "538f4d6",
+      "files_checked": 4,
+      "mismatches": []
+    }
+  ],
+  "archives": [
+    {
+      "index": "docs/vnext/evidence/P04/evidence-index.json",
+      "files_checked": 92,
+      "mismatches": [],
+      "decompressed_original_mismatches": []
+    },
+    {
+      "index": "docs/vnext/evidence/P04/fix-round1/evidence-index.json",
+      "files_checked": 26,
+      "mismatches": [],
+      "decompressed_original_mismatches": []
+    }
+  ],
+  "http": [
+    {
+      "package": "docs/vnext/evidence/P04/http-reproduction.md",
+      "exchanges": 104,
+      "full_markdown_matches_archived_bytes_and_headers": true,
+      "body_length_mismatches": []
+    },
+    {
+      "package": "docs/vnext/evidence/P04/fix-round1/http-reproduction.md",
+      "exchanges": 46,
+      "full_markdown_matches_archived_bytes_and_headers": true,
+      "body_length_mismatches": []
+    }
+  ],
+  "junit": [
+    {
+      "path": "docs/vnext/evidence/P04/junit.xml",
+      "suite": {
+        "name": "pytest",
+        "errors": "0",
+        "failures": "0",
+        "skipped": "0",
+        "tests": "24",
+        "time": "13.177",
+        "timestamp": "2026-09-13T07:20:02.156871+08:00",
+        "hostname": "MacBook-Pro-4.local"
+      }
+    },
+    {
+      "path": "docs/vnext/evidence/P04/fix-round1/junit.xml",
+      "suite": {
+        "name": "pytest",
+        "errors": "0",
+        "failures": "0",
+        "skipped": "0",
+        "tests": "6",
+        "time": "3.405",
+        "timestamp": "2026-09-13T07:27:08.627984+08:00",
+        "hostname": "MacBook-Pro-4.local"
+      }
+    }
+  ],
+  "screenshot": {
+    "path": "docs/vnext/evidence/P04/screenshots/knowledge-and-visibility.png",
+    "actual_format": "image/jpeg (JFIF, 1280x720)",
+    "sha256": "ecf301926e81fbb03d053e9a9c0f6a57d160f8b1a00d9c97d7d1008d84b354aa",
+    "extension_mismatch": true,
+    "source_page_responses_matched_actual_http": true,
+    "historical_capture_invocation": "Recorded provenance and image inspected; historical tool invocation not independently replayed"
+  }
+}

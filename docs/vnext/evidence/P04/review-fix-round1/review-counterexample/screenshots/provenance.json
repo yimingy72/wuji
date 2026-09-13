@@ -1,0 +1,14 @@
+{
+  "tool": "mcp__cua_repl: p04ReviewTab.getScreenshot()",
+  "url": "http://127.0.0.1:58760/result.html",
+  "source_document": "result.html",
+  "source_sha256": "5538a27586d065a6d92d2e90c8f4b58a25c92838e06ef1d6d14fa942a035b9df",
+  "image": "hidden-newer-revision.jpg",
+  "image_media_type": "image/jpeg",
+  "image_sha256": "b3ffb72ea2dcdb09d1906f425a45e8df095286050218ded1529814446e5d06e8",
+  "content": "Actual browser viewport of saved production ASGI responses from this isolated counterexample; not a product UI or proof of live external-target behavior. Full responses remain in http-reproduction.md.",
+  "paired_http_evidence": "http-exchanges.jsonl",
+  "code_commit": "18d03323e9da1d23cca33b4dcc82bee170e7eee8",
+  "provenance_recorded_at_utc": "2026-09-12T23:46:43.565160+00:00",
+  "capture_time_note": "Captured earlier in this review turn; the exact screenshot invocation timestamp was not recorded separately."
+}

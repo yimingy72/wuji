@@ -1,5 +1,7 @@
 # P04 实施与自行验证
 
+最新审查后 F1/F2 修复与首次定向验证见 [review fix round 1](review-fix-round1/report.md)，代码 `2ce5250322c43fdbf38d23e9eefcbb8ab04b785b`。以下保留原交付及首次可见性修复的历史记录。
+
 日期：2026-09-13。状态：实现已提交，等待主代理审查；不声明完整阶段或后续 AC 集成通过。
 
 代码提交：`638c33547d547327862e97de06d9a49d099e8568`；权限收口：`538f4d6d80d6e4132b1dd625f1a78216f81876a1`。源于已批准 P04 brief / [实施契约](../../P04-implementation-contract.md)，P03 基础为 `dcf5cc2903622a02b023f545e3e4c1585004ae59` + `c2a86e3a98895378532fff1427e9ee82420b4039`。本文是后续证据记录，不预写自身提交 SHA。
@@ -18,7 +20,7 @@
 
 `538f4d6` 增加 scope/当前 ACL 检查的 SECURITY DEFINER 布尔 guard，检查同 ClaimRevision 的全部评估、动作和输入是否可见；没有返回隐藏数据，也没有新建 Fact 正文。Fact 读取在同一 Repeatable Read 事务完成 guard 和聚合。可见性不全时统一 `503/CAPABILITY_UNAVAILABLE`，details 为空；当前读、旧快照读和新快照创建均防止返回可见子集。
 
-![实际浏览器截图：同一 Claim 的高低权限响应](screenshots/knowledge-and-visibility.png)
+![实际浏览器截图：同一 Claim 的高低权限响应](screenshots/knowledge-and-visibility.jpg)
 
 截图来自 CUA 对 loopback [已保存响应页](result.html) 的实际浏览器捕获，展示真实 ASGI 响应与命令结果；不是正在运行的产品 UI。截图对应的完整响应和输入没有裁剪，见上面的 HTTP 文件；来源与摘要见 [provenance](screenshots/provenance.json)。
 
