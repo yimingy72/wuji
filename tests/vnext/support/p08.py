@@ -163,6 +163,10 @@ def p08_candidate_case(
     *,
     reject=False,
     initial_child=False,
+    memory_files=None,
+    compaction_enabled=False,
+    max_context_window_tokens=8_192,
+    max_output_tokens=2_048,
 ):
     """One production Scheduler assignment through PG, Gates and released MAF."""
 
@@ -201,30 +205,71 @@ def p08_candidate_case(
         max_messages=128,
         max_pending_approvals=4,
     )
-    profiles = {}
-    for work_kind in ("explore", "reason", "report"):
-        instructions = (
-            "Request approval to read the fixed workspace version file once."
-            if work_kind == "explore"
-            else f"Use the fixed synthetic P08 {work_kind} inputs."
-        )
-        profiles[work_kind] = factory.SessionHarnessProfile(
-            ref=f"harness.{work_kind}.p08-candidate.v1",
-            revision="1",
-            work_kind=work_kind,
-            instructions=instructions,
-            tool_definition_refs=(ACTUAL_TOOL_REF,),
-            lock_digest=lock_digest,
-            max_context_records=128,
-            max_context_bytes=65_536,
-            max_output_tokens=2_048,
-            history_source_id=f"history_p08_{work_kind}",
-            memory_mode="disabled",
-            memory_source_id=f"memory_p08_{work_kind}",
-            session_limits=fixed_limits,
-            max_context_window_tokens=8_192,
-            compaction_enabled=False,
-        ).snapshot()
+    memory_files = dict(memory_files or {})
+    memory_source_refs = {}
+
+    def make_profiles(memory_inputs=()):
+        result = {}
+        for work_kind in ("explore", "reason", "report"):
+            instructions = (
+                "Request approval to read the fixed workspace version file once."
+                if work_kind == "explore"
+                else f"Use the fixed synthetic P08 {work_kind} inputs."
+            )
+            result[work_kind] = factory.SessionHarnessProfile(
+                ref=f"harness.{work_kind}.p08-candidate.v1",
+                revision="1",
+                work_kind=work_kind,
+                instructions=instructions,
+                tool_definition_refs=(ACTUAL_TOOL_REF,),
+                lock_digest=lock_digest,
+                max_context_records=128,
+                max_context_bytes=65_536,
+                max_output_tokens=max_output_tokens,
+                history_source_id=f"history_p08_{work_kind}",
+                memory_mode="pinned_context" if memory_inputs else "disabled",
+                memory_source_id=f"memory_p08_{work_kind}",
+                session_limits=fixed_limits,
+                max_context_window_tokens=max_context_window_tokens,
+                compaction_enabled=compaction_enabled,
+                memory_inputs=tuple(memory_inputs),
+            ).snapshot()
+        return result
+
+    def prepare_profiles(control):
+        inputs = []
+        for path, body in sorted(memory_files.items()):
+            if not isinstance(body, bytes):
+                raise TypeError("fixed memory fixture bytes are required")
+            ref = control.store.stage(
+                access("collector-fixture", role="collector"),
+                TASK,
+                "attempt-fixture",
+                body,
+                "text/plain; charset=utf-8",
+                conditions=("fixed P08 versioned memory input",),
+                provenance="capture",
+                access_level=1,
+            )
+            control.store.seal(
+                access("collector-fixture", role="collector"),
+                TASK,
+                ref,
+            )
+            memory_source_refs[path] = ref
+            inputs.append(
+                {
+                    "path": path,
+                    "ref": {
+                        "entity_type": "artifact",
+                        "id": ref.id,
+                        "revision": ref.version.root,
+                    },
+                }
+            )
+        return make_profiles(inputs)
+
+    profiles = prepare_profiles if memory_files else make_profiles()
     upstream = NativeSseModel(
         audit_directory / "model-upstream-http.jsonl",
         expected_rejection=(
@@ -251,6 +296,7 @@ def p08_candidate_case(
             evaluation_mode="mechanism_synthetic",
         ) as scheduler:
             control = scheduler.control
+            profiles = scheduler.profiles
             task_config = control.scheduler_config
             profile_snapshot = profiles["explore"]
             profile = factory.SessionHarnessProfile.from_snapshot(profile_snapshot)
@@ -303,7 +349,7 @@ def p08_candidate_case(
                             "settled_boundary",
                             "approval_boundary",
                         ],
-                        "memory_mode": "disabled",
+                        "memory_mode": profile_snapshot["body"]["memory_mode"],
                         "approver_subjects": ["operator-fixture"],
                         "approval_ttl_seconds": 300,
                         "evidence_refs": [
@@ -354,7 +400,7 @@ def p08_candidate_case(
                                 "settled_boundary",
                                 "approval_boundary",
                             ],
-                            "memory_mode": "disabled",
+                            "memory_mode": candidate_profile["body"]["memory_mode"],
                             "approver_subjects": ["operator-fixture"],
                             "approval_ttl_seconds": 300,
                             "evidence_refs": [

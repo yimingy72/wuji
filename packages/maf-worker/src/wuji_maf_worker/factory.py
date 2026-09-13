@@ -13,6 +13,7 @@ from openai import AsyncOpenAI
 
 from wuji_core.http import canonical_json_bytes
 from wuji_core.contracts.sessions import SessionLimits
+from wuji_core.contracts.knowledge import KnowledgeRef
 
 
 @dataclass(frozen=True)
@@ -79,6 +80,7 @@ class SessionHarnessProfile(HarnessProfile):
     session_limits: SessionLimits
     max_context_window_tokens: int
     compaction_enabled: bool
+    memory_inputs: tuple[dict, ...] = ()
     schema_version: str = "wuji.harness.session.v1"
 
     def __post_init__(self):
@@ -97,6 +99,29 @@ class SessionHarnessProfile(HarnessProfile):
             or {self.history_source_id, self.memory_source_id} & {"compaction"}
         ):
             raise ValueError("invalid versioned Session Profile")
+        paths, refs = set(), set()
+        for item in self.memory_inputs:
+            if not isinstance(item, dict) or set(item) != {"path", "ref"}:
+                raise ValueError("memory input requires one fixed path and reference")
+            path = item["path"]
+            reference = KnowledgeRef.model_validate(item["ref"])
+            if (
+                self.memory_mode != "pinned_context"
+                or reference.entity_type.value != "artifact"
+                or not isinstance(path, str)
+                or not 1 <= len(path.encode("utf-8")) <= 1024
+                or path.startswith("/")
+                or "\\" in path
+                or any(ord(char) < 32 or ord(char) == 127 for char in path)
+                or any(part in {"", ".", ".."} for part in path.split("/"))
+                or path in paths
+                or (reference.id, reference.revision.root) in refs
+            ):
+                raise ValueError("memory input must be a unique pinned artifact")
+            paths.add(path)
+            refs.add((reference.id, reference.revision.root))
+        if len(self.memory_inputs) > self.session_limits.max_objects:
+            raise ValueError("memory inputs exceed the fixed Session object limit")
 
     def snapshot(self):
         body = {name: getattr(self, name) for name in HarnessProfile.__dataclass_fields__}
@@ -113,6 +138,16 @@ class SessionHarnessProfile(HarnessProfile):
                 "web_search", "background_agents", "outer_loop", "auto_approval", "mcp",
             )},
         })
+        if self.memory_inputs:
+            body["memory_inputs"] = [
+                {
+                    "path": item["path"],
+                    "ref": KnowledgeRef.model_validate(item["ref"]).model_dump(
+                        mode="json"
+                    ),
+                }
+                for item in self.memory_inputs
+            ]
         body["capabilities"].update({
             "compaction": self.compaction_enabled, "restoration": True,
             "native_approval": True, "versioned_memory": self.memory_mode != "disabled",
@@ -128,6 +163,7 @@ class SessionHarnessProfile(HarnessProfile):
         body.pop("capabilities", None)
         body["tool_definition_refs"] = tuple(body["tool_definition_refs"])
         body["session_limits"] = SessionLimits.model_validate(body["session_limits"])
+        body["memory_inputs"] = tuple(body.get("memory_inputs", ()))
         profile = cls(**body)
         if canonical_json_bytes(profile.snapshot()) != canonical_json_bytes(snapshot):
             raise ValueError("Session Profile snapshot mismatch")

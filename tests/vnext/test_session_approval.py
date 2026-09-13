@@ -13,9 +13,12 @@ from agent_framework import (
     AgentFileStore,
     AgentSession,
     Content,
+    ContextWindowCompactionStrategy,
     FunctionInvocationContext,
     FunctionTool,
+    Message,
     SessionContext,
+    apply_compaction,
 )
 
 from support.p08 import (
@@ -38,6 +41,7 @@ from wuji_core.contracts.sessions import (
     ApprovalDeliveryDecision,
     HumanInput,
     InputPayload,
+    MessagePosition,
     NativeCallBinding,
     native_rejection_content,
 )
@@ -48,12 +52,13 @@ from wuji_core.http import canonical_json_bytes, strict_json_loads
 from wuji_core.execution.sessions import (
     document,
     provider_messages,
+    predecessor_covers_result,
     request_predecessor_positions,
     work_row,
 )
 from wuji_core.persistence.uow import DomainError
 from wuji_maf_worker.approvals import approval_response_message
-from wuji_maf_worker.factory import HarnessProfile, parse_profile
+from wuji_maf_worker.factory import HarnessProfile, SessionHarnessProfile, parse_profile
 from wuji_maf_worker.history import PinnedMemoryContextProvider, VersionedMemoryStore
 from wuji_maf_worker.tools import ModelCallIdentity
 
@@ -1025,3 +1030,161 @@ def test_pinned_memory_context_injects_complete_versioned_input_without_tools_or
                 state=state,
             )
         )
+
+
+def test_session_profile_binds_nonempty_memory_to_fixed_artifact_revisions():
+    common = {
+        "ref": "harness.explore.memory-p08.v1",
+        "revision": "1",
+        "work_kind": "explore",
+        "instructions": "Use the fixed memory input.",
+        "tool_definition_refs": (TOOL_DEFINITION["ref"],),
+        "lock_digest": "a" * 64,
+        "max_context_records": 32,
+        "max_context_bytes": 65_536,
+        "max_output_tokens": 512,
+        "history_source_id": "history_memory_p08",
+        "memory_source_id": "memory_input_p08",
+        "session_limits": session_limits(),
+        "max_context_window_tokens": 4_096,
+        "compaction_enabled": False,
+    }
+    memory_input = {
+        "path": "facts/current.txt",
+        "ref": {
+            "entity_type": "artifact",
+            "id": "memory-artifact-p08",
+            "revision": "7",
+        },
+    }
+    profile = SessionHarnessProfile(
+        **common,
+        memory_mode="pinned_context",
+        memory_inputs=(memory_input,),
+    )
+
+    snapshot = profile.snapshot()
+
+    assert snapshot["body"]["memory_inputs"] == [memory_input]
+    assert parse_profile(snapshot) == profile
+    disabled = SessionHarnessProfile(**common, memory_mode="disabled")
+    assert "memory_inputs" not in disabled.snapshot()["body"]
+    with pytest.raises(ValueError, match="unique pinned artifact"):
+        SessionHarnessProfile(
+            **common,
+            memory_mode="disabled",
+            memory_inputs=(memory_input,),
+        )
+
+
+def test_public_compaction_keeps_full_tool_history_and_maps_request_summary():
+    def text_message(role, text):
+        return Message(role=role, contents=[Content.from_text(text)])
+
+    def tool_group(number):
+        return [
+            Message(
+                role="assistant",
+                contents=[
+                    Content.from_function_call(
+                        f"call-{number}",
+                        "read_fixture",
+                        arguments={"path": f"file-{number}.txt"},
+                        id=f"occ-{number}",
+                    )
+                ],
+            ),
+            Message(
+                role="tool",
+                contents=[
+                    Content.from_function_result(
+                        f"call-{number}",
+                        result="result-" + ("x" * 320),
+                    )
+                ],
+            ),
+        ]
+
+    messages = [text_message("user", "first-" + ("q" * 320))]
+    messages += tool_group(1)
+    messages += [text_message("user", "middle-" + ("m" * 320))]
+    messages += tool_group(2)
+    messages += [text_message("user", "latest-" + ("z" * 320))]
+    original = [message.to_dict() for message in messages]
+    strategy = ContextWindowCompactionStrategy(
+        max_context_window_tokens=1_200,
+        max_output_tokens=80,
+        keep_last_tool_call_groups=1,
+        preserve_first_user_group=True,
+        tool_eviction_threshold=0.5,
+        truncation_threshold=0.8,
+    )
+
+    projected = asyncio.run(apply_compaction(messages, strategy=strategy))
+    complete = [message.to_dict() for message in messages]
+    request_messages = []
+    for message in (item.to_dict() for item in projected):
+        if message["role"] == "assistant" and any(
+            content["type"] == "function_call" for content in message["contents"]
+        ):
+            calls = []
+            for content in message["contents"]:
+                if content["type"] != "function_call":
+                    continue
+                arguments = content["arguments"]
+                if not isinstance(arguments, str):
+                    arguments = canonical_json_bytes(arguments).decode()
+                calls.append(
+                    {
+                        "id": content["call_id"],
+                        "type": "function",
+                        "function": {
+                            "name": content["name"],
+                            "arguments": arguments,
+                        },
+                    }
+                )
+            request_messages.append({"role": "assistant", "tool_calls": calls})
+        elif message["role"] == "tool":
+            content = message["contents"][0]
+            request_messages.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": content["call_id"],
+                    "content": content["result"],
+                }
+            )
+        else:
+            request_messages.append(
+                {
+                    "role": message["role"],
+                    "content": "".join(
+                        content.get("text", "") for content in message["contents"]
+                    ),
+                }
+            )
+
+    summary = complete[1]
+    first_call, first_result = complete[2:4]
+    assert first_call["contents"] == original[1]["contents"]
+    assert first_result["contents"] == original[2]["contents"]
+    assert first_call["additional_properties"]["_excluded"] is True
+    assert first_result["additional_properties"]["_excluded"] is True
+    assert summary["additional_properties"]["_excluded"] is False
+    assert summary["additional_properties"]["_group"][
+        "_summary_of_message_ids"
+    ] == [first_call["message_id"], first_result["message_id"]]
+    assert len(projected) == 6 < len(complete)
+
+    history = SimpleNamespace(messages=tuple(complete), message_end=len(complete))
+    predecessors = request_predecessor_positions(history, tuple(request_messages))
+    result_position = MessagePosition(
+        message_index=3,
+        content_index=0,
+        message_digest=sha256(canonical_json_bytes(first_result)).hexdigest(),
+        content_digest=sha256(
+            canonical_json_bytes(first_result["contents"][0])
+        ).hexdigest(),
+        native_message_id=first_result["message_id"],
+    )
+    assert predecessor_covers_result(history, predecessors, result_position)

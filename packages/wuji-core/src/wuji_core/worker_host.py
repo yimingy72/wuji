@@ -93,12 +93,15 @@ class PlatformWorkerHost:
                 "tools": tools, "session_lineage": binding.session_lineage,
             }
             memory_files = None
+            memory_inputs = ()
+            session_limits = None
             if trusted["body"].get("schema_version") == "wuji.harness.session.v1":
                 if self.sessions is None or self.inputs is None or not callable(self.receiver_access):
                     raise DomainError("CAPABILITY_UNAVAILABLE", 503)
                 capability = self.registry.session_capability(tx, trusted)
                 resolved.update(session_compatibility=capability["compatibility"].model_dump(mode="python"),
                     session_limits=capability["limits"].model_dump(mode="python"), delivery_id=None)
+                session_limits = capability["limits"]
                 memory_files = {}
                 if assignment.session_manifest_ref is not None:
                     recovery = self.sessions.validate_recovery_in_transaction(tx, work, assignment=assignment)
@@ -108,12 +111,48 @@ class PlatformWorkerHost:
                     memory_files = {f.path: published.object_bytes[f.ref.id + "@" + f.ref.version.root] for f in published.memory.files}
                     delivery = tx.connection.execute("SELECT d.delivery_id FROM vnext.input_delivery d JOIN vnext.input_request i USING(tenant_id,project_id,task_id,input_request_id) WHERE d.tenant_id=%s AND d.project_id=%s AND d.task_id=%s AND d.input_request_id=%s AND d.manifest_ref=%s AND i.status='resolved'", (*tx.owner, work["input_request_id"], recovery.manifest_ref)).fetchone()
                     resolved["delivery_id"] = delivery[0] if delivery else None
+                else:
+                    memory_inputs = tuple(trusted["body"].get("memory_inputs", ()))
         snapshots = SnapshotRepository(self.uow)
         manifest = snapshots.get(assignment.identity.task_id, self.access, assignment.snapshot_id)
+        snapshot_records = {}
         for ref in context.read_set:
             if ref not in manifest.refs:
                 raise DomainError("INVALID_REFERENCE", 422)
-            snapshots.read_ref(assignment.identity.task_id, self.access, assignment.snapshot_id, ref)
+            snapshot_records[_key(ref)] = snapshots.read_ref(
+                assignment.identity.task_id,
+                self.access,
+                assignment.snapshot_id,
+                ref,
+            )
+        if memory_files is not None and assignment.session_manifest_ref is None:
+            for item in memory_inputs:
+                try:
+                    reference = KnowledgeRef.model_validate(item["ref"])
+                    path = item["path"]
+                    record = snapshot_records[_key(reference)]
+                    body = self.artifacts.checked_bytes(record)
+                    body.decode("utf-8")
+                    if (
+                        reference.entity_type.value != "artifact"
+                        or record["state"] != "sealed"
+                        or not record["media_type"].startswith("text/")
+                        or path in memory_files
+                    ):
+                        raise ValueError("invalid fixed memory input")
+                    memory_files[path] = body
+                except (KeyError, TypeError, UnicodeDecodeError, ValueError) as error:
+                    raise DomainError("INVALID_REFERENCE", 422) from error
+            if (
+                len(memory_files) > session_limits.max_objects
+                or any(
+                    len(body) > session_limits.max_object_bytes
+                    for body in memory_files.values()
+                )
+                or sum(map(len, memory_files.values()))
+                > session_limits.max_total_bytes
+            ):
+                raise DomainError("LIMIT_BLOCKED", 429)
         resolved = strict_json_loads(canonical_json_bytes(resolved))
         if memory_files is not None:
             # Internal bytes map. Only B2's generated transport may encode it.

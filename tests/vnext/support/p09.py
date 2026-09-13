@@ -336,8 +336,12 @@ def scheduler_case(
     evaluation_mode: str | None = None,
 ):
     keys = SchedulerKeys.generate()
-    profiles = profiles or _profiles(_lock_digest())
     with control_case(environment, tmp_path, audit_directory) as control:
+        profiles = (
+            profiles(control)
+            if callable(profiles)
+            else profiles or _profiles(_lock_digest())
+        )
         _configure_scheduler(
             control,
             profiles=profiles,
