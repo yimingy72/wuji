@@ -511,7 +511,16 @@ class ControlService:
         elif _causes(tx, work["work_item_id"]):
             if work["state"] in {"running", "leased"}:
                 _update_work(tx, work, state="stopping")
-            _update_work(tx, work, state="suspended")
+            _update_work(
+                tx,
+                work,
+                state="suspended",
+                blocked_reason=(
+                    None
+                    if work["blocked_reason"] == "operations_unsettled"
+                    else work["blocked_reason"]
+                ),
+            )
 
     def _restore(self, tx, work):
         if work["state"] in TERMINAL or _causes(tx, work["work_item_id"]):
@@ -656,7 +665,7 @@ class ControlService:
         self._observe_task(tx)
 
     def _observe_task(self, tx):
-        if tx.task["desired_state"] == "run":
+        if tx.task["observed_state"] == "closed" or tx.task["desired_state"] == "run":
             return
         unresolved = tx.connection.execute(
             """SELECT 1 FROM vnext.agent_run r WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND (
@@ -1073,9 +1082,15 @@ class ControlService:
             waiting
             and waiting["status"] == "pending"
             and self._recoverable(tx, work)
-            and work["state"] == "running"
+            and work["state"] in {"running", "reconciling"}
         ):
-            _update_work(tx, work, state="waiting_input", blocked_reason=None)
+            if work["state"] == "reconciling":
+                # Both legal edges commit under the existing Task/Work locks.
+                # Restore rechecks suspension causes and the persisted wait.
+                _update_work(tx, work, state="suspended", blocked_reason=None)
+                self._restore(tx, work)
+            else:
+                _update_work(tx, work, state="waiting_input", blocked_reason=None)
             return
         state = mark_missing_output(tx, run["agent_run_id"])
         source = (
