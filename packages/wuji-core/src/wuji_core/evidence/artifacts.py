@@ -8,6 +8,10 @@ from pathlib import Path
 from uuid import uuid4
 
 from wuji_core.contracts.envelopes import BlobRef
+from wuji_core.execution.retained_results import (
+    RetainedResultKey,
+    bound_retained_run,
+)
 from wuji_core.http.json_boundary import strict_json_loads
 from wuji_core.persistence.uow import AccessContext, DomainError, json_text, row
 
@@ -207,6 +211,72 @@ class ArtifactStore:
         access_level=0,
     ):
         """A real Run writer can stage final output without inventing a ToolAttempt."""
+        return self._stage_model_output(
+            access,
+            task_id,
+            agent_run_id,
+            data,
+            media_type,
+            access_level=access_level,
+            retained=None,
+        )
+
+    def stage_retained_output(
+        self,
+        access,
+        task_id,
+        agent_run_id,
+        data: bytes,
+        media_type: str,
+        *,
+        retained: RetainedResultKey,
+        access_level=0,
+    ):
+        """Stage exact Worker bytes under an SQL-opened receiver binding."""
+        if not isinstance(retained, RetainedResultKey):
+            raise DomainError("INVALID_REFERENCE", 422)
+        return self._stage_model_output(
+            access,
+            task_id,
+            agent_run_id,
+            data,
+            media_type,
+            access_level=access_level,
+            retained=retained,
+        )
+
+    def _output_transaction(self, access, task_id, retained):
+        if retained is None:
+            return self.uow.transaction(access, task_id, capability="model_output")
+        return self.uow.transaction(
+            access,
+            task_id,
+            capability="retained_result",
+            retained_result=retained.document(),
+        )
+
+    @staticmethod
+    def _bound_output(tx, agent_run_id, retained):
+        if retained is None:
+            run = bound_run(tx, agent_run_id)
+            run_disposition(tx, run)
+            return run
+        run = bound_retained_run(tx, retained)
+        if run["agent_run_id"] != agent_run_id:
+            raise DomainError("STALE_EXECUTION", 403)
+        return run
+
+    def _stage_model_output(
+        self,
+        access,
+        task_id,
+        agent_run_id,
+        data,
+        media_type,
+        *,
+        access_level,
+        retained,
+    ):
         if not isinstance(data, bytes) or len(data) > self.max_bytes:
             raise DomainError("LIMIT_BLOCKED", 422)
         if (
@@ -221,9 +291,8 @@ class ArtifactStore:
         ref = BlobRef.model_validate(
             dict(id=str(uuid4()), version="1", sha256=hashlib.sha256(data).hexdigest())
         )
-        with self.uow.transaction(access, task_id, capability="model_output") as tx:
-            run = bound_run(tx, agent_run_id)
-            run_disposition(tx, run)
+        with self._output_transaction(access, task_id, retained) as tx:
+            run = self._bound_output(tx, agent_run_id, retained)
             tx.connection.execute(
                 """INSERT INTO vnext.artifact(tenant_id,project_id,task_id,entity_id,revision,
                 state,storage_key,sha256,size_bytes,media_type,agent_run_id,writer_subject,provenance,evidence_origin,
@@ -249,8 +318,8 @@ class ArtifactStore:
                 clock_timestamp()+interval '5 minutes',%s)""",
                 (*tx.owner, ref.id, access_level),
             )
-        with self.uow.transaction(access, task_id, capability="model_output") as tx:
-            run_disposition(tx, bound_run(tx, agent_run_id))
+        with self._output_transaction(access, task_id, retained) as tx:
+            self._bound_output(tx, agent_run_id, retained)
             record = self.record(tx, ref, lock=True)
             with self._path(record).open("xb") as stream:
                 stream.write(data)
@@ -318,6 +387,26 @@ class ArtifactStore:
         with self.uow.transaction(access, task_id, capability=capability) as tx:
             record = self.record(tx, ref, lock=True)
             self._authorize_mutation(tx, record)
+            self.checked_bytes(record)
+            if record["state"] == "staged":
+                tx.connection.execute(
+                    "UPDATE vnext.artifact SET state='sealed' WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND entity_id=%s AND revision=%s",
+                    (*tx.owner, ref.id, ref.version.root),
+                )
+        return ref
+
+    def seal_retained(self, access, task_id, ref, *, retained: RetainedResultKey):
+        """Seal only an Artifact staged for the same retained Run binding."""
+        if not isinstance(retained, RetainedResultKey):
+            raise DomainError("INVALID_REFERENCE", 422)
+        with self._output_transaction(access, task_id, retained) as tx:
+            record = self.record(tx, ref, lock=True)
+            if (
+                record["agent_run_id"] != retained.agent_run_id
+                or record["writer_subject"] != access.principal.subject
+            ):
+                raise DomainError("INVALID_REFERENCE", 422)
+            self._bound_output(tx, record["agent_run_id"], retained)
             self.checked_bytes(record)
             if record["state"] == "staged":
                 tx.connection.execute(

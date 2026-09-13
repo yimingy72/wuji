@@ -1,10 +1,34 @@
 # vnext migration head
 
-Current head: `vnext_0009_p06_request_write_guards`, upgrading existing
-`vnext_0008_p06_admission_hardening` and `vnext_0007_p06_admission` databases,
-and following the accepted P05 head
-`vnext_0006_p05_control`. Apply it through the existing
+Current head: `vnext_0013_receiver_results`, following
+`vnext_0012_p13_projection`, `vnext_0011_p09_dispatch_fairness`, and
+`vnext_0010_p09_scheduler`. Apply it through the existing
 `wuji_core.persistence.schema.migrate(connection, application_role=...)` entry.
+
+The 0013 migration adds the retained-result binding between one immutable P09
+Assignment, its non-settling source Worker, and the actual registered receiver.
+P09 calls `bind_receiver_result(tx, agent_run_id=...)` only after persisting the
+Assignment. The helper derives receiver, source writer, operation and digest
+from canonical rows; the caller cannot supply them. Deployment must have already
+granted the receiver `can_observe` and `can_settle`, without `can_write` or
+`can_model_output`. The original Worker remains `can_settle=false`.
+
+`UnitOfWork(..., capability="retained_result", retained_result=...)` opens this
+one binding under an actual controller/reconciler Principal. A current source
+credential plus current Task/Run yields ordinary accepted result semantics; a
+revoked, expired or stale source yields `historical_only` and cannot publish a
+Claim/Intent. This capability does not issue a Worker credential, mark a Run
+ready, start work, or change P04's ordinary `run_disposition` policy. Normal P09
+Worker output transactions independently recheck credential revocation and
+expiry at every write boundary.
+
+The P10 runtime service consumes bounded `run.dispatch_requested` rows through
+the registered receiver's `DispatchOutbox`. It closes discovery transactions
+before receiver HTTP, queries the original operation before its single PUT, and
+uses the durable attempted journal to prevent an uncertain operation from being
+resent. The only credential delivery path is Node controller bootstrap through
+the registered P09 receiver-scoped retrieve; the Outbox stores no second bearer.
+
 P06 extends the canonical Task/WorkItem/AgentRun/ToolCall/ToolAttempt records;
 it does not create a second execution state, reserve the P05 Run pools again, or
 implement a second money ledger.

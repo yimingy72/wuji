@@ -19,6 +19,7 @@ from wuji_core.execution.dependencies import dependencies_satisfied, intent_curr
 from wuji_core.execution.states import task_can_run
 from wuji_core.http.json_boundary import canonical_json_bytes, strict_json_loads
 from wuji_core.persistence.uow import DomainError, UnitOfWork, json_text, row
+from wuji_core.persistence.retained_result_schema import bind_receiver_result
 from wuji_core.scheduling.policy import (
     Candidate,
     SchedulerPolicy,
@@ -782,6 +783,7 @@ class Scheduler:
                 event_seq,
             ),
         )
+        bind_receiver_result(tx, agent_run_id=run_id)
         tx.connection.execute(
             "SELECT vnext.bind_scheduler_snapshot(%s,%s,%s,%s,%s)",
             (*tx.owner, run_id, manifest.snapshot_id),

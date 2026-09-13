@@ -7,6 +7,10 @@ import psycopg
 from wuji_core.contracts.envelopes import ResultEnvelope, ResultReceipt, AgentPayload
 from wuji_core.contracts.knowledge import KnowledgeRef
 from wuji_core.evidence.artifacts import bound_run, run_disposition
+from wuji_core.execution.retained_results import (
+    RetainedResultKey,
+    bound_retained_run,
+)
 from wuji_core.persistence.uow import DomainError, row, json_text
 from wuji_core.persistence.snapshots import SnapshotRepository
 from wuji_core.http.json_boundary import (
@@ -24,15 +28,44 @@ class ResultCommitter:
     def __init__(self, uow, artifacts, claims):
         self.uow, self.artifacts, self.claims = uow, artifacts, claims
 
+    def _transaction(self, access, task_id, retained):
+        if retained is None:
+            return self.uow.transaction(access, task_id, capability="model_output")
+        return self.uow.transaction(
+            access,
+            task_id,
+            capability="retained_result",
+            retained_result=retained.document(),
+        )
+
+    @staticmethod
+    def _bound(tx, run_id, identity, retained):
+        if retained is None:
+            run = bound_run(tx, run_id, identity)
+            return run, run_disposition(tx, run)
+        run = bound_retained_run(tx, retained, identity)
+        if run["agent_run_id"] != run_id:
+            raise DomainError("STALE_EXECUTION", 403)
+        return run, tx.retained_result["disposition"]
+
     def receive(self, access, envelope):
+        return self._receive(access, envelope, retained=None)
+
+    def receive_retained(self, access, envelope, *, retained: RetainedResultKey):
+        if not isinstance(retained, RetainedResultKey):
+            raise DomainError("INVALID_REFERENCE", 422)
+        return self._receive(access, envelope, retained=retained)
+
+    def _receive(self, access, envelope, *, retained):
         """Durable phase one. This port never runs an Agent or a tool."""
         envelope = ResultEnvelope.model_validate(envelope)
         task_id = envelope.identity.task_id
         canonical = json_text(envelope.model_dump(mode="python"))
         digest = sha256(canonical.encode()).hexdigest()
-        with self.uow.transaction(access, task_id, capability="model_output") as tx:
-            run = bound_run(tx, envelope.identity.agent_run_id, envelope.identity)
-            run_disposition(tx, run)
+        with self._transaction(access, task_id, retained) as tx:
+            run, _disposition = self._bound(
+                tx, envelope.identity.agent_run_id, envelope.identity, retained
+            )
             artifact = self.artifacts.record(tx, envelope.raw_output_ref)
             if (
                 artifact["state"] != "sealed"
@@ -43,9 +76,9 @@ class ResultCommitter:
             ):
                 raise DomainError("INVALID_REFERENCE", 422)
         self.artifacts.checked_bytes(artifact)
-        with self.uow.transaction(access, task_id, capability="model_output") as tx:
-            run_disposition(
-                tx, bound_run(tx, envelope.identity.agent_run_id, envelope.identity)
+        with self._transaction(access, task_id, retained) as tx:
+            run, _disposition = self._bound(
+                tx, envelope.identity.agent_run_id, envelope.identity, retained
             )
             artifact = self.artifacts.record(tx, envelope.raw_output_ref, lock=True)
             old = row(
@@ -110,10 +143,28 @@ class ResultCommitter:
         self.receive(access, envelope)
         return self.reconcile(access, envelope.identity.task_id, envelope.submission_id)
 
+    def submit_retained(self, access, envelope, *, retained: RetainedResultKey):
+        envelope = ResultEnvelope.model_validate(envelope)
+        self.receive_retained(access, envelope, retained=retained)
+        return self.reconcile_retained(
+            access,
+            envelope.identity.task_id,
+            envelope.submission_id,
+            retained=retained,
+        )
+
     def lookup(self, access, task_id, submission_id):
-        with self.uow.transaction(access, task_id, capability="model_output") as tx:
+        return self._lookup(access, task_id, submission_id, retained=None)
+
+    def lookup_retained(
+        self, access, task_id, submission_id, *, retained: RetainedResultKey
+    ):
+        return self._lookup(access, task_id, submission_id, retained=retained)
+
+    def _lookup(self, access, task_id, submission_id, *, retained):
+        with self._transaction(access, task_id, retained) as tx:
             submission = self._submission(tx, submission_id)
-            bound_run(tx, submission["agent_run_id"])
+            self._bound(tx, submission["agent_run_id"], None, retained)
             final = self._final(tx, submission_id)
             return final or ResultReceipt.model_validate(
                 strict_json_loads(submission["received_receipt_json"])
@@ -126,7 +177,10 @@ class ResultCommitter:
                 (tx.owner[0], tx.owner[2], submission_id),
             )
         )
-        if value is None or value["writer_subject"] != tx.access.principal.subject:
+        allowed_writers = {tx.access.principal.subject}
+        if tx.purpose == "retained_result" and tx.retained_result:
+            allowed_writers.add(tx.retained_result["source_writer_subject"])
+        if value is None or value["writer_subject"] not in allowed_writers:
             raise DomainError("NOT_FOUND_OR_FORBIDDEN")
         return value
 
@@ -140,12 +194,24 @@ class ResultCommitter:
         )
 
     def reconcile(self, access, task_id, submission_id):
-        with self.uow.transaction(access, task_id, capability="model_output") as tx:
+        return self._reconcile(access, task_id, submission_id, retained=None)
+
+    def reconcile_retained(
+        self, access, task_id, submission_id, *, retained: RetainedResultKey
+    ):
+        return self._reconcile(
+            access, task_id, submission_id, retained=retained
+        )
+
+    def _reconcile(self, access, task_id, submission_id, *, retained):
+        with self._transaction(access, task_id, retained) as tx:
             submission = self._submission(tx, submission_id)
             envelope = ResultEnvelope.model_validate(
                 strict_json_loads(submission["envelope_json"])
             )
-            bound_run(tx, envelope.identity.agent_run_id, envelope.identity)
+            self._bound(
+                tx, envelope.identity.agent_run_id, envelope.identity, retained
+            )
             final = self._final(tx, submission_id)
             if final:
                 return final
@@ -164,10 +230,11 @@ class ResultCommitter:
             payload = AgentPayload.model_validate(parsed)
         except (ValueError, ValidationError, InvalidJsonDocument, DomainError):
             parse_code = "INVALID_SCHEMA"
-        with self.uow.transaction(access, task_id, capability="model_output") as tx:
+        with self._transaction(access, task_id, retained) as tx:
             submission = self._submission(tx, submission_id)
-            run = bound_run(tx, envelope.identity.agent_run_id, envelope.identity)
-            disposition = run_disposition(tx, run)
+            run, disposition = self._bound(
+                tx, envelope.identity.agent_run_id, envelope.identity, retained
+            )
             final = self._final(tx, submission_id)
             if final:
                 return final

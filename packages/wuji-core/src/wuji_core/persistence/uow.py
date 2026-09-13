@@ -43,6 +43,7 @@ class Transaction:
     capacity_pools: tuple[dict[str, Any], ...] = ()
     run_binding: Any = None
     purpose: str = "read"
+    retained_result: Any = None
 
     def semantic_event(
         self,
@@ -95,6 +96,7 @@ class UnitOfWork:
         *,
         capability="read",
         repeatable_read=False,
+        retained_result=None,
     ):
         if capability not in {
             "read",
@@ -113,8 +115,11 @@ class UnitOfWork:
             "tool_request",
             "model_settle",
             "tool_settle",
+            "retained_result",
         }:
             raise ValueError("unsupported capability")
+        if (capability == "retained_result") != (retained_result is not None):
+            raise ValueError("retained result binding must be explicit")
         request_purpose = capability in {"model_request", "tool_request", "model_settle", "tool_settle"}
         with self.connection_factory() as connection:
             with connection.transaction():
@@ -141,6 +146,9 @@ class UnitOfWork:
                     "control": "false",
                     "observe": "false",
                     "admit": "false",
+                    "retained_result": "false",
+                    "retained_run": "",
+                    "retained_assignment_digest": "",
                     "token_id": access.principal.token_id,
                     "request_purpose": "",
                 }.items():
@@ -153,15 +161,18 @@ class UnitOfWork:
                         (access.principal.tenant_id, access.principal.subject, task_id),
                     )
                 )
-                allowed = permission and (
-                    (permission["can_capture"] or permission["can_settle"])
-                    if capability == "evidence"
-                    else (
-                        permission["can_read"]
-                        if capability == "snapshot" or request_purpose
-                        else permission["can_" + capability]
+                if capability == "retained_result":
+                    allowed = permission and permission["can_settle"]
+                else:
+                    allowed = permission and (
+                        (permission["can_capture"] or permission["can_settle"])
+                        if capability == "evidence"
+                        else (
+                            permission["can_read"]
+                            if capability == "snapshot" or request_purpose
+                            else permission["can_" + capability]
+                        )
                     )
-                )
                 if not permission or not permission["can_read"] or not allowed:
                     raise DomainError("NOT_FOUND_OR_FORBIDDEN")
                 _require_control_actor(access, capability)
@@ -199,6 +210,7 @@ class UnitOfWork:
                     "control": str(capability == "control").lower(),
                     "observe": str(capability == "observe").lower(),
                     "admit": str(capability == "admit").lower(),
+                    "retained_result": str(capability == "retained_result").lower(),
                     "request_purpose": capability if request_purpose else "",
                 }
                 for key, value in values.items():
@@ -207,7 +219,7 @@ class UnitOfWork:
                     ).fetchone()
                 owner = (permission["tenant_id"], permission["project_id"], task_id)
                 pools = ()
-                if capability in {"control", "observe", "admit"} or request_purpose:
+                if capability in {"control", "observe", "admit", "retained_result"} or request_purpose:
                     from wuji_core.execution.capacity import prelock_pools
 
                     pools = prelock_pools(connection, owner)
@@ -222,7 +234,8 @@ class UnitOfWork:
                 )
                 if task is None:
                     raise DomainError("NOT_FOUND_OR_FORBIDDEN")
-                if capability in {"control", "observe", "admit"} or request_purpose:
+                retained_binding = None
+                if capability in {"control", "observe", "admit", "retained_result"} or request_purpose:
                     current = row(
                         connection.execute(
                             "SELECT * FROM vnext.task_access WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND subject=%s",
@@ -232,7 +245,15 @@ class UnitOfWork:
                     if (
                         not current
                         or not current["can_read"]
-                        or not current["can_read" if request_purpose else "can_" + capability]
+                        or not current[
+                            "can_read"
+                            if request_purpose
+                            else (
+                                "can_settle"
+                                if capability == "retained_result"
+                                else "can_" + capability
+                            )
+                        ]
                     ):
                         raise DomainError("NOT_FOUND_OR_FORBIDDEN")
                     permission = current
@@ -242,7 +263,40 @@ class UnitOfWork:
                     ).fetchone()
                     if request_purpose:
                         binding = self._request_binding(connection, access, task_id, capability)
-                yield Transaction(connection, owner, access, permission, task, pools, binding, capability)
+                    elif capability == "retained_result":
+                        if (
+                            not isinstance(retained_result, dict)
+                            or set(retained_result)
+                            != {"agent_run_id", "operation_id", "assignment_digest"}
+                            or any(
+                                not isinstance(value, str) or not value
+                                for value in retained_result.values()
+                            )
+                        ):
+                            raise DomainError("INVALID_REFERENCE", 422)
+                        retained_binding = row(
+                            connection.execute(
+                                "SELECT * FROM vnext.open_receiver_result(%s,%s,%s,%s,%s,%s)",
+                                (
+                                    *owner,
+                                    retained_result["agent_run_id"],
+                                    retained_result["operation_id"],
+                                    retained_result["assignment_digest"],
+                                ),
+                            )
+                        )
+                        if retained_binding is None:
+                            raise DomainError("NOT_FOUND_OR_FORBIDDEN")
+                if (
+                    capability == "model_output"
+                    and "worker" in access.principal.roles
+                    and access.principal.subject.startswith("run.worker:")
+                ):
+                    binding = self._model_output_binding(connection, access, task_id)
+                yield Transaction(
+                    connection, owner, access, permission, task, pools, binding,
+                    capability, retained_binding,
+                )
 
     def _request_binding(self, connection, access, task_id, purpose):
         from datetime import datetime, timezone
@@ -260,6 +314,40 @@ class UnitOfWork:
         if required not in binding.purposes:
             raise DomainError("NOT_FOUND_OR_FORBIDDEN")
         if purpose.endswith("_request") and (record["revoked"] or binding.expires_at <= datetime.now(timezone.utc)):
+            raise DomainError("STALE_EXECUTION", 409)
+        return binding
+
+    def _model_output_binding(self, connection, access, task_id):
+        """Recheck a Worker's actual credential inside every output write."""
+        from datetime import datetime, timezone
+        from wuji_core.admission.registry import RunCredentialBinding
+        from wuji_core.http import strict_json_loads
+
+        if access.principal.roles != frozenset({"worker"}):
+            raise DomainError("NOT_FOUND_OR_FORBIDDEN")
+        record = row(
+            connection.execute(
+                """SELECT document_json,revoked FROM vnext.run_credential
+                WHERE tenant_id=%s AND task_id=%s AND subject=%s AND token_id=%s""",
+                (
+                    access.principal.tenant_id,
+                    task_id,
+                    access.principal.subject,
+                    access.principal.token_id,
+                ),
+            )
+        )
+        if not record or record["revoked"]:
+            raise DomainError("STALE_EXECUTION", 409)
+        binding = RunCredentialBinding.model_validate(
+            strict_json_loads(record["document_json"])
+        )
+        if (
+            binding.identity.task_id != task_id
+            or binding.subject != access.principal.subject
+            or binding.token_id != access.principal.token_id
+            or binding.expires_at <= datetime.now(timezone.utc)
+        ):
             raise DomainError("STALE_EXECUTION", 409)
         return binding
 
@@ -312,6 +400,7 @@ def _require_control_actor(access, capability):
         "control": {"operator", "controller"},
         "observe": {"controller", "reconciler"},
         "admit": {"scheduler", "controller"},
+        "retained_result": {"controller", "reconciler"},
     }
     if capability in roles and (
         "agent" in access.principal.roles

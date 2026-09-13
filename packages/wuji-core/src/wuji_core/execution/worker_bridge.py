@@ -21,7 +21,7 @@ from wuji_core.execution.control import ExecutionObservation
 from wuji_core.execution.dispatch_outbox import ReceiverAuthorizer
 from wuji_core.execution.reconcile import read_registered_run
 from wuji_core.http import canonical_json_bytes, strict_json_loads
-from wuji_core.http.auth import Principal, TokenVerifier
+from wuji_core.http.auth import TokenVerifier
 from wuji_core.persistence.snapshots import SnapshotRepository
 from wuji_core.persistence.uow import AccessContext, DomainError, row
 
@@ -134,12 +134,17 @@ class PrivateIntake:
 
 class WorkerHostBridge:
     def __init__(self, uow, *, registry, credentials, receiver_access, host_factory,
-                 context_builder, ledger, child_config, spool_directory):
+                 context_builder, ledger, retained_results, child_config, spool_directory):
         if not all(callable(fn) for fn in (receiver_access, host_factory, context_builder)):
             raise ValueError("registered controller and context ports are required")
+        if not all(callable(getattr(retained_results, name, None)) for name in (
+            "submit_result", "archive_sdk",
+        )):
+            raise ValueError("registered retained-result service is required")
         self.uow, self.registry, self.credentials = uow, registry, credentials
         self.receiver_access, self.host_factory = receiver_access, host_factory
         self.context_builder, self.ledger = context_builder, ledger
+        self.retained_results = retained_results
         allowed = {"public_key_pem", "issuer", "audience", "host_origin", "model_gate_url",
                    "tool_gate_url", "wait_timeout_seconds", "transport_timeout_seconds",
                    "max_transport_bytes"}
@@ -453,32 +458,47 @@ class WorkerHostBridge:
         # Same exact raw binding and P04 durable idempotency, no cached ack.
         return self.submit_result(access, payload)
 
-    def _original_writer(self, access, assignment):
-        self._registered(assignment, access)
-        saved = self.intake.read(assignment, "writer")
-        if not saved or saved["assignment_digest"] != assignment_digest(assignment):
-            raise DomainError("STALE_EXECUTION", 409)
-        principal = saved["principal"]
-        original = AccessContext(Principal(
-            subject=principal["subject"], tenant_id=principal["tenant_id"],
-            roles=frozenset(principal["roles"]), token_id=principal["token_id"],
-        ), access.request_id)
-        self._worker(original, assignment)
-        return original
-
     def receiver_replay(self, access, payload):
         payload = wire.WorkerSubmitRequest.model_validate(payload)
-        original = self._original_writer(access, payload.assignment)
+        self._registered(payload.assignment, access)
+        context = self._stored_context(payload.assignment, payload.context)
+        raw = self._bytes(
+            payload.raw_output_base64,
+            payload.raw_digest.root,
+            min(payload.assignment.limits.max_single_output_bytes, 16777216),
+        )
+        sdk = self._bytes(
+            payload.sdk_output_base64,
+            payload.sdk_digest.root,
+            min(payload.assignment.limits.max_total_output_bytes, 16777216),
+        )
         with self._lock:
-            # Existing P03/P04 run_writer/settlement checks stay authoritative.
-            # No current execution permit or new model/tool work is acquired.
-            return self._submit(original, payload)
+            self.intake.save(payload.assignment, "result", payload)
+            return self.retained_results.submit_result(
+                access,
+                payload.assignment,
+                raw_output=raw,
+                context=context,
+                tool_receipts=tuple(payload.tool_receipts),
+                sdk_output=sdk,
+            )
 
     def receiver_archive(self, access, payload):
         payload = wire.WorkerArchiveRequest.model_validate(payload)
-        original = self._original_writer(access, payload.assignment)
+        self._registered(payload.assignment, access)
+        context = self.intake.read(payload.assignment, "context")
+        if context is None or context["snapshot_id"] != payload.assignment.snapshot_id:
+            raise DomainError("INVALID_REFERENCE", 422)
+        body = self._bytes(
+            payload.sdk_output_base64,
+            payload.sdk_digest.root,
+            min(payload.assignment.limits.max_total_output_bytes, 16777216),
+        )
         with self._lock:
-            return self._archive(original, payload)
+            self.intake.save(payload.assignment, "archive", payload)
+            return self.retained_results.archive_sdk(
+                access, payload.assignment, body
+            )
 
     def reconcile_results(self, run):
         """P10 Reconciler.persist_results callback; no output is no receipt."""

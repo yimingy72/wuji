@@ -6,12 +6,10 @@ restricted bootstrap store and never enter Outbox bodies or process receipts.
 """
 
 from datetime import datetime, timedelta, timezone
-from hashlib import sha256
 from ipaddress import ip_address
 from pathlib import Path
 import os
 import sqlite3
-import tempfile
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlsplit
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
@@ -158,60 +156,10 @@ class DispatchJournal:
         self.connection.close()
 
 
-class FileBootstrapStore:
-    """Restricted receiver-side spool, mounted only to controller/Node bootstrap.
-
-    Node's deployment bootstrap callback verifies identity/digest and copies the
-    one Run credential into its Worker directory. The Worker cannot read this
-    store, other Runs, or the guardian inbox in a deployed environment.
-    """
-
-    def __init__(self, directory):
-        self.directory = Path(directory)
-        self.directory.mkdir(parents=True, exist_ok=True, mode=0o700)
-        if self.directory.is_symlink():
-            raise ValueError("bootstrap directory must not be a symlink")
-        os.chmod(self.directory, 0o700)
-
-    def stage(self, *, identity, assignment_digest, run_credential):
-        if not isinstance(run_credential, str) or not run_credential:
-            raise DomainError("UNAUTHENTICATED", 401)
-        body = {"identity": identity.model_dump(mode="json"), "assignment_digest": assignment_digest,
-                "run_credential": run_credential}
-        key = sha256(canonical_json_bytes(body["identity"])).hexdigest()
-        path = self.directory / (key + ".json")
-        data = canonical_json_bytes(body)
-        if path.exists():
-            if path.read_bytes() != data:
-                raise DomainError("INPUT_DIGEST_CONFLICT", 409)
-            return str(path)
-        descriptor, temporary = tempfile.mkstemp(prefix=".bootstrap-", dir=self.directory)
-        try:
-            with os.fdopen(descriptor, "wb") as stream:
-                stream.write(data)
-                stream.flush()
-                os.fsync(stream.fileno())
-            # A concurrent first writer cannot be overwritten.
-            try:
-                os.link(temporary, path)
-            except FileExistsError:
-                if path.read_bytes() != data:
-                    raise DomainError("INPUT_DIGEST_CONFLICT", 409)
-            directory_fd = os.open(self.directory, os.O_RDONLY)
-            try:
-                os.fsync(directory_fd)
-            finally:
-                os.close(directory_fd)
-        finally:
-            os.unlink(temporary)
-        return str(path)
-
-
 class DispatchOutbox:
-    def __init__(self, uow, *, access, credentials, transport, profiles, journal_path, bootstrap_store):
+    def __init__(self, uow, *, access, transport, journal_path):
         self.uow, self.access = uow, access
-        self.credentials, self.transport = credentials, transport
-        self.profiles, self.bootstrap_store = dict(profiles), bootstrap_store
+        self.transport = transport
         self.journal = DispatchJournal(journal_path)
 
     def _registered(self, task_id, operation_id):
@@ -242,18 +190,15 @@ class DispatchOutbox:
             return observed
         if self.journal.attempted(run):
             return ObservedExecution(run, "unknown", None, "previous_delivery_unresolved_no_replay")
-        profile = self.profiles.get(assignment.work_kind.value)
-        if profile not in [value.root for value in assignment.profile_refs]:
-            raise DomainError("CAPABILITY_UNAVAILABLE", 503)
-        # Retrieval is the actual P09 receiver-scoped decrypt port. No fake
-        # signer, caller token, Task key or plaintext Outbox field is accepted.
+        # read_registered_run derived this exact harness ref from the immutable
+        # TaskDefinition and checked the complete Assignment profile tuple.
+        profile = run.harness_profile_id
+        # Re-read the same immutable operation before the attempted-send fence.
+        # Node's bootstrap callback is the only Run credential consumer.
         with self.uow.transaction(self.access, task_id, capability="observe") as tx:
             fresh_run, fresh_assignment, fresh_ref = read_registered_run(tx, operation_id)
             if fresh_run != run or fresh_assignment != assignment or fresh_ref != credential_ref:
                 raise DomainError("STALE_EXECUTION", 409)
-            bearer = self.credentials.retrieve(tx, credential_ref=credential_ref, identity=run.identity)
-        self.bootstrap_store.stage(identity=run.identity, assignment_digest=run.assignment_digest, run_credential=bearer)
-        del bearer
         if not self.journal.reserve_send(run):
             return self.inspect(task_id, operation_id)
         try:
@@ -303,8 +248,30 @@ class ReceiverAuthorizer:
                 WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND runtime_attempt=%s
                 AND receiver_id=%s AND receiver_subject=%s""",
                 (*tx.owner, run.identity.runtime_attempt.root, run.identity.receiver_id, access.principal.subject)))
-            if (not registered_receiver or registered_receiver["environment_ref"] != run.environment_ref
-                    or (action == "start" and not registered_receiver["enabled"])):
+            registration = {
+                "receiver_id": registered_receiver["receiver_id"] if registered_receiver else None,
+                "runtime_attempt": (
+                    str(registered_receiver["runtime_attempt"])
+                    if registered_receiver else None
+                ),
+                "receiver_subject": (
+                    registered_receiver["receiver_subject"]
+                    if registered_receiver else None
+                ),
+                "environment_ref": (
+                    registered_receiver["environment_ref"]
+                    if registered_receiver else None
+                ),
+                "pod_uid": registered_receiver["pod_uid"] if registered_receiver else None,
+            }
+            if (
+                registration
+                != {
+                    **expected,
+                    "receiver_subject": access.principal.subject,
+                }
+                or (action == "start" and not registered_receiver["enabled"])
+            ):
                 raise DomainError("STALE_EXECUTION", 409)
             allowed = False
             if action == "start":

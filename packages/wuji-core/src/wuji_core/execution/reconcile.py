@@ -10,7 +10,7 @@ from typing import Mapping
 
 from wuji_core.contracts.envelopes import RunIdentity
 from wuji_core.execution.control import ExecutionObservation
-from wuji_core.http.json_boundary import canonical_json_bytes
+from wuji_core.http.json_boundary import canonical_json_bytes, strict_json_loads
 from wuji_core.persistence.uow import DomainError, row
 from wuji_core.scheduling.claims import DispatchRepository
 
@@ -22,6 +22,9 @@ class RegisteredRun:
     environment_ref: str
     pod_uid: str
     assignment_digest: str
+    work_kind: str
+    harness_profile_id: str
+    harness_profile_digest: str
 
 
 @dataclass(frozen=True)
@@ -51,6 +54,33 @@ def read_registered_run(tx, operation_id):
     if (not record or any(str(record[key]) != value for key, value in identity.items())
             or record["start_operation_id"] != operation_id):
         raise DomainError("STALE_EXECUTION", 409)
+    try:
+        raw_definition = tx.task["definition_json"]
+        if sha256(raw_definition.encode("utf-8")).hexdigest() != tx.task["definition_digest"]:
+            raise ValueError("Task definition digest changed")
+        definition = strict_json_loads(raw_definition)
+        profile = definition["worker_profiles"][assignment.work_kind.value]
+        body = profile["body"]
+        expected_refs = (
+            profile["ref"],
+            definition["model_profile"]["ref"],
+            definition["runtime_profile"]["ref"],
+        )
+        if (
+            not isinstance(profile["ref"], str)
+            or not isinstance(profile["digest"], str)
+            or len(profile["digest"]) != 64
+            or profile["digest"] != sha256(canonical_json_bytes(body)).hexdigest()
+            or profile["ref"] != body["ref"]
+            or str(profile["revision"]) != str(body["revision"])
+            or body["work_kind"] != assignment.work_kind.value
+            or tuple(ref.root for ref in assignment.profile_refs) != expected_refs
+            or tuple(body["tool_definition_refs"])
+            != tuple(ref.root for ref in assignment.tool_definition_refs)
+        ):
+            raise ValueError("assignment changed fixed profile selection")
+    except (KeyError, TypeError, ValueError, AttributeError) as error:
+        raise DomainError("CAPABILITY_UNAVAILABLE", 503) from error
     # P10 does not invent a pod UID or modify another lane's receiver schema.
     if not record["environment_ref"] or not record["pod_uid"]:
         raise ObservationUnavailable("RECEIVER_ENVIRONMENT_UNBOUND")
@@ -58,6 +88,8 @@ def read_registered_run(tx, operation_id):
         identity=assignment.identity, start_operation_id=operation_id,
         environment_ref=record["environment_ref"], pod_uid=record["pod_uid"],
         assignment_digest=sha256(canonical_json_bytes(assignment.model_dump(mode="json"))).hexdigest(),
+        work_kind=assignment.work_kind.value, harness_profile_id=profile["ref"],
+        harness_profile_digest=profile["digest"],
     )
     return run, assignment, credential_ref
 
@@ -80,7 +112,7 @@ def validate_receipt(run: RegisteredRun, receipt: Mapping) -> ObservedExecution:
             or receipt["identity"] != run.identity.model_dump(mode="json")
             or receipt["receiver"] != receiver
             or receipt["assignment_digest"] != run.assignment_digest
-            or not isinstance(receipt["profile_id"], str)):
+            or receipt["profile_id"] != run.harness_profile_id):
         raise DomainError("STALE_EXECUTION", 409)
     state = receipt["state"]
     if state not in {"prepared", "running", "exited", "not_started", "unknown"}:

@@ -4,16 +4,21 @@ This composition is not an execution-control or Supervisor endpoint. The caller
 supplies authenticated Run access; all execution prerequisites already exist.
 """
 
+from contextlib import contextmanager
 from hashlib import sha256
 from threading import Lock
 
 from pydantic import ValidationError
 
 from wuji_core.admission.common import current_run
-from wuji_core.admission.ledger import AdmissionLedger
+from wuji_core.admission.ledger import AdmissionLedger, tool_receipt
 from wuji_core.contracts.envelopes import AgentPayload, BlobRef, ResultEnvelope, WorkerAssignment
 from wuji_core.contracts.knowledge import KnowledgeRef
 from wuji_core.evidence.artifacts import bound_run
+from wuji_core.execution.retained_results import (
+    RetainedResultAuthority,
+    RetainedResultKey,
+)
 from wuji_core.http import canonical_json_bytes, strict_json_loads
 from wuji_core.persistence.snapshots import SnapshotRepository
 from wuji_core.persistence.uow import DomainError, row
@@ -25,10 +30,14 @@ def _key(ref):
 
 class PlatformWorkerHost:
     def __init__(self, *, uow, registry, access, artifacts, committer, profiles, lock_digest,
-                 sessions=None, inputs=None, receiver_access=None):
+                 sessions=None, inputs=None, receiver_access=None, retained_result=None):
+        if retained_result is not None and not isinstance(retained_result, RetainedResultKey):
+            raise ValueError("invalid retained result binding")
         self.uow, self.registry, self.access = uow, registry, access
         self.artifacts, self.committer = artifacts, committer
         self.sessions, self.inputs, self.receiver_access = sessions, inputs, receiver_access
+        self.retained_result = retained_result
+        self.retained_authority = RetainedResultAuthority(uow)
         self.lock_digest = lock_digest
         self.profiles = {}
         for published in profiles:
@@ -156,18 +165,65 @@ class PlatformWorkerHost:
         return self.inputs.acknowledge_delivery(self.access, assignment,
             delivery_id=delivery_id, payload_digest=payload_digest)
 
+    @contextmanager
+    def _result_transaction(self, assignment):
+        if self.retained_result is None:
+            with self.uow.transaction(
+                self.access,
+                assignment.identity.task_id,
+                capability="model_output",
+            ) as tx:
+                yield tx
+            return
+        if self.retained_result != RetainedResultKey.from_assignment(assignment):
+            raise DomainError("INPUT_DIGEST_CONFLICT", 409)
+        with self.retained_authority.transaction(
+            self.access, assignment
+        ) as (tx, _run, _key, _disposition):
+            yield tx
+
+    def _bound_result(self, tx, assignment):
+        if self.retained_result is None:
+            return bound_run(
+                tx, assignment.identity.agent_run_id, assignment.identity
+            )
+        if tx.retained_result is None:
+            raise DomainError("NOT_FOUND_OR_FORBIDDEN", 403)
+        return row(
+            tx.connection.execute(
+                """SELECT * FROM vnext.agent_run WHERE tenant_id=%s
+                AND project_id=%s AND task_id=%s AND agent_run_id=%s""",
+                (*tx.owner, assignment.identity.agent_run_id),
+            )
+        )
+
     def _writer(self, assignment):
-        with self.uow.transaction(self.access, assignment.identity.task_id, capability="model_output") as tx:
-            bound_run(tx, assignment.identity.agent_run_id, assignment.identity)
-            return tx.permissions["clearance"]
+        with self._result_transaction(assignment) as tx:
+            run = self._bound_result(tx, assignment)
+            if run is None:
+                raise DomainError("STALE_EXECUTION", 403)
+            return (
+                tx.permissions["clearance"]
+                if self.retained_result is None
+                else tx.retained_result["access_level"]
+            )
 
     def _stage(self, assignment, data, media_type):
         level = self._writer(assignment)
-        ref = self.artifacts.stage_model_output(
+        if self.retained_result is None:
+            ref = self.artifacts.stage_model_output(
+                self.access, assignment.identity.task_id, assignment.identity.agent_run_id,
+                data, media_type, access_level=level,
+            )
+            return self.artifacts.seal(self.access, assignment.identity.task_id, ref)
+        ref = self.artifacts.stage_retained_output(
             self.access, assignment.identity.task_id, assignment.identity.agent_run_id,
-            data, media_type, access_level=level,
+            data, media_type, retained=self.retained_result, access_level=level,
         )
-        return self.artifacts.seal(self.access, assignment.identity.task_id, ref)
+        return self.artifacts.seal_retained(
+            self.access, assignment.identity.task_id, ref,
+            retained=self.retained_result,
+        )
 
     @staticmethod
     def _operation_digest(assignment):
@@ -178,10 +234,8 @@ class PlatformWorkerHost:
 
     def _publish(self, assignment, publication_id, kind, refs):
         records = []
-        with self.uow.transaction(
-            self.access, assignment.identity.task_id, capability="model_output"
-        ) as tx:
-            bound_run(tx, assignment.identity.agent_run_id, assignment.identity)
+        with self._result_transaction(assignment) as tx:
+            self._bound_result(tx, assignment)
             for ref in refs:
                 record = self.artifacts.record(tx, ref)
                 if (
@@ -219,10 +273,8 @@ class PlatformWorkerHost:
                 )
 
     def _published_artifacts(self, assignment, publication_id):
-        with self.uow.transaction(
-            self.access, assignment.identity.task_id, capability="model_output"
-        ) as tx:
-            bound_run(tx, assignment.identity.agent_run_id, assignment.identity)
+        with self._result_transaction(assignment) as tx:
+            self._bound_result(tx, assignment)
             cursor = tx.connection.execute(
                 """SELECT a.* FROM vnext.publication_ref p JOIN vnext.artifact a
                 ON (a.tenant_id,a.project_id,a.task_id,a.entity_id,a.revision)=
@@ -267,15 +319,34 @@ class PlatformWorkerHost:
         records = []
         seen = set()
         ledger = AdmissionLedger(self.uow)
-        for receipt in receipts:
-            actual = ledger.tool_call(self.access, receipt.tool_call_id)
-            if actual != receipt or actual.tool_call_id in seen:
-                raise DomainError("INVALID_REFERENCE", 422)
-            seen.add(actual.tool_call_id)
-            with self.uow.transaction(self.access, assignment.identity.task_id) as tx:
+        for supplied in receipts:
+            actual = (
+                ledger.tool_call(self.access, supplied.tool_call_id)
+                if self.retained_result is None
+                else None
+            )
+            transaction = (
+                self.uow.transaction(self.access, assignment.identity.task_id)
+                if self.retained_result is None
+                else self._result_transaction(assignment)
+            )
+            with transaction as tx:
+                if self.retained_result is not None:
+                    call_record = row(tx.connection.execute(
+                        """SELECT * FROM vnext.tool_call WHERE tenant_id=%s
+                        AND project_id=%s AND task_id=%s AND tool_call_id=%s
+                        AND access_level<=%s""",
+                        (*tx.owner, supplied.tool_call_id, tx.permissions["clearance"]),
+                    ))
+                    if call_record is None:
+                        raise DomainError("INVALID_REFERENCE", 422)
+                    actual = tool_receipt(tx, call_record)
+                if actual != supplied or actual.tool_call_id in seen:
+                    raise DomainError("INVALID_REFERENCE", 422)
+                seen.add(actual.tool_call_id)
                 call = row(tx.connection.execute(
                     "SELECT a.agent_run_id,c.work_item_id,c.session_lineage FROM vnext.tool_attempt a JOIN vnext.tool_call c USING(tenant_id,project_id,task_id,tool_call_id) WHERE a.tenant_id=%s AND a.project_id=%s AND a.task_id=%s AND a.tool_attempt_id=%s",
-                    (*tx.owner, receipt.tool_attempt_id.root if receipt.tool_attempt_id else None),
+                    (*tx.owner, actual.tool_attempt_id.root if actual.tool_attempt_id else None),
                 ))
                 if call is None or call["work_item_id"] != assignment.identity.work_item_id:
                     raise DomainError("INVALID_REFERENCE", 422)
@@ -287,7 +358,7 @@ class PlatformWorkerHost:
                         raise DomainError("INVALID_REFERENCE", 422)
                     work = row(tx.connection.execute("SELECT * FROM vnext.work_item WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND work_item_id=%s", (*tx.owner, assignment.identity.work_item_id)))
                     prior = self.sessions._load_in_transaction(tx, work)
-                    if not any(e.tool_call_id == receipt.tool_call_id and e.tool_attempt_id == receipt.tool_attempt_id.root for e in prior.history.frontier.tool_entries):
+                    if not any(e.tool_call_id == actual.tool_call_id and e.tool_attempt_id == actual.tool_attempt_id.root for e in prior.history.frontier.tool_entries):
                         raise DomainError("INVALID_REFERENCE", 422)
             evidence = actual.evidence_receipt
             if (
@@ -358,14 +429,21 @@ class PlatformWorkerHost:
         # P04 remains the durable idempotency authority, not this lock or a cache.
         with self._submit_lock:
             self._writer(assignment)
-            with self.uow.transaction(self.access, assignment.identity.task_id, capability="model_output") as tx:
+            with self._result_transaction(assignment) as tx:
+                source_writer = (
+                    None
+                    if self.retained_result is None
+                    else tx.retained_result["source_writer_subject"]
+                )
                 saved = row(tx.connection.execute(
                     "SELECT envelope_json,writer_subject FROM vnext.result_submission WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND submission_id=%s",
                     (*tx.owner, submission_id),
                 ))
             if saved is not None:
                 envelope = ResultEnvelope.model_validate(strict_json_loads(saved["envelope_json"]))
-                if saved["writer_subject"] != self.access.principal.subject or envelope.identity != assignment.identity or envelope.raw_output_digest.root != sha256(raw_output).hexdigest() or envelope.snapshot_id != context.snapshot_id or envelope.read_set != list(context.read_set):
+                if saved["writer_subject"] not in {
+                    self.access.principal.subject, source_writer,
+                } or envelope.identity != assignment.identity or envelope.raw_output_digest.root != sha256(raw_output).hexdigest() or envelope.snapshot_id != context.snapshot_id or envelope.read_set != list(context.read_set):
                     raise DomainError("INPUT_DIGEST_CONFLICT", 409)
                 published = self._published_artifacts(
                     assignment, "result:" + submission_id
@@ -386,8 +464,13 @@ class PlatformWorkerHost:
                 )
                 if self.artifacts.checked_bytes(binding_record) != canonical_json_bytes(expected):
                     raise DomainError("INPUT_DIGEST_CONFLICT", 409)
-                return self.committer.lookup(
-                    self.access, assignment.identity.task_id, submission_id
+                if self.retained_result is None:
+                    return self.committer.lookup(
+                        self.access, assignment.identity.task_id, submission_id
+                    )
+                return self.committer.lookup_retained(
+                    self.access, assignment.identity.task_id, submission_id,
+                    retained=self.retained_result,
                 )
 
             tool_binding, tool_refs = self._tool_binding(
@@ -426,13 +509,23 @@ class PlatformWorkerHost:
                 assignment, canonical_json_bytes(binding),
                 "application/vnd.wuji.maf-result-binding+json",
             )
-            self.committer.receive(self.access, envelope)
+            if self.retained_result is None:
+                self.committer.receive(self.access, envelope)
+            else:
+                self.committer.receive_retained(
+                    self.access, envelope, retained=self.retained_result
+                )
             self._publish(
                 assignment,
                 "result:" + submission_id,
                 "result_submission",
                 (sdk_ref, binding_ref),
             )
-            return self.committer.reconcile(
-                self.access, assignment.identity.task_id, submission_id
+            if self.retained_result is None:
+                return self.committer.reconcile(
+                    self.access, assignment.identity.task_id, submission_id
+                )
+            return self.committer.reconcile_retained(
+                self.access, assignment.identity.task_id, submission_id,
+                retained=self.retained_result,
             )
