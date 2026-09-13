@@ -377,7 +377,7 @@ class AssessmentReceipt(BaseModel):
     status: ComponentReceiptStatus
     claim_ref: KnowledgeRef
     request_id: Annotated[StrictStr, Field(min_length=1)]
-    code: ErrorCode | None = None
+    code: ErrorCode2 | None = None
 
 
 class AssignmentSchemaVersion(RootModel[Literal['wuji.assignment.v2']]):
@@ -609,7 +609,7 @@ class CommandReceipt(BaseModel):
     resource_ref: CommandResourceRef
     resource_version: RevisionString
     request_id: Annotated[StrictStr, Field(min_length=1)]
-    code: ErrorCode | None = None
+    code: ErrorCode2 | None = None
 
 
 class CommandResourceRef(BaseModel):
@@ -627,6 +627,12 @@ class CommandResourceType(StrEnum):
     approval = 'approval'
 
 
+class Completeness(StrEnum):
+    complete = 'complete'
+    partial = 'partial'
+    unknown = 'unknown'
+
+
 class ComponentReceipt(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -635,7 +641,7 @@ class ComponentReceipt(BaseModel):
     local_ref: Annotated[StrictStr, Field(max_length=256, min_length=1)]
     request_id: Annotated[StrictStr, Field(min_length=1)]
     canonical_ref: KnowledgeRef | None = None
-    code: ErrorCode | None = None
+    code: ErrorCode2 | None = None
 
 
 class ComponentReceiptStatus(StrEnum):
@@ -717,7 +723,7 @@ class DispatchReceipt(BaseModel):
     status: DispatchStatus
     assignment: WorkerAssignment | None = None
     request_id: Annotated[StrictStr, Field(min_length=1)]
-    code: ErrorCode | None = None
+    code: ErrorCode2 | None = None
 
 
 class DispatchStatus(StrEnum):
@@ -726,7 +732,11 @@ class DispatchStatus(StrEnum):
     rejected = 'rejected'
 
 
-class ErrorCode(StrEnum):
+class ErrorCode(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+
+
+class ErrorCode2(StrEnum):
     UNAUTHENTICATED = 'UNAUTHENTICATED'
     FORBIDDEN_COLLECTOR = 'FORBIDDEN_COLLECTOR'
     FORBIDDEN_ASSESSOR = 'FORBIDDEN_ASSESSOR'
@@ -751,7 +761,7 @@ class ErrorResponse(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
     )
-    code: ErrorCode
+    code: ErrorCode2
     message: Annotated[StrictStr, Field(max_length=8192, min_length=1)]
     request_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
     retryable: StrictBool
@@ -773,7 +783,7 @@ class EvidenceReceipt(BaseModel):
     status: EvidenceReceiptStatus
     artifact_refs: list[BlobRef]
     request_id: Annotated[StrictStr, Field(min_length=1)]
-    code: ErrorCode | None = None
+    code: ErrorCode2 | None = None
 
 
 class EvidenceReceiptStatus(StrEnum):
@@ -807,6 +817,153 @@ class ExecutionLimits(BaseModel):
     max_elapsed_seconds: Annotated[StrictInt, Field(ge=1, le=31536000)]
     max_attempts_per_work: Annotated[StrictInt, Field(ge=1, le=1000)]
     repair_attempts: Annotated[StrictInt, Field(ge=0, le=1000)]
+
+
+class ExecutorAttemptId(RootModel[StrictStr]):
+    root: Annotated[
+        StrictStr,
+        Field(pattern='^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'),
+    ]
+
+
+class ExecutorCancelRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    permit: ExecutorPermitDocument
+    permit_digest: Sha256Digest
+    reason: Annotated[StrictStr, Field(max_length=4096, min_length=1)]
+
+
+class ExecutorDispatchRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    permit: ExecutorPermitDocument
+    permit_digest: Sha256Digest
+
+
+class ExecutorPermitCheckRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    identity: RunIdentity
+    tool_attempt_id: ExecutorAttemptId
+    execution_token: Annotated[StrictStr, Field(max_length=16384, min_length=1)]
+    permit_digest: Sha256Digest
+    purpose: ExecutorPermitPurpose
+
+
+class ExecutorPermitCheckResponse(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    tool_attempt_id: ExecutorAttemptId
+    permit_digest: Sha256Digest
+    purpose: ExecutorPermitPurpose
+
+
+class ExecutorPermitDocument(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    tool_call_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    tool_attempt_id: ExecutorAttemptId
+    identity: RunIdentity
+    executor_ref: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    tool_definition_ref: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    arguments: dict[str, Any]
+    arguments_digest: Sha256Digest
+    resource_keys: Annotated[list[ResourceKey], Field(max_length=1024)]
+    expires_at: AwareDatetime
+    execution_token: Annotated[StrictStr, Field(max_length=16384, min_length=1)]
+    subject: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    token_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    roles: Annotated[list[Role], Field(max_length=64, min_length=1)]
+    runtime: dict[str, Any]
+
+
+class ExecutorPermitPurpose(StrEnum):
+    check_execution = 'check_execution'
+    validate_receipt = 'validate_receipt'
+
+
+class ExecutorQueryRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    permit: ExecutorPermitDocument
+    permit_digest: Sha256Digest
+
+
+class ExecutorReceiptResponse1(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    tool_attempt_id: ExecutorAttemptId
+    receiver_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    receipt_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    status: Status
+    started_at: AwareDatetime | None
+    exited_at: AwareDatetime | None
+    source_receipt: dict[str, Any]
+    output_base64: OutputBase64 | None
+    output_bytes: OutputBytes | None
+    output_sha256: Sha256Digest | None
+    media_type: MediaType | None
+    completeness: Completeness
+    error_code: ErrorCode | None
+    permit_digest: Sha256Digest
+
+
+class ExecutorReceiptResponse2(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    tool_attempt_id: ExecutorAttemptId
+    receiver_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    receipt_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    status: Status
+    started_at: AwareDatetime | None
+    exited_at: AwareDatetime | None
+    source_receipt: dict[str, Any]
+    output_base64: OutputBase64 | None
+    output_bytes: OutputBytes | None
+    output_sha256: Sha256Digest | None
+    media_type: MediaType | None
+    completeness: Completeness
+    error_code: ErrorCode | None
+    permit_digest: Sha256Digest
+
+
+from pydantic import model_validator as _executor_model_validator
+
+
+class ExecutorReceiptResponse(
+    RootModel[ExecutorReceiptResponse1 | ExecutorReceiptResponse2]
+):
+    root: Annotated[
+        ExecutorReceiptResponse1 | ExecutorReceiptResponse2,
+        Field(
+            description='Output fields are all null or all present. Empty bytes use an empty base64 string, count "0" and SHA256 of empty bytes. Consumers verify canonical base64, exact decoded byte count, digest and deployment limit before constructing the domain receipt. An unknown receipt is not exit.'
+        ),
+    ]
+
+    @_executor_model_validator(mode="after")
+    def _validate_source_one_of(self):
+        branches = ((('output_base64', 'null'), ('output_bytes', 'null'), ('output_sha256', 'null')), (('output_base64', 'string'), ('output_bytes', 'string'), ('output_sha256', 'string')))
+        value = self.root
+        matches = 0
+        for branch in branches:
+            valid = True
+            for name, expected_type in branch:
+                field = getattr(value, name)
+                field = getattr(field, "root", field)
+                valid = valid and (field is None if expected_type == "null" else isinstance(field, str))
+            matches += valid
+        if matches != 1:
+            raise ValueError("ExecutorReceiptResponse must match exactly one source oneOf branch")
+        return self
 
 
 class FactAssessment(BaseModel):
@@ -1034,6 +1191,10 @@ class LogicalRequestId(RootModel[StrictStr]):
     root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
 
 
+class MediaType(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+
+
 class MemoryMode(StrEnum):
     disabled = 'disabled'
     pinned_context = 'pinned_context'
@@ -1122,6 +1283,17 @@ class ObservationRecord(BaseModel):
 
 class OpaqueCursor(RootModel[StrictStr]):
     root: Annotated[StrictStr, Field(max_length=4096, min_length=1)]
+
+
+class OutputBase64(RootModel[StrictStr]):
+    root: Annotated[
+        StrictStr,
+        Field(json_schema_extra={'contentEncoding': 'base64'}, max_length=89478488),
+    ]
+
+
+class OutputBytes(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=20, pattern='^(0|[1-9][0-9]*)$')]
 
 
 class PendingOperationRef(RootModel[StrictStr]):
@@ -1222,6 +1394,10 @@ class ReportDeliveryState(StrEnum):
     failed = 'failed'
 
 
+class ResourceKey(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=4096, min_length=1)]
+
+
 class ResponseState(StrEnum):
     pending = 'pending'
     complete = 'complete'
@@ -1268,7 +1444,7 @@ class ResultReceipt(BaseModel):
     status: ResultReceiptStatus
     components: list[ComponentReceipt]
     request_id: Annotated[StrictStr, Field(min_length=1)]
-    code: ErrorCode | None = None
+    code: ErrorCode2 | None = None
 
 
 class ResultReceiptStatus(StrEnum):
@@ -1284,6 +1460,10 @@ class ResumeReason(RootModel[StrictStr]):
 
 class RevisionString(RootModel[StrictStr]):
     root: Annotated[StrictStr, Field(pattern='^(0|[1-9][0-9]*)$')]
+
+
+class Role(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
 
 
 class RunIdentity(BaseModel):
@@ -1418,6 +1598,13 @@ class State(RootModel[StrictStr]):
 
 
 class Status(StrEnum):
+    not_started = 'not_started'
+    running = 'running'
+    exited = 'exited'
+    unknown = 'unknown'
+
+
+class Status2(StrEnum):
     pending_approval = 'pending_approval'
     admitted = 'admitted'
     dispatched = 'dispatched'
@@ -1563,10 +1750,10 @@ class ToolCallReceipt(BaseModel):
     tool_call_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
     operation_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
     tool_attempt_id: ToolAttemptId | None
-    status: Status
+    status: Status2
     evidence_receipt: EvidenceReceipt | None
     result_ref: BlobRef | None
-    reason_code: ErrorCode | None
+    reason_code: ErrorCode2 | None
 
 
 class ToolCallRequest(BaseModel):

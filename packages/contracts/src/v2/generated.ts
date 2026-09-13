@@ -667,10 +667,157 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/internal/v2/executors/{executor_ref}/permits/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Validate the registered executor against the persisted exact tool permit */
+        post: operations["checkExecutorPermitV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/v2/executor/dispatch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Dispatch an existing tool attempt to its registered workspace receiver */
+        post: operations["dispatchWorkspaceExecutorV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/v2/executor/query": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Read the same attempt receipt without reexecuting its tool */
+        post: operations["queryWorkspaceExecutorV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/v2/executor/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Request cancellation and query the same durable attempt */
+        post: operations["cancelWorkspaceExecutorV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @enum {string} */
+        ExecutorPermitPurpose: "check_execution" | "validate_receipt";
+        ExecutorAttemptId: string;
+        /** @description The complete immutable ToolPermit.stored document. Native arguments and runtime remain exact JSON and are also validated by domain contracts. Its original strict JSON is the digest source; generated datetime reserialization must not replace the original bytes or stored fields. This document never establishes identity or permission by itself. */
+        ExecutorPermitDocument: {
+            tool_call_id: string;
+            tool_attempt_id: components["schemas"]["ExecutorAttemptId"];
+            identity: components["schemas"]["RunIdentity"];
+            executor_ref: string;
+            tool_definition_ref: string;
+            arguments: {
+                [key: string]: unknown;
+            };
+            arguments_digest: components["schemas"]["Sha256Digest"];
+            resource_keys: string[];
+            /** Format: date-time */
+            expires_at: string;
+            execution_token: string;
+            subject: string;
+            token_id: string;
+            roles: string[];
+            runtime: {
+                [key: string]: unknown;
+            };
+        };
+        ExecutorDispatchRequest: {
+            permit: components["schemas"]["ExecutorPermitDocument"];
+            permit_digest: components["schemas"]["Sha256Digest"];
+        };
+        ExecutorQueryRequest: {
+            permit: components["schemas"]["ExecutorPermitDocument"];
+            permit_digest: components["schemas"]["Sha256Digest"];
+        };
+        ExecutorCancelRequest: {
+            permit: components["schemas"]["ExecutorPermitDocument"];
+            permit_digest: components["schemas"]["Sha256Digest"];
+            reason: string;
+        };
+        ExecutorPermitCheckRequest: {
+            identity: components["schemas"]["RunIdentity"];
+            tool_attempt_id: components["schemas"]["ExecutorAttemptId"];
+            execution_token: string;
+            permit_digest: components["schemas"]["Sha256Digest"];
+            purpose: components["schemas"]["ExecutorPermitPurpose"];
+        };
+        ExecutorPermitCheckResponse: {
+            tool_attempt_id: components["schemas"]["ExecutorAttemptId"];
+            permit_digest: components["schemas"]["Sha256Digest"];
+            purpose: components["schemas"]["ExecutorPermitPurpose"];
+        };
+        /** @description Output fields are all null or all present. Empty bytes use an empty base64 string, count "0" and SHA256 of empty bytes. Consumers verify canonical base64, exact decoded byte count, digest and deployment limit before constructing the domain receipt. An unknown receipt is not exit. */
+        ExecutorReceiptResponse: {
+            tool_attempt_id: components["schemas"]["ExecutorAttemptId"];
+            receiver_id: string;
+            receipt_id: string;
+            /** @enum {string} */
+            status: "not_started" | "running" | "exited" | "unknown";
+            started_at: string | null;
+            exited_at: string | null;
+            source_receipt: {
+                [key: string]: unknown;
+            };
+            output_base64: string | null;
+            output_bytes: string | null;
+            output_sha256: components["schemas"]["Sha256Digest"] | null;
+            media_type: string | null;
+            /** @enum {string} */
+            completeness: "complete" | "partial" | "unknown";
+            error_code: string | null;
+            permit_digest: components["schemas"]["Sha256Digest"];
+        } & ({
+            output_base64?: null;
+            output_bytes?: null;
+            output_sha256?: null;
+        } | {
+            output_base64?: string;
+            output_bytes?: string;
+            output_sha256?: string;
+        });
         RevisionString: string;
         DecimalString: string;
         Sha256Digest: string;
@@ -2930,6 +3077,128 @@ export interface operations {
             };
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidSchema"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    checkExecutorPermitV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                executor_ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExecutorPermitCheckRequest"];
+            };
+        };
+        responses: {
+            /** @description Exact operation and purpose validated by the platform */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExecutorPermitCheckResponse"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFoundOrForbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidSchema"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    dispatchWorkspaceExecutorV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExecutorDispatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Durable receiver execution receipt */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExecutorReceiptResponse"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFoundOrForbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidSchema"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    queryWorkspaceExecutorV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExecutorQueryRequest"];
+            };
+        };
+        responses: {
+            /** @description Current durable receiver receipt */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExecutorReceiptResponse"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFoundOrForbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidSchema"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    cancelWorkspaceExecutorV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExecutorCancelRequest"];
+            };
+        };
+        responses: {
+            /** @description Actual cancellation or current operation receipt */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExecutorReceiptResponse"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFoundOrForbidden"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["InvalidSchema"];
             503: components["responses"]["Unavailable"];

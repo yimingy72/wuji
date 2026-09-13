@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import filecmp
 import shutil
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
+
+import yaml
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -77,6 +80,56 @@ def _generate_python(destination: Path) -> None:
             "--keep-model-order",
         ]
     )
+    _executor_receipt_runtime_validator(destination)
+
+
+def _executor_receipt_runtime_validator(destination: Path) -> None:
+    """Preserve this source schema's oneOf when codegen flattens its branches.
+
+    All names/types below come from OpenAPI. Bounds and native bytes validation
+    remain in the generated fields/domain consumer; no datetime is re-encoded.
+    """
+    schema = yaml.safe_load(OPENAPI_SOURCE.read_text())["components"]["schemas"].get(
+        "ExecutorReceiptResponse"
+    )
+    if schema is None:
+        return
+    branches = []
+    for branch in schema["oneOf"]:
+        if set(branch) != {"properties"}:
+            raise ValueError("ExecutorReceiptResponse oneOf shape requires integration")
+        fields = []
+        for name, rule in branch["properties"].items():
+            if set(rule) != {"type"} or rule["type"] not in {"null", "string"}:
+                raise ValueError("unsupported ExecutorReceiptResponse oneOf rule")
+            if name not in schema["required"]:
+                raise ValueError("ExecutorReceiptResponse oneOf field must be required")
+            fields.append((name, rule["type"]))
+        branches.append(tuple(fields))
+    source = destination.read_text()
+    target = next(node for node in ast.parse(source).body
+                  if isinstance(node, ast.ClassDef) and node.name == "ExecutorReceiptResponse")
+    method = f'''
+    @_executor_model_validator(mode="after")
+    def _validate_source_one_of(self):
+        branches = {tuple(branches)!r}
+        value = self.root
+        matches = 0
+        for branch in branches:
+            valid = True
+            for name, expected_type in branch:
+                field = getattr(value, name)
+                field = getattr(field, "root", field)
+                valid = valid and (field is None if expected_type == "null" else isinstance(field, str))
+            matches += valid
+        if matches != 1:
+            raise ValueError("ExecutorReceiptResponse must match exactly one source oneOf branch")
+        return self
+'''
+    lines = source.splitlines(keepends=True)
+    lines.insert(target.end_lineno, method)
+    lines.insert(target.lineno - 1, "from pydantic import model_validator as _executor_model_validator\n\n\n")
+    destination.write_text("".join(lines))
 
 
 def _generate_typescript(destination: Path) -> None:
