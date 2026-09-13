@@ -1,3 +1,7 @@
+# 人工摘录/摘要（非原始完整 stdout）
+
+原始 stdout 未通过 shell 重定向保存。以下内容从当时可见工具输出人工转录；pytest 原输出在 assertion diff 处明确显示 `...Full output truncated (10 lines hidden), use '-vv' to show`，缺失的 10 行没有本地原始流文件，未为补全而重跑。
+
 $ p08_memory_unit_sha=$(git rev-parse HEAD)
 $ printf 'P08_MEMORY_UNIT_SHA=%s\n' "$p08_memory_unit_sha"
 P08_MEMORY_UNIT_SHA=00bc81432a74bcdda5c9a21295634cf995d46a00
@@ -18,7 +22,9 @@ _ test_pinned_memory_context_injects_complete_versioned_input_without_tools_or_m
             ],
         }
 E       AssertionError: assert {' f i l e s ...o n - p 0 8 '} == {'schema_vers...vision one'}]}
-E         Left contains keys and values split by spaces between every character.
+E         Left contains keys whose visible repr shows spaces between characters.
+
+[人工说明，不属于 pytest stdout：实际 `messages[0].text` 的 JSON 键和值均在字符之间出现空格。]
 
 tests/vnext/test_session_approval.py:231: AssertionError
 =============================== warnings summary ===============================

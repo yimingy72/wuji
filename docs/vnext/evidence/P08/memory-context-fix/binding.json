@@ -1,0 +1,19 @@
+{
+  "schema_version": "wuji.p08.memory-context-fix-binding.v1",
+  "source_only_worker_commit": "65e44725ecb62352f4d599495847c12fa388048c",
+  "test_base_commit": "00bc81432a74bcdda5c9a21295634cf995d46a00",
+  "code_commit": "255d319eb5334a047238c7e8313d277d6bd37f22",
+  "test_command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_session_approval.py::test_pinned_memory_context_injects_complete_versioned_input_without_tools_or_model -q",
+  "red_result": "exit 1; 1 failed, 1 warning in 1.02s",
+  "green_result": "exit 0; 1 passed, 1 warning in 0.87s",
+  "tested_as_working_tree_then_committed_without_source_or_test_change": true,
+  "stdout_record": {
+    "red": "manual excerpt; no original full stdout file was preserved; pytest hid 10 assertion-diff lines",
+    "green": "manual transcription of the complete visible output; no shell-redirected raw stream file"
+  },
+  "file_sha256": {
+    "packages/maf-worker/src/wuji_maf_worker/history.py": "b4813b6eafeadacb272f99d9303fa4add866099ae9e93fb8a9eff3cdf970cf2c",
+    "tests/vnext/test_session_approval.py": "6b5335e126f979886fffc0283b247eb4ef125d43e523ad5eae94e5914dc60d70",
+    "tests/vnext/support/p08.py": "082b32c1125846f3d6eda48e6e59b2da4e9a21e92b117a6037736a7f3d41921b"
+  }
+}

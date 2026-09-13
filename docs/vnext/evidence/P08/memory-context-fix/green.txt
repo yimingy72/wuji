@@ -1,3 +1,5 @@
+# 完整可见输出人工转录（非 shell 重定向原始流）
+
 $ p08_memory_fix_sha=$(git rev-parse HEAD)
 $ printf 'P08_MEMORY_FIX_BASE_SHA=%s\n' "$p08_memory_fix_sha"
 P08_MEMORY_FIX_BASE_SHA=00bc81432a74bcdda5c9a21295634cf995d46a00

@@ -1,6 +1,6 @@
 # P08 evidence index
 
-状态：`not_run/未验证`。本目录目前只保存开工接口 RED，不表示 Session 发布、CAS、恢复、审批或 SDK consumer 已通过。
+状态：已有局部无 DB checks 执行；完整 P08 仍为 `not_run/未验证`。现有记录不表示 Session 发布、CAS、跨进程恢复、批准消费或真实 SDK/Gate consumer 已通过。
 
 - 首 RED：[initial-red/README.md](initial-red/README.md)
 - Worker SOURCE_ONLY 测试收集：[source-collection.txt](source-collection.txt)
