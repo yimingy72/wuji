@@ -232,6 +232,7 @@ paths:
                 $ref: '#/components/schemas/SnapshotIndex'
         '401': {$ref: '#/components/responses/Unauthenticated'}
         '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
+        '410': {$ref: '#/components/responses/Expired'}
   /api/v2/tasks/{task_id}/records/{record_type}/{record_id}:
     get:
       operationId: getTaskRecordV2
@@ -252,6 +253,7 @@ paths:
                 $ref: '#/components/schemas/RecordView'
         '401': {$ref: '#/components/responses/Unauthenticated'}
         '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
+        '410': {$ref: '#/components/responses/Expired'}
         '422': {$ref: '#/components/responses/InvalidSchema'}
   /api/v2/tasks/{task_id}/layouts/{view_name}:
     put:

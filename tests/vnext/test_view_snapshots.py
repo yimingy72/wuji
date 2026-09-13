@@ -4,8 +4,10 @@ import json
 from dataclasses import replace
 from datetime import datetime
 from inspect import Parameter, signature
+from pathlib import Path
 
 import pytest
+import yaml
 
 from support.p03 import access
 from support.p09 import explore_assignment
@@ -31,6 +33,7 @@ from wuji_core.projection.snapshots import ProjectionRepository
 
 
 P13_HEAD = "vnext_0012_p13_projection"
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _shape(callable_object) -> tuple[tuple[str, Parameter], ...]:
@@ -88,6 +91,21 @@ def test_projection_repository_has_the_frozen_read_method_shapes() -> None:
 
 def test_topology_router_factory_accepts_only_the_projection_service() -> None:
     assert tuple(signature(create_topology_router).parameters) == ("projection",)
+
+
+def test_openapi_declares_actual_410_responses_for_snapshot_reads() -> None:
+    openapi = yaml.safe_load(
+        (REPOSITORY_ROOT / "packages/contracts/openapi-v2.yaml").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert "410" in openapi["paths"]["/api/v2/tasks/{task_id}/snapshots"]["get"][
+        "responses"
+    ]
+    assert "410" in openapi["paths"][
+        "/api/v2/tasks/{task_id}/records/{record_type}/{record_id}"
+    ]["get"]["responses"]
 
 
 def test_p13_migration_installs_the_private_projection_schema(db_environment) -> None:
@@ -379,6 +397,8 @@ def test_history_lists_only_saved_views_and_freezes_its_opaque_page(
             case,
             mode="history",
             snapshot_id=first["snapshot_id"],
+            node_limit=1,
+            edge_limit=1,
         )
         assert replay_response.status_code == 200, replay_response.text
         replay = replay_response.json()
@@ -386,6 +406,27 @@ def test_history_lists_only_saved_views_and_freezes_its_opaque_page(
         assert replay["view_id"] != first["view_id"]
         assert replay["allowed_actions"] == []
         assert all(node["allowed_actions"] == [] for node in replay["nodes"])
+        assert replay["continuation"]
+
+        continued_replay_response = topology(
+            case,
+            mode="history",
+            snapshot_id=first["snapshot_id"],
+            cursor=replay["continuation"],
+            node_limit=1,
+            edge_limit=1,
+        )
+        live_history_mix = topology(
+            case,
+            mode="live",
+            snapshot_id=first["snapshot_id"],
+        )
+        assert continued_replay_response.status_code == 200
+        continued_replay = continued_replay_response.json()
+        assert continued_replay["view_id"] == replay["view_id"]
+        assert continued_replay["snapshot_id"] == replay["snapshot_id"]
+        assert live_history_mix.status_code == 422
+        assert live_history_mix.json()["code"] == "INVALID_SCHEMA"
 
         unknown = topology(
             case,
@@ -438,15 +479,28 @@ def test_topology_reads_do_not_create_execution_or_invent_unsourced_runs(
 def test_expired_view_and_snapshot_return_explicit_410_errors(
     db_environment, tmp_path, audit_directory
 ) -> None:
-    with projection_case(db_environment, tmp_path, audit_directory) as case:
+    with projection_case(
+        db_environment,
+        tmp_path,
+        audit_directory,
+        history_page_size=1,
+    ) as case:
         supported_claim(case)
         first = topology(case, node_limit=1, edge_limit=1).json()
+        topology(case)
+        index_response = case.client.get(
+            BASE + "/snapshots",
+            headers=headers(case),
+        )
+        assert index_response.status_code == 200, index_response.text
+        index_cursor = index_response.json()["opaque_cursor"]
+        assert index_cursor
         with case.environment.migration_connection() as connection:
             connection.execute(
                 """UPDATE vnext.projection_cursor
                 SET expires_at=clock_timestamp()-interval '1 second'
-                WHERE handle=%s""",
-                (first["continuation"],),
+                WHERE handle=ANY(%s)""",
+                ([first["continuation"], index_cursor],),
             )
             connection.execute(
                 """UPDATE vnext.projection_materialization
@@ -467,11 +521,18 @@ def test_expired_view_and_snapshot_return_explicit_410_errors(
             params={"revision": "1", "snapshot_id": first["snapshot_id"]},
             headers=headers(case),
         )
+        expired_index = case.client.get(
+            BASE + "/snapshots",
+            params={"cursor": index_cursor},
+            headers=headers(case),
+        )
 
         assert expired_view.status_code == 410
         assert expired_view.json()["code"] == "VIEW_EXPIRED"
         assert expired_snapshot.status_code == 410
         assert expired_snapshot.json()["code"] == "SNAPSHOT_EXPIRED"
+        assert expired_index.status_code == 410
+        assert expired_index.json()["code"] == "VIEW_EXPIRED"
 
 
 def test_fact_ledger_reads_the_uncommitted_canonical_manifest_in_the_same_rr(

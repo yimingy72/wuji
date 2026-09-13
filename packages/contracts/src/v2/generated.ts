@@ -1852,6 +1852,7 @@ export interface operations {
             };
             401: components["responses"]["Unauthenticated"];
             404: components["responses"]["NotFoundOrForbidden"];
+            410: components["responses"]["Expired"];
         };
     };
     getTaskRecordV2: {
@@ -1881,6 +1882,7 @@ export interface operations {
             };
             401: components["responses"]["Unauthenticated"];
             404: components["responses"]["NotFoundOrForbidden"];
+            410: components["responses"]["Expired"];
             422: components["responses"]["InvalidSchema"];
         };
     };

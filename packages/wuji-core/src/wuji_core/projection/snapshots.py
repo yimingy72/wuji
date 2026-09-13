@@ -62,7 +62,7 @@ class ProjectionRepository:
 
     def topology(self, task_id, access, *, query=None):
         query = _query(query)
-        if query.mode.value == "history" and query.snapshot_id is None:
+        if (query.mode.value == "history") != (query.snapshot_id is not None):
             raise DomainError("INVALID_SCHEMA", 422)
         with self.uow.transaction(access, task_id, capability="snapshot", repeatable_read=True) as tx:
             if query.cursor is not None:
