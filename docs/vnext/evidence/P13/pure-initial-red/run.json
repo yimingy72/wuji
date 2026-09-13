@@ -1,0 +1,9 @@
+{
+  "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_projection_builder.py -q",
+  "cwd": "/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf",
+  "exit_code": 2,
+  "head": "466d72259b16f3853a8af94c0adec2376a372ea1",
+  "test_file": "tests/vnext/test_projection_builder.py",
+  "test_file_sha256": "25d19447d63fb003d4a564ba7fef33220c407557b46897df924fd2c0e2e59524",
+  "scope": "P13 pure projection initial RED; no database, network, HTTP, or screenshot claim"
+}

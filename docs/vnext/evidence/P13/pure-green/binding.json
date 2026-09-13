@@ -1,0 +1,11 @@
+{
+  "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_projection_builder.py -q",
+  "cwd": "/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf",
+  "head_before_run": "466d72259b16f3853a8af94c0adec2376a372ea1",
+  "files": {
+    "packages/wuji-core/src/wuji_core/projection/__init__.py": "463644587ddafb2e626b1aa957ac255c3159ed9de27903a11b8c0e89515ca3b9",
+    "packages/wuji-core/src/wuji_core/projection/builder.py": "8622ae9cdba907483481f268ae468d84813987a1c3e46fcad5e7591b8f018d1d",
+    "tests/vnext/test_projection_builder.py": "562f800407aec5130944448faf2b14aad53207174de7a6d99637feedf81915ed"
+  },
+  "scope": "P13 pure projection only; no database, HTTP, network, screenshot, or full-P13 acceptance claim"
+}
