@@ -523,11 +523,17 @@ def m2_case(
                 controller_origin=controller_server.url,
                 audit_path=audit_directory / "m2-node-http.jsonl",
             )
+
+            def audit_supervisor_http(record):
+                with node.audit_path.open("a", encoding="utf-8") as stream:
+                    stream.write(json.dumps(record, sort_keys=True) + "\n")
+
             transport = SupervisorHttpTransport(
                 node.url,
                 authorization=lambda: receiver_credential.token,
                 timeout=10,
                 max_response_bytes=1_048_576,
+                audit=audit_supervisor_http,
             )
             runtime = build_runtime_controller(
                 scheduled.control.uow,

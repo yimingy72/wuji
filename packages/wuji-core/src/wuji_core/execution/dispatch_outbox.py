@@ -6,6 +6,7 @@ restricted bootstrap store and never enter Outbox bodies or process receipts.
 """
 
 from datetime import datetime, timedelta, timezone
+import base64
 from ipaddress import ip_address
 from pathlib import Path
 import os
@@ -32,7 +33,8 @@ class _NoRedirect(HTTPRedirectHandler):
 class SupervisorHttpTransport:
     """Fixed deployment URL and service credentials; no proxy/redirect/retry."""
 
-    def __init__(self, base_url, *, authorization, timeout=10, max_response_bytes=65536):
+    def __init__(self, base_url, *, authorization, timeout=10, max_response_bytes=65536,
+                 audit=None):
         target = urlsplit(base_url)
         local = target.hostname == "localhost"
         try:
@@ -43,12 +45,42 @@ class SupervisorHttpTransport:
                 or target.username or target.password or target.query or target.fragment
                 or target.path not in {"", "/"} or (target.scheme == "http" and not local)):
             raise ValueError("authenticated HTTPS or loopback receiver origin required")
-        if not callable(authorization) or not 0 < timeout <= 60 or not 0 < max_response_bytes <= 1048576:
+        if (not callable(authorization) or (audit is not None and not callable(audit))
+                or not 0 < timeout <= 60 or not 0 < max_response_bytes <= 1048576):
             raise ValueError("bounded authenticated transport required")
         self.base_url = base_url.rstrip("/")
         self.authorization = authorization
         self.timeout, self.max_response_bytes = timeout, max_response_bytes
         self.opener = build_opener(ProxyHandler({}), _NoRedirect())
+        self.audit = audit
+
+    def _audit(self, *, method, url, encoded, status=None, headers=None, data=b"",
+               error=None):
+        if self.audit is None:
+            return
+        record = {
+            "request": {
+                "method": method,
+                "url": url,
+                "headers": {
+                    "Authorization": "Bearer [REDACTED RECEIVER CREDENTIAL]",
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                },
+                "body_base64": base64.b64encode(encoded or b"").decode("ascii"),
+            },
+            "response": {
+                "status_code": status,
+                "headers": dict(headers or {}),
+                "body_base64": base64.b64encode(data).decode("ascii"),
+                "error": error,
+            },
+        }
+        try:
+            self.audit(record)
+        except Exception:
+            # Observability cannot replace or alter the transport result.
+            pass
 
     def _request(self, method, operation_id, body=None, *, control=False):
         token = self.authorization()
@@ -65,9 +97,17 @@ class SupervisorHttpTransport:
                 data = response.read(self.max_response_bytes + 1)
                 if len(data) > self.max_response_bytes:
                     raise ObservationUnavailable("RECEIVER_RESPONSE_TOO_LARGE")
+                self._audit(
+                    method=method, url=url, encoded=encoded,
+                    status=response.status, headers=response.headers, data=data,
+                )
                 return strict_json_loads(data)
         except HTTPError as error:
             data = error.read(self.max_response_bytes + 1)
+            self._audit(
+                method=method, url=url, encoded=encoded,
+                status=error.code, headers=error.headers, data=data,
+            )
             try:
                 code = strict_json_loads(data).get("code") if len(data) <= self.max_response_bytes else None
             except ValueError:
@@ -82,7 +122,11 @@ class SupervisorHttpTransport:
                            "UNREGISTERED_LAUNCH_PROFILE", "INVALID_REFERENCE"}
                 raise DomainError(code if code in allowed else "STALE_EXECUTION", error.code) from None
             raise ObservationUnavailable() from None
-        except (URLError, TimeoutError, OSError, ValueError):
+        except (URLError, TimeoutError, OSError, ValueError) as error:
+            self._audit(
+                method=method, url=url, encoded=encoded,
+                error=type(error).__name__,
+            )
             raise ObservationUnavailable() from None
 
     def query(self, operation_id):

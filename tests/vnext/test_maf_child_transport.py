@@ -275,17 +275,21 @@ def test_worker_revoked_after_ready_is_rejected_at_result_writepoint(
             for exchange in case.controller_server.exchanges
         )
         with db_environment.migration_connection() as connection:
-            result_count = connection.execute(
-                """SELECT count(*) FROM vnext.result_submission
-                WHERE agent_run_id=%s""",
+            result_row = connection.execute(
+                """SELECT r.receipt_json FROM vnext.result_submission s
+                JOIN vnext.result_receipt r
+                USING(tenant_id,project_id,task_id,submission_id)
+                WHERE s.agent_run_id=%s""",
                 (case.assignment.identity.agent_run_id,),
-            ).fetchone()[0]
+            ).fetchone()
             claim_count = connection.execute(
                 """SELECT count(*) FROM vnext.claim_revision
                 WHERE agent_run_id=%s""",
                 (case.assignment.identity.agent_run_id,),
             ).fetchone()[0]
-        assert result_count == 0
+        assert result_row is not None
+        result = ResultReceipt.model_validate(strict_json_loads(result_row[0]))
+        assert result.status.value == "historical_only"
         assert claim_count == 0
 
 

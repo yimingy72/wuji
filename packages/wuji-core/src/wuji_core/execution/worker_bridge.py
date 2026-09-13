@@ -234,6 +234,13 @@ class WorkerHostBridge:
         })
 
     def await_start(self, access, assignment):
+        return self._await_start(
+            access, assignment, allow_running_transition_recheck=True
+        )
+
+    def _await_start(
+        self, access, assignment, *, allow_running_transition_recheck
+    ):
         assignment = WorkerAssignment.model_validate(assignment)
         run, _ref, receiver_access = self._registered(assignment)
         self._worker(access, assignment)
@@ -307,10 +314,25 @@ class WorkerHostBridge:
             if waiting:
                 # The actual P09/P05 start predicate includes Task/Work epochs,
                 # holds, dependency/input, authorization expiry and capacity.
-                self.authorizer.authorize(
-                    access=receiver_access, action="start", assignment=assignment,
-                    assignment_digest=run.assignment_digest, receiver=_receiver(run),
-                )
+                try:
+                    self.authorizer.authorize(
+                        access=receiver_access, action="start", assignment=assignment,
+                        assignment_digest=run.assignment_digest, receiver=_receiver(run),
+                    )
+                except DomainError as error:
+                    if (
+                        allow_running_transition_recheck
+                        and error.code == "STALE_EXECUTION"
+                    ):
+                        # P05 may have committed the exact started observation
+                        # after the waiting read. Re-run the complete same-
+                        # Assignment checks once; every mismatch still fails.
+                        return self._await_start(
+                            access,
+                            assignment,
+                            allow_running_transition_recheck=False,
+                        )
+                    raise
         except DomainError as error:
             if error.code not in {"STALE_EXECUTION", "LIMIT_BLOCKED"}:
                 raise
