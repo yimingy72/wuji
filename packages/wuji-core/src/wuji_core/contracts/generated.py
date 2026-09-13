@@ -2286,6 +2286,12 @@ class WorkerSessionHarnessProfileBody(BaseModel):
     session_limits: WorkerSessionLimits
     max_context_window_tokens: Annotated[StrictInt, Field(ge=1, le=1073741824)]
     compaction_enabled: StrictBool
+    memory_inputs: Annotated[
+        list[WorkerSessionMemoryInput] | None,
+        Field(
+            description='Optional fixed memory inputs, bounded by session_limits.max_objects. Absence preserves the original Profile document; content bytes use the existing resolved memory_files field.'
+        ),
+    ] = None
 
 
 class WorkerSessionLimits(BaseModel):
@@ -2298,6 +2304,21 @@ class WorkerSessionLimits(BaseModel):
     max_total_bytes: Annotated[StrictInt, Field(ge=1, le=67108864)]
     max_messages: Annotated[StrictInt, Field(ge=1, le=100000)]
     max_pending_approvals: Annotated[StrictInt, Field(ge=1, le=512)]
+
+
+class WorkerSessionMemoryInput(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    path: Annotated[
+        StrictStr,
+        Field(
+            description='Relative logical memory path; domain validation additionally limits UTF-8 bytes and rejects traversal, control characters and duplicate paths.',
+            max_length=1024,
+            min_length=1,
+        ),
+    ]
+    ref: KnowledgeRef
 
 
 class WorkerSessionPayload(BaseModel):

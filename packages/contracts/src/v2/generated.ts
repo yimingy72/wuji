@@ -1218,6 +1218,12 @@ export interface components {
             max_output_tokens: number;
             capabilities: components["schemas"]["WorkerHarnessCapabilities"];
         };
+        /** @description Fixed artifact reference only; bytes and current authorization are resolved by the platform. */
+        WorkerSessionMemoryInput: {
+            /** @description Relative logical memory path; domain validation additionally limits UTF-8 bytes and rejects traversal, control characters and duplicate paths. */
+            path: string;
+            ref: components["schemas"]["KnowledgeRef"];
+        };
         WorkerSessionHarnessProfileBody: {
             ref: string;
             revision: components["schemas"]["RevisionString"];
@@ -1238,6 +1244,8 @@ export interface components {
             session_limits: components["schemas"]["WorkerSessionLimits"];
             max_context_window_tokens: number;
             compaction_enabled: boolean;
+            /** @description Optional fixed memory inputs, bounded by session_limits.max_objects. Absence preserves the original Profile document; content bytes use the existing resolved memory_files field. */
+            memory_inputs?: components["schemas"]["WorkerSessionMemoryInput"][];
         };
         WorkerHarnessProfile: {
             ref: string;
