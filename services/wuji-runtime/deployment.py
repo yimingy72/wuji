@@ -1,0 +1,62 @@
+"""Production Runtime/Host composition from explicit mounted deployment files."""
+
+from deployment_common import Deployment, load_settings, read_file, token
+from wuji_core.contracts.knowledge import KnowledgeRef
+from wuji_core.execution.dispatch_outbox import SupervisorHttpTransport
+from wuji_core.execution.runtime_dispatcher import build_runtime_controller
+from wuji_core.http import JsonBoundaryLimits
+from wuji_core.worker_host import PlatformWorkerHost
+from wuji_maf_worker.context import ContextLimits, ContextRelation, build_context_bundle
+
+
+def build_context(*, records, read_set, snapshot_id, max_records, max_bytes, relations):
+    return build_context_bundle(records, read_set, snapshot_id=snapshot_id,
+        limits=ContextLimits(max_records=max_records, max_bytes=max_bytes),
+        relations=tuple(ContextRelation(source=KnowledgeRef.model_validate(r["source"]),
+            target=KnowledgeRef.model_validate(r["target"]), relation=r["relation"]) for r in relations))
+
+
+def build_runtime():
+    settings = load_settings("runtime")
+    deployment = Deployment(settings)
+    if not all((settings.supervisor_url, settings.receiver_token_file,
+                settings.host_origin, settings.model_gate_url, settings.tool_gate_url,
+                settings.task_ids)):
+        raise ValueError("fixed runtime receiver/endpoints/Task discovery required")
+    receiver_access = deployment.access(settings.receiver_token_file)
+
+    def host_factory(access):
+        return PlatformWorkerHost(uow=deployment.uow, registry=deployment.registry,
+            access=access, artifacts=deployment.artifacts, committer=deployment.committer,
+            profiles=deployment.profiles, lock_digest=deployment.lock_digest,
+            sessions=deployment.sessions, inputs=deployment.inputs,
+            receiver_access=lambda _: deployment.access(settings.receiver_token_file))
+
+    def retained_factory(access, binding):
+        return PlatformWorkerHost(uow=deployment.uow, registry=deployment.registry,
+            access=access, artifacts=deployment.artifacts, committer=deployment.committer,
+            profiles=deployment.profiles, lock_digest=deployment.lock_digest,
+            retained_result=binding)
+
+    controller = build_runtime_controller(deployment.uow, access=receiver_access,
+        authorized_task_ids=settings.task_ids, work_kinds=settings.work_kinds,
+        credentials=deployment.issuer(), registry=deployment.registry, control=deployment.control,
+        supervisor_transport=SupervisorHttpTransport(settings.supervisor_url,
+            authorization=lambda: token(settings.receiver_token_file), ssl_context=deployment.tls,
+            max_response_bytes=min(settings.max_transport_bytes, 1048576)),
+        host_factory=host_factory, retained_host_factory=retained_factory,
+        session_transport=settings.session_transport, context_builder=build_context,
+        ledger=deployment.ledger,
+        child_config={"public_key_pem": read_file(settings.public_key_file).decode(),
+            "issuer": settings.issuer, "audience": settings.audience,
+            "host_origin": settings.host_origin, "model_gate_url": settings.model_gate_url,
+            "tool_gate_url": settings.tool_gate_url, "wait_timeout_seconds": 120,
+            "transport_timeout_seconds": 15, "max_transport_bytes": settings.max_transport_bytes},
+        journal_path=settings.journal_path, spool_directory=settings.spool_directory,
+        approval_service=deployment.approvals if settings.public_approvals else None,
+        control_service=deployment.control if settings.public_commands else None,
+        json_limits=JsonBoundaryLimits(max_body_bytes=settings.max_transport_bytes))
+    if settings.pod_runtime is not None:
+        from pod_deployment import PodEnvironment
+        controller.pod_environment = PodEnvironment(deployment, settings.pod_runtime)
+    return controller

@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: wuji-vnext-test
+  labels:
+    app.kubernetes.io/managed-by: wuji-vnext-deployment
+    wuji.dev/environment: local-test
+    pod-security.kubernetes.io/enforce: restricted

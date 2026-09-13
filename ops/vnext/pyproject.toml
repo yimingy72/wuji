@@ -1,0 +1,18 @@
+[project]
+name = "wuji-vnext-deployment"
+version = "0.1.0"
+requires-python = "==3.13.15"
+dependencies = [
+  "wuji-maf-worker",
+  "wuji-task-runtime",
+  "httpx==0.28.1",
+  "uvicorn==0.52.4",
+]
+
+[tool.uv.sources]
+wuji-maf-worker = { path = "../../packages/maf-worker", editable = true }
+wuji-core = { path = "../../packages/wuji-core", editable = true }
+wuji-task-runtime = { path = "../../packages/task-runtime", editable = true }
+
+[tool.uv.workspace]
+members = []
