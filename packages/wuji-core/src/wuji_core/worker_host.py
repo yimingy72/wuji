@@ -236,13 +236,16 @@ class PlatformWorkerHost:
         records = []
         with self._result_transaction(assignment) as tx:
             self._bound_result(tx, assignment)
+            allowed_writers = {self.access.principal.subject}
+            if self.retained_result is not None:
+                allowed_writers.add(tx.retained_result["source_writer_subject"])
             for ref in refs:
                 record = self.artifacts.record(tx, ref)
                 if (
                     record["state"] != "sealed"
                     or record["provenance"] != "model_output"
                     or record["agent_run_id"] != assignment.identity.agent_run_id
-                    or record["writer_subject"] != self.access.principal.subject
+                    or record["writer_subject"] not in allowed_writers
                 ):
                     raise DomainError("INVALID_REFERENCE", 422)
                 records.append(record)
@@ -448,11 +451,58 @@ class PlatformWorkerHost:
                 published = self._published_artifacts(
                     assignment, "result:" + submission_id
                 )
+                allowed_writers = {self.access.principal.subject}
+                if source_writer is not None:
+                    allowed_writers.add(source_writer)
+                raw_records = [
+                    record
+                    for record in published
+                    if self._blob_ref(record) == envelope.raw_output_ref
+                ]
                 sdk_records = [r for r in published if r["media_type"] == "application/x-ndjson"]
                 binding_records = [r for r in published if r["media_type"] == "application/vnd.wuji.maf-result-binding+json"]
-                if len(sdk_records) != 1 or len(binding_records) != 1:
+                if (
+                    len(raw_records) != 1
+                    or len(sdk_records) > 1
+                    or len(binding_records) > 1
+                    or any(
+                        record["state"] != "sealed"
+                        or record["provenance"] != "model_output"
+                        or record["agent_run_id"]
+                        != assignment.identity.agent_run_id
+                        or record["writer_subject"] not in allowed_writers
+                        or record["media_type"] not in {
+                            "text/plain; charset=utf-8",
+                            "application/x-ndjson",
+                            "application/vnd.wuji.maf-result-binding+json",
+                        }
+                        for record in published
+                    )
+                    or self.artifacts.checked_bytes(raw_records[0]) != raw_output
+                ):
                     raise DomainError("INPUT_DIGEST_CONFLICT", 409)
-                sdk_record, binding_record = sdk_records[0], binding_records[0]
+                repair_refs = []
+                if sdk_records:
+                    sdk_record = sdk_records[0]
+                elif self.retained_result is not None:
+                    archived = self._published_artifacts(
+                        assignment,
+                        "maf-sdk:" + self._operation_digest(assignment),
+                    )
+                    if (
+                        len(archived) != 1
+                        or archived[0]["media_type"] != "application/x-ndjson"
+                        or archived[0]["state"] != "sealed"
+                        or archived[0]["provenance"] != "model_output"
+                        or archived[0]["agent_run_id"]
+                        != assignment.identity.agent_run_id
+                        or archived[0]["writer_subject"] not in allowed_writers
+                    ):
+                        raise DomainError("INPUT_DIGEST_CONFLICT", 409)
+                    sdk_record = archived[0]
+                    repair_refs.append(self._blob_ref(sdk_record))
+                else:
+                    raise DomainError("INPUT_DIGEST_CONFLICT", 409)
                 if self.artifacts.checked_bytes(sdk_record) != sdk_output:
                     raise DomainError("INPUT_DIGEST_CONFLICT", 409)
                 tool_binding, _tool_refs = self._tool_binding(
@@ -462,13 +512,42 @@ class PlatformWorkerHost:
                     assignment, submission_id, envelope.raw_output_ref, raw_output,
                     self._blob_ref(sdk_record), sdk_output, context, tool_binding,
                 )
-                if self.artifacts.checked_bytes(binding_record) != canonical_json_bytes(expected):
+                expected_bytes = canonical_json_bytes(expected)
+                if binding_records:
+                    if self.artifacts.checked_bytes(binding_records[0]) != expected_bytes:
+                        raise DomainError("INPUT_DIGEST_CONFLICT", 409)
+                elif self.retained_result is not None:
+                    repair_refs.append(
+                        self._stage(
+                            assignment,
+                            expected_bytes,
+                            "application/vnd.wuji.maf-result-binding+json",
+                        )
+                    )
+                else:
+                    raise DomainError("INPUT_DIGEST_CONFLICT", 409)
+                if repair_refs:
+                    self._publish(
+                        assignment,
+                        "result:" + submission_id,
+                        "result_submission",
+                        tuple(repair_refs),
+                    )
+                repaired = self._published_artifacts(
+                    assignment, "result:" + submission_id
+                )
+                if (
+                    len(repaired) != 3
+                    or len([r for r in repaired if self._blob_ref(r) == envelope.raw_output_ref]) != 1
+                    or len([r for r in repaired if r["media_type"] == "application/x-ndjson"]) != 1
+                    or len([r for r in repaired if r["media_type"] == "application/vnd.wuji.maf-result-binding+json"]) != 1
+                ):
                     raise DomainError("INPUT_DIGEST_CONFLICT", 409)
                 if self.retained_result is None:
                     return self.committer.lookup(
                         self.access, assignment.identity.task_id, submission_id
                     )
-                return self.committer.lookup_retained(
+                return self.committer.reconcile_retained(
                     self.access, assignment.identity.task_id, submission_id,
                     retained=self.retained_result,
                 )
