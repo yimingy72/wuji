@@ -1,0 +1,143 @@
+{
+  "code_sha": "3102579a5b1a19b164d08972d068e924e7448bfe",
+  "base_sha": "4c57bb2d6768e0195973fcf7a48198ef0e018f01",
+  "final_candidate_tree": "86915aa1e2f77c9ad941fc717e18a9fd2d79f3ef",
+  "exit_code": 0,
+  "outcome": "3 passed in 2.38s",
+  "tests": [
+    {
+      "test_name": "test_f1_closed_cancel_survives_reconcile_and_late_observation",
+      "runtime_directory": "e3986d6e6898",
+      "result": "pass",
+      "seconds": "0.718",
+      "observed": {
+        "before": {
+          "desired_state": "cancel",
+          "observed_state": "closed",
+          "execution_allowed": false,
+          "control_version": "6",
+          "execution_epoch": "3",
+          "runtime_attempt": "1",
+          "activated_at": "2026-09-13 09:21:31.367891+08:00",
+          "completion_epoch_id": "epoch-1",
+          "close_trigger": "user_cancel",
+          "result_outcome": "partial"
+        },
+        "after_reconcile": {
+          "desired_state": "cancel",
+          "observed_state": "closed",
+          "execution_allowed": false,
+          "control_version": "6",
+          "execution_epoch": "3",
+          "runtime_attempt": "1",
+          "activated_at": "2026-09-13 09:21:31.367891+08:00",
+          "completion_epoch_id": "epoch-1",
+          "close_trigger": "user_cancel",
+          "result_outcome": "partial"
+        },
+        "after_late_observation": {
+          "desired_state": "cancel",
+          "observed_state": "closed",
+          "execution_allowed": false,
+          "control_version": "6",
+          "execution_epoch": "3",
+          "runtime_attempt": "1",
+          "activated_at": "2026-09-13 09:21:31.367891+08:00",
+          "completion_epoch_id": "epoch-1",
+          "close_trigger": "user_cancel",
+          "result_outcome": "partial"
+        },
+        "stored_history_receipt": [
+          "late-exit-review",
+          "exited"
+        ]
+      }
+    },
+    {
+      "test_name": "test_f2_settlement_after_exit_restores_published_pending_input",
+      "runtime_directory": "3f7e8ca1aa69",
+      "result": "pass",
+      "seconds": "0.686",
+      "observed": {
+        "before_settlement": {
+          "state": "reconciling",
+          "blocked_reason": "operations_unsettled",
+          "desired_state": "run",
+          "result_state": "none",
+          "suspension_causes": [],
+          "input_request_id": "input-fixture",
+          "input_status": "pending",
+          "wait_ref": "{\"native_call_id\":\"call-fixture\",\"question\":\"fixture input\"}"
+        },
+        "after_reconcile": {
+          "state": "waiting_input",
+          "blocked_reason": null,
+          "desired_state": "run",
+          "result_state": "none",
+          "suspension_causes": [],
+          "input_request_id": "input-fixture",
+          "input_status": "pending",
+          "wait_ref": "{\"native_call_id\":\"call-fixture\",\"question\":\"fixture input\"}"
+        },
+        "after_refresh": {
+          "state": "waiting_input",
+          "blocked_reason": null,
+          "desired_state": "run",
+          "result_state": "none",
+          "suspension_causes": [],
+          "input_request_id": "input-fixture",
+          "input_status": "pending",
+          "wait_ref": "{\"native_call_id\":\"call-fixture\",\"question\":\"fixture input\"}"
+        }
+      }
+    },
+    {
+      "test_name": "test_f2_hold_keeps_published_wait_suspended_until_explicit_resume",
+      "runtime_directory": "ddb76a7b1fd9",
+      "result": "pass",
+      "seconds": "0.946",
+      "observed": {
+        "before_settlement": {
+          "state": "reconciling",
+          "blocked_reason": "operations_unsettled",
+          "desired_state": "hold",
+          "result_state": "none",
+          "suspension_causes": [
+            {
+              "cause_kind": "user_hold",
+              "cause_ref": "work-fixture"
+            }
+          ],
+          "input_request_id": "input-fixture",
+          "input_status": "pending",
+          "wait_ref": "{\"native_call_id\":\"call-fixture\",\"question\":\"fixture input\"}"
+        },
+        "after_settlement_held": {
+          "state": "suspended",
+          "blocked_reason": null,
+          "desired_state": "hold",
+          "result_state": "none",
+          "suspension_causes": [
+            {
+              "cause_kind": "user_hold",
+              "cause_ref": "work-fixture"
+            }
+          ],
+          "input_request_id": "input-fixture",
+          "input_status": "pending",
+          "wait_ref": "{\"native_call_id\":\"call-fixture\",\"question\":\"fixture input\"}"
+        },
+        "after_explicit_resume": {
+          "state": "waiting_input",
+          "blocked_reason": null,
+          "desired_state": "run",
+          "result_state": "none",
+          "suspension_causes": [],
+          "input_request_id": "input-fixture",
+          "input_status": "pending",
+          "wait_ref": "{\"native_call_id\":\"call-fixture\",\"question\":\"fixture input\"}"
+        }
+      }
+    }
+  ]
+}

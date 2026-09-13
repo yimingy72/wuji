@@ -1,0 +1,137 @@
+FFF                                                                      [100%]
+=================================== FAILURES ===================================
+________ test_f1_closed_cancel_survives_reconcile_and_late_observation _________
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x1113ccad0>
+tmp_path = PosixPath('<LOCAL_PYTEST_TMP>/test_f1_closed_cancel_survives0')
+audit_directory = PosixPath('.superpowers/sdd/vnext-v2/P05-fix-round1/red-runtime/e3986d6e6898')
+
+    def test_f1_closed_cancel_survives_reconcile_and_late_observation(
+        db_environment, tmp_path, audit_directory
+    ):
+        with control_case(db_environment, tmp_path, audit_directory) as c:
+            prepared_run(c)
+            observe(c, "started", process=process())
+            command(c, "cancel")
+            settled(c)
+            observe(c, "exited", process=process(exited=True))
+            completion(c, receipt="q-review", trigger="user_cancel")
+            completion(c, receipt="close-review", action="close", trigger="user_cancel")
+            before = task_control(c.control.read_task(OPERATOR, TASK))
+            c.control.reconcile(OBSERVER, TASK, "work-fixture")
+            reconciled = task_control(c.control.read_task(OPERATOR, TASK))
+            receipt = observe(
+                c, "exited", process=process(exited=True), receipt_id="late-exit-review"
+            )
+            after = task_control(c.control.read_task(OPERATOR, TASK))
+            with c.uow.transaction(OPERATOR, TASK) as tx:
+                stored = tx.connection.execute(
+                    "SELECT receipt_id,kind FROM vnext.execution_observation WHERE receipt_id=%s",
+                    (receipt,),
+                ).fetchone()
+            record(
+                audit_directory,
+                before=before,
+                after_reconcile=reconciled,
+                after_late_observation=after,
+                stored_history_receipt=stored,
+            )
+            assert before["observed_state"] == "closed"
+            assert not before["execution_allowed"]
+            assert stored == ("late-exit-review", "exited")
+>           assert reconciled == before
+E           AssertionError: assert {'desired_sta...mal('7'), ...} == {'desired_sta...mal('6'), ...}
+E
+E             Omitting 8 identical items, use -vv to show
+E             Differing items:
+E             {'control_version': Decimal('7')} != {'control_version': Decimal('6')}
+E             {'observed_state': 'quiescing'} != {'observed_state': 'closed'}
+E             Use -v to get more diff
+
+tests/vnext/test_p05_fix_round1.py:95: AssertionError
+________ test_f2_settlement_after_exit_restores_published_pending_input ________
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x111418410>
+tmp_path = PosixPath('<LOCAL_PYTEST_TMP>/test_f2_settlement_after_exit_0')
+audit_directory = PosixPath('.superpowers/sdd/vnext-v2/P05-fix-round1/red-runtime/3f7e8ca1aa69')
+
+    def test_f2_settlement_after_exit_restores_published_pending_input(
+        db_environment, tmp_path, audit_directory
+    ):
+        with control_case(db_environment, tmp_path, audit_directory) as c:
+            prepared_run(c)
+            observe(c, "started", process=process())
+            refs = seed_session(c)
+            # The real byte route supplies the complete HTTP packet for this same
+            # checkpoint prerequisite. It is not a fabricated control endpoint.
+            response = c.client.get(
+                f"/api/v2/artifacts/{refs[0].id}/content",
+                params={"version": refs[0].version.root},
+                headers=headers(c, "worker"),
+            )
+            assert response.status_code == 200
+            assert response.content == b'{"messages":[]}'
+            observe(c, "exited", process=process(exited=True))
+            before = work_wait(c.control.read_work(OPERATOR, TASK, "work-fixture"))
+            settled(c)
+            c.control.reconcile(OBSERVER, TASK, "work-fixture")
+            reconciled = work_wait(c.control.read_work(OPERATOR, TASK, "work-fixture"))
+            c.control.refresh(OBSERVER, TASK, "work-fixture")
+            after = work_wait(c.control.read_work(OPERATOR, TASK, "work-fixture"))
+            record(
+                audit_directory,
+                before_settlement=before,
+                after_reconcile=reconciled,
+                after_refresh=after,
+            )
+            assert before["state"] == "reconciling"
+            assert before["blocked_reason"] == "operations_unsettled"
+>           assert reconciled["state"] == after["state"] == "waiting_input"
+E           AssertionError: assert 'reconciling' == 'waiting_input'
+E
+E             - waiting_input
+E             + reconciling
+
+tests/vnext/test_p05_fix_round1.py:130: AssertionError
+______ test_f2_hold_keeps_published_wait_suspended_until_explicit_resume _______
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x11171c2d0>
+tmp_path = PosixPath('<LOCAL_PYTEST_TMP>/test_f2_hold_keeps_published_w0')
+audit_directory = PosixPath('.superpowers/sdd/vnext-v2/P05-fix-round1/red-runtime/ddb76a7b1fd9')
+
+    def test_f2_hold_keeps_published_wait_suspended_until_explicit_resume(
+        db_environment, tmp_path, audit_directory
+    ):
+        with control_case(db_environment, tmp_path, audit_directory) as c:
+            prepared_run(c)
+            observe(c, "started", process=process())
+            seed_session(c)
+            command(c, "hold", work="work-fixture")
+            observe(c, "exited", process=process(exited=True))
+            before = work_wait(c.control.read_work(OPERATOR, TASK, "work-fixture"))
+            settled(c)
+            c.control.reconcile(OBSERVER, TASK, "work-fixture")
+            c.control.refresh(OBSERVER, TASK, "work-fixture")
+            held = work_wait(c.control.read_work(OPERATOR, TASK, "work-fixture"))
+            command(c, "resume", work="work-fixture")
+            resumed = work_wait(c.control.read_work(OPERATOR, TASK, "work-fixture"))
+            record(
+                audit_directory,
+                before_settlement=before,
+                after_settlement_held=held,
+                after_explicit_resume=resumed,
+            )
+            assert before["state"] == "reconciling"
+            assert held["state"] == "suspended" and held["desired_state"] == "hold"
+            assert held["suspension_causes"] == [
+                {"cause_kind": "user_hold", "cause_ref": "work-fixture"}
+            ]
+>           assert held["blocked_reason"] is None
+E           AssertionError: assert 'operations_unsettled' is None
+
+tests/vnext/test_p05_fix_round1.py:165: AssertionError
+=========================== short test summary info ============================
+FAILED tests/vnext/test_p05_fix_round1.py::test_f1_closed_cancel_survives_reconcile_and_late_observation
+FAILED tests/vnext/test_p05_fix_round1.py::test_f2_settlement_after_exit_restores_published_pending_input
+FAILED tests/vnext/test_p05_fix_round1.py::test_f2_hold_keeps_published_wait_suspended_until_explicit_resume
+3 failed in 2.56s

@@ -1,0 +1,6 @@
+{
+  "base_sha": "4c57bb2d6768e0195973fcf7a48198ef0e018f01",
+  "tested_candidate_tree": "86915aa1e2f77c9ad941fc717e18a9fd2d79f3ef",
+  "code_sha": "3102579a5b1a19b164d08972d068e924e7448bfe",
+  "capture_order": "single final GREEN before commit; staged tree verified identical to committed tree"
+}
