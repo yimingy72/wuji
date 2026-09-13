@@ -38,20 +38,22 @@ BOUNDARY_DIGEST = "942e1e2a66a427b6551732f758bc314f22b9cdec9365a3425c9184de29939
 
 
 def compatibility(profile_snapshot=None):
-    return SessionCompatibility(
-        profile_snapshot=(
+    body = {
+        "profile_snapshot": (
             {"ref": "session-profile", "revision": "1"}
             if profile_snapshot is None
             else profile_snapshot
         ),
-        client_snapshot={"price": Decimal("1.250")},
-        runtime_snapshot={"ref": "runtime-v1"},
-        framework_snapshot={"agent_framework_core": "1.18.0"},
-        lock_digest="a" * 64,
-        capability_ref="session-capability-v1",
-        capability_digest="b" * 64,
-        validation_status="mechanism_candidate",
-    )
+        "client_snapshot": {"price": Decimal("1.250")},
+        "runtime_snapshot": {"ref": "runtime-v1"},
+        "framework_snapshot": {"agent_framework_core": "1.18.0"},
+        "lock_digest": "a" * 64,
+        "capability_ref": "session-capability-v1",
+        "capability_digest": "b" * 64,
+    }
+    if "validation_status" in SessionCompatibility.model_fields:
+        body["validation_status"] = "mechanism_candidate"
+    return SessionCompatibility.model_validate(body)
 
 
 def boundary_objects():
