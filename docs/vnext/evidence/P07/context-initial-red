@@ -1,0 +1,39 @@
+# P07 ContextBundle initial RED
+
+- Status: `RED_READY`
+- Scope: ContextBundle pure-function slice only
+- Code HEAD: `f32678d5662965f44b32863e8ecdf306db676ffd`
+- Command: `./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_context_bundle.py -q`
+- Exit code: `2`
+- Expected failure: `wuji_maf_worker.context` does not exist yet, so pytest stops during collection.
+
+## Complete command output
+
+```text
+==================================== ERRORS ====================================
+_____________ ERROR collecting tests/vnext/test_context_bundle.py ______________
+ImportError while importing test module '/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/tests/vnext/test_context_bundle.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/vnext/test_context_bundle.py:19: in <module>
+    from wuji_maf_worker.context import ContextLimits, ContextRelation, build_context_bundle
+E   ModuleNotFoundError: No module named 'wuji_maf_worker.context'
+=========================== short test summary info ============================
+ERROR tests/vnext/test_context_bundle.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.09s
+```
+
+## SHA-256 source hashes
+
+```text
+d0ca6fbf1c7d75b1e235d0c26e7f14b9d321a5eaae10cd5fc1cd65d2ff020610  AGENTS.md
+0ec95909b924117dd484ca7a43f75651ee96403269355413327e449ac1cb6bf9  .superpowers/sdd/vnext-v2/P07-context-interface.md
+94f776ff6cb192fbf227b5485ae53b2bc2ed4882d394ff3284e990053c720bc8  packages/wuji-core/src/wuji_core/contracts/generated.py
+05e7d114d03ebfe41fe839105d061ef9304e357f72951288cf333e27b595acaa  tests/vnext/test_context_bundle.py
+```
+
+No HTTP, database, real SDK, paid-model, or screenshot activity was performed. This is only the initial RED for the pure ContextBundle slice and is not a complete P07 result.

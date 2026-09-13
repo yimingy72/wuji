@@ -1,0 +1,217 @@
+"""Bounded, versioned data for an agent; no framework or access-control bypass.
+
+The caller loads records through the authorized snapshot reader. This pure
+builder preserves the data it receives and refuses to silently trim evidence.
+"""
+
+from collections.abc import Sequence
+from dataclasses import dataclass
+from datetime import datetime, timezone
+import hashlib
+
+from wuji_core.contracts.knowledge import (
+    ArtifactRecord,
+    ClaimRecord,
+    IntentRecord,
+    KnowledgeRef,
+    ObservationRecord,
+)
+from wuji_core.contracts.views import RecordView
+from wuji_core.http.json_boundary import canonical_json_bytes
+
+
+class ContextLimitExceeded(ValueError):
+    """The full context cannot be delivered under the published input budget."""
+
+
+@dataclass(frozen=True)
+class ContextLimits:
+    max_records: int
+    max_bytes: int
+
+    def __post_init__(self) -> None:
+        for value in (self.max_records, self.max_bytes):
+            if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+                raise ValueError("context limits must be positive integers")
+
+
+@dataclass(frozen=True)
+class ContextRelation:
+    source: KnowledgeRef
+    target: KnowledgeRef
+    relation: str
+
+    def __post_init__(self) -> None:
+        _key(self.source)
+        _key(self.target)
+        if not isinstance(self.relation, str) or not 1 <= len(self.relation) <= 128:
+            raise ValueError("a bounded relation label is required")
+
+
+@dataclass(frozen=True)
+class ContextBundle:
+    snapshot_id: str
+    read_set: tuple[KnowledgeRef, ...]
+    record_refs: tuple[KnowledgeRef, ...]
+    text: str
+    input_digest: str
+
+
+def _key(ref: KnowledgeRef) -> tuple[str, str, str]:
+    if not isinstance(ref, KnowledgeRef):
+        raise TypeError("a KnowledgeRef is required")
+    return ref.entity_type.value, ref.id, ref.revision.root
+
+
+def _normalize_record(record: RecordView, read_keys: set[tuple[str, str, str]]):
+    if not isinstance(record, RecordView):
+        raise TypeError("an authorized RecordView is required")
+    reference, payload = record.ref, record.record.root
+    key = _key(reference)
+    if key not in read_keys:
+        raise ValueError("a rendered record is missing from the read set")
+
+    related = []
+    if isinstance(payload, ClaimRecord):
+        expected = ("claim", payload.claim_id, payload.revision.root)
+        related.extend(payload.basis_refs)
+        if payload.supersedes is not None:
+            related.append(payload.supersedes)
+    elif isinstance(payload, IntentRecord):
+        expected = ("intent", payload.intent_id, payload.revision.root)
+        related.extend(payload.basis_refs)
+    elif isinstance(payload, ObservationRecord):
+        expected = ("observation", payload.observation_id, payload.revision.root)
+        related.extend(
+            KnowledgeRef.model_validate(
+                {
+                    "entity_type": "artifact",
+                    "id": blob.id,
+                    "revision": blob.version.root,
+                }
+            )
+            for blob in payload.artifact_refs
+        )
+    elif isinstance(payload, ArtifactRecord):
+        expected = (
+            "artifact",
+            payload.artifact_ref.id,
+            payload.artifact_ref.version.root,
+        )
+    else:
+        raise ValueError("this context reader does not support the record type")
+    if key != expected:
+        raise ValueError("record payload does not match its exact reference")
+    if any(_key(ref) not in read_keys for ref in related):
+        raise ValueError("a referenced input is missing from the read set")
+    if record.assessment is not None and not isinstance(payload, ClaimRecord):
+        raise ValueError("only a claim may carry a Claim assessment")
+
+    # mode=python preserves Decimal in arbitrary structured assertions. Convert
+    # only the known timestamp fields; opaque data is never reinterpreted.
+    result = record.model_dump(mode="python")
+    body = result["record"]
+    for field in ("created_at", "observed_at", "received_at"):
+        if field in body:
+            timestamp = body[field]
+            if (
+                not isinstance(timestamp, datetime)
+                or timestamp.tzinfo is None
+                or timestamp.utcoffset() is None
+            ):
+                raise ValueError("record timestamp must include its time zone")
+            body[field] = (
+                timestamp.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+            )
+    result["display_kind"] = key[0]
+    if isinstance(payload, ClaimRecord) and record.assessment is not None:
+        result["display_kind"] = "fact" if record.assessment.eligible else "claim"
+    return result, getattr(payload, "task_id", None)
+
+
+def build_context_bundle(
+    records: Sequence[RecordView],
+    read_set: Sequence[KnowledgeRef],
+    *,
+    snapshot_id: str,
+    limits: ContextLimits,
+    relations: Sequence[ContextRelation] = (),
+) -> ContextBundle:
+    if not isinstance(limits, ContextLimits):
+        raise TypeError("published ContextLimits are required")
+    if not isinstance(snapshot_id, str) or not 1 <= len(snapshot_id) <= 256:
+        raise ValueError("a bounded snapshot identity is required")
+    if len(records) > limits.max_records:
+        raise ContextLimitExceeded("context record count exceeds its configured limit")
+
+    exact_refs = []
+    read_keys = set()
+    for reference in read_set:
+        key = _key(reference)
+        if key not in read_keys:
+            exact_refs.append(reference.model_copy(deep=True))
+            read_keys.add(key)
+
+    relation_data = []
+    for relation in relations:
+        if not isinstance(relation, ContextRelation):
+            raise TypeError("an authorized ContextRelation is required")
+        if (
+            _key(relation.source) not in read_keys
+            or _key(relation.target) not in read_keys
+        ):
+            raise ValueError("a relation endpoint is missing from the read set")
+        relation_data.append(
+            {
+                "source": relation.source.model_dump(mode="python"),
+                "target": relation.target.model_dump(mode="python"),
+                "relation": relation.relation,
+            }
+        )
+
+    content = {
+        "schema_version": "wuji.context.v2",
+        "snapshot_id": snapshot_id,
+        "read_set": [ref.model_dump(mode="python") for ref in exact_refs],
+        "records": [],
+        "relations": relation_data,
+    }
+    # Account for the entire envelope as well as individual UTF-8 records. A
+    # limit error never returns a smaller, selectively supportive bundle.
+    size = len(canonical_json_bytes(content))
+    if size > limits.max_bytes:
+        raise ContextLimitExceeded("context metadata exceeds its configured byte limit")
+    originals = {}
+    record_refs = []
+    task_ids = set()
+    for record in records:
+        normalized, task_id = _normalize_record(record, read_keys)
+        if task_id is not None:
+            task_ids.add(task_id)
+            if len(task_ids) > 1:
+                raise ValueError(
+                    "a context cannot combine records from different tasks"
+                )
+        encoded = canonical_json_bytes(normalized)
+        key = _key(record.ref)
+        if key in originals:
+            if originals[key] != encoded:
+                raise ValueError("conflicting records for one exact reference")
+            continue
+        size += len(encoded) + (1 if record_refs else 0)
+        if size > limits.max_bytes:
+            raise ContextLimitExceeded("full context exceeds its configured byte limit")
+        content["records"].append(normalized)
+        originals[key] = encoded
+        record_refs.append(record.ref.model_copy(deep=True))
+
+    encoded = canonical_json_bytes(content)
+    if len(encoded) > limits.max_bytes:
+        raise ContextLimitExceeded("full context exceeds its configured byte limit")
+    return ContextBundle(
+        snapshot_id=snapshot_id,
+        read_set=tuple(exact_refs),
+        record_refs=tuple(record_refs),
+        text=encoded.decode("utf-8"),
+        input_digest=hashlib.sha256(encoded).hexdigest(),
+    )
