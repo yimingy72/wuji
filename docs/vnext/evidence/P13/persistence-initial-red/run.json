@@ -1,0 +1,10 @@
+{
+  "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_view_snapshots.py -q",
+  "cwd": "/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf",
+  "exit_code": 2,
+  "head_before": "e6b2466317b5dc754baf53ab1a081453e48ab4aa",
+  "head_after": "e6b2466317b5dc754baf53ab1a081453e48ab4aa",
+  "test_file": "tests/vnext/test_view_snapshots.py",
+  "test_file_sha256": "cc56899df875b713e971884f9c8f3c04541a237e39ebc38388cb912a0a8d57fe",
+  "scope": "P13 persistent projection initial missing-module RED; no database, HTTP, network, migration, screenshot, or acceptance claim"
+}
