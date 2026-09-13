@@ -546,6 +546,7 @@ def m2_case(
                 supervisor_transport=transport,
                 host_factory=host_factory,
                 retained_host_factory=retained_host_factory,
+                session_transport=False,
                 context_builder=_context_builder,
                 ledger=scheduled.control.view,
                 child_config={

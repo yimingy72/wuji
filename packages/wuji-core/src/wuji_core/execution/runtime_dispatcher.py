@@ -18,10 +18,8 @@ from wuji_core.execution.reconcile import (
     read_registered_run,
 )
 from wuji_core.execution.retained_results import RetainedResultService
-from wuji_core.execution.session_bridge import SessionHostBridge, SessionTransportCodec
 from wuji_core.execution.worker_bridge import WorkerHostBridge
 from wuji_core.http import DEFAULT_JSON_LIMITS, JsonBoundaryLimits, create_app, strict_json_loads
-from wuji_core.http.session_host import create_session_host_router
 from wuji_core.http.worker_host import create_worker_host_router
 from wuji_core.persistence.uow import AccessContext, DomainError
 
@@ -43,8 +41,8 @@ class RuntimeController:
     outbox: DispatchOutbox
     reconciler: Reconciler
     bridge: WorkerHostBridge
-    session_bridge: SessionHostBridge
-    session_codec: SessionTransportCodec
+    session_bridge: object | None
+    session_codec: object | None
 
     def close(self) -> None:
         self.dispatcher.close()
@@ -207,6 +205,7 @@ def build_runtime_controller(
     supervisor_transport,
     host_factory,
     retained_host_factory,
+    session_transport: bool,
     context_builder,
     ledger,
     child_config,
@@ -216,6 +215,8 @@ def build_runtime_controller(
     max_configured_tasks: int = 10_000,
 ) -> RuntimeController:
     """Build the private Host/router and the matching P09 delivery consumer."""
+    if type(session_transport) is not bool:
+        raise ValueError("Session transport deployment selection is required")
     def receiver_access(value) -> AccessContext:
         identity = value.identity
         if identity.tenant_id != access.principal.tenant_id:
@@ -225,9 +226,19 @@ def build_runtime_controller(
         return access
 
     retained_results = RetainedResultService(retained_host_factory)
-    session_codec = SessionTransportCodec(
-        max_transport_bytes=child_config["max_transport_bytes"]
-    )
+    session_codec = None
+    session_bridge = None
+    session_resolve_encoder = None
+    if session_transport:
+        from wuji_core.execution.session_bridge import (
+            SessionHostBridge,
+            SessionTransportCodec,
+        )
+
+        session_codec = SessionTransportCodec(
+            max_transport_bytes=child_config["max_transport_bytes"]
+        )
+        session_resolve_encoder = session_codec.encode_resolved
     bridge = WorkerHostBridge(
         uow,
         registry=registry,
@@ -239,9 +250,14 @@ def build_runtime_controller(
         retained_results=retained_results,
         child_config=child_config,
         spool_directory=spool_directory,
-        session_resolve_encoder=session_codec.encode_resolved,
+        session_resolve_encoder=session_resolve_encoder,
     )
-    session_bridge = SessionHostBridge(bridge, codec=session_codec)
+    routers = [create_worker_host_router(bridge)]
+    if session_transport:
+        from wuji_core.http.session_host import create_session_host_router
+
+        session_bridge = SessionHostBridge(bridge, codec=session_codec)
+        routers.append(create_session_host_router(session_bridge))
     outbox = DispatchOutbox(
         uow,
         access=access,
@@ -266,10 +282,7 @@ def build_runtime_controller(
     )
     app = create_app(
         token_verifier=bridge.verifier,
-        routers=[
-            create_worker_host_router(bridge),
-            create_session_host_router(session_bridge),
-        ],
+        routers=routers,
         json_limits=json_limits,
     )
     return RuntimeController(
