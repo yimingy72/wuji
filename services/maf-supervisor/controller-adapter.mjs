@@ -14,6 +14,45 @@ const bootstrapKeys = ['assignment', 'assignment_digest', 'receiver', 'run_crede
 const bounded = (value, maximum = 256) => typeof value === 'string' && value.length > 0 && value.length <= maximum;
 const keys = (value, names) => value && typeof value === 'object' && !Array.isArray(value)
   && Object.keys(value).length === names.length && names.every(name => Object.hasOwn(value, name));
+const contractKeys = (value, required, optional = []) => value && typeof value === 'object'
+  && !Array.isArray(value) && required.every(name => Object.hasOwn(value, name))
+  && Object.keys(value).every(name => required.includes(name) || optional.includes(name));
+const resultStatuses = new Set(['received', 'accepted', 'rejected', 'historical_only']);
+const componentStatuses = new Set(['accepted_shared', 'accepted_for_check', 'rejected']);
+const entityTypes = new Set(['origin', 'goal', 'observation', 'artifact', 'claim', 'intent',
+  'work_item', 'agent_run', 'verification', 'completion_review', 'finding', 'report']);
+const errorCodes = new Set(['UNAUTHENTICATED', 'FORBIDDEN_COLLECTOR', 'FORBIDDEN_ASSESSOR',
+  'NOT_FOUND_OR_FORBIDDEN', 'STALE_VERSION', 'STALE_EXECUTION', 'STALE_INPUT',
+  'INPUT_DIGEST_CONFLICT', 'OPERATION_UNKNOWN', 'SNAPSHOT_EXPIRED', 'VIEW_EXPIRED',
+  'HISTORY_UNAVAILABLE', 'INVALID_REFERENCE', 'INVALID_WAIT', 'INVALID_SCHEMA',
+  'INVALID_SCHEMA_VERSION', 'LIMIT_BLOCKED', 'CAPABILITY_UNAVAILABLE']);
+const code = value => value === undefined || value === null || errorCodes.has(value);
+function knowledgeRef(value) {
+  return keys(value, ['entity_type', 'id', 'revision']) && entityTypes.has(value.entity_type)
+    && bounded(value.id) && /^(0|[1-9][0-9]*)$/.test(value.revision);
+}
+function componentReceipt(value) {
+  return contractKeys(value, ['status', 'local_ref', 'request_id'], ['canonical_ref', 'code'])
+    && componentStatuses.has(value.status) && bounded(value.local_ref) && bounded(value.request_id)
+    && (value.canonical_ref === undefined || value.canonical_ref === null
+      || knowledgeRef(value.canonical_ref)) && code(value.code);
+}
+function resultReceipt(value, assignment) {
+  const expected = `maf-m1:${digest({
+    identity: assignment.identity,
+    operation_id: assignment.operation_id,
+  })}`;
+  return contractKeys(value, ['submission_id', 'status', 'components', 'request_id'], ['code'])
+    && value.submission_id === expected && resultStatuses.has(value.status)
+    && Array.isArray(value.components) && value.components.every(componentReceipt)
+    && bounded(value.request_id) && code(value.code);
+}
+function blobRef(value, expectedDigest) {
+  return keys(value, ['id', 'version', 'sha256']) && bounded(value.id)
+    && /^(0|[1-9][0-9]*)$/.test(value.version)
+    && typeof value.sha256 === 'string' && /^[a-f0-9]{64}$/.test(value.sha256)
+    && value.sha256 === expectedDigest;
+}
 
 function privateRead(path, maximum) {
   let fd;
@@ -187,13 +226,30 @@ export class ControllerAdapter {
     const archive = result === null ? privateRead(join(directory, 'sdk-request.json'), this.maxRequestBytes) : null;
     const body = result ?? archive;
     if (body === null) return null;
-    let embedded;
-    try { embedded = JSON.parse(body.toString('utf8')).assignment; }
+    let payload;
+    try { payload = JSON.parse(body.toString('utf8')); }
     catch { throw new SupervisorError('INVALID_WORKER_ARCHIVE', 422); }
-    if (!equal(embedded, assignment)) throw new SupervisorError('STALE_EXECUTION', 409);
+    if (!equal(payload.assignment, assignment)) throw new SupervisorError('STALE_EXECUTION', 409);
     const receipt = await this.post(result === null ? 'receiver-archive' : 'receiver-replay', body);
-    // No local fake ack and no derivation of process state from result status.
-    return receipt;
+    const assignmentDigest = digest(assignment);
+    if (result !== null) {
+      if (!resultReceipt(receipt, assignment)) {
+        throw new SupervisorError('INVALID_CONTROLLER_RESPONSE', 503);
+      }
+      return {
+        schema_version: 'wuji.worker-settlement.v1', kind: 'result',
+        assignment_digest: assignmentDigest, submission_id: receipt.submission_id,
+        receipt_digest: digest(receipt),
+      };
+    }
+    if (!blobRef(receipt, payload.sdk_digest)) {
+      throw new SupervisorError('INVALID_CONTROLLER_RESPONSE', 503);
+    }
+    return {
+      schema_version: 'wuji.worker-settlement.v1', kind: 'archive',
+      assignment_digest: assignmentDigest, artifact_ref: receipt,
+      receipt_digest: digest(receipt),
+    };
   }
 }
 

@@ -24,17 +24,31 @@ function validateIdentity(identity) {
     throw new SupervisorError('INVALID_RUN_IDENTITY', 422);
   }
 }
-function durableSettlement(value) {
+function durableSettlement(value, record, kind) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-  if (exactKeys(value, ['id', 'version', 'sha256'])) {
-    return text(value.id) && revision.test(value.version)
-      && typeof value.sha256 === 'string' && /^[a-f0-9]{64}$/.test(value.sha256);
+  if (kind === 'result' && exactKeys(value, [
+    'schema_version', 'kind', 'assignment_digest', 'submission_id', 'receipt_digest',
+  ])) {
+    return value.schema_version === 'wuji.worker-settlement.v1'
+      && value.kind === kind && value.assignment_digest === record.assignment_digest
+      && value.submission_id === `maf-m1:${digest({
+        identity: record.assignment.identity,
+        operation_id: record.assignment.operation_id,
+      })}`
+      && typeof value.receipt_digest === 'string'
+      && /^[a-f0-9]{64}$/.test(value.receipt_digest);
   }
-  if (exactKeys(value, ['submission_id', 'status', 'components', 'request_id', 'code'])) {
-    return text(value.submission_id) && text(value.request_id)
-      && ['received', 'accepted', 'rejected', 'historical_only'].includes(value.status)
-      && Array.isArray(value.components)
-      && (value.code === null || text(value.code));
+  if (kind === 'archive' && exactKeys(value, [
+    'schema_version', 'kind', 'assignment_digest', 'artifact_ref', 'receipt_digest',
+  ])) {
+    const ref = value.artifact_ref;
+    return value.schema_version === 'wuji.worker-settlement.v1'
+      && value.kind === kind && value.assignment_digest === record.assignment_digest
+      && exactKeys(ref, ['id', 'version', 'sha256']) && text(ref.id)
+      && revision.test(ref.version) && typeof ref.sha256 === 'string'
+      && /^[a-f0-9]{64}$/.test(ref.sha256)
+      && typeof value.receipt_digest === 'string'
+      && /^[a-f0-9]{64}$/.test(value.receipt_digest);
   }
   return false;
 }
@@ -150,13 +164,15 @@ export class NodeSupervisor {
 
   async persistProducedResults(record) {
     const directory = join(record.directory, 'worker');
-    if (!existsSync(join(directory, 'result-request.json'))
-        && !existsSync(join(directory, 'sdk-request.json'))) return;
+    const hasResult = existsSync(join(directory, 'result-request.json'));
+    const hasSdk = existsSync(join(directory, 'sdk-request.json'));
+    if (!hasResult && !hasSdk) return;
+    const kind = hasResult ? 'result' : 'archive';
     const settlement = await this.persistResults?.({
       assignment: parseJson(canonical(record.assignment)),
       directory,
     });
-    if (!durableSettlement(settlement)) {
+    if (!durableSettlement(settlement, record, kind)) {
       throw new SupervisorError('RESULT_PERSISTENCE_UNCONFIRMED', 503);
     }
     return settlement;
