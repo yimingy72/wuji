@@ -10,6 +10,8 @@
 
 P08 核心目标文件为原 Plan 的 worker `sessions.py/history.py/approvals.py` 和 core `execution/inputs.py/approvals.py`；增加 core `execution/sessions.py`、内部 `contracts/sessions.py` 及无编号 `execution/session_schema_draft.sql`。必要的既有 runtime/factory/tools、P05/P06/P09 接缝逐项列入 handoff 后由主代理分配，不能靠测试夹具补齐生产缺口。最终必须在实际 hosted/child Worker 消费这些能力，不停在独立仓库 helper。
 
+当前实施分为平台核心与原生 Worker 两个不重叠源码 lane：平台核心拥有内部合同、持久服务与 P05/P06/P09/Host 接缝；Worker 核心拥有原生适配及 runtime/factory/tools/entrypoint。迁移/UoW 与测试由指定 SOL 集成，`vnext_0013_p08_session_approval` 已由主代理预留，尚未执行。M2 bridge/Node 的修复归其原 SOL owner，共享端口通过主代理协调，不能并发改同一文件。
+
 ## 完整发布与单写者
 
 沿用冻结的 `SessionManifest` wire 形状以及 P05 的 `session_manifest`、Work 当前 Session 引用。内部服务 `SessionRepository(uow, *, artifacts, registry)` 提供：
@@ -34,13 +36,19 @@ Worker 只使用已安装 MAF 的公开 Session/history/memory/approval/compacti
 
 操作前沿保存在这些受 pin 的根对象中，不为字段名称扩展外部 SessionManifest：列出实际纳入原生 history 的 model_attempt、ToolCall/ToolAttempt/EvidenceReceipt 和原消息位置/摘要；待批未执行调用另行列出。平台用持久准入/结果账本核对，不能只检查 `pending_operation_refs` 为空。检查点之后存在未纳入消息的已完成动作、未知请求、缺失回执或无法证明配对时，阻断原生恢复，不自动重跑。显式新上下文/新工作由后续控制流程表达，不能悄悄将不兼容恢复变成 fresh run。
 
+Worker 的待封存输入记录真实 model_attempt、原生消息位置/摘要和原调用数据；Gate 规范请求/完整响应摘要由 `stage_session` 的受信平台服务从实际账本核对补齐。输入观察与最终严格根对象分别表达，缺失摘要不能填占位值。只有原调用和原生消息对应得到核对后才封存最终完整根；SDK 的公开序列化字典保持原样，不能把平台补充元数据写成伪造 SDK 字段。
+
 仅开放通过真实 SDK 检查的 settled_boundary、approval_boundary；任意流中断/未完整发布/不兼容版本为 non_resumable。原生压缩只改变工作历史，保留原始资料、回执与历史归档；压缩后恢复检查候选标签、反证及工具请求/结果配对。仅有 compaction 事件不构成通过。
 
 M1 已发布 Profile 的关闭能力和摘要保持不变。新增恢复、记忆或压缩组合使用显式新 Profile 版本/摘要，并在 Task 激活前固定；不得让原版本的 `restoration=false` 因代码升级自动变为可恢复。新组合的能力状态按 SOL 实际验证结果发布。
 
+机制验收可装配固定的候选组合完成首次真实检查，不伪造其此前已通过的证明，也不要求先有本次 PASS 才允许执行本次验证。运行端只信任部署固定的版本/组合配置，不接受请求中的 passed 布尔值；正式发布与本轮验收结论由实际证据收口。
+
 ## 输入和批准
 
 InputService 只接受受信 Worker Host 观察到的真实原生待批 Content，或已登记的人类问题。服务核对归属、固定 checkpoint、实际模型请求/原消息与工具定义/原始参数映射；模型生成 `input_required` 或猜一个 call ID 不能登记平台等待。登记 input、approval 与真实源引用同事务，发布边界先完成。P05 只根据原 input receipt 和 Supervisor 进程事实进入 waiting_input/释放容量，Worker 不能自报 exited。
+
+可信 source receipt 在实际平台 intake 事务内生成并持久化，按已发布 manifest 与完整原生内容摘要去重。Worker 只提交真实观察及固定引用，不能用自己生成的 UUID 自授“可信回执”身份。
 
 ApprovalService 提供 `decide(access, approval_id, decision, *, idempotency_key)` 与 `bind_operation_in_transaction(tx, prepared, approval_ref)`。决定绑定固定原 call、参数摘要、ToolDefinition/Scope/Profile、Session/Work/checkpoint、有效期及有资格的主体；决定版本 CAS、幂等冲突及当前读权限先于返回旧回执。公共 API 沿用冻结 ApprovalDecision → CommandReceipt，不另设含 approved=true 的执行端点。
 
