@@ -1,0 +1,62 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+_______ test_current_run_model_gate_forwards_native_and_records_attempt ________
+
+name = 'admission.registry'
+
+    def production(name: str):
+        try:
+>           return import_module("wuji_core." + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/support/p06.py:140:
+E       ModuleNotFoundError: No module named 'wuji_core.admission'
+
+During handling of the above exception, another exception occurred:
+
+    def test_current_run_model_gate_forwards_native_and_records_attempt(
+        db_environment, tmp_path, audit_directory
+    ):
+        """Catch a Gate that sends before admission or keeps only an in-memory count."""
+
+>       with model_case(db_environment, tmp_path, audit_directory) as case:
+
+tests/vnext/test_run_admission.py:24:
+tests/vnext/support/p06.py:208: in model_case
+    registry_module = production("admission.registry")
+tests/vnext/support/p06.py:142: in production
+    pytest.fail(f"P06 production entrypoint absent: {error.name}")
+E   Failed: P06 production entrypoint absent: wuji_core.admission
+
+____________________ test_revoked_run_cannot_request_model _____________________
+
+name = 'admission.registry'
+
+    def production(name: str):
+        try:
+>           return import_module("wuji_core." + name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/support/p06.py:140:
+E       ModuleNotFoundError: No module named 'wuji_core.admission'
+
+During handling of the above exception, another exception occurred:
+
+    def test_revoked_run_cannot_request_model(
+        db_environment, tmp_path, audit_directory
+    ):
+        """Catch authorization that checks Task only and ignores credential revocation."""
+
+>       with model_case(db_environment, tmp_path, audit_directory) as case:
+
+tests/vnext/test_run_admission.py:99:
+tests/vnext/support/p06.py:208: in model_case
+    registry_module = production("admission.registry")
+tests/vnext/support/p06.py:142: in production
+    pytest.fail(f"P06 production entrypoint absent: {error.name}")
+E   Failed: P06 production entrypoint absent: wuji_core.admission
+
+=========================== short test summary info ============================
+FAILED tests/vnext/test_run_admission.py::test_current_run_model_gate_forwards_native_and_records_attempt
+FAILED tests/vnext/test_run_admission.py::test_revoked_run_cannot_request_model
+2 failed in 0.32s

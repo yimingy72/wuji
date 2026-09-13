@@ -1,0 +1,14 @@
+{
+  "phase": "initial_red_scaffold",
+  "status": "RED_READY",
+  "command": "WUJI_TEST_EVIDENCE_DIR=$PWD/docs/vnext/evidence/P06/initial-red/raw ./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_run_admission.py -q",
+  "exit_code": 1,
+  "head_sha": "467eb64aae9badc15cfd075929edfd7e59e91e72",
+  "production_code_sha": "3102579a5b1a19b164d08972d068e924e7448bfe",
+  "collected": 2,
+  "failed": 2,
+  "expected_failure": "P06 production entrypoint absent: wuji_core.admission",
+  "http_request_emitted": false,
+  "http_note": "The failure occurred at the frozen production import boundary before ASGI composition. No HTTP packet is claimed for this scaffold RED.",
+  "paid_model_or_target_access": false
+}

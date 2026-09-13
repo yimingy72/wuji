@@ -1,0 +1,7 @@
+FFF                                                                      [100%]
+3 failed, 25 deselected in 3.00s
+
+Expected final review RED observations:
+- model_request inserted non-zero admission counters and a terminal model_call
+- tool_request inserted a terminal tool_attempt, released reservation and settled operation
+- the UPDATE guard rejected a legitimate registered explicit retry

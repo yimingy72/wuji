@@ -1,6 +1,96 @@
 # vnext migration head
 
-Current head: `vnext_0006_p05_control`, following the accepted P04 head
+Current head: `vnext_0009_p06_request_write_guards`, upgrading existing
+`vnext_0008_p06_admission_hardening` and `vnext_0007_p06_admission` databases,
+and following the accepted P05 head
+`vnext_0006_p05_control`. Apply it through the existing
+`wuji_core.persistence.schema.migrate(connection, application_role=...)` entry.
+P06 extends the canonical Task/WorkItem/AgentRun/ToolCall/ToolAttempt records;
+it does not create a second execution state, reserve the P05 Run pools again, or
+implement a second money ledger.
+
+P06 public composition and deployment ports:
+
+- `AdmissionRegistry(uow)` reads frozen Task admission configuration, registered
+  workspace tools/executors, and independently revocable Run credential
+  bindings. Deployment owners use `register_task_config`,
+  `register_tool_definition`, `register_executor`, `bind_run_credential`,
+  `revoke_run_credential`, and `revoke_tool_definition` from
+  `wuji_core.admission.registry`. Task configuration is registered before first
+  activation and must match the P05 model/runtime profile refs, revisions,
+  publication timestamps, and lock digest.
+- `AdmissionLedger(uow).snapshot(access, task_id)`, `.model_attempt(...)`, and
+  `.tool_call(...)` expose durable counters and typed receipts.
+  `.reconcile_not_sent(...)` is the trusted fence for an admission committed
+  before `begin_send`; it releases only the proven-local slot and never refunds
+  the consumed request. Model send, response, billing, local execution and
+  inflight states remain independent.
+- `ModelAdmission(uow, registry=..., ledger=...)` and
+  `ModelGate(..., key_resolver=..., transport=HttpxModelTransport(http_client),
+  tool_capabilities=...)` back `create_model_router(model_gate)`. A request that
+  advertises tools requires `ToolCapabilityResolver(tool_gate)` from the actual
+  executor/collector assembly; absence fails closed before model admission. The
+  signed internal route is
+  `POST /internal/v2/model/chat/completions`; attempt lookup is
+  `GET /internal/v2/model-attempts/{id}`. Only the Gate resolves the Task secret.
+- `ToolAdmission(uow, registry=..., ledger=...)` and
+  `ToolGate(..., artifacts=..., evidence=..., executors=...,
+  collector_accesses=...)` back `create_tool_router(tool_gate)`. Tool HTTP uses
+  `POST /internal/v2/tool-calls`, `GET /internal/v2/tool-calls/{id}`, and
+  `POST /internal/v2/tool-calls/{id}/cancel`. The canonical operation ID is the
+  ToolCall ID; actual attempts consume the cumulative Task limit.
+- The only published executor target in this head is `workspace_read` through
+  `WorkspaceReadExecutor(root=..., receipt_root=..., admission=...,
+  receiver_id=..., environment_ref=...)`. Its receipt directory must be outside
+  the workspace. `http_target` registration fails closed until a real
+  redirect-aware Scope adapter exists.
+
+P07 consumers must use the above production boundaries rather than construct a
+permit or identity from model/tool content. Model calls use the signed HTTP Gate
+and required `X-Wuji-Request-ID`; when tools are enabled, compose the real
+`ToolGate` first and pass `ToolCapabilityResolver(tool_gate)` into `ModelGate`.
+Function calls use
+`ToolGate.invoke_function(access, *, name, arguments, session_lineage,
+message_id, provider_call_id, tool_definition_ref)`; official MCP request
+normalization is `ToolGate.invoke_mcp(...)` and remains unavailable when the
+official `mcp.types` package is absent. Full MCP transport wiring belongs to
+P07. Receipt recovery uses the GET routes or `ToolGate.reconcile`; it never
+dispatches a new operation. Explicit tool retry is the internal
+`ToolAdmission.retry(access, tool_call_id, *, prior_attempt_id,
+retry_request_id)` and only accepts a confirmed stopped attempt. Worker context
+receives the scoped Run credential, frozen public profile/tool references and
+operation IDs; it never receives the Task gateway key, controller/admit/capture
+authority, executor execution token, or a client-provided approval boolean.
+
+The P06 verification record is under `docs/vnext/evidence/P06/`. The following
+P05 section remains the public foundation used by this head.
+
+The 0008 hardening migration separates model/tool request/settlement RLS write
+purposes, fences counter columns and prevents cumulative counter rollback. It
+also stores the original tool output digest and explicit limit reason so a
+retained partial Artifact can be replay-checked against the complete receiver
+receipt without duplicate accounting.
+
+The 0009 upgrade completes the request-write matrix without rewriting 0008:
+it creates or replaces every related update function and reinstalls every
+trigger, so databases created by the earliest 67a v8 and later same-head v8
+variants converge on the same rules.
+
+| Purpose | INSERT | UPDATE |
+| --- | --- | --- |
+| `model_request` | zero counter or initial not-sent ModelCall | model attempt count or exact `not_sent→sending` fence only |
+| `model_settle` | zero counter; response chunk only for an existing sent inflight call | shared byte counters and existing ModelCall settlement only |
+| `tool_request` | zero counter, proposal/admitted call/attempt, active claim, reserved resource, pending settlement | tool attempt count and exact attach/dispatch/cancel/safe-retry transitions |
+| `tool_settle` | zero counter or settlement row for an existing attempt; no call/attempt/claim/resource creation | shared byte counters and existing receipt/call/claim/resource settlement only |
+
+Schema-owner deployment prerequisites remain possible. Application-role
+requests cannot preseed response, billing, output, result, released-resource,
+settled-operation or nonzero counter state. Explicit retry can reopen only a
+failed/cancelled call whose prior receipt proves `not_started` or `exited` and
+whose new admitted attempt already carries a stable `retry_request_id`;
+complete/unknown/running/evidence-pending calls cannot be reopened.
+
+P05 head `vnext_0006_p05_control` follows the accepted P04 head
 `vnext_0005_p04_input_freshness`. P05 owns `persistence/control_schema.py`, the
 control extension of `UnitOfWork`, and `blackboard/result_state.py` plus the two
 publication-transaction calls in P04 ResultCommitter. Original submission and

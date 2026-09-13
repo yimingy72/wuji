@@ -1,0 +1,15 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>P06 final verification</title>
+<style>html{background:#111827;color:#e5e7eb;font:17px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}body{margin:0;padding:30px}main{max-width:1120px;margin:auto;border:1px solid #374151;border-radius:10px;padding:25px;background:#0b1020}h1{margin:0 0 7px;font-size:27px;color:#f9fafb}.meta{color:#9ca3af;margin-bottom:17px}pre{white-space:pre-wrap;margin:12px 0;color:#d1d5db}.ok{color:#4ade80;font-weight:700}.red{color:#f87171;font-weight:700}.note{color:#fbbf24}</style>
+<main><h1>P06 final verification</h1><div class="meta">base f32678d · fixes through 78095e617c0be14932937fb8a052fb9a256b0f56<br>migration vnext_0009_p06_request_write_guards</div>
+<pre>Review RED→GREEN  <span class="red">7F</span>→<span class="ok">8P</span> · <span class="red">2F</span>→<span class="ok">2P</span> · <span class="red">3F</span>→<span class="ok">3P</span> · <span class="red">5F</span>→<span class="ok">8P</span>
+Historical 67a v8→v9 upgrade <span class="ok">2 passed</span></pre>
+<pre>Independent static review <span class="ok">PASS</span> · selected P04 permission consumer <span class="ok">1 passed</span></pre>
+<pre>$ ./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_run_admission.py -q
+...................................                                      [100%]
+<span class="ok">35 passed in 38.49s</span></pre>
+<pre>$ work/toolchain/bin/pnpm contracts:check:v2
+Generated Python and TypeScript v2 contracts match OpenAPI.
+<span class="ok">API description valid — exit 0</span>
+<span class="note">1 existing warning: unused AgentPayload component</span></pre>
+<pre>Isolated PostgreSQL · signed ASGI · localhost model HTTP
+production WorkspaceReadExecutor · no paid model · no external target</pre></main></html>

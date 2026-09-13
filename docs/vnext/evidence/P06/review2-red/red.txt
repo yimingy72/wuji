@@ -1,0 +1,6 @@
+FF                                                                       [100%]
+2 failed, 23 deselected in 2.68s
+
+Expected P1-3 re-review RED observations:
+- model_request changed model_call.local_state from inflight to ended and forged a complete response
+- tool_request changed tool_attempt.status from admitted to complete and could release its resource reservation

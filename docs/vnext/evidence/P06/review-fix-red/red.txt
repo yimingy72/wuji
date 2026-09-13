@@ -1,0 +1,11 @@
+FFFFFFF                                                                  [100%]
+7 failed, 14 deselected in 6.49s
+
+Expected review RED observations:
+- not_sent reconcile returned local_state=inflight instead of ended
+- cancel replay called executor.cancel 0 times
+- tool_request changed model_attempts from 0 to 1
+- legal tools:null raised TypeError
+- unassembled advertised tool reached upstream with HTTP 200
+- over-limit workspace result returned failed without evidence/reason
+- OpenAPI model 200 response had no correlation headers

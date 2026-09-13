@@ -1,0 +1,7 @@
+....F.                                                                   [100%]
+1 failed, 5 passed, 17 deselected in 6.00s
+
+Failure: WorkspaceReadExecutor.query rejected the receiver's own receipt after
+raw output digest/length metadata was added. The query compared the entire
+source_receipt to the older required-field shape and returned
+INPUT_DIGEST_CONFLICT.

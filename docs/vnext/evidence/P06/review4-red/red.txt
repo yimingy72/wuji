@@ -1,0 +1,8 @@
+FFFFF                                                                    [100%]
+5 failed, 28 deselected in 4.24s
+
+Expected request-write matrix RED observations:
+- running ToolCall was changed directly to cancelled
+- unknown and evidence_pending ToolCalls were changed directly to admitted
+- inactive tool_resource_claim INSERT was accepted
+- model_settle inserted response bytes for a never-sent model attempt

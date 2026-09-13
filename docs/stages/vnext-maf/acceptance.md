@@ -12,7 +12,7 @@
 | P03 规范持久化与证据 | accepted（本项） | 53项@dcf5cc2；修复6项@c2a86e3；[范围复审](../../vnext/evidence/P03/fix-round1/review.md)关闭2项P2；完整AC仍按下游分工 |
 | P04 知识接纳与评估 | accepted（本项） | [报告](../../vnext/evidence/P04/report.md)；24项原候选、6项可见性、3项新鲜度定向结果；[范围复核](../../vnext/evidence/P04/review-fix-round1/controller-review.md)关闭F1/F2 |
 | P05 控制与容量 | accepted（本项） | 代码 `3102579`；[修复报告](../../vnext/evidence/P05/fix-round1/report.md)与[主控制器定向复核](../../vnext/evidence/P05/fix-round1/controller-review.md)关闭初审 F1/F2；复用实施者已采集 3 项定向证据，不扩大为完整 Runtime 集成验收 |
-| P06 模型/工具准入与累计账本 | under_review_fixes | [实施合同](../../vnext/P06-implementation-contract.md)；SOL Curie `01a09869` 按审查意见修复并持有迁移、UoW、OpenAPI 与生成 DTO 所有权，当前未 accepted |
+| P06 模型/工具准入与累计账本 | accepted（本项） | 基础 `f32678d`，修复至 `78095e6`，迁移头 `vnext_0009_p06_request_write_guards`；[最终报告](../../vnext/evidence/P06/full-candidate-6/report.md)记录 35 项 P06、1 项 P04 权限消费者与合同检查通过，[独立静态复审](../../vnext/evidence/P06/full-candidate-6/independent-review.md) PASS；完整 MCP/P08/P10/P16/P17 与真实 LiteLLM/外部目标仍 not_run |
 | P07 ContextBundle pure slice | complete | D10 SOL/xhigh Raman `01a0989e` 执行目标测试，8 passed；代码/测试 `491ec0144ae63724e3696e9b47f259ea350ea4eb`，[证据](../../vnext/evidence/P07/context-pure-green)提交 `e22f7ce09c8aa052862440bca769506f4ee89ffa`；仅证明纯函数上下文构建及直接输入边界 |
 | P07 SDK runtime | not_run | 真实 MAF、ToolAdmission、Session、压缩、恢复及模型行为未执行；完整 P07 未 accepted |
 | P08—P12 开发和机制验收 | not_run | 按依赖执行，未验证不标通过 |

@@ -1,0 +1,12 @@
+{
+  "candidate_sha": "78095e617c0be14932937fb8a052fb9a256b0f56",
+  "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_knowledge_admission.py::test_assessment_actions_are_append_only_and_qualified -q",
+  "exit_code": 0,
+  "passed": 1,
+  "selection_basis": "P06 changed shared UnitOfWork and migration policies; this existing P04 test directly checks append-only assessment actions and qualified writer authority.",
+  "not_rerun": {
+    "P02_identity_and_rls": "covered by signed Run HTTP and request-purpose application-role tests in test_run_admission.py",
+    "P03_capture_and_evidence": "covered by production WorkspaceReadExecutor -> ArtifactStore -> EvidenceService tests",
+    "P05_revocation_and_capacity": "covered by P05 pause, credential revocation, reservation and concurrent-final-quota tests"
+  }
+}
