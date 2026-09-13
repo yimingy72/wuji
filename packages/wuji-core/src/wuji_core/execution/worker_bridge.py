@@ -234,6 +234,30 @@ class WorkerHostBridge:
                     "birth_id": None, "observation_id": None, "source_digest": None,
                     "valid_until": document(datetime.now(timezone.utc) + timedelta(seconds=2))}
         try:
+            with self.uow.transaction(
+                receiver_access,
+                assignment.identity.task_id,
+                capability="observe",
+            ) as receiver_tx:
+                receiver = row(receiver_tx.connection.execute(
+                    """SELECT * FROM vnext.scheduler_receiver
+                    WHERE tenant_id=%s AND project_id=%s AND task_id=%s
+                    AND runtime_attempt=%s AND receiver_id=%s
+                    AND receiver_subject=%s""",
+                    (
+                        *receiver_tx.owner,
+                        run.identity.runtime_attempt.root,
+                        run.identity.receiver_id,
+                        receiver_access.principal.subject,
+                    ),
+                ))
+                if (
+                    not receiver
+                    or not receiver["enabled"]
+                    or receiver["environment_ref"] != run.environment_ref
+                    or receiver["pod_uid"] != run.pod_uid
+                ):
+                    raise DomainError("STALE_EXECUTION", 409)
             # This is the existing real credential purpose, with no counter or
             # send. It rejects revoked/expired credentials even while inert.
             with self.uow.transaction(access, assignment.identity.task_id, capability="model_request") as tx:
@@ -248,15 +272,6 @@ class WorkerHostBridge:
                 elif record["process_state"] == "running":
                     waiting = False
                     record, _work = current_run(tx, config)
-                    receiver = row(tx.connection.execute(
-                        """SELECT * FROM vnext.scheduler_receiver WHERE tenant_id=%s AND project_id=%s
-                        AND task_id=%s AND runtime_attempt=%s AND receiver_id=%s AND receiver_subject=%s""",
-                        (*tx.owner, run.identity.runtime_attempt.root, run.identity.receiver_id,
-                         receiver_access.principal.subject)))
-                    if (not receiver or not receiver["enabled"]
-                            or receiver["environment_ref"] != run.environment_ref
-                            or receiver["pod_uid"] != run.pod_uid):
-                        raise DomainError("STALE_EXECUTION", 409)
                     observed = row(tx.connection.execute(
                         "SELECT * FROM vnext.execution_observation WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND receipt_id=%s AND agent_run_id=%s",
                         (*tx.owner, record["last_observation_id"], record["agent_run_id"])))

@@ -473,6 +473,123 @@ paths:
     {"get": {"operationId": "readToolCallV2", "summary": "readToolCallV2", "tags": ["Internal"], "responses": {"200": {"description": "Current authorized receipt", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ToolCallReceipt"}}}}, "401": {"$ref": "#/components/responses/Unauthenticated"}, "404": {"description": "Missing or not accessible"}, "409": {"$ref": "#/components/responses/Conflict"}, "422": {"$ref": "#/components/responses/InvalidSchema"}, "429": {"$ref": "#/components/responses/LimitBlocked"}, "503": {"$ref": "#/components/responses/Unavailable"}}, "parameters": [{"name": "tool_call_id", "in": "path", "required": true, "schema": {"type": "string", "minLength": 1, "maxLength": 256}}]}}
   /internal/v2/tool-calls/{tool_call_id}/cancel:
     {"post": {"operationId": "cancelToolCallV2", "summary": "cancelToolCallV2", "tags": ["Internal"], "responses": {"200": {"description": "Current authorized receipt", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ToolCallReceipt"}}}}, "401": {"$ref": "#/components/responses/Unauthenticated"}, "404": {"description": "Missing or not accessible"}, "409": {"$ref": "#/components/responses/Conflict"}, "422": {"$ref": "#/components/responses/InvalidSchema"}, "429": {"$ref": "#/components/responses/LimitBlocked"}, "503": {"$ref": "#/components/responses/Unavailable"}}, "parameters": [{"name": "tool_call_id", "in": "path", "required": true, "schema": {"type": "string", "minLength": 1, "maxLength": 256}}, {"$ref": "#/components/parameters/IdempotencyKey"}], "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ToolCancelRequest"}}}}}}
+  /internal/v2/worker-host/await-start:
+    post:
+      operationId: awaitWorkerStartV2
+      summary: Read the current durable Worker start permission
+      tags: [Internal]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/WorkerBridgeRequest'}}}}
+      responses:
+        '200': {description: Current start permission, content: {application/json: {schema: {$ref: '#/components/schemas/WorkerStartPermission'}}}}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /internal/v2/worker-host/resolve:
+    post:
+      operationId: resolveWorkerHostV2
+      summary: Resolve authorized frozen Worker context and profiles
+      tags: [Internal]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/WorkerBridgeRequest'}}}}
+      responses:
+        '200': {description: Authorized Worker context and profiles, content: {application/json: {schema: {$ref: '#/components/schemas/WorkerResolvedContext'}}}}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /internal/v2/worker-host/archive-sdk:
+    post:
+      operationId: archiveWorkerSdkV2
+      summary: Archive exact Worker SDK bytes
+      tags: [Internal]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/WorkerArchiveRequest'}}}}
+      responses:
+        '200': {description: Retained SDK artifact, content: {application/json: {schema: {$ref: '#/components/schemas/BlobRef'}}}}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /internal/v2/worker-host/submit-result:
+    post:
+      operationId: submitWorkerResultV2
+      summary: Submit exact Worker output through the authoritative result sink
+      tags: [Internal]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/WorkerSubmitRequest'}}}}
+      responses:
+        '200': {description: Authoritative P04 result receipt, content: {application/json: {schema: {$ref: '#/components/schemas/ResultReceipt'}}}}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /internal/v2/worker-host/replay:
+    post:
+      operationId: replayWorkerResultV2
+      summary: Replay one exact retained Worker result request
+      tags: [Internal]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/WorkerSubmitRequest'}}}}
+      responses:
+        '200': {description: Original authoritative P04 result receipt, content: {application/json: {schema: {$ref: '#/components/schemas/ResultReceipt'}}}}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /internal/v2/worker-host/receiver-authorize:
+    post:
+      operationId: authorizeWorkerReceiverV2
+      summary: Authorize one registered receiver action
+      tags: [Internal]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ReceiverBridgeRequest'}}}}
+      responses:
+        '200': {description: Current receiver grant, content: {application/json: {schema: {$ref: '#/components/schemas/ReceiverBridgeGrant'}}}}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /internal/v2/worker-host/receiver-bootstrap:
+    post:
+      operationId: bootstrapWorkerReceiverV2
+      summary: Retrieve one registered child bootstrap
+      tags: [Internal]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/WorkerBridgeRequest'}}}}
+      responses:
+        '200': {description: Restricted Worker bootstrap, content: {application/json: {schema: {$ref: '#/components/schemas/WorkerBootstrap'}}}}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /internal/v2/worker-host/receiver-replay:
+    post:
+      operationId: replayWorkerReceiverResultV2
+      summary: Settle an exact retained child result as the registered receiver
+      tags: [Internal]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/WorkerSubmitRequest'}}}}
+      responses:
+        '200': {description: Authoritative P04 result receipt, content: {application/json: {schema: {$ref: '#/components/schemas/ResultReceipt'}}}}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /internal/v2/worker-host/receiver-archive:
+    post:
+      operationId: archiveWorkerReceiverSdkV2
+      summary: Retain exact child SDK bytes as the registered receiver
+      tags: [Internal]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/WorkerArchiveRequest'}}}}
+      responses:
+        '200': {description: Retained SDK artifact, content: {application/json: {schema: {$ref: '#/components/schemas/BlobRef'}}}}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+        '503': {$ref: '#/components/responses/Unavailable'}
 
 components:
   securitySchemes:
@@ -1121,6 +1238,227 @@ components:
               minLength: 1
               maxLength: 8192
             - type: 'null'
+    WorkerBridgeRequest:
+      type: object
+      additionalProperties: false
+      required: [assignment]
+      properties:
+        assignment: {$ref: '#/components/schemas/WorkerAssignment'}
+    WorkerReceiver:
+      type: object
+      additionalProperties: false
+      required: [receiver_id, runtime_attempt, environment_ref, pod_uid]
+      properties:
+        receiver_id: {type: string, minLength: 1, maxLength: 256}
+        runtime_attempt: {$ref: '#/components/schemas/RevisionString'}
+        environment_ref: {type: string, minLength: 1, maxLength: 256}
+        pod_uid: {type: string, minLength: 1, maxLength: 256}
+    WorkerStartStatus:
+      type: string
+      enum: [wait, ready, revoked]
+    WorkerStartPermission:
+      type: object
+      additionalProperties: false
+      required: [status, identity, start_operation_id, assignment_digest, receiver, birth_id, observation_id, source_digest, valid_until]
+      properties:
+        status: {$ref: '#/components/schemas/WorkerStartStatus'}
+        identity: {$ref: '#/components/schemas/RunIdentity'}
+        start_operation_id: {type: string, minLength: 1, maxLength: 256}
+        assignment_digest: {$ref: '#/components/schemas/Sha256Digest'}
+        receiver: {$ref: '#/components/schemas/WorkerReceiver'}
+        birth_id:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 1024}
+            - {type: 'null'}
+        observation_id:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 256}
+            - {type: 'null'}
+        source_digest:
+          oneOf:
+            - {$ref: '#/components/schemas/Sha256Digest'}
+            - {type: 'null'}
+        valid_until: {type: string, format: date-time}
+      allOf:
+        - if:
+            properties:
+              status: {const: ready}
+          then:
+            properties:
+              birth_id: {type: string, minLength: 1, maxLength: 1024}
+              observation_id: {type: string, minLength: 1, maxLength: 256}
+              source_digest: {$ref: '#/components/schemas/Sha256Digest'}
+    WorkerContext:
+      type: object
+      additionalProperties: false
+      required: [snapshot_id, read_set, record_refs, text, input_digest]
+      properties:
+        snapshot_id: {type: string, minLength: 1, maxLength: 256}
+        read_set:
+          type: array
+          maxItems: 5000
+          items: {$ref: '#/components/schemas/KnowledgeRef'}
+        record_refs:
+          type: array
+          maxItems: 5000
+          items: {$ref: '#/components/schemas/KnowledgeRef'}
+        text: {type: string, maxLength: 16777216}
+        input_digest: {$ref: '#/components/schemas/Sha256Digest'}
+    WorkerHarnessCapabilities:
+      type: object
+      additionalProperties: false
+      required: [todo, mode, file_memory, file_access, skills, shell, web_search, background_agents, outer_loop, auto_approval, compaction, restoration, mcp]
+      properties:
+        todo: {type: boolean}
+        mode: {type: boolean}
+        file_memory: {type: boolean}
+        file_access: {type: boolean}
+        skills: {type: boolean}
+        shell: {type: boolean}
+        web_search: {type: boolean}
+        background_agents: {type: boolean}
+        outer_loop: {type: boolean}
+        auto_approval: {type: boolean}
+        compaction: {type: boolean}
+        restoration: {type: boolean}
+        mcp: {type: boolean}
+    WorkerHarnessProfileBody:
+      type: object
+      additionalProperties: false
+      required: [ref, revision, work_kind, instructions, tool_definition_refs, lock_digest, max_context_records, max_context_bytes, max_output_tokens, capabilities]
+      properties:
+        ref: {type: string, minLength: 1, maxLength: 256}
+        revision: {$ref: '#/components/schemas/RevisionString'}
+        work_kind: {$ref: '#/components/schemas/WorkKind'}
+        instructions: {type: string, minLength: 1, maxLength: 32768}
+        tool_definition_refs:
+          type: array
+          minItems: 1
+          maxItems: 256
+          items: {type: string, minLength: 1, maxLength: 256}
+        lock_digest: {$ref: '#/components/schemas/Sha256Digest'}
+        max_context_records: {type: integer, minimum: 1, maximum: 5000}
+        max_context_bytes: {type: integer, minimum: 1, maximum: 16777216}
+        max_output_tokens: {type: integer, minimum: 1, maximum: 1048576}
+        capabilities: {$ref: '#/components/schemas/WorkerHarnessCapabilities'}
+    WorkerHarnessProfile:
+      type: object
+      additionalProperties: false
+      required: [ref, revision, digest, body]
+      properties:
+        ref: {type: string, minLength: 1, maxLength: 256}
+        revision: {$ref: '#/components/schemas/RevisionString'}
+        digest: {$ref: '#/components/schemas/Sha256Digest'}
+        body: {$ref: '#/components/schemas/WorkerHarnessProfileBody'}
+    WorkerToolDefinition:
+      type: object
+      additionalProperties: false
+      required: [ref, revision, published_at, name, input_schema, executor_ref, approval_required, allowed_target_kinds]
+      properties:
+        ref: {type: string, minLength: 1, maxLength: 256}
+        revision: {$ref: '#/components/schemas/RevisionString'}
+        published_at: {type: string, format: date-time}
+        name: {type: string, minLength: 1, maxLength: 256}
+        input_schema: {type: object, additionalProperties: true}
+        executor_ref: {type: string, minLength: 1, maxLength: 256}
+        approval_required: {type: boolean}
+        allowed_target_kinds:
+          type: array
+          minItems: 1
+          maxItems: 2
+          items: {type: string, enum: [workspace_read, http_target]}
+    WorkerResolvedHost:
+      type: object
+      additionalProperties: false
+      required: [profile, client_model, limits, request_timeout_seconds, tools, session_lineage]
+      properties:
+        profile: {$ref: '#/components/schemas/WorkerHarnessProfile'}
+        client_model: {type: string, minLength: 1, maxLength: 256}
+        limits: {$ref: '#/components/schemas/ExecutionLimits'}
+        request_timeout_seconds: {type: number, exclusiveMinimum: 0, maximum: 300}
+        tools:
+          type: array
+          minItems: 1
+          maxItems: 256
+          items: {$ref: '#/components/schemas/WorkerToolDefinition'}
+        session_lineage: {type: string, minLength: 1, maxLength: 256}
+    WorkerResolvedContext:
+      type: object
+      additionalProperties: false
+      required: [context, resolved, assignment_digest]
+      properties:
+        context: {$ref: '#/components/schemas/WorkerContext'}
+        resolved: {$ref: '#/components/schemas/WorkerResolvedHost'}
+        assignment_digest: {$ref: '#/components/schemas/Sha256Digest'}
+    WorkerArchiveRequest:
+      type: object
+      additionalProperties: false
+      required: [assignment, sdk_output_base64, sdk_digest]
+      properties:
+        assignment: {$ref: '#/components/schemas/WorkerAssignment'}
+        sdk_output_base64: {type: string, minLength: 1, maxLength: 22369624}
+        sdk_digest: {$ref: '#/components/schemas/Sha256Digest'}
+    WorkerSubmitRequest:
+      type: object
+      additionalProperties: false
+      required: [assignment, context, raw_output_base64, sdk_output_base64, raw_digest, sdk_digest, tool_receipts]
+      properties:
+        assignment: {$ref: '#/components/schemas/WorkerAssignment'}
+        context: {$ref: '#/components/schemas/WorkerContext'}
+        raw_output_base64: {type: string, minLength: 1, maxLength: 22369624}
+        sdk_output_base64: {type: string, minLength: 1, maxLength: 22369624}
+        raw_digest: {$ref: '#/components/schemas/Sha256Digest'}
+        sdk_digest: {$ref: '#/components/schemas/Sha256Digest'}
+        tool_receipts:
+          type: array
+          maxItems: 10000
+          items: {$ref: '#/components/schemas/ToolCallReceipt'}
+    WorkerBridgeAction:
+      type: string
+      enum: [query, start, stop, stop_after_current]
+    ReceiverBridgeRequest:
+      type: object
+      additionalProperties: false
+      required: [assignment, assignment_digest, receiver, action, control_operation_id]
+      properties:
+        assignment: {$ref: '#/components/schemas/WorkerAssignment'}
+        assignment_digest: {$ref: '#/components/schemas/Sha256Digest'}
+        receiver: {$ref: '#/components/schemas/WorkerReceiver'}
+        action: {$ref: '#/components/schemas/WorkerBridgeAction'}
+        control_operation_id:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 256}
+            - {type: 'null'}
+    ReceiverBridgeGrant:
+      type: object
+      additionalProperties: false
+      required: [identity, assignment_digest, receiver, action, subject, execution_allowed, valid_until]
+      properties:
+        identity: {$ref: '#/components/schemas/RunIdentity'}
+        assignment_digest: {$ref: '#/components/schemas/Sha256Digest'}
+        receiver: {$ref: '#/components/schemas/WorkerReceiver'}
+        action: {$ref: '#/components/schemas/WorkerBridgeAction'}
+        subject: {type: string, minLength: 1, maxLength: 256}
+        execution_allowed: {type: boolean}
+        valid_until: {type: string, format: date-time}
+    WorkerBootstrap:
+      type: object
+      additionalProperties: false
+      required: [assignment, assignment_digest, receiver, run_credential, public_key_pem, issuer, audience, host_origin, model_gate_url, tool_gate_url, wait_timeout_seconds, transport_timeout_seconds, max_transport_bytes]
+      properties:
+        assignment: {$ref: '#/components/schemas/WorkerAssignment'}
+        assignment_digest: {$ref: '#/components/schemas/Sha256Digest'}
+        receiver: {$ref: '#/components/schemas/WorkerReceiver'}
+        run_credential: {type: string, minLength: 1, maxLength: 16384, writeOnly: true}
+        public_key_pem: {type: string, minLength: 1, maxLength: 16384}
+        issuer: {type: string, minLength: 1, maxLength: 2048}
+        audience: {type: string, minLength: 1, maxLength: 2048}
+        host_origin: {type: string, minLength: 1, maxLength: 2048}
+        model_gate_url: {type: string, minLength: 1, maxLength: 2048}
+        tool_gate_url: {type: string, minLength: 1, maxLength: 2048}
+        wait_timeout_seconds: {type: integer, minimum: 1, maximum: 300}
+        transport_timeout_seconds: {type: integer, minimum: 1, maximum: 60}
+        max_transport_bytes: {type: integer, minimum: 1, maximum: 67108864}
     GoalCriterionRef:
       type: object
       additionalProperties: false

@@ -412,6 +412,159 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/internal/v2/worker-host/await-start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Read the current durable Worker start permission */
+        post: operations["awaitWorkerStartV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/v2/worker-host/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resolve authorized frozen Worker context and profiles */
+        post: operations["resolveWorkerHostV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/v2/worker-host/archive-sdk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Archive exact Worker SDK bytes */
+        post: operations["archiveWorkerSdkV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/v2/worker-host/submit-result": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit exact Worker output through the authoritative result sink */
+        post: operations["submitWorkerResultV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/v2/worker-host/replay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Replay one exact retained Worker result request */
+        post: operations["replayWorkerResultV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/v2/worker-host/receiver-authorize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Authorize one registered receiver action */
+        post: operations["authorizeWorkerReceiverV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/v2/worker-host/receiver-bootstrap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retrieve one registered child bootstrap */
+        post: operations["bootstrapWorkerReceiverV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/v2/worker-host/receiver-replay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Settle an exact retained child result as the registered receiver */
+        post: operations["replayWorkerReceiverResultV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/v2/worker-host/receiver-archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retain exact child SDK bytes as the registered receiver */
+        post: operations["archiveWorkerReceiverSdkV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -687,6 +840,143 @@ export interface components {
             tool_definition_refs: string[];
             limits: components["schemas"]["ExecutionLimits"];
             resume_reason: string | null;
+        };
+        WorkerBridgeRequest: {
+            assignment: components["schemas"]["WorkerAssignment"];
+        };
+        WorkerReceiver: {
+            receiver_id: string;
+            runtime_attempt: components["schemas"]["RevisionString"];
+            environment_ref: string;
+            pod_uid: string;
+        };
+        /** @enum {string} */
+        WorkerStartStatus: "wait" | "ready" | "revoked";
+        WorkerStartPermission: {
+            status: components["schemas"]["WorkerStartStatus"];
+            identity: components["schemas"]["RunIdentity"];
+            start_operation_id: string;
+            assignment_digest: components["schemas"]["Sha256Digest"];
+            receiver: components["schemas"]["WorkerReceiver"];
+            birth_id: string | null;
+            observation_id: string | null;
+            source_digest: components["schemas"]["Sha256Digest"] | null;
+            /** Format: date-time */
+            valid_until: string;
+        } & unknown;
+        WorkerContext: {
+            snapshot_id: string;
+            read_set: components["schemas"]["KnowledgeRef"][];
+            record_refs: components["schemas"]["KnowledgeRef"][];
+            text: string;
+            input_digest: components["schemas"]["Sha256Digest"];
+        };
+        WorkerHarnessCapabilities: {
+            todo: boolean;
+            mode: boolean;
+            file_memory: boolean;
+            file_access: boolean;
+            skills: boolean;
+            shell: boolean;
+            web_search: boolean;
+            background_agents: boolean;
+            outer_loop: boolean;
+            auto_approval: boolean;
+            compaction: boolean;
+            restoration: boolean;
+            mcp: boolean;
+        };
+        WorkerHarnessProfileBody: {
+            ref: string;
+            revision: components["schemas"]["RevisionString"];
+            work_kind: components["schemas"]["WorkKind"];
+            instructions: string;
+            tool_definition_refs: string[];
+            lock_digest: components["schemas"]["Sha256Digest"];
+            max_context_records: number;
+            max_context_bytes: number;
+            max_output_tokens: number;
+            capabilities: components["schemas"]["WorkerHarnessCapabilities"];
+        };
+        WorkerHarnessProfile: {
+            ref: string;
+            revision: components["schemas"]["RevisionString"];
+            digest: components["schemas"]["Sha256Digest"];
+            body: components["schemas"]["WorkerHarnessProfileBody"];
+        };
+        WorkerToolDefinition: {
+            ref: string;
+            revision: components["schemas"]["RevisionString"];
+            /** Format: date-time */
+            published_at: string;
+            name: string;
+            input_schema: {
+                [key: string]: unknown;
+            };
+            executor_ref: string;
+            approval_required: boolean;
+            allowed_target_kinds: ("workspace_read" | "http_target")[];
+        };
+        WorkerResolvedHost: {
+            profile: components["schemas"]["WorkerHarnessProfile"];
+            client_model: string;
+            limits: components["schemas"]["ExecutionLimits"];
+            request_timeout_seconds: number;
+            tools: components["schemas"]["WorkerToolDefinition"][];
+            session_lineage: string;
+        };
+        WorkerResolvedContext: {
+            context: components["schemas"]["WorkerContext"];
+            resolved: components["schemas"]["WorkerResolvedHost"];
+            assignment_digest: components["schemas"]["Sha256Digest"];
+        };
+        WorkerArchiveRequest: {
+            assignment: components["schemas"]["WorkerAssignment"];
+            sdk_output_base64: string;
+            sdk_digest: components["schemas"]["Sha256Digest"];
+        };
+        WorkerSubmitRequest: {
+            assignment: components["schemas"]["WorkerAssignment"];
+            context: components["schemas"]["WorkerContext"];
+            raw_output_base64: string;
+            sdk_output_base64: string;
+            raw_digest: components["schemas"]["Sha256Digest"];
+            sdk_digest: components["schemas"]["Sha256Digest"];
+            tool_receipts: components["schemas"]["ToolCallReceipt"][];
+        };
+        /** @enum {string} */
+        WorkerBridgeAction: "query" | "start" | "stop" | "stop_after_current";
+        ReceiverBridgeRequest: {
+            assignment: components["schemas"]["WorkerAssignment"];
+            assignment_digest: components["schemas"]["Sha256Digest"];
+            receiver: components["schemas"]["WorkerReceiver"];
+            action: components["schemas"]["WorkerBridgeAction"];
+            control_operation_id: string | null;
+        };
+        ReceiverBridgeGrant: {
+            identity: components["schemas"]["RunIdentity"];
+            assignment_digest: components["schemas"]["Sha256Digest"];
+            receiver: components["schemas"]["WorkerReceiver"];
+            action: components["schemas"]["WorkerBridgeAction"];
+            subject: string;
+            execution_allowed: boolean;
+            /** Format: date-time */
+            valid_until: string;
+        };
+        WorkerBootstrap: {
+            assignment: components["schemas"]["WorkerAssignment"];
+            assignment_digest: components["schemas"]["Sha256Digest"];
+            receiver: components["schemas"]["WorkerReceiver"];
+            run_credential: string;
+            public_key_pem: string;
+            issuer: string;
+            audience: string;
+            host_origin: string;
+            model_gate_url: string;
+            tool_gate_url: string;
+            wait_timeout_seconds: number;
+            transport_timeout_seconds: number;
+            max_transport_bytes: number;
         };
         GoalCriterionRef: {
             criterion_id: string;
@@ -1999,6 +2289,267 @@ export interface operations {
             409: components["responses"]["Conflict"];
             422: components["responses"]["InvalidSchema"];
             429: components["responses"]["LimitBlocked"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    awaitWorkerStartV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkerBridgeRequest"];
+            };
+        };
+        responses: {
+            /** @description Current start permission */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkerStartPermission"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidSchema"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    resolveWorkerHostV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkerBridgeRequest"];
+            };
+        };
+        responses: {
+            /** @description Authorized Worker context and profiles */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkerResolvedContext"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidSchema"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    archiveWorkerSdkV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkerArchiveRequest"];
+            };
+        };
+        responses: {
+            /** @description Retained SDK artifact */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlobRef"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidSchema"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    submitWorkerResultV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkerSubmitRequest"];
+            };
+        };
+        responses: {
+            /** @description Authoritative P04 result receipt */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResultReceipt"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidSchema"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    replayWorkerResultV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkerSubmitRequest"];
+            };
+        };
+        responses: {
+            /** @description Original authoritative P04 result receipt */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResultReceipt"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidSchema"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    authorizeWorkerReceiverV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReceiverBridgeRequest"];
+            };
+        };
+        responses: {
+            /** @description Current receiver grant */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReceiverBridgeGrant"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidSchema"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    bootstrapWorkerReceiverV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkerBridgeRequest"];
+            };
+        };
+        responses: {
+            /** @description Restricted Worker bootstrap */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkerBootstrap"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidSchema"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    replayWorkerReceiverResultV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkerSubmitRequest"];
+            };
+        };
+        responses: {
+            /** @description Authoritative P04 result receipt */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResultReceipt"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidSchema"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    archiveWorkerReceiverSdkV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkerArchiveRequest"];
+            };
+        };
+        responses: {
+            /** @description Retained SDK artifact */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlobRef"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidSchema"];
             503: components["responses"]["Unavailable"];
         };
     };

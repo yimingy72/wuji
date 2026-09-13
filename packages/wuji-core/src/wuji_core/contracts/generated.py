@@ -270,6 +270,11 @@ class AllowedAction(RootModel[StrictStr]):
     root: Annotated[StrictStr, Field(max_length=128, min_length=1)]
 
 
+class AllowedTargetKind(StrEnum):
+    workspace_read = 'workspace_read'
+    http_target = 'http_target'
+
+
 class ApiSchemaVersion(RootModel[Literal['wuji.api.v2']]):
     root: Literal['wuji.api.v2']
 
@@ -392,6 +397,10 @@ class BillingState(StrEnum):
     pending = 'pending'
     reported = 'reported'
     unknown = 'unknown'
+
+
+class BirthId(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=1024, min_length=1)]
 
 
 class BlobRef(BaseModel):
@@ -659,6 +668,10 @@ class ControlAction(StrEnum):
     stop_after_current = 'stop_after_current'
     stop = 'stop'
     query = 'query'
+
+
+class ControlOperationId(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
 
 
 class ControlReceipt(BaseModel):
@@ -1074,6 +1087,10 @@ class NodeEntityType(StrEnum):
     report = 'report'
 
 
+class ObservationId(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+
+
 class ObservationRecord(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -1147,6 +1164,30 @@ class ReasonDecisionPayload(BaseModel):
     decision: ReasonDecision
     wait_refs: Annotated[list[WaitRef], Field(max_length=128)]
     reason: Annotated[StrictStr, Field(max_length=32768, min_length=1)]
+
+
+class ReceiverBridgeGrant(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    identity: RunIdentity
+    assignment_digest: Sha256Digest
+    receiver: WorkerReceiver
+    action: WorkerBridgeAction
+    subject: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    execution_allowed: StrictBool
+    valid_until: AwareDatetime
+
+
+class ReceiverBridgeRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    assignment: WorkerAssignment
+    assignment_digest: Sha256Digest
+    receiver: WorkerReceiver
+    action: WorkerBridgeAction
+    control_operation_id: ControlOperationId | None
 
 
 class RecordView(BaseModel):
@@ -1788,6 +1829,15 @@ class WorkState(StrEnum):
     cancelled = 'cancelled'
 
 
+class WorkerArchiveRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    assignment: WorkerAssignment
+    sdk_output_base64: Annotated[StrictStr, Field(max_length=22369624, min_length=1)]
+    sdk_digest: Sha256Digest
+
+
 class WorkerAssignment(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -1804,6 +1854,50 @@ class WorkerAssignment(BaseModel):
     resume_reason: ResumeReason | None
 
 
+class WorkerBootstrap(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    assignment: WorkerAssignment
+    assignment_digest: Sha256Digest
+    receiver: WorkerReceiver
+    run_credential: Annotated[StrictStr, Field(max_length=16384, min_length=1)]
+    public_key_pem: Annotated[StrictStr, Field(max_length=16384, min_length=1)]
+    issuer: Annotated[StrictStr, Field(max_length=2048, min_length=1)]
+    audience: Annotated[StrictStr, Field(max_length=2048, min_length=1)]
+    host_origin: Annotated[StrictStr, Field(max_length=2048, min_length=1)]
+    model_gate_url: Annotated[StrictStr, Field(max_length=2048, min_length=1)]
+    tool_gate_url: Annotated[StrictStr, Field(max_length=2048, min_length=1)]
+    wait_timeout_seconds: Annotated[StrictInt, Field(ge=1, le=300)]
+    transport_timeout_seconds: Annotated[StrictInt, Field(ge=1, le=60)]
+    max_transport_bytes: Annotated[StrictInt, Field(ge=1, le=67108864)]
+
+
+class WorkerBridgeAction(StrEnum):
+    query = 'query'
+    start = 'start'
+    stop = 'stop'
+    stop_after_current = 'stop_after_current'
+
+
+class WorkerBridgeRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    assignment: WorkerAssignment
+
+
+class WorkerContext(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    snapshot_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    read_set: Annotated[list[KnowledgeRef], Field(max_length=5000)]
+    record_refs: Annotated[list[KnowledgeRef], Field(max_length=5000)]
+    text: Annotated[StrictStr, Field(max_length=16777216)]
+    input_digest: Sha256Digest
+
+
 class WorkerControl(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -1813,3 +1907,131 @@ class WorkerControl(BaseModel):
     identity: RunIdentity
     action: ControlAction
     reason: Annotated[StrictStr, Field(max_length=8192, min_length=1)]
+
+
+class WorkerHarnessCapabilities(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    todo: StrictBool
+    mode: StrictBool
+    file_memory: StrictBool
+    file_access: StrictBool
+    skills: StrictBool
+    shell: StrictBool
+    web_search: StrictBool
+    background_agents: StrictBool
+    outer_loop: StrictBool
+    auto_approval: StrictBool
+    compaction: StrictBool
+    restoration: StrictBool
+    mcp: StrictBool
+
+
+class WorkerHarnessProfile(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    ref: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    revision: RevisionString
+    digest: Sha256Digest
+    body: WorkerHarnessProfileBody
+
+
+class WorkerHarnessProfileBody(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    ref: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    revision: RevisionString
+    work_kind: WorkKind
+    instructions: Annotated[StrictStr, Field(max_length=32768, min_length=1)]
+    tool_definition_refs: Annotated[
+        list[ToolDefinitionRef], Field(max_length=256, min_length=1)
+    ]
+    lock_digest: Sha256Digest
+    max_context_records: Annotated[StrictInt, Field(ge=1, le=5000)]
+    max_context_bytes: Annotated[StrictInt, Field(ge=1, le=16777216)]
+    max_output_tokens: Annotated[StrictInt, Field(ge=1, le=1048576)]
+    capabilities: WorkerHarnessCapabilities
+
+
+class WorkerReceiver(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    receiver_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    runtime_attempt: RevisionString
+    environment_ref: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    pod_uid: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+
+
+class WorkerResolvedContext(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    context: WorkerContext
+    resolved: WorkerResolvedHost
+    assignment_digest: Sha256Digest
+
+
+class WorkerResolvedHost(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    profile: WorkerHarnessProfile
+    client_model: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    limits: ExecutionLimits
+    request_timeout_seconds: Annotated[StrictFloat, Field(gt=0.0, le=300.0)]
+    tools: Annotated[list[WorkerToolDefinition], Field(max_length=256, min_length=1)]
+    session_lineage: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+
+
+class WorkerStartPermission(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    status: WorkerStartStatus
+    identity: RunIdentity
+    start_operation_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    assignment_digest: Sha256Digest
+    receiver: WorkerReceiver
+    birth_id: BirthId | None
+    observation_id: ObservationId | None
+    source_digest: Sha256Digest | None
+    valid_until: AwareDatetime
+
+
+class WorkerStartStatus(StrEnum):
+    wait = 'wait'
+    ready = 'ready'
+    revoked = 'revoked'
+
+
+class WorkerSubmitRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    assignment: WorkerAssignment
+    context: WorkerContext
+    raw_output_base64: Annotated[StrictStr, Field(max_length=22369624, min_length=1)]
+    sdk_output_base64: Annotated[StrictStr, Field(max_length=22369624, min_length=1)]
+    raw_digest: Sha256Digest
+    sdk_digest: Sha256Digest
+    tool_receipts: Annotated[list[ToolCallReceipt], Field(max_length=10000)]
+
+
+class WorkerToolDefinition(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    ref: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    revision: RevisionString
+    published_at: AwareDatetime
+    name: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    input_schema: dict[str, Any]
+    executor_ref: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    approval_required: StrictBool
+    allowed_target_kinds: Annotated[
+        list[AllowedTargetKind], Field(max_length=2, min_length=1)
+    ]
