@@ -22,8 +22,12 @@ from wuji_core.persistence.admission_schema import (
     upgrade as upgrade_admission,
 )
 from wuji_core.persistence.admission_hardening_schema import (
-    HEAD,
+    HEAD as ADMISSION_HARDENING_HEAD,
     upgrade as upgrade_admission_hardening,
+)
+from wuji_core.persistence.admission_request_guard_schema import (
+    HEAD,
+    upgrade as upgrade_admission_request_guards,
 )
 
 OWNER = "tenant_id,project_id,task_id"
@@ -369,10 +373,10 @@ def migrate(connection, *, application_role: str) -> None:
         ).fetchone()[0]
         if existing:
             heads = {r[0] for r in connection.execute("SELECT head FROM vnext.schema_migration").fetchall()}
-            chain = [BASE_HEAD, EVIDENCE_HEAD, KNOWLEDGE_HEAD, VISIBILITY_HEAD, FRESHNESS_HEAD, CONTROL_HEAD, ADMISSION_HEAD, HEAD]
+            chain = [BASE_HEAD, EVIDENCE_HEAD, KNOWLEDGE_HEAD, VISIBILITY_HEAD, FRESHNESS_HEAD, CONTROL_HEAD, ADMISSION_HEAD, ADMISSION_HARDENING_HEAD, HEAD]
             if not heads or heads != set(chain[:len(heads)]):
                 raise ValueError("unrecognized vnext migration head")
-            upgrades = [_upgrade_evidence_authority, upgrade_knowledge, upgrade_visibility, upgrade_input_freshness, upgrade_control, upgrade_admission, upgrade_admission_hardening]
+            upgrades = [_upgrade_evidence_authority, upgrade_knowledge, upgrade_visibility, upgrade_input_freshness, upgrade_control, upgrade_admission, upgrade_admission_hardening, upgrade_admission_request_guards]
             for upgrade in upgrades[len(heads)-1:]:
                 upgrade(connection, application_role)
             return
@@ -480,3 +484,4 @@ def migrate(connection, *, application_role: str) -> None:
         upgrade_control(connection, application_role)
         upgrade_admission(connection, application_role)
         upgrade_admission_hardening(connection, application_role)
+        upgrade_admission_request_guards(connection, application_role)
