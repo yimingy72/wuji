@@ -1,0 +1,71 @@
+$ p08_red_sha=$(git rev-parse HEAD)
+$ printf 'P08_RED_SHA=%s\n' "$p08_red_sha"
+P08_RED_SHA=29a09e088d504afdcbd1323fdbd229f90718a157
+$ ./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_session_approval.py::test_session_repository_exposes_frozen_publish_and_load_contract -q
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_______ test_session_repository_exposes_frozen_publish_and_load_contract _______
+
+    def session_repository_type():
+        """Return the production repository type without a test substitute."""
+
+        try:
+>           module = import_module("wuji_core.execution.sessions")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/support/p08.py:16:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+name = 'wuji_core.execution.sessions', package = None
+
+    def import_module(name, package=None):
+        """Import a module.
+
+        The 'package' argument is required when performing a relative import. It
+        specifies the package to use as the anchor point from which to resolve the
+        relative import to an absolute import.
+
+        """
+        level = 0
+        if name.startswith('.'):
+            if not package:
+                raise TypeError("the 'package' argument is required to perform a "
+                                f"relative import for {name!r}")
+            for character in name:
+                if character != '.':
+                    break
+                level += 1
+>       return _bootstrap._gcd_import(name[level:], package, level)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ModuleNotFoundError: No module named 'wuji_core.execution.sessions'
+
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: ModuleNotFoundError
+
+The above exception was the direct cause of the following exception:
+
+    def test_session_repository_exposes_frozen_publish_and_load_contract():
+>       repository_type = session_repository_type()
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_session_approval.py:9:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def session_repository_type():
+        """Return the production repository type without a test substitute."""
+
+        try:
+            module = import_module("wuji_core.execution.sessions")
+        except ModuleNotFoundError as error:
+            if error.name != "wuji_core.execution.sessions":
+                raise
+>           raise AssertionError(
+                "P08 SessionRepository production module is absent"
+            ) from error
+E           AssertionError: P08 SessionRepository production module is absent
+
+tests/vnext/support/p08.py:20: AssertionError
+=========================== short test summary info ============================
+FAILED tests/vnext/test_session_approval.py::test_session_repository_exposes_frozen_publish_and_load_contract
+1 failed in 0.05s
+
+exit_code=1

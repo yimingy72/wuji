@@ -1,0 +1,6 @@
+$ ./scripts/vnext/uv.sh run --frozen pytest --collect-only tests/vnext/test_session_approval.py -q
+tests/vnext/test_session_approval.py::test_session_repository_exposes_frozen_publish_and_load_contract
+
+1 test collected in 0.01s
+
+exit_code=0
