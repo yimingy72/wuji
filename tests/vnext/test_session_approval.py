@@ -493,6 +493,19 @@ def test_real_rejection_http_restores_native_denial_without_execution(
                 "ORDER BY pool_key",
                 (case.assignment.identity.agent_run_id,),
             ).fetchall()
+            result = connection.execute(
+                "SELECT receipt.receipt_json,run.result_state "
+                "FROM vnext.agent_run run JOIN vnext.result_submission submission ON "
+                "(submission.tenant_id,submission.project_id,submission.task_id,"
+                "submission.agent_run_id,submission.submission_id)="
+                "(run.tenant_id,run.project_id,run.task_id,run.agent_run_id,"
+                "run.result_submission_id) JOIN vnext.result_receipt receipt ON "
+                "(receipt.tenant_id,receipt.project_id,receipt.task_id,"
+                "receipt.submission_id)=(submission.tenant_id,submission.project_id,"
+                "submission.task_id,submission.submission_id) "
+                "WHERE run.agent_run_id=%s",
+                (resumed_assignment.identity.agent_run_id,),
+            ).fetchone()
         assert approval == ("reject", "decided", None, None)
         assert call == ("cancelled", None)
         assert attempts == 0
@@ -505,6 +518,11 @@ def test_real_rejection_http_restores_native_denial_without_execution(
         )
         assert retired == (True, True)
         assert capacity and {state for (state,) in capacity} == {"released"}
+        result_receipt = strict_json_loads(result[0])
+        assert result[1] == "accepted"
+        assert result_receipt["status"] == "accepted"
+        assert result_receipt["code"] is None
+        assert result_receipt["components"] == []
 
 
 def _published_session(case):

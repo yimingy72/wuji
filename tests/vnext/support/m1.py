@@ -295,10 +295,10 @@ class NativeSseModel:
                                         "tool receipt lacks a persisted Observation"
                                     )
                                 owner.received_tool_receipt = receipt
+                                response_body = owner._final_stream(observation_ref)
                             else:
-                                observation_ref = "native-rejection-confirmed"
                                 owner.received_rejection = rejections[0]
-                            response_body = owner._final_stream(observation_ref)
+                                response_body = owner._rejection_stream()
                         else:
                             raise ValueError(
                                 "synthetic model received an unbounded request"
@@ -440,6 +440,42 @@ class NativeSseModel:
             },
             {
                 "id": "chatcmpl-m1-final",
+                "object": "chat.completion.chunk",
+                "created": 2,
+                "model": "fixture-upstream-model",
+                "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+            },
+        )
+
+    @staticmethod
+    def _rejection_stream() -> bytes:
+        payload = {
+            "schema_version": "wuji.agent-payload.v2",
+            "claims": [],
+            "intent_proposals": [],
+            "limitations": [
+                "The requested workspace read was rejected before execution."
+            ],
+        }
+        return _sse(
+            {
+                "id": "chatcmpl-m1-rejected",
+                "object": "chat.completion.chunk",
+                "created": 2,
+                "model": "fixture-upstream-model",
+                "choices": [
+                    {
+                        "index": 0,
+                        "delta": {
+                            "role": "assistant",
+                            "content": canonical_json_bytes(payload).decode("utf-8"),
+                        },
+                        "finish_reason": None,
+                    }
+                ],
+            },
+            {
+                "id": "chatcmpl-m1-rejected",
                 "object": "chat.completion.chunk",
                 "created": 2,
                 "model": "fixture-upstream-model",
