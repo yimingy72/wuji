@@ -1,0 +1,273 @@
+.topology {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.container {
+  display: grid;
+  gap: 12px;
+}
+
+.containerStatus {
+  display: grid;
+  min-height: 240px;
+  place-items: center;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.toolbar > div {
+  display: grid;
+  gap: 4px;
+}
+
+.toolbar span,
+.state {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.notice {
+  margin: 0;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--warning-border);
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+.canvas {
+  height: min(620px, 68vh);
+  min-height: 440px;
+  background: var(--canvas);
+}
+
+.canvas :global(.react-flow__edge-path) {
+  stroke: var(--border);
+  stroke-width: 1.5;
+}
+
+.canvas :global(.react-flow__edge-text) {
+  fill: var(--muted);
+  font-size: 10px;
+}
+
+.canvas :global(.react-flow__edge-textbg) {
+  fill: var(--surface);
+}
+
+.canvas :global(.react-flow__controls) {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  box-shadow: none;
+}
+
+.canvas :global(.react-flow__controls-button) {
+  border-color: var(--line);
+  background: var(--surface);
+  fill: var(--text);
+}
+
+.canvas :global(.react-flow__background) {
+  color: var(--line);
+}
+
+.nodeCard {
+  width: 224px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--node);
+  color: var(--text);
+}
+
+.nodeCard[data-display-kind='fact'] {
+  border-color: var(--success-border);
+}
+
+.nodeSelect {
+  display: grid;
+  width: 100%;
+  gap: 7px;
+  padding: 12px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.nodeSelect[aria-pressed='true'] {
+  background: var(--selected);
+  box-shadow: inset 0 0 0 2px var(--selected-border);
+}
+
+.nodeSelect:focus-visible,
+.listSelect:focus-visible,
+.inlineAction:focus-visible,
+.nodeActions button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.nodeSelect strong,
+.listSelect strong {
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.nodeSelect code,
+.listSelect code {
+  overflow-wrap: anywhere;
+  color: var(--code-text);
+  font-size: 10px;
+}
+
+.kind {
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.nodeActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 10px 10px;
+}
+
+.nodeActions button,
+.inlineAction {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--raised);
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 10px;
+}
+
+.nodeActions button {
+  padding: 5px 7px;
+}
+
+.listView {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(320px, .85fr);
+  gap: 20px;
+  padding: 16px;
+}
+
+.nodeList,
+.relationList ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.listItem {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.listSelect {
+  display: grid;
+  flex: 1;
+  grid-template-columns: 100px minmax(0, 1fr) minmax(180px, .8fr) 110px;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--raised);
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.listSelect[aria-pressed='true'] {
+  border-color: var(--selected-border);
+  background: var(--selected);
+}
+
+.inlineAction {
+  padding: 8px 10px;
+}
+
+.relationList {
+  min-width: 0;
+  padding-left: 18px;
+  border-left: 1px solid var(--line);
+}
+
+.relationList h3 {
+  margin-top: 0;
+}
+
+.relationList li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px 10px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--canvas);
+}
+
+.relationList li > span:last-child {
+  grid-column: 1 / -1;
+  color: var(--muted);
+}
+
+.relationList code {
+  overflow-wrap: anywhere;
+  font-size: 10px;
+}
+
+@media (max-width: 1000px) {
+  .listView {
+    grid-template-columns: 1fr;
+  }
+
+  .relationList {
+    padding-top: 16px;
+    padding-left: 0;
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+}
+
+@media (max-width: 680px) {
+  .toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .listSelect {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .topology * {
+    transition: none !important;
+  }
+}

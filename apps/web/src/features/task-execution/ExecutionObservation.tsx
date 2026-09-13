@@ -1,4 +1,5 @@
 import { AssessmentPanel } from './AssessmentPanel';
+import { TopologyContainer } from '../topology/TopologyContainer';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Alert, Button } from 'antd';
@@ -9,7 +10,7 @@ import styles from './execution.module.css';
 type Context = {session: Session; projectId: string; task: Task; visible: boolean};
 type ToolCall = Awaited<ReturnType<typeof getToolCalls>>['items'][number];
 type Selection = {kind: 'fact' | 'intent'; id: string} | null;
-type MainView = 'blackboard' | 'timeline' | 'workspace';
+type MainView = 'topology' | 'blackboard' | 'timeline' | 'workspace';
 type WorkspaceView = 'agents' | 'tools' | 'artifacts' | 'result' | 'assessment';
 const phases = {bootstrap: '任务初始化', reason: '证据推理', explore: '探索执行'};
 const knownStates: Record<string, string> = {
@@ -161,7 +162,7 @@ function Result({onAssessment, ...context}: Context & {onAssessment: () => void}
 }
 
 export function ExecutionObservation({session, projectId, task, timeline}: Omit<Context, 'visible'> & {timeline: ReactNode}) {
-  const [view, setView] = useState<MainView>('blackboard');
+  const [view, setView] = useState<MainView>('topology');
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>('agents');
   const [selection, setSelection] = useState<Selection>(null);
   const [agentRunId, setAgentRunId] = useState<string | undefined>();
@@ -178,10 +179,11 @@ export function ExecutionObservation({session, projectId, task, timeline}: Omit<
   }, [session.user_id, session.permissions_version, projectId, task.id]);
   return <section className={styles.panel} aria-label="任务工作台">
     <header className={styles.heading}>
-      <nav className={styles.tabs} aria-label="任务主视图">{([{id: 'blackboard', label: '黑板'}, {id: 'timeline', label: '时间线'}, {id: 'workspace', label: '工作区'}] as const).map(item => <Button key={item.id} type={item.id === view ? 'primary' : 'default'} aria-pressed={item.id === view} onClick={() => setView(item.id)}>{item.label}</Button>)}</nav>
+      <nav className={styles.tabs} aria-label="任务主视图">{([{id: 'topology', label: '拓扑'}, {id: 'blackboard', label: '黑板'}, {id: 'timeline', label: '时间线'}, {id: 'workspace', label: '工作区'}] as const).map(item => <Button key={item.id} type={item.id === view ? 'primary' : 'default'} aria-pressed={item.id === view} onClick={() => setView(item.id)}>{item.label}</Button>)}</nav>
       <span>{isActive(task) ? '运行中每 5 秒核对' : '当前记录'}</span>
     </header>
     <div className={styles.body}>
+      {view === 'topology' && <TopologyContainer taskId={task.id} mode="live" />}
       {view === 'blackboard' && <Blackboard {...context} selection={selection} onSelect={setSelection} onSelectRun={selectRun} />}
       {view === 'timeline' && <><p className={styles.muted}>已读取的真实任务事件；历史查看不会重新执行。</p>{timeline}</>}
       {view === 'workspace' && <>
