@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "node:test";
@@ -58,6 +58,7 @@ test("observe persists only actual files from the fixed worker directory", async
       sdk: await readFile(join(directory, "sdk-request.json"), "utf8"),
       result: await readFile(join(directory, "result-request.json"), "utf8"),
     });
+    return { id: "sdk-artifact", version: "1", sha256: "a".repeat(64) };
   });
   try {
     await value.supervisor.start(
@@ -120,3 +121,50 @@ test("a result persistence failure cannot report the child as exited", async () 
     await rm(value.directory, { recursive: true, force: true });
   }
 });
+
+for (const [label, persistResults] of [
+  ["missing", undefined],
+  ["empty", async () => null],
+]) {
+  test(`produced result files with a ${label} settlement stay unknown`, async () => {
+    const value = await fixture(`persist-${label}`, persistResults);
+    try {
+      await value.supervisor.start(
+        {
+          start_operation_id: value.assignment.operation_id,
+          assignment: value.assignment,
+          profile_id: "harmless-node-v1",
+        },
+        { subject: "service:m2-controller" },
+      );
+      await waitFor(async () => {
+        const launches = await readdir(join(value.directory, "inbox", "launches"));
+        if (launches.length !== 1) return null;
+        const proof = JSON.parse(
+          await readFile(
+            join(
+              value.directory,
+              "inbox",
+              "launches",
+              launches[0],
+              "process.json",
+            ),
+            "utf8",
+          ),
+        );
+        return proof.body.state === "exited";
+      });
+      const observed = await value.supervisor.query(
+        value.assignment.operation_id,
+        { subject: "service:m2-controller" },
+      );
+
+      assert.equal(observed.state, "unknown");
+      assert.equal(observed.observation.kind, "unknown");
+      assert.ok(observed.observation.process?.birth_id);
+    } finally {
+      await value.supervisor.close();
+      await rm(value.directory, { recursive: true, force: true });
+    }
+  });
+}

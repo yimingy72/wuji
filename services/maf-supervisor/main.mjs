@@ -24,6 +24,20 @@ function validateIdentity(identity) {
     throw new SupervisorError('INVALID_RUN_IDENTITY', 422);
   }
 }
+function durableSettlement(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  if (exactKeys(value, ['id', 'version', 'sha256'])) {
+    return text(value.id) && revision.test(value.version)
+      && typeof value.sha256 === 'string' && /^[a-f0-9]{64}$/.test(value.sha256);
+  }
+  if (exactKeys(value, ['submission_id', 'status', 'components', 'request_id', 'code'])) {
+    return text(value.submission_id) && text(value.request_id)
+      && ['received', 'accepted', 'rejected', 'historical_only'].includes(value.status)
+      && Array.isArray(value.components)
+      && (value.code === null || text(value.code));
+  }
+  return false;
+}
 function observation(record, kind, processRecord, reason) {
   const body = { receipt_id: nonce(), identity: record.assignment.identity,
     operation_id: record.operation_id, environment_ref: record.receiver.environment_ref,
@@ -36,12 +50,13 @@ export class NodeSupervisor {
   static async open(options) { return new NodeSupervisor(options); }
 
   constructor({ inboxDir, receiver, profiles, authorize, bootstrap = async () => {},
-    persistResults = async () => {}, fault = async () => {}, spawnWaitMs = 3000,
+    persistResults = null, fault = async () => {}, spawnWaitMs = 3000,
     maxLogBytes = 1048576 }) {
     if (!exactKeys(receiver, receiverKeys) || receiverKeys.some(k => !text(receiver[k]))
         || !revision.test(receiver.runtime_attempt)) throw new SupervisorError('INVALID_RECEIVER', 422);
     if (typeof authorize !== 'function' || typeof bootstrap !== 'function'
-        || typeof persistResults !== 'function' || typeof fault !== 'function') {
+        || persistResults !== null && typeof persistResults !== 'function'
+        || typeof fault !== 'function') {
       throw new SupervisorError('AUTHORIZATION_ADAPTER_REQUIRED', 503);
     }
     if (!Number.isSafeInteger(spawnWaitMs) || spawnWaitMs < 1 || spawnWaitMs > 30000
@@ -137,10 +152,14 @@ export class NodeSupervisor {
     const directory = join(record.directory, 'worker');
     if (!existsSync(join(directory, 'result-request.json'))
         && !existsSync(join(directory, 'sdk-request.json'))) return;
-    await this.persistResults({
+    const settlement = await this.persistResults?.({
       assignment: parseJson(canonical(record.assignment)),
       directory,
     });
+    if (!durableSettlement(settlement)) {
+      throw new SupervisorError('RESULT_PERSISTENCE_UNCONFIRMED', 503);
+    }
+    return settlement;
   }
 
   async observe(record) {
