@@ -158,7 +158,8 @@ class ToolAdmission:
         _arguments(definition, request.arguments)
         values = (request.session_lineage, request.message_id, request.provider_call_id, request.tool_definition_ref)
         call = row(tx.connection.execute("SELECT * FROM vnext.tool_call WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND session_lineage=%s AND message_id=%s AND provider_call_id=%s AND tool_definition_version=%s", (*tx.owner, *values)))
-        call_digest = digest({"tool_definition_ref": request.tool_definition_ref, "arguments": request.arguments, "sdk_content_id": request.sdk_content_id, "sdk_approval_id": request.sdk_approval_id})
+        request_values = request.model_dump(mode="python")
+        call_digest = digest({"tool_definition_ref": request.tool_definition_ref, "arguments": request.arguments, "sdk_content_id": request_values["sdk_content_id"], "sdk_approval_id": request_values["sdk_approval_id"]})
         if call:
             if call["access_level"] > tx.permissions["clearance"] or call["work_item_id"] != work["work_item_id"]:
                 raise DomainError("NOT_FOUND_OR_FORBIDDEN")

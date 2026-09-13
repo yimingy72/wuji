@@ -118,7 +118,7 @@ class MafRuntime:
         limits = resolved["limits"]
         identity = ModelCallIdentity(resolved["tools"], max_bytes=limits["max_single_output_bytes"])
         self.identity_mapping = identity.mapping
-        timeout = httpx.Timeout(resolved["request_timeout_seconds"])
+        timeout = httpx.Timeout(float(resolved["request_timeout_seconds"]))
         sdk_lines = []
         retained = 0
 
