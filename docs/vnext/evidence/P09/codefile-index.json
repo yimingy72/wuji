@@ -1,0 +1,1335 @@
+{
+  "type": "immutable_git_source_archive_not_runtime_fingerprint",
+  "archive": "codefiles.tar.gz",
+  "entries": [
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "packages/maf-worker/pyproject.toml",
+      "git_blob": "d78daf5786e7a30fadc6e94ab7b20896b72975e6",
+      "sha256": "b569e4d51d14f46334c7030d0009146ff87cc79583ef70b3ffd8f457e3fbefaa",
+      "bytes": 650,
+      "member": "a3f7a95/packages/maf-worker/pyproject.toml"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "packages/maf-worker/src/wuji_maf_worker/factory.py",
+      "git_blob": "82abcbd74f30ba73d374817c2fe2de6ce2f44089",
+      "sha256": "07adecbecaa8d910641a38dc8cb3c735cf184d73eb6687d9e688bf3588d1fdd3",
+      "bytes": 4697,
+      "member": "a3f7a95/packages/maf-worker/src/wuji_maf_worker/factory.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "packages/maf-worker/uv.lock",
+      "git_blob": "09b9c3054c96e4b89f5c7b9591585b9f4a4f7d37",
+      "sha256": "4a5d17ea19975ebce80876d32673f0d164734e90da73dc18f69bfdd304d059c6",
+      "bytes": 88367,
+      "member": "a3f7a95/packages/maf-worker/uv.lock"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "packages/wuji-core/src/wuji_core/admission/common.py",
+      "git_blob": "7748aab9d007e81a29fbbdac4da65bfca4c88668",
+      "sha256": "09637e0b5cf751e68a041a80e5580ee636d5847bc3e9964a1a39525004bab1f7",
+      "bytes": 4837,
+      "member": "a3f7a95/packages/wuji-core/src/wuji_core/admission/common.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "packages/wuji-core/src/wuji_core/admission/ledger.py",
+      "git_blob": "cb1b11da2cf5f1888dee674fc91b3881d7a66c10",
+      "sha256": "3cead43e098112f4a4643d3c151cf84842c34e41d841fe5d6e94a0637701041c",
+      "bytes": 10884,
+      "member": "a3f7a95/packages/wuji-core/src/wuji_core/admission/ledger.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "packages/wuji-core/src/wuji_core/admission/models.py",
+      "git_blob": "798af3a038846d2d60ce7ca381f5c7f9983a9eb7",
+      "sha256": "e013fd11ea6383ffa501ed5fda6c92605767fc2baca00e0a1e49f67d51d7e62f",
+      "bytes": 17198,
+      "member": "a3f7a95/packages/wuji-core/src/wuji_core/admission/models.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "packages/wuji-core/src/wuji_core/admission/registry.py",
+      "git_blob": "561dc8a3c70126cdb5989a167d4690270b90c7bd",
+      "sha256": "2a8ead64566ea1aed8d7c96f974c1609fe0d8132e3321ef51f03920be5c510b4",
+      "bytes": 10445,
+      "member": "a3f7a95/packages/wuji-core/src/wuji_core/admission/registry.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "packages/wuji-core/src/wuji_core/admission/tools.py",
+      "git_blob": "8045d9df83574a30ba185df50d5c0761b7d625b0",
+      "sha256": "1451f5f933766c0d4a65282be8e7418eb8c9beccd03e8207f92e196847ddf6d3",
+      "bytes": 47150,
+      "member": "a3f7a95/packages/wuji-core/src/wuji_core/admission/tools.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "packages/wuji-core/src/wuji_core/blackboard/assessments.py",
+      "git_blob": "e4b4650eb4de52c2dc5b0c0a958b1a1bda690b52",
+      "sha256": "09e42f8cf8630420d8e1b1a9f95d692d3d54e9e2b58825b8d34ed950e29ee37e",
+      "bytes": 16920,
+      "member": "a3f7a95/packages/wuji-core/src/wuji_core/blackboard/assessments.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "packages/wuji-core/src/wuji_core/blackboard/claims.py",
+      "git_blob": "b0351bc58915c0b53bc21eb763a498851369fcbd",
+      "sha256": "63df0e9185dd89bb881f973474ecb07fc29dfc07fc833e8fd70a8846fc9a965b",
+      "bytes": 7232,
+      "member": "a3f7a95/packages/wuji-core/src/wuji_core/blackboard/claims.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "packages/wuji-core/src/wuji_core/blackboard/committer.py",
+      "git_blob": "c3181a2eb4dcea1f8daf7a051195bc63295674e2",
+      "sha256": "3df662379dd58877c94e81d4bdede1df028f268ec3e08d7d45d40d566da9c4d7",
+      "bytes": 11944,
+      "member": "a3f7a95/packages/wuji-core/src/wuji_core/blackboard/committer.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "packages/wuji-core/src/wuji_core/blackboard/fact_view.py",
+      "git_blob": "bca10cff5d701e4104629b5e11b6c5eceefb6fb0",
+      "sha256": "bab2eef376de1461b35a48b1d86a67f123033a324830f5839e94dfd7bd07ac52",
+      "bytes": 9731,
+      "member": "a3f7a95/packages/wuji-core/src/wuji_core/blackboard/fact_view.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "packages/wuji-core/src/wuji_core/blackboard/relations.py",
+      "git_blob": "c9e772062fbee4c84a3e1f4760ad3bb39aa81cea",
+      "sha256": "ff2c0dcc701df965097a6296bfa774c8a02b2630c1ae0218951ca49f71d4ccfb",
+      "bytes": 6125,
+      "member": "a3f7a95/packages/wuji-core/src/wuji_core/blackboard/relations.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "packages/wuji-core/src/wuji_core/blackboard/result_state.py",
+      "git_blob": "f102081f127989c2634116d512d5e96ff0bd6fcd",
+      "sha256": "271493bbc1162887277cce2c26b5a5670b2099bc9a1b2513e996256d8f6274ef",
+      "bytes": 730,
+      "member": "a3f7a95/packages/wuji-core/src/wuji_core/blackboard/result_state.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "packages/wuji-core/src/wuji_core/contracts/envelopes.py",
+      "git_blob": "b652627a0a5503f46aba776fb2bf022a9559454a",
+      "sha256": "85af33a09567d8f2fd031b4918da8b136574a3e1e6889132935a093be93a4a36",
+      "bytes": 1768,
+      "member": "a3f7a95/packages/wuji-core/src/wuji_core/contracts/envelopes.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "packages/wuji-core/src/wuji_core/contracts/execution.py",
+      "git_blob": "4a5c119066af7b9fddee0f0df9f6201c767885fb",
+      "sha256": "95c88a2d6a4948ed677e3da5e67d3e0525d1f8caf33ac95dce288991663e7fc5",
+      "bytes": 4511,
+      "member": "a3f7a95/packages/wuji-core/src/wuji_core/contracts/execution.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "packages/wuji-core/src/wuji_core/contracts/generated.py",
+      "git_blob": "49e3eff3e380b4dc2708fd8cccad4a7cccecf1da",
+      "sha256": "94f776ff6cb192fbf227b5485ae53b2bc2ed4882d394ff3284e990053c720bc8",
+      "bytes": 55655,
+      "member": "a3f7a95/packages/wuji-core/src/wuji_core/contracts/generated.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "packages/wuji-core/src/wuji_core/contracts/knowledge.py",
+      "git_blob": "8aa01af7aeb99199f64172e79c8cbf005e53bd64",
+      "sha256": "6565f8a6716b8a852fba8a323ade3483ec86caa65bdd7de8900ba551b3dd7edf",
+      "bytes": 2401,
+      "member": "a3f7a95/packages/wuji-core/src/wuji_core/contracts/knowledge.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "packages/wuji-core/src/wuji_core/evidence/artifacts.py",
+      "git_blob": "dc859adccbb5f755bd74109c3029696a9aa19f29",
+      "sha256": "abab5e757c7635bf15a4b699055e277478510e42cb8351909d5ce228669dbe51",
+      "bytes": 18106,
+      "member": "a3f7a95/packages/wuji-core/src/wuji_core/evidence/artifacts.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "packages/wuji-core/src/wuji_core/evidence/observations.py",
+      "git_blob": "23f9af71865a885b1a9cd7fb9a5ac54ded47dbc1",
+      "sha256": "a71a320e4ffda2cdc7e102b58bdf287ed493a51acbbb971d90bedce2753b18c3",
+      "bytes": 10265,
+      "member": "a3f7a95/packages/wuji-core/src/wuji_core/evidence/observations.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "packages/wuji-core/src/wuji_core/execution/capacity.py",
+      "git_blob": "55ba2113409130077c6565c43f778ac71711ef8f",
+      "sha256": "32980adb56b10b046e7fb3b94cc30d263c3caf864b79cbf909c4a7a535dd1ae2",
+      "bytes": 6049,
+      "member": "a3f7a95/packages/wuji-core/src/wuji_core/execution/capacity.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "packages/wuji-core/src/wuji_core/execution/control.py",
+      "git_blob": "1c57ac4abae529f5d6fb19cdbb6c9bb25c91cdac",
+      "sha256": "055ab180f45a73acca30a4d95bb5834674978accf828cd6d61dc7327fac16052",
+      "bytes": 47283,
+      "member": "a3f7a95/packages/wuji-core/src/wuji_core/execution/control.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "packages/wuji-core/src/wuji_core/execution/dependencies.py",
+      "git_blob": "fca7734c3dfae58c8b61fd274b62948cc38bfa7f",
+      "sha256": "7e44728010981394283fb332f9f4a8f8d3ea0550166f529ca8981faf52b87bc6",
+      "bytes": 6617,
+      "member": "a3f7a95/packages/wuji-core/src/wuji_core/execution/dependencies.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "packages/wuji-core/src/wuji_core/execution/states.py",
+      "git_blob": "7a965463691fb7679582ade5b90bea2d269c7906",
+      "sha256": "c04a4306df41c52a30b3fd9d5498e7e31c8ad3559c371e942d5985a1c0d614b4",
+      "bytes": 941,
+      "member": "a3f7a95/packages/wuji-core/src/wuji_core/execution/states.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "packages/wuji-core/src/wuji_core/http/auth.py",
+      "git_blob": "b0935ca55c9f82685717d251ced1d8102d22d0f9",
+      "sha256": "b6c926288fee014462bd9fc147d9a330ace0618d3624c1c3fd37babc44a80afb",
+      "bytes": 5884,
+      "member": "a3f7a95/packages/wuji-core/src/wuji_core/http/auth.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "packages/wuji-core/src/wuji_core/http/json_boundary.py",
+      "git_blob": "61049ba4f8b6ca95ff00d2c7065c886e9e48ef8b",
+      "sha256": "92f32aca9016c1ae7c16500026cbc86af78c49feef046dad580ea5d35db7deab",
+      "bytes": 13374,
+      "member": "a3f7a95/packages/wuji-core/src/wuji_core/http/json_boundary.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "packages/wuji-core/src/wuji_core/persistence/admission_hardening_schema.py",
+      "git_blob": "73733653fc4b2aa1a4f8e29fe9c1df96e3255348",
+      "sha256": "f7efad20140a9678e45764c1747a73e23128df99a71ce9b95c21ce544f9128fe",
+      "bytes": 12074,
+      "member": "a3f7a95/packages/wuji-core/src/wuji_core/persistence/admission_hardening_schema.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "packages/wuji-core/src/wuji_core/persistence/admission_request_guard_schema.py",
+      "git_blob": "8641e24d0d0126b6386ad4537df3248aef4bf9bb",
+      "sha256": "0a69371964167a5dbf39c628d28af9b83f68bd59e4afbe28ce76100f4697cd50",
+      "bytes": 23567,
+      "member": "a3f7a95/packages/wuji-core/src/wuji_core/persistence/admission_request_guard_schema.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "packages/wuji-core/src/wuji_core/persistence/admission_schema.py",
+      "git_blob": "1e25d398e3de41c286b326f5c838e71bfda0e699",
+      "sha256": "e42157448499ccbbc61828587d5354ea8cd241699e0fc79fefae1f31ca8ea1e6",
+      "bytes": 11400,
+      "member": "a3f7a95/packages/wuji-core/src/wuji_core/persistence/admission_schema.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "packages/wuji-core/src/wuji_core/persistence/control_schema.py",
+      "git_blob": "ecfcb03e86a8e48c9ce1f122d1a56124992f893b",
+      "sha256": "3524eb60c9296bc6ae52c1dd23181422f562d7379213bde69ae0cf6f87832a9a",
+      "bytes": 23098,
+      "member": "a3f7a95/packages/wuji-core/src/wuji_core/persistence/control_schema.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "packages/wuji-core/src/wuji_core/persistence/knowledge_schema.py",
+      "git_blob": "fd70feb1b8bdb998e302300f1f684f451d7f0c51",
+      "sha256": "0a61f9d8bf5c0583ffd46a9f03e0099c77a0ab6d0c5973aa0342d20dda749207",
+      "bytes": 19331,
+      "member": "a3f7a95/packages/wuji-core/src/wuji_core/persistence/knowledge_schema.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "packages/wuji-core/src/wuji_core/persistence/scheduler_schema.py",
+      "git_blob": "d62c89d47ddacf566b5f6623237c7ac24db6092f",
+      "sha256": "3bb0a894cdca7a00caa2fb1a7bd6aead31bfc0f1b128c8f1ef9bb4fa2b4aed45",
+      "bytes": 32405,
+      "member": "a3f7a95/packages/wuji-core/src/wuji_core/persistence/scheduler_schema.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "packages/wuji-core/src/wuji_core/persistence/schema.py",
+      "git_blob": "1d58edc8df62c457ddded1e3186d672197de9895",
+      "sha256": "a733734deb074448bb4fd066f4cf03a383a76885b8caaf8fa0341f65491f0129",
+      "bytes": 35017,
+      "member": "a3f7a95/packages/wuji-core/src/wuji_core/persistence/schema.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "packages/wuji-core/src/wuji_core/persistence/snapshots.py",
+      "git_blob": "ededb786e7d09dec7127fd713dff87fadae7e87d",
+      "sha256": "ee0528bfc3c9195f733ee54dfb3e80bff9ed02d317ec7fd8e1050c6ad2bc166a",
+      "bytes": 17649,
+      "member": "a3f7a95/packages/wuji-core/src/wuji_core/persistence/snapshots.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "packages/wuji-core/src/wuji_core/persistence/uow.py",
+      "git_blob": "56472c659d7aa609927c483d27a2b0a25d545934",
+      "sha256": "d4141bf2f3b7dd1fba6d12d0a9a7e5a1aea1b0a4917697eaa406d89fbbebb90f",
+      "bytes": 14215,
+      "member": "a3f7a95/packages/wuji-core/src/wuji_core/persistence/uow.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "packages/wuji-core/src/wuji_core/scheduling/__init__.py",
+      "git_blob": "f92b4af3a34c50e1226cc92f6b9dc7101f156daf",
+      "sha256": "5aec06af94330e964fe4bbea73eae348148126373bcd49192646053d7488d133",
+      "bytes": 66,
+      "member": "a3f7a95/packages/wuji-core/src/wuji_core/scheduling/__init__.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "packages/wuji-core/src/wuji_core/scheduling/claims.py",
+      "git_blob": "ec12740d8accbc654e45d6041ccd065e0e4adad8",
+      "sha256": "2c15a3100f37dbec38fecd2ec7947fab113a680293bb464dd34b2a62cfedc6f6",
+      "bytes": 41358,
+      "member": "a3f7a95/packages/wuji-core/src/wuji_core/scheduling/claims.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "packages/wuji-core/src/wuji_core/scheduling/credentials.py",
+      "git_blob": "fae251a45b4f1e639ba8244abfd959c617951705",
+      "sha256": "3f57bf3e095c2bac0b355d78cf8e963ef6da129d68b347005e9c087fdc443821",
+      "bytes": 8684,
+      "member": "a3f7a95/packages/wuji-core/src/wuji_core/scheduling/credentials.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "packages/wuji-core/src/wuji_core/scheduling/policy.py",
+      "git_blob": "16b9a89a51dfed21b632b97038012f3b0bf69231",
+      "sha256": "c394f417690747adbda2d7058e35a66b33a36fa6cba22cbf56988f3c48df05f4",
+      "bytes": 6349,
+      "member": "a3f7a95/packages/wuji-core/src/wuji_core/scheduling/policy.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "packages/wuji-core/src/wuji_core/scheduling/triggers.py",
+      "git_blob": "bdd1b93005303fc0e92b490d6a907df1eacd7ce7",
+      "sha256": "22b7ff8d5f0766f2c65dc8ab228362c667d3720b0eda03cb5a7e90dcd06f3c2c",
+      "bytes": 22031,
+      "member": "a3f7a95/packages/wuji-core/src/wuji_core/scheduling/triggers.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "packages/wuji-core/src/wuji_core/scheduling/waiters.py",
+      "git_blob": "83d024c8cf23345fe7a97bdc415e18a95f0ae26e",
+      "sha256": "10d46429b59aa1b24103f5b68afe65fd517bb76b3197a94064a0d423c0116f68",
+      "bytes": 10099,
+      "member": "a3f7a95/packages/wuji-core/src/wuji_core/scheduling/waiters.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "scripts/vnext/uv.sh",
+      "git_blob": "75f3923d8f25c8943579404129502d75c5216594",
+      "sha256": "0a104369007a3e6968131ef66be767e7d376225c643c38d2743102faf91037ff",
+      "bytes": 863,
+      "member": "a3f7a95/scripts/vnext/uv.sh"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "services/wuji-scheduler/main.py",
+      "git_blob": "bf69a7853d7abeda5f90898140bde525f873137b",
+      "sha256": "65fb70bd1eeb06e30074dac082bc27568438b38ef1fb21b6acbfd78f28c743c4",
+      "bytes": 2134,
+      "member": "a3f7a95/services/wuji-scheduler/main.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "tests/vnext/conftest.py",
+      "git_blob": "17f254a052fbae5953d7aa19144d9baf907a402d",
+      "sha256": "fec4c7a72223dbd5b0173e24674234ac21abecfd4b3711973c7f2f7f294cf764",
+      "bytes": 3543,
+      "member": "a3f7a95/tests/vnext/conftest.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "tests/vnext/support/http_capture.py",
+      "git_blob": "4a4bd1dd6421ce952a2490a7aaf2888216bfc553",
+      "sha256": "6b193f6f1b21ce369ee385d02909a11d8aa1dcd2b56c13608e51e40fc980c2cf",
+      "bytes": 3027,
+      "member": "a3f7a95/tests/vnext/support/http_capture.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "tests/vnext/support/identity_provider.py",
+      "git_blob": "2c0e6256a3ae5c2d342ccdaa195132f0f7bb4d2d",
+      "sha256": "01651e851172863908de3a6387a010673a579de5fb2863d4cf651dba85db8ac7",
+      "bytes": 4942,
+      "member": "a3f7a95/tests/vnext/support/identity_provider.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "tests/vnext/support/p03.py",
+      "git_blob": "c0325478aa9022c949b230073f718d4496a4d3a5",
+      "sha256": "ae85cc53d520a1cf80582f9fa6462c53a6179713bed741aab1c92085f12ea790",
+      "bytes": 8307,
+      "member": "a3f7a95/tests/vnext/support/p03.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "tests/vnext/support/p06.py",
+      "git_blob": "8db3f0718716863c71b467ecb9edc83e7547bae0",
+      "sha256": "eb0f3df6b8c785ca095fb69b1e252ee4a54012f08579466a702409340b79ecc6",
+      "bytes": 35777,
+      "member": "a3f7a95/tests/vnext/support/p06.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "tests/vnext/support/p09.py",
+      "git_blob": "856d8a8ec5b175ce2734ea4fe17aa141ba2e7af5",
+      "sha256": "47629218308092e72950b2f2e639b4b8edbdb63ff874189afa563eaf150ade0d",
+      "bytes": 15240,
+      "member": "a3f7a95/tests/vnext/support/p09.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "tests/vnext/support/postgres.py",
+      "git_blob": "f7faae1efd1c9221ac76976162385f11d885ca49",
+      "sha256": "1ff07b4de552bf7741aa68105a15ed5300041a188691c67a709af6bed9fa0c2e",
+      "bytes": 19871,
+      "member": "a3f7a95/tests/vnext/support/postgres.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "tests/vnext/test_capture_transactions.py",
+      "git_blob": "3ea01fbbf6cb04a7d87552d46cd3f52ab0ca9c3e",
+      "sha256": "0e4c2083af3b5438a0df38043201ffd1c8679de6922756a4b4a3cadd310f9536",
+      "bytes": 26022,
+      "member": "a3f7a95/tests/vnext/test_capture_transactions.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "tests/vnext/test_knowledge_admission.py",
+      "git_blob": "f81200fb2c8f2cfb9288be828c6ff51f13621aaf",
+      "sha256": "8286318751a837243984c6736d4c0c07be0ac86afc3f7fdca5cba06a6aad412d",
+      "bytes": 44896,
+      "member": "a3f7a95/tests/vnext/test_knowledge_admission.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "tests/vnext/test_run_admission.py",
+      "git_blob": "2e025ffd7e6247c2effc267fef1e952ebb8e29bb",
+      "sha256": "0bb94b5792a4fc83da6bd1f1a5e9797aeec2d8c86432911ce656c1a1f2e87d10",
+      "bytes": 54451,
+      "member": "a3f7a95/tests/vnext/test_run_admission.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "tests/vnext/test_scheduler_generations.py",
+      "git_blob": "e7fbcec3664cb82f9bb60862cc40d03d317127e7",
+      "sha256": "589747bc47c4076f585812d422bf4b59e6e33f8815d76ffa216a46b16ae583ee",
+      "bytes": 24842,
+      "member": "a3f7a95/tests/vnext/test_scheduler_generations.py"
+    },
+    {
+      "commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "path": "tests/vnext/test_work_state_guards.py",
+      "git_blob": "adcb8abd83b980b6faf139579a0ccd343551effd",
+      "sha256": "4bdd99f85a6661c7e2f8e3db9e3db4305f5867f957d65219eb1661f34eaa0b38",
+      "bytes": 50306,
+      "member": "a3f7a95/tests/vnext/test_work_state_guards.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "packages/maf-worker/pyproject.toml",
+      "git_blob": "d78daf5786e7a30fadc6e94ab7b20896b72975e6",
+      "sha256": "b569e4d51d14f46334c7030d0009146ff87cc79583ef70b3ffd8f457e3fbefaa",
+      "bytes": 650,
+      "member": "57ec12e/packages/maf-worker/pyproject.toml"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "packages/maf-worker/src/wuji_maf_worker/factory.py",
+      "git_blob": "82abcbd74f30ba73d374817c2fe2de6ce2f44089",
+      "sha256": "07adecbecaa8d910641a38dc8cb3c735cf184d73eb6687d9e688bf3588d1fdd3",
+      "bytes": 4697,
+      "member": "57ec12e/packages/maf-worker/src/wuji_maf_worker/factory.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "packages/maf-worker/uv.lock",
+      "git_blob": "09b9c3054c96e4b89f5c7b9591585b9f4a4f7d37",
+      "sha256": "4a5d17ea19975ebce80876d32673f0d164734e90da73dc18f69bfdd304d059c6",
+      "bytes": 88367,
+      "member": "57ec12e/packages/maf-worker/uv.lock"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "packages/wuji-core/src/wuji_core/admission/common.py",
+      "git_blob": "7748aab9d007e81a29fbbdac4da65bfca4c88668",
+      "sha256": "09637e0b5cf751e68a041a80e5580ee636d5847bc3e9964a1a39525004bab1f7",
+      "bytes": 4837,
+      "member": "57ec12e/packages/wuji-core/src/wuji_core/admission/common.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "packages/wuji-core/src/wuji_core/admission/ledger.py",
+      "git_blob": "cb1b11da2cf5f1888dee674fc91b3881d7a66c10",
+      "sha256": "3cead43e098112f4a4643d3c151cf84842c34e41d841fe5d6e94a0637701041c",
+      "bytes": 10884,
+      "member": "57ec12e/packages/wuji-core/src/wuji_core/admission/ledger.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "packages/wuji-core/src/wuji_core/admission/models.py",
+      "git_blob": "798af3a038846d2d60ce7ca381f5c7f9983a9eb7",
+      "sha256": "e013fd11ea6383ffa501ed5fda6c92605767fc2baca00e0a1e49f67d51d7e62f",
+      "bytes": 17198,
+      "member": "57ec12e/packages/wuji-core/src/wuji_core/admission/models.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "packages/wuji-core/src/wuji_core/admission/registry.py",
+      "git_blob": "561dc8a3c70126cdb5989a167d4690270b90c7bd",
+      "sha256": "2a8ead64566ea1aed8d7c96f974c1609fe0d8132e3321ef51f03920be5c510b4",
+      "bytes": 10445,
+      "member": "57ec12e/packages/wuji-core/src/wuji_core/admission/registry.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "packages/wuji-core/src/wuji_core/admission/tools.py",
+      "git_blob": "8045d9df83574a30ba185df50d5c0761b7d625b0",
+      "sha256": "1451f5f933766c0d4a65282be8e7418eb8c9beccd03e8207f92e196847ddf6d3",
+      "bytes": 47150,
+      "member": "57ec12e/packages/wuji-core/src/wuji_core/admission/tools.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "packages/wuji-core/src/wuji_core/blackboard/assessments.py",
+      "git_blob": "e4b4650eb4de52c2dc5b0c0a958b1a1bda690b52",
+      "sha256": "09e42f8cf8630420d8e1b1a9f95d692d3d54e9e2b58825b8d34ed950e29ee37e",
+      "bytes": 16920,
+      "member": "57ec12e/packages/wuji-core/src/wuji_core/blackboard/assessments.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "packages/wuji-core/src/wuji_core/blackboard/claims.py",
+      "git_blob": "b0351bc58915c0b53bc21eb763a498851369fcbd",
+      "sha256": "63df0e9185dd89bb881f973474ecb07fc29dfc07fc833e8fd70a8846fc9a965b",
+      "bytes": 7232,
+      "member": "57ec12e/packages/wuji-core/src/wuji_core/blackboard/claims.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "packages/wuji-core/src/wuji_core/blackboard/committer.py",
+      "git_blob": "c3181a2eb4dcea1f8daf7a051195bc63295674e2",
+      "sha256": "3df662379dd58877c94e81d4bdede1df028f268ec3e08d7d45d40d566da9c4d7",
+      "bytes": 11944,
+      "member": "57ec12e/packages/wuji-core/src/wuji_core/blackboard/committer.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "packages/wuji-core/src/wuji_core/blackboard/fact_view.py",
+      "git_blob": "aa82084d9e116d4d9ecebbbaf1dad5c9fbab50a9",
+      "sha256": "f1c97d4443b9dc29635c4c8ee238b5cf8e27eec1cf93c5c14a4a9cae943d93da",
+      "bytes": 11427,
+      "member": "57ec12e/packages/wuji-core/src/wuji_core/blackboard/fact_view.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "packages/wuji-core/src/wuji_core/blackboard/relations.py",
+      "git_blob": "c9e772062fbee4c84a3e1f4760ad3bb39aa81cea",
+      "sha256": "ff2c0dcc701df965097a6296bfa774c8a02b2630c1ae0218951ca49f71d4ccfb",
+      "bytes": 6125,
+      "member": "57ec12e/packages/wuji-core/src/wuji_core/blackboard/relations.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "packages/wuji-core/src/wuji_core/blackboard/result_state.py",
+      "git_blob": "f102081f127989c2634116d512d5e96ff0bd6fcd",
+      "sha256": "271493bbc1162887277cce2c26b5a5670b2099bc9a1b2513e996256d8f6274ef",
+      "bytes": 730,
+      "member": "57ec12e/packages/wuji-core/src/wuji_core/blackboard/result_state.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "packages/wuji-core/src/wuji_core/contracts/envelopes.py",
+      "git_blob": "b652627a0a5503f46aba776fb2bf022a9559454a",
+      "sha256": "85af33a09567d8f2fd031b4918da8b136574a3e1e6889132935a093be93a4a36",
+      "bytes": 1768,
+      "member": "57ec12e/packages/wuji-core/src/wuji_core/contracts/envelopes.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "packages/wuji-core/src/wuji_core/contracts/execution.py",
+      "git_blob": "08d9150b8d9e3baf1116011961495e6b4db92ad8",
+      "sha256": "67f5fa2812076942f99ad2c2ed31dffed3c4a1ac57023da195b42de45fb213ce",
+      "bytes": 5428,
+      "member": "57ec12e/packages/wuji-core/src/wuji_core/contracts/execution.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "packages/wuji-core/src/wuji_core/contracts/generated.py",
+      "git_blob": "f7184329eab030790735d68a666c99c845fb47bb",
+      "sha256": "29eeb1a44e3a75a4bb662e9cf2911b76090f04d3e40ef8604078f77a3a65d218",
+      "bytes": 55965,
+      "member": "57ec12e/packages/wuji-core/src/wuji_core/contracts/generated.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "packages/wuji-core/src/wuji_core/contracts/knowledge.py",
+      "git_blob": "8aa01af7aeb99199f64172e79c8cbf005e53bd64",
+      "sha256": "6565f8a6716b8a852fba8a323ade3483ec86caa65bdd7de8900ba551b3dd7edf",
+      "bytes": 2401,
+      "member": "57ec12e/packages/wuji-core/src/wuji_core/contracts/knowledge.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "packages/wuji-core/src/wuji_core/evidence/artifacts.py",
+      "git_blob": "dc859adccbb5f755bd74109c3029696a9aa19f29",
+      "sha256": "abab5e757c7635bf15a4b699055e277478510e42cb8351909d5ce228669dbe51",
+      "bytes": 18106,
+      "member": "57ec12e/packages/wuji-core/src/wuji_core/evidence/artifacts.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "packages/wuji-core/src/wuji_core/evidence/observations.py",
+      "git_blob": "23f9af71865a885b1a9cd7fb9a5ac54ded47dbc1",
+      "sha256": "a71a320e4ffda2cdc7e102b58bdf287ed493a51acbbb971d90bedce2753b18c3",
+      "bytes": 10265,
+      "member": "57ec12e/packages/wuji-core/src/wuji_core/evidence/observations.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "packages/wuji-core/src/wuji_core/execution/capacity.py",
+      "git_blob": "55ba2113409130077c6565c43f778ac71711ef8f",
+      "sha256": "32980adb56b10b046e7fb3b94cc30d263c3caf864b79cbf909c4a7a535dd1ae2",
+      "bytes": 6049,
+      "member": "57ec12e/packages/wuji-core/src/wuji_core/execution/capacity.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "packages/wuji-core/src/wuji_core/execution/control.py",
+      "git_blob": "1c57ac4abae529f5d6fb19cdbb6c9bb25c91cdac",
+      "sha256": "055ab180f45a73acca30a4d95bb5834674978accf828cd6d61dc7327fac16052",
+      "bytes": 47283,
+      "member": "57ec12e/packages/wuji-core/src/wuji_core/execution/control.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "packages/wuji-core/src/wuji_core/execution/dependencies.py",
+      "git_blob": "fca7734c3dfae58c8b61fd274b62948cc38bfa7f",
+      "sha256": "7e44728010981394283fb332f9f4a8f8d3ea0550166f529ca8981faf52b87bc6",
+      "bytes": 6617,
+      "member": "57ec12e/packages/wuji-core/src/wuji_core/execution/dependencies.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "packages/wuji-core/src/wuji_core/execution/states.py",
+      "git_blob": "7a965463691fb7679582ade5b90bea2d269c7906",
+      "sha256": "c04a4306df41c52a30b3fd9d5498e7e31c8ad3559c371e942d5985a1c0d614b4",
+      "bytes": 941,
+      "member": "57ec12e/packages/wuji-core/src/wuji_core/execution/states.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "packages/wuji-core/src/wuji_core/http/auth.py",
+      "git_blob": "b0935ca55c9f82685717d251ced1d8102d22d0f9",
+      "sha256": "b6c926288fee014462bd9fc147d9a330ace0618d3624c1c3fd37babc44a80afb",
+      "bytes": 5884,
+      "member": "57ec12e/packages/wuji-core/src/wuji_core/http/auth.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "packages/wuji-core/src/wuji_core/http/json_boundary.py",
+      "git_blob": "61049ba4f8b6ca95ff00d2c7065c886e9e48ef8b",
+      "sha256": "92f32aca9016c1ae7c16500026cbc86af78c49feef046dad580ea5d35db7deab",
+      "bytes": 13374,
+      "member": "57ec12e/packages/wuji-core/src/wuji_core/http/json_boundary.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "packages/wuji-core/src/wuji_core/persistence/admission_hardening_schema.py",
+      "git_blob": "73733653fc4b2aa1a4f8e29fe9c1df96e3255348",
+      "sha256": "f7efad20140a9678e45764c1747a73e23128df99a71ce9b95c21ce544f9128fe",
+      "bytes": 12074,
+      "member": "57ec12e/packages/wuji-core/src/wuji_core/persistence/admission_hardening_schema.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "packages/wuji-core/src/wuji_core/persistence/admission_request_guard_schema.py",
+      "git_blob": "8641e24d0d0126b6386ad4537df3248aef4bf9bb",
+      "sha256": "0a69371964167a5dbf39c628d28af9b83f68bd59e4afbe28ce76100f4697cd50",
+      "bytes": 23567,
+      "member": "57ec12e/packages/wuji-core/src/wuji_core/persistence/admission_request_guard_schema.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "packages/wuji-core/src/wuji_core/persistence/admission_schema.py",
+      "git_blob": "1e25d398e3de41c286b326f5c838e71bfda0e699",
+      "sha256": "e42157448499ccbbc61828587d5354ea8cd241699e0fc79fefae1f31ca8ea1e6",
+      "bytes": 11400,
+      "member": "57ec12e/packages/wuji-core/src/wuji_core/persistence/admission_schema.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "packages/wuji-core/src/wuji_core/persistence/control_schema.py",
+      "git_blob": "ecfcb03e86a8e48c9ce1f122d1a56124992f893b",
+      "sha256": "3524eb60c9296bc6ae52c1dd23181422f562d7379213bde69ae0cf6f87832a9a",
+      "bytes": 23098,
+      "member": "57ec12e/packages/wuji-core/src/wuji_core/persistence/control_schema.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "packages/wuji-core/src/wuji_core/persistence/knowledge_schema.py",
+      "git_blob": "fd70feb1b8bdb998e302300f1f684f451d7f0c51",
+      "sha256": "0a61f9d8bf5c0583ffd46a9f03e0099c77a0ab6d0c5973aa0342d20dda749207",
+      "bytes": 19331,
+      "member": "57ec12e/packages/wuji-core/src/wuji_core/persistence/knowledge_schema.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "packages/wuji-core/src/wuji_core/persistence/scheduler_schema.py",
+      "git_blob": "d62c89d47ddacf566b5f6623237c7ac24db6092f",
+      "sha256": "3bb0a894cdca7a00caa2fb1a7bd6aead31bfc0f1b128c8f1ef9bb4fa2b4aed45",
+      "bytes": 32405,
+      "member": "57ec12e/packages/wuji-core/src/wuji_core/persistence/scheduler_schema.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "packages/wuji-core/src/wuji_core/persistence/schema.py",
+      "git_blob": "1d58edc8df62c457ddded1e3186d672197de9895",
+      "sha256": "a733734deb074448bb4fd066f4cf03a383a76885b8caaf8fa0341f65491f0129",
+      "bytes": 35017,
+      "member": "57ec12e/packages/wuji-core/src/wuji_core/persistence/schema.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "packages/wuji-core/src/wuji_core/persistence/snapshots.py",
+      "git_blob": "ededb786e7d09dec7127fd713dff87fadae7e87d",
+      "sha256": "ee0528bfc3c9195f733ee54dfb3e80bff9ed02d317ec7fd8e1050c6ad2bc166a",
+      "bytes": 17649,
+      "member": "57ec12e/packages/wuji-core/src/wuji_core/persistence/snapshots.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "packages/wuji-core/src/wuji_core/persistence/uow.py",
+      "git_blob": "56472c659d7aa609927c483d27a2b0a25d545934",
+      "sha256": "d4141bf2f3b7dd1fba6d12d0a9a7e5a1aea1b0a4917697eaa406d89fbbebb90f",
+      "bytes": 14215,
+      "member": "57ec12e/packages/wuji-core/src/wuji_core/persistence/uow.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "packages/wuji-core/src/wuji_core/scheduling/__init__.py",
+      "git_blob": "f92b4af3a34c50e1226cc92f6b9dc7101f156daf",
+      "sha256": "5aec06af94330e964fe4bbea73eae348148126373bcd49192646053d7488d133",
+      "bytes": 66,
+      "member": "57ec12e/packages/wuji-core/src/wuji_core/scheduling/__init__.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "packages/wuji-core/src/wuji_core/scheduling/claims.py",
+      "git_blob": "ec12740d8accbc654e45d6041ccd065e0e4adad8",
+      "sha256": "2c15a3100f37dbec38fecd2ec7947fab113a680293bb464dd34b2a62cfedc6f6",
+      "bytes": 41358,
+      "member": "57ec12e/packages/wuji-core/src/wuji_core/scheduling/claims.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "packages/wuji-core/src/wuji_core/scheduling/credentials.py",
+      "git_blob": "fae251a45b4f1e639ba8244abfd959c617951705",
+      "sha256": "3f57bf3e095c2bac0b355d78cf8e963ef6da129d68b347005e9c087fdc443821",
+      "bytes": 8684,
+      "member": "57ec12e/packages/wuji-core/src/wuji_core/scheduling/credentials.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "packages/wuji-core/src/wuji_core/scheduling/policy.py",
+      "git_blob": "16b9a89a51dfed21b632b97038012f3b0bf69231",
+      "sha256": "c394f417690747adbda2d7058e35a66b33a36fa6cba22cbf56988f3c48df05f4",
+      "bytes": 6349,
+      "member": "57ec12e/packages/wuji-core/src/wuji_core/scheduling/policy.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "packages/wuji-core/src/wuji_core/scheduling/triggers.py",
+      "git_blob": "bdd1b93005303fc0e92b490d6a907df1eacd7ce7",
+      "sha256": "22b7ff8d5f0766f2c65dc8ab228362c667d3720b0eda03cb5a7e90dcd06f3c2c",
+      "bytes": 22031,
+      "member": "57ec12e/packages/wuji-core/src/wuji_core/scheduling/triggers.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "packages/wuji-core/src/wuji_core/scheduling/waiters.py",
+      "git_blob": "83d024c8cf23345fe7a97bdc415e18a95f0ae26e",
+      "sha256": "10d46429b59aa1b24103f5b68afe65fd517bb76b3197a94064a0d423c0116f68",
+      "bytes": 10099,
+      "member": "57ec12e/packages/wuji-core/src/wuji_core/scheduling/waiters.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "scripts/vnext/uv.sh",
+      "git_blob": "75f3923d8f25c8943579404129502d75c5216594",
+      "sha256": "0a104369007a3e6968131ef66be767e7d376225c643c38d2743102faf91037ff",
+      "bytes": 863,
+      "member": "57ec12e/scripts/vnext/uv.sh"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "services/wuji-scheduler/main.py",
+      "git_blob": "bf69a7853d7abeda5f90898140bde525f873137b",
+      "sha256": "65fb70bd1eeb06e30074dac082bc27568438b38ef1fb21b6acbfd78f28c743c4",
+      "bytes": 2134,
+      "member": "57ec12e/services/wuji-scheduler/main.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "tests/vnext/conftest.py",
+      "git_blob": "17f254a052fbae5953d7aa19144d9baf907a402d",
+      "sha256": "fec4c7a72223dbd5b0173e24674234ac21abecfd4b3711973c7f2f7f294cf764",
+      "bytes": 3543,
+      "member": "57ec12e/tests/vnext/conftest.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "tests/vnext/support/http_capture.py",
+      "git_blob": "4a4bd1dd6421ce952a2490a7aaf2888216bfc553",
+      "sha256": "6b193f6f1b21ce369ee385d02909a11d8aa1dcd2b56c13608e51e40fc980c2cf",
+      "bytes": 3027,
+      "member": "57ec12e/tests/vnext/support/http_capture.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "tests/vnext/support/identity_provider.py",
+      "git_blob": "2c0e6256a3ae5c2d342ccdaa195132f0f7bb4d2d",
+      "sha256": "01651e851172863908de3a6387a010673a579de5fb2863d4cf651dba85db8ac7",
+      "bytes": 4942,
+      "member": "57ec12e/tests/vnext/support/identity_provider.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "tests/vnext/support/p03.py",
+      "git_blob": "c0325478aa9022c949b230073f718d4496a4d3a5",
+      "sha256": "ae85cc53d520a1cf80582f9fa6462c53a6179713bed741aab1c92085f12ea790",
+      "bytes": 8307,
+      "member": "57ec12e/tests/vnext/support/p03.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "tests/vnext/support/p06.py",
+      "git_blob": "8db3f0718716863c71b467ecb9edc83e7547bae0",
+      "sha256": "eb0f3df6b8c785ca095fb69b1e252ee4a54012f08579466a702409340b79ecc6",
+      "bytes": 35777,
+      "member": "57ec12e/tests/vnext/support/p06.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "tests/vnext/support/p09.py",
+      "git_blob": "856d8a8ec5b175ce2734ea4fe17aa141ba2e7af5",
+      "sha256": "47629218308092e72950b2f2e639b4b8edbdb63ff874189afa563eaf150ade0d",
+      "bytes": 15240,
+      "member": "57ec12e/tests/vnext/support/p09.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "tests/vnext/support/postgres.py",
+      "git_blob": "f7faae1efd1c9221ac76976162385f11d885ca49",
+      "sha256": "1ff07b4de552bf7741aa68105a15ed5300041a188691c67a709af6bed9fa0c2e",
+      "bytes": 19871,
+      "member": "57ec12e/tests/vnext/support/postgres.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "tests/vnext/test_capture_transactions.py",
+      "git_blob": "3ea01fbbf6cb04a7d87552d46cd3f52ab0ca9c3e",
+      "sha256": "0e4c2083af3b5438a0df38043201ffd1c8679de6922756a4b4a3cadd310f9536",
+      "bytes": 26022,
+      "member": "57ec12e/tests/vnext/test_capture_transactions.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "tests/vnext/test_knowledge_admission.py",
+      "git_blob": "f81200fb2c8f2cfb9288be828c6ff51f13621aaf",
+      "sha256": "8286318751a837243984c6736d4c0c07be0ac86afc3f7fdca5cba06a6aad412d",
+      "bytes": 44896,
+      "member": "57ec12e/tests/vnext/test_knowledge_admission.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "tests/vnext/test_run_admission.py",
+      "git_blob": "2e025ffd7e6247c2effc267fef1e952ebb8e29bb",
+      "sha256": "0bb94b5792a4fc83da6bd1f1a5e9797aeec2d8c86432911ce656c1a1f2e87d10",
+      "bytes": 54451,
+      "member": "57ec12e/tests/vnext/test_run_admission.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "tests/vnext/test_scheduler_generations.py",
+      "git_blob": "e7fbcec3664cb82f9bb60862cc40d03d317127e7",
+      "sha256": "589747bc47c4076f585812d422bf4b59e6e33f8815d76ffa216a46b16ae583ee",
+      "bytes": 24842,
+      "member": "57ec12e/tests/vnext/test_scheduler_generations.py"
+    },
+    {
+      "commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "path": "tests/vnext/test_work_state_guards.py",
+      "git_blob": "adcb8abd83b980b6faf139579a0ccd343551effd",
+      "sha256": "4bdd99f85a6661c7e2f8e3db9e3db4305f5867f957d65219eb1661f34eaa0b38",
+      "bytes": 50306,
+      "member": "57ec12e/tests/vnext/test_work_state_guards.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "packages/maf-worker/pyproject.toml",
+      "git_blob": "d78daf5786e7a30fadc6e94ab7b20896b72975e6",
+      "sha256": "b569e4d51d14f46334c7030d0009146ff87cc79583ef70b3ffd8f457e3fbefaa",
+      "bytes": 650,
+      "member": "e0a10b5/packages/maf-worker/pyproject.toml"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "packages/maf-worker/src/wuji_maf_worker/factory.py",
+      "git_blob": "82abcbd74f30ba73d374817c2fe2de6ce2f44089",
+      "sha256": "07adecbecaa8d910641a38dc8cb3c735cf184d73eb6687d9e688bf3588d1fdd3",
+      "bytes": 4697,
+      "member": "e0a10b5/packages/maf-worker/src/wuji_maf_worker/factory.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "packages/maf-worker/uv.lock",
+      "git_blob": "09b9c3054c96e4b89f5c7b9591585b9f4a4f7d37",
+      "sha256": "4a5d17ea19975ebce80876d32673f0d164734e90da73dc18f69bfdd304d059c6",
+      "bytes": 88367,
+      "member": "e0a10b5/packages/maf-worker/uv.lock"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "packages/wuji-core/src/wuji_core/admission/common.py",
+      "git_blob": "7748aab9d007e81a29fbbdac4da65bfca4c88668",
+      "sha256": "09637e0b5cf751e68a041a80e5580ee636d5847bc3e9964a1a39525004bab1f7",
+      "bytes": 4837,
+      "member": "e0a10b5/packages/wuji-core/src/wuji_core/admission/common.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "packages/wuji-core/src/wuji_core/admission/ledger.py",
+      "git_blob": "cb1b11da2cf5f1888dee674fc91b3881d7a66c10",
+      "sha256": "3cead43e098112f4a4643d3c151cf84842c34e41d841fe5d6e94a0637701041c",
+      "bytes": 10884,
+      "member": "e0a10b5/packages/wuji-core/src/wuji_core/admission/ledger.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "packages/wuji-core/src/wuji_core/admission/models.py",
+      "git_blob": "798af3a038846d2d60ce7ca381f5c7f9983a9eb7",
+      "sha256": "e013fd11ea6383ffa501ed5fda6c92605767fc2baca00e0a1e49f67d51d7e62f",
+      "bytes": 17198,
+      "member": "e0a10b5/packages/wuji-core/src/wuji_core/admission/models.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "packages/wuji-core/src/wuji_core/admission/registry.py",
+      "git_blob": "561dc8a3c70126cdb5989a167d4690270b90c7bd",
+      "sha256": "2a8ead64566ea1aed8d7c96f974c1609fe0d8132e3321ef51f03920be5c510b4",
+      "bytes": 10445,
+      "member": "e0a10b5/packages/wuji-core/src/wuji_core/admission/registry.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "packages/wuji-core/src/wuji_core/admission/tools.py",
+      "git_blob": "8045d9df83574a30ba185df50d5c0761b7d625b0",
+      "sha256": "1451f5f933766c0d4a65282be8e7418eb8c9beccd03e8207f92e196847ddf6d3",
+      "bytes": 47150,
+      "member": "e0a10b5/packages/wuji-core/src/wuji_core/admission/tools.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "packages/wuji-core/src/wuji_core/blackboard/assessments.py",
+      "git_blob": "e4b4650eb4de52c2dc5b0c0a958b1a1bda690b52",
+      "sha256": "09e42f8cf8630420d8e1b1a9f95d692d3d54e9e2b58825b8d34ed950e29ee37e",
+      "bytes": 16920,
+      "member": "e0a10b5/packages/wuji-core/src/wuji_core/blackboard/assessments.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "packages/wuji-core/src/wuji_core/blackboard/claims.py",
+      "git_blob": "b0351bc58915c0b53bc21eb763a498851369fcbd",
+      "sha256": "63df0e9185dd89bb881f973474ecb07fc29dfc07fc833e8fd70a8846fc9a965b",
+      "bytes": 7232,
+      "member": "e0a10b5/packages/wuji-core/src/wuji_core/blackboard/claims.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "packages/wuji-core/src/wuji_core/blackboard/committer.py",
+      "git_blob": "c3181a2eb4dcea1f8daf7a051195bc63295674e2",
+      "sha256": "3df662379dd58877c94e81d4bdede1df028f268ec3e08d7d45d40d566da9c4d7",
+      "bytes": 11944,
+      "member": "e0a10b5/packages/wuji-core/src/wuji_core/blackboard/committer.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "packages/wuji-core/src/wuji_core/blackboard/fact_view.py",
+      "git_blob": "aa82084d9e116d4d9ecebbbaf1dad5c9fbab50a9",
+      "sha256": "f1c97d4443b9dc29635c4c8ee238b5cf8e27eec1cf93c5c14a4a9cae943d93da",
+      "bytes": 11427,
+      "member": "e0a10b5/packages/wuji-core/src/wuji_core/blackboard/fact_view.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "packages/wuji-core/src/wuji_core/blackboard/relations.py",
+      "git_blob": "c9e772062fbee4c84a3e1f4760ad3bb39aa81cea",
+      "sha256": "ff2c0dcc701df965097a6296bfa774c8a02b2630c1ae0218951ca49f71d4ccfb",
+      "bytes": 6125,
+      "member": "e0a10b5/packages/wuji-core/src/wuji_core/blackboard/relations.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "packages/wuji-core/src/wuji_core/blackboard/result_state.py",
+      "git_blob": "f102081f127989c2634116d512d5e96ff0bd6fcd",
+      "sha256": "271493bbc1162887277cce2c26b5a5670b2099bc9a1b2513e996256d8f6274ef",
+      "bytes": 730,
+      "member": "e0a10b5/packages/wuji-core/src/wuji_core/blackboard/result_state.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "packages/wuji-core/src/wuji_core/contracts/envelopes.py",
+      "git_blob": "b652627a0a5503f46aba776fb2bf022a9559454a",
+      "sha256": "85af33a09567d8f2fd031b4918da8b136574a3e1e6889132935a093be93a4a36",
+      "bytes": 1768,
+      "member": "e0a10b5/packages/wuji-core/src/wuji_core/contracts/envelopes.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "packages/wuji-core/src/wuji_core/contracts/execution.py",
+      "git_blob": "08d9150b8d9e3baf1116011961495e6b4db92ad8",
+      "sha256": "67f5fa2812076942f99ad2c2ed31dffed3c4a1ac57023da195b42de45fb213ce",
+      "bytes": 5428,
+      "member": "e0a10b5/packages/wuji-core/src/wuji_core/contracts/execution.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "packages/wuji-core/src/wuji_core/contracts/generated.py",
+      "git_blob": "f7184329eab030790735d68a666c99c845fb47bb",
+      "sha256": "29eeb1a44e3a75a4bb662e9cf2911b76090f04d3e40ef8604078f77a3a65d218",
+      "bytes": 55965,
+      "member": "e0a10b5/packages/wuji-core/src/wuji_core/contracts/generated.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "packages/wuji-core/src/wuji_core/contracts/knowledge.py",
+      "git_blob": "8aa01af7aeb99199f64172e79c8cbf005e53bd64",
+      "sha256": "6565f8a6716b8a852fba8a323ade3483ec86caa65bdd7de8900ba551b3dd7edf",
+      "bytes": 2401,
+      "member": "e0a10b5/packages/wuji-core/src/wuji_core/contracts/knowledge.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "packages/wuji-core/src/wuji_core/evidence/artifacts.py",
+      "git_blob": "dc859adccbb5f755bd74109c3029696a9aa19f29",
+      "sha256": "abab5e757c7635bf15a4b699055e277478510e42cb8351909d5ce228669dbe51",
+      "bytes": 18106,
+      "member": "e0a10b5/packages/wuji-core/src/wuji_core/evidence/artifacts.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "packages/wuji-core/src/wuji_core/evidence/observations.py",
+      "git_blob": "23f9af71865a885b1a9cd7fb9a5ac54ded47dbc1",
+      "sha256": "a71a320e4ffda2cdc7e102b58bdf287ed493a51acbbb971d90bedce2753b18c3",
+      "bytes": 10265,
+      "member": "e0a10b5/packages/wuji-core/src/wuji_core/evidence/observations.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "packages/wuji-core/src/wuji_core/execution/capacity.py",
+      "git_blob": "55ba2113409130077c6565c43f778ac71711ef8f",
+      "sha256": "32980adb56b10b046e7fb3b94cc30d263c3caf864b79cbf909c4a7a535dd1ae2",
+      "bytes": 6049,
+      "member": "e0a10b5/packages/wuji-core/src/wuji_core/execution/capacity.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "packages/wuji-core/src/wuji_core/execution/control.py",
+      "git_blob": "1c57ac4abae529f5d6fb19cdbb6c9bb25c91cdac",
+      "sha256": "055ab180f45a73acca30a4d95bb5834674978accf828cd6d61dc7327fac16052",
+      "bytes": 47283,
+      "member": "e0a10b5/packages/wuji-core/src/wuji_core/execution/control.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "packages/wuji-core/src/wuji_core/execution/dependencies.py",
+      "git_blob": "fca7734c3dfae58c8b61fd274b62948cc38bfa7f",
+      "sha256": "7e44728010981394283fb332f9f4a8f8d3ea0550166f529ca8981faf52b87bc6",
+      "bytes": 6617,
+      "member": "e0a10b5/packages/wuji-core/src/wuji_core/execution/dependencies.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "packages/wuji-core/src/wuji_core/execution/states.py",
+      "git_blob": "7a965463691fb7679582ade5b90bea2d269c7906",
+      "sha256": "c04a4306df41c52a30b3fd9d5498e7e31c8ad3559c371e942d5985a1c0d614b4",
+      "bytes": 941,
+      "member": "e0a10b5/packages/wuji-core/src/wuji_core/execution/states.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "packages/wuji-core/src/wuji_core/http/auth.py",
+      "git_blob": "b0935ca55c9f82685717d251ced1d8102d22d0f9",
+      "sha256": "b6c926288fee014462bd9fc147d9a330ace0618d3624c1c3fd37babc44a80afb",
+      "bytes": 5884,
+      "member": "e0a10b5/packages/wuji-core/src/wuji_core/http/auth.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "packages/wuji-core/src/wuji_core/http/json_boundary.py",
+      "git_blob": "61049ba4f8b6ca95ff00d2c7065c886e9e48ef8b",
+      "sha256": "92f32aca9016c1ae7c16500026cbc86af78c49feef046dad580ea5d35db7deab",
+      "bytes": 13374,
+      "member": "e0a10b5/packages/wuji-core/src/wuji_core/http/json_boundary.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "packages/wuji-core/src/wuji_core/persistence/admission_hardening_schema.py",
+      "git_blob": "73733653fc4b2aa1a4f8e29fe9c1df96e3255348",
+      "sha256": "f7efad20140a9678e45764c1747a73e23128df99a71ce9b95c21ce544f9128fe",
+      "bytes": 12074,
+      "member": "e0a10b5/packages/wuji-core/src/wuji_core/persistence/admission_hardening_schema.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "packages/wuji-core/src/wuji_core/persistence/admission_request_guard_schema.py",
+      "git_blob": "8641e24d0d0126b6386ad4537df3248aef4bf9bb",
+      "sha256": "0a69371964167a5dbf39c628d28af9b83f68bd59e4afbe28ce76100f4697cd50",
+      "bytes": 23567,
+      "member": "e0a10b5/packages/wuji-core/src/wuji_core/persistence/admission_request_guard_schema.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "packages/wuji-core/src/wuji_core/persistence/admission_schema.py",
+      "git_blob": "1e25d398e3de41c286b326f5c838e71bfda0e699",
+      "sha256": "e42157448499ccbbc61828587d5354ea8cd241699e0fc79fefae1f31ca8ea1e6",
+      "bytes": 11400,
+      "member": "e0a10b5/packages/wuji-core/src/wuji_core/persistence/admission_schema.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "packages/wuji-core/src/wuji_core/persistence/control_schema.py",
+      "git_blob": "ecfcb03e86a8e48c9ce1f122d1a56124992f893b",
+      "sha256": "3524eb60c9296bc6ae52c1dd23181422f562d7379213bde69ae0cf6f87832a9a",
+      "bytes": 23098,
+      "member": "e0a10b5/packages/wuji-core/src/wuji_core/persistence/control_schema.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "packages/wuji-core/src/wuji_core/persistence/dispatch_fairness_schema.py",
+      "git_blob": "d621a211beba8d9fa3f4df7c18c3ae6ce568a69d",
+      "sha256": "10cd53ea2f13f456531d390e5cfd0910e667ad1ac90bd6b446abc9a6bf8a2a79",
+      "bytes": 4207,
+      "member": "e0a10b5/packages/wuji-core/src/wuji_core/persistence/dispatch_fairness_schema.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "packages/wuji-core/src/wuji_core/persistence/knowledge_schema.py",
+      "git_blob": "fd70feb1b8bdb998e302300f1f684f451d7f0c51",
+      "sha256": "0a61f9d8bf5c0583ffd46a9f03e0099c77a0ab6d0c5973aa0342d20dda749207",
+      "bytes": 19331,
+      "member": "e0a10b5/packages/wuji-core/src/wuji_core/persistence/knowledge_schema.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "packages/wuji-core/src/wuji_core/persistence/scheduler_schema.py",
+      "git_blob": "d62c89d47ddacf566b5f6623237c7ac24db6092f",
+      "sha256": "3bb0a894cdca7a00caa2fb1a7bd6aead31bfc0f1b128c8f1ef9bb4fa2b4aed45",
+      "bytes": 32405,
+      "member": "e0a10b5/packages/wuji-core/src/wuji_core/persistence/scheduler_schema.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "packages/wuji-core/src/wuji_core/persistence/schema.py",
+      "git_blob": "6836bde8f1e82a9d7bd48516dfd5fdb86dd4f602",
+      "sha256": "36c56a17dba381f36444930874a714af147779fbf2ae4e66f280d167d06ffe05",
+      "bytes": 35302,
+      "member": "e0a10b5/packages/wuji-core/src/wuji_core/persistence/schema.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "packages/wuji-core/src/wuji_core/persistence/snapshots.py",
+      "git_blob": "ededb786e7d09dec7127fd713dff87fadae7e87d",
+      "sha256": "ee0528bfc3c9195f733ee54dfb3e80bff9ed02d317ec7fd8e1050c6ad2bc166a",
+      "bytes": 17649,
+      "member": "e0a10b5/packages/wuji-core/src/wuji_core/persistence/snapshots.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "packages/wuji-core/src/wuji_core/persistence/uow.py",
+      "git_blob": "56472c659d7aa609927c483d27a2b0a25d545934",
+      "sha256": "d4141bf2f3b7dd1fba6d12d0a9a7e5a1aea1b0a4917697eaa406d89fbbebb90f",
+      "bytes": 14215,
+      "member": "e0a10b5/packages/wuji-core/src/wuji_core/persistence/uow.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "packages/wuji-core/src/wuji_core/scheduling/__init__.py",
+      "git_blob": "f92b4af3a34c50e1226cc92f6b9dc7101f156daf",
+      "sha256": "5aec06af94330e964fe4bbea73eae348148126373bcd49192646053d7488d133",
+      "bytes": 66,
+      "member": "e0a10b5/packages/wuji-core/src/wuji_core/scheduling/__init__.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "packages/wuji-core/src/wuji_core/scheduling/claims.py",
+      "git_blob": "754d9b35325bb769315229396d45180bfc371fc0",
+      "sha256": "5b8873b2617927e592a37bbb56ce5eba831fc64ed0d8a7b96160f534f0583bef",
+      "bytes": 42235,
+      "member": "e0a10b5/packages/wuji-core/src/wuji_core/scheduling/claims.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "packages/wuji-core/src/wuji_core/scheduling/credentials.py",
+      "git_blob": "fae251a45b4f1e639ba8244abfd959c617951705",
+      "sha256": "3f57bf3e095c2bac0b355d78cf8e963ef6da129d68b347005e9c087fdc443821",
+      "bytes": 8684,
+      "member": "e0a10b5/packages/wuji-core/src/wuji_core/scheduling/credentials.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "packages/wuji-core/src/wuji_core/scheduling/policy.py",
+      "git_blob": "415b50347704ba328b675c4296a5ca2d365f699a",
+      "sha256": "66688eb2f42cca0a3a6e51d51f6acd54843aa354c621269f404f18c89738304c",
+      "bytes": 6867,
+      "member": "e0a10b5/packages/wuji-core/src/wuji_core/scheduling/policy.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "packages/wuji-core/src/wuji_core/scheduling/triggers.py",
+      "git_blob": "b4edda16ca93d299ad1b74d6d593af9ae0e16aac",
+      "sha256": "c4f24b5e8ef1d007b61c1e0c484c39900dff2c351eed0a8ca4e8f44932251419",
+      "bytes": 23113,
+      "member": "e0a10b5/packages/wuji-core/src/wuji_core/scheduling/triggers.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "packages/wuji-core/src/wuji_core/scheduling/waiters.py",
+      "git_blob": "83d024c8cf23345fe7a97bdc415e18a95f0ae26e",
+      "sha256": "10d46429b59aa1b24103f5b68afe65fd517bb76b3197a94064a0d423c0116f68",
+      "bytes": 10099,
+      "member": "e0a10b5/packages/wuji-core/src/wuji_core/scheduling/waiters.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "scripts/vnext/uv.sh",
+      "git_blob": "75f3923d8f25c8943579404129502d75c5216594",
+      "sha256": "0a104369007a3e6968131ef66be767e7d376225c643c38d2743102faf91037ff",
+      "bytes": 863,
+      "member": "e0a10b5/scripts/vnext/uv.sh"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "services/wuji-scheduler/main.py",
+      "git_blob": "bf69a7853d7abeda5f90898140bde525f873137b",
+      "sha256": "65fb70bd1eeb06e30074dac082bc27568438b38ef1fb21b6acbfd78f28c743c4",
+      "bytes": 2134,
+      "member": "e0a10b5/services/wuji-scheduler/main.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "tests/vnext/conftest.py",
+      "git_blob": "17f254a052fbae5953d7aa19144d9baf907a402d",
+      "sha256": "fec4c7a72223dbd5b0173e24674234ac21abecfd4b3711973c7f2f7f294cf764",
+      "bytes": 3543,
+      "member": "e0a10b5/tests/vnext/conftest.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "tests/vnext/support/http_capture.py",
+      "git_blob": "4a4bd1dd6421ce952a2490a7aaf2888216bfc553",
+      "sha256": "6b193f6f1b21ce369ee385d02909a11d8aa1dcd2b56c13608e51e40fc980c2cf",
+      "bytes": 3027,
+      "member": "e0a10b5/tests/vnext/support/http_capture.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "tests/vnext/support/identity_provider.py",
+      "git_blob": "2c0e6256a3ae5c2d342ccdaa195132f0f7bb4d2d",
+      "sha256": "01651e851172863908de3a6387a010673a579de5fb2863d4cf651dba85db8ac7",
+      "bytes": 4942,
+      "member": "e0a10b5/tests/vnext/support/identity_provider.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "tests/vnext/support/p03.py",
+      "git_blob": "c0325478aa9022c949b230073f718d4496a4d3a5",
+      "sha256": "ae85cc53d520a1cf80582f9fa6462c53a6179713bed741aab1c92085f12ea790",
+      "bytes": 8307,
+      "member": "e0a10b5/tests/vnext/support/p03.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "tests/vnext/support/p06.py",
+      "git_blob": "8db3f0718716863c71b467ecb9edc83e7547bae0",
+      "sha256": "eb0f3df6b8c785ca095fb69b1e252ee4a54012f08579466a702409340b79ecc6",
+      "bytes": 35777,
+      "member": "e0a10b5/tests/vnext/support/p06.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "tests/vnext/support/p09.py",
+      "git_blob": "45c0abf83716579bd32c04825b1761f454dbc587",
+      "sha256": "56ceb2e571a3a074a233fa65a23bd558d4420be16817c942f5a96d3e3fe4d535",
+      "bytes": 15715,
+      "member": "e0a10b5/tests/vnext/support/p09.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "tests/vnext/support/postgres.py",
+      "git_blob": "f7faae1efd1c9221ac76976162385f11d885ca49",
+      "sha256": "1ff07b4de552bf7741aa68105a15ed5300041a188691c67a709af6bed9fa0c2e",
+      "bytes": 19871,
+      "member": "e0a10b5/tests/vnext/support/postgres.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "tests/vnext/test_capture_transactions.py",
+      "git_blob": "3ea01fbbf6cb04a7d87552d46cd3f52ab0ca9c3e",
+      "sha256": "0e4c2083af3b5438a0df38043201ffd1c8679de6922756a4b4a3cadd310f9536",
+      "bytes": 26022,
+      "member": "e0a10b5/tests/vnext/test_capture_transactions.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "tests/vnext/test_knowledge_admission.py",
+      "git_blob": "f81200fb2c8f2cfb9288be828c6ff51f13621aaf",
+      "sha256": "8286318751a837243984c6736d4c0c07be0ac86afc3f7fdca5cba06a6aad412d",
+      "bytes": 44896,
+      "member": "e0a10b5/tests/vnext/test_knowledge_admission.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "tests/vnext/test_run_admission.py",
+      "git_blob": "2e025ffd7e6247c2effc267fef1e952ebb8e29bb",
+      "sha256": "0bb94b5792a4fc83da6bd1f1a5e9797aeec2d8c86432911ce656c1a1f2e87d10",
+      "bytes": 54451,
+      "member": "e0a10b5/tests/vnext/test_run_admission.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "tests/vnext/test_scheduler_generations.py",
+      "git_blob": "a798e5614fe52e307f90a74a85047844af5d58ce",
+      "sha256": "8307286f86300ed311b10a2f87fa4da16e50e42725cf613b13f90f9f73042398",
+      "bytes": 31856,
+      "member": "e0a10b5/tests/vnext/test_scheduler_generations.py"
+    },
+    {
+      "commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "path": "tests/vnext/test_work_state_guards.py",
+      "git_blob": "adcb8abd83b980b6faf139579a0ccd343551effd",
+      "sha256": "4bdd99f85a6661c7e2f8e3db9e3db4305f5867f957d65219eb1661f34eaa0b38",
+      "bytes": 50306,
+      "member": "e0a10b5/tests/vnext/test_work_state_guards.py"
+    }
+  ],
+  "limits": "Selected P09 implementation, SQL definitions, input factories and direct dependencies; not a complete runtime/environment archive. RED uncommitted tests are not falsely attributed to a commit."
+}

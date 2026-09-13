@@ -1,0 +1,269 @@
+{
+  "schema_version": 1,
+  "stage": "P09",
+  "status": "reviewed_partial_not_full_acceptance",
+  "archived_at_utc": "2026-09-13T07:22:06.756897+00:00",
+  "new_tests_run": false,
+  "new_db_http_or_product_checks": false,
+  "executing_lane": {
+    "name": "Archimedes",
+    "thread_id": "01a0991d-3297-7853-89df-ff3407025e11",
+    "assigned_model": "gpt-5.6-sol/xhigh"
+  },
+  "transcript": {
+    "thread_id": "01a0991d-3297-7853-89df-ff3407025e11",
+    "file_name": "rollout-2026-09-13T12-53-42-01a0991d-3297-7853-89df-ff3407025e11.jsonl",
+    "cutoff_utc": "2026-09-13T06:45:00Z",
+    "prefix_sha256": "58e8ef1fadd4da46248dbfd5645500b6e2a2de5470557686ee47879aa8c7a94a",
+    "raw_distribution": "local_only_not_archived",
+    "selection": "CommandExecution and scoped FileChange only; no reasoning or unrelated conversations"
+  },
+  "runs": [
+    {
+      "id": "baseline-31",
+      "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_scheduler_generations.py -q",
+      "cwd": "<WORKTREE>",
+      "exit_code": 0,
+      "summary": "31 passed in 16.57s",
+      "timestamp_utc": "2026-09-13T05:56:23.732Z",
+      "record_id": "exec-887d2c5f-1e6c-4a66-8872-65dafdc57ccc",
+      "source_line": 1341,
+      "source_line_sha256": "20ae0ed64031b4831128fef487326f957e5d820a3a0053e42e18adb1020725f9",
+      "original_aggregated_output_sha256": "3e324f0365bd6af8eed6b4e243a343eccb8ef75468b646a4adc3d7c78263a479",
+      "output": "outputs/baseline-31.txt",
+      "output_sha256": "3e324f0365bd6af8eed6b4e243a343eccb8ef75468b646a4adc3d7c78263a479",
+      "code_commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "code_binding": "committed_checkout",
+      "database": {
+        "postgresql": "real_isolated_fixture",
+        "application_role": "non_owner_no_bypassrls",
+        "migration_and_deployment_role": "separate_owner_role",
+        "two_connections": "ownership_race_subtest_only",
+        "basis": "original completed command plus commit-pinned fixture/assertions; per-query runtime logs missing"
+      },
+      "sql_runtime_log": "missing_not_recreated",
+      "notes": ""
+    },
+    {
+      "id": "consumers-4",
+      "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_capture_transactions.py::test_snapshot_query_scope_current_access_and_expiration tests/vnext/test_capture_transactions.py::test_read_only_member_can_create_a_snapshot_without_domain_write tests/vnext/test_knowledge_admission.py::test_fixed_snapshot_includes_assessment_inputs_and_checks_current_access tests/vnext/test_run_admission.py::test_run_credential_does_not_grant_control_admit_or_capture -q",
+      "cwd": "<WORKTREE>",
+      "exit_code": 0,
+      "summary": "4 passed in 3.53s",
+      "timestamp_utc": "2026-09-13T05:57:03.278Z",
+      "record_id": "exec-ce8f2637-a518-4a79-a75a-6fd9768529be",
+      "source_line": 1359,
+      "source_line_sha256": "dd332a96563d7d0c2931bed102d6604986353c5f131571583649c37d877e7e10",
+      "original_aggregated_output_sha256": "b12e03700250280baebbf1e5343f5ed71dda842fbf3673b606c67ab082920cc7",
+      "output": "outputs/consumers-4.txt",
+      "output_sha256": "b12e03700250280baebbf1e5343f5ed71dda842fbf3673b606c67ab082920cc7",
+      "code_commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "code_binding": "committed_checkout",
+      "database": {
+        "postgresql": "real_isolated_fixture",
+        "application_role": "non_owner_no_bypassrls",
+        "migration_and_deployment_role": "separate_owner_role",
+        "two_connections": "not_claimed",
+        "basis": "original completed command plus commit-pinned fixture/assertions; per-query runtime logs missing"
+      },
+      "sql_runtime_log": "missing_not_recreated",
+      "notes": ""
+    },
+    {
+      "id": "capacity-race-1",
+      "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_work_state_guards.py::test_shared_global_pool_serializes_two_tenants -q",
+      "cwd": "<WORKTREE>",
+      "exit_code": 0,
+      "summary": "1 passed in 0.74s",
+      "timestamp_utc": "2026-09-13T05:58:20.881Z",
+      "record_id": "exec-5316558f-7a0e-4d09-b086-923ae1904d8f",
+      "source_line": 1388,
+      "source_line_sha256": "9a0d315d7cc8d56fe2597ca7d2305f55f39195adf69edea5a1b61140e1e0bc8c",
+      "original_aggregated_output_sha256": "b7b3aa92344a38bedb2ba74f765049f69319b8af87f14816cc3a4df38eeb870a",
+      "output": "outputs/capacity-race-1.txt",
+      "output_sha256": "b7b3aa92344a38bedb2ba74f765049f69319b8af87f14816cc3a4df38eeb870a",
+      "code_commit": "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c",
+      "code_binding": "committed_checkout",
+      "database": {
+        "postgresql": "real_isolated_fixture",
+        "application_role": "non_owner_no_bypassrls",
+        "migration_and_deployment_role": "separate_owner_role",
+        "two_connections": "two_tenants_shared_last_capacity",
+        "basis": "original completed command plus commit-pinned fixture/assertions; per-query runtime logs missing"
+      },
+      "sql_runtime_log": "missing_not_recreated",
+      "notes": ""
+    },
+    {
+      "id": "review-abc-red",
+      "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_scheduler_generations.py::test_scheduler_rejects_receiver_without_current_observe_permission_before_dispatch tests/vnext/test_scheduler_generations.py::test_rejected_reason_intents_do_not_consume_processing_generation tests/vnext/test_scheduler_generations.py::test_persisted_work_cursor_advances_past_more_than_limit_blocked_candidates -q",
+      "cwd": "<WORKTREE>",
+      "exit_code": 1,
+      "summary": "3 failed in 5.04s",
+      "timestamp_utc": "2026-09-13T06:28:51.069Z",
+      "record_id": "exec-5116598f-4eb8-4693-879b-263ff4211cd1",
+      "source_line": 1608,
+      "source_line_sha256": "ce013d6bd68bb0735888c6f4b5f31fc1ddc5248bb1dbb1ad573750299ca9d717",
+      "original_aggregated_output_sha256": "96f74bb6dc373a8d2f904f4fe077d4b69f0134a39175addd88a354c43d01cb56",
+      "output": "outputs/review-abc-red.txt",
+      "output_sha256": "a87c9867cee680fa5734077a147e4cca3601686e5fedcf70874fe3897fd9fa23",
+      "code_commit": "57ec12ea2ada7acf7fe6a0ac7ac98b40e7c66012",
+      "code_binding": "base_plus_uncommitted_tests",
+      "database": {
+        "postgresql": "real_isolated_fixture",
+        "application_role": "non_owner_no_bypassrls",
+        "migration_and_deployment_role": "separate_owner_role",
+        "two_connections": "not_claimed",
+        "basis": "original completed command plus commit-pinned fixture/assertions; per-query runtime logs missing"
+      },
+      "sql_runtime_log": "missing_not_recreated",
+      "notes": "C failed on missing last_considered_work_id; final implementation/tests use consideration_round. Uncommitted RED test bytes were not snapshotted; original edits and failure body are archived."
+    },
+    {
+      "id": "review-abc-green",
+      "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_scheduler_generations.py::test_scheduler_rejects_receiver_without_current_observe_permission_before_dispatch tests/vnext/test_scheduler_generations.py::test_rejected_reason_intents_do_not_consume_processing_generation tests/vnext/test_scheduler_generations.py::test_persisted_work_cursor_advances_past_more_than_limit_blocked_candidates -q",
+      "cwd": "<WORKTREE>",
+      "exit_code": 0,
+      "summary": "3 passed in 5.00s",
+      "timestamp_utc": "2026-09-13T06:38:39.073Z",
+      "record_id": "exec-8ca1cc67-6b67-4009-9a50-d33539a37d0e",
+      "source_line": 1814,
+      "source_line_sha256": "22ac2f9044ceb713c043823e70e1dcb07eb1c6258adb587a1858b9f99368a9bf",
+      "original_aggregated_output_sha256": "625f0235b4551318560c3386b9f257271e10d597ad3bafe79945900feed0b413",
+      "output": "outputs/review-abc-green.txt",
+      "output_sha256": "625f0235b4551318560c3386b9f257271e10d597ad3bafe79945900feed0b413",
+      "code_commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "code_binding": "precommit_worktree_later_committed",
+      "database": {
+        "postgresql": "real_isolated_fixture",
+        "application_role": "non_owner_no_bypassrls",
+        "migration_and_deployment_role": "separate_owner_role",
+        "two_connections": "not_claimed",
+        "basis": "original completed command plus commit-pinned fixture/assertions; per-query runtime logs missing"
+      },
+      "sql_runtime_log": "missing_not_recreated",
+      "notes": ""
+    },
+    {
+      "id": "upgrade-0011",
+      "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_scheduler_generations.py::test_p09_fairness_migration_upgrades_0010_and_reapplies_once -q",
+      "cwd": "<WORKTREE>",
+      "exit_code": 0,
+      "summary": "1 passed in 1.22s",
+      "timestamp_utc": "2026-09-13T06:38:54.427Z",
+      "record_id": "exec-e0467c17-7016-41b1-a183-efb4c7e4e438",
+      "source_line": 1821,
+      "source_line_sha256": "eb7e041a5cba0655a2cc4d6dcf23359248429bf61bf7f19b69a22ba903d43ea2",
+      "original_aggregated_output_sha256": "93c088ea44701d55ee105654a6587cad21d503ab26286ad5169a7ee0b2eb4f13",
+      "output": "outputs/upgrade-0011.txt",
+      "output_sha256": "93c088ea44701d55ee105654a6587cad21d503ab26286ad5169a7ee0b2eb4f13",
+      "code_commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "code_binding": "precommit_worktree_later_committed",
+      "database": {
+        "postgresql": "real_isolated_fixture",
+        "application_role": "not_used_by_migration_only_node",
+        "migration_and_deployment_role": "separate_owner_role",
+        "two_connections": "not_claimed",
+        "basis": "original completed command plus commit-pinned fixture/assertions; per-query runtime logs missing"
+      },
+      "sql_runtime_log": "missing_not_recreated",
+      "notes": ""
+    },
+    {
+      "id": "pod-uid-1",
+      "command": "./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_scheduler_generations.py::test_scheduler_main_flow_uses_real_pg_and_minimal_signed_run_identity -q",
+      "cwd": "<WORKTREE>",
+      "exit_code": 0,
+      "summary": "1 passed in 2.49s",
+      "timestamp_utc": "2026-09-13T06:40:03.217Z",
+      "record_id": "exec-02e293b5-cccd-4e0d-85e2-0ae4925f3816",
+      "source_line": 1855,
+      "source_line_sha256": "ce8cd5b1f5ba929765844fa0ccba9d65a8e512b4dd6e47863b44112e83030548",
+      "original_aggregated_output_sha256": "dd420ee333d64a773e5b5a72ec19bdd6bf8d3aad38de9bacfad2c691306d75a0",
+      "output": "outputs/pod-uid-1.txt",
+      "output_sha256": "dd420ee333d64a773e5b5a72ec19bdd6bf8d3aad38de9bacfad2c691306d75a0",
+      "code_commit": "e0a10b586905ed705b0d7f520bda6f6f96b26cac",
+      "code_binding": "precommit_worktree_later_committed",
+      "database": {
+        "postgresql": "real_isolated_fixture",
+        "application_role": "non_owner_no_bypassrls",
+        "migration_and_deployment_role": "separate_owner_role",
+        "two_connections": "not_claimed",
+        "basis": "original completed command plus commit-pinned fixture/assertions; per-query runtime logs missing"
+      },
+      "sql_runtime_log": "missing_not_recreated",
+      "notes": ""
+    }
+  ],
+  "reviews": [
+    {
+      "path": "reviews/P09-review.md",
+      "source": ".superpowers/sdd/vnext-v2/P09-review.md",
+      "sha256": "3f39cc0442eebbb43329fd222e9c1dc5568c94f358cf05368a096213e9285aa0",
+      "copy": "byte_identical",
+      "note": "Historical missing-permanent-package statements describe review time; this archive was added later."
+    },
+    {
+      "path": "reviews/P09-rereview.md",
+      "source": ".superpowers/sdd/vnext-v2/P09-rereview.md",
+      "sha256": "5a4187c42982f8498eb7c51d351e5c24048c040a1be217de9852b7c093a51fc2",
+      "copy": "byte_identical",
+      "note": "Historical missing-permanent-package statements describe review time; this archive was added later."
+    }
+  ],
+  "run_binding_limits": {
+    "baseline": "31+4+1 were executed after a3f7a95 commit. They are not e0a10b5 reruns.",
+    "review_green": "3+upgrade1+UID1 were executed precommit; final seven-path bytes were committed to e0a10b5. No postcommit DB run or contemporaneous full file-hash manifest exists; binding relies on original edit/commit records and Dalton rereview.",
+    "review_red": "57ec12e base plus uncommitted test changes. A/B P09 code unchanged from a3f7a95. C RED is missing-field failure, not a completed starvation trace."
+  },
+  "evidence_gaps": {
+    "pytest_root": "<LOCAL_TMP>/pytest-of-<USER>",
+    "surviving_directories_at_inventory": [
+      "pytest-189",
+      "pytest-190",
+      "pytest-191"
+    ],
+    "p09_sql_logs_recovered": 0,
+    "sql": "Original per-test postgres-events.jsonl/parameters/results could not be recovered; earlier pytest directories are absent. Code SQL is archived as source, not as replayed execution.",
+    "runtime_inputs": "Random run IDs, issued credentials, raw artifact bytes and per-test identity files absent with temporary directories. Literal input factories at Git commits are preserved, not regenerated.",
+    "junit": "Not requested by the original commands; no JUnit report created now.",
+    "http_screenshots": "No new HTTP or screenshot evidence. Consumers-4 includes actual in-process P04 HTTP calls; their original exchanges were not recovered. This archive does not manufacture HTTP records or claim a real network/Pod run."
+  },
+  "redaction": {
+    "paths": [
+      "<WORKTREE>",
+      "<HOME>",
+      "<LOCAL_TMP>"
+    ],
+    "values": [
+      "JWT bearer strings",
+      "PEM private keys"
+    ],
+    "policy": "Keep synthetic fixture IDs and SQL/schema; do not export local PG connection manifest or raw session. Output hashes before and after redaction retained.",
+    "restricted_local_copy": {
+      "path": "<WORKTREE>/work/p09-evidence-private/original-command-envelope-lines.jsonl",
+      "directory_mode": "0700",
+      "file_mode": "0600",
+      "sha256": "fcac4f09d48e515c723410a411e797119436f5982d6307a49682586cfabc97e0",
+      "git_included": false
+    }
+  },
+  "partial_acceptance_ids": [
+    "AC-007",
+    "AC-015",
+    "AC-018",
+    "AC-024",
+    "AC-025",
+    "AC-026",
+    "AC-027",
+    "AC-028",
+    "AC-029"
+  ],
+  "deferred": [
+    "Real P10/M2 Outbox/Supervisor/Worker/Pod chain",
+    "P08 non-knowledge events at same board_revision",
+    "Reason failure/retry closure with authentic exit receipts",
+    "Session restoration",
+    "Full accepted Reason/Wait/Completion consumer chain"
+  ]
+}

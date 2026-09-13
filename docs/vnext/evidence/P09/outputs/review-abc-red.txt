@@ -1,0 +1,195 @@
+FFF                                                                      [100%]
+=================================== FAILURES ===================================
+_ test_scheduler_rejects_receiver_without_current_observe_permission_before_dispatch _
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x112e27380>
+tmp_path = PosixPath('<LOCAL_TMP>/pytest-of-<USER>/pytest-169/test_scheduler_rejects_receive0')
+audit_directory = PosixPath('<LOCAL_TMP>/pytest-of-<USER>/pytest-169/test_scheduler_rejects_receive0')
+
+    def test_scheduler_rejects_receiver_without_current_observe_permission_before_dispatch(
+        db_environment, tmp_path, audit_directory
+    ) -> None:
+        with scheduler_case(db_environment, tmp_path, audit_directory) as case:
+            with case.control.env.migration_connection() as connection:
+                connection.execute(
+                    """UPDATE vnext.task_access SET can_observe=false
+                    WHERE tenant_id=%s AND project_id=%s AND task_id=%s
+                    AND subject='observer-fixture'""",
+                    OWNER,
+                )
+    
+            receipt = case.scheduler.tick(limit=2)
+    
+>           assert receipt.assignments == ()
+E           AssertionError: assert (WorkerAssign..._reason=None)) == ()
+E             
+E             Left contains 2 more items, first extra item: WorkerAssignment(schema_version=AssignmentSchemaVersion(root='wuji.assignment.v2'), operation_id='6d62ba2e-70d2-4ca7-b...max_total_output_bytes=65536, max_elapsed_seconds=300, max_attempts_per_work=3, repair_attempts=1), resume_reason=None)
+E             Use -v to get more diff
+
+tests/vnext/test_scheduler_generations.py:707: AssertionError
+______ test_rejected_reason_intents_do_not_consume_processing_generation _______
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x114917250>
+tmp_path = PosixPath('<LOCAL_TMP>/pytest-of-<USER>/pytest-169/test_rejected_reason_intents_d0')
+audit_directory = PosixPath('<LOCAL_TMP>/pytest-of-<USER>/pytest-169/test_rejected_reason_intents_d0')
+
+    def test_rejected_reason_intents_do_not_consume_processing_generation(
+        db_environment, tmp_path, audit_directory
+    ) -> None:
+        with scheduler_case(db_environment, tmp_path, audit_directory) as case:
+            reason = next(
+                assignment
+                for assignment in case.scheduler.tick(limit=2).assignments
+                if assignment.work_kind.value == "reason"
+            )
+            credential = worker_credential(case, reason)
+            payload = {
+                "schema_version": "wuji.agent-payload.v2",
+                "claims": [],
+                "intent_proposals": [
+                    {
+                        "client_ref": "rejected-intent",
+                        "question": "Use a reference that was never recorded.",
+                        "basis_refs": [
+                            {
+                                "entity_type": "claim",
+                                "id": "missing-claim",
+                                "revision": "1",
+                            }
+                        ],
+                        "expected_output": "wuji.agent-payload.v2",
+                    }
+                ],
+                "limitations": ["intent must be rejected by the real P04 consumer"],
+                "reason_decision": {
+                    "decision": "propose_intents",
+                    "wait_refs": [],
+                    "reason": "Propose the rejected intent.",
+                },
+            }
+            raw = canonical_json_bytes(payload)
+            raw_ref = case.control.store.stage_model_output(
+                credential.access,
+                TASK,
+                reason.identity.agent_run_id,
+                raw,
+                "application/json",
+            )
+            case.control.store.seal(credential.access, TASK, raw_ref)
+            submission_id = "p09-rejected-reason-intents"
+            receipt = case.control.committer.submit(
+                credential.access,
+                ResultEnvelope.model_validate(
+                    {
+                        "schema_version": "wuji.result-envelope.v2",
+                        "submission_id": submission_id,
+                        "identity": reason.identity.model_dump(mode="json"),
+                        "snapshot_id": reason.snapshot_id,
+                        "read_set": [],
+                        "raw_output_ref": raw_ref.model_dump(mode="json"),
+                        "raw_output_digest": raw_ref.sha256.root,
+                        "payload": payload,
+                        "producer_version": "p09-rejected-intent-fixture-v1",
+                    }
+                ),
+            )
+            assert receipt.status.value == "accepted"
+            assert receipt.components and all(
+                component.canonical_ref is None and component.code is not None
+                for component in receipt.components
+            )
+    
+            with case.control.uow.transaction(SCHEDULER, TASK, capability="admit") as tx:
+                repository = TriggerRepository(artifacts=case.control.store)
+                before = repository.read(tx)
+                accepted = repository.consume(tx, submission_id=submission_id)
+                after = repository.read(tx)
+                decision = tx.connection.execute(
+                    """SELECT status,reason_code FROM vnext.scheduler_decision
+                    WHERE submission_id=%s""",
+                    (submission_id,),
+                ).fetchone()
+    
+>           assert accepted is False
+E           assert True is False
+
+tests/vnext/test_scheduler_generations.py:800: AssertionError
+_ test_persisted_work_cursor_advances_past_more_than_limit_blocked_candidates __
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x1163387d0>
+tmp_path = PosixPath('<LOCAL_TMP>/pytest-of-<USER>/pytest-169/test_persisted_work_cursor_adv0')
+audit_directory = PosixPath('<LOCAL_TMP>/pytest-of-<USER>/pytest-169/test_persisted_work_cursor_adv0')
+
+    def test_persisted_work_cursor_advances_past_more_than_limit_blocked_candidates(
+        db_environment, tmp_path, audit_directory
+    ) -> None:
+        with scheduler_case(
+            db_environment,
+            tmp_path,
+            audit_directory,
+            template_clearance=0,
+            input_access_level=1,
+            max_work_items=10,
+            capacity=2,
+        ) as case:
+            publish_additional_intent(case, "blocked-two")
+            publish_additional_intent(case, "blocked-three")
+            runnable = publish_additional_intent(case, "runnable-low", include_basis=False)
+    
+            first = case.scheduler.tick(limit=2)
+            assert {assignment.work_kind.value for assignment in first.assignments} == {
+                "reason"
+            }
+            with case.control.env.migration_connection() as connection:
+>               first_cursor = connection.execute(
+                    """SELECT last_considered_work_id FROM vnext.scheduler_state
+                    WHERE tenant_id=%s AND project_id=%s AND task_id=%s""",
+                    OWNER,
+                ).fetchone()[0]
+
+tests/vnext/test_scheduler_generations.py:827: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/vnext/support/postgres.py:193: in execute
+    cursor = self._connection.execute(query, params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <psycopg.Connection [BAD] at 0x116307890>
+query = 'SELECT last_considered_work_id FROM vnext.scheduler_state\n                WHERE tenant_id=%s AND project_id=%s AND task_id=%s'
+params = ('tenant-fixture', 'project-fixture', 'task-fixture'), prepare = None
+binary = False
+
+    def execute(
+        self,
+        query: Query,
+        params: Params | None = None,
+        *,
+        prepare: bool | None = None,
+        binary: bool = False,
+    ) -> Cursor[Row]:
+        """Execute a query and return a cursor to read its results."""
+        try:
+            cur = self.cursor()
+            if binary:
+                cur.format = BINARY
+    
+            if isinstance(query, Template):
+                if params is not None:
+                    raise TypeError(
+                        "'execute()' with string template query doesn't support parameters"
+                    )
+                return cur.execute(query, prepare=prepare)
+            else:
+                return cur.execute(query, params, prepare=prepare)
+        except e._NO_TRACEBACK as ex:
+>           raise ex.with_traceback(None)
+E           psycopg.errors.UndefinedColumn: column "last_considered_work_id" does not exist
+E           LINE 1: SELECT last_considered_work_id FROM vnext.scheduler_state
+E                          ^
+
+packages/maf-worker/.venv/lib/python3.13/site-packages/psycopg/connection.py:300: UndefinedColumn
+=========================== short test summary info ============================
+FAILED tests/vnext/test_scheduler_generations.py::test_scheduler_rejects_receiver_without_current_observe_permission_before_dispatch
+FAILED tests/vnext/test_scheduler_generations.py::test_rejected_reason_intents_do_not_consume_processing_generation
+FAILED tests/vnext/test_scheduler_generations.py::test_persisted_work_cursor_advances_past_more_than_limit_blocked_candidates
+3 failed in 5.04s
