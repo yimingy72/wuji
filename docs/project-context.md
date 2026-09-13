@@ -2,6 +2,8 @@
 
 2026-09-13 当前实施：用户批准按完整 [vNext v2 Spec](vnext/SPEC.md) / [Plan](vnext/PLAN.md)进入重构。执行工作树为 `work/worktrees/vnext-maf`，分支 `codex/vnext-maf`，起点 `1d73a767599732d9a53f81ad2cc553f4bf11d84e`。见[阶段入口](stages/vnext-maf/spec.md)、[实施决定](vnext/decision-register.md)与[验收状态](stages/vnext-maf/acceptance.md)。下文 Cairn/Pi 为旧实现及历史来源，不再约束新核心；新链路不允许运行旧内核。主目录上一轮草案未提交变更保留。
 
+本轮最新模型分工见实施决定 D10：修复、验证及轻量重复工作使用 SOL/xhigh，核心开发或重大复杂问题才使用 GPT-6/xhigh；下文及历史报告中的旧模型限定仅描述当时约定。
+
 更新：2026-09-11；当前文档与GitHub交付分支为 `codex/github-upload`，业务来源为 `codex/phase-2-web-assessment@40472c6`（旧运行检出保留），架构收口起点6ee84b5。此页负责恢复背景与导航；设计正文、阶段验收各有独立权威来源，不在此复制完整架构。先读根 [AGENTS.md](../AGENTS.md)。
 
 GitHub 克隆入口：默认分支 `codex/github-upload` 基于 W1 记录提交 `40472c6` 整理，本文档及阶段文档均在当前克隆内。下文工作树路径描述原开发机器的来源，不是克隆依赖；版本对应见[仓库交接说明](repository-handoff.md)。

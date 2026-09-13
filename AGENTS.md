@@ -4,7 +4,7 @@
 
 用户已明确要求按下载目录 `wuji_maf_redesign_v2` 的更新 Spec/Plan 进入重构。当前分支的新核心以 [v2 SPEC](docs/vnext/SPEC.md)、[v2 PLAN](docs/vnext/PLAN.md)及[实施决定](docs/vnext/decision-register.md)为依据，优先于下文旧 Cairn/Pi 目标约束；旧代码、部署与验收仍按原版本解释。新核心退出 Cairn/Pi，使用自有黑板/Scheduler、Python MAF 与 React Flow。开发和本地验证已授权，不重复询问是否开始；生产切换、停机、删除用户数据、收费目标模型及远端发布仍未授权。
 
-本次子代理可按需要使用 `gpt-5.6-sol` / `xhigh` 或 `gpt-6-astra` / `xhigh`，覆盖旧 `gpt-6-astra/low` 限定；主代理保留当前模型并负责架构判断、集成及最终质量。读取 v2 执行台账，不继承 v1 未完成准备记录的状态。
+本次模型分工按用户最新决定：修复、测试、验证、代码复核和轻量重复工作统一使用 `gpt-5.6-sol` / `xhigh`；只有核心功能开发或重大复杂问题使用 `gpt-6-astra` / `xhigh`，不得将常规失败自动升级。覆盖旧 `gpt-6-astra/low` 限定；主代理保留当前模型并负责架构判断、集成及最终质量。已有测试证据按实际执行者记录，不因模型交接重跑。读取 v2 执行台账，不继承 v1 未完成准备记录的状态。
 
 ## 项目背景与上下文恢复（必读）
 
