@@ -1,0 +1,12 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+________ test_runtime_dispatcher_exposes_the_product_outbox_entrypoint _________
+
+    def test_runtime_dispatcher_exposes_the_product_outbox_entrypoint():
+>       from wuji_core.execution.runtime_dispatcher import RuntimeDispatcher
+E       ModuleNotFoundError: No module named 'wuji_core.execution.runtime_dispatcher'
+
+tests/vnext/test_maf_child_transport.py:31: ModuleNotFoundError
+=========================== short test summary info ============================
+FAILED tests/vnext/test_maf_child_transport.py::test_runtime_dispatcher_exposes_the_product_outbox_entrypoint
+1 failed in 0.87s

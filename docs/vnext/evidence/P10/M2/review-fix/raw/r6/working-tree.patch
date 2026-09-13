@@ -1,0 +1,865 @@
+diff --git a/packages/maf-worker/src/wuji_maf_worker/sessions.py b/packages/maf-worker/src/wuji_maf_worker/sessions.py
+index 261c7ee..8c68916 100644
+--- a/packages/maf-worker/src/wuji_maf_worker/sessions.py
++++ b/packages/maf-worker/src/wuji_maf_worker/sessions.py
+@@ -8,7 +8,8 @@ from agent_framework import AgentSession, Content
+ from wuji_core.contracts.sessions import (
+     BoundaryObject, BoundaryObjects, MemoryFile, MemoryManifestRoot,
+     ModelFrontierEntry, NativeCallBinding, OperationFrontier, ProviderStateRoot,
+-    PublishedSession, SessionCompatibility, SessionLimits, ToolFrontierEntry,
++    PublishedSession, RejectedCallFrontierEntry, SessionCompatibility,
++    SessionLimits, ToolFrontierEntry, native_rejection_content,
+ )
+ from wuji_core.http import canonical_json_bytes, strict_json_loads
+ from wuji_maf_worker.approvals import extract_approval_requests, validate_pending
+@@ -49,6 +50,28 @@ def _positions(observed, messages):
+     return tuple(found[key] for key in sorted(found))
+ 
+ 
++def _rejected_entry(history, binding, *, approval_ref, decision_version):
++    expected = native_rejection_content(binding.provider_call_id)
++    matches = []
++    for index, message in enumerate(history.messages):
++        if message.get("role") != "tool":
++            continue
++        for offset, content in enumerate(message.get("contents", [])):
++            if content == expected:
++                matches.append((index, offset, content))
++    if len(matches) != 1:
++        raise ValueError("native rejection result is missing or ambiguous")
++    index, offset, content = matches[0]
++    return RejectedCallFrontierEntry(
++        approval_ref=approval_ref,
++        decision_version=decision_version,
++        call_binding=binding,
++        result_position=_position(history.messages, index, offset),
++        result_content=content,
++        result_digest=digest(content),
++    )
++
++
+ @dataclass(frozen=True)
+ class RestoredNativeSession:
+     """Local public SDK objects, never a substitute for a PublishedSession DTO."""
+@@ -70,9 +93,10 @@ class NativeSessionAdapter:
+         if len(canonical_json_bytes(body)) > self.limits.max_object_bytes:
+             raise ValueError("native root exceeds the fixed object bound")
+ 
+-    def _frontier(self, history, bindings, receipts, pending):
++    def _frontier(self, history, bindings, receipts, pending, rejections):
+         models = {}
+         tools = {}
++        prior_rejections = ()
+         prior = getattr(history, "published", None)
+         if prior is not None:
+             for entry in prior.history.frontier.model_entries:
+@@ -81,6 +105,7 @@ class NativeSessionAdapter:
+                     "positions": _positions(originals, history.messages),
+                 })
+             tools = {entry.tool_call_id: entry for entry in prior.history.frontier.tool_entries}
++            prior_rejections = prior.history.frontier.rejected_calls
+         for attempt, originals in history.model_observations.items():
+             models[attempt] = ModelFrontierEntry(
+                 model_attempt_id=attempt,
+@@ -110,15 +135,42 @@ class NativeSessionAdapter:
+             if len(positions) != 2 or any(position is None for position in positions):
+                 raise ValueError("tool request/result pairing is missing or ambiguous")
+             tools[call_id] = entry.model_copy(update={"positions": tuple(positions)})
++        rejected = {}
++        for entry in prior_rejections:
++            binding = by_call.get(entry.call_binding.tool_call_id)
++            if binding is None:
++                raise ValueError("published rejection lost its original call binding")
++            rejected[binding.tool_call_id] = _rejected_entry(
++                history,
++                binding,
++                approval_ref=entry.approval_ref,
++                decision_version=entry.decision_version,
++            )
++        for decision in rejections:
++            binding = NativeCallBinding.model_validate(decision.call_binding)
++            if (
++                decision.decision != "reject"
++                or binding.tool_call_id in rejected
++                or binding.tool_call_id in tools
++            ):
++                raise ValueError("rejected call is duplicated or has an execution receipt")
++            rejected[binding.tool_call_id] = _rejected_entry(
++                history,
++                binding,
++                approval_ref=decision.approval_ref,
++                decision_version=decision.decision_version,
++            )
+         pending_ids = {content.id for content in pending}
+         return OperationFrontier(
+             model_entries=tuple(models.values()), tool_entries=tuple(tools.values()),
+             pending_approvals=tuple(b for b in bindings if b.sdk_approval_id in pending_ids),
++            rejected_calls=tuple(rejected.values()),
+             archived_history_refs=() if prior is None else prior.history.frontier.archived_history_refs,
+         )
+ 
+     def export_boundary(self, *, session, response, history, call_bindings,
+-                        tool_receipts, memory, recovery_class, observed_at):
++                        tool_receipts, memory, recovery_class, observed_at,
++                        rejection_decisions=()):
+         if not isinstance(session, AgentSession) or recovery_class not in {"settled_boundary", "approval_boundary"}:
+             raise ValueError("only observed public native boundaries can be published")
+         if observed_at.tzinfo is None or observed_at.utcoffset() is None:
+@@ -136,7 +188,13 @@ class NativeSessionAdapter:
+             raise ValueError("native calls must first receive a canonical ToolGate identity")
+         if response.continuation_token is not None:
+             raise ValueError("unfinished native continuation is not a restorable boundary")
+-        history.frontier = self._frontier(history, bindings, tool_receipts, pending)
++        history.frontier = self._frontier(
++            history,
++            bindings,
++            tool_receipts,
++            pending,
++            tuple(rejection_decisions),
++        )
+         root = history.export()
+         if root.session_id != session.session_id or root.compatibility != self.compatibility:
+             raise ValueError("native Session/history compatibility mismatch")
+diff --git a/packages/maf-worker/src/wuji_maf_worker/tools.py b/packages/maf-worker/src/wuji_maf_worker/tools.py
+index 7a4e64d..3a19c19 100644
+--- a/packages/maf-worker/src/wuji_maf_worker/tools.py
++++ b/packages/maf-worker/src/wuji_maf_worker/tools.py
+@@ -260,6 +260,13 @@ class ModelCallIdentity:
+             raise ValueError("delivery does not resolve the complete original approval batch")
+         self._decisions = decisions
+ 
++    def rejected_decisions(self):
++        return tuple(
++            self._decisions[key]
++            for key in sorted(self._decisions)
++            if self._decisions[key].decision == "reject"
++        )
++
+ 
+ class GateFunctions(FunctionMiddleware):
+     def __init__(self, *, definitions, identity, lineage, client, url, native_approval=False):
+diff --git a/packages/wuji-core/src/wuji_core/contracts/sessions.py b/packages/wuji-core/src/wuji_core/contracts/sessions.py
+index 13f7748..9882cb4 100644
+--- a/packages/wuji-core/src/wuji_core/contracts/sessions.py
++++ b/packages/wuji-core/src/wuji_core/contracts/sessions.py
+@@ -18,6 +18,27 @@ Digest = Annotated[StrictStr, Field(pattern=r"^[a-f0-9]{64}$")]
+ Revision = Annotated[StrictStr, Field(pattern=r"^(0|[1-9][0-9]*)$")]
+ Count = Annotated[StrictInt, Field(ge=0)]
+ Positive = Annotated[StrictInt, Field(gt=0)]
++NATIVE_REJECTION_TEXT_CORE_1_18_0 = (
++    "Error: Tool call invocation was rejected by user."
++)
++
++
++def native_rejection_content(provider_call_id: str) -> dict[str, Any]:
++    """Canonical public Content observed for a rejected call in core 1.18.0."""
++
++    return {
++        "type": "function_result",
++        "call_id": provider_call_id,
++        "result": NATIVE_REJECTION_TEXT_CORE_1_18_0,
++        "items": [
++            {
++                "type": "text",
++                "text": NATIVE_REJECTION_TEXT_CORE_1_18_0,
++                "additional_properties": {},
++            }
++        ],
++        "additional_properties": {},
++    }
+ 
+ 
+ class SessionModel(BaseModel):
+@@ -89,10 +110,28 @@ class ToolFrontierEntry(SessionModel):
+     receipt_digest: Digest | None = None
+ 
+ 
++class RejectedCallFrontierEntry(SessionModel):
++    approval_ref: Text
++    decision_version: Revision
++    call_binding: NativeCallBinding
++    result_position: MessagePosition
++    result_content: dict[str, Any]
++    result_digest: Digest
++
++    @model_validator(mode="after")
++    def native_shape(self):
++        if self.result_content != native_rejection_content(
++            self.call_binding.provider_call_id
++        ):
++            raise ValueError("rejected call requires the fixed native SDK result")
++        return self
++
++
+ class OperationFrontier(SessionModel):
+     model_entries: tuple[ModelFrontierEntry, ...] = ()
+     tool_entries: tuple[ToolFrontierEntry, ...] = ()
+     pending_approvals: tuple[NativeCallBinding, ...] = ()
++    rejected_calls: tuple[RejectedCallFrontierEntry, ...] = ()
+     archived_history_refs: tuple[BlobRef, ...] = ()
+ 
+ 
+@@ -190,6 +229,8 @@ class PublishedHistoryRoot(HistoryRoot):
+                 raise ValueError("published tool frontier requires durable receipt and message")
+         for call in self.frontier.pending_approvals:
+             require_published_call(call)
++        for rejected in self.frontier.rejected_calls:
++            require_published_call(rejected.call_binding)
+         return self
+ 
+ 
+diff --git a/packages/wuji-core/src/wuji_core/execution/inputs.py b/packages/wuji-core/src/wuji_core/execution/inputs.py
+index 0a31151..e0f515a 100644
+--- a/packages/wuji-core/src/wuji_core/execution/inputs.py
++++ b/packages/wuji-core/src/wuji_core/execution/inputs.py
+@@ -125,10 +125,11 @@ class InputService:
+                 if not tool.approval_required:
+                     raise DomainError("INVALID_REFERENCE", 422)
+                 tx.connection.execute(
+-                    "INSERT INTO vnext.approval_request(tenant_id,project_id,task_id,approval_ref,input_request_id,work_item_id,session_id,session_revision,manifest_ref,tool_call_id,content_json,binding_json,parameters_digest,tool_digest,scope_digest,profile_digest,qualifications_json,expires_at,access_level) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
++                    "INSERT INTO vnext.approval_request(tenant_id,project_id,task_id,approval_ref,input_request_id,work_item_id,session_id,session_revision,manifest_ref,tool_call_id,content_json,binding_json,parameters_digest,tool_digest,scope_json,scope_digest,profile_digest,qualifications_json,expires_at,access_level) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                     (*tx.owner, ref, input_id, work["work_item_id"], published.manifest.session_id, published.manifest.checkpoint_revision.root,
+                      observation.manifest_ref, binding.tool_call_id, json_text(content), json_text(document(binding)), binding.arguments_digest,
+-                     digest(tool.model_dump(mode="json")), digest(definition["task"]["authorization_scope"]),
++                     digest(tool.model_dump(mode="json")), json_text(definition["task"]["authorization_scope"]),
++                     digest(definition["task"]["authorization_scope"]),
+                      published.history.compatibility.profile_snapshot["digest"], json_text(list(capability["approver_subjects"])), expires, level),
+                 )
+             receipt = InputReceipt(input_request_id=input_id, work_item_id=work["work_item_id"], manifest_ref=observation.manifest_ref,
+diff --git a/packages/wuji-core/src/wuji_core/execution/session_schema_draft.sql b/packages/wuji-core/src/wuji_core/execution/session_schema_draft.sql
+index 0800f77..9087498 100644
+--- a/packages/wuji-core/src/wuji_core/execution/session_schema_draft.sql
++++ b/packages/wuji-core/src/wuji_core/execution/session_schema_draft.sql
+@@ -52,6 +52,7 @@ CREATE TABLE vnext.approval_request(
+   approval_ref text NOT NULL,input_request_id text NOT NULL,work_item_id text NOT NULL,
+   session_id text NOT NULL,session_revision numeric NOT NULL,manifest_ref text NOT NULL,tool_call_id text NOT NULL,
+   content_json text NOT NULL,binding_json text NOT NULL,parameters_digest text NOT NULL,tool_digest text NOT NULL,
++  scope_json text NOT NULL CHECK(jsonb_typeof(scope_json::jsonb)='array'),
+   scope_digest text NOT NULL,profile_digest text NOT NULL,qualifications_json text NOT NULL,
+   expires_at timestamptz NOT NULL,access_level integer NOT NULL,
+   version numeric NOT NULL DEFAULT 1 CHECK(version>=1 AND version=trunc(version)),
+@@ -104,6 +105,92 @@ CREATE TABLE vnext.input_answer(
+   PRIMARY KEY(tenant_id,project_id,task_id,input_request_id),
+   FOREIGN KEY(tenant_id,project_id,task_id,input_request_id) REFERENCES vnext.input_request(tenant_id,project_id,task_id,input_request_id));
+ 
++CREATE FUNCTION vnext.guard_input_intake_insert() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog AS $$
++BEGIN
++  IF current_user=pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=TG_RELID)) THEN RETURN NEW; END IF;
++  IF current_setting('wuji.observe',true) IS DISTINCT FROM 'true'
++    OR NEW.status<>'pending' OR NEW.session_id IS NULL OR NEW.session_revision IS NULL
++    OR jsonb_typeof(NEW.wait_ref_json::jsonb)<>'object'
++    OR jsonb_typeof(NEW.source_receipt_json::jsonb)<>'object'
++    OR NOT EXISTS(SELECT 1 FROM vnext.session_manifest sm WHERE
++      (sm.tenant_id,sm.project_id,sm.task_id,sm.session_id,sm.revision,sm.work_item_id)=
++      (NEW.tenant_id,NEW.project_id,NEW.task_id,NEW.session_id,NEW.session_revision,NEW.work_item_id)
++      AND sm.access_level<=NEW.access_level)
++  THEN RAISE EXCEPTION 'input intake must start pending from a published Session' USING ERRCODE='42501'; END IF;
++  RETURN NEW;
++END $$;
++CREATE TRIGGER input_intake_insert BEFORE INSERT ON vnext.input_request FOR EACH ROW EXECUTE FUNCTION vnext.guard_input_intake_insert();
++
++CREATE FUNCTION vnext.guard_approval_intake_insert() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog AS $$
++DECLARE callrow vnext.tool_call; inputrow vnext.input_request; manifest vnext.session_manifest;
++  toolrow vnext.tool_definition; capability vnext.session_capability; taskrow vnext.task;
++  native_args jsonb;
++BEGIN
++  IF current_user=pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=TG_RELID)) THEN RETURN NEW; END IF;
++  IF current_setting('wuji.observe',true) IS DISTINCT FROM 'true'
++    OR NEW.version<>1 OR NEW.decision_status<>'pending' OR NEW.decision IS NOT NULL
++    OR NEW.decided_by IS NOT NULL OR NEW.decided_at IS NOT NULL OR NEW.decision_reason IS NOT NULL
++    OR NEW.consumed_attempt_id IS NOT NULL OR NEW.consumed_by_run IS NOT NULL
++    OR jsonb_typeof(NEW.content_json::jsonb)<>'object'
++    OR jsonb_typeof(NEW.binding_json::jsonb)<>'object'
++    OR jsonb_typeof(NEW.qualifications_json::jsonb)<>'array'
++    OR jsonb_array_length(NEW.qualifications_json::jsonb)=0
++  THEN RAISE EXCEPTION 'approval intake must start pending without a decision' USING ERRCODE='42501'; END IF;
++  SELECT * INTO inputrow FROM vnext.input_request WHERE
++    (tenant_id,project_id,task_id,input_request_id,work_item_id,session_id,session_revision,status)=
++    (NEW.tenant_id,NEW.project_id,NEW.task_id,NEW.input_request_id,NEW.work_item_id,
++     NEW.session_id,NEW.session_revision,'pending');
++  SELECT * INTO manifest FROM vnext.session_manifest WHERE
++    (tenant_id,project_id,task_id,session_id,revision,work_item_id,manifest_ref)=
++    (NEW.tenant_id,NEW.project_id,NEW.task_id,NEW.session_id,NEW.session_revision,
++     NEW.work_item_id,NEW.manifest_ref);
++  SELECT * INTO callrow FROM vnext.tool_call WHERE
++    (tenant_id,project_id,task_id,tool_call_id,work_item_id,status)=
++    (NEW.tenant_id,NEW.project_id,NEW.task_id,NEW.tool_call_id,NEW.work_item_id,'pending_approval');
++  SELECT * INTO toolrow FROM vnext.tool_definition WHERE
++    tenant_id=NEW.tenant_id AND ref=callrow.tool_definition_version AND NOT revoked;
++  SELECT * INTO taskrow FROM vnext.task WHERE
++    (tenant_id,project_id,task_id)=(NEW.tenant_id,NEW.project_id,NEW.task_id);
++  SELECT * INTO capability FROM vnext.session_capability WHERE
++    tenant_id=NEW.tenant_id AND profile_digest=NEW.profile_digest AND NOT revoked
++    AND document_json::jsonb->>'profile_digest'=NEW.profile_digest
++    AND document_json::jsonb->'approver_subjects'=NEW.qualifications_json::jsonb;
++  native_args:=CASE jsonb_typeof(NEW.content_json::jsonb->'function_call'->'arguments')
++    WHEN 'string' THEN (NEW.content_json::jsonb->'function_call'->>'arguments')::jsonb
++    ELSE NEW.content_json::jsonb->'function_call'->'arguments' END;
++  IF inputrow IS NULL OR manifest IS NULL OR callrow IS NULL OR toolrow IS NULL
++    OR capability IS NULL OR taskrow IS NULL OR callrow.latest_attempt_id IS NOT NULL
++    OR NOT (manifest.manifest_json::jsonb->'pending_operation_refs' ? NEW.tool_call_id)
++    OR callrow.session_lineage IS DISTINCT FROM manifest.session_lineage
++    OR NEW.binding_json::jsonb->>'tool_call_id' IS DISTINCT FROM NEW.tool_call_id
++    OR NEW.binding_json::jsonb->>'provider_call_id' IS DISTINCT FROM callrow.provider_call_id
++    OR NEW.binding_json::jsonb->>'message_id' IS DISTINCT FROM callrow.message_id
++    OR NEW.binding_json::jsonb->>'tool_definition_ref' IS DISTINCT FROM callrow.tool_definition_version
++    OR NEW.binding_json::jsonb->>'arguments_digest' IS DISTINCT FROM NEW.parameters_digest
++    OR NEW.content_json::jsonb->>'id' IS DISTINCT FROM NEW.binding_json::jsonb->>'sdk_approval_id'
++    OR NEW.content_json::jsonb->'function_call'->>'id' IS DISTINCT FROM NEW.binding_json::jsonb->>'sdk_content_id'
++    OR NEW.content_json::jsonb->'function_call'->>'call_id' IS DISTINCT FROM callrow.provider_call_id
++    OR native_args IS DISTINCT FROM callrow.request_json::jsonb->'arguments'
++    OR NEW.tool_digest IS DISTINCT FROM encode(sha256(convert_to(toolrow.document_json,'UTF8')),'hex')
++    OR NEW.scope_digest IS DISTINCT FROM encode(sha256(convert_to(NEW.scope_json,'UTF8')),'hex')
++    OR NEW.scope_json::jsonb IS DISTINCT FROM taskrow.definition_json::jsonb->'task'->'authorization_scope'
++  THEN RAISE EXCEPTION 'approval intake source differs from the published frontier' USING ERRCODE='42501'; END IF;
++  RETURN NEW;
++END $$;
++CREATE TRIGGER approval_intake_insert BEFORE INSERT ON vnext.approval_request FOR EACH ROW EXECUTE FUNCTION vnext.guard_approval_intake_insert();
++
++CREATE FUNCTION vnext.check_approval_intake_source() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$
++BEGIN
++  IF NOT EXISTS(SELECT 1 FROM vnext.input_source src WHERE
++    (src.tenant_id,src.project_id,src.task_id,src.input_request_id,src.manifest_ref)=
++    (NEW.tenant_id,NEW.project_id,NEW.task_id,NEW.input_request_id,NEW.manifest_ref)
++    AND src.receipt_json::jsonb->'approval_refs' ? NEW.approval_ref)
++  THEN RAISE EXCEPTION 'approval intake requires its trusted source receipt' USING ERRCODE='23514'; END IF;
++  RETURN NEW;
++END $$;
++CREATE CONSTRAINT TRIGGER approval_intake_source AFTER INSERT ON vnext.approval_request
++  DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION vnext.check_approval_intake_source();
++
+ CREATE FUNCTION vnext.guard_session_object() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog AS $$
+ DECLARE a vnext.artifact;
+ BEGIN
+@@ -159,6 +246,109 @@ BEGIN
+ END $$;
+ CREATE TRIGGER approval_update BEFORE UPDATE ON vnext.approval_request FOR EACH ROW EXECUTE FUNCTION vnext.guard_approval_update();
+ 
++-- Extend the exact 0009 tool_request state machine with one P08 approval edge.
++-- Every other transition remains byte-for-byte equivalent to the 0009 guard.
++CREATE OR REPLACE FUNCTION vnext.guard_tool_call_purpose() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog AS $$
++DECLARE purpose text := current_setting('wuji.request_purpose',true);
++DECLARE approval_admit boolean := false; DECLARE attach boolean := false;
++DECLARE dispatched boolean := false; DECLARE cancel_intent boolean := false;
++DECLARE safe_retry boolean := false;
++BEGIN
++  IF current_user=pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=TG_RELID)) THEN RETURN NEW; END IF;
++  IF purpose='tool_request' THEN
++    approval_admit := OLD.status='pending_approval' AND OLD.latest_attempt_id IS NULL
++      AND NEW.status='admitted' AND NEW.latest_attempt_id IS NULL
++      AND (to_jsonb(NEW)-'status') IS NOT DISTINCT FROM (to_jsonb(OLD)-'status')
++      AND EXISTS(
++        SELECT 1 FROM vnext.approval_request ar
++        JOIN vnext.session_manifest sm ON
++          (sm.tenant_id,sm.project_id,sm.task_id,sm.session_id,sm.revision,sm.manifest_ref)=
++          (ar.tenant_id,ar.project_id,ar.task_id,ar.session_id,ar.session_revision,ar.manifest_ref)
++        JOIN vnext.session_holder h ON
++          (h.tenant_id,h.project_id,h.task_id,h.manifest_ref,h.session_lineage)=
++          (sm.tenant_id,sm.project_id,sm.task_id,sm.manifest_ref,sm.session_lineage)
++        JOIN vnext.work_item w ON
++          (w.tenant_id,w.project_id,w.task_id,w.work_item_id,w.current_run_id)=
++          (h.tenant_id,h.project_id,h.task_id,h.work_item_id,h.agent_run_id)
++        JOIN vnext.agent_run run ON
++          (run.tenant_id,run.project_id,run.task_id,run.work_item_id,run.agent_run_id)=
++          (w.tenant_id,w.project_id,w.task_id,w.work_item_id,w.current_run_id)
++        JOIN vnext.run_credential credential ON
++          (credential.tenant_id,credential.project_id,credential.task_id,credential.agent_run_id,
++           credential.subject,credential.token_id)=
++          (run.tenant_id,run.project_id,run.task_id,run.agent_run_id,
++           current_setting('wuji.subject',true),current_setting('wuji.token_id',true))
++        WHERE (ar.tenant_id,ar.project_id,ar.task_id,ar.tool_call_id)=
++          (NEW.tenant_id,NEW.project_id,NEW.task_id,NEW.tool_call_id)
++          AND ar.work_item_id=NEW.work_item_id
++          AND ar.decision_status='decided' AND ar.decision='approve'
++          AND ar.expires_at>clock_timestamp()
++          AND h.session_lineage=NEW.session_lineage
++          AND w.desired_state='run' AND run.execution_allowed
++          AND run.run_epoch=w.run_epoch
++          AND NOT credential.revoked
++          AND (credential.document_json::jsonb->>'expires_at')::timestamptz>clock_timestamp()
++          AND ar.binding_json::jsonb->>'tool_call_id'=NEW.tool_call_id
++          AND ar.binding_json::jsonb->>'message_id'=NEW.message_id
++          AND ar.binding_json::jsonb->>'provider_call_id'=NEW.provider_call_id
++          AND ar.binding_json::jsonb->>'tool_definition_ref'=NEW.tool_definition_version
++          AND ar.binding_json::jsonb->>'arguments_digest'=ar.parameters_digest
++          AND ar.content_json::jsonb->>'id'=ar.binding_json::jsonb->>'sdk_approval_id'
++          AND ar.content_json::jsonb->'function_call'->>'id'=ar.binding_json::jsonb->>'sdk_content_id'
++          AND ar.content_json::jsonb->'function_call'->>'call_id'=NEW.provider_call_id
++          AND CASE jsonb_typeof(ar.content_json::jsonb->'function_call'->'arguments')
++            WHEN 'string' THEN (ar.content_json::jsonb->'function_call'->>'arguments')::jsonb
++            ELSE ar.content_json::jsonb->'function_call'->'arguments' END
++              = NEW.request_json::jsonb->'arguments'
++          AND NEW.request_json::jsonb->>'session_lineage'=NEW.session_lineage
++          AND NEW.request_json::jsonb->>'message_id'=NEW.message_id
++          AND NEW.request_json::jsonb->>'provider_call_id'=NEW.provider_call_id
++          AND NEW.request_json::jsonb->>'tool_definition_ref'=NEW.tool_definition_version
++          AND NEW.request_json::jsonb->>'sdk_content_id'=ar.binding_json::jsonb->>'sdk_content_id'
++          AND NEW.request_json::jsonb->>'sdk_approval_id'=ar.binding_json::jsonb->>'sdk_approval_id');
++    attach := OLD.status='admitted' AND OLD.latest_attempt_id IS NULL
++      AND NEW.status='admitted' AND NEW.latest_attempt_id IS NOT NULL
++      AND EXISTS(SELECT 1 FROM vnext.tool_attempt a
++        WHERE (a.tenant_id,a.project_id,a.task_id,a.tool_call_id,a.tool_attempt_id)=
++              (NEW.tenant_id,NEW.project_id,NEW.task_id,NEW.tool_call_id,NEW.latest_attempt_id)
++          AND a.status='admitted' AND a.retry_request_id IS NULL);
++    dispatched := OLD.status='admitted' AND NEW.status='dispatched'
++      AND NEW.latest_attempt_id=OLD.latest_attempt_id
++      AND EXISTS(SELECT 1 FROM vnext.tool_attempt a
++        WHERE (a.tenant_id,a.project_id,a.task_id,a.tool_attempt_id)=
++              (NEW.tenant_id,NEW.project_id,NEW.task_id,NEW.latest_attempt_id)
++          AND a.status='dispatched');
++    cancel_intent :=
++      (OLD.status='pending_approval' AND OLD.latest_attempt_id IS NULL
++       AND NEW.status='cancelled' AND NEW.latest_attempt_id IS NULL)
++      OR (OLD.status IN ('admitted','dispatched','running','unknown','evidence_pending','cancel_requested')
++          AND OLD.latest_attempt_id IS NOT NULL AND NEW.status='cancel_requested'
++          AND NEW.latest_attempt_id=OLD.latest_attempt_id);
++    safe_retry := OLD.status IN ('failed','cancelled')
++      AND NEW.status='admitted' AND NEW.latest_attempt_id IS NOT NULL
++      AND NEW.latest_attempt_id IS DISTINCT FROM OLD.latest_attempt_id
++      AND EXISTS(SELECT 1 FROM vnext.tool_attempt n
++        JOIN vnext.tool_attempt p ON
++          (p.tenant_id,p.project_id,p.task_id,p.tool_attempt_id)=
++          (OLD.tenant_id,OLD.project_id,OLD.task_id,OLD.latest_attempt_id)
++        WHERE (n.tenant_id,n.project_id,n.task_id,n.tool_call_id,n.tool_attempt_id)=
++              (NEW.tenant_id,NEW.project_id,NEW.task_id,NEW.tool_call_id,NEW.latest_attempt_id)
++          AND n.status='admitted' AND n.retry_request_id IS NOT NULL
++          AND p.status IN ('failed','cancelled')
++          AND p.receipt_json::jsonb->>'status' IN ('not_started','exited'));
++    IF NEW IS DISTINCT FROM OLD
++       AND NOT (approval_admit OR attach OR dispatched OR cancel_intent OR safe_retry) THEN
++      IF OLD.status='pending_approval' AND NEW.status='admitted' THEN
++        RAISE EXCEPTION 'exact approved Session operation required' USING ERRCODE='42501';
++      END IF;
++      RAISE EXCEPTION 'tool request transition is not registered' USING ERRCODE='42501';
++    END IF;
++  ELSIF purpose<>'tool_settle' THEN
++    RAISE EXCEPTION 'tool write purpose required' USING ERRCODE='42501';
++  END IF;
++  RETURN NEW;
++END $$;
++
+ CREATE FUNCTION vnext.check_approval_attempt() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$
+ DECLARE t text:=NEW.tenant_id;p text:=NEW.project_id;k text:=NEW.task_id;i text; a vnext.tool_attempt;c vnext.tool_call; approval vnext.approval_request; definition jsonb;
+ BEGIN
+@@ -259,6 +449,8 @@ BEGIN
+   END LOOP;
+ END $$;
+ 
+-REVOKE EXECUTE ON FUNCTION vnext.guard_session_object(),vnext.guard_session_holder(),vnext.guard_approval_update(),vnext.check_approval_attempt(),vnext.guard_input_delivery() FROM PUBLIC;
++REVOKE EXECUTE ON FUNCTION vnext.guard_input_intake_insert(),vnext.guard_approval_intake_insert(),
++  vnext.check_approval_intake_source(),vnext.guard_session_object(),vnext.guard_session_holder(),
++  vnext.guard_approval_update(),vnext.check_approval_attempt(),vnext.guard_input_delivery() FROM PUBLIC;
+ -- Immutable source/holder/object rows have no UPDATE/DELETE grants. Existing
+ -- session_immutable/publication_sealed and artifact GC pin/lease rules remain.
+diff --git a/packages/wuji-core/src/wuji_core/execution/sessions.py b/packages/wuji-core/src/wuji_core/execution/sessions.py
+index 150d8c2..04c1f26 100644
+--- a/packages/wuji-core/src/wuji_core/execution/sessions.py
++++ b/packages/wuji-core/src/wuji_core/execution/sessions.py
+@@ -8,14 +8,27 @@ from wuji_core.admission.common import current_run, digest
+ from wuji_core.contracts.envelopes import BlobRef, WorkerAssignment
+ from wuji_core.contracts.execution import SessionManifest
+ from wuji_core.contracts.sessions import (
+-    BoundaryObjects, ModelFrontierEntry, NativeCallBinding, OperationFrontier,
++    BoundaryObjects, InputPayload, ModelFrontierEntry, NativeCallBinding,
++    OperationFrontier,
+     PublishedHistoryRoot, PublishedMemoryManifestRoot, PublishedProviderStateRoot,
+     PublishedSession, RecoveryCheck, SessionReceipt, StagedSessionObjects,
++    native_rejection_content,
+ )
+ from wuji_core.http import canonical_json_bytes, strict_json_loads
+ from wuji_core.persistence.uow import DomainError, json_text, row
+ 
+ 
++SESSION_OBJECT_ROLES = {
++    "dependency",
++    "archive",
++    "model_response",
++    "native_arguments",
++    "history_root",
++    "provider_root",
++    "memory_root",
++}
++
++
+ def rows(cursor):
+     names = [c.name for c in cursor.description]
+     return [dict(zip(names, value)) for value in cursor.fetchall()]
+@@ -344,10 +357,30 @@ class SessionRepository:
+         for call in calls:
+             arguments_ref = save(call.native_arguments.encode("utf-8"), "application/json", role="native_arguments")
+             enriched_calls.append(call.model_copy(update={"provider_response_ref": response_refs[call.model_attempt_id], "arguments_ref": arguments_ref}))
++        observed_by_tool = {call.tool_call_id: call for call in calls}
++        enriched_by_tool = {call.tool_call_id: call for call in enriched_calls}
+         pending_ids = {call.sdk_content_id for call in history.frontier.pending_approvals}
+         enriched_pending = tuple(c for c in enriched_calls if c.sdk_content_id in pending_ids)
+         if len(enriched_pending) != len(pending_ids) or len(pending_ids) != len(history.frontier.pending_approvals):
+             raise DomainError("INVALID_REFERENCE", 422)
++        enriched_rejections = []
++        for entry in history.frontier.rejected_calls:
++            observed = observed_by_tool.get(entry.call_binding.tool_call_id)
++            enriched = enriched_by_tool.get(entry.call_binding.tool_call_id)
++            result = check_position(history, entry.result_position)
++            if (
++                observed is None
++                or enriched is None
++                or not equal(observed, entry.call_binding)
++                or history.messages[entry.result_position.message_index].get("role") != "tool"
++                or entry.result_content != result
++                or entry.result_digest != digest(result)
++                or result != native_rejection_content(observed.provider_call_id)
++            ):
++                raise DomainError("SESSION_FRONTIER_MISMATCH", 409)
++            enriched_rejections.append(
++                entry.model_copy(update={"call_binding": enriched})
++            )
+         files = []
+         for file in memory.files:
+             if file.object_key is not None:
+@@ -361,7 +394,8 @@ class SessionRepository:
+         provider = PublishedProviderStateRoot.model_validate({**document(provider), "call_bindings": enriched_calls,
+             "object_refs": unique_refs([*provider.object_refs, *response_refs.values(), *(c.arguments_ref for c in enriched_calls)])})
+         frontier = OperationFrontier(model_entries=tuple(model_entries), tool_entries=tuple(tools),
+-            pending_approvals=enriched_pending, archived_history_refs=unique_refs(archives))
++            pending_approvals=enriched_pending, rejected_calls=tuple(enriched_rejections),
++            archived_history_refs=unique_refs(archives))
+         evidence_refs = []
+         for entry in tools:
+             evidence_refs.extend(BlobRef.model_validate(r) for r in entry.receipt["evidence_receipt"]["artifact_refs"])
+@@ -375,6 +409,18 @@ class SessionRepository:
+         history_ref = save(canonical_json_bytes(document(history)), "application/json", history.object_refs, "history_root")
+         provider_ref = save(canonical_json_bytes(document(provider)), "application/json", provider.object_refs, "provider_root")
+         memory_ref = save(canonical_json_bytes(document(memory)), "application/json", memory.object_refs, "memory_root")
++        with self.uow.transaction(worker_access, assignment.identity.task_id, capability="tool_request") as tx:
++            current_run(tx, self.registry.config(tx))
++            self._graph(
++                tx,
++                (history_ref, provider_ref, memory_ref),
++                limits,
++                work_id=assignment.identity.work_item_id,
++                session_id=history.session_id,
++                owner_run_id=assignment.identity.agent_run_id,
++                source_subject=worker_access.principal.subject,
++                source_token_id=worker_access.principal.token_id,
++            )
+         return StagedSessionObjects(history_root=history_ref, provider_state_ref=provider_ref,
+             memory_manifest_ref=memory_ref, object_refs=unique_refs(refs), lease_owner=lease,
+             history=history, provider_state=provider, memory=memory)
+@@ -466,8 +512,15 @@ class SessionRepository:
+             if stored is None or not equal(strict_json_loads(stored[0]), evidence):
+                 raise DomainError("INVALID_REFERENCE", 422)
+         pending = {b.tool_call_id: b for b in history.frontier.pending_approvals}
++        rejected = {e.call_binding.tool_call_id: e for e in history.frontier.rejected_calls}
+         native_pending = {c.get("id"): c for c in provider.pending_contents}
+-        if len(native_pending) != len(provider.pending_contents) or len(pending) != len(history.frontier.pending_approvals):
++        if (
++            len(native_pending) != len(provider.pending_contents)
++            or len(pending) != len(history.frontier.pending_approvals)
++            or None in rejected
++            or len(rejected) != len(history.frontier.rejected_calls)
++            or set(rejected) & (set(pending) | {e.tool_call_id for e in tool_entries.values()})
++        ):
+             raise DomainError("INVALID_REFERENCE", 422)
+         if (bool(pending) and not allow_pending) or set(native_pending) != {b.sdk_approval_id for b in pending.values()}:
+             raise DomainError("INVALID_REFERENCE", 422)
+@@ -477,6 +530,53 @@ class SessionRepository:
+         ))
+         if {c["tool_call_id"] for c in calls} != set(by_id):
+             raise DomainError("SESSION_FRONTIER_MISMATCH", 409)
++        for tool_call_id, entry in rejected.items():
++            result = check_position(history, entry.result_position)
++            approval = row(tx.connection.execute(
++                """SELECT a.*,d.status AS delivery_status,d.receiving_run_id,
++                d.payload_json,i.status AS input_status
++                FROM vnext.approval_request a
++                JOIN vnext.input_delivery d USING(tenant_id,project_id,task_id,input_request_id)
++                JOIN vnext.input_request i USING(tenant_id,project_id,task_id,input_request_id)
++                WHERE a.tenant_id=%s AND a.project_id=%s AND a.task_id=%s
++                  AND a.approval_ref=%s AND a.tool_call_id=%s""",
++                (*tx.owner, entry.approval_ref, tool_call_id),
++            ))
++            if approval is None:
++                raise DomainError("SESSION_FRONTIER_MISMATCH", 409)
++            payload = InputPayload.model_validate(
++                strict_json_loads(approval["payload_json"])
++            )
++            decisions = [
++                decision
++                for decision in payload.decisions
++                if decision.approval_ref == entry.approval_ref
++            ]
++            holder = tx.connection.execute(
++                """SELECT 1 FROM vnext.session_holder
++                WHERE tenant_id=%s AND project_id=%s AND task_id=%s
++                  AND agent_run_id=%s AND manifest_ref=%s AND session_lineage=%s""",
++                (*tx.owner, approval["receiving_run_id"], approval["manifest_ref"],
++                 history.session_lineage),
++            ).fetchone()
++            if (
++                approval["decision"] != "reject"
++                or approval["decision_status"] != "decided"
++                or str(approval["version"]) != entry.decision_version
++                or approval["input_status"] != "resolved"
++                or approval["delivery_status"] != "delivered"
++                or holder is None
++                or len(decisions) != 1
++                or decisions[0].decision != "reject"
++                or str(decisions[0].decision_version) != entry.decision_version
++                or not equal(decisions[0].call_binding, entry.call_binding)
++                or not equal(strict_json_loads(approval["binding_json"]), entry.call_binding)
++                or history.messages[entry.result_position.message_index].get("role") != "tool"
++                or result != entry.result_content
++                or digest(result) != entry.result_digest
++                or result != native_rejection_content(entry.call_binding.provider_call_id)
++            ):
++                raise DomainError("SESSION_FRONTIER_MISMATCH", 409)
+         for call in calls:
+             binding = by_id[call["tool_call_id"]]
+             if call["tool_call_id"] in pending:
+@@ -493,13 +593,10 @@ class SessionRepository:
+                     raise DomainError("SESSION_FRONTIER_MISMATCH", 409)
+             elif call["latest_attempt_id"] not in tool_entries:
+                 # A native rejection has no fake ToolAttempt or successful tool result.
+-                rejected = tx.connection.execute(
+-                    "SELECT 1 FROM vnext.approval_request WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND tool_call_id=%s AND decision='reject' AND decision_status='decided'",
+-                    (*tx.owner, call["tool_call_id"]),
+-                ).fetchone()
+-                if not rejected or call["latest_attempt_id"] is not None or not any(
+-                    c.get("type") == "function_result" and c.get("call_id") == binding.provider_call_id
+-                    for m in history.messages for c in m.get("contents", [])
++                if (
++                    call["tool_call_id"] not in rejected
++                    or call["status"] != "cancelled"
++                    or call["latest_attempt_id"] is not None
+                 ):
+                     raise DomainError("SESSION_FRONTIER_MISMATCH", 409)
+         source_id = history.compatibility.profile_snapshot["body"]["history_source_id"]
+@@ -507,7 +604,9 @@ class SessionRepository:
+         if saved_history is None or not equal(saved_history, history.messages):
+             raise DomainError("INVALID_REFERENCE", 422)
+ 
+-    def _graph(self, tx, roots, limits, *, publication_id=None, work_id=None, session_id=None, owner_run_id=None):
++    def _graph(self, tx, roots, limits, *, publication_id=None, work_id=None,
++               session_id=None, owner_run_id=None, source_subject=None,
++               source_token_id=None):
+         records, bodies, seen, visiting, total = {}, {}, set(), set(), 0
+ 
+         def visit(ref, depth):
+@@ -540,7 +639,7 @@ class SessionRepository:
+                 ).fetchone()
+                 if pin is None:
+                     raise DomainError("INVALID_REFERENCE", 422)
+-            elif record["agent_run_id"] != owner_run_id:
++            else:
+                 ancestor = tx.connection.execute(
+                     "SELECT 1 FROM vnext.session_manifest s JOIN vnext.publication_ref p USING(tenant_id,project_id,task_id,publication_id) WHERE s.tenant_id=%s AND s.project_id=%s AND s.task_id=%s AND s.session_id=%s AND s.work_item_id=%s AND p.artifact_id=%s AND p.artifact_revision=%s",
+                     (*tx.owner, session_id, work_id, ref.id, ref.version.root),
+@@ -550,7 +649,41 @@ class SessionRepository:
+                     (*tx.owner, record["tool_attempt_id"], work_id),
+                 ).fetchone() if record["tool_attempt_id"] else None
+                 if not ancestor and not evidence:
+-                    raise DomainError("INVALID_REFERENCE", 422)
++                    if (
++                        record["agent_run_id"] != owner_run_id
++                        or record["provenance"] != "model_output"
++                        or metadata is None
++                        or metadata["agent_run_id"] != owner_run_id
++                        or metadata["role"] not in SESSION_OBJECT_ROLES
++                        or metadata["access_level"] < record["access_level"]
++                        or (
++                            source_subject is not None
++                            and record["writer_subject"] != source_subject
++                        )
++                        or (
++                            source_token_id is not None
++                            and metadata["writer_token_id"] != source_token_id
++                        )
++                    ):
++                        raise DomainError("INVALID_REFERENCE", 422)
++                    writer = tx.connection.execute(
++                        """SELECT 1 FROM vnext.run_credential credential
++                        JOIN vnext.run_writer writer ON
++                          (writer.tenant_id,writer.project_id,writer.task_id,
++                           writer.agent_run_id,writer.subject)=
++                          (credential.tenant_id,credential.project_id,credential.task_id,
++                           credential.agent_run_id,credential.subject)
++                        WHERE credential.tenant_id=%s AND credential.project_id=%s
++                          AND credential.task_id=%s AND credential.agent_run_id=%s
++                          AND credential.subject=%s AND credential.token_id=%s
++                          AND NOT credential.revoked AND NOT writer.revoked
++                          AND (credential.document_json::jsonb->>'expires_at')::timestamptz
++                              >clock_timestamp()""",
++                        (*tx.owner, owner_run_id, record["writer_subject"],
++                         metadata["writer_token_id"]),
++                    ).fetchone()
++                    if writer is None:
++                        raise DomainError("STALE_EXECUTION", 409)
+             children = () if metadata is None else tuple(BlobRef.model_validate(r) for r in strict_json_loads(metadata["refs_json"]))
+             records[key], bodies[key] = record, data
+             seen.add(key)
+diff --git a/packages/wuji-core/src/wuji_core/persistence/schema.py b/packages/wuji-core/src/wuji_core/persistence/schema.py
+index 4209298..aae95da 100644
+--- a/packages/wuji-core/src/wuji_core/persistence/schema.py
++++ b/packages/wuji-core/src/wuji_core/persistence/schema.py
+@@ -45,12 +45,8 @@ from wuji_core.persistence.projection_schema import (
+     upgrade as upgrade_projection,
+ )
+ from wuji_core.persistence.retained_result_schema import (
+-    HEAD as RETAINED_RESULT_HEAD,
+-    upgrade as upgrade_retained_results,
+-)
+-from wuji_core.persistence.session_schema import (
+     HEAD,
+-    upgrade as upgrade_sessions,
++    upgrade as upgrade_retained_results,
+ )
+ 
+ OWNER = "tenant_id,project_id,task_id"
+@@ -414,7 +410,6 @@ def migrate(connection, *, application_role: str) -> None:
+                 SCHEDULER_HEAD,
+                 DISPATCH_FAIRNESS_HEAD,
+                 PROJECTION_HEAD,
+-                RETAINED_RESULT_HEAD,
+                 HEAD,
+             ]
+             if not heads or heads != set(chain[: len(heads)]):
+@@ -432,7 +427,6 @@ def migrate(connection, *, application_role: str) -> None:
+                 upgrade_dispatch_fairness,
+                 upgrade_projection,
+                 upgrade_retained_results,
+-                upgrade_sessions,
+             ]
+             for upgrade in upgrades[len(heads) - 1 :]:
+                 upgrade(connection, application_role)
+@@ -546,4 +540,3 @@ def migrate(connection, *, application_role: str) -> None:
+         upgrade_dispatch_fairness(connection, application_role)
+         upgrade_projection(connection, application_role)
+         upgrade_retained_results(connection, application_role)
+-        upgrade_sessions(connection, application_role)
+diff --git a/tests/vnext/test_session_approval.py b/tests/vnext/test_session_approval.py
+index b96272d..959b5ca 100644
+--- a/tests/vnext/test_session_approval.py
++++ b/tests/vnext/test_session_approval.py
+@@ -4,6 +4,8 @@ import asyncio
+ from datetime import datetime, timedelta, timezone
+ from hashlib import sha256
+ from inspect import Parameter
++import json
++from pathlib import Path
+ 
+ import pytest
+ from agent_framework import (
+@@ -47,6 +49,9 @@ from wuji_maf_worker.history import PinnedMemoryContextProvider, VersionedMemory
+ from wuji_maf_worker.tools import ModelCallIdentity
+ 
+ 
++REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
++
++
+ def _capability_document(*, status, evidence_refs, candidate_binding):
+     published_at = datetime(2026, 9, 13, tzinfo=timezone.utc)
+     profile_body = {
+@@ -140,6 +145,15 @@ def test_p08_migration_follows_receiver_results_and_keeps_session_guards():
+     assert aggregate_schema.HEAD == session_schema.HEAD
+     assert "writer_token_id" in ddl
+     assert "CREATE TABLE vnext.session_capability" in ddl
++    assert "approval_admit boolean := false" in ddl
++    assert "OLD.status='pending_approval'" in ddl
++    assert "NEW.status='admitted' AND NEW.latest_attempt_id IS NULL" in ddl
++    assert "exact approved Session operation required" in ddl
++    assert "guard_input_intake_insert" in ddl
++    assert "input intake must start pending" in ddl
++    assert "guard_approval_intake_insert" in ddl
++    assert "approval intake must start pending" in ddl
++    assert "check_approval_intake_source" in ddl
+     assert "approval, original ToolCall, Attempt and Outbox must commit together" in ddl
+     assert "require_scheduler_identity(text,text,text,jsonb)" in ddl
+ 
+@@ -223,6 +237,88 @@ def test_verified_session_capability_requires_real_evidence_and_new_immutable_re
+         )
+ 
+ 
++def test_rejected_frontier_binds_persisted_decision_to_actual_native_result():
++    from wuji_core.contracts.sessions import (
++        MessagePosition,
++        RejectedCallFrontierEntry,
++        native_rejection_content,
++    )
++
++    p01 = json.loads(
++        (REPOSITORY_ROOT / "docs/vnext/capability-record.json").read_text(
++            encoding="utf-8"
++        )
++    )
++    resumed = p01["raw_sdk_and_http"]["cases"]["reject"]["processes"][1][
++        "result"
++    ]
++    messages = resumed["session_after"]["state"]["in_memory"]["messages"]
++    result_message_index = next(
++        index for index, message in enumerate(messages) if message["role"] == "tool"
++    )
++    result_message = messages[result_message_index]
++    assert len(result_message["contents"]) == 1
++    actual_p01_result = result_message["contents"][0]
++    actual_p01_call_id = resumed["approval_response"]["function_call"]["call_id"]
++    assert actual_p01_result == native_rejection_content(actual_p01_call_id)
++
++    original, pending, _native_response = pending_native_identity()
++    binding = original.export_bindings()[0]
++    restored = ModelCallIdentity([TOOL_DEFINITION], max_bytes=65_536)
++    restored.restore_bindings(
++        call_bindings=(binding,),
++        pending_contents=(Content.from_dict(pending.to_dict()),),
++        lineage=SESSION_LINEAGE,
++    )
++    decision = ApprovalDeliveryDecision(
++        approval_ref="approval-p08-reject",
++        decision_version="2",
++        decision="reject",
++        pending_content=pending.to_dict(),
++        call_binding=binding,
++    )
++    payload = InputPayload(kind="approval", decisions=(decision,))
++    restored.bind_delivery(
++        HumanInput(
++            delivery_id="delivery-p08-reject",
++            input_request_id="input-p08-reject",
++            manifest_ref="manifest-p08",
++            payload_digest=sha256(
++                canonical_json_bytes(payload.model_dump(mode="python"))
++            ).hexdigest(),
++            payload=payload,
++        )
++    )
++
++    assert restored.rejected_decisions() == (decision,)
++    result_content = native_rejection_content(binding.provider_call_id)
++    result_message = {
++        "role": "tool",
++        "contents": [result_content],
++        "additional_properties": {},
++        "type": "message",
++    }
++    result_message_index = 2
++    result_position = MessagePosition(
++        message_index=result_message_index,
++        content_index=0,
++        message_digest=sha256(canonical_json_bytes(result_message)).hexdigest(),
++        content_digest=sha256(canonical_json_bytes(result_content)).hexdigest(),
++    )
++    entry = RejectedCallFrontierEntry(
++        approval_ref=decision.approval_ref,
++        decision_version=decision.decision_version,
++        call_binding=binding,
++        result_position=result_position,
++        result_content=result_content,
++        result_digest=result_position.content_digest,
++    )
++
++    assert entry.result_content["type"] == "function_result"
++    assert entry.result_content["call_id"] == binding.provider_call_id
++    assert entry.result_content["items"][0]["text"] == entry.result_content["result"]
++
++
+ def test_session_manifest_uses_json_mode_for_canonical_saved_at_bytes():
+     blob = {
+         "id": "session-root-p08",

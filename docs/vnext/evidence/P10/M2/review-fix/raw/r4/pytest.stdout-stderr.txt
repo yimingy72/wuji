@@ -1,0 +1,298 @@
+FFF                                                                      [100%]
+=================================== FAILURES ===================================
+_______ test_worker_revoked_after_ready_is_rejected_at_result_writepoint _______
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x10be17380>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-209/test_worker_revoked_after_read0')
+audit_directory = PosixPath('/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/work/p10-m2/m2-four-p2-r4-20260913T100718Z/evidence/283331635b77')
+
+    def test_worker_revoked_after_ready_is_rejected_at_result_writepoint(
+        db_environment, tmp_path, audit_directory
+    ):
+        with m2_case(
+            db_environment,
+            tmp_path,
+            audit_directory,
+            reject_first_submit=False,
+            revoke_worker_on_result_write=True,
+        ) as case:
+            started = case.dispatcher.deliver_pending(limit=1)[0]
+            case.dispatcher.reconcile(started.run)
+            assert case.upstream.first_request_started.wait(timeout=5)
+            case.upstream.release_first_response.set()
+            worker_directory = case.node.worker_directory()
+            _wait_for(
+                lambda: (
+                    response
+                    if (response := case.node.query()).status_code == 200
+                    and response.json()["state"] == "exited"
+                    else None
+                ),
+                timeout=15,
+            )
+    
+            assert case.worker_write_state["revocations"] == 1
+            assert (worker_directory / "result-request.json").is_file()
+            assert any(
+                exchange.path == "/internal/v2/worker-host/submit-result"
+                and exchange.status_code == 409
+                for exchange in case.controller_server.exchanges
+            )
+            with db_environment.migration_connection() as connection:
+                result_row = connection.execute(
+                    """SELECT r.receipt_json FROM vnext.result_submission s
+                    JOIN vnext.result_receipt r
+                    USING(tenant_id,project_id,task_id,submission_id)
+                    WHERE s.agent_run_id=%s""",
+                    (case.assignment.identity.agent_run_id,),
+                ).fetchone()
+                claim_count = connection.execute(
+                    """SELECT count(*) FROM vnext.claim_revision
+                    WHERE agent_run_id=%s""",
+                    (case.assignment.identity.agent_run_id,),
+                ).fetchone()[0]
+            assert result_row is not None
+            result = ResultReceipt.model_validate(strict_json_loads(result_row[0]))
+>           assert result.status.value == "historical_only"
+E           AssertionError: assert 'rejected' == 'historical_only'
+E             
+E             - historical_only
+E             + rejected
+
+tests/vnext/test_maf_child_transport.py:292: AssertionError
+_ test_actual_supervisor_child_waits_for_start_and_receiver_replays_bytes[current-receiver-intake] _
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x10e809810>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-209/test_actual_supervisor_child_w0')
+audit_directory = PosixPath('/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/work/p10-m2/m2-four-p2-r4-20260913T100718Z/evidence/b5cdd39aebb1')
+revoke_before_first_intake = False
+
+    @pytest.mark.parametrize(
+        "revoke_before_first_intake",
+        [False, True],
+        ids=["current-receiver-intake", "revoked-first-intake"],
+    )
+    def test_actual_supervisor_child_waits_for_start_and_receiver_replays_bytes(
+        db_environment,
+        tmp_path,
+        audit_directory,
+        revoke_before_first_intake,
+    ):
+        """Catch an early SDK call, hosted substitute, or fake late-result ack."""
+    
+        with m2_case(db_environment, tmp_path, audit_directory) as case:
+            deliveries = case.dispatcher.deliver_pending(limit=1)
+            assert len(deliveries) == 1
+            started = deliveries[0]
+            assert started.state == "running"
+            assert started.observation.kind == "started"
+            process = started.observation.process
+            assert process.pid > 0
+            assert process.birth_id != str(process.pid)
+    
+            # The child exists and polls the controller, but P05 has not accepted its
+            # birth observation. No MAF model request may start in this interval.
+            assert case.upstream.exchanges == []
+            assert case.mapped_model.requested_urls == []
+            assert not any(
+                exchange.path.endswith("/chat/completions")
+                for exchange in case.gate_server.exchanges
+            )
+            worker_directory = case.node.worker_directory()
+            assert _wait_for(lambda: (worker_directory / "child-entered").exists())
+    
+            registered = started.run
+            running = case.dispatcher.reconcile(registered)
+            assert running.state == "running"
+            assert running.observation.process.birth_id == process.birth_id
+            assert case.upstream.first_request_started.wait(timeout=5)
+            case.upstream.release_first_response.set()
+    
+            exited_response = _wait_for(
+                lambda: (
+                    response
+                    if (response := case.node.query()).status_code == 200
+                    and response.json()["state"] == "exited"
+                    else None
+                ),
+                timeout=15,
+            )
+            exited = exited_response.json()
+            assert exited["observation"]["process"]["pid"] == process.pid
+            assert exited["observation"]["process"]["birth_id"] == process.birth_id
+            assert exited["observation"]["process"]["exit_code"] == 1
+            assert case.controller_fault.rejections == 1
+            assert (worker_directory / "result-request.json").is_file()
+            assert (worker_directory / "sdk-request.json").is_file()
+            assert not (worker_directory / "result-receipt.json").exists()
+    
+            before_network = (
+                len(case.upstream.exchanges),
+                len(case.gate_server.exchanges),
+            )
+            if revoke_before_first_intake:
+                # Revoke the actual Worker before the first controller intake. The
+                # receiver may settle the retained bytes only as historical output.
+                with db_environment.migration_connection() as connection:
+                    revoke_run_credential(
+                        connection,
+                        tenant_id=case.worker.principal.tenant_id,
+                        subject=case.worker.principal.subject,
+                        token_id=case.worker.principal.token_id,
+                    )
+            final = case.dispatcher.reconcile(registered)
+            assert final.state == "exited"
+            with db_environment.migration_connection() as connection:
+                result_row = connection.execute(
+                    """SELECT r.receipt_json FROM vnext.result_submission s
+                    JOIN vnext.result_receipt r USING(tenant_id,project_id,task_id,submission_id)
+                    WHERE s.agent_run_id=%s""",
+                    (case.assignment.identity.agent_run_id,),
+                ).fetchone()
+                claim = connection.execute(
+                    """SELECT producer_kind,producer_ref,basis_json FROM vnext.claim_revision
+                    WHERE agent_run_id=%s""",
+                    (case.assignment.identity.agent_run_id,),
+                ).fetchone()
+                observation_count = connection.execute(
+                    """SELECT count(*) FROM vnext.observation o JOIN vnext.tool_attempt a
+                    ON (a.tenant_id,a.project_id,a.task_id,a.tool_attempt_id)=
+                       (o.tenant_id,o.project_id,o.task_id,o.tool_attempt_id)
+                    WHERE a.agent_run_id=%s""",
+                    (case.assignment.identity.agent_run_id,),
+                ).fetchone()[0]
+                task_state = connection.execute(
+                    "SELECT observed_state FROM vnext.task WHERE task_id=%s", (TASK,)
+                ).fetchone()[0]
+            assert result_row is not None
+            result = ResultReceipt.model_validate(strict_json_loads(result_row[0]))
+            if revoke_before_first_intake:
+                assert result.status.value == "historical_only"
+                assert claim is None
+            else:
+>               assert result.status.value == "accepted"
+E               AssertionError: assert 'rejected' == 'accepted'
+E                 
+E                 - accepted
+E                 + rejected
+
+tests/vnext/test_maf_child_transport.py:399: AssertionError
+_ test_actual_supervisor_child_waits_for_start_and_receiver_replays_bytes[revoked-first-intake] _
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x10f555450>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-209/test_actual_supervisor_child_w1')
+audit_directory = PosixPath('/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/work/p10-m2/m2-four-p2-r4-20260913T100718Z/evidence/3094c7d71e0c')
+revoke_before_first_intake = True
+
+    @pytest.mark.parametrize(
+        "revoke_before_first_intake",
+        [False, True],
+        ids=["current-receiver-intake", "revoked-first-intake"],
+    )
+    def test_actual_supervisor_child_waits_for_start_and_receiver_replays_bytes(
+        db_environment,
+        tmp_path,
+        audit_directory,
+        revoke_before_first_intake,
+    ):
+        """Catch an early SDK call, hosted substitute, or fake late-result ack."""
+    
+        with m2_case(db_environment, tmp_path, audit_directory) as case:
+            deliveries = case.dispatcher.deliver_pending(limit=1)
+            assert len(deliveries) == 1
+            started = deliveries[0]
+            assert started.state == "running"
+            assert started.observation.kind == "started"
+            process = started.observation.process
+            assert process.pid > 0
+            assert process.birth_id != str(process.pid)
+    
+            # The child exists and polls the controller, but P05 has not accepted its
+            # birth observation. No MAF model request may start in this interval.
+            assert case.upstream.exchanges == []
+            assert case.mapped_model.requested_urls == []
+            assert not any(
+                exchange.path.endswith("/chat/completions")
+                for exchange in case.gate_server.exchanges
+            )
+            worker_directory = case.node.worker_directory()
+            assert _wait_for(lambda: (worker_directory / "child-entered").exists())
+    
+            registered = started.run
+            running = case.dispatcher.reconcile(registered)
+            assert running.state == "running"
+            assert running.observation.process.birth_id == process.birth_id
+            assert case.upstream.first_request_started.wait(timeout=5)
+            case.upstream.release_first_response.set()
+    
+            exited_response = _wait_for(
+                lambda: (
+                    response
+                    if (response := case.node.query()).status_code == 200
+                    and response.json()["state"] == "exited"
+                    else None
+                ),
+                timeout=15,
+            )
+            exited = exited_response.json()
+            assert exited["observation"]["process"]["pid"] == process.pid
+            assert exited["observation"]["process"]["birth_id"] == process.birth_id
+            assert exited["observation"]["process"]["exit_code"] == 1
+            assert case.controller_fault.rejections == 1
+            assert (worker_directory / "result-request.json").is_file()
+            assert (worker_directory / "sdk-request.json").is_file()
+            assert not (worker_directory / "result-receipt.json").exists()
+    
+            before_network = (
+                len(case.upstream.exchanges),
+                len(case.gate_server.exchanges),
+            )
+            if revoke_before_first_intake:
+                # Revoke the actual Worker before the first controller intake. The
+                # receiver may settle the retained bytes only as historical output.
+                with db_environment.migration_connection() as connection:
+                    revoke_run_credential(
+                        connection,
+                        tenant_id=case.worker.principal.tenant_id,
+                        subject=case.worker.principal.subject,
+                        token_id=case.worker.principal.token_id,
+                    )
+            final = case.dispatcher.reconcile(registered)
+            assert final.state == "exited"
+            with db_environment.migration_connection() as connection:
+                result_row = connection.execute(
+                    """SELECT r.receipt_json FROM vnext.result_submission s
+                    JOIN vnext.result_receipt r USING(tenant_id,project_id,task_id,submission_id)
+                    WHERE s.agent_run_id=%s""",
+                    (case.assignment.identity.agent_run_id,),
+                ).fetchone()
+                claim = connection.execute(
+                    """SELECT producer_kind,producer_ref,basis_json FROM vnext.claim_revision
+                    WHERE agent_run_id=%s""",
+                    (case.assignment.identity.agent_run_id,),
+                ).fetchone()
+                observation_count = connection.execute(
+                    """SELECT count(*) FROM vnext.observation o JOIN vnext.tool_attempt a
+                    ON (a.tenant_id,a.project_id,a.task_id,a.tool_attempt_id)=
+                       (o.tenant_id,o.project_id,o.task_id,o.tool_attempt_id)
+                    WHERE a.agent_run_id=%s""",
+                    (case.assignment.identity.agent_run_id,),
+                ).fetchone()[0]
+                task_state = connection.execute(
+                    "SELECT observed_state FROM vnext.task WHERE task_id=%s", (TASK,)
+                ).fetchone()[0]
+            assert result_row is not None
+            result = ResultReceipt.model_validate(strict_json_loads(result_row[0]))
+            if revoke_before_first_intake:
+>               assert result.status.value == "historical_only"
+E               AssertionError: assert 'rejected' == 'historical_only'
+E                 
+E                 - historical_only
+E                 + rejected
+
+tests/vnext/test_maf_child_transport.py:396: AssertionError
+=========================== short test summary info ============================
+FAILED tests/vnext/test_maf_child_transport.py::test_worker_revoked_after_ready_is_rejected_at_result_writepoint
+FAILED tests/vnext/test_maf_child_transport.py::test_actual_supervisor_child_waits_for_start_and_receiver_replays_bytes[current-receiver-intake]
+FAILED tests/vnext/test_maf_child_transport.py::test_actual_supervisor_child_waits_for_start_and_receiver_replays_bytes[revoked-first-intake]
+3 failed in 23.46s

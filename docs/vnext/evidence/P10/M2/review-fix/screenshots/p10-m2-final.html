@@ -1,0 +1,31 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>P10 M2 focused mechanism checks</title>
+<style>
+body{margin:0;background:#0b0f14;color:#d6e2ee;font:17px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
+main{width:1220px;margin:34px auto;padding:30px 38px;border:1px solid #2c3b49;border-radius:14px;background:#101720}
+h1{margin:0 0 10px;color:#73e2a7;font-size:28px}.sha{color:#9fb6cb;margin-bottom:18px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 28px}.pass{color:#73e2a7;font-weight:700}
+.box{margin-top:20px;padding-top:16px;border-top:1px solid #2c3b49}.muted{color:#9fb6cb}
+</style>
+<main>
+<h1>P10 M2 · FOCUSED HOST/CHILD MECHANISM</h1>
+<div class="sha">final tested HEAD d61cb91cac633edcff8830586307e6efa61ada95 · schema vnext_0013_receiver_results</div>
+<div class="grid">
+<div><span class="pass">PASS</span> 4 pure wire/profile checks</div>
+<div><span class="pass">PASS</span> wrong harness receipt rejected</div>
+<div><span class="pass">PASS</span> Pod mismatch · GET→PUT→GET · one PUT</div>
+<div><span class="pass">PASS</span> Worker writepoint revocation → 409</div>
+<div><span class="pass">PASS</span> revoked first intake → historical_only</div>
+<div><span class="pass">PASS</span> current raw-first partial recovery → accepted</div>
+<div><span class="pass">PASS</span> real service Thread owns SQLite journal</div>
+<div><span class="pass">PASS</span> no replayed model/tool execution</div>
+</div>
+<div class="box">
+current case: <span class="pass">1 passed in 11.55s</span><br>
+runtime Thread: <span class="pass">1 passed in 1.27s</span><br>
+native path: 2 model SSE requests · 1 ToolGate workspace read · P03 evidence · P04 receipt
+</div>
+<div class="box muted">Scope: hosted Explore slice. r1–r7 failures retained. Independent rereview: PASS · 4/4 addressed.<br>
+Not all work kinds · not Session transport enabled · not Kubernetes/Pod isolation · not full P10/P07.</div>
+</main>

@@ -1,0 +1,33 @@
+{
+  "exit_code": 1,
+  "pytest": "1 passed, 4 failed in 57.52s",
+  "passed": [
+    "wrong-profile actual receipt mutation"
+  ],
+  "failures": {
+    "pod_mismatch": {
+      "kind": "fixture/evidence assertion",
+      "actual": "one controller authorize returned 409 STALE_EXECUTION; zero Gate/model and no launch",
+      "cause": "test read helper-only m2-node-http.jsonl absent from production transport"
+    },
+    "current_intake": {
+      "kind": "product race",
+      "actual": "await-start returned typed revoked; zero Gate/model",
+      "cause": "waiting read raced P05 running transition; start authorizer rejects running and outer bridge mapped STALE to revoked"
+    },
+    "retained_intake": {
+      "kind": "product UoW capability",
+      "actual": "receiver authorize 200 followed by receiver-replay 503 CAPABILITY_UNAVAILABLE",
+      "cause": "retained_result incorrectly entered capacity prelock with no capacity rows visible; failure precedes open_receiver_result"
+    },
+    "worker_write_race": {
+      "kind": "product check passed plus test expectation correction",
+      "actual": "normal Worker submit-result returned 409 STALE_EXECUTION; receiver replay then hit retained capacity bug",
+      "cause": "after retained fix the durable outcome must be historical_only with zero agent Claim, not zero result_submission"
+    }
+  },
+  "no_exit_claim": "settlement failures kept Node observation unresolved; no exit/release was invented",
+  "stdout_stderr_sha256": "3783c1f5eba819de5c1766250e224b91e122f505f4cef655ab41127a255d36ad",
+  "fingerprint_sha256": "85de8fd35c8705be34ec499e79a5704fb6eb178aabcf0c0dc63cceedc9a013ac",
+  "dirty_patch_sha256": "f5fca052b416544f28e659adbccb68aaec570fb4ca4ba10c8b080ae738451d7c"
+}

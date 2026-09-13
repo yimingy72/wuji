@@ -1,0 +1,368 @@
+{
+  "schema_version": "wuji.p10-m2-result-summary.v1",
+  "cases": {
+    "wrong_profile": {
+      "round": "r2",
+      "evidence_id": "68b76ae26bcc",
+      "controller": {
+        "/v2/worker-host/receiver-authorize:200": 4,
+        "/v2/worker-host/receiver-bootstrap:200": 1
+      },
+      "node": {
+        "available": false
+      },
+      "receiver_receipts": [],
+      "model_upstream_records": 0,
+      "platform_gate_records": 0
+    },
+    "pod_mismatch": {
+      "round": "r3",
+      "evidence_id": "2cabb5414cf6",
+      "controller": {
+        "/v2/worker-host/receiver-authorize:409": 1
+      },
+      "node": {
+        "available": true,
+        "requests": 4,
+        "puts": 1,
+        "first": [
+          {
+            "method": "GET",
+            "status": 404,
+            "state": null
+          },
+          {
+            "method": "PUT",
+            "status": 503,
+            "state": null
+          },
+          {
+            "method": "GET",
+            "status": 404,
+            "state": null
+          },
+          {
+            "method": "GET",
+            "status": 404,
+            "state": null
+          }
+        ],
+        "last": [
+          {
+            "method": "GET",
+            "status": 404,
+            "state": null
+          },
+          {
+            "method": "GET",
+            "status": 404,
+            "state": null
+          }
+        ]
+      },
+      "receiver_receipts": [],
+      "model_upstream_records": 0,
+      "platform_gate_records": 0
+    },
+    "worker_write_race": {
+      "round": "r6",
+      "evidence_id": "283331635b77",
+      "controller": {
+        "/v2/worker-host/receiver-authorize:200": 7,
+        "/v2/worker-host/receiver-bootstrap:200": 1,
+        "/v2/worker-host/await-start:200": 1,
+        "/v2/worker-host/resolve:200": 2,
+        "/v2/worker-host/submit-result:409": 1,
+        "/v2/worker-host/archive-sdk:409": 1,
+        "/v2/worker-host/receiver-replay:200": 2
+      },
+      "node": {
+        "available": true,
+        "requests": 5,
+        "puts": 1,
+        "first": [
+          {
+            "method": "GET",
+            "status": 404,
+            "state": null
+          },
+          {
+            "method": "PUT",
+            "status": 200,
+            "state": "running"
+          },
+          {
+            "method": "GET",
+            "status": 200,
+            "state": "running"
+          },
+          {
+            "method": "GET",
+            "status": 200,
+            "state": "running"
+          }
+        ],
+        "last": [
+          {
+            "method": "GET",
+            "status": 200,
+            "state": "running"
+          },
+          {
+            "method": "GET",
+            "status": 200,
+            "state": "exited"
+          }
+        ]
+      },
+      "receiver_receipts": [
+        {
+          "submission_id": "maf-m1:e372b14350eeb9619503d0c03916801a439db9d6021b6a56fe86bcb1a59becf1",
+          "status": "historical_only",
+          "code": null,
+          "components": []
+        },
+        {
+          "submission_id": "maf-m1:e372b14350eeb9619503d0c03916801a439db9d6021b6a56fe86bcb1a59becf1",
+          "status": "historical_only",
+          "code": null,
+          "components": []
+        }
+      ],
+      "model_upstream_records": 2,
+      "platform_gate_records": 3
+    },
+    "revoked_first_intake": {
+      "round": "r6",
+      "evidence_id": "3094c7d71e0c",
+      "controller": {
+        "/v2/worker-host/receiver-authorize:200": 9,
+        "/v2/worker-host/receiver-bootstrap:200": 1,
+        "/v2/worker-host/await-start:200": 2,
+        "/v2/worker-host/resolve:200": 2,
+        "/v2/worker-host/submit-result:503": 1,
+        "/v2/worker-host/archive-sdk:409": 1,
+        "/v2/worker-host/receiver-replay:200": 3
+      },
+      "node": {
+        "available": true,
+        "requests": 7,
+        "puts": 1,
+        "first": [
+          {
+            "method": "GET",
+            "status": 404,
+            "state": null
+          },
+          {
+            "method": "PUT",
+            "status": 200,
+            "state": "running"
+          },
+          {
+            "method": "GET",
+            "status": 200,
+            "state": "running"
+          },
+          {
+            "method": "GET",
+            "status": 200,
+            "state": "running"
+          }
+        ],
+        "last": [
+          {
+            "method": "GET",
+            "status": 200,
+            "state": "exited"
+          },
+          {
+            "method": "GET",
+            "status": 200,
+            "state": "exited"
+          }
+        ]
+      },
+      "receiver_receipts": [
+        {
+          "submission_id": "maf-m1:6b7ce4a72570c937396f6241f6076ce0839ee28bd9b228d4ca855e8fa9edd4c1",
+          "status": "historical_only",
+          "code": null,
+          "components": []
+        },
+        {
+          "submission_id": "maf-m1:6b7ce4a72570c937396f6241f6076ce0839ee28bd9b228d4ca855e8fa9edd4c1",
+          "status": "historical_only",
+          "code": null,
+          "components": []
+        },
+        {
+          "submission_id": "maf-m1:6b7ce4a72570c937396f6241f6076ce0839ee28bd9b228d4ca855e8fa9edd4c1",
+          "status": "historical_only",
+          "code": null,
+          "components": []
+        }
+      ],
+      "model_upstream_records": 2,
+      "platform_gate_records": 3,
+      "test_summary": {
+        "assignment_digest": "7bb7a1073e526ad2a45d1a7fd2da3b0e08792e27960c35e3c62696a0f045eaf8",
+        "child_process": {
+          "birth_id": "4a255aed3c3d3f7a4b525fe59a63fbc9c33e3c50e9f5f6dd58cbf120f7c867c1:fea03ef8b75cb7b0969731471251ef9d64fab482d13a3b0073d92f3be2b24073:child-process-spawn-event",
+          "exit_code": 1,
+          "exited_at": "2026-09-13T10:38:27.762Z",
+          "pid": 7669,
+          "started_at": "2026-09-13T10:38:22.075Z"
+        },
+        "model_requests": 2,
+        "old_worker_status": 200,
+        "receiver_replay_status": 200,
+        "result": {
+          "code": null,
+          "components": [],
+          "request_id": "a8fcc2e6-81c3-40fc-9709-58b29093dc1a",
+          "status": "historical_only",
+          "submission_id": "maf-m1:6b7ce4a72570c937396f6241f6076ce0839ee28bd9b228d4ca855e8fa9edd4c1"
+        },
+        "revoke_before_first_intake": true,
+        "task_state": "running"
+      }
+    },
+    "current_partial_recovery": {
+      "round": "r7",
+      "evidence_id": "b5cdd39aebb1",
+      "controller": {
+        "/v2/worker-host/receiver-authorize:200": 9,
+        "/v2/worker-host/receiver-bootstrap:200": 1,
+        "/v2/worker-host/await-start:200": 3,
+        "/v2/worker-host/resolve:200": 2,
+        "/v2/worker-host/submit-result:503": 1,
+        "/v2/worker-host/archive-sdk:200": 1,
+        "/v2/worker-host/receiver-replay:503": 1,
+        "/v2/worker-host/receiver-replay:200": 2
+      },
+      "node": {
+        "available": true,
+        "requests": 7,
+        "puts": 1,
+        "first": [
+          {
+            "method": "GET",
+            "status": 404,
+            "state": null
+          },
+          {
+            "method": "PUT",
+            "status": 200,
+            "state": "running"
+          },
+          {
+            "method": "GET",
+            "status": 200,
+            "state": "running"
+          },
+          {
+            "method": "GET",
+            "status": 200,
+            "state": "unknown"
+          }
+        ],
+        "last": [
+          {
+            "method": "GET",
+            "status": 200,
+            "state": "exited"
+          },
+          {
+            "method": "GET",
+            "status": 200,
+            "state": "exited"
+          }
+        ]
+      },
+      "receiver_receipts": [
+        {
+          "submission_id": "maf-m1:69f3a9b78c990a1facc5fb9f2cab00e038ac4fe20c5deb8457e9c55077c1ea74",
+          "status": "accepted",
+          "code": null,
+          "components": [
+            {
+              "status": "accepted_shared",
+              "local_ref": "m1-workspace-evidence",
+              "request_id": "9acf37ae-97fa-405b-bd0d-8bcdbc4713ea",
+              "canonical_ref": {
+                "entity_type": "claim",
+                "id": "e3ce8c8b-fea7-4f82-9af3-f1d846ee9788",
+                "revision": "1"
+              },
+              "code": null
+            }
+          ]
+        },
+        {
+          "submission_id": "maf-m1:69f3a9b78c990a1facc5fb9f2cab00e038ac4fe20c5deb8457e9c55077c1ea74",
+          "status": "accepted",
+          "code": null,
+          "components": [
+            {
+              "status": "accepted_shared",
+              "local_ref": "m1-workspace-evidence",
+              "request_id": "9acf37ae-97fa-405b-bd0d-8bcdbc4713ea",
+              "canonical_ref": {
+                "entity_type": "claim",
+                "id": "e3ce8c8b-fea7-4f82-9af3-f1d846ee9788",
+                "revision": "1"
+              },
+              "code": null
+            }
+          ]
+        }
+      ],
+      "model_upstream_records": 2,
+      "platform_gate_records": 3,
+      "test_summary": {
+        "assignment_digest": "ec91e66a919f9f88480c3fdb27c3af5f37a4709cfc00046f9990e24dba8ff508",
+        "child_process": {
+          "birth_id": "9a3d9874de4e1ed3d544f0fb9a03c81c329db33ef107e6fd7d010eea2c695fdb:645e8bc0bb54e34b0a9a027dbdcbeeb5cc3fa53a9708b9a76c3ad23af40974da:child-process-spawn-event",
+          "exit_code": 1,
+          "exited_at": "2026-09-13T10:53:33.715Z",
+          "pid": 68661,
+          "started_at": "2026-09-13T10:53:28.268Z"
+        },
+        "model_requests": 2,
+        "old_worker_status": 200,
+        "receiver_replay_status": 200,
+        "result": {
+          "code": null,
+          "components": [
+            {
+              "canonical_ref": {
+                "entity_type": "claim",
+                "id": "e3ce8c8b-fea7-4f82-9af3-f1d846ee9788",
+                "revision": "1"
+              },
+              "code": null,
+              "local_ref": "m1-workspace-evidence",
+              "request_id": "9acf37ae-97fa-405b-bd0d-8bcdbc4713ea",
+              "status": "accepted_shared"
+            }
+          ],
+          "request_id": "9acf37ae-97fa-405b-bd0d-8bcdbc4713ea",
+          "status": "accepted",
+          "submission_id": "maf-m1:69f3a9b78c990a1facc5fb9f2cab00e038ac4fe20c5deb8457e9c55077c1ea74"
+        },
+        "revoke_before_first_intake": false,
+        "task_state": "running"
+      }
+    }
+  },
+  "final_checks": {
+    "pure_contracts": "4 passed in r1 batch",
+    "wrong_profile": "passed in r2 batch",
+    "pod_mismatch": "passed in r3 batch",
+    "worker_write_race": "passed in r6 batch",
+    "revoked_first_intake": "passed in r6 batch",
+    "current_partial_recovery": "1 passed in 11.55s in r7",
+    "runtime_service_thread": "1 passed in 1.27s"
+  }
+}

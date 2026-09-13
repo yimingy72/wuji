@@ -1,0 +1,21 @@
+{
+  "exit_code": 1,
+  "pytest": "3 failed in 23.46s",
+  "progress": "all three reached model/tool, child exit, receiver settlement and persisted P04 receipt",
+  "receipts": {
+    "current": "rejected/NOT_FOUND_OR_FORBIDDEN",
+    "revoked": "rejected/NOT_FOUND_OR_FORBIDDEN",
+    "worker_race": "rejected/NOT_FOUND_OR_FORBIDDEN"
+  },
+  "first_business_denial": "SnapshotRepository._get read manifest, then can_read_scheduler_snapshot returned false",
+  "cause": "existing P09 snapshot reader binds original Worker subject/token and has no exact retained receiver branch",
+  "minimal_scope": "vnext_0013 replaces can_read_scheduler_snapshot, preserving Worker branch and adding exact retained run/digest/assignment snapshot/receiver registration+ACL+writer branch",
+  "forbidden": [
+    "no receiver snapshot_reader fabrication",
+    "no Worker token impersonation",
+    "no broad snapshot/table grant"
+  ],
+  "stdout_stderr_sha256": "9e3628dc4cf170d938ea563cefa1be52e2c00bb4fd463efdb8f794ee85f9647a",
+  "fingerprint_sha256": "f9f9a1b415709644f49fdf4995844d62db8fc3a7a781f3584f25bf036d10d6df",
+  "dirty_patch_sha256": "644bb8b5d2ec2a04fcb87a42f75494ce0e16306fde03c8a12f880ea2443a0805"
+}

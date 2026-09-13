@@ -1,0 +1,329 @@
+diff --git a/packages/wuji-core/src/wuji_core/contracts/sessions.py b/packages/wuji-core/src/wuji_core/contracts/sessions.py
+index 13f7748..7c756c4 100644
+--- a/packages/wuji-core/src/wuji_core/contracts/sessions.py
++++ b/packages/wuji-core/src/wuji_core/contracts/sessions.py
+@@ -89,10 +89,20 @@ class ToolFrontierEntry(SessionModel):
+     receipt_digest: Digest | None = None
+ 
+ 
++class RejectedCallFrontierEntry(SessionModel):
++    approval_ref: Text
++    decision_version: Revision
++    call_binding: NativeCallBinding
++    result_position: MessagePosition
++    result_content: dict[str, Any]
++    result_digest: Digest
++
++
+ class OperationFrontier(SessionModel):
+     model_entries: tuple[ModelFrontierEntry, ...] = ()
+     tool_entries: tuple[ToolFrontierEntry, ...] = ()
+     pending_approvals: tuple[NativeCallBinding, ...] = ()
++    rejected_calls: tuple[RejectedCallFrontierEntry, ...] = ()
+     archived_history_refs: tuple[BlobRef, ...] = ()
+ 
+ 
+diff --git a/packages/wuji-core/src/wuji_core/execution/session_schema_draft.sql b/packages/wuji-core/src/wuji_core/execution/session_schema_draft.sql
+index 0800f77..a55846c 100644
+--- a/packages/wuji-core/src/wuji_core/execution/session_schema_draft.sql
++++ b/packages/wuji-core/src/wuji_core/execution/session_schema_draft.sql
+@@ -159,6 +159,109 @@ BEGIN
+ END $$;
+ CREATE TRIGGER approval_update BEFORE UPDATE ON vnext.approval_request FOR EACH ROW EXECUTE FUNCTION vnext.guard_approval_update();
+ 
++-- Extend the exact 0009 tool_request state machine with one P08 approval edge.
++-- Every other transition remains byte-for-byte equivalent to the 0009 guard.
++CREATE OR REPLACE FUNCTION vnext.guard_tool_call_purpose() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog AS $$
++DECLARE purpose text := current_setting('wuji.request_purpose',true);
++DECLARE approval_admit boolean := false; DECLARE attach boolean := false;
++DECLARE dispatched boolean := false; DECLARE cancel_intent boolean := false;
++DECLARE safe_retry boolean := false;
++BEGIN
++  IF current_user=pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=TG_RELID)) THEN RETURN NEW; END IF;
++  IF purpose='tool_request' THEN
++    approval_admit := OLD.status='pending_approval' AND OLD.latest_attempt_id IS NULL
++      AND NEW.status='admitted' AND NEW.latest_attempt_id IS NULL
++      AND (to_jsonb(NEW)-'status') IS NOT DISTINCT FROM (to_jsonb(OLD)-'status')
++      AND EXISTS(
++        SELECT 1 FROM vnext.approval_request ar
++        JOIN vnext.session_manifest sm ON
++          (sm.tenant_id,sm.project_id,sm.task_id,sm.session_id,sm.revision,sm.manifest_ref)=
++          (ar.tenant_id,ar.project_id,ar.task_id,ar.session_id,ar.session_revision,ar.manifest_ref)
++        JOIN vnext.session_holder h ON
++          (h.tenant_id,h.project_id,h.task_id,h.manifest_ref,h.session_lineage)=
++          (sm.tenant_id,sm.project_id,sm.task_id,sm.manifest_ref,sm.session_lineage)
++        JOIN vnext.work_item w ON
++          (w.tenant_id,w.project_id,w.task_id,w.work_item_id,w.current_run_id)=
++          (h.tenant_id,h.project_id,h.task_id,h.work_item_id,h.agent_run_id)
++        JOIN vnext.agent_run run ON
++          (run.tenant_id,run.project_id,run.task_id,run.work_item_id,run.agent_run_id)=
++          (w.tenant_id,w.project_id,w.task_id,w.work_item_id,w.current_run_id)
++        JOIN vnext.run_credential credential ON
++          (credential.tenant_id,credential.project_id,credential.task_id,credential.agent_run_id,
++           credential.subject,credential.token_id)=
++          (run.tenant_id,run.project_id,run.task_id,run.agent_run_id,
++           current_setting('wuji.subject',true),current_setting('wuji.token_id',true))
++        WHERE (ar.tenant_id,ar.project_id,ar.task_id,ar.tool_call_id)=
++          (NEW.tenant_id,NEW.project_id,NEW.task_id,NEW.tool_call_id)
++          AND ar.work_item_id=NEW.work_item_id
++          AND ar.decision_status='decided' AND ar.decision='approve'
++          AND ar.expires_at>clock_timestamp()
++          AND h.session_lineage=NEW.session_lineage
++          AND w.desired_state='run' AND run.execution_allowed
++          AND run.run_epoch=w.run_epoch
++          AND NOT credential.revoked
++          AND (credential.document_json::jsonb->>'expires_at')::timestamptz>clock_timestamp()
++          AND ar.binding_json::jsonb->>'tool_call_id'=NEW.tool_call_id
++          AND ar.binding_json::jsonb->>'message_id'=NEW.message_id
++          AND ar.binding_json::jsonb->>'provider_call_id'=NEW.provider_call_id
++          AND ar.binding_json::jsonb->>'tool_definition_ref'=NEW.tool_definition_version
++          AND ar.binding_json::jsonb->>'arguments_digest'=ar.parameters_digest
++          AND ar.content_json::jsonb->>'id'=ar.binding_json::jsonb->>'sdk_approval_id'
++          AND ar.content_json::jsonb->'function_call'->>'id'=ar.binding_json::jsonb->>'sdk_content_id'
++          AND ar.content_json::jsonb->'function_call'->>'call_id'=NEW.provider_call_id
++          AND CASE jsonb_typeof(ar.content_json::jsonb->'function_call'->'arguments')
++            WHEN 'string' THEN (ar.content_json::jsonb->'function_call'->>'arguments')::jsonb
++            ELSE ar.content_json::jsonb->'function_call'->'arguments' END
++              = NEW.request_json::jsonb->'arguments'
++          AND NEW.request_json::jsonb->>'session_lineage'=NEW.session_lineage
++          AND NEW.request_json::jsonb->>'message_id'=NEW.message_id
++          AND NEW.request_json::jsonb->>'provider_call_id'=NEW.provider_call_id
++          AND NEW.request_json::jsonb->>'tool_definition_ref'=NEW.tool_definition_version
++          AND NEW.request_json::jsonb->>'sdk_content_id'=ar.binding_json::jsonb->>'sdk_content_id'
++          AND NEW.request_json::jsonb->>'sdk_approval_id'=ar.binding_json::jsonb->>'sdk_approval_id');
++    attach := OLD.status='admitted' AND OLD.latest_attempt_id IS NULL
++      AND NEW.status='admitted' AND NEW.latest_attempt_id IS NOT NULL
++      AND EXISTS(SELECT 1 FROM vnext.tool_attempt a
++        WHERE (a.tenant_id,a.project_id,a.task_id,a.tool_call_id,a.tool_attempt_id)=
++              (NEW.tenant_id,NEW.project_id,NEW.task_id,NEW.tool_call_id,NEW.latest_attempt_id)
++          AND a.status='admitted' AND a.retry_request_id IS NULL);
++    dispatched := OLD.status='admitted' AND NEW.status='dispatched'
++      AND NEW.latest_attempt_id=OLD.latest_attempt_id
++      AND EXISTS(SELECT 1 FROM vnext.tool_attempt a
++        WHERE (a.tenant_id,a.project_id,a.task_id,a.tool_attempt_id)=
++              (NEW.tenant_id,NEW.project_id,NEW.task_id,NEW.latest_attempt_id)
++          AND a.status='dispatched');
++    cancel_intent :=
++      (OLD.status='pending_approval' AND OLD.latest_attempt_id IS NULL
++       AND NEW.status='cancelled' AND NEW.latest_attempt_id IS NULL)
++      OR (OLD.status IN ('admitted','dispatched','running','unknown','evidence_pending','cancel_requested')
++          AND OLD.latest_attempt_id IS NOT NULL AND NEW.status='cancel_requested'
++          AND NEW.latest_attempt_id=OLD.latest_attempt_id);
++    safe_retry := OLD.status IN ('failed','cancelled')
++      AND NEW.status='admitted' AND NEW.latest_attempt_id IS NOT NULL
++      AND NEW.latest_attempt_id IS DISTINCT FROM OLD.latest_attempt_id
++      AND EXISTS(SELECT 1 FROM vnext.tool_attempt n
++        JOIN vnext.tool_attempt p ON
++          (p.tenant_id,p.project_id,p.task_id,p.tool_attempt_id)=
++          (OLD.tenant_id,OLD.project_id,OLD.task_id,OLD.latest_attempt_id)
++        WHERE (n.tenant_id,n.project_id,n.task_id,n.tool_call_id,n.tool_attempt_id)=
++              (NEW.tenant_id,NEW.project_id,NEW.task_id,NEW.tool_call_id,NEW.latest_attempt_id)
++          AND n.status='admitted' AND n.retry_request_id IS NOT NULL
++          AND p.status IN ('failed','cancelled')
++          AND p.receipt_json::jsonb->>'status' IN ('not_started','exited'));
++    IF NEW IS DISTINCT FROM OLD
++       AND NOT (approval_admit OR attach OR dispatched OR cancel_intent OR safe_retry) THEN
++      IF OLD.status='pending_approval' AND NEW.status='admitted' THEN
++        RAISE EXCEPTION 'exact approved Session operation required' USING ERRCODE='42501';
++      END IF;
++      RAISE EXCEPTION 'tool request transition is not registered' USING ERRCODE='42501';
++    END IF;
++  ELSIF purpose<>'tool_settle' THEN
++    RAISE EXCEPTION 'tool write purpose required' USING ERRCODE='42501';
++  END IF;
++  RETURN NEW;
++END $$;
++
+ CREATE FUNCTION vnext.check_approval_attempt() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$
+ DECLARE t text:=NEW.tenant_id;p text:=NEW.project_id;k text:=NEW.task_id;i text; a vnext.tool_attempt;c vnext.tool_call; approval vnext.approval_request; definition jsonb;
+ BEGIN
+diff --git a/packages/wuji-core/src/wuji_core/persistence/schema.py b/packages/wuji-core/src/wuji_core/persistence/schema.py
+index 4209298..aae95da 100644
+--- a/packages/wuji-core/src/wuji_core/persistence/schema.py
++++ b/packages/wuji-core/src/wuji_core/persistence/schema.py
+@@ -45,12 +45,8 @@ from wuji_core.persistence.projection_schema import (
+     upgrade as upgrade_projection,
+ )
+ from wuji_core.persistence.retained_result_schema import (
+-    HEAD as RETAINED_RESULT_HEAD,
+-    upgrade as upgrade_retained_results,
+-)
+-from wuji_core.persistence.session_schema import (
+     HEAD,
+-    upgrade as upgrade_sessions,
++    upgrade as upgrade_retained_results,
+ )
+ 
+ OWNER = "tenant_id,project_id,task_id"
+@@ -414,7 +410,6 @@ def migrate(connection, *, application_role: str) -> None:
+                 SCHEDULER_HEAD,
+                 DISPATCH_FAIRNESS_HEAD,
+                 PROJECTION_HEAD,
+-                RETAINED_RESULT_HEAD,
+                 HEAD,
+             ]
+             if not heads or heads != set(chain[: len(heads)]):
+@@ -432,7 +427,6 @@ def migrate(connection, *, application_role: str) -> None:
+                 upgrade_dispatch_fairness,
+                 upgrade_projection,
+                 upgrade_retained_results,
+-                upgrade_sessions,
+             ]
+             for upgrade in upgrades[len(heads) - 1 :]:
+                 upgrade(connection, application_role)
+@@ -546,4 +540,3 @@ def migrate(connection, *, application_role: str) -> None:
+         upgrade_dispatch_fairness(connection, application_role)
+         upgrade_projection(connection, application_role)
+         upgrade_retained_results(connection, application_role)
+-        upgrade_sessions(connection, application_role)
+diff --git a/tests/vnext/support/session_transport.py b/tests/vnext/support/session_transport.py
+index c8a4ae4..65d57a7 100644
+--- a/tests/vnext/support/session_transport.py
++++ b/tests/vnext/support/session_transport.py
+@@ -38,20 +38,22 @@ BOUNDARY_DIGEST = "942e1e2a66a427b6551732f758bc314f22b9cdec9365a3425c9184de29939
+ 
+ 
+ def compatibility(profile_snapshot=None):
+-    return SessionCompatibility(
+-        profile_snapshot=(
++    body = {
++        "profile_snapshot": (
+             {"ref": "session-profile", "revision": "1"}
+             if profile_snapshot is None
+             else profile_snapshot
+         ),
+-        client_snapshot={"price": Decimal("1.250")},
+-        runtime_snapshot={"ref": "runtime-v1"},
+-        framework_snapshot={"agent_framework_core": "1.18.0"},
+-        lock_digest="a" * 64,
+-        capability_ref="session-capability-v1",
+-        capability_digest="b" * 64,
+-        validation_status="mechanism_candidate",
+-    )
++        "client_snapshot": {"price": Decimal("1.250")},
++        "runtime_snapshot": {"ref": "runtime-v1"},
++        "framework_snapshot": {"agent_framework_core": "1.18.0"},
++        "lock_digest": "a" * 64,
++        "capability_ref": "session-capability-v1",
++        "capability_digest": "b" * 64,
++    }
++    if "validation_status" in SessionCompatibility.model_fields:
++        body["validation_status"] = "mechanism_candidate"
++    return SessionCompatibility.model_validate(body)
+ 
+ 
+ def boundary_objects():
+diff --git a/tests/vnext/test_session_approval.py b/tests/vnext/test_session_approval.py
+index b96272d..76333c9 100644
+--- a/tests/vnext/test_session_approval.py
++++ b/tests/vnext/test_session_approval.py
+@@ -4,6 +4,8 @@ import asyncio
+ from datetime import datetime, timedelta, timezone
+ from hashlib import sha256
+ from inspect import Parameter
++import json
++from pathlib import Path
+ 
+ import pytest
+ from agent_framework import (
+@@ -47,6 +49,9 @@ from wuji_maf_worker.history import PinnedMemoryContextProvider, VersionedMemory
+ from wuji_maf_worker.tools import ModelCallIdentity
+ 
+ 
++REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
++
++
+ def _capability_document(*, status, evidence_refs, candidate_binding):
+     published_at = datetime(2026, 9, 13, tzinfo=timezone.utc)
+     profile_body = {
+@@ -140,6 +145,10 @@ def test_p08_migration_follows_receiver_results_and_keeps_session_guards():
+     assert aggregate_schema.HEAD == session_schema.HEAD
+     assert "writer_token_id" in ddl
+     assert "CREATE TABLE vnext.session_capability" in ddl
++    assert "approval_admit boolean := false" in ddl
++    assert "OLD.status='pending_approval'" in ddl
++    assert "NEW.status='admitted' AND NEW.latest_attempt_id IS NULL" in ddl
++    assert "exact approved Session operation required" in ddl
+     assert "approval, original ToolCall, Attempt and Outbox must commit together" in ddl
+     assert "require_scheduler_identity(text,text,text,jsonb)" in ddl
+ 
+@@ -223,6 +232,79 @@ def test_verified_session_capability_requires_real_evidence_and_new_immutable_re
+         )
+ 
+ 
++def test_rejected_frontier_binds_persisted_decision_to_actual_native_result():
++    from wuji_core.contracts.sessions import (
++        MessagePosition,
++        RejectedCallFrontierEntry,
++    )
++
++    p01 = json.loads(
++        (REPOSITORY_ROOT / "docs/vnext/capability-record.json").read_text(
++            encoding="utf-8"
++        )
++    )
++    resumed = p01["raw_sdk_and_http"]["cases"]["reject"]["processes"][1][
++        "result"
++    ]
++    messages = resumed["session_after"]["state"]["in_memory"]["messages"]
++    result_message_index = next(
++        index for index, message in enumerate(messages) if message["role"] == "tool"
++    )
++    result_message = messages[result_message_index]
++    assert len(result_message["contents"]) == 1
++    result_content = result_message["contents"][0]
++
++    original, pending, _native_response = pending_native_identity()
++    binding = original.export_bindings()[0]
++    restored = ModelCallIdentity([TOOL_DEFINITION], max_bytes=65_536)
++    restored.restore_bindings(
++        call_bindings=(binding,),
++        pending_contents=(Content.from_dict(pending.to_dict()),),
++        lineage=SESSION_LINEAGE,
++    )
++    decision = ApprovalDeliveryDecision(
++        approval_ref="approval-p08-reject",
++        decision_version="2",
++        decision="reject",
++        pending_content=pending.to_dict(),
++        call_binding=binding,
++    )
++    payload = InputPayload(kind="approval", decisions=(decision,))
++    restored.bind_delivery(
++        HumanInput(
++            delivery_id="delivery-p08-reject",
++            input_request_id="input-p08-reject",
++            manifest_ref="manifest-p08",
++            payload_digest=sha256(
++                canonical_json_bytes(payload.model_dump(mode="python"))
++            ).hexdigest(),
++            payload=payload,
++        )
++    )
++
++    assert restored.rejected_decisions() == (decision,)
++    result_position = MessagePosition(
++        message_index=result_message_index,
++        content_index=0,
++        message_digest=sha256(canonical_json_bytes(result_message)).hexdigest(),
++        content_digest=sha256(canonical_json_bytes(result_content)).hexdigest(),
++    )
++    entry = RejectedCallFrontierEntry(
++        approval_ref=decision.approval_ref,
++        decision_version=decision.decision_version,
++        call_binding=binding,
++        result_position=result_position,
++        result_content=result_content,
++        result_digest=result_position.content_digest,
++    )
++
++    assert entry.result_content["type"] == "function_result"
++    assert entry.result_content["call_id"] == resumed["approval_response"][
++        "function_call"
++    ]["call_id"]
++    assert entry.result_content["items"][0]["text"] == entry.result_content["result"]
++
++
+ def test_session_manifest_uses_json_mode_for_canonical_saved_at_bytes():
+     blob = {
+         "id": "session-root-p08",

@@ -1,0 +1,247 @@
+.FFFF                                                                    [100%]
+=================================== FAILURES ===================================
+________ test_mismatched_registered_pod_is_rejected_before_node_launch _________
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x109531950>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-201/test_mismatched_registered_pod0')
+audit_directory = PosixPath('/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/work/p10-m2/m2-four-p2-r2-20260913T093356Z/evidence/2cabb5414cf6')
+
+    def test_mismatched_registered_pod_is_rejected_before_node_launch(
+        db_environment, tmp_path, audit_directory
+    ):
+        with m2_case(db_environment, tmp_path, audit_directory) as case:
+            with db_environment.migration_connection() as connection:
+                connection.execute(
+                    """UPDATE vnext.scheduler_receiver SET pod_uid='wrong-pod-uid'
+                    WHERE tenant_id=%s AND project_id=%s AND task_id=%s
+                    AND runtime_attempt=%s""",
+                    (
+                        case.assignment.identity.tenant_id,
+                        case.assignment.identity.project_id,
+                        case.assignment.identity.task_id,
+                        case.assignment.identity.runtime_attempt.root,
+                    ),
+                )
+            delivered = case.dispatcher.deliver_pending(limit=1)
+    
+            assert len(delivered) == 1
+            assert delivered[0].state == "unknown"
+            repeated = case.dispatcher.deliver_pending(limit=1)
+            assert len(repeated) == 1
+            assert repeated[0].state == "unknown"
+            node_requests = [
+                strict_json_loads(line)
+>               for line in case.node.audit_path.read_text().splitlines()
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            ]
+
+tests/vnext/test_maf_child_transport.py:227: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/pathlib/_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/pathlib/_abc.py:632: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = PosixPath('/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/work/p10-m2/m2-four-p2-r2-20260913T093356Z/evidence/2cabb5414cf6/m2-node-http.jsonl')
+mode = 'r', buffering = -1, encoding = 'locale', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed to by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: '/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/work/p10-m2/m2-four-p2-r2-20260913T093356Z/evidence/2cabb5414cf6/m2-node-http.jsonl'
+
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/pathlib/_local.py:537: FileNotFoundError
+_______ test_worker_revoked_after_ready_is_rejected_at_result_writepoint _______
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x1098dbd90>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-201/test_worker_revoked_after_read0')
+audit_directory = PosixPath('/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/work/p10-m2/m2-four-p2-r2-20260913T093356Z/evidence/283331635b77')
+
+    def test_worker_revoked_after_ready_is_rejected_at_result_writepoint(
+        db_environment, tmp_path, audit_directory
+    ):
+        with m2_case(
+            db_environment,
+            tmp_path,
+            audit_directory,
+            reject_first_submit=False,
+            revoke_worker_on_result_write=True,
+        ) as case:
+            started = case.dispatcher.deliver_pending(limit=1)[0]
+            case.dispatcher.reconcile(started.run)
+            assert case.upstream.first_request_started.wait(timeout=5)
+            case.upstream.release_first_response.set()
+            worker_directory = case.node.worker_directory()
+>           _wait_for(
+                lambda: (
+                    response
+                    if (response := case.node.query()).status_code == 200
+                    and response.json()["state"] == "exited"
+                    else None
+                ),
+                timeout=15,
+            )
+
+tests/vnext/test_maf_child_transport.py:260: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+check = <function test_worker_revoked_after_ready_is_rejected_at_result_writepoint.<locals>.<lambda> at 0x1098c53a0>
+timeout = 15
+
+    def _wait_for(check, *, timeout=10):
+        deadline = time.monotonic() + timeout
+        last = None
+        while time.monotonic() < deadline:
+            last = check()
+            if last:
+                return last
+            time.sleep(0.02)
+>       raise AssertionError(f"M2 condition was not met; last={last!r}")
+E       AssertionError: M2 condition was not met; last=None
+
+tests/vnext/test_maf_child_transport.py:146: AssertionError
+_ test_actual_supervisor_child_waits_for_start_and_receiver_replays_bytes[current-receiver-intake] _
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x109714fc0>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-201/test_actual_supervisor_child_w0')
+audit_directory = PosixPath('/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/work/p10-m2/m2-four-p2-r2-20260913T093356Z/evidence/b5cdd39aebb1')
+revoke_before_first_intake = False
+
+    @pytest.mark.parametrize(
+        "revoke_before_first_intake",
+        [False, True],
+        ids=["current-receiver-intake", "revoked-first-intake"],
+    )
+    def test_actual_supervisor_child_waits_for_start_and_receiver_replays_bytes(
+        db_environment,
+        tmp_path,
+        audit_directory,
+        revoke_before_first_intake,
+    ):
+        """Catch an early SDK call, hosted substitute, or fake late-result ack."""
+    
+        with m2_case(db_environment, tmp_path, audit_directory) as case:
+            deliveries = case.dispatcher.deliver_pending(limit=1)
+            assert len(deliveries) == 1
+            started = deliveries[0]
+            assert started.state == "running"
+            assert started.observation.kind == "started"
+            process = started.observation.process
+            assert process.pid > 0
+            assert process.birth_id != str(process.pid)
+    
+            # The child exists and polls the controller, but P05 has not accepted its
+            # birth observation. No MAF model request may start in this interval.
+            assert case.upstream.exchanges == []
+            assert case.mapped_model.requested_urls == []
+            assert not any(
+                exchange.path.endswith("/chat/completions")
+                for exchange in case.gate_server.exchanges
+            )
+            worker_directory = case.node.worker_directory()
+            assert _wait_for(lambda: (worker_directory / "child-entered").exists())
+    
+            registered = started.run
+            running = case.dispatcher.reconcile(registered)
+            assert running.state == "running"
+            assert running.observation.process.birth_id == process.birth_id
+>           assert case.upstream.first_request_started.wait(timeout=5)
+E           AssertionError: assert False
+E            +  where False = wait(timeout=5)
+E            +    where wait = <threading.Event at 0x109995a90: unset>.wait
+E            +      where <threading.Event at 0x109995a90: unset> = <support.m1.NativeSseModel object at 0x109714e90>.first_request_started
+E            +        where <support.m1.NativeSseModel object at 0x109714e90> = namespace(environment=<support.postgres.IsolatedDatabaseEnvironment object at 0x109714fc0>, tmp_path=PosixPath('/priva...785c55b-4972-41b4-af60-4e9477387cc9', allowed_tool_refs=['fixture-reader-v1'])), worker_write_state={'revocations': 0}).upstream
+
+tests/vnext/test_maf_child_transport.py:330: AssertionError
+_ test_actual_supervisor_child_waits_for_start_and_receiver_replays_bytes[revoked-first-intake] _
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x109b5e520>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-201/test_actual_supervisor_child_w1')
+audit_directory = PosixPath('/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/work/p10-m2/m2-four-p2-r2-20260913T093356Z/evidence/3094c7d71e0c')
+revoke_before_first_intake = True
+
+    @pytest.mark.parametrize(
+        "revoke_before_first_intake",
+        [False, True],
+        ids=["current-receiver-intake", "revoked-first-intake"],
+    )
+    def test_actual_supervisor_child_waits_for_start_and_receiver_replays_bytes(
+        db_environment,
+        tmp_path,
+        audit_directory,
+        revoke_before_first_intake,
+    ):
+        """Catch an early SDK call, hosted substitute, or fake late-result ack."""
+    
+        with m2_case(db_environment, tmp_path, audit_directory) as case:
+            deliveries = case.dispatcher.deliver_pending(limit=1)
+            assert len(deliveries) == 1
+            started = deliveries[0]
+            assert started.state == "running"
+            assert started.observation.kind == "started"
+            process = started.observation.process
+            assert process.pid > 0
+            assert process.birth_id != str(process.pid)
+    
+            # The child exists and polls the controller, but P05 has not accepted its
+            # birth observation. No MAF model request may start in this interval.
+            assert case.upstream.exchanges == []
+            assert case.mapped_model.requested_urls == []
+            assert not any(
+                exchange.path.endswith("/chat/completions")
+                for exchange in case.gate_server.exchanges
+            )
+            worker_directory = case.node.worker_directory()
+            assert _wait_for(lambda: (worker_directory / "child-entered").exists())
+    
+            registered = started.run
+            running = case.dispatcher.reconcile(registered)
+            assert running.state == "running"
+            assert running.observation.process.birth_id == process.birth_id
+            assert case.upstream.first_request_started.wait(timeout=5)
+            case.upstream.release_first_response.set()
+    
+>           exited_response = _wait_for(
+                lambda: (
+                    response
+                    if (response := case.node.query()).status_code == 200
+                    and response.json()["state"] == "exited"
+                    else None
+                ),
+                timeout=15,
+            )
+
+tests/vnext/test_maf_child_transport.py:333: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+check = <function test_actual_supervisor_child_waits_for_start_and_receiver_replays_bytes.<locals>.<lambda> at 0x109c02660>
+timeout = 15
+
+    def _wait_for(check, *, timeout=10):
+        deadline = time.monotonic() + timeout
+        last = None
+        while time.monotonic() < deadline:
+            last = check()
+            if last:
+                return last
+            time.sleep(0.02)
+>       raise AssertionError(f"M2 condition was not met; last={last!r}")
+E       AssertionError: M2 condition was not met; last=None
+
+tests/vnext/test_maf_child_transport.py:146: AssertionError
+=========================== short test summary info ============================
+FAILED tests/vnext/test_maf_child_transport.py::test_mismatched_registered_pod_is_rejected_before_node_launch
+FAILED tests/vnext/test_maf_child_transport.py::test_worker_revoked_after_ready_is_rejected_at_result_writepoint
+FAILED tests/vnext/test_maf_child_transport.py::test_actual_supervisor_child_waits_for_start_and_receiver_replays_bytes[current-receiver-intake]
+FAILED tests/vnext/test_maf_child_transport.py::test_actual_supervisor_child_waits_for_start_and_receiver_replays_bytes[revoked-first-intake]
+4 failed, 1 passed in 57.52s

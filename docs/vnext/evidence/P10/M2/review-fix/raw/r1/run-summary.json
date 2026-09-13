@@ -1,0 +1,11 @@
+{
+  "exit_code": 1,
+  "pytest": "4 passed, 5 failed in 14.54s",
+  "root_cause": "earliest authorized outbox row was reason while the frozen M2 Node deployment registered only explore",
+  "error_code": "UNREGISTERED_LAUNCH_PROFILE",
+  "reached_child_launch": false,
+  "fix_commit": "b8b2b48aca385c86342ccd84b54e86b2340a0227",
+  "stdout_stderr_sha256": "193fa3a62dc29273c335e5cee4d8e8ee165c1c8d6229690a3b896a6c10a7e37c",
+  "fingerprint_sha256": "46dbb2dd239f2371ca49dfd0bca86fa7d57516b689d14aa828199d4682c2602a",
+  "dirty_patch_sha256": "f5fca052b416544f28e659adbccb68aaec570fb4ca4ba10c8b080ae738451d7c"
+}

@@ -1,0 +1,22 @@
+{
+  "exit_code": 1,
+  "pytest": "1 passed, 3 failed in 65.59s",
+  "passed": [
+    "registered Pod mismatch: GET-PUT-GET, one PUT, controller 409, no launch"
+  ],
+  "shared_failure": {
+    "exception": "psycopg.errors.InsufficientPrivilege",
+    "private_relation": "vnext.retained_result_binding",
+    "first_receiver_denial": "bound_retained_run direct JOIN after open_receiver_result succeeded",
+    "normal_worker_denial": "artifact insert trigger invokes invoker-security require_model_mutation whose body references the private relation",
+    "minimal_scope": [
+      "execution/retained_results.py: query only agent_run after exact SECDEF open",
+      "persistence/retained_result_schema.py: make require_model_mutation SECURITY DEFINER with fixed search_path; keep predicates and EXECUTE-only grant"
+    ],
+    "forbidden_fix": "do not grant application SELECT on retained_result_binding"
+  },
+  "no_exit_claim": "all settlement failures remained nonterminal; no exit/release was invented",
+  "stdout_stderr_sha256": "364c305c43aadc5cb9206dcd430b2e7464cd13b9f8be04dafe96a1500666832c",
+  "fingerprint_sha256": "1cac9dbfbec394ea72021821102318c7bfad877c435595be37cf90d65b4aded6",
+  "dirty_patch_sha256": "900294690080ccec8354e83a41d680113ae2be8c11ea6a37a51e38a2ac3fcaee"
+}

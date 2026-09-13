@@ -1,0 +1,2405 @@
+diff --git a/ops/vnext/migrations/README.md b/ops/vnext/migrations/README.md
+index d75c4f5..e0f392f 100644
+--- a/ops/vnext/migrations/README.md
++++ b/ops/vnext/migrations/README.md
+@@ -1,10 +1,28 @@
+ # vnext migration head
+ 
+-Current head: `vnext_0013_receiver_results`, following
+-`vnext_0012_p13_projection`, `vnext_0011_p09_dispatch_fairness`, and
+-`vnext_0010_p09_scheduler`. Apply it through the existing
++Current head: `vnext_0014_p08_session_approval`, following
++`vnext_0013_receiver_results`, `vnext_0012_p13_projection`, and
++`vnext_0011_p09_dispatch_fairness`. Apply it through the existing
+ `wuji_core.persistence.schema.migrate(connection, application_role=...)` entry.
+ 
++The 0014 migration installs P08's immutable Session object graph, manifest
++publication, holder transfer, persisted input/approval/delivery records and
++approval-to-ToolAttempt/dispatch-Outbox deferred invariant. Session roots retain
++their actual Worker writer subject and token ID; the receiver publishes only
++after checking the current registered assignment, receiver and non-revoked Run
++writer. Worker credentials do not gain observe or control authority, and the
++four P06 model/tool request/settle purposes keep their existing meanings.
++
++`session_capability.document_json` distinguishes a short-lived, exact
++`mechanism_candidate` from `verified`. A candidate is deployment-owner-only and
++is usable solely by its fixed `evaluation_mode=mechanism_synthetic` Task,
++loopback synthetic model, runtime/receiver/Pod and fixture workspace-read
++executors. It may start without pretending full evidence already exists.
++Verified publication requires non-empty reviewed evidence refs and a new
++immutable capability ref; a candidate is never updated into verified status.
++The candidate path does not bypass normal Scope, Run, frontier, CAS, budget or
++permission checks.
++
+ The 0013 migration adds the retained-result binding between one immutable P09
+ Assignment, its non-settling source Worker, and the actual registered receiver.
+ P09 calls `bind_receiver_result(tx, agent_run_id=...)` only after persisting the
+diff --git a/packages/contracts/openapi-v2.yaml b/packages/contracts/openapi-v2.yaml
+index ae67da8..a8ad100 100644
+--- a/packages/contracts/openapi-v2.yaml
++++ b/packages/contracts/openapi-v2.yaml
+@@ -501,6 +501,84 @@ paths:
+         '409': {$ref: '#/components/responses/Conflict'}
+         '422': {$ref: '#/components/responses/InvalidSchema'}
+         '503': {$ref: '#/components/responses/Unavailable'}
++  /internal/v2/worker-host/stage-session:
++    post:
++      operationId: stageWorkerSessionV2
++      summary: Stage one bounded native Session boundary
++      tags: [Internal]
++      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/WorkerStageSessionRequest'}}}}
++      responses:
++        '200': {description: Staged immutable Session objects, content: {application/json: {schema: {$ref: '#/components/schemas/WorkerSessionPayload'}}}}
++        '401': {$ref: '#/components/responses/Unauthenticated'}
++        '403': {$ref: '#/components/responses/Forbidden'}
++        '409': {$ref: '#/components/responses/Conflict'}
++        '422': {$ref: '#/components/responses/InvalidSchema'}
++        '503': {$ref: '#/components/responses/Unavailable'}
++  /internal/v2/worker-host/publish-session:
++    post:
++      operationId: publishWorkerSessionV2
++      summary: Publish one exact staged Session revision
++      tags: [Internal]
++      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/WorkerPublishSessionRequest'}}}}
++      responses:
++        '200': {description: Authoritative Session publication receipt, content: {application/json: {schema: {$ref: '#/components/schemas/WorkerSessionPayload'}}}}
++        '401': {$ref: '#/components/responses/Unauthenticated'}
++        '403': {$ref: '#/components/responses/Forbidden'}
++        '409': {$ref: '#/components/responses/Conflict'}
++        '422': {$ref: '#/components/responses/InvalidSchema'}
++        '503': {$ref: '#/components/responses/Unavailable'}
++  /internal/v2/worker-host/load-session:
++    post:
++      operationId: loadWorkerSessionV2
++      summary: Load one exact authorized published Session
++      tags: [Internal]
++      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/WorkerLoadSessionRequest'}}}}
++      responses:
++        '200': {description: Fixed published Session closure, content: {application/json: {schema: {$ref: '#/components/schemas/WorkerSessionPayload'}}}}
++        '401': {$ref: '#/components/responses/Unauthenticated'}
++        '403': {$ref: '#/components/responses/Forbidden'}
++        '409': {$ref: '#/components/responses/Conflict'}
++        '422': {$ref: '#/components/responses/InvalidSchema'}
++        '503': {$ref: '#/components/responses/Unavailable'}
++  /internal/v2/worker-host/register-input:
++    post:
++      operationId: registerWorkerInputV2
++      summary: Register an observed native input boundary
++      tags: [Internal]
++      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/WorkerRegisterInputRequest'}}}}
++      responses:
++        '200': {description: Persisted input receipt, content: {application/json: {schema: {$ref: '#/components/schemas/WorkerSessionPayload'}}}}
++        '401': {$ref: '#/components/responses/Unauthenticated'}
++        '403': {$ref: '#/components/responses/Forbidden'}
++        '409': {$ref: '#/components/responses/Conflict'}
++        '422': {$ref: '#/components/responses/InvalidSchema'}
++        '503': {$ref: '#/components/responses/Unavailable'}
++  /internal/v2/worker-host/load-delivery:
++    post:
++      operationId: loadWorkerDeliveryV2
++      summary: Load one exact persisted human input delivery
++      tags: [Internal]
++      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/WorkerLoadDeliveryRequest'}}}}
++      responses:
++        '200': {description: Fixed authorized human input, content: {application/json: {schema: {$ref: '#/components/schemas/WorkerSessionPayload'}}}}
++        '401': {$ref: '#/components/responses/Unauthenticated'}
++        '403': {$ref: '#/components/responses/Forbidden'}
++        '409': {$ref: '#/components/responses/Conflict'}
++        '422': {$ref: '#/components/responses/InvalidSchema'}
++        '503': {$ref: '#/components/responses/Unavailable'}
++  /internal/v2/worker-host/acknowledge-delivery:
++    post:
++      operationId: acknowledgeWorkerDeliveryV2
++      summary: Persist receipt of one exact human input delivery
++      tags: [Internal]
++      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/WorkerAcknowledgeDeliveryRequest'}}}}
++      responses:
++        '200': {description: Authoritative delivery receipt, content: {application/json: {schema: {$ref: '#/components/schemas/WorkerSessionPayload'}}}}
++        '401': {$ref: '#/components/responses/Unauthenticated'}
++        '403': {$ref: '#/components/responses/Forbidden'}
++        '409': {$ref: '#/components/responses/Conflict'}
++        '422': {$ref: '#/components/responses/InvalidSchema'}
++        '503': {$ref: '#/components/responses/Unavailable'}
+   /internal/v2/worker-host/archive-sdk:
+     post:
+       operationId: archiveWorkerSdkV2
+@@ -1306,6 +1384,99 @@ components:
+           items: {$ref: '#/components/schemas/KnowledgeRef'}
+         text: {type: string, maxLength: 16777216}
+         input_digest: {$ref: '#/components/schemas/Sha256Digest'}
++    WorkerSessionLimits:
++      type: object
++      additionalProperties: false
++      required: [max_objects, max_reference_depth, max_object_bytes, max_total_bytes, max_messages, max_pending_approvals]
++      properties:
++        max_objects: {type: integer, minimum: 1, maximum: 10000}
++        max_reference_depth: {type: integer, minimum: 1, maximum: 64}
++        max_object_bytes: {type: integer, minimum: 1, maximum: 67108864}
++        max_total_bytes: {type: integer, minimum: 1, maximum: 67108864}
++        max_messages: {type: integer, minimum: 1, maximum: 100000}
++        max_pending_approvals: {type: integer, minimum: 1, maximum: 512}
++    WorkerSessionPayloadVersion:
++      type: string
++      enum:
++        - wuji.worker.session.boundary.v1
++        - wuji.worker.session.staged.v1
++        - wuji.worker.session.receipt.v1
++        - wuji.worker.session.published.v1
++        - wuji.worker.session.approval-observation.v1
++        - wuji.worker.session.input-receipt.v1
++        - wuji.worker.session.human-input.v1
++        - wuji.worker.session.delivery-receipt.v1
++        - wuji.worker.session.compatibility.v1
++    WorkerSessionBinarySlot:
++      type: string
++      enum: [boundary_object_data, published_object_bytes, resolved_memory_file]
++    WorkerSessionBinary:
++      type: object
++      additionalProperties: false
++      required: [slot, key, data_base64, data_sha256, size_bytes]
++      properties:
++        slot: {$ref: '#/components/schemas/WorkerSessionBinarySlot'}
++        key: {type: string, minLength: 1, maxLength: 2048}
++        data_base64: {type: string, maxLength: 67108864}
++        data_sha256: {$ref: '#/components/schemas/Sha256Digest'}
++        size_bytes: {type: integer, minimum: 0, maximum: 67108864}
++    WorkerSessionPayload:
++      type: object
++      additionalProperties: false
++      required: [schema_version, payload, payload_sha256, payload_size_bytes, binaries]
++      properties:
++        schema_version: {$ref: '#/components/schemas/WorkerSessionPayloadVersion'}
++        payload: {type: object, additionalProperties: true}
++        payload_sha256: {$ref: '#/components/schemas/Sha256Digest'}
++        payload_size_bytes: {type: integer, minimum: 2, maximum: 67108864}
++        binaries:
++          type: array
++          maxItems: 10000
++          items: {$ref: '#/components/schemas/WorkerSessionBinary'}
++    WorkerStageSessionRequest:
++      type: object
++      additionalProperties: false
++      required: [assignment, boundary]
++      properties:
++        assignment: {$ref: '#/components/schemas/WorkerAssignment'}
++        boundary: {$ref: '#/components/schemas/WorkerSessionPayload'}
++    WorkerPublishSessionRequest:
++      type: object
++      additionalProperties: false
++      required: [assignment, manifest, expected_revision]
++      properties:
++        assignment: {$ref: '#/components/schemas/WorkerAssignment'}
++        manifest: {$ref: '#/components/schemas/SessionManifest'}
++        expected_revision: {$ref: '#/components/schemas/RevisionString'}
++    WorkerLoadSessionRequest:
++      type: object
++      additionalProperties: false
++      required: [assignment, manifest_ref]
++      properties:
++        assignment: {$ref: '#/components/schemas/WorkerAssignment'}
++        manifest_ref: {type: string, minLength: 1, maxLength: 256}
++    WorkerRegisterInputRequest:
++      type: object
++      additionalProperties: false
++      required: [assignment, observation]
++      properties:
++        assignment: {$ref: '#/components/schemas/WorkerAssignment'}
++        observation: {$ref: '#/components/schemas/WorkerSessionPayload'}
++    WorkerLoadDeliveryRequest:
++      type: object
++      additionalProperties: false
++      required: [assignment, delivery_id]
++      properties:
++        assignment: {$ref: '#/components/schemas/WorkerAssignment'}
++        delivery_id: {type: string, minLength: 1, maxLength: 256}
++    WorkerAcknowledgeDeliveryRequest:
++      type: object
++      additionalProperties: false
++      required: [assignment, delivery_id, payload_digest]
++      properties:
++        assignment: {$ref: '#/components/schemas/WorkerAssignment'}
++        delivery_id: {type: string, minLength: 1, maxLength: 256}
++        payload_digest: {$ref: '#/components/schemas/Sha256Digest'}
+     WorkerHarnessCapabilities:
+       type: object
+       additionalProperties: false
+@@ -1324,6 +1495,26 @@ components:
+         compaction: {type: boolean}
+         restoration: {type: boolean}
+         mcp: {type: boolean}
++    WorkerSessionHarnessCapabilities:
++      type: object
++      additionalProperties: false
++      required: [todo, mode, file_memory, file_access, skills, shell, web_search, background_agents, outer_loop, auto_approval, compaction, restoration, mcp, native_approval, versioned_memory]
++      properties:
++        todo: {type: boolean}
++        mode: {type: boolean}
++        file_memory: {type: boolean}
++        file_access: {type: boolean}
++        skills: {type: boolean}
++        shell: {type: boolean}
++        web_search: {type: boolean}
++        background_agents: {type: boolean}
++        outer_loop: {type: boolean}
++        auto_approval: {type: boolean}
++        compaction: {type: boolean}
++        restoration: {type: boolean}
++        mcp: {type: boolean}
++        native_approval: {type: boolean}
++        versioned_memory: {type: boolean}
+     WorkerHarnessProfileBody:
+       type: object
+       additionalProperties: false
+@@ -1343,6 +1534,32 @@ components:
+         max_context_bytes: {type: integer, minimum: 1, maximum: 16777216}
+         max_output_tokens: {type: integer, minimum: 1, maximum: 1048576}
+         capabilities: {$ref: '#/components/schemas/WorkerHarnessCapabilities'}
++    WorkerSessionHarnessProfileBody:
++      type: object
++      additionalProperties: false
++      required: [ref, revision, work_kind, instructions, tool_definition_refs, lock_digest, max_context_records, max_context_bytes, max_output_tokens, capabilities, schema_version, history_source_id, memory_mode, memory_source_id, session_limits, max_context_window_tokens, compaction_enabled]
++      properties:
++        ref: {type: string, minLength: 1, maxLength: 256}
++        revision: {$ref: '#/components/schemas/RevisionString'}
++        work_kind: {$ref: '#/components/schemas/WorkKind'}
++        instructions: {type: string, minLength: 1, maxLength: 32768}
++        tool_definition_refs:
++          type: array
++          minItems: 1
++          maxItems: 256
++          items: {type: string, minLength: 1, maxLength: 256}
++        lock_digest: {$ref: '#/components/schemas/Sha256Digest'}
++        max_context_records: {type: integer, minimum: 1, maximum: 5000}
++        max_context_bytes: {type: integer, minimum: 1, maximum: 16777216}
++        max_output_tokens: {type: integer, minimum: 1, maximum: 1048576}
++        capabilities: {$ref: '#/components/schemas/WorkerSessionHarnessCapabilities'}
++        schema_version: {type: string, const: wuji.harness.session.v1}
++        history_source_id: {type: string, pattern: '^[a-z][a-z0-9_]{0,63}$'}
++        memory_mode: {type: string, enum: [disabled, pinned_context]}
++        memory_source_id: {type: string, pattern: '^[a-z][a-z0-9_]{0,63}$'}
++        session_limits: {$ref: '#/components/schemas/WorkerSessionLimits'}
++        max_context_window_tokens: {type: integer, minimum: 1, maximum: 1073741824}
++        compaction_enabled: {type: boolean}
+     WorkerHarnessProfile:
+       type: object
+       additionalProperties: false
+@@ -1351,7 +1568,10 @@ components:
+         ref: {type: string, minLength: 1, maxLength: 256}
+         revision: {$ref: '#/components/schemas/RevisionString'}
+         digest: {$ref: '#/components/schemas/Sha256Digest'}
+-        body: {$ref: '#/components/schemas/WorkerHarnessProfileBody'}
++        body:
++          oneOf:
++            - {$ref: '#/components/schemas/WorkerHarnessProfileBody'}
++            - {$ref: '#/components/schemas/WorkerSessionHarnessProfileBody'}
+     WorkerToolDefinition:
+       type: object
+       additionalProperties: false
+@@ -1384,13 +1604,41 @@ components:
+           maxItems: 256
+           items: {$ref: '#/components/schemas/WorkerToolDefinition'}
+         session_lineage: {type: string, minLength: 1, maxLength: 256}
++    WorkerSessionResolvedHost:
++      type: object
++      additionalProperties: false
++      required: [profile, client_model, limits, request_timeout_seconds, tools, session_lineage, session_compatibility, session_limits, delivery_id, memory_files]
++      properties:
++        profile: {$ref: '#/components/schemas/WorkerHarnessProfile'}
++        client_model: {type: string, minLength: 1, maxLength: 256}
++        limits: {$ref: '#/components/schemas/ExecutionLimits'}
++        request_timeout_seconds: {type: number, exclusiveMinimum: 0, maximum: 300}
++        tools:
++          type: array
++          minItems: 1
++          maxItems: 256
++          items: {$ref: '#/components/schemas/WorkerToolDefinition'}
++        session_lineage: {type: string, minLength: 1, maxLength: 256}
++        session_compatibility: {$ref: '#/components/schemas/WorkerSessionPayload'}
++        session_limits: {$ref: '#/components/schemas/WorkerSessionLimits'}
++        delivery_id:
++          oneOf:
++            - {type: string, minLength: 1, maxLength: 256}
++            - {type: 'null'}
++        memory_files:
++          type: array
++          maxItems: 10000
++          items: {$ref: '#/components/schemas/WorkerSessionBinary'}
+     WorkerResolvedContext:
+       type: object
+       additionalProperties: false
+       required: [context, resolved, assignment_digest]
+       properties:
+         context: {$ref: '#/components/schemas/WorkerContext'}
+-        resolved: {$ref: '#/components/schemas/WorkerResolvedHost'}
++        resolved:
++          oneOf:
++            - {$ref: '#/components/schemas/WorkerResolvedHost'}
++            - {$ref: '#/components/schemas/WorkerSessionResolvedHost'}
+         assignment_digest: {$ref: '#/components/schemas/Sha256Digest'}
+     WorkerArchiveRequest:
+       type: object
+diff --git a/packages/contracts/src/v2/generated.ts b/packages/contracts/src/v2/generated.ts
+index 23b4ab7..6108c26 100644
+--- a/packages/contracts/src/v2/generated.ts
++++ b/packages/contracts/src/v2/generated.ts
+@@ -446,6 +446,108 @@ export interface paths {
+         patch?: never;
+         trace?: never;
+     };
++    "/internal/v2/worker-host/stage-session": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        get?: never;
++        put?: never;
++        /** Stage one bounded native Session boundary */
++        post: operations["stageWorkerSessionV2"];
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
++    "/internal/v2/worker-host/publish-session": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        get?: never;
++        put?: never;
++        /** Publish one exact staged Session revision */
++        post: operations["publishWorkerSessionV2"];
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
++    "/internal/v2/worker-host/load-session": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        get?: never;
++        put?: never;
++        /** Load one exact authorized published Session */
++        post: operations["loadWorkerSessionV2"];
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
++    "/internal/v2/worker-host/register-input": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        get?: never;
++        put?: never;
++        /** Register an observed native input boundary */
++        post: operations["registerWorkerInputV2"];
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
++    "/internal/v2/worker-host/load-delivery": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        get?: never;
++        put?: never;
++        /** Load one exact persisted human input delivery */
++        post: operations["loadWorkerDeliveryV2"];
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
++    "/internal/v2/worker-host/acknowledge-delivery": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        get?: never;
++        put?: never;
++        /** Persist receipt of one exact human input delivery */
++        post: operations["acknowledgeWorkerDeliveryV2"];
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
+     "/internal/v2/worker-host/archive-sdk": {
+         parameters: {
+             query?: never;
+@@ -871,6 +973,60 @@ export interface components {
+             text: string;
+             input_digest: components["schemas"]["Sha256Digest"];
+         };
++        WorkerSessionLimits: {
++            max_objects: number;
++            max_reference_depth: number;
++            max_object_bytes: number;
++            max_total_bytes: number;
++            max_messages: number;
++            max_pending_approvals: number;
++        };
++        /** @enum {string} */
++        WorkerSessionPayloadVersion: "wuji.worker.session.boundary.v1" | "wuji.worker.session.staged.v1" | "wuji.worker.session.receipt.v1" | "wuji.worker.session.published.v1" | "wuji.worker.session.approval-observation.v1" | "wuji.worker.session.input-receipt.v1" | "wuji.worker.session.human-input.v1" | "wuji.worker.session.delivery-receipt.v1" | "wuji.worker.session.compatibility.v1";
++        /** @enum {string} */
++        WorkerSessionBinarySlot: "boundary_object_data" | "published_object_bytes" | "resolved_memory_file";
++        WorkerSessionBinary: {
++            slot: components["schemas"]["WorkerSessionBinarySlot"];
++            key: string;
++            data_base64: string;
++            data_sha256: components["schemas"]["Sha256Digest"];
++            size_bytes: number;
++        };
++        WorkerSessionPayload: {
++            schema_version: components["schemas"]["WorkerSessionPayloadVersion"];
++            payload: {
++                [key: string]: unknown;
++            };
++            payload_sha256: components["schemas"]["Sha256Digest"];
++            payload_size_bytes: number;
++            binaries: components["schemas"]["WorkerSessionBinary"][];
++        };
++        WorkerStageSessionRequest: {
++            assignment: components["schemas"]["WorkerAssignment"];
++            boundary: components["schemas"]["WorkerSessionPayload"];
++        };
++        WorkerPublishSessionRequest: {
++            assignment: components["schemas"]["WorkerAssignment"];
++            manifest: components["schemas"]["SessionManifest"];
++            expected_revision: components["schemas"]["RevisionString"];
++        };
++        WorkerLoadSessionRequest: {
++            assignment: components["schemas"]["WorkerAssignment"];
++            manifest_ref: string;
++        };
++        WorkerRegisterInputRequest: {
++            assignment: components["schemas"]["WorkerAssignment"];
++            observation: components["schemas"]["WorkerSessionPayload"];
++        };
++        WorkerLoadDeliveryRequest: {
++            assignment: components["schemas"]["WorkerAssignment"];
++            delivery_id: string;
++        };
++        WorkerAcknowledgeDeliveryRequest: {
++            assignment: components["schemas"]["WorkerAssignment"];
++            delivery_id: string;
++            payload_digest: components["schemas"]["Sha256Digest"];
++        };
+         WorkerHarnessCapabilities: {
+             todo: boolean;
+             mode: boolean;
+@@ -886,6 +1042,23 @@ export interface components {
+             restoration: boolean;
+             mcp: boolean;
+         };
++        WorkerSessionHarnessCapabilities: {
++            todo: boolean;
++            mode: boolean;
++            file_memory: boolean;
++            file_access: boolean;
++            skills: boolean;
++            shell: boolean;
++            web_search: boolean;
++            background_agents: boolean;
++            outer_loop: boolean;
++            auto_approval: boolean;
++            compaction: boolean;
++            restoration: boolean;
++            mcp: boolean;
++            native_approval: boolean;
++            versioned_memory: boolean;
++        };
+         WorkerHarnessProfileBody: {
+             ref: string;
+             revision: components["schemas"]["RevisionString"];
+@@ -898,11 +1071,32 @@ export interface components {
+             max_output_tokens: number;
+             capabilities: components["schemas"]["WorkerHarnessCapabilities"];
+         };
++        WorkerSessionHarnessProfileBody: {
++            ref: string;
++            revision: components["schemas"]["RevisionString"];
++            work_kind: components["schemas"]["WorkKind"];
++            instructions: string;
++            tool_definition_refs: string[];
++            lock_digest: components["schemas"]["Sha256Digest"];
++            max_context_records: number;
++            max_context_bytes: number;
++            max_output_tokens: number;
++            capabilities: components["schemas"]["WorkerSessionHarnessCapabilities"];
++            /** @constant */
++            schema_version: "wuji.harness.session.v1";
++            history_source_id: string;
++            /** @enum {string} */
++            memory_mode: "disabled" | "pinned_context";
++            memory_source_id: string;
++            session_limits: components["schemas"]["WorkerSessionLimits"];
++            max_context_window_tokens: number;
++            compaction_enabled: boolean;
++        };
+         WorkerHarnessProfile: {
+             ref: string;
+             revision: components["schemas"]["RevisionString"];
+             digest: components["schemas"]["Sha256Digest"];
+-            body: components["schemas"]["WorkerHarnessProfileBody"];
++            body: components["schemas"]["WorkerHarnessProfileBody"] | components["schemas"]["WorkerSessionHarnessProfileBody"];
+         };
+         WorkerToolDefinition: {
+             ref: string;
+@@ -925,9 +1119,21 @@ export interface components {
+             tools: components["schemas"]["WorkerToolDefinition"][];
+             session_lineage: string;
+         };
++        WorkerSessionResolvedHost: {
++            profile: components["schemas"]["WorkerHarnessProfile"];
++            client_model: string;
++            limits: components["schemas"]["ExecutionLimits"];
++            request_timeout_seconds: number;
++            tools: components["schemas"]["WorkerToolDefinition"][];
++            session_lineage: string;
++            session_compatibility: components["schemas"]["WorkerSessionPayload"];
++            session_limits: components["schemas"]["WorkerSessionLimits"];
++            delivery_id: string | null;
++            memory_files: components["schemas"]["WorkerSessionBinary"][];
++        };
+         WorkerResolvedContext: {
+             context: components["schemas"]["WorkerContext"];
+-            resolved: components["schemas"]["WorkerResolvedHost"];
++            resolved: components["schemas"]["WorkerResolvedHost"] | components["schemas"]["WorkerSessionResolvedHost"];
+             assignment_digest: components["schemas"]["Sha256Digest"];
+         };
+         WorkerArchiveRequest: {
+@@ -2352,6 +2558,180 @@ export interface operations {
+             503: components["responses"]["Unavailable"];
+         };
+     };
++    stageWorkerSessionV2: {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        requestBody: {
++            content: {
++                "application/json": components["schemas"]["WorkerStageSessionRequest"];
++            };
++        };
++        responses: {
++            /** @description Staged immutable Session objects */
++            200: {
++                headers: {
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["WorkerSessionPayload"];
++                };
++            };
++            401: components["responses"]["Unauthenticated"];
++            403: components["responses"]["Forbidden"];
++            409: components["responses"]["Conflict"];
++            422: components["responses"]["InvalidSchema"];
++            503: components["responses"]["Unavailable"];
++        };
++    };
++    publishWorkerSessionV2: {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        requestBody: {
++            content: {
++                "application/json": components["schemas"]["WorkerPublishSessionRequest"];
++            };
++        };
++        responses: {
++            /** @description Authoritative Session publication receipt */
++            200: {
++                headers: {
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["WorkerSessionPayload"];
++                };
++            };
++            401: components["responses"]["Unauthenticated"];
++            403: components["responses"]["Forbidden"];
++            409: components["responses"]["Conflict"];
++            422: components["responses"]["InvalidSchema"];
++            503: components["responses"]["Unavailable"];
++        };
++    };
++    loadWorkerSessionV2: {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        requestBody: {
++            content: {
++                "application/json": components["schemas"]["WorkerLoadSessionRequest"];
++            };
++        };
++        responses: {
++            /** @description Fixed published Session closure */
++            200: {
++                headers: {
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["WorkerSessionPayload"];
++                };
++            };
++            401: components["responses"]["Unauthenticated"];
++            403: components["responses"]["Forbidden"];
++            409: components["responses"]["Conflict"];
++            422: components["responses"]["InvalidSchema"];
++            503: components["responses"]["Unavailable"];
++        };
++    };
++    registerWorkerInputV2: {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        requestBody: {
++            content: {
++                "application/json": components["schemas"]["WorkerRegisterInputRequest"];
++            };
++        };
++        responses: {
++            /** @description Persisted input receipt */
++            200: {
++                headers: {
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["WorkerSessionPayload"];
++                };
++            };
++            401: components["responses"]["Unauthenticated"];
++            403: components["responses"]["Forbidden"];
++            409: components["responses"]["Conflict"];
++            422: components["responses"]["InvalidSchema"];
++            503: components["responses"]["Unavailable"];
++        };
++    };
++    loadWorkerDeliveryV2: {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        requestBody: {
++            content: {
++                "application/json": components["schemas"]["WorkerLoadDeliveryRequest"];
++            };
++        };
++        responses: {
++            /** @description Fixed authorized human input */
++            200: {
++                headers: {
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["WorkerSessionPayload"];
++                };
++            };
++            401: components["responses"]["Unauthenticated"];
++            403: components["responses"]["Forbidden"];
++            409: components["responses"]["Conflict"];
++            422: components["responses"]["InvalidSchema"];
++            503: components["responses"]["Unavailable"];
++        };
++    };
++    acknowledgeWorkerDeliveryV2: {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        requestBody: {
++            content: {
++                "application/json": components["schemas"]["WorkerAcknowledgeDeliveryRequest"];
++            };
++        };
++        responses: {
++            /** @description Authoritative delivery receipt */
++            200: {
++                headers: {
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["WorkerSessionPayload"];
++                };
++            };
++            401: components["responses"]["Unauthenticated"];
++            403: components["responses"]["Forbidden"];
++            409: components["responses"]["Conflict"];
++            422: components["responses"]["InvalidSchema"];
++            503: components["responses"]["Unavailable"];
++        };
++    };
+     archiveWorkerSdkV2: {
+         parameters: {
+             query?: never;
+diff --git a/packages/wuji-core/src/wuji_core/admission/registry.py b/packages/wuji-core/src/wuji_core/admission/registry.py
+index 603bd2b..e97b54d 100644
+--- a/packages/wuji-core/src/wuji_core/admission/registry.py
++++ b/packages/wuji-core/src/wuji_core/admission/registry.py
+@@ -1,7 +1,8 @@
+ """Published configuration and independently revocable Run credentials."""
+ 
+-from datetime import datetime, timezone
++from datetime import datetime, timedelta, timezone
+ from hashlib import sha256
++from ipaddress import ip_address
+ from typing import Literal
+ from urllib.parse import urlsplit
+ 
+@@ -93,19 +94,90 @@ class RunCredentialBinding(Configuration):
+     allowed_tool_refs: list[str] = Field(max_length=256)
+ 
+ 
++class MechanismCandidateBinding(Configuration):
++    tenant_id: str = Field(min_length=1, max_length=256)
++    project_id: str = Field(min_length=1, max_length=256)
++    task_id: str = Field(min_length=1, max_length=256)
++    receiver_id: str = Field(min_length=1, max_length=256)
++    runtime_attempt: str = Field(pattern=r"^[1-9][0-9]*$")
++    pod_uid: str = Field(min_length=1, max_length=256)
++    model_gateway_digest: str = Field(pattern=r"^[a-f0-9]{64}$")
++    expires_at: AwareDatetime
++
++    def matches_identity(self, identity):
++        value = identity.model_dump(mode="json")
++        return (
++            (value["tenant_id"], value["project_id"], value["task_id"])
++            == (self.tenant_id, self.project_id, self.task_id)
++            and value["receiver_id"] == self.receiver_id
++            and value["runtime_attempt"] == self.runtime_attempt
++        )
++
++
+ class SessionCapabilityRegistration(Published):
+     """Deployment publication of an exact tested combination, never a Worker flag."""
++    validation_status: Literal["mechanism_candidate", "verified"]
++    candidate_binding: MechanismCandidateBinding | None = None
+     profile_snapshot: dict
++    profile_digest: str = Field(pattern=r"^[a-f0-9]{64}$")
+     client_snapshot: dict
++    client_digest: str = Field(pattern=r"^[a-f0-9]{64}$")
+     runtime_snapshot: dict
++    runtime_digest: str = Field(pattern=r"^[a-f0-9]{64}$")
+     framework_snapshot: dict
++    framework_digest: str = Field(pattern=r"^[a-f0-9]{64}$")
+     lock_digest: str = Field(pattern=r"^[a-f0-9]{64}$")
+     limits: dict
+     recovery_classes: list[Literal["settled_boundary", "approval_boundary"]] = Field(min_length=1, max_length=2)
+     memory_mode: Literal["disabled", "pinned_context"]
+     approver_subjects: list[str] = Field(min_length=1, max_length=256)
+     approval_ttl_seconds: int = Field(gt=0, le=86400)
+-    evidence_refs: list[str] = Field(min_length=1, max_length=128)
++    evidence_refs: list[str] = Field(default_factory=list, max_length=128)
++
++    @model_validator(mode="after")
++    def validation_boundary(self):
++        try:
++            body = self.profile_snapshot["body"]
++            expected = {
++                "profile": self.profile_snapshot["digest"],
++                "client": configuration_digest(self.client_snapshot),
++                "runtime": configuration_digest(self.runtime_snapshot),
++                "framework": configuration_digest(self.framework_snapshot),
++            }
++        except (KeyError, TypeError) as error:
++            raise ValueError("capability snapshots require exact digests") from error
++        if (
++            self.profile_digest != expected["profile"]
++            or self.profile_digest != configuration_digest(body)
++            or self.client_digest != expected["client"]
++            or self.runtime_digest != expected["runtime"]
++            or self.framework_digest != expected["framework"]
++        ):
++            raise ValueError("capability snapshots require exact digests")
++        if self.validation_status == "mechanism_candidate":
++            lifetime = (
++                None
++                if self.candidate_binding is None
++                else self.candidate_binding.expires_at - self.published_at
++            )
++            if (
++                self.candidate_binding is None
++                or lifetime is None
++                or lifetime <= timedelta(0)
++                or lifetime > timedelta(hours=1)
++            ):
++                raise ValueError("mechanism candidate requires a short-lived exact binding")
++        elif self.candidate_binding is not None or not self.evidence_refs:
++            raise ValueError("verified capability requires actual evidence and a new immutable record")
++        return self
++
++
++def configuration_digest(value):
++    return sha256(canonical_json_bytes(value)).hexdigest()
++
++
++def model_gateway_digest(url):
++    return configuration_digest({"gateway_url": url})
+ 
+ 
+ def session_client_snapshot(config):
+@@ -129,6 +201,17 @@ def register_session_capability(connection, *, tenant_id, capability):
+             or not all(isinstance(ref, str) and 1 <= len(ref) <= 2048 for ref in capability.evidence_refs)
+             or capability.framework_snapshot != {"python": "3.13.15", "agent_framework_core": "1.18.0", "agent_framework_openai": "1.14.3"}):
+         raise DomainError("CAPABILITY_UNAVAILABLE", 503)
++    if capability.validation_status == "mechanism_candidate":
++        if capability.candidate_binding.tenant_id != tenant_id:
++            raise DomainError("CAPABILITY_UNAVAILABLE", 503)
++        try:
++            _validate_mechanism_candidate(
++                connection,
++                capability=capability,
++                run_binding=None,
++            )
++        except (KeyError, TypeError, ValueError) as error:
++            raise DomainError("CAPABILITY_UNAVAILABLE", 503) from error
+     # The owner must publish only after reviewing the referenced actual evidence.
+     # Runtime consumers cannot create this record or turn a candidate into passed.
+     raw = json_text(capability.model_dump(mode="json"))
+@@ -141,6 +224,107 @@ def register_session_capability(connection, *, tenant_id, capability):
+         (tenant_id, capability.ref, profile["digest"], raw, sha256(raw.encode()).hexdigest()))
+ 
+ 
++def _loopback_model(url):
++    target = urlsplit(url)
++    if (
++        target.scheme != "http"
++        or not target.hostname
++        or target.username
++        or target.password
++        or target.query
++        or target.fragment
++    ):
++        return False
++    if target.hostname == "localhost":
++        return True
++    try:
++        return ip_address(target.hostname).is_loopback
++    except ValueError:
++        return False
++
++
++def _validate_mechanism_candidate(connection, *, capability, run_binding):
++    binding = capability.candidate_binding
++    if binding is None or binding.expires_at <= datetime.now(timezone.utc):
++        raise ValueError("expired mechanism candidate")
++    owner = (binding.tenant_id, binding.project_id, binding.task_id)
++    task = row(connection.execute(
++        "SELECT * FROM vnext.task WHERE tenant_id=%s AND project_id=%s AND task_id=%s",
++        owner,
++    ))
++    if task is None or not task["definition_json"] or sha256(task["definition_json"].encode()).hexdigest() != task["definition_digest"]:
++        raise ValueError("mechanism candidate Task definition mismatch")
++    definition = strict_json_loads(task["definition_json"])
++    if definition.get("evaluation_mode") != "mechanism_synthetic":
++        raise ValueError("mechanism candidate Task is not synthetic")
++    config_row = connection.execute(
++        "SELECT document_json FROM vnext.admission_config WHERE tenant_id=%s AND project_id=%s AND task_id=%s",
++        owner,
++    ).fetchone()
++    if config_row is None:
++        raise ValueError("mechanism candidate admission config absent")
++    config = TaskAdmissionConfig.model_validate(strict_json_loads(config_row[0]))
++    _match_definition(task, config)
++    body = capability.profile_snapshot["body"]
++    actual_profile = definition.get("worker_profiles", {}).get(body["work_kind"])
++    if (
++        canonical_json_bytes(actual_profile) != canonical_json_bytes(capability.profile_snapshot)
++        or capability.client_snapshot != session_client_snapshot(config)
++        or canonical_json_bytes(capability.runtime_snapshot) != canonical_json_bytes(config.runtime.model_dump(mode="json"))
++        or not _loopback_model(config.model.gateway_url)
++        or binding.model_gateway_digest != model_gateway_digest(config.model.gateway_url)
++    ):
++        raise ValueError("mechanism candidate fixed profile/model mismatch")
++    receiver = row(connection.execute(
++        "SELECT * FROM vnext.scheduler_receiver WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND runtime_attempt=%s",
++        (*owner, binding.runtime_attempt),
++    ))
++    if (
++        receiver is None
++        or not receiver["enabled"]
++        or receiver["model_mode"] != "synthetic"
++        or receiver["receiver_id"] != binding.receiver_id
++        or receiver["pod_uid"] != binding.pod_uid
++    ):
++        raise ValueError("mechanism candidate receiver mismatch")
++    tool_refs = body.get("tool_definition_refs")
++    if not tool_refs or set(tool_refs) - set(config.allowed_tool_refs) or set(tool_refs) - set(config.runtime.allowed_tool_refs):
++        raise ValueError("mechanism candidate tool profile mismatch")
++    for ref in tool_refs:
++        tool_row = row(connection.execute(
++            "SELECT * FROM vnext.tool_definition WHERE tenant_id=%s AND ref=%s",
++            (binding.tenant_id, ref),
++        ))
++        if tool_row is None or tool_row["revoked"]:
++            raise ValueError("mechanism candidate tool unavailable")
++        tool = ToolDefinition.model_validate(strict_json_loads(tool_row["document_json"]))
++        executor_row = connection.execute(
++            "SELECT document_json FROM vnext.executor_registration WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND ref=%s",
++            (*owner, tool.executor_ref),
++        ).fetchone()
++        if executor_row is None:
++            raise ValueError("mechanism candidate executor absent")
++        executor = ExecutorRegistration.model_validate(strict_json_loads(executor_row[0]))
++        if (
++            tool.allowed_target_kinds != ["workspace_read"]
++            or executor.evidence_origin != "fixture_capture"
++            or executor.receiver_id != binding.receiver_id
++            or ref not in executor.allowed_tool_refs
++        ):
++            raise ValueError("mechanism candidate requires fixture workspace reads")
++    if run_binding is not None:
++        identity = run_binding.identity
++        if not binding.matches_identity(identity):
++            raise ValueError("mechanism candidate current Run mismatch")
++        run = row(connection.execute(
++            "SELECT * FROM vnext.agent_run WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND agent_run_id=%s",
++            (*owner, identity.agent_run_id),
++        ))
++        if run is None or run["pod_uid"] != binding.pod_uid:
++            raise ValueError("mechanism candidate current Pod mismatch")
++    return config
++
++
+ def _owner_only(connection):
+     owned = connection.execute("SELECT current_user=pg_get_userbyid(nspowner) FROM pg_namespace WHERE nspname='vnext'").fetchone()
+     if owned != (True,):
+@@ -250,39 +434,53 @@ class AdmissionRegistry:
+                     or profile_snapshot["ref"] != body["ref"] or profile_snapshot["revision"] != body["revision"]
+                     or body["lock_digest"] != config.runtime.lock_digest):
+                 raise ValueError("unpublished Session profile")
+-            candidates = tx.connection.execute(
++            stored_records = tx.connection.execute(
+                 "SELECT document_json,digest FROM vnext.session_capability WHERE tenant_id=%s AND profile_digest=%s AND NOT revoked",
+                 (tx.owner[0], profile_snapshot["digest"]),
+             ).fetchall()
+-            candidates = [(raw, stored_digest) for raw, stored_digest in candidates
+-                if strict_json_loads(raw).get("client_snapshot") == session_client_snapshot(config)
+-                and canonical_json_bytes(strict_json_loads(raw).get("runtime_snapshot")) == canonical_json_bytes(config.runtime.model_dump(mode="json"))]
+-            if len(candidates) != 1:
+-                raise ValueError("an exact verified Session capability is required")
+-            raw, stored_digest = candidates[0]
+-            record = SessionCapabilityRegistration.model_validate(strict_json_loads(raw))
+-            limits = SessionLimits.model_validate(record.limits)
+             disabled = {name: False for name in ("todo", "mode", "file_memory", "file_access", "skills", "shell", "web_search", "background_agents", "outer_loop", "auto_approval", "mcp")}
+             caps = {**disabled, "restoration": True, "compaction": body["compaction_enabled"],
+                 "native_approval": True, "versioned_memory": body["memory_mode"] == "pinned_context"}
+-            if (record.published_at > datetime.now(timezone.utc) or sha256(raw.encode()).hexdigest() != stored_digest
+-                    or canonical_json_bytes(record.profile_snapshot) != canonical_json_bytes(profile_snapshot)
+-                    or record.client_snapshot != session_client_snapshot(config)
+-                    or canonical_json_bytes(record.runtime_snapshot) != canonical_json_bytes(config.runtime.model_dump(mode="json"))
+-                    or record.lock_digest != config.runtime.lock_digest or record.memory_mode != body["memory_mode"]
+-                    or record.limits != body["session_limits"] or body["capabilities"] != caps
+-                    or record.framework_snapshot != {"python": "3.13.15", "agent_framework_core": "1.18.0", "agent_framework_openai": "1.14.3"}
+-                    or limits.max_total_bytes > config.runtime.limits.max_total_output_bytes
+-                    or limits.max_object_bytes > config.runtime.limits.max_single_output_bytes
+-                    or limits.max_pending_approvals > config.runtime.max_pending_operations):
+-                raise ValueError("Session capability combination differs")
++            matches = []
++            for raw, stored_digest in stored_records:
++                record = SessionCapabilityRegistration.model_validate(strict_json_loads(raw))
++                limits = SessionLimits.model_validate(record.limits)
++                if (record.published_at > datetime.now(timezone.utc) or sha256(raw.encode()).hexdigest() != stored_digest
++                        or canonical_json_bytes(record.profile_snapshot) != canonical_json_bytes(profile_snapshot)
++                        or record.profile_digest != profile_snapshot["digest"]
++                        or record.client_snapshot != session_client_snapshot(config)
++                        or canonical_json_bytes(record.runtime_snapshot) != canonical_json_bytes(config.runtime.model_dump(mode="json"))
++                        or record.lock_digest != config.runtime.lock_digest or record.memory_mode != body["memory_mode"]
++                        or record.limits != body["session_limits"] or body["capabilities"] != caps
++                        or record.framework_snapshot != {"python": "3.13.15", "agent_framework_core": "1.18.0", "agent_framework_openai": "1.14.3"}
++                        or limits.max_total_bytes > config.runtime.limits.max_total_output_bytes
++                        or limits.max_object_bytes > config.runtime.limits.max_single_output_bytes
++                        or limits.max_pending_approvals > config.runtime.max_pending_operations):
++                    continue
++                if record.validation_status == "mechanism_candidate":
++                    try:
++                        _validate_mechanism_candidate(
++                            tx.connection,
++                            capability=record,
++                            run_binding=tx.run_binding,
++                        )
++                    except (DomainError, KeyError, TypeError, ValueError):
++                        continue
++                matches.append((record, limits, raw, stored_digest))
++            verified = [item for item in matches if item[0].validation_status == "verified"]
++            selected = verified if verified else matches
++            if len(selected) != 1:
++                raise ValueError("one exact verified or fixed mechanism candidate is required")
++            record, limits, raw, stored_digest = selected[0]
+             compatibility = SessionCompatibility(profile_snapshot=profile_snapshot,
+                 client_snapshot=record.client_snapshot, runtime_snapshot=record.runtime_snapshot,
+                 framework_snapshot=record.framework_snapshot, lock_digest=record.lock_digest,
+-                capability_ref=record.ref, capability_digest=stored_digest)
++                capability_ref=record.ref, capability_digest=stored_digest,
++                validation_status=record.validation_status)
+             return {"compatibility": compatibility, "limits": limits, "memory_mode": record.memory_mode,
+                 "recovery_classes": tuple(record.recovery_classes), "approval_ttl_seconds": record.approval_ttl_seconds,
+-                "approver_subjects": tuple(record.approver_subjects), "evidence_refs": tuple(record.evidence_refs)}
++                "approver_subjects": tuple(record.approver_subjects), "evidence_refs": tuple(record.evidence_refs),
++                "validation_status": record.validation_status}
+         except (KeyError, TypeError, ValueError) as error:
+             raise DomainError("CAPABILITY_UNAVAILABLE", 503) from error
+ 
+diff --git a/packages/wuji-core/src/wuji_core/contracts/generated.py b/packages/wuji-core/src/wuji_core/contracts/generated.py
+index c137045..e538761 100644
+--- a/packages/wuji-core/src/wuji_core/contracts/generated.py
++++ b/packages/wuji-core/src/wuji_core/contracts/generated.py
+@@ -699,6 +699,10 @@ class DecimalString(RootModel[StrictStr]):
+     root: Annotated[StrictStr, Field(pattern='^(0|[1-9][0-9]*)(\\.[0-9]+)?$')]
+ 
+ 
++class DeliveryId(RootModel[StrictStr]):
++    root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
++
++
+ class DependencyCondition(StrEnum):
+     settled = 'settled'
+     accepted_result = 'accepted_result'
+@@ -1030,6 +1034,11 @@ class LogicalRequestId(RootModel[StrictStr]):
+     root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+ 
+ 
++class MemoryMode(StrEnum):
++    disabled = 'disabled'
++    pinned_context = 'pinned_context'
++
++
+ class ModelAttemptReceipt(BaseModel):
+     model_config = ConfigDict(
+         extra='forbid',
+@@ -1829,6 +1838,15 @@ class WorkState(StrEnum):
+     cancelled = 'cancelled'
+ 
+ 
++class WorkerAcknowledgeDeliveryRequest(BaseModel):
++    model_config = ConfigDict(
++        extra='forbid',
++    )
++    assignment: WorkerAssignment
++    delivery_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
++    payload_digest: Sha256Digest
++
++
+ class WorkerArchiveRequest(BaseModel):
+     model_config = ConfigDict(
+         extra='forbid',
+@@ -1935,7 +1953,7 @@ class WorkerHarnessProfile(BaseModel):
+     ref: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+     revision: RevisionString
+     digest: Sha256Digest
+-    body: WorkerHarnessProfileBody
++    body: WorkerHarnessProfileBody | WorkerSessionHarnessProfileBody
+ 
+ 
+ class WorkerHarnessProfileBody(BaseModel):
+@@ -1956,6 +1974,31 @@ class WorkerHarnessProfileBody(BaseModel):
+     capabilities: WorkerHarnessCapabilities
+ 
+ 
++class WorkerLoadDeliveryRequest(BaseModel):
++    model_config = ConfigDict(
++        extra='forbid',
++    )
++    assignment: WorkerAssignment
++    delivery_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
++
++
++class WorkerLoadSessionRequest(BaseModel):
++    model_config = ConfigDict(
++        extra='forbid',
++    )
++    assignment: WorkerAssignment
++    manifest_ref: Annotated[StrictStr, Field(max_length=256, min_length=1)]
++
++
++class WorkerPublishSessionRequest(BaseModel):
++    model_config = ConfigDict(
++        extra='forbid',
++    )
++    assignment: WorkerAssignment
++    manifest: SessionManifest
++    expected_revision: RevisionString
++
++
+ class WorkerReceiver(BaseModel):
+     model_config = ConfigDict(
+         extra='forbid',
+@@ -1966,12 +2009,20 @@ class WorkerReceiver(BaseModel):
+     pod_uid: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+ 
+ 
++class WorkerRegisterInputRequest(BaseModel):
++    model_config = ConfigDict(
++        extra='forbid',
++    )
++    assignment: WorkerAssignment
++    observation: WorkerSessionPayload
++
++
+ class WorkerResolvedContext(BaseModel):
+     model_config = ConfigDict(
+         extra='forbid',
+     )
+     context: WorkerContext
+-    resolved: WorkerResolvedHost
++    resolved: WorkerResolvedHost | WorkerSessionResolvedHost
+     assignment_digest: Sha256Digest
+ 
+ 
+@@ -1987,6 +2038,128 @@ class WorkerResolvedHost(BaseModel):
+     session_lineage: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+ 
+ 
++class WorkerSessionBinary(BaseModel):
++    model_config = ConfigDict(
++        extra='forbid',
++    )
++    slot: WorkerSessionBinarySlot
++    key: Annotated[StrictStr, Field(max_length=2048, min_length=1)]
++    data_base64: Annotated[StrictStr, Field(max_length=67108864)]
++    data_sha256: Sha256Digest
++    size_bytes: Annotated[StrictInt, Field(ge=0, le=67108864)]
++
++
++class WorkerSessionBinarySlot(StrEnum):
++    boundary_object_data = 'boundary_object_data'
++    published_object_bytes = 'published_object_bytes'
++    resolved_memory_file = 'resolved_memory_file'
++
++
++class WorkerSessionHarnessCapabilities(BaseModel):
++    model_config = ConfigDict(
++        extra='forbid',
++    )
++    todo: StrictBool
++    mode: StrictBool
++    file_memory: StrictBool
++    file_access: StrictBool
++    skills: StrictBool
++    shell: StrictBool
++    web_search: StrictBool
++    background_agents: StrictBool
++    outer_loop: StrictBool
++    auto_approval: StrictBool
++    compaction: StrictBool
++    restoration: StrictBool
++    mcp: StrictBool
++    native_approval: StrictBool
++    versioned_memory: StrictBool
++
++
++class WorkerSessionHarnessProfileBody(BaseModel):
++    model_config = ConfigDict(
++        extra='forbid',
++    )
++    ref: Annotated[StrictStr, Field(max_length=256, min_length=1)]
++    revision: RevisionString
++    work_kind: WorkKind
++    instructions: Annotated[StrictStr, Field(max_length=32768, min_length=1)]
++    tool_definition_refs: Annotated[
++        list[ToolDefinitionRef], Field(max_length=256, min_length=1)
++    ]
++    lock_digest: Sha256Digest
++    max_context_records: Annotated[StrictInt, Field(ge=1, le=5000)]
++    max_context_bytes: Annotated[StrictInt, Field(ge=1, le=16777216)]
++    max_output_tokens: Annotated[StrictInt, Field(ge=1, le=1048576)]
++    capabilities: WorkerSessionHarnessCapabilities
++    schema_version: Literal['wuji.harness.session.v1']
++    history_source_id: Annotated[StrictStr, Field(pattern='^[a-z][a-z0-9_]{0,63}$')]
++    memory_mode: MemoryMode
++    memory_source_id: Annotated[StrictStr, Field(pattern='^[a-z][a-z0-9_]{0,63}$')]
++    session_limits: WorkerSessionLimits
++    max_context_window_tokens: Annotated[StrictInt, Field(ge=1, le=1073741824)]
++    compaction_enabled: StrictBool
++
++
++class WorkerSessionLimits(BaseModel):
++    model_config = ConfigDict(
++        extra='forbid',
++    )
++    max_objects: Annotated[StrictInt, Field(ge=1, le=10000)]
++    max_reference_depth: Annotated[StrictInt, Field(ge=1, le=64)]
++    max_object_bytes: Annotated[StrictInt, Field(ge=1, le=67108864)]
++    max_total_bytes: Annotated[StrictInt, Field(ge=1, le=67108864)]
++    max_messages: Annotated[StrictInt, Field(ge=1, le=100000)]
++    max_pending_approvals: Annotated[StrictInt, Field(ge=1, le=512)]
++
++
++class WorkerSessionPayload(BaseModel):
++    model_config = ConfigDict(
++        extra='forbid',
++    )
++    schema_version: WorkerSessionPayloadVersion
++    payload: dict[str, Any]
++    payload_sha256: Sha256Digest
++    payload_size_bytes: Annotated[StrictInt, Field(ge=2, le=67108864)]
++    binaries: Annotated[list[WorkerSessionBinary], Field(max_length=10000)]
++
++
++class WorkerSessionPayloadVersion(StrEnum):
++    wuji_worker_session_boundary_v1 = 'wuji.worker.session.boundary.v1'
++    wuji_worker_session_staged_v1 = 'wuji.worker.session.staged.v1'
++    wuji_worker_session_receipt_v1 = 'wuji.worker.session.receipt.v1'
++    wuji_worker_session_published_v1 = 'wuji.worker.session.published.v1'
++    wuji_worker_session_approval_observation_v1 = 'wuji.worker.session.approval-observation.v1'
++    wuji_worker_session_input_receipt_v1 = 'wuji.worker.session.input-receipt.v1'
++    wuji_worker_session_human_input_v1 = 'wuji.worker.session.human-input.v1'
++    wuji_worker_session_delivery_receipt_v1 = 'wuji.worker.session.delivery-receipt.v1'
++    wuji_worker_session_compatibility_v1 = 'wuji.worker.session.compatibility.v1'
++
++
++class WorkerSessionResolvedHost(BaseModel):
++    model_config = ConfigDict(
++        extra='forbid',
++    )
++    profile: WorkerHarnessProfile
++    client_model: Annotated[StrictStr, Field(max_length=256, min_length=1)]
++    limits: ExecutionLimits
++    request_timeout_seconds: Annotated[StrictFloat, Field(gt=0.0, le=300.0)]
++    tools: Annotated[list[WorkerToolDefinition], Field(max_length=256, min_length=1)]
++    session_lineage: Annotated[StrictStr, Field(max_length=256, min_length=1)]
++    session_compatibility: WorkerSessionPayload
++    session_limits: WorkerSessionLimits
++    delivery_id: DeliveryId | None
++    memory_files: Annotated[list[WorkerSessionBinary], Field(max_length=10000)]
++
++
++class WorkerStageSessionRequest(BaseModel):
++    model_config = ConfigDict(
++        extra='forbid',
++    )
++    assignment: WorkerAssignment
++    boundary: WorkerSessionPayload
++
++
+ class WorkerStartPermission(BaseModel):
+     model_config = ConfigDict(
+         extra='forbid',
+diff --git a/packages/wuji-core/src/wuji_core/contracts/sessions.py b/packages/wuji-core/src/wuji_core/contracts/sessions.py
+index 7a800c6..13f7748 100644
+--- a/packages/wuji-core/src/wuji_core/contracts/sessions.py
++++ b/packages/wuji-core/src/wuji_core/contracts/sessions.py
+@@ -41,6 +41,7 @@ class SessionCompatibility(SessionModel):
+     lock_digest: Digest
+     capability_ref: Text
+     capability_digest: Digest
++    validation_status: Literal["mechanism_candidate", "verified"]
+ 
+ 
+ class MessagePosition(SessionModel):
+diff --git a/tests/vnext/test_session_approval.py b/tests/vnext/test_session_approval.py
+index c8f4546..b96272d 100644
+--- a/tests/vnext/test_session_approval.py
++++ b/tests/vnext/test_session_approval.py
+@@ -1,6 +1,7 @@
+ """P08 SessionManifest and native approval acceptance tests."""
+ 
+ import asyncio
++from datetime import datetime, timedelta, timezone
+ from hashlib import sha256
+ from inspect import Parameter
+ 
+@@ -32,14 +33,78 @@ from wuji_core.contracts.sessions import (
+     ApprovalDeliveryDecision,
+     HumanInput,
+     InputPayload,
++    NativeCallBinding,
+ )
++from wuji_core.contracts.execution import SessionManifest
++from wuji_core.contracts.envelopes import RunIdentity
++from wuji_core.admission.registry import SessionCapabilityRegistration
+ from wuji_core.http import canonical_json_bytes, strict_json_loads
++from wuji_core.execution.sessions import document, provider_messages
++from wuji_core.persistence.uow import DomainError
+ from wuji_maf_worker.approvals import approval_response_message
+ from wuji_maf_worker.factory import HarnessProfile, parse_profile
+ from wuji_maf_worker.history import PinnedMemoryContextProvider, VersionedMemoryStore
+ from wuji_maf_worker.tools import ModelCallIdentity
+ 
+ 
++def _capability_document(*, status, evidence_refs, candidate_binding):
++    published_at = datetime(2026, 9, 13, tzinfo=timezone.utc)
++    profile_body = {
++        "schema_version": "wuji.harness.session.v1",
++        "ref": "harness.explore.p08-candidate.v1",
++        "revision": "1",
++        "work_kind": "explore",
++        "lock_digest": "b" * 64,
++        "memory_mode": "disabled",
++        "session_limits": session_limits().model_dump(mode="python"),
++        "compaction_enabled": True,
++        "capabilities": {},
++    }
++    profile_snapshot = {
++        "ref": profile_body["ref"],
++        "revision": profile_body["revision"],
++        "body": profile_body,
++        "digest": sha256(canonical_json_bytes(profile_body)).hexdigest(),
++    }
++    client_snapshot = {
++        "ref": "fixture-model-v1",
++        "revision": "1",
++        "protocol": "chat_completions",
++        "client_model": "p08-synthetic",
++        "upstream_model": "p08-synthetic-upstream",
++        "capability_ref": "chat-completions-fixture",
++        "max_retries": 0,
++    }
++    runtime_snapshot = {"ref": "runtime-p08-v1", "revision": "1"}
++    framework_snapshot = {
++        "python": "3.13.15",
++        "agent_framework_core": "1.18.0",
++        "agent_framework_openai": "1.14.3",
++    }
++    return {
++        "ref": "session-capability-p08-candidate",
++        "revision": "1",
++        "published_at": published_at,
++        "validation_status": status,
++        "candidate_binding": candidate_binding,
++        "profile_snapshot": profile_snapshot,
++        "profile_digest": profile_snapshot["digest"],
++        "client_snapshot": client_snapshot,
++        "client_digest": sha256(canonical_json_bytes(client_snapshot)).hexdigest(),
++        "runtime_snapshot": runtime_snapshot,
++        "runtime_digest": sha256(canonical_json_bytes(runtime_snapshot)).hexdigest(),
++        "framework_snapshot": framework_snapshot,
++        "framework_digest": sha256(canonical_json_bytes(framework_snapshot)).hexdigest(),
++        "lock_digest": profile_body["lock_digest"],
++        "limits": profile_body["session_limits"],
++        "recovery_classes": ["settled_boundary", "approval_boundary"],
++        "memory_mode": "disabled",
++        "approver_subjects": ["operator-p08"],
++        "approval_ttl_seconds": 300,
++        "evidence_refs": evidence_refs,
++    }
++
++
+ def test_session_repository_exposes_frozen_publish_and_load_contract():
+     repository_type = session_repository_type()
+ 
+@@ -64,6 +129,178 @@ def test_session_repository_exposes_frozen_publish_and_load_contract():
+     )
+ 
+ 
++def test_p08_migration_follows_receiver_results_and_keeps_session_guards():
++    from wuji_core.persistence import schema as aggregate_schema
++    from wuji_core.persistence import session_schema
++
++    ddl = "\n".join(session_schema.statements())
++
++    assert session_schema.PARENT_HEAD == "vnext_0013_receiver_results"
++    assert session_schema.HEAD == "vnext_0014_p08_session_approval"
++    assert aggregate_schema.HEAD == session_schema.HEAD
++    assert "writer_token_id" in ddl
++    assert "CREATE TABLE vnext.session_capability" in ddl
++    assert "approval, original ToolCall, Attempt and Outbox must commit together" in ddl
++    assert "require_scheduler_identity(text,text,text,jsonb)" in ddl
++
++
++def test_mechanism_candidate_requires_exact_short_lived_binding_without_fake_pass():
++    published_at = datetime(2026, 9, 13, tzinfo=timezone.utc)
++    binding = {
++        "tenant_id": "tenant-p08",
++        "project_id": "project-p08",
++        "task_id": "task-p08",
++        "receiver_id": "receiver-p08",
++        "runtime_attempt": "1",
++        "pod_uid": "pod-p08",
++        "model_gateway_digest": "c" * 64,
++        "expires_at": published_at + timedelta(minutes=30),
++    }
++
++    candidate = SessionCapabilityRegistration.model_validate(
++        _capability_document(
++            status="mechanism_candidate",
++            evidence_refs=[],
++            candidate_binding=binding,
++        )
++    )
++
++    assert candidate.validation_status == "mechanism_candidate"
++    assert candidate.evidence_refs == []
++    assert candidate.candidate_binding.model_dump(mode="json") == {
++        **binding,
++        "expires_at": "2026-09-13T00:30:00Z",
++    }
++    identity = RunIdentity.model_validate(
++        {
++            "tenant_id": binding["tenant_id"],
++            "project_id": binding["project_id"],
++            "task_id": binding["task_id"],
++            "work_item_id": "work-p08",
++            "agent_run_id": "run-p08",
++            "receiver_id": binding["receiver_id"],
++            "execution_epoch": "1",
++            "run_epoch": "1",
++            "runtime_attempt": binding["runtime_attempt"],
++        }
++    )
++    assert candidate.candidate_binding.matches_identity(identity)
++    assert not candidate.candidate_binding.matches_identity(
++        identity.model_copy(update={"receiver_id": "other-receiver"})
++    )
++    with pytest.raises(ValueError, match="short-lived exact binding"):
++        SessionCapabilityRegistration.model_validate(
++            _capability_document(
++                status="mechanism_candidate",
++                evidence_refs=[],
++                candidate_binding={
++                    **binding,
++                    "expires_at": published_at + timedelta(hours=2),
++                },
++            )
++        )
++
++
++def test_verified_session_capability_requires_real_evidence_and_new_immutable_record():
++    verified = _capability_document(
++        status="verified",
++        evidence_refs=["docs/vnext/evidence/P08/final/binding.json"],
++        candidate_binding=None,
++    )
++    verified["ref"] = "session-capability-p08-verified"
++
++    registration = SessionCapabilityRegistration.model_validate(verified)
++
++    assert registration.validation_status == "verified"
++    assert registration.candidate_binding is None
++    with pytest.raises(ValueError, match="verified capability requires actual evidence"):
++        SessionCapabilityRegistration.model_validate(
++            _capability_document(
++                status="verified",
++                evidence_refs=[],
++                candidate_binding=None,
++            )
++        )
++
++
++def test_session_manifest_uses_json_mode_for_canonical_saved_at_bytes():
++    blob = {
++        "id": "session-root-p08",
++        "version": "1",
++        "sha256": "a" * 64,
++    }
++    manifest = SessionManifest.model_validate(
++        {
++            "session_id": "native-session-p08",
++            "work_item_id": "work-p08",
++            "checkpoint_revision": "1",
++            "owner_run_id": "run-p08",
++            "run_epoch": "1",
++            "history_root": blob,
++            "message_end": "1",
++            "provider_state_ref": {**blob, "id": "provider-root-p08"},
++            "memory_manifest_ref": {**blob, "id": "memory-root-p08"},
++            "pending_operation_refs": [],
++            "lock_digest": "b" * 64,
++            "recovery_class": "settled_boundary",
++            "saved_at": datetime(2026, 9, 13, tzinfo=timezone.utc),
++        }
++    )
++
++    body = document(manifest)
++    encoded = canonical_json_bytes(body)
++
++    assert isinstance(manifest.model_dump(mode="python")["saved_at"], datetime)
++    assert body["saved_at"] == "2026-09-13T00:00:00Z"
++    assert strict_json_loads(encoded) == body
++
++
++def test_provider_sse_preserves_full_call_identity_and_raw_argument_fragments():
++    provider_call_id = "p" * 1024
++    raw = (
++        b'data: {"choices":[{"index":0,"delta":{"tool_calls":['
++        b'{"index":0,"id":"'
++        + provider_call_id.encode("ascii")
++        + b'","function":{"name":"read_fixture","arguments":"{\\"path\\":"}}]}}]}\n\n'
++        b'data: {"choices":[{"index":0,"delta":{"tool_calls":['
++        b'{"index":0,"function":{"arguments":"\\"version.txt\\"}"}}]}}]}\n\n'
++        b'data: [DONE]\n\n'
++    )
++
++    parsed = provider_messages(raw, "text/event-stream")
++
++    assert parsed == {
++        0: {
++            "content": "",
++            "tool_calls": [
++                {
++                    "id": provider_call_id,
++                    "function": {
++                        "name": "read_fixture",
++                        "arguments": NATIVE_ARGUMENTS,
++                    },
++                }
++            ],
++        }
++    }
++    binding = NativeCallBinding(
++        model_attempt_id=MODEL_ATTEMPT_ID,
++        message_id=f"model-attempt:{MODEL_ATTEMPT_ID}:choice:0",
++        provider_call_id=provider_call_id,
++        sdk_content_id=SDK_CONTENT_ID,
++        tool_definition_ref=TOOL_DEFINITION["ref"],
++        native_arguments=NATIVE_ARGUMENTS,
++        arguments_digest=sha256(
++            canonical_json_bytes(strict_json_loads(NATIVE_ARGUMENTS))
++        ).hexdigest(),
++    )
++    assert binding.provider_call_id == provider_call_id
++
++    with pytest.raises(DomainError) as incomplete:
++        provider_messages(raw.rsplit(b"data: [DONE]", 1)[0], "text/event-stream")
++    assert incomplete.value.code == "OPERATION_UNKNOWN"
++
++
+ def test_existing_m1_profile_snapshot_remains_the_original_false_capability_shape():
+     profile = HarnessProfile(
+         ref="harness.explore.m1.v1",
+diff --git a/packages/wuji-core/src/wuji_core/execution/session_bridge.py b/packages/wuji-core/src/wuji_core/execution/session_bridge.py
+new file mode 100644
+index 0000000..571613d
+--- /dev/null
++++ b/packages/wuji-core/src/wuji_core/execution/session_bridge.py
+@@ -0,0 +1,302 @@
++"""Authenticated P08 Session transport over generated outer wire contracts."""
++
++import base64
++from datetime import timezone
++from hashlib import sha256
++
++from wuji_core.contracts import generated as wire
++from wuji_core.contracts.sessions import (
++    BoundaryObjects,
++    DeliveryReceipt,
++    HumanInput,
++    InputReceipt,
++    NativeApprovalObservation,
++    PublishedSession,
++    SessionCompatibility,
++    SessionReceipt,
++    StagedSessionObjects,
++)
++from wuji_core.http import canonical_json_bytes, strict_json_loads
++from wuji_core.persistence.uow import DomainError
++
++
++BOUNDARY_VERSION = "wuji.worker.session.boundary.v1"
++STAGED_VERSION = "wuji.worker.session.staged.v1"
++RECEIPT_VERSION = "wuji.worker.session.receipt.v1"
++PUBLISHED_VERSION = "wuji.worker.session.published.v1"
++OBSERVATION_VERSION = "wuji.worker.session.approval-observation.v1"
++INPUT_RECEIPT_VERSION = "wuji.worker.session.input-receipt.v1"
++HUMAN_INPUT_VERSION = "wuji.worker.session.human-input.v1"
++DELIVERY_RECEIPT_VERSION = "wuji.worker.session.delivery-receipt.v1"
++COMPATIBILITY_VERSION = "wuji.worker.session.compatibility.v1"
++
++
++def _ref_key(ref):
++    return ref.id + "@" + ref.version.root
++
++
++class SessionTransportCodec:
++    """Canonical JSON plus explicit bytes for the three declared Session slots."""
++
++    def __init__(self, *, max_transport_bytes: int):
++        if (
++            type(max_transport_bytes) is not int
++            or not 1 <= max_transport_bytes <= 67_108_864
++        ):
++            raise ValueError("bounded Session transport required")
++        self.maximum = max_transport_bytes
++
++    def _binary(self, slot: str, key: str, data: bytes):
++        if not isinstance(data, bytes) or len(data) > self.maximum:
++            raise DomainError("LIMIT_BLOCKED", 422)
++        return wire.WorkerSessionBinary.model_validate(
++            {
++                "slot": slot,
++                "key": key,
++                "data_base64": base64.b64encode(data).decode("ascii"),
++                "data_sha256": sha256(data).hexdigest(),
++                "size_bytes": len(data),
++            }
++        )
++
++    def _payload(self, version: str, payload: dict, binaries=()):
++        body = canonical_json_bytes(payload)
++        if len(body) > self.maximum:
++            raise DomainError("LIMIT_BLOCKED", 422)
++        value = wire.WorkerSessionPayload.model_validate(
++            {
++                "schema_version": version,
++                "payload": payload,
++                "payload_sha256": sha256(body).hexdigest(),
++                "payload_size_bytes": len(body),
++                "binaries": list(binaries),
++            }
++        )
++        if len(canonical_json_bytes(value.model_dump(mode="python"))) > self.maximum:
++            raise DomainError("LIMIT_BLOCKED", 422)
++        return value
++
++    def _decode(self, value, *, expected_version: str):
++        if isinstance(value, wire.WorkerSessionPayload):
++            value = value.model_dump(mode="python")
++        value = wire.WorkerSessionPayload.model_validate(value)
++        if value.schema_version.value != expected_version:
++            raise DomainError("INVALID_SCHEMA", 422)
++        payload_bytes = canonical_json_bytes(value.payload)
++        if (
++            len(payload_bytes) != value.payload_size_bytes
++            or sha256(payload_bytes).hexdigest() != value.payload_sha256.root
++            or len(canonical_json_bytes(value.model_dump(mode="python"))) > self.maximum
++        ):
++            raise DomainError("INPUT_DIGEST_CONFLICT", 409)
++        decoded = []
++        seen = set()
++        total = len(payload_bytes)
++        for item in value.binaries:
++            identity = (item.slot.value, item.key)
++            if identity in seen:
++                raise DomainError("INVALID_SCHEMA", 422)
++            seen.add(identity)
++            if len(item.data_base64) > 4 * ((self.maximum + 2) // 3):
++                raise DomainError("LIMIT_BLOCKED", 422)
++            try:
++                data = base64.b64decode(item.data_base64, validate=True)
++            except (ValueError, TypeError):
++                raise DomainError("INVALID_SCHEMA", 422) from None
++            if (
++                len(data) != item.size_bytes
++                or sha256(data).hexdigest() != item.data_sha256.root
++            ):
++                raise DomainError("INPUT_DIGEST_CONFLICT", 409)
++            total += len(data)
++            if total > self.maximum:
++                raise DomainError("LIMIT_BLOCKED", 422)
++            decoded.append((item.slot.value, item.key, data))
++        return strict_json_loads(payload_bytes), tuple(decoded)
++
++    def _encode_model(self, value, *, model, version, mode="python", datetime_fields=()):
++        value = model.model_validate(value)
++        payload = value.model_dump(mode=mode)
++        for name in datetime_fields:
++            observed = getattr(value, name)
++            payload[name] = (
++                None
++                if observed is None
++                else observed.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
++            )
++        return self._payload(version, payload)
++
++    def _decode_model(self, value, *, model, version):
++        payload, binaries = self._decode(value, expected_version=version)
++        if binaries:
++            raise DomainError("INVALID_SCHEMA", 422)
++        return model.model_validate(payload)
++
++    def encode_boundary(self, objects):
++        objects = BoundaryObjects.model_validate(objects)
++        payload = {
++            "history": objects.history.model_dump(mode="python"),
++            "provider_state": objects.provider_state.model_dump(mode="python"),
++            "memory": objects.memory.model_dump(mode="python"),
++            "objects": [],
++        }
++        binaries = []
++        seen = set()
++        for item in objects.objects:
++            if item.key in seen:
++                raise DomainError("INVALID_SCHEMA", 422)
++            seen.add(item.key)
++            payload["objects"].append(item.model_dump(mode="python", exclude={"data"}))
++            binaries.append(self._binary("boundary_object_data", item.key, item.data))
++        return self._payload(BOUNDARY_VERSION, payload, binaries)
++
++    def decode_boundary(self, value):
++        payload, decoded = self._decode(value, expected_version=BOUNDARY_VERSION)
++        binaries = {}
++        for slot, key, data in decoded:
++            if slot != "boundary_object_data" or key in binaries:
++                raise DomainError("INVALID_SCHEMA", 422)
++            binaries[key] = data
++        items = payload.get("objects")
++        if not isinstance(items, list):
++            raise DomainError("INVALID_SCHEMA", 422)
++        observed = set()
++        for item in items:
++            if not isinstance(item, dict) or "data" in item:
++                raise DomainError("INVALID_SCHEMA", 422)
++            key = item.get("key")
++            if not isinstance(key, str) or key in observed or key not in binaries:
++                raise DomainError("INVALID_SCHEMA", 422)
++            observed.add(key)
++            item["data"] = binaries[key]
++        if observed != set(binaries):
++            raise DomainError("INVALID_SCHEMA", 422)
++        return BoundaryObjects.model_validate(payload)
++
++    def encode_staged(self, value):
++        return self._encode_model(
++            value, model=StagedSessionObjects, version=STAGED_VERSION
++        )
++
++    def decode_staged(self, value):
++        return self._decode_model(
++            value, model=StagedSessionObjects, version=STAGED_VERSION
++        )
++
++    def encode_receipt(self, value):
++        return self._encode_model(
++            value, model=SessionReceipt, version=RECEIPT_VERSION, mode="json"
++        )
++
++    def decode_receipt(self, value):
++        return self._decode_model(
++            value, model=SessionReceipt, version=RECEIPT_VERSION
++        )
++
++    def encode_compatibility(self, value):
++        return self._encode_model(
++            value, model=SessionCompatibility, version=COMPATIBILITY_VERSION
++        )
++
++    def decode_compatibility(self, value):
++        return self._decode_model(
++            value, model=SessionCompatibility, version=COMPATIBILITY_VERSION
++        )
++
++    def encode_observation(self, value):
++        return self._encode_model(
++            value,
++            model=NativeApprovalObservation,
++            version=OBSERVATION_VERSION,
++            datetime_fields=("observed_at",),
++        )
++
++    def decode_observation(self, value):
++        return self._decode_model(
++            value, model=NativeApprovalObservation, version=OBSERVATION_VERSION
++        )
++
++    def encode_input_receipt(self, value):
++        return self._encode_model(
++            value, model=InputReceipt, version=INPUT_RECEIPT_VERSION
++        )
++
++    def decode_input_receipt(self, value):
++        return self._decode_model(
++            value, model=InputReceipt, version=INPUT_RECEIPT_VERSION
++        )
++
++    def encode_human_input(self, value):
++        return self._encode_model(
++            value, model=HumanInput, version=HUMAN_INPUT_VERSION
++        )
++
++    def decode_human_input(self, value):
++        return self._decode_model(
++            value, model=HumanInput, version=HUMAN_INPUT_VERSION
++        )
++
++    def encode_delivery_receipt(self, value):
++        return self._encode_model(
++            value, model=DeliveryReceipt, version=DELIVERY_RECEIPT_VERSION
++        )
++
++    def decode_delivery_receipt(self, value):
++        return self._decode_model(
++            value, model=DeliveryReceipt, version=DELIVERY_RECEIPT_VERSION
++        )
++
++    @staticmethod
++    def _published_closure(value):
++        expected = {_ref_key(ref): ref for ref in value.object_refs}
++        if len(expected) != len(value.object_refs):
++            raise DomainError("INVALID_SCHEMA", 422)
++        roots = (
++            value.manifest.history_root,
++            value.manifest.provider_state_ref,
++            value.manifest.memory_manifest_ref,
++        )
++        if any(_ref_key(ref) not in expected or expected[_ref_key(ref)] != ref for ref in roots):
++            raise DomainError("INVALID_REFERENCE", 422)
++        if set(value.object_bytes) != set(expected):
++            raise DomainError("INVALID_REFERENCE", 422)
++        for key, ref in expected.items():
++            data = value.object_bytes[key]
++            if not isinstance(data, bytes) or sha256(data).hexdigest() != ref.sha256.root:
++                raise DomainError("INPUT_DIGEST_CONFLICT", 409)
++        return expected
++
++    def encode_published(self, value):
++        value = PublishedSession.model_validate(value)
++        self._published_closure(value)
++        payload = {
++            "receipt": value.receipt.model_dump(mode="json"),
++            "manifest": value.manifest.model_dump(mode="json"),
++            "history": value.history.model_dump(mode="python"),
++            "provider_state": value.provider_state.model_dump(mode="python"),
++            "memory": value.memory.model_dump(mode="python"),
++            "object_refs": [ref.model_dump(mode="json") for ref in value.object_refs],
++            "recovery_check": (
++                None
++                if value.recovery_check is None
++                else value.recovery_check.model_dump(mode="python")
++            ),
++        }
++        binaries = [
++            self._binary("published_object_bytes", key, value.object_bytes[key])
++            for key in sorted(value.object_bytes)
++        ]
++        return self._payload(PUBLISHED_VERSION, payload, binaries)
++
++    def decode_published(self, value):
++        payload, decoded = self._decode(value, expected_version=PUBLISHED_VERSION)
++        if "object_bytes" in payload:
++            raise DomainError("INVALID_SCHEMA", 422)
++        binaries = {}
++        for slot, key, data in decoded:
++            if slot != "published_object_bytes" or key in binaries:
++                raise DomainError("INVALID_SCHEMA", 422)
++            binaries[key] = data
++        published = PublishedSession.model_validate({**payload, "object_bytes": binaries})
++        self._published_closure(published)
++        return published
+diff --git a/packages/wuji-core/src/wuji_core/persistence/session_schema.py b/packages/wuji-core/src/wuji_core/persistence/session_schema.py
+new file mode 100644
+index 0000000..2ba7881
+--- /dev/null
++++ b/packages/wuji-core/src/wuji_core/persistence/session_schema.py
+@@ -0,0 +1,117 @@
++"""P08 Session publication, recovery, input and approval migration."""
++
++from pathlib import Path
++import re
++
++from wuji_core.persistence.retained_result_schema import HEAD as PARENT_HEAD
++
++
++HEAD = "vnext_0014_p08_session_approval"
++_DRAFT = (
++    Path(__file__).resolve().parents[1]
++    / "execution"
++    / "session_schema_draft.sql"
++)
++_DOLLAR_QUOTE = re.compile(r"\$(?:[A-Za-z_][A-Za-z0-9_]*)?\$")
++
++
++def _split_sql(source: str):
++    """Split the reviewed SQL resource without breaking function/DO bodies."""
++
++    statements, current = [], []
++    index = 0
++    quote = None
++    dollar_quote = None
++    line_comment = False
++    block_comment = False
++    while index < len(source):
++        if line_comment:
++            current.append(source[index])
++            if source[index] == "\n":
++                line_comment = False
++            index += 1
++            continue
++        if block_comment:
++            if source.startswith("*/", index):
++                current.append("*/")
++                block_comment = False
++                index += 2
++            else:
++                current.append(source[index])
++                index += 1
++            continue
++        if dollar_quote is not None:
++            if source.startswith(dollar_quote, index):
++                current.append(dollar_quote)
++                index += len(dollar_quote)
++                dollar_quote = None
++            else:
++                current.append(source[index])
++                index += 1
++            continue
++        if quote is not None:
++            current.append(source[index])
++            if source[index] == quote:
++                if index + 1 < len(source) and source[index + 1] == quote:
++                    current.append(source[index + 1])
++                    index += 2
++                    continue
++                quote = None
++            index += 1
++            continue
++        if source.startswith("--", index):
++            current.append("--")
++            line_comment = True
++            index += 2
++            continue
++        if source.startswith("/*", index):
++            current.append("/*")
++            block_comment = True
++            index += 2
++            continue
++        if source[index] in {"'", '"'}:
++            quote = source[index]
++            current.append(source[index])
++            index += 1
++            continue
++        if source[index] == "$":
++            match = _DOLLAR_QUOTE.match(source, index)
++            if match is not None:
++                dollar_quote = match.group(0)
++                current.append(dollar_quote)
++                index = match.end()
++                continue
++        if source[index] == ";":
++            statement = "".join(current).strip()
++            if statement:
++                statements.append(statement)
++            current = []
++            index += 1
++            continue
++        current.append(source[index])
++        index += 1
++    if quote is not None or dollar_quote is not None or block_comment:
++        raise ValueError("unterminated P08 migration SQL")
++    statement = "".join(current).strip()
++    if statement:
++        statements.append(statement)
++    return tuple(statements)
++
++
++def statements():
++    return _split_sql(_DRAFT.read_text(encoding="utf-8"))
++
++
++def upgrade(connection, application_role):
++    if PARENT_HEAD != "vnext_0013_receiver_results":
++        raise ValueError("P08 migration parent changed")
++    connection.execute(
++        "SELECT set_config('wuji.p08_application_role',%s,true)",
++        (application_role,),
++    ).fetchone()
++    for statement in statements():
++        connection.execute(statement)
++    connection.execute(
++        "INSERT INTO vnext.schema_migration(head) VALUES(%s)",
++        (HEAD,),
++    )
+diff --git a/tests/vnext/support/session_transport.py b/tests/vnext/support/session_transport.py
+new file mode 100644
+index 0000000..8076573
+--- /dev/null
++++ b/tests/vnext/support/session_transport.py
+@@ -0,0 +1,239 @@
++"""Literal P08 Session transport fixtures; no Host or persistence substitute."""
++
++from datetime import datetime, timezone
++from decimal import Decimal
++from hashlib import sha256
++
++from wuji_core.contracts.envelopes import BlobRef
++from wuji_core.contracts.execution import SessionManifest
++from wuji_core.contracts.sessions import (
++    BoundaryObject,
++    BoundaryObjects,
++    DeliveryReceipt,
++    HistoryRoot,
++    HumanInput,
++    InputPayload,
++    InputReceipt,
++    MemoryManifestRoot,
++    NativeApprovalObservation,
++    OperationFrontier,
++    PublishedHistoryRoot,
++    PublishedMemoryManifestRoot,
++    PublishedProviderStateRoot,
++    PublishedSession,
++    ProviderStateRoot,
++    SessionCompatibility,
++    SessionLimits,
++    SessionReceipt,
++    StagedSessionObjects,
++)
++from wuji_core.http import canonical_json_bytes
++
++
++BOUNDARY_BYTES = b"\xff\x00\x01"
++BOUNDARY_BASE64 = "/wAB"
++BOUNDARY_DIGEST = "942e1e2a66a427b6551732f758bc314f22b9cdec9365a3425c9184de299392b5"
++
++
++def compatibility():
++    return SessionCompatibility(
++        profile_snapshot={"ref": "session-profile", "revision": "1"},
++        client_snapshot={"price": Decimal("1.250")},
++        runtime_snapshot={"ref": "runtime-v1"},
++        framework_snapshot={"agent_framework_core": "1.18.0"},
++        lock_digest="a" * 64,
++        capability_ref="session-capability-v1",
++        capability_digest="b" * 64,
++        validation_status="mechanism_candidate",
++    )
++
++
++def boundary_objects():
++    fixed_compatibility = compatibility()
++    scope = {
++        "session_id": "session-p08",
++        "session_lineage": "run:first-p08",
++        "work_item_id": "work-p08",
++        "compatibility": fixed_compatibility,
++    }
++    history = HistoryRoot(
++        **scope,
++        snapshot_id="snapshot-p08",
++        read_set=(),
++        message_end=1,
++        messages=({"role": "user", "contents": [{"type": "text", "text": "fixed"}]},),
++        frontier=OperationFrontier(),
++    )
++    provider = ProviderStateRoot(
++        **scope,
++        session_state={"provider_decimal": Decimal("1.250")},
++        pending_contents=(),
++        call_bindings=(),
++    )
++    memory = MemoryManifestRoot(**scope, enabled=False)
++    return BoundaryObjects(
++        history=history,
++        provider_state=provider,
++        memory=memory,
++        objects=(
++            BoundaryObject(
++                key="provider-raw",
++                data=BOUNDARY_BYTES,
++                media_type="application/octet-stream",
++            ),
++        ),
++    )
++
++
++def _blob(name, body):
++    return BlobRef(
++        id=name,
++        version="1",
++        sha256=sha256(body).hexdigest(),
++    )
++
++
++def _ref_key(ref):
++    return ref.id + "@" + ref.version.root
++
++
++def published_session():
++    fixed_compatibility = compatibility()
++    scope = {
++        "session_id": "session-p08",
++        "session_lineage": "run:first-p08",
++        "work_item_id": "work-p08",
++        "compatibility": fixed_compatibility,
++    }
++    history = PublishedHistoryRoot(
++        **scope,
++        snapshot_id="snapshot-p08",
++        read_set=(),
++        message_end=1,
++        messages=({"role": "user", "contents": [{"type": "text", "text": "fixed"}]},),
++        frontier=OperationFrontier(),
++    )
++    provider = PublishedProviderStateRoot(
++        **scope,
++        session_state={"provider_decimal": Decimal("1.250")},
++        pending_contents=(),
++        call_bindings=(),
++    )
++    memory = PublishedMemoryManifestRoot(**scope, enabled=False)
++    history_bytes = canonical_json_bytes(history.model_dump(mode="python"))
++    provider_bytes = canonical_json_bytes(provider.model_dump(mode="python"))
++    memory_bytes = canonical_json_bytes(memory.model_dump(mode="python"))
++    raw_bytes = BOUNDARY_BYTES
++    refs = (
++        _blob("history-root", history_bytes),
++        _blob("provider-root", provider_bytes),
++        _blob("memory-root", memory_bytes),
++        _blob("provider-raw", raw_bytes),
++    )
++    saved_at = datetime(2026, 9, 13, 8, 30, tzinfo=timezone.utc)
++    manifest = SessionManifest.model_validate(
++        {
++            "session_id": "session-p08",
++            "work_item_id": "work-p08",
++            "checkpoint_revision": "1",
++            "owner_run_id": "run-p08",
++            "run_epoch": "1",
++            "history_root": refs[0],
++            "message_end": "1",
++            "provider_state_ref": refs[1],
++            "memory_manifest_ref": refs[2],
++            "pending_operation_refs": [],
++            "lock_digest": "a" * 64,
++            "recovery_class": "settled_boundary",
++            "saved_at": saved_at,
++        }
++    )
++    manifest_digest = sha256(
++        canonical_json_bytes(manifest.model_dump(mode="json"))
++    ).hexdigest()
++    return PublishedSession(
++        receipt=SessionReceipt(
++            session_id="session-p08",
++            manifest_ref="manifest-p08-1",
++            checkpoint_revision="1",
++            manifest_digest=manifest_digest,
++            publication_id="publication-p08-1",
++            published_at=saved_at,
++        ),
++        manifest=manifest,
++        history=history,
++        provider_state=provider,
++        memory=memory,
++        object_refs=refs,
++        object_bytes={
++            _ref_key(refs[0]): history_bytes,
++            _ref_key(refs[1]): provider_bytes,
++            _ref_key(refs[2]): memory_bytes,
++            _ref_key(refs[3]): raw_bytes,
++        },
++    )
++
++
++def simple_session_values():
++    published = published_session()
++    staged = StagedSessionObjects(
++        history_root=published.manifest.history_root,
++        provider_state_ref=published.manifest.provider_state_ref,
++        memory_manifest_ref=published.manifest.memory_manifest_ref,
++        object_refs=published.object_refs,
++        lease_owner="lease-p08",
++        history=published.history,
++        provider_state=published.provider_state,
++        memory=published.memory,
++    )
++    observed_at = datetime(2026, 9, 13, 8, 30, tzinfo=timezone.utc)
++    return {
++        "staged": staged,
++        "receipt": published.receipt,
++        "compatibility": compatibility(),
++        "observation": NativeApprovalObservation(
++            manifest_ref=published.receipt.manifest_ref,
++            contents=({"type": "function_approval_request", "amount": Decimal("1.250")},),
++            call_bindings=(),
++            observed_at=observed_at,
++        ),
++        "input_receipt": InputReceipt(
++            input_request_id="input-p08",
++            work_item_id="work-p08",
++            manifest_ref=published.receipt.manifest_ref,
++            status="pending",
++            approval_refs=("approval-p08",),
++            source_receipt_id="source-p08",
++        ),
++        "human_input": HumanInput(
++            delivery_id="delivery-p08",
++            input_request_id="input-p08",
++            manifest_ref=published.receipt.manifest_ref,
++            payload_digest="c" * 64,
++            payload=InputPayload(kind="question", text="fixed answer"),
++        ),
++        "delivery_receipt": DeliveryReceipt(
++            delivery_id="delivery-p08",
++            input_request_id="input-p08",
++            status="delivered",
++            payload_digest="c" * 64,
++            receiving_run_id="run-p08",
++        ),
++    }
++
++
++def session_limits():
++    return SessionLimits(
++        max_objects=32,
++        max_reference_depth=8,
++        max_object_bytes=16_384,
++        max_total_bytes=65_536,
++        max_messages=128,
++        max_pending_approvals=8,
++    )
++
++
++def session_transport_codec(*, maximum=65_536):
++    from wuji_core.execution.session_bridge import SessionTransportCodec
++
++    return SessionTransportCodec(max_transport_bytes=maximum)
+diff --git a/tests/vnext/test_session_transport.py b/tests/vnext/test_session_transport.py
+new file mode 100644
+index 0000000..3634e8e
+--- /dev/null
++++ b/tests/vnext/test_session_transport.py
+@@ -0,0 +1,122 @@
++"""P08 B2 source/wire checks; actual DB/child candidate is separately assigned."""
++
++from decimal import Decimal
++
++from support.session_transport import (
++    BOUNDARY_BASE64,
++    BOUNDARY_BYTES,
++    BOUNDARY_DIGEST,
++    boundary_objects,
++    published_session,
++    session_transport_codec,
++    simple_session_values,
++)
++
++
++def test_session_boundary_transport_uses_explicit_binary_and_preserves_decimal():
++    """Catch UTF-8/coercive bytes encoding or lossy JSON-mode SDK serialization."""
++    original = boundary_objects()
++    codec = session_transport_codec()
++
++    encoded = codec.encode_boundary(original)
++
++    assert encoded.schema_version.value == "wuji.worker.session.boundary.v1"
++    assert "data" not in encoded.payload["objects"][0]
++    assert encoded.binaries[0].slot.value == "boundary_object_data"
++    assert encoded.binaries[0].key == "provider-raw"
++    assert encoded.binaries[0].data_base64 == BOUNDARY_BASE64
++    assert encoded.binaries[0].data_sha256.root == BOUNDARY_DIGEST
++    assert encoded.binaries[0].size_bytes == len(BOUNDARY_BYTES)
++    assert encoded.payload["provider_state"]["session_state"]["provider_decimal"] == Decimal("1.250")
++
++    restored = codec.decode_boundary(encoded)
++
++    assert restored == original
++    assert restored.objects[0].data == BOUNDARY_BYTES
++    assert restored.provider_state.session_state["provider_decimal"] == Decimal("1.250")
++
++
++def test_published_session_transport_requires_the_exact_object_closure():
++    """Catch omitted, duplicate, extra, or wrong-slot published object bytes."""
++    original = published_session()
++    codec = session_transport_codec()
++
++    encoded = codec.encode_published(original)
++
++    assert "object_bytes" not in encoded.payload
++    assert {item.key for item in encoded.binaries} == set(original.object_bytes)
++    assert {item.slot.value for item in encoded.binaries} == {"published_object_bytes"}
++    restored = codec.decode_published(encoded)
++    assert restored == original
++
++    first = encoded.binaries[0]
++    with_extra = encoded.model_copy(
++        update={"binaries": [
++            *encoded.binaries,
++            first.model_copy(update={"key": "unexpected@1"}),
++        ]}
++    )
++    with_duplicate = encoded.model_copy(
++        update={"binaries": [*encoded.binaries, first]}
++    )
++    with_wrong_slot = encoded.model_copy(
++        update={"binaries": [
++            first.model_copy(update={"slot": type(first.slot).resolved_memory_file}),
++            *encoded.binaries[1:],
++        ]}
++    )
++
++    for malformed in (with_extra, with_duplicate, with_wrong_slot):
++        try:
++            codec.decode_published(malformed)
++        except ValueError:
++            pass
++        else:
++            raise AssertionError("malformed published Session binary closure was accepted")
++
++
++def test_session_transport_round_trips_each_nonbinary_internal_contract():
++    """Catch an endpoint silently using a hand-written or lossy replacement DTO."""
++    codec = session_transport_codec()
++    values = simple_session_values()
++    methods = {
++        "staged": (codec.encode_staged, codec.decode_staged, "wuji.worker.session.staged.v1"),
++        "receipt": (codec.encode_receipt, codec.decode_receipt, "wuji.worker.session.receipt.v1"),
++        "compatibility": (
++            codec.encode_compatibility,
++            codec.decode_compatibility,
++            "wuji.worker.session.compatibility.v1",
++        ),
++        "observation": (
++            codec.encode_observation,
++            codec.decode_observation,
++            "wuji.worker.session.approval-observation.v1",
++        ),
++        "input_receipt": (
++            codec.encode_input_receipt,
++            codec.decode_input_receipt,
++            "wuji.worker.session.input-receipt.v1",
++        ),
++        "human_input": (
++            codec.encode_human_input,
++            codec.decode_human_input,
++            "wuji.worker.session.human-input.v1",
++        ),
++        "delivery_receipt": (
++            codec.encode_delivery_receipt,
++            codec.decode_delivery_receipt,
++            "wuji.worker.session.delivery-receipt.v1",
++        ),
++    }
++
++    for name, original in values.items():
++        encode, decode, version = methods[name]
++        envelope = encode(original)
++        assert envelope.schema_version.value == version
++        assert envelope.binaries == []
++        assert decode(envelope) == original
++
++    assert (
++        values["observation"].contents[0]["amount"]
++        == Decimal("1.250")
++    )

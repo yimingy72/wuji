@@ -1,0 +1,99 @@
+{
+  "pytest": "2 passed, 1 failed in 45.26s",
+  "code_head": "7bc3d05539259e62557570d16f0370a9fdc063c2",
+  "passes": {
+    "worker-write-race": {
+      "directory": "evidence/283331635b77",
+      "first_receiver_receipt": {
+        "submission_id": "maf-m1:e372b14350eeb9619503d0c03916801a439db9d6021b6a56fe86bcb1a59becf1",
+        "status": "historical_only",
+        "code": null,
+        "components": []
+      },
+      "non_200_controller": [
+        [
+          "/v2/worker-host/submit-result",
+          409,
+          "STALE_EXECUTION"
+        ],
+        [
+          "/v2/worker-host/archive-sdk",
+          409,
+          "STALE_EXECUTION"
+        ]
+      ],
+      "node_state_counts": {
+        "running": 3,
+        "exited": 1
+      },
+      "model_gate_records": 3,
+      "model_upstream_records": 2,
+      "postgres_event_records": 22652
+    },
+    "revoked-first-intake": {
+      "directory": "evidence/3094c7d71e0c",
+      "first_receiver_receipt": {
+        "submission_id": "maf-m1:6b7ce4a72570c937396f6241f6076ce0839ee28bd9b228d4ca855e8fa9edd4c1",
+        "status": "historical_only",
+        "code": null,
+        "components": []
+      },
+      "non_200_controller": [
+        [
+          "/v2/worker-host/submit-result",
+          503,
+          "CAPABILITY_UNAVAILABLE"
+        ],
+        [
+          "/v2/worker-host/archive-sdk",
+          409,
+          "STALE_EXECUTION"
+        ]
+      ],
+      "node_state_counts": {
+        "running": 3,
+        "exited": 3
+      },
+      "model_gate_records": 3,
+      "model_upstream_records": 2,
+      "postgres_event_records": 25967,
+      "result_summary": {
+        "assignment_digest": "7bb7a1073e526ad2a45d1a7fd2da3b0e08792e27960c35e3c62696a0f045eaf8",
+        "child_process": {
+          "birth_id": "4a255aed3c3d3f7a4b525fe59a63fbc9c33e3c50e9f5f6dd58cbf120f7c867c1:fea03ef8b75cb7b0969731471251ef9d64fab482d13a3b0073d92f3be2b24073:child-process-spawn-event",
+          "exit_code": 1,
+          "exited_at": "2026-09-13T10:38:27.762Z",
+          "pid": 7669,
+          "started_at": "2026-09-13T10:38:22.075Z"
+        },
+        "model_requests": 2,
+        "old_worker_status": 200,
+        "receiver_replay_status": 200,
+        "result": {
+          "code": null,
+          "components": [],
+          "request_id": "a8fcc2e6-81c3-40fc-9709-58b29093dc1a",
+          "status": "historical_only",
+          "submission_id": "maf-m1:6b7ce4a72570c937396f6241f6076ce0839ee28bd9b228d4ca855e8fa9edd4c1"
+        },
+        "revoke_before_first_intake": true,
+        "task_state": "running"
+      }
+    }
+  },
+  "current_failure": {
+    "directory": "evidence/b5cdd39aebb1",
+    "sequence": [
+      "worker submit-result 503 injected before controller intake",
+      "worker archive-sdk 200 persisted exact SDK under source Worker",
+      "receiver replay 422 INVALID_REFERENCE on mixed source/receiver publication",
+      "later receiver replay 409 INPUT_DIGEST_CONFLICT after durable raw-first partial submission"
+    ],
+    "node_final": "unknown/process_truth_unresolved with verified exit_code=1; no fake exit"
+  },
+  "raw_hashes": {
+    "stdout_stderr": "b64e96d94e55f0fc19177fc864c90208bd8cb6a91f4d364ad96a945eac56f644",
+    "fingerprint": "6921e2098ee1fbb4b4aa5dddb4b2b14234fa8d8e79a5b504487fa7d11184a351",
+    "dirty_patch": "7d6b2c259354f70efab53a0ea7e1f376f66ee25855f40186ad12f22c5a76efdd"
+  }
+}
