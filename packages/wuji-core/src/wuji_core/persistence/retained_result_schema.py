@@ -235,7 +235,7 @@ def upgrade(connection, application_role):
         END $$""",
         "REVOKE EXECUTE ON FUNCTION vnext.open_receiver_result(text,text,text,text,text,text) FROM PUBLIC",
         """CREATE OR REPLACE FUNCTION vnext.require_model_mutation(t text,p text,k text,r text,w text)
-        RETURNS void LANGUAGE plpgsql SET search_path=pg_catalog AS $$ BEGIN
+        RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$ BEGIN
           IF current_setting('wuji.model_output',true) IS DISTINCT FROM 'true'
             OR NOT COALESCE(vnext.in_scope(t,p,k),false)
             OR w IS DISTINCT FROM current_setting('wuji.subject',true)
