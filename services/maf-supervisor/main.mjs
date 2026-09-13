@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
-import { mkdirSync, mkdtempSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -36,10 +36,12 @@ export class NodeSupervisor {
   static async open(options) { return new NodeSupervisor(options); }
 
   constructor({ inboxDir, receiver, profiles, authorize, bootstrap = async () => {},
-    fault = async () => {}, spawnWaitMs = 3000, maxLogBytes = 1048576 }) {
+    persistResults = async () => {}, fault = async () => {}, spawnWaitMs = 3000,
+    maxLogBytes = 1048576 }) {
     if (!exactKeys(receiver, receiverKeys) || receiverKeys.some(k => !text(receiver[k]))
         || !revision.test(receiver.runtime_attempt)) throw new SupervisorError('INVALID_RECEIVER', 422);
-    if (typeof authorize !== 'function' || typeof bootstrap !== 'function' || typeof fault !== 'function') {
+    if (typeof authorize !== 'function' || typeof bootstrap !== 'function'
+        || typeof persistResults !== 'function' || typeof fault !== 'function') {
       throw new SupervisorError('AUTHORIZATION_ADAPTER_REQUIRED', 503);
     }
     if (!Number.isSafeInteger(spawnWaitMs) || spawnWaitMs < 1 || spawnWaitMs > 30000
@@ -58,7 +60,8 @@ export class NodeSupervisor {
       this.profiles.set(id, p);
     }
     this.receiver = parseJson(canonical(receiver));
-    this.authorize = authorize; this.bootstrap = bootstrap; this.fault = fault;
+    this.authorize = authorize; this.bootstrap = bootstrap;
+    this.persistResults = persistResults; this.fault = fault;
     this.spawnWaitMs = spawnWaitMs; this.maxLogBytes = maxLogBytes;
     this.inbox = new DurableInbox(inboxDir, this.receiver);
     this.queue = Promise.resolve(); this.closing = false;
@@ -130,21 +133,42 @@ export class NodeSupervisor {
     return proof;
   }
 
+  async persistProducedResults(record) {
+    const directory = join(record.directory, 'worker');
+    if (!existsSync(join(directory, 'result-request.json'))
+        && !existsSync(join(directory, 'sdk-request.json'))) return;
+    await this.persistResults({
+      assignment: parseJson(canonical(record.assignment)),
+      directory,
+    });
+  }
+
   async observe(record) {
     if (['exited', 'not_started'].includes(record.state)) return record;
+    let lastKnownProof = null;
     try {
       const stored = readProof(join(record.directory, 'process.json'), record.secret);
       if (stored) {
         this.validateProof(record, stored);
-        if (['exited', 'not_started'].includes(stored.state)) return this.setState(record, stored.state, stored, stored.reason);
+        if (stored.process) lastKnownProof = stored;
+        if (['exited', 'not_started'].includes(stored.state)) {
+          await this.persistProducedResults(record);
+          return this.setState(record, stored.state, stored, stored.reason);
+        }
       }
       const answer = await guardianRequest(record.socket_path, record.secret, record.launch_id, 'query');
       const proof = this.validateProof(record, answer.proof);
-      if (proof.state !== 'prepared') return this.setState(record, proof.state, proof, proof.reason);
+      if (proof.process) lastKnownProof = proof;
+      if (proof.state !== 'prepared') {
+        await this.persistProducedResults(record);
+        return this.setState(record, proof.state, proof, proof.reason);
+      }
     } catch {
       // Absence, a dead guardian, a reused PID, or invalid proof cannot release.
     }
-    return this.setState(record, 'unknown', null, 'process_truth_unresolved');
+    return this.setState(
+      record, 'unknown', lastKnownProof, 'process_truth_unresolved',
+    );
   }
 
   start(request, auth) {
