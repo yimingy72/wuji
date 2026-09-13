@@ -1,0 +1,14 @@
+Code SHA: 7f6debc06575a63ac168d1022d88f06ea1619a25
+
+$ work/toolchain/bin/node --test tests/task-workers/maf-supervisor-persist-results.test.mjs tests/task-workers/maf-supervisor-last-known-process.test.mjs
+✔ unknown retains a verified running birth when guardian challenge fails (46.314584ms)
+✔ observe persists only actual files from the fixed worker directory (166.241833ms)
+✔ a result persistence failure cannot report the child as exited (127.207875ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 409.782292

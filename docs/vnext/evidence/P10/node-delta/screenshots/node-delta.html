@@ -1,0 +1,23 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>P10 Node delta</title>
+<style>
+  body { margin: 0; background: #0b0f14; color: #d6e2ee; font: 18px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  main { width: 1220px; margin: 40px auto; padding: 34px 40px; border: 1px solid #2c3b49; border-radius: 14px; background: #101720; }
+  h1 { margin: 0 0 16px; color: #73e2a7; font-size: 29px; }
+  .sha { color: #9fb6cb; margin-bottom: 20px; }
+  pre { white-space: pre-wrap; color: #eef6ff; }
+  .pass { color: #73e2a7; font-weight: 700; }
+  .note { margin-top: 24px; padding-top: 18px; border-top: 1px solid #2c3b49; }
+</style>
+<main>
+  <h1>P10 NODE SUPERVISOR · NARROW DELTA VERIFIED</h1>
+  <div class="sha">code SHA 7f6debc · old 72d26a0 / 10-case baseline not rerun</div>
+  <pre>✔ verified running birth + failed challenge → unknown with process retained
+✔ fixed workerDir result/sdk files → registered persistResults callback
+✔ persistResults failure → unknown; no submitted/exited/release claim
+
+<span class="pass">3 passed · 0 failed · 409.782292 ms</span></pre>
+  <div class="note">No HTTP server/request in these direct NodeSupervisor tests.<br>
+  No PG · no SDK · no old 10-case rerun · no respawn.</div>
+</main>
