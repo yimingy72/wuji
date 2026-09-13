@@ -32,7 +32,14 @@ from wuji_core.persistence.admission_request_guard_schema import (
     HEAD as ADMISSION_REQUEST_GUARD_HEAD,
     upgrade as upgrade_admission_request_guards,
 )
-from wuji_core.persistence.scheduler_schema import HEAD, upgrade as upgrade_scheduler
+from wuji_core.persistence.scheduler_schema import (
+    HEAD as SCHEDULER_HEAD,
+    upgrade as upgrade_scheduler,
+)
+from wuji_core.persistence.dispatch_fairness_schema import (
+    HEAD,
+    upgrade as upgrade_dispatch_fairness,
+)
 
 OWNER = "tenant_id,project_id,task_id"
 SCOPE_COLUMNS = (
@@ -392,6 +399,7 @@ def migrate(connection, *, application_role: str) -> None:
                 ADMISSION_HEAD,
                 ADMISSION_HARDENING_HEAD,
                 ADMISSION_REQUEST_GUARD_HEAD,
+                SCHEDULER_HEAD,
                 HEAD,
             ]
             if not heads or heads != set(chain[: len(heads)]):
@@ -406,6 +414,7 @@ def migrate(connection, *, application_role: str) -> None:
                 upgrade_admission_hardening,
                 upgrade_admission_request_guards,
                 upgrade_scheduler,
+                upgrade_dispatch_fairness,
             ]
             for upgrade in upgrades[len(heads) - 1 :]:
                 upgrade(connection, application_role)
@@ -516,3 +525,4 @@ def migrate(connection, *, application_role: str) -> None:
         upgrade_admission_hardening(connection, application_role)
         upgrade_admission_request_guards(connection, application_role)
         upgrade_scheduler(connection, application_role)
+        upgrade_dispatch_fairness(connection, application_role)

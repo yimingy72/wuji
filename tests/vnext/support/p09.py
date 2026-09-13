@@ -48,8 +48,9 @@ SIGNING_KEY_REF = "scheduler-signing-key-v1"
 ENCRYPTION_KEY_REF = "scheduler-encryption-key-v1"
 ISSUER = "https://scheduler.identity.fixture.invalid"
 AUDIENCE = "wuji-vnext-scheduler-tests"
+POD_UID = "synthetic-p09-pod-uid"
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
-P06_SCHEMA_REVISION = "64bbdf2974b39856a2cb29dd1eee97cb1a70ca93"
+P09_SCHEMA_REVISION = "a3f7a95eacce20cbdeeaf654ea8f86064222ba0c"
 
 
 @dataclass(frozen=True)
@@ -96,19 +97,19 @@ def _lock_digest() -> str:
     ).hexdigest()
 
 
-def migrate_p06_head_then_current(environment) -> None:
+def migrate_p09_head_then_current(environment) -> None:
     source = subprocess.check_output(
         [
             "git",
             "show",
-            P06_SCHEMA_REVISION
+            P09_SCHEMA_REVISION
             + ":packages/wuji-core/src/wuji_core/persistence/schema.py",
         ],
         cwd=REPOSITORY_ROOT,
         text=True,
     )
-    historical = ModuleType("p09_p06_schema")
-    historical.__file__ = "git:" + P06_SCHEMA_REVISION + "/schema.py"
+    historical = ModuleType("p09_0010_schema")
+    historical.__file__ = "git:" + P09_SCHEMA_REVISION + "/schema.py"
     exec(compile(source, historical.__file__, "exec"), historical.__dict__)
 
     with environment.migration_connection() as connection:
@@ -119,10 +120,10 @@ def migrate_p06_head_then_current(environment) -> None:
                 "SELECT head FROM vnext.schema_migration"
             ).fetchall()
         }
-        if "vnext_0009_p06_request_write_guards" not in heads:
-            raise AssertionError("historical P06 migration head was not established")
-        if "vnext_0010_p09_scheduler" in heads:
-            raise AssertionError("historical P06 setup unexpectedly contains P09")
+        if "vnext_0010_p09_scheduler" not in heads:
+            raise AssertionError("historical P09 migration head was not established")
+        if "vnext_0011_p09_dispatch_fairness" in heads:
+            raise AssertionError("historical P09 setup unexpectedly contains fairness")
 
     from wuji_core.persistence.schema import migrate
 
@@ -130,11 +131,14 @@ def migrate_p06_head_then_current(environment) -> None:
         migrate(connection, application_role=environment.application_role)
         migrate(connection, application_role=environment.application_role)
         assert connection.execute(
-            "SELECT count(*) FROM vnext.schema_migration WHERE head='vnext_0010_p09_scheduler'"
+            "SELECT count(*) FROM vnext.schema_migration WHERE head='vnext_0011_p09_dispatch_fairness'"
         ).fetchone() == (1,)
-        assert connection.execute(
-            "SELECT to_regclass('vnext.scheduler_state')"
-        ).fetchone() == ("vnext.scheduler_state",)
+        assert connection.execute("""SELECT count(*) FROM information_schema.columns
+            WHERE table_schema='vnext' AND table_name='scheduler_work'
+            AND column_name='consideration_round'""").fetchone() == (1,)
+        assert connection.execute("""SELECT count(*) FROM information_schema.columns
+            WHERE table_schema='vnext' AND table_name='scheduler_receiver'
+            AND column_name='pod_uid'""").fetchone() == (1,)
 
 
 def _profiles(lock_digest: str) -> dict[str, dict[str, object]]:
@@ -233,14 +237,15 @@ def _configure_scheduler(
         connection.execute(
             """INSERT INTO vnext.scheduler_receiver(
             tenant_id,project_id,task_id,runtime_attempt,receiver_id,environment_ref,
-            model_mode,receiver_subject,credential_template_ref,harness_profiles_json,enabled)
-            VALUES(%s,%s,%s,1,%s,%s,'synthetic','observer-fixture',%s,%s,true)""",
+            model_mode,receiver_subject,credential_template_ref,harness_profiles_json,pod_uid,enabled)
+            VALUES(%s,%s,%s,1,%s,%s,'synthetic','observer-fixture',%s,%s,%s,true)""",
             (
                 *OWNER,
                 RECEIVER,
                 ENVIRONMENT,
                 TEMPLATE_REF,
                 canonical_json_bytes(profiles).decode(),
+                POD_UID,
             ),
         )
     case.scheduler_config = config
@@ -360,14 +365,16 @@ def scheduler_case(
                 ownership.close()
 
 
-def publish_additional_intent(case, suffix: str):
+def publish_additional_intent(case, suffix: str, *, include_basis: bool = True):
     receipt = case.control.claims.propose_intent(
         access("reader-fixture", role="human"),
         TASK,
         {
             "client_ref": "p09-intent-" + suffix,
             "question": "Read another isolated P09 input: " + suffix,
-            "basis_refs": [case.claim_ref.model_dump(mode="json")],
+            "basis_refs": (
+                [case.claim_ref.model_dump(mode="json")] if include_basis else []
+            ),
             "expected_output": "wuji.agent-payload.v2",
         },
         idempotency_key="p09-intent-" + suffix,

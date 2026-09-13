@@ -61,6 +61,7 @@ class Candidate:
     priority: int
     ready_since: datetime
     eligible: bool = True
+    consideration_round: int = 0
 
     def __post_init__(self):
         if not all(
@@ -74,7 +75,12 @@ class Candidate:
             raise ValueError("invalid candidate identity")
         if type(self.priority) is not int or not -10 <= self.priority <= 10:
             raise ValueError("priority must be bounded to -10..10")
-        if self.ready_since.tzinfo is None or type(self.eligible) is not bool:
+        if (
+            self.ready_since.tzinfo is None
+            or type(self.eligible) is not bool
+            or type(self.consideration_round) is not int
+            or self.consideration_round < 0
+        ):
             raise ValueError("candidate requires an aware timestamp")
 
 
@@ -139,7 +145,15 @@ class SchedulerPolicy:
                 + candidate.priority
                 + (3 if candidate.kind in {"reason", "report"} else 0)
             )
-            return -score, candidate.ready_since, candidate.work_item_id
+            # Every Work participates once per persisted consideration round.
+            # Priority and aging rank candidates only within that round, so a
+            # repeatedly rejected high-rank Work cannot reclaim the next batch.
+            return (
+                candidate.consideration_round,
+                -score,
+                candidate.ready_since,
+                candidate.work_item_id,
+            )
 
         for tasks in groups.values():
             for candidates in tasks.values():

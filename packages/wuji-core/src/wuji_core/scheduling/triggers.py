@@ -418,7 +418,31 @@ class TriggerRepository:
     def _apply_decision(self, tx, lease, decision, receipt):
         from wuji_core.scheduling.waiters import WaiterRepository
 
-        if decision.decision.value == "wait":
+        if decision.decision.value == "propose_intents":
+            accepted = [
+                component.canonical_ref
+                for component in receipt.components
+                if component.status.value == "accepted_shared"
+                and component.code is None
+                and component.canonical_ref is not None
+                and component.canonical_ref.entity_type.value == "intent"
+            ]
+            if not accepted or not all(
+                tx.connection.execute(
+                    """SELECT 1 FROM vnext.intent_revision
+                    WHERE tenant_id=%s AND project_id=%s AND task_id=%s
+                    AND entity_id=%s AND revision=%s AND agent_run_id=%s""",
+                    (
+                        *tx.owner,
+                        reference.id,
+                        reference.revision.root,
+                        lease["agent_run_id"],
+                    ),
+                ).fetchone()
+                for reference in accepted
+            ):
+                raise DomainError("reason_intent_not_accepted", 422)
+        elif decision.decision.value == "wait":
             waiters = WaiterRepository()
             predicates = waiters.from_result(tx, decision.wait_refs, receipt.components)
             waiters.register(

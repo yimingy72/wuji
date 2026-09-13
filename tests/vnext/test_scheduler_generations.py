@@ -7,10 +7,11 @@ import pytest
 
 from support.p09 import (
     OWNER,
+    POD_UID,
     SCHEDULER,
     TASK,
     explore_assignment,
-    migrate_p06_head_then_current,
+    migrate_p09_head_then_current,
     publish_additional_intent,
     scheduler_case,
     signed_sibling_worker,
@@ -18,12 +19,13 @@ from support.p09 import (
 )
 from test_work_state_guards import OPERATOR, command, control_case
 from wuji_core.admission.registry import revoke_run_credential
+from wuji_core.contracts.envelopes import ResultEnvelope
 from wuji_core.contracts.execution import WorkDependency
 from wuji_core.execution.dependencies import DependencyService
-from wuji_core.http import strict_json_loads
+from wuji_core.http import canonical_json_bytes, strict_json_loads
 from wuji_core.persistence.snapshots import SnapshotRepository
 from wuji_core.persistence.uow import DomainError, json_text
-from wuji_core.scheduling.claims import SchedulerOwnership, WorkRepository
+from wuji_core.scheduling.claims import Scheduler, SchedulerOwnership, WorkRepository
 from wuji_core.scheduling.policy import (
     Candidate,
     ProgressSummary,
@@ -339,7 +341,7 @@ def test_scheduler_main_flow_uses_real_pg_and_minimal_signed_run_identity(
                 (*OWNER, credential.principal.subject),
             ).fetchone()
             run = connection.execute(
-                "SELECT process_state FROM vnext.agent_run WHERE agent_run_id=%s",
+                "SELECT process_state,pod_uid FROM vnext.agent_run WHERE agent_run_id=%s",
                 (assignment.identity.agent_run_id,),
             ).fetchone()
             ciphertext, payloads = (
@@ -365,7 +367,7 @@ def test_scheduler_main_flow_uses_real_pg_and_minimal_signed_run_identity(
             False,
             1,
         )
-        assert run == ("registered",)
+        assert run == ("registered", POD_UID)
         assert credential.token.encode("utf-8") not in bytes(ciphertext)
         assert all(credential.token not in payload for (payload,) in payloads)
 
@@ -685,5 +687,176 @@ def test_capacity_is_rechecked_for_each_selected_work(
         ]
 
 
-def test_p09_migration_upgrades_p06_head_and_reapplies_once(db_environment) -> None:
-    migrate_p06_head_then_current(db_environment)
+def test_p09_fairness_migration_upgrades_0010_and_reapplies_once(
+    db_environment,
+) -> None:
+    migrate_p09_head_then_current(db_environment)
+
+
+def test_scheduler_rejects_receiver_without_current_observe_permission_before_dispatch(
+    db_environment, tmp_path, audit_directory
+) -> None:
+    with scheduler_case(db_environment, tmp_path, audit_directory) as case:
+        with case.control.env.migration_connection() as connection:
+            connection.execute(
+                """UPDATE vnext.task_access SET can_observe=false
+                WHERE tenant_id=%s AND project_id=%s AND task_id=%s
+                AND subject='observer-fixture'""",
+                OWNER,
+            )
+
+        receipt = case.scheduler.tick(limit=2)
+
+        assert receipt.assignments == ()
+        assert (TASK, "", "receiver_unavailable") in receipt.blocked
+        with case.control.env.migration_connection() as connection:
+            assert (
+                connection.execute(
+                    """SELECT
+                (SELECT count(*) FROM vnext.scheduler_work),
+                (SELECT count(*) FROM vnext.scheduler_assignment),
+                (SELECT count(*) FROM vnext.scheduler_credential),
+                (SELECT count(*) FROM vnext.capacity_reservation),
+                (SELECT count(*) FROM vnext.outbox WHERE kind='run.dispatch_requested')"""
+                ).fetchone()
+                == (0, 0, 0, 0, 0)
+            )
+
+
+def test_rejected_reason_intents_do_not_consume_processing_generation(
+    db_environment, tmp_path, audit_directory
+) -> None:
+    with scheduler_case(db_environment, tmp_path, audit_directory) as case:
+        initial = case.scheduler.tick(limit=2)
+        assert initial.assignments, initial.blocked
+        reason = next(
+            assignment
+            for assignment in initial.assignments
+            if assignment.work_kind.value == "reason"
+        )
+        credential = worker_credential(case, reason)
+        payload = {
+            "schema_version": "wuji.agent-payload.v2",
+            "claims": [],
+            "intent_proposals": [
+                {
+                    "client_ref": "rejected-intent",
+                    "question": "Use a reference that was never recorded.",
+                    "basis_refs": [
+                        {
+                            "entity_type": "claim",
+                            "id": "missing-claim",
+                            "revision": "1",
+                        }
+                    ],
+                    "expected_output": "wuji.agent-payload.v2",
+                }
+            ],
+            "limitations": ["intent must be rejected by the real P04 consumer"],
+            "reason_decision": {
+                "decision": "propose_intents",
+                "wait_refs": [],
+                "reason": "Propose the rejected intent.",
+            },
+        }
+        raw = canonical_json_bytes(payload)
+        raw_ref = case.control.store.stage_model_output(
+            credential.access,
+            TASK,
+            reason.identity.agent_run_id,
+            raw,
+            "application/json",
+        )
+        case.control.store.seal(credential.access, TASK, raw_ref)
+        submission_id = "p09-rejected-reason-intents"
+        receipt = case.control.committer.submit(
+            credential.access,
+            ResultEnvelope.model_validate(
+                {
+                    "schema_version": "wuji.result-envelope.v2",
+                    "submission_id": submission_id,
+                    "identity": reason.identity.model_dump(mode="json"),
+                    "snapshot_id": reason.snapshot_id,
+                    "read_set": [],
+                    "raw_output_ref": raw_ref.model_dump(mode="json"),
+                    "raw_output_digest": raw_ref.sha256.root,
+                    "payload": payload,
+                    "producer_version": "p09-rejected-intent-fixture-v1",
+                }
+            ),
+        )
+        assert receipt.status.value == "accepted"
+        assert receipt.components and all(
+            component.canonical_ref is None and component.code is not None
+            for component in receipt.components
+        )
+
+        with case.control.uow.transaction(SCHEDULER, TASK, capability="admit") as tx:
+            repository = TriggerRepository(artifacts=case.control.store)
+            before = repository.read(tx)
+            accepted = repository.consume(tx, submission_id=submission_id)
+            after = repository.read(tx)
+            decision = tx.connection.execute(
+                """SELECT status,reason_code FROM vnext.scheduler_decision
+                WHERE submission_id=%s""",
+                (submission_id,),
+            ).fetchone()
+
+        assert accepted is False
+        assert after.consumed_generation == before.consumed_generation
+        assert after.inflight_reason_work_id == reason.identity.work_item_id
+        assert decision == ("rejected", "reason_intent_not_accepted")
+
+
+def test_persisted_work_cursor_advances_past_more_than_limit_blocked_candidates(
+    db_environment, tmp_path, audit_directory
+) -> None:
+    with scheduler_case(
+        db_environment,
+        tmp_path,
+        audit_directory,
+        template_clearance=0,
+        input_access_level=1,
+        max_work_items=10,
+        capacity=2,
+    ) as case:
+        publish_additional_intent(case, "blocked-two")
+        publish_additional_intent(case, "blocked-three")
+        runnable = publish_additional_intent(case, "runnable-low", include_basis=False)
+
+        first = case.scheduler.tick(limit=2)
+        assert {assignment.work_kind.value for assignment in first.assignments} == {
+            "reason"
+        }, first.blocked
+        with case.control.env.migration_connection() as connection:
+            considered = connection.execute(
+                """SELECT count(*) FROM vnext.scheduler_work
+                WHERE tenant_id=%s AND project_id=%s AND task_id=%s
+                AND consideration_round=1""",
+                OWNER,
+            ).fetchone()[0]
+        assert considered == 2
+
+        publish_additional_intent(case, "blocked-after-restart")
+        restarted = Scheduler(
+            case.control.uow,
+            ownership=case.ownership,
+            accesses=(case.scheduler_access,),
+            snapshots=case.snapshots,
+            registry=case.registry,
+            control=case.control.control,
+            credential_issuer=case.issuer,
+        )
+        restarted_receipts = [restarted.tick(limit=2), restarted.tick(limit=2)]
+        admitted_work_ids = {
+            assignment.identity.work_item_id
+            for receipt in restarted_receipts
+            for assignment in receipt.assignments
+        }
+        with case.control.env.migration_connection() as connection:
+            runnable_work_id = connection.execute(
+                "SELECT work_item_id FROM vnext.scheduler_work WHERE intent_id=%s",
+                (runnable.id,),
+            ).fetchone()[0]
+
+        assert runnable_work_id in admitted_work_ids

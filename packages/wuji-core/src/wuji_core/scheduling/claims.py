@@ -317,7 +317,10 @@ class Scheduler:
                 """SELECT r.*,t.clearance AS worker_clearance FROM vnext.scheduler_receiver r
             JOIN vnext.scheduler_identity_template t ON (t.tenant_id,t.project_id,t.task_id,t.template_ref)=
             (r.tenant_id,r.project_id,r.task_id,r.credential_template_ref)
-            WHERE r.tenant_id=%s AND r.project_id=%s AND r.task_id=%s AND r.runtime_attempt=%s AND r.enabled AND t.enabled""",
+            WHERE r.tenant_id=%s AND r.project_id=%s AND r.task_id=%s AND r.runtime_attempt=%s
+            AND r.enabled AND t.enabled
+            AND vnext.scheduler_receiver_authorized(
+                r.tenant_id,r.project_id,r.task_id,r.runtime_attempt)""",
                 (*tx.owner, tx.task["runtime_attempt"]),
             )
         )
@@ -670,8 +673,8 @@ class Scheduler:
         )
         tx.connection.execute(
             """INSERT INTO vnext.agent_run(tenant_id,project_id,task_id,agent_run_id,work_item_id,
-            receiver_id,execution_epoch,run_epoch,runtime_attempt,environment_ref,model_mode,start_operation_id,output_expectation)
-            VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'final_output')""",
+            receiver_id,execution_epoch,run_epoch,runtime_attempt,environment_ref,model_mode,pod_uid,start_operation_id,output_expectation)
+            VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'final_output')""",
             (
                 *tx.owner,
                 run_id,
@@ -682,6 +685,7 @@ class Scheduler:
                 tx.task["runtime_attempt"],
                 receiver["environment_ref"],
                 receiver["model_mode"],
+                receiver["pod_uid"],
                 operation_id,
             ),
         )
@@ -794,7 +798,7 @@ class Scheduler:
                         )
                     items = rows(
                         tx.connection.execute(
-                            """SELECT w.*,s.priority,s.ready_since FROM vnext.work_item w
+                            """SELECT w.*,s.priority,s.ready_since,s.consideration_round FROM vnext.work_item w
                         JOIN vnext.scheduler_work s USING(tenant_id,project_id,task_id,work_item_id)
                         LEFT JOIN vnext.scheduler_block b USING(tenant_id,project_id,task_id,work_item_id)
                         WHERE w.tenant_id=%s AND w.project_id=%s AND w.task_id=%s
@@ -821,6 +825,7 @@ class Scheduler:
                                     w["priority"],
                                     w["ready_since"],
                                     eligible,
+                                    w["consideration_round"],
                                 )
                             )
             except DomainError as error:
@@ -848,12 +853,22 @@ class Scheduler:
             try:
                 with self._transaction(access, selected.task_id) as tx:
                     state_row(tx)
-                    # Persist every real admission decision, including a denied
-                    # high-priority candidate, so it cannot pin the tenant cursor.
+                    # Persist every consideration before its admission savepoint.
+                    # Rejection advances the Work's round just like admission,
+                    # so restart cannot return a blocker to the front forever.
                     tx.connection.execute(
                         "UPDATE vnext.scheduler_state SET last_selected=nextval('vnext.scheduler_selection_order') WHERE tenant_id=%s AND project_id=%s AND task_id=%s",
                         tx.owner,
                     )
+                    advanced = tx.connection.execute(
+                        """UPDATE vnext.scheduler_work
+                        SET consideration_round=consideration_round+1
+                        WHERE tenant_id=%s AND project_id=%s AND task_id=%s
+                        AND work_item_id=%s RETURNING consideration_round""",
+                        (*tx.owner, selected.work_item_id),
+                    ).fetchone()
+                    if advanced is None:
+                        raise DomainError("STALE_EXECUTION", 409)
                     try:
                         with tx.connection.transaction():
                             assignment = self._admit(tx, selected, now)
