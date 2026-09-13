@@ -1,0 +1,27 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>P07 M1 final verification</title>
+<style>
+  body { margin: 0; background: #0b0f14; color: #d6e2ee; font: 18px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  main { width: 1220px; margin: 42px auto; padding: 34px 40px; border: 1px solid #2c3b49; border-radius: 14px; background: #101720; box-shadow: 0 20px 60px #0008; }
+  h1 { margin: 0 0 18px; color: #73e2a7; font-size: 30px; }
+  .sha { color: #9fb6cb; margin-bottom: 24px; }
+  pre { margin: 14px 0 26px; white-space: pre-wrap; color: #eef6ff; }
+  .pass { color: #73e2a7; font-weight: 700; }
+  .label { color: #82b7ff; }
+  .refs { padding-top: 18px; border-top: 1px solid #2c3b49; color: #bac9d8; }
+</style>
+<main>
+  <h1>P07 M1 · REAL WORKER ROUNDTRIP VERIFIED</h1>
+  <div class="sha">code SHA bcc64ffa67ea3b910f62b065853108cdb7d67614</div>
+  <div class="label">$ tests/vnext/test_maf_runtime.py</div>
+  <pre>...                                                                      [100%]
+<span class="pass">3 passed in 9.13s</span></pre>
+  <div class="label">$ affected P06 tool consumers</div>
+  <pre>..                                                                       [100%]
+<span class="pass">2 passed in 5.70s</span></pre>
+  <div class="refs">native SSE model requests: 2 · actual workspace tool HTTP: 1 · EvidenceReceipt: accepted<br>
+  Observation 41810db6-bb74-4da1-ba00-dc219f24541a@1<br>
+  Claim aaed8584-0968-45f6-8aeb-67709e7c9db8@1 · display_kind=claim · replay stable<br>
+  revoked model/tool: 409 STALE_EXECUTION · upstream count unchanged</div>
+</main>

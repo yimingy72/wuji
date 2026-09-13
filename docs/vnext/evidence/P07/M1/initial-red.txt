@@ -1,0 +1,7 @@
+$ ./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_maf_runtime.py -q
+F                                                                        [100%]
+AssertionError: P07 M1 MafRuntime production assembly is absent
+1 failed in 0.04s
+
+Observed before core implementation. The missing module was
+wuji_maf_worker.runtime; no PostgreSQL or HTTP service was used.

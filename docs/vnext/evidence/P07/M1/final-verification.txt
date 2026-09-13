@@ -1,0 +1,7 @@
+$ WUJI_TEST_EVIDENCE_DIR="$PWD/docs/vnext/evidence/P07/M1/final-verified/raw" ./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_maf_runtime.py -q
+...                                                                      [100%]
+3 passed in 9.13s
+
+$ ./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_run_admission.py::test_workspace_read_returns_only_after_persisting_evidence tests/vnext/test_run_admission.py::test_tool_operation_replay_conflict_and_new_call_id_control_execution -q
+..                                                                       [100%]
+2 passed in 5.70s
