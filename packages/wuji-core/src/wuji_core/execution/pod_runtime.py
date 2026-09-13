@@ -303,6 +303,8 @@ The Task Pod only receives its own restricted runtime/TLS credentials.
             raise ValueError("vNext Task Pods require the fixed wuji-vnext-test deployment")
         if not config.expose_pod_identity:
             raise ValueError("vNext Task Pods require Downward API identity")
+        if not config.kali_receipts_enabled:
+            raise ValueError("vNext Task Pods require durable Kali executor receipts")
         if not isinstance(access, AccessContext) or not isinstance(control, ControlService):
             raise ValueError("trusted AccessContext and existing ControlService required")
         if not isinstance(receiver, PodReceiverRegistration):

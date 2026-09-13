@@ -107,12 +107,15 @@ class TaskRuntimeConfig:
     tmp_size_limit: str
     pod_deadline_seconds: int
     expose_pod_identity: bool = False
+    kali_receipts_enabled: bool = False
 
     def __post_init__(self) -> None:
         _identity(self.tenant_id, "tenant_id")
         _identity(self.task_id, "task_id")
         if type(self.expose_pod_identity) is not bool:
             raise InvalidRuntimeConfig("expose_pod_identity must be a boolean")
+        if type(self.kali_receipts_enabled) is not bool:
+            raise InvalidRuntimeConfig("kali_receipts_enabled must be a boolean")
         if not isinstance(self.namespace, str) or not _DNS_LABEL.fullmatch(self.namespace):
             raise InvalidRuntimeConfig("namespace must be a DNS label")
         _positive_integer(self.runtime_attempt, "runtime_attempt")
@@ -149,6 +152,7 @@ class TaskRuntimeConfig:
                 ("agent_config", "agent-config"), ("kali_config", "kali-config"),
                 ("agent_auth", "agent-auth"), ("kali_auth", "kali-auth"),
                 ("agent_state", "agent-state"), ("kali_work", "kali-work"),
+                ("kali_receipts", "kali-receipts"),
             )
         }
 
@@ -169,6 +173,8 @@ class TaskRuntimeConfig:
         if not self.expose_pod_identity:
             # Preserve the existing UUID-based template digest by default.
             value.pop("expose_pod_identity")
+        if not self.kali_receipts_enabled:
+            value.pop("kali_receipts_enabled")
         encoded = json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
         return hashlib.sha256(encoded).hexdigest()
 

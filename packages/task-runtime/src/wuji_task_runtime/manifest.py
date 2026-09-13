@@ -45,6 +45,15 @@ def build_task_pod(config: TaskRuntimeConfig) -> dict:
                 {"name": tmp_volume, "mountPath": "/tmp"},
             ],
         })
+        if role == "kali" and config.kali_receipts_enabled:
+            volumes.append({
+                "name": "kali-receipts",
+                "persistentVolumeClaim": {"claimName": names["kali_receipts"]},
+            })
+            containers[-1]["volumeMounts"].append({
+                "name": "kali-receipts",
+                "mountPath": "/var/lib/wuji/kali-receipts",
+            })
         if config.expose_pod_identity:
             containers[-1]["env"] = [
                 {"name": name, "valueFrom": {"fieldRef": {"apiVersion": "v1", "fieldPath": field}}}

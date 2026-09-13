@@ -46,11 +46,14 @@ class TaskRuntimeController:
         return validate_execution_permit(config, permit, self.clock())
 
     def _check_resources(self, config: TaskRuntimeConfig) -> None:
-        for key, kind in (
+        resources = [
             ("agent_config", "ConfigMap"), ("kali_config", "ConfigMap"),
             ("agent_auth", "Secret"), ("kali_auth", "Secret"),
             ("agent_state", "PersistentVolumeClaim"), ("kali_work", "PersistentVolumeClaim"),
-        ):
+        ]
+        if config.kali_receipts_enabled:
+            resources.append(("kali_receipts", "PersistentVolumeClaim"))
+        for key, kind in resources:
             name = config.resource_names[key]
             resource = self.pods.read_resource(kind, config.namespace, name)
             if resource is None:
