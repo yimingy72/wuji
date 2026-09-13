@@ -1,0 +1,35 @@
+{
+  "schema_version": "wuji.p08.review-fixes-source-binding.v1",
+  "review_commit": "47c278140c8129da8b9db3a67ceb139e11688293",
+  "review_source_commit": "a75584777af917d269480f48af97a696ecb0a821",
+  "code_commit": "f4c3b76",
+  "scope": "Descartes P08 P1x4/P2x2 SOURCE_ONLY fixes; no DB/SDK/HTTP acceptance",
+  "tested_files": {
+    "packages/maf-worker/src/wuji_maf_worker/runtime.py": "6352826f57acaaf7720ee96097ed4bf2e83b33a8aa282231742089666e7a185d",
+    "packages/maf-worker/src/wuji_maf_worker/sessions.py": "9e8c0b562a762fdfcd0a52aacef2ebfd50fe4834233b8698360123826025df35",
+    "packages/maf-worker/src/wuji_maf_worker/tools.py": "a21bd1f6be5abb0fc7c5f1e5f765aec30837bd608f3ebb14126c7a36f39c7bba",
+    "packages/wuji-core/src/wuji_core/contracts/sessions.py": "1109c8b3c7f96e8f7225d6edface48f9b634d75a9ee1e8f97431495175aed2c8",
+    "packages/wuji-core/src/wuji_core/execution/inputs.py": "f9441a163fb79c659e9149c0b4f70444722f5ae2c99396a8ce62954c640273bb",
+    "packages/wuji-core/src/wuji_core/execution/session_schema_draft.sql": "0d8212da7e8772f033bb0e2bd84fb2a39289230a12e361c7caa37556714f521f",
+    "packages/wuji-core/src/wuji_core/execution/sessions.py": "6f3b79f753ed411077ff00cfc75abea9231e6be52c68537e98a77c92d1b8e6ec",
+    "tests/vnext/test_session_approval.py": "75470de801baa292c5e98f1f5fbe19f32adbd77f5f8eee6054847b82d480dbc1"
+  },
+  "raw_runs": {
+    "approval-trigger-red-df24609-1": {"result": "exit 1", "stdout_sha256": "3dffafda089fda3f37863e83b0eb85a6bbd8862e7171a9f0559a17a38161678c"},
+    "approval-trigger-source-green-854ec48-1": {"result": "exit 0; 1 passed", "stdout_sha256": "7503024f9dfea5d63d9c96a691fb2c4f3db5a902877427e70a06c2599effa350"},
+    "rejected-frontier-red-854ec48-1": {"result": "exit 1", "stdout_sha256": "96d06ceb39ebb4727c0d6f29921c3dc6151a6a7cf020615d374d28f9863f109d"},
+    "rejected-frontier-source-green-be7e7de-1": {"result": "exit 0; 1 passed", "stdout_sha256": "df255b90fbb32bcaca7febbc4ad9c6bb5674d1dd7004cc93a20360bc805b1362"},
+    "intake-insert-guard-red-be7e7de-1": {"result": "exit 1", "stdout_sha256": "70d31e11e836316871f389e119ae4e33c2ff9b272831e70f699e76589fbf182c"},
+    "p2a-causal-source-green-be7e7de-2": {"result": "exit 0; 1 passed", "stdout_sha256": "a0370e9d2f908a4c0b67fe583f206566c5d02ee7e2705a08c944fb3a3907e746"},
+    "review-six-source-final-be7e7de-1": {"result": "exit 0; 3 passed in 0.80s", "stdout_sha256": "84c6ba2d84bc180214edc7baed38ebe0c61915981700a0f3339da68a65f3fc31"}
+  },
+  "raw_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "not_run": [
+    "F4/F6 real source ACL and provenance graph",
+    "non-owner input/approval forged INSERT",
+    "approval transition and deferred invariant in PostgreSQL",
+    "real SDK approval/rejection across processes",
+    "P06 request causality in the fixed full candidate",
+    "B2 child/Host transport and complete P08"
+  ]
+}
