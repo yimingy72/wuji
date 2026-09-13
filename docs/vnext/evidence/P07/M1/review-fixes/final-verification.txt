@@ -1,0 +1,13 @@
+Code SHA: 5cfd581129c7991deaddaad9bfdaf8b4ee34b140
+
+$ WUJI_TEST_EVIDENCE_DIR="$PWD/docs/vnext/evidence/P07/M1/review-fixes/final-code-sha/raw" ./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_maf_runtime.py -q
+.....                                                                    [100%]
+5 passed in 7.84s
+
+$ ./scripts/vnext/uv.sh run --frozen python scripts/vnext/generate_contracts.py --check
+Generated Python and TypeScript v2 contracts match OpenAPI.
+exit 0
+
+$ ./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_run_admission.py::test_current_run_model_gate_forwards_native_and_records_attempt tests/vnext/test_run_admission.py::test_explicit_null_tools_is_a_valid_native_model_request -q
+..                                                                       [100%]
+2 passed in 2.78s

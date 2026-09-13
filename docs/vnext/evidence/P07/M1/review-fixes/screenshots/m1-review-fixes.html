@@ -1,0 +1,24 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>P07 M1 review fixes</title>
+<style>
+  body { margin: 0; background: #0b0f14; color: #d6e2ee; font: 18px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  main { width: 1220px; margin: 38px auto; padding: 32px 40px; border: 1px solid #2c3b49; border-radius: 14px; background: #101720; box-shadow: 0 20px 60px #0008; }
+  h1 { margin: 0 0 16px; color: #73e2a7; font-size: 29px; }
+  h2 { color: #82b7ff; font-size: 19px; margin: 20px 0 6px; }
+  .sha { color: #9fb6cb; margin-bottom: 20px; }
+  pre { margin: 8px 0 18px; white-space: pre-wrap; color: #eef6ff; }
+  .pass { color: #73e2a7; font-weight: 700; }
+  .item { padding: 8px 0; border-top: 1px solid #253544; }
+</style>
+<main>
+  <h1>P07 M1 · REVIEW FIXES VERIFIED</h1>
+  <div class="sha">code SHA 5cfd581129c7991deaddaad9bfdaf8b4ee34b140</div>
+  <pre>.....                                                                    [100%]
+<span class="pass">5 passed in 7.84s</span>
+contracts: Python + TypeScript match OpenAPI
+<span class="pass">P06 native consumers: 2 passed in 2.78s</span></pre>
+  <div class="item"><h2>1 · Verified bearer binding</h2>Two valid Runs mismatched → STALE_EXECUTION before Gate HTTP; zero upstream and zero model attempt.</div>
+  <div class="item"><h2>2 · Native SDK wire retained</h2>parallel_tool_calls=false · stream_options.include_usage=true · max_completion_tokens=2048 reach upstream unchanged.</div>
+  <div class="item"><h2>3 · Durable result binding</h2>raw + SDK NDJSON + canonical binding are publication-pinned; changed SDK/tool/context replay → INPUT_DIGEST_CONFLICT.</div>
+</main>

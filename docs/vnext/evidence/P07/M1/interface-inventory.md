@@ -2,6 +2,10 @@
 
 绑定代码 SHA：`bcc64ffa67ea3b910f62b065853108cdb7d67614`。
 
+该表是首轮 hosted 闭环的历史清单。独立审查后的当前状态绑定
+`5cfd581129c7991deaddaad9bfdaf8b4ee34b140`，见
+[review-fixes/interface-inventory.md](review-fixes/interface-inventory.md)。
+
 | 接口/资产 | 验证状态 | 本切片证据 |
 | --- | --- | --- |
 | `MafRuntime.execute(WorkerAssignment)` / native `ResponseStream` | 已利用 | 实际 MAF SDK 发起 2 次 native SSE 请求；事件消费者取消后后台任务仍完成 |

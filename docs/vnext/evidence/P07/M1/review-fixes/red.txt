@@ -1,0 +1,16 @@
+P07 M1 review-fix RED observations
+
+1. Native wire contract
+   Command: ./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_maf_runtime.py::test_native_stream_contract_preserves_released_sdk_fields_and_token_dialect -q
+   Result: exit 1; current ChatCompletionRequest rejected parallel_tool_calls,
+   stream_options and max_completion_tokens as extra_forbidden.
+
+2. Verified bearer binding
+   Command: WUJI_TEST_EVIDENCE_DIR=docs/vnext/evidence/P07/M1/review-fixes/red-identity/raw ./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_maf_runtime.py::test_verified_bearer_must_match_host_and_assignment_before_model_request -q
+   Result: exit 1; MafRuntime had no token_verifier assembly parameter.
+
+3. Durable SDK/result binding
+   Command: WUJI_TEST_EVIDENCE_DIR=docs/vnext/evidence/P07/M1/review-fixes/red-binding/raw ./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_maf_runtime.py::test_actual_maf_stream_tool_evidence_claim_and_result_replay -q
+   Result: exit 1 after the actual MAF/P03/P04 roundtrip; result publication
+   contained only text/plain raw output and lacked application/x-ndjson plus
+   application/vnd.wuji.maf-result-binding+json refs.
