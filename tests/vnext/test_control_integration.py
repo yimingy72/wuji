@@ -21,9 +21,13 @@ WORK = "work-b"
 
 def _install_locator(case):
     with case.env.migration_connection() as connection:
-        control_api_schema.upgrade(
-            connection, application_role=case.env.application_role
-        )
+        assert connection.execute(
+            "SELECT 1 FROM vnext.schema_migration WHERE head=%s",
+            (control_api_schema.HEAD,),
+        ).fetchone() == (1,)
+        assert connection.execute(
+            "SELECT to_regprocedure('vnext.task_for_work(text)')"
+        ).fetchone()[0] is not None
 
 
 def _client(case, audit_directory):
