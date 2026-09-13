@@ -10,8 +10,9 @@
 | P01 SDK 探针 | accepted（局部能力） | [当前报告](../../vnext/P01-report.md)；SDK13项@8c3fa9c，watchdog3项@1d77954，离线渲染4项@1598ea2；[最终范围复核](../../vnext/evidence/P01/review-round2.md)关闭所有发现，后续产品 Gate 独立 |
 | P02 合同与测试底座 | accepted（本项） | [原报告](../../vnext/evidence/P02/report.md)、[修复](../../vnext/evidence/P02/fix-round1/report.md)、[最终范围复核](../../vnext/evidence/P02/final-controller-review.md)；后续完整 AC 仍 partial |
 | P03 规范持久化与证据 | accepted（本项） | 53项@dcf5cc2；修复6项@c2a86e3；[范围复审](../../vnext/evidence/P03/fix-round1/review.md)关闭2项P2；完整AC仍按下游分工 |
-| P04 知识接纳与评估 | in-progress | [接口收口](../../vnext/P04-implementation-contract.md)；Agent候选、精确检查、反证与原始结果 |
-| P05—P20 开发和机制验收 | not_run | 按依赖执行，未验证不标通过 |
+| P04 知识接纳与评估 | accepted（本项） | [报告](../../vnext/evidence/P04/report.md)；24项原候选、6项可见性、3项新鲜度定向结果；[范围复核](../../vnext/evidence/P04/review-fix-round1/controller-review.md)关闭F1/F2 |
+| P05 控制与容量 | in-progress | [接口收口](../../vnext/P05-implementation-contract.md)；状态/命令/容量与可信观察分权 |
+| P06—P20 开发和机制验收 | not_run | 按依赖执行，未验证不标通过 |
 | 真实模型效果 | not_run | 需明确模型/数据及新增 USD 额度 |
 | 生产切换/旧数据删除 | not_run | 需独立明确授权；开发不隐式实施 |
 
