@@ -35,7 +35,8 @@ tsc --noEmit; exit 0.
 
 ## 证据入口
 
-- [Aquinas 原审查](../../.superpowers/sdd/vnext-v2/P14-review.md)
+- [Aquinas 原审查永久归档](P14-review.md)
+- [Darwin 定向复审永久归档](P14-rereview.md)
 - [受影响浏览器动作测试](browser.spec.ts)
 - [revision / parser 单元测试](projection.test.ts)
 - [既有雾银截图](screenshots/silver.png)

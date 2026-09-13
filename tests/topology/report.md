@@ -2,6 +2,14 @@
 
 日期：2026-09-13。状态：正式组件与固定 DTO 浏览器展示完成；P14 总体仍为 `partial`，不是 M4 闭环通过。被测代码提交为 `9a1c8e20ccd57b19e74d748129a3d5d524eab6f4`。本报告所在记录提交不在正文预写自身 SHA。
 
+## 审查归档索引
+
+- [初次独立代码/视觉审查](P14-review.md)：永久 `derived copy`，固定原代码 `9a1c8e20ccd57b19e74d748129a3d5d524eab6f4` 与原证据 `e456425fe3deb6c3ada5c8f424aa1ac3a7a50fa7`，当时结论为 `CHANGES REQUIRED`。
+- [定向修复证据](review-fix-report.md)：绑定修复代码 `bd3111a62a624aa5acef7d167ffe96b18747934a` 与证据提交 `64bbdf2974b39856a2cb29dd1eee97cb1a70ca93`，记录 16 Vitest、2 个受影响 Chromium 用例和 web typecheck。
+- [定向复审](P14-rereview.md)：永久 `derived copy`，固定上述三个提交且排除中间 M1/P09，最终结论 `PASS`，F1—F4 全部关闭。
+
+本报告下文保留 `9a1c8e2` 当时的实现与测试事实；其中“拓扑为默认视图”已由 `bd3111a` 的 F3 修复替代，正式 `ExecutionObservation` 当前保持 blackboard 默认、拓扑仅作为新增入口。归档只调整相对证据链接，没有改写原 SHA、执行范围或审查结论。
+
 ## 交付行为
 
 - `TopologyFlowCanvas` 使用 `@xyflow/react@12.11.6` 的受控 nodes/edges、自定义完整节点类型、受控 viewport 和稳定回调。没有 `fitView`，新增节点保持当前 viewport；自由连接、重连和 Delete 删除均关闭。
