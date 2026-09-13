@@ -24,10 +24,13 @@ ANNOTATION_EPOCH = "wuji.dev/execution-epoch"
 ANNOTATION_SCOPE = "wuji.dev/scope-digest"
 ANNOTATION_CONFIG = "wuji.dev/config-digest"
 ANNOTATION_TEMPLATE = "wuji.dev/template-digest"
+ANNOTATION_TASK = "wuji.dev/task-id"
+ANNOTATION_TENANT = "wuji.dev/tenant-id"
 
 _DNS_LABEL = re.compile(r"[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?\Z")
 _DIGEST = re.compile(r"[a-f0-9]{64}\Z")
 _IMAGE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:/-]*@sha256:[a-f0-9]{64}\Z")
+_LABEL_VALUE = re.compile(r"[A-Za-z0-9](?:[-A-Za-z0-9_.]{0,61}[A-Za-z0-9])?\Z")
 
 
 def _positive_integer(value: int, name: str, maximum: int = 2_147_483_647) -> None:
@@ -35,9 +38,19 @@ def _positive_integer(value: int, name: str, maximum: int = 2_147_483_647) -> No
         raise InvalidRuntimeConfig(f"{name} must be a positive bounded integer")
 
 
-def _uuid(value: UUID, name: str) -> None:
-    if not isinstance(value, UUID):
-        raise InvalidRuntimeConfig(f"{name} must be a UUID")
+def _identity(value: UUID | str, name: str) -> None:
+    if isinstance(value, UUID):
+        return
+    if (not isinstance(value, str) or not 1 <= len(value) <= 256
+            or any(ord(character) < 32 or ord(character) == 127 for character in value)):
+        raise InvalidRuntimeConfig(f"{name} must be a UUID or a bounded opaque identifier")
+
+
+def _identity_label(value: UUID | str) -> str:
+    text = str(value)
+    if _LABEL_VALUE.fullmatch(text):
+        return text
+    return "id-" + hashlib.sha256(text.encode()).hexdigest()[:40]
 
 
 def _digest(value: str, name: str) -> None:
@@ -80,8 +93,8 @@ class ContainerResources:
 
 @dataclass(frozen=True, slots=True)
 class TaskRuntimeConfig:
-    tenant_id: UUID
-    task_id: UUID
+    tenant_id: UUID | str
+    task_id: UUID | str
     namespace: str
     runtime_attempt: int
     execution_epoch: int
@@ -93,10 +106,13 @@ class TaskRuntimeConfig:
     kali_resources: ContainerResources
     tmp_size_limit: str
     pod_deadline_seconds: int
+    expose_pod_identity: bool = False
 
     def __post_init__(self) -> None:
-        _uuid(self.tenant_id, "tenant_id")
-        _uuid(self.task_id, "task_id")
+        _identity(self.tenant_id, "tenant_id")
+        _identity(self.task_id, "task_id")
+        if type(self.expose_pod_identity) is not bool:
+            raise InvalidRuntimeConfig("expose_pod_identity must be a boolean")
         if not isinstance(self.namespace, str) or not _DNS_LABEL.fullmatch(self.namespace):
             raise InvalidRuntimeConfig("namespace must be a DNS label")
         _positive_integer(self.runtime_attempt, "runtime_attempt")
@@ -114,7 +130,12 @@ class TaskRuntimeConfig:
 
     @property
     def task_prefix(self) -> str:
-        return f"wuji-task-{self.task_id.hex}"
+        if isinstance(self.task_id, UUID):
+            return f"wuji-task-{self.task_id.hex}"
+        # Kubernetes names are derived infrastructure identifiers. The original
+        # domain identity is retained in the config and ownership annotations.
+        identity = json.dumps([str(self.tenant_id), self.task_id], separators=(",", ":"))
+        return "wuji-task-v-" + hashlib.sha256(identity.encode()).hexdigest()[:32]
 
     @property
     def pod_name(self) -> str:
@@ -135,8 +156,8 @@ class TaskRuntimeConfig:
     def identity_labels(self) -> dict[str, str]:
         return {
             LABEL_MANAGED_BY: MANAGED_BY,
-            LABEL_TASK: str(self.task_id),
-            LABEL_TENANT: str(self.tenant_id),
+            LABEL_TASK: _identity_label(self.task_id),
+            LABEL_TENANT: _identity_label(self.tenant_id),
             LABEL_ATTEMPT: str(self.runtime_attempt),
         }
 
@@ -145,34 +166,44 @@ class TaskRuntimeConfig:
         value = asdict(self)
         value["tenant_id"] = str(self.tenant_id)
         value["task_id"] = str(self.task_id)
+        if not self.expose_pod_identity:
+            # Preserve the existing UUID-based template digest by default.
+            value.pop("expose_pod_identity")
         encoded = json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
         return hashlib.sha256(encoded).hexdigest()
 
     @property
     def annotations(self) -> dict[str, str]:
         return {
+            **self.ownership_annotations,
             ANNOTATION_EPOCH: str(self.execution_epoch),
             ANNOTATION_SCOPE: self.scope_digest,
             ANNOTATION_CONFIG: self.config_digest,
             ANNOTATION_TEMPLATE: self.template_digest,
         }
 
+    @property
+    def ownership_annotations(self) -> dict[str, str]:
+        if isinstance(self.task_id, UUID) and isinstance(self.tenant_id, UUID):
+            return {}
+        return {ANNOTATION_TASK: str(self.task_id), ANNOTATION_TENANT: str(self.tenant_id)}
+
 
 @dataclass(frozen=True, slots=True)
 class ExecutionPermit:
-    tenant_id: UUID
-    task_id: UUID
+    tenant_id: UUID | str
+    task_id: UUID | str
     runtime_attempt: int
     execution_epoch: int
     scope_digest: str
     config_digest: str
-    start_command_id: UUID
+    start_command_id: UUID | str
     expires_at: datetime
 
     def __post_init__(self) -> None:
-        _uuid(self.tenant_id, "tenant_id")
-        _uuid(self.task_id, "task_id")
-        _uuid(self.start_command_id, "start_command_id")
+        _identity(self.tenant_id, "tenant_id")
+        _identity(self.task_id, "task_id")
+        _identity(self.start_command_id, "start_command_id")
         _positive_integer(self.runtime_attempt, "runtime_attempt")
         _positive_integer(self.execution_epoch, "execution_epoch", 9_007_199_254_740_991)
         _digest(self.scope_digest, "scope_digest")

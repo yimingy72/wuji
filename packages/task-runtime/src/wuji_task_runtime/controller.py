@@ -17,7 +17,7 @@ from .models import ExecutionPermit, RuntimeObservation, TaskRuntimeConfig, vali
 class PermitSource(Protocol):
     """Implemented by trusted control-plane storage, never by a caller-supplied flag."""
 
-    def current(self, task_id: UUID) -> ExecutionPermit | None: ...
+    def current(self, task_id: UUID | str) -> ExecutionPermit | None: ...
 
 
 class PodClient(Protocol):

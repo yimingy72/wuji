@@ -45,6 +45,15 @@ def build_task_pod(config: TaskRuntimeConfig) -> dict:
                 {"name": tmp_volume, "mountPath": "/tmp"},
             ],
         })
+        if config.expose_pod_identity:
+            containers[-1]["env"] = [
+                {"name": name, "valueFrom": {"fieldRef": {"apiVersion": "v1", "fieldPath": field}}}
+                for name, field in (
+                    ("WUJI_POD_UID", "metadata.uid"),
+                    ("WUJI_POD_NAME", "metadata.name"),
+                    ("WUJI_POD_NAMESPACE", "metadata.namespace"),
+                )
+            ]
     return {
         "apiVersion": "v1", "kind": "Pod",
         "metadata": {"name": config.pod_name, "namespace": config.namespace,
@@ -70,6 +79,9 @@ def verify_resource_ownership(resource: dict, config: TaskRuntimeConfig) -> None
     for key, value in config.identity_labels.items():
         if key != LABEL_ATTEMPT and labels.get(key) != value:
             raise OwnershipError("resource ownership does not match Task")
+    annotations = metadata.get("annotations") or {}
+    if any(annotations.get(key) != value for key, value in config.ownership_annotations.items()):
+        raise OwnershipError("resource original identity does not match Task")
 
 
 def _canonical(value):
