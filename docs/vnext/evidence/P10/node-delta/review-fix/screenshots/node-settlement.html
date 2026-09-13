@@ -1,0 +1,26 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>P10 Node settlement review fix</title>
+<style>
+  body { margin: 0; background: #0b0f14; color: #d6e2ee; font: 18px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  main { width: 1220px; margin: 40px auto; padding: 34px 40px; border: 1px solid #2c3b49; border-radius: 14px; background: #101720; }
+  h1 { margin: 0 0 16px; color: #73e2a7; font-size: 28px; }
+  .sha { color: #9fb6cb; margin-bottom: 20px; }
+  pre { white-space: pre-wrap; color: #eef6ff; }
+  .pass { color: #73e2a7; font-weight: 700; }
+  .note { margin-top: 24px; padding-top: 18px; border-top: 1px solid #2c3b49; }
+</style>
+<main>
+  <h1>P10 NODE · DURABLE SETTLEMENT REQUIRED</h1>
+  <div class="sha">code SHA 01f977d440d36fac765a3277cdde227761151cef</div>
+  <pre>✔ verified birth retained on unknown
+✔ actual workerDir callback + durable BlobRef
+✔ callback exception → unknown
+✔ missing callback with files → unknown
+✔ null settlement with files → unknown
+
+<span class="pass">5 passed · 0 failed · 739.813917 ms</span>
+affected real M2 child: <span class="pass">1 passed in 8.91s</span></pre>
+  <div class="note">No output files → ordinary exit unchanged.<br>
+  Files present → BlobRef/ResultReceipt required · no fake terminal · no old 10 rerun.</div>
+</main>

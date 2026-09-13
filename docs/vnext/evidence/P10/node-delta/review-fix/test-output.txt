@@ -1,0 +1,20 @@
+Code SHA: 01f977d440d36fac765a3277cdde227761151cef
+
+$ work/toolchain/bin/node --test tests/task-workers/maf-supervisor-persist-results.test.mjs tests/task-workers/maf-supervisor-last-known-process.test.mjs
+✔ unknown retains a verified running birth when guardian challenge fails (51.371167ms)
+✔ observe persists only actual files from the fixed worker directory (191.293542ms)
+✔ a result persistence failure cannot report the child as exited (137.147375ms)
+✔ produced result files with a missing settlement stay unknown (129.195875ms)
+✔ produced result files with a empty settlement stay unknown (162.217333ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 739.813917
+
+Affected M2 child compatibility:
+$ ./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_maf_child_transport.py::test_actual_supervisor_child_waits_for_start_and_receiver_replays_bytes -q
+1 passed in 8.91s

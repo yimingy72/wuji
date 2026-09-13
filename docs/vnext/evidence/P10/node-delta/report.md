@@ -1,5 +1,9 @@
 # P10 Node Supervisor 窄 delta 证据
 
+Epicurus 对本提交提出的缺失/空 settlement P1 已在后续代码
+`01f977d440d36fac765a3277cdde227761151cef` 修复；当前验证见
+[review-fix/report.md](review-fix/report.md)。下文保留 `7f6debc` 的初始 delta 历史。
+
 状态：**3 个新增定向场景通过**。被测代码提交为
 `7f6debc06575a63ac168d1022d88f06ea1619a25`；既有 Node core 基线为 `72d26a02308ab54db2c7c56b52f9861b8acdda82`，既有 10-case 证据提交为 `57e4a3499f11c42e409dc0b8b889a25c07048348`。本轮没有重跑旧 10 项，也不改变其历史结论。
 
