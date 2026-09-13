@@ -10,6 +10,19 @@
 
 计数、依赖DAG和语法检查是文档校验；它们不将下面任意一项自动变成 pass。测试驱动器只能调用实际 API/数据库/SDK，不能返回预设“系统工作正常”的布尔值替代观察。
 
+## 当前阶段切片状态
+
+| 阶段/切片 | 状态 | 实际结果与边界 |
+| --- | --- | --- |
+| P06 模型/工具准入与累计账本 | `under_review_fixes` | 正在按审查意见修复，未 accepted。 |
+| P07 ContextBundle pure slice | `complete` | D10 SOL/xhigh 执行目标测试，8 passed；代码/测试 `491ec0144ae63724e3696e9b47f259ea350ea4eb`，证据 `e22f7ce09c8aa052862440bca769506f4ee89ffa`。只覆盖纯函数上下文构建及直接输入边界。 |
+| P07 SDK runtime | `not_run` | 真实 MAF、ToolAdmission、Session、压缩、恢复及模型行为未执行；不改变 AC-003/036/037/043 的 `not_run`。 |
+| P08 SessionManifest与指定调用审批 | `not_run` | 尚未执行。 |
+| P09 持久Scheduler、generation与等待 | `not_run` | 尚未执行。 |
+| P10 新Supervisor、Outbox与prepared故障窗口 | `not_run` | 尚未执行。 |
+| P11 控制操作、恢复和失败域联调 | `not_run` | 尚未执行。 |
+| P12 可信完成评审、关闭与报告冻结 | `not_run` | 尚未执行。 |
+
 ## 验收用例
 
 <a id="AC-001"></a>
