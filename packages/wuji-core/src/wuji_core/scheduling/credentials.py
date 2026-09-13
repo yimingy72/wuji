@@ -83,7 +83,7 @@ class RunCredentialIssuer:
                 raise
             raise DomainError("credential_signing_unavailable", 503) from error
 
-    def prepare(self, tx, *, identity, tool_definition_refs, expires_at):
+    def prepare(self, tx, *, identity, tool_definition_refs, expires_at, session_lineage=None):
         require_admission(tx)
         identity = RunIdentity.model_validate(identity)
         if (identity.tenant_id, identity.project_id, identity.task_id) != tx.owner:
@@ -96,13 +96,22 @@ class RunCredentialIssuer:
             raise DomainError("STALE_EXECUTION", 409)
         # JWT expiry has second precision; metadata uses that same instant.
         expires_at = datetime.fromtimestamp(int(expires_at.timestamp()), timezone.utc)
+        lineage = "run:" + identity.agent_run_id
+        if session_lineage is not None:
+            holder = tx.connection.execute(
+                "SELECT h.session_lineage FROM vnext.session_holder h JOIN vnext.work_item w USING(tenant_id,project_id,task_id,work_item_id) JOIN vnext.session_manifest s USING(tenant_id,project_id,task_id,manifest_ref) WHERE h.tenant_id=%s AND h.project_id=%s AND h.task_id=%s AND h.agent_run_id=%s AND w.current_run_id=h.agent_run_id AND w.run_epoch=%s AND w.session_id=s.session_id AND w.session_revision=s.revision",
+                (*tx.owner, identity.agent_run_id, identity.run_epoch.root),
+            ).fetchone()
+            if holder is None or holder[0] != session_lineage:
+                raise DomainError("STALE_EXECUTION", 409)
+            lineage = holder[0]
         binding = RunCredentialBinding(
             identity=identity,
             subject=worker_subject(identity.agent_run_id),
             token_id=str(uuid4()),
             expires_at=expires_at,
             purposes=["model_request", "tool_request"],
-            session_lineage="run:" + identity.agent_run_id,
+            session_lineage=lineage,
             allowed_tool_refs=list(tool_definition_refs),
         )
         claims = {

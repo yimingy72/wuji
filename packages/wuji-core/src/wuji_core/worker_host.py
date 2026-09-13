@@ -24,9 +24,11 @@ def _key(ref):
 
 
 class PlatformWorkerHost:
-    def __init__(self, *, uow, registry, access, artifacts, committer, profiles, lock_digest):
+    def __init__(self, *, uow, registry, access, artifacts, committer, profiles, lock_digest,
+                 sessions=None, inputs=None, receiver_access=None):
         self.uow, self.registry, self.access = uow, registry, access
         self.artifacts, self.committer = artifacts, committer
+        self.sessions, self.inputs, self.receiver_access = sessions, inputs, receiver_access
         self.lock_digest = lock_digest
         self.profiles = {}
         for published in profiles:
@@ -81,13 +83,78 @@ class PlatformWorkerHost:
                 "request_timeout_seconds": config.runtime.total_timeout_seconds,
                 "tools": tools, "session_lineage": binding.session_lineage,
             }
+            memory_files = None
+            if trusted["body"].get("schema_version") == "wuji.harness.session.v1":
+                if self.sessions is None or self.inputs is None or not callable(self.receiver_access):
+                    raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+                capability = self.registry.session_capability(tx, trusted)
+                resolved.update(session_compatibility=capability["compatibility"].model_dump(mode="python"),
+                    session_limits=capability["limits"].model_dump(mode="python"), delivery_id=None)
+                memory_files = {}
+                if assignment.session_manifest_ref is not None:
+                    recovery = self.sessions.validate_recovery_in_transaction(tx, work, assignment=assignment)
+                    if not recovery.resumable:
+                        raise DomainError(recovery.reason_code or "STALE_EXECUTION", 409)
+                    published = self.sessions._load_in_transaction(tx, work)
+                    memory_files = {f.path: published.object_bytes[f.ref.id + "@" + f.ref.version.root] for f in published.memory.files}
+                    delivery = tx.connection.execute("SELECT d.delivery_id FROM vnext.input_delivery d JOIN vnext.input_request i USING(tenant_id,project_id,task_id,input_request_id) WHERE d.tenant_id=%s AND d.project_id=%s AND d.task_id=%s AND d.input_request_id=%s AND d.manifest_ref=%s AND i.status='resolved'", (*tx.owner, work["input_request_id"], recovery.manifest_ref)).fetchone()
+                    resolved["delivery_id"] = delivery[0] if delivery else None
         snapshots = SnapshotRepository(self.uow)
         manifest = snapshots.get(assignment.identity.task_id, self.access, assignment.snapshot_id)
         for ref in context.read_set:
             if ref not in manifest.refs:
                 raise DomainError("INVALID_REFERENCE", 422)
             snapshots.read_ref(assignment.identity.task_id, self.access, assignment.snapshot_id, ref)
-        return strict_json_loads(canonical_json_bytes(resolved))
+        resolved = strict_json_loads(canonical_json_bytes(resolved))
+        if memory_files is not None:
+            # Internal bytes map. Only B2's generated transport may encode it.
+            resolved["memory_files"] = memory_files
+        return resolved
+
+    def _session_assignment(self, assignment):
+        assignment = WorkerAssignment.model_validate(assignment)
+        binding = self.registry.binding(self.access)
+        if binding.identity != assignment.identity or self.sessions is None or self.inputs is None:
+            raise DomainError("STALE_EXECUTION", 409)
+        return assignment
+
+    def stage_session(self, assignment, objects):
+        assignment = self._session_assignment(assignment)
+        return self.sessions.stage_objects(self.access, assignment, objects)
+
+    def publish_session(self, assignment, manifest, *, expected_revision):
+        assignment = self._session_assignment(assignment)
+        if not callable(self.receiver_access):
+            raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+        return self.sessions.publish(self.receiver_access(assignment), assignment, manifest,
+            expected_revision=expected_revision)
+
+    def load_session(self, assignment, *, manifest_ref):
+        assignment = self._session_assignment(assignment)
+        if assignment.session_manifest_ref is None or assignment.session_manifest_ref.root != manifest_ref:
+            raise DomainError("INVALID_REFERENCE", 422)
+        with self.uow.transaction(self.access, assignment.identity.task_id, capability="tool_request") as tx:
+            _, work = current_run(tx, self.registry.config(tx))
+            check = self.sessions.validate_recovery_in_transaction(tx, work, assignment=assignment)
+            if not check.resumable:
+                raise DomainError(check.reason_code or "STALE_EXECUTION", 409)
+            published = self.sessions._load_in_transaction(tx, work)
+            return published.model_copy(update={"recovery_check": check})
+
+    def register_input(self, assignment, observation):
+        assignment = self._session_assignment(assignment)
+        if not callable(self.receiver_access):
+            raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+        return self.inputs.register_native(self.receiver_access(assignment), assignment, observation)
+
+    def load_delivery(self, assignment, *, delivery_id):
+        assignment = self._session_assignment(assignment)
+        return self.inputs.load_delivery(self.access, assignment, delivery_id=delivery_id)
+
+    def acknowledge_delivery(self, assignment, *, delivery_id, payload_digest):
+        assignment = self._session_assignment(assignment)
+        return self.inputs.acknowledge_delivery(self.access, assignment,
+            delivery_id=delivery_id, payload_digest=payload_digest)
 
     def _writer(self, assignment):
         with self.uow.transaction(self.access, assignment.identity.task_id, capability="model_output") as tx:
@@ -207,11 +274,21 @@ class PlatformWorkerHost:
             seen.add(actual.tool_call_id)
             with self.uow.transaction(self.access, assignment.identity.task_id) as tx:
                 call = row(tx.connection.execute(
-                    "SELECT agent_run_id FROM vnext.tool_attempt WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND tool_attempt_id=%s",
+                    "SELECT a.agent_run_id,c.work_item_id,c.session_lineage FROM vnext.tool_attempt a JOIN vnext.tool_call c USING(tenant_id,project_id,task_id,tool_call_id) WHERE a.tenant_id=%s AND a.project_id=%s AND a.task_id=%s AND a.tool_attempt_id=%s",
                     (*tx.owner, receipt.tool_attempt_id.root if receipt.tool_attempt_id else None),
                 ))
-                if call is None or call["agent_run_id"] != assignment.identity.agent_run_id:
+                if call is None or call["work_item_id"] != assignment.identity.work_item_id:
                     raise DomainError("INVALID_REFERENCE", 422)
+                if call["agent_run_id"] != assignment.identity.agent_run_id:
+                    if self.sessions is None or assignment.session_manifest_ref is None:
+                        raise DomainError("INVALID_REFERENCE", 422)
+                    holder = tx.connection.execute("SELECT 1 FROM vnext.session_holder WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND agent_run_id=%s AND manifest_ref=%s AND session_lineage=%s", (*tx.owner, assignment.identity.agent_run_id, assignment.session_manifest_ref.root, call["session_lineage"])).fetchone()
+                    if not holder:
+                        raise DomainError("INVALID_REFERENCE", 422)
+                    work = row(tx.connection.execute("SELECT * FROM vnext.work_item WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND work_item_id=%s", (*tx.owner, assignment.identity.work_item_id)))
+                    prior = self.sessions._load_in_transaction(tx, work)
+                    if not any(e.tool_call_id == receipt.tool_call_id and e.tool_attempt_id == receipt.tool_attempt_id.root for e in prior.history.frontier.tool_entries):
+                        raise DomainError("INVALID_REFERENCE", 422)
             evidence = actual.evidence_receipt
             if (
                 actual.status.value != "complete"

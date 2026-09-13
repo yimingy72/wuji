@@ -215,8 +215,8 @@ def _possibly_running(tx, work):
 
 
 class ControlService:
-    def __init__(self, uow, *, artifacts=None):
-        self.uow, self.artifacts = uow, artifacts
+    def __init__(self, uow, *, artifacts=None, sessions=None):
+        self.uow, self.artifacts, self.sessions = uow, artifacts, sessions
 
     def read_task(self, access, task_id):
         with self.uow.transaction(access, task_id) as tx:
@@ -278,69 +278,11 @@ class ControlService:
     def _recoverable(self, tx, work):
         if _known_fresh(tx, work):
             return True
-        if (
-            self.artifacts is None
-            or not work["session_id"]
-            or _possibly_running(tx, work)
-        ):
+        if self.sessions is None or not work["session_id"]:
             return False
-        current = next(
-            (
-                r
-                for r in _runs(tx, work["work_item_id"])
-                if r["agent_run_id"] == work["current_run_id"]
-            ),
-            None,
-        )
-        if not current or not operations_settled(tx, current["agent_run_id"]):
-            return False
-        value = row(
-            tx.connection.execute(
-                "SELECT * FROM vnext.session_manifest WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND session_id=%s AND revision=%s"
-                + (" FOR UPDATE" if tx.capacity_pools else ""),
-                (*tx.owner, work["session_id"], work["session_revision"]),
-            )
-        )
-        if not value:
-            return False
-        try:
-            manifest = SessionManifest.model_validate(
-                strict_json_loads(value["manifest_json"])
-            )
-            if (
-                manifest.work_item_id != work["work_item_id"]
-                or manifest.owner_run_id != current["agent_run_id"]
-                or manifest.run_epoch.root != str(current["run_epoch"])
-                or manifest.session_id != work["session_id"]
-                or manifest.checkpoint_revision.root != str(work["session_revision"])
-            ):
-                return False
-            if (
-                manifest.recovery_class.value
-                not in {"settled_boundary", "approval_boundary"}
-                or manifest.pending_operation_refs
-                or manifest.lock_digest.root != self._definition(tx)["lock_digest"]
-            ):
-                return False
-            for ref in sorted(
-                [
-                    manifest.history_root,
-                    manifest.provider_state_ref,
-                    manifest.memory_manifest_ref,
-                ],
-                key=lambda r: r.id,
-            ):
-                record = self.artifacts.record(tx, ref)
-                pinned = tx.connection.execute(
-                    "SELECT 1 FROM vnext.publication_ref WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND publication_id=%s AND artifact_id=%s AND artifact_revision=%s",
-                    (*tx.owner, value["publication_id"], ref.id, ref.version.root),
-                ).fetchone()
-                if record["state"] != "sealed" or not pinned:
-                    return False
-                self.artifacts.checked_bytes(record)
-            return True
-        except (ValueError, DomainError, KeyError):
-            return False
+        # The Session producer owns full pins/compatibility/frontier validation.
+        # There is deliberately no root-only or empty-pending fallback.
+        return self.sessions.validate_recovery_in_transaction(tx, work).resumable
 
     def dispatchable(self, access, task_id, work_id):
         # Informational only. P09 must repeat this in the locked admission transaction.
@@ -1080,7 +1022,7 @@ class ControlService:
         waiting = _input(tx, work)
         if (
             waiting
-            and waiting["status"] == "pending"
+            and waiting["status"] in {"pending", "resolved"}
             and self._recoverable(tx, work)
             and work["state"] in {"running", "reconciling"}
         ):
@@ -1091,6 +1033,8 @@ class ControlService:
                 self._restore(tx, work)
             else:
                 _update_work(tx, work, state="waiting_input", blocked_reason=None)
+                if waiting["status"] == "resolved":
+                    self._restore(tx, work)
             return
         state = mark_missing_output(tx, run["agent_run_id"])
         source = (

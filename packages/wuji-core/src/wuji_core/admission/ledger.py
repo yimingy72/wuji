@@ -110,6 +110,8 @@ class AdmissionLedger:
             call = row(tx.connection.execute("SELECT * FROM vnext.tool_call WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND tool_call_id=%s AND access_level<=%s", (*tx.owner, tool_call_id, tx.permissions["clearance"])))
             if not call:
                 raise DomainError("NOT_FOUND_OR_FORBIDDEN")
+            if call["work_item_id"] != binding.identity.work_item_id or call["session_lineage"] != binding.session_lineage:
+                raise DomainError("NOT_FOUND_OR_FORBIDDEN")
             return tool_receipt(tx, call)
 
     def response_started(self, access, permit, *, status, content_type, usage_ref=None, spend_ref=None):

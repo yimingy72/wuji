@@ -93,6 +93,54 @@ class RunCredentialBinding(Configuration):
     allowed_tool_refs: list[str] = Field(max_length=256)
 
 
+class SessionCapabilityRegistration(Published):
+    """Deployment publication of an exact tested combination, never a Worker flag."""
+    profile_snapshot: dict
+    client_snapshot: dict
+    runtime_snapshot: dict
+    framework_snapshot: dict
+    lock_digest: str = Field(pattern=r"^[a-f0-9]{64}$")
+    limits: dict
+    recovery_classes: list[Literal["settled_boundary", "approval_boundary"]] = Field(min_length=1, max_length=2)
+    memory_mode: Literal["disabled", "pinned_context"]
+    approver_subjects: list[str] = Field(min_length=1, max_length=256)
+    approval_ttl_seconds: int = Field(gt=0, le=86400)
+    evidence_refs: list[str] = Field(min_length=1, max_length=128)
+
+
+def session_client_snapshot(config):
+    # No Gateway URL, key, key reference or upstream credential reaches a Session.
+    return {key: getattr(config.model, key) for key in (
+        "ref", "revision", "protocol", "client_model", "upstream_model", "capability_ref", "max_retries",
+    )}
+
+
+def register_session_capability(connection, *, tenant_id, capability):
+    _owner_only(connection)
+    capability = SessionCapabilityRegistration.model_validate(capability)
+    from wuji_core.contracts.sessions import SessionLimits
+    SessionLimits.model_validate(capability.limits)
+    profile = capability.profile_snapshot
+    body = profile["body"]
+    if (profile["digest"] != sha256(canonical_json_bytes(body)).hexdigest()
+            or body["schema_version"] != "wuji.harness.session.v1"
+            or body["memory_mode"] != capability.memory_mode
+            or body["lock_digest"] != capability.lock_digest
+            or not all(isinstance(ref, str) and 1 <= len(ref) <= 2048 for ref in capability.evidence_refs)
+            or capability.framework_snapshot != {"python": "3.13.15", "agent_framework_core": "1.18.0", "agent_framework_openai": "1.14.3"}):
+        raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+    # The owner must publish only after reviewing the referenced actual evidence.
+    # Runtime consumers cannot create this record or turn a candidate into passed.
+    raw = json_text(capability.model_dump(mode="json"))
+    old = connection.execute("SELECT document_json FROM vnext.session_capability WHERE tenant_id=%s AND ref=%s", (tenant_id, capability.ref)).fetchone()
+    if old:
+        if old[0] != raw:
+            raise DomainError("INPUT_DIGEST_CONFLICT", 409)
+        return
+    connection.execute("INSERT INTO vnext.session_capability(tenant_id,ref,profile_digest,document_json,digest) VALUES(%s,%s,%s,%s,%s)",
+        (tenant_id, capability.ref, profile["digest"], raw, sha256(raw.encode()).hexdigest()))
+
+
 def _owner_only(connection):
     owned = connection.execute("SELECT current_user=pg_get_userbyid(nspowner) FROM pg_namespace WHERE nspname='vnext'").fetchone()
     if owned != (True,):
@@ -188,6 +236,55 @@ class AdmissionRegistry:
 
     def binding(self, access):
         return self.uow.locate_run_credential(access)
+
+    def session_capability(self, tx, profile_snapshot):
+        from wuji_core.contracts.sessions import SessionCompatibility, SessionLimits
+        config = self.config(tx)
+        try:
+            body = profile_snapshot["body"]
+            definition = strict_json_loads(tx.task["definition_json"])
+            actual = definition["worker_profiles"][body["work_kind"]]
+            if (canonical_json_bytes(actual) != canonical_json_bytes(profile_snapshot)
+                    or profile_snapshot["digest"] != sha256(canonical_json_bytes(body)).hexdigest()
+                    or body["schema_version"] != "wuji.harness.session.v1"
+                    or profile_snapshot["ref"] != body["ref"] or profile_snapshot["revision"] != body["revision"]
+                    or body["lock_digest"] != config.runtime.lock_digest):
+                raise ValueError("unpublished Session profile")
+            candidates = tx.connection.execute(
+                "SELECT document_json,digest FROM vnext.session_capability WHERE tenant_id=%s AND profile_digest=%s AND NOT revoked",
+                (tx.owner[0], profile_snapshot["digest"]),
+            ).fetchall()
+            candidates = [(raw, stored_digest) for raw, stored_digest in candidates
+                if strict_json_loads(raw).get("client_snapshot") == session_client_snapshot(config)
+                and canonical_json_bytes(strict_json_loads(raw).get("runtime_snapshot")) == canonical_json_bytes(config.runtime.model_dump(mode="json"))]
+            if len(candidates) != 1:
+                raise ValueError("an exact verified Session capability is required")
+            raw, stored_digest = candidates[0]
+            record = SessionCapabilityRegistration.model_validate(strict_json_loads(raw))
+            limits = SessionLimits.model_validate(record.limits)
+            disabled = {name: False for name in ("todo", "mode", "file_memory", "file_access", "skills", "shell", "web_search", "background_agents", "outer_loop", "auto_approval", "mcp")}
+            caps = {**disabled, "restoration": True, "compaction": body["compaction_enabled"],
+                "native_approval": True, "versioned_memory": body["memory_mode"] == "pinned_context"}
+            if (record.published_at > datetime.now(timezone.utc) or sha256(raw.encode()).hexdigest() != stored_digest
+                    or canonical_json_bytes(record.profile_snapshot) != canonical_json_bytes(profile_snapshot)
+                    or record.client_snapshot != session_client_snapshot(config)
+                    or canonical_json_bytes(record.runtime_snapshot) != canonical_json_bytes(config.runtime.model_dump(mode="json"))
+                    or record.lock_digest != config.runtime.lock_digest or record.memory_mode != body["memory_mode"]
+                    or record.limits != body["session_limits"] or body["capabilities"] != caps
+                    or record.framework_snapshot != {"python": "3.13.15", "agent_framework_core": "1.18.0", "agent_framework_openai": "1.14.3"}
+                    or limits.max_total_bytes > config.runtime.limits.max_total_output_bytes
+                    or limits.max_object_bytes > config.runtime.limits.max_single_output_bytes
+                    or limits.max_pending_approvals > config.runtime.max_pending_operations):
+                raise ValueError("Session capability combination differs")
+            compatibility = SessionCompatibility(profile_snapshot=profile_snapshot,
+                client_snapshot=record.client_snapshot, runtime_snapshot=record.runtime_snapshot,
+                framework_snapshot=record.framework_snapshot, lock_digest=record.lock_digest,
+                capability_ref=record.ref, capability_digest=stored_digest)
+            return {"compatibility": compatibility, "limits": limits, "memory_mode": record.memory_mode,
+                "recovery_classes": tuple(record.recovery_classes), "approval_ttl_seconds": record.approval_ttl_seconds,
+                "approver_subjects": tuple(record.approver_subjects), "evidence_refs": tuple(record.evidence_refs)}
+        except (KeyError, TypeError, ValueError) as error:
+            raise DomainError("CAPABILITY_UNAVAILABLE", 503) from error
 
     def config(self, tx):
         item = tx.connection.execute("SELECT document_json FROM vnext.admission_config WHERE tenant_id=%s AND project_id=%s AND task_id=%s", tx.owner).fetchone()

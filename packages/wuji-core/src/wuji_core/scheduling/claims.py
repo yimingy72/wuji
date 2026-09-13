@@ -334,6 +334,9 @@ class Scheduler:
             profile = definition["worker_profiles"][kind]
             published = strict_json_loads(receiver["harness_profiles_json"])[kind]
             body = profile["body"]
+            session_profile = body.get("schema_version") == "wuji.harness.session.v1"
+            if session_profile:
+                self.registry.session_capability(tx, profile)
             disabled = {
                 name: False
                 for name in (
@@ -359,7 +362,7 @@ class Scheduler:
                 or profile["revision"] != body["revision"]
                 or body["work_kind"] != kind
                 or body["lock_digest"] != config.runtime.lock_digest
-                or body["capabilities"] != disabled
+                or (not session_profile and body["capabilities"] != disabled)
                 or not body["instructions"]
                 or not body["tool_definition_refs"]
                 or any(
@@ -382,7 +385,7 @@ class Scheduler:
                 tool = self.registry.tool(tx, ref)
                 executor = self.registry.executor(tx, tool.executor_ref)
                 if (
-                    tool.approval_required
+                    (tool.approval_required and not session_profile)
                     or tool.allowed_target_kinds != ["workspace_read"]
                     or tool.name in names
                     or ref not in executor.allowed_tool_refs
@@ -405,7 +408,7 @@ class Scheduler:
         self.triggers.start(tx)
         events = rows(
             tx.connection.execute(
-                """SELECT o.event_seq FROM vnext.outbox o WHERE o.tenant_id=%s AND o.project_id=%s AND o.task_id=%s
+                """SELECT o.event_seq,o.kind,o.payload_json FROM vnext.outbox o WHERE o.tenant_id=%s AND o.project_id=%s AND o.task_id=%s
             AND NOT EXISTS(SELECT 1 FROM vnext.scheduler_trigger t WHERE
             (t.tenant_id,t.project_id,t.task_id,t.event_seq)=(o.tenant_id,o.project_id,o.task_id,o.event_seq))
             ORDER BY o.event_seq LIMIT 256""",
@@ -413,6 +416,11 @@ class Scheduler:
             )
         )
         for event in events:
+            if event["kind"] == "input.resolved":
+                payload = strict_json_loads(event["payload_json"])
+                waiting_work = row(tx.connection.execute("SELECT * FROM vnext.work_item WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND work_item_id=%s FOR UPDATE", (*tx.owner, payload["work_item_id"])))
+                if waiting_work and waiting_work["input_request_id"] == payload["input_request_id"]:
+                    self.control._restore(tx, waiting_work)
             self.triggers.record(tx, event_seq=event["event_seq"])
         self.waiters.scan(tx)
 
@@ -599,9 +607,18 @@ class Scheduler:
         if not self.control.can_dispatch(tx, work):
             raise DomainError("dispatch_guard_unsatisfied", 409)
         attempts = self._limits(tx, work, config, now)
-        # The released M1 runtime supports fresh Work only. A capability flag
-        # cannot establish native restoration or side-effect safety.
-        if work["session_id"] is not None or attempts:
+        recovery = None
+        published = None
+        previous_run_id = work["current_run_id"]
+        if work["session_id"] is not None:
+            if self.control.sessions is None or profile["body"].get("schema_version") != "wuji.harness.session.v1":
+                raise DomainError("worker_recovery_unavailable", 503)
+            recovery = self.control.sessions.validate_recovery_in_transaction(tx, work)
+            if not recovery.resumable:
+                raise DomainError(recovery.reason_code or "worker_recovery_unavailable", 409)
+            published = self.control.sessions._load_in_transaction(tx, work)
+        elif attempts:
+            # No native state can be invented from an unknown earlier Run.
             raise DomainError("worker_recovery_unavailable", 503)
         if not any(pool["tier"] == "model" for pool in tx.capacity_pools):
             raise DomainError("model_pool_unavailable", 503)
@@ -615,7 +632,8 @@ class Scheduler:
             getattr(issuer, "bind_admitted_run", None)
         ):
             raise DomainError("credential_issuer_unavailable", 503)
-        manifest = creator(tx, reader_clearance=receiver["worker_clearance"])
+        manifest = (self.snapshots._get(tx, published.history.snapshot_id) if published is not None
+                    else creator(tx, reader_clearance=receiver["worker_clearance"]))
         if (manifest.tenant_id, manifest.project_id, manifest.task_id) != tx.owner:
             raise DomainError("INVALID_REFERENCE", 422)
         exact_key = WorkKey(
@@ -638,7 +656,7 @@ class Scheduler:
             # template clearance may block the Work; it must never silently
             # produce a smaller context and continue admission.
             raise DomainError("required_snapshot_input_unavailable", 503)
-        if work["kind"] == "reason":
+        if work["kind"] == "reason" and recovery is None:
             self.triggers.begin_reason(
                 tx, work_item_id=work["work_item_id"], snapshot_id=manifest.snapshot_id
             )
@@ -665,10 +683,10 @@ class Scheduler:
                 "work_kind": work["kind"],
                 "snapshot_id": manifest.snapshot_id,
                 "profile_refs": [profile["ref"], config.model.ref, config.runtime.ref],
-                "session_manifest_ref": None,
+                "session_manifest_ref": recovery.manifest_ref if recovery is not None else None,
                 "tool_definition_refs": profile["body"]["tool_definition_refs"],
                 "limits": config.runtime.limits,
-                "resume_reason": None,
+                "resume_reason": "persisted_input_or_settled_boundary" if recovery is not None else None,
             }
         )
         tx.connection.execute(
@@ -694,6 +712,9 @@ class Scheduler:
             (epoch, run_id, *tx.owner, work["work_item_id"]),
         )
         CapacityService.reserve(tx, run_id)
+        if recovery is not None:
+            tx.connection.execute("INSERT INTO vnext.session_holder(tenant_id,project_id,task_id,agent_run_id,work_item_id,manifest_ref,session_lineage,previous_run_id,frontier_digest) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                (*tx.owner, run_id, work["work_item_id"], recovery.manifest_ref, recovery.session_lineage, previous_run_id, recovery.frontier_digest))
         definition = strict_json_loads(tx.task["definition_json"])
         authorization_expiry = datetime.fromisoformat(
             definition["task"]["authorization_expires_at"].replace("Z", "+00:00")
@@ -703,11 +724,13 @@ class Scheduler:
             tx.task["activated_at"]
             + timedelta(seconds=config.runtime.limits.max_elapsed_seconds),
         )
+        recovery_options = {} if recovery is None else {"session_lineage": recovery.session_lineage}
         binding, credential_ref = issuer.prepare(
             tx,
             identity=identity,
             tool_definition_refs=tuple(profile["body"]["tool_definition_refs"]),
             expires_at=expires_at,
+            **recovery_options,
         )
         binding = RunCredentialBinding.model_validate(binding)
         if (
@@ -716,6 +739,7 @@ class Scheduler:
             or binding.expires_at > expires_at
             or binding.expires_at <= now
             or set(binding.purposes) != {"model_request", "tool_request"}
+            or binding.session_lineage != (recovery.session_lineage if recovery is not None else "run:" + run_id)
             or tuple(binding.allowed_tool_refs)
             != tuple(profile["body"]["tool_definition_refs"])
             or not isinstance(credential_ref, str)

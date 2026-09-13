@@ -129,15 +129,24 @@ def _settlement(tx, run_id):
 
 
 class ToolAdmission:
-    def __init__(self, uow, *, registry, ledger):
+    def __init__(self, uow, *, registry, ledger, approvals=None):
         self.uow, self.registry, self.ledger = uow, registry, ledger
+        self.approvals = approvals
 
     def authorize(self, access, request):
         binding = self.registry.binding(access)
         try:
             with self.uow.transaction(access, binding.identity.task_id, capability="tool_request") as tx:
                 prepared = self.prepare_in_transaction(tx, request)
-                return self.authorize_in_transaction(tx, prepared)
+                approval_ref = prepared.request.approval_ref
+                if approval_ref is None:
+                    return self.authorize_in_transaction(tx, prepared)
+                if self.approvals is None or not prepared.definition.approval_required:
+                    raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+                approval = self.approvals.bind_operation_in_transaction(tx, prepared, approval_ref)
+                permit = self.authorize_in_transaction(tx, prepared, approval_binding=approval)
+                self.approvals.finish_binding_in_transaction(tx, approval, permit)
+                return permit
         except DomainError as exc:
             self.ledger.rejected(access, binding.identity.task_id, "tool_request", exc.code)
             raise
@@ -165,6 +174,15 @@ class ToolAdmission:
                 raise DomainError("NOT_FOUND_OR_FORBIDDEN")
             if call["input_digest"] != call_digest:
                 raise DomainError("INPUT_DIGEST_CONFLICT", 409)
+            if request.message_id.startswith("model-attempt:") and request.message_id.endswith(":choice:0"):
+                model_id = request.message_id[len("model-attempt:"):-len(":choice:0")]
+                origin = tx.connection.execute("SELECT agent_run_id FROM vnext.model_call WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND model_attempt_id=%s", (*tx.owner, model_id)).fetchone()
+                if origin is None:
+                    raise DomainError("INVALID_REFERENCE", 422)
+                if origin[0] != run["agent_run_id"]:
+                    transfer = tx.connection.execute("SELECT 1 FROM vnext.session_holder h JOIN vnext.session_manifest s USING(tenant_id,project_id,task_id,manifest_ref) WHERE h.tenant_id=%s AND h.project_id=%s AND h.task_id=%s AND h.agent_run_id=%s AND h.work_item_id=%s AND h.session_lineage=%s AND s.session_id=%s AND s.revision=%s", (*tx.owner, run["agent_run_id"], work["work_item_id"], request.session_lineage, work["session_id"], work["session_revision"])).fetchone()
+                    if transfer is None:
+                        raise DomainError("STALE_EXECUTION", 409)
         else:
             pending = tx.connection.execute("SELECT count(*) FROM vnext.tool_call WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND status NOT IN ('complete','cancelled','failed')", tx.owner).fetchone()[0]
             if pending >= config.runtime.max_pending_operations:
@@ -179,14 +197,22 @@ class ToolAdmission:
         if tx.purpose != "tool_request" or prepared.run["agent_run_id"] != tx.run_binding.identity.agent_run_id:
             raise DomainError("NOT_FOUND_OR_FORBIDDEN")
         call = _call(tx, prepared.call["tool_call_id"])
+        if approval_binding is not None:
+            from wuji_core.contracts.sessions import ApprovalBinding
+            approval_binding = ApprovalBinding.model_validate(approval_binding)
+            approved = tx.connection.execute("SELECT decision_status,consumed_attempt_id FROM vnext.approval_request WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND approval_ref=%s AND version=%s AND tool_call_id=%s AND decision='approve'", (*tx.owner, approval_binding.approval_ref, approval_binding.decision_version, call["tool_call_id"])).fetchone()
+            if (not approved or approval_binding.tool_call_id != call["tool_call_id"]
+                    or approved[0] not in {"decided", "consumed"}
+                    or (approved[0] == "consumed" and approved[1] != call["latest_attempt_id"])):
+                raise DomainError("STALE_EXECUTION", 409)
         if call["latest_attempt_id"]:
             value = _attempt(tx, call["latest_attempt_id"])
             return ToolPermit.restore(strict_json_loads(value["permit_json"]), request_id=tx.access.request_id)
         if prepared.definition.approval_required:
-            if approval_binding is not None:
-                # P08's durable approval producer/consumer has not been installed.
-                raise DomainError("CAPABILITY_UNAVAILABLE", 503)
-            return ToolPermit(call["tool_call_id"], None, tx.run_binding.identity, prepared.executor.ref, prepared.definition.ref, prepared.request.arguments, digest(prepared.request.arguments), (), tx.run_binding.expires_at, "", tx.access, prepared.config.runtime, True)
+            if approval_binding is None:
+                return ToolPermit(call["tool_call_id"], None, tx.run_binding.identity, prepared.executor.ref, prepared.definition.ref, prepared.request.arguments, digest(prepared.request.arguments), (), tx.run_binding.expires_at, "", tx.access, prepared.config.runtime, True)
+            if call["status"] != "admitted" or approval_binding.replay:
+                raise DomainError("STALE_EXECUTION", 409)
         return self._new_attempt(tx, prepared)
 
     def _new_attempt(self, tx, prepared, *, retry_request_id=None):
@@ -455,6 +481,8 @@ class ToolGate:
         binding = self.registry.binding(access)
         with self.admission.uow.transaction(access, binding.identity.task_id) as tx:
             call = _call(tx, tool_call_id)
+            if call["work_item_id"] != binding.identity.work_item_id or call["session_lineage"] != binding.session_lineage:
+                raise DomainError("NOT_FOUND_OR_FORBIDDEN")
             if not call["latest_attempt_id"]:
                 return None
             attempt = _attempt(tx, call["latest_attempt_id"])
