@@ -1,0 +1,18 @@
+
+==================================== ERRORS ====================================
+_______________ ERROR collecting tests/vnext/test_pod_runtime.py _______________
+ImportError while importing test module '/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/tests/vnext/test_pod_runtime.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/vnext/test_pod_runtime.py:21: in <module>
+    from wuji_core.execution.pod_runtime import (
+packages/wuji-core/src/wuji_core/execution/pod_runtime.py:35: in <module>
+    from wuji_task_runtime.controller import PodClient, TaskRuntimeController
+E   ModuleNotFoundError: No module named 'wuji_task_runtime'
+=========================== short test summary info ============================
+ERROR tests/vnext/test_pod_runtime.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.21s

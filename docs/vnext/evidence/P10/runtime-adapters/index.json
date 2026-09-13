@@ -1,0 +1,394 @@
+{
+  "files": [
+    {
+      "archived_bytes": 1150,
+      "archived_path": "raw/history/collection-missing-task-runtime.txt",
+      "archived_sha256": "1375bc4ddb6ae4268487a9cff91bf3f723e85118ce44a798d01dff9564183dd0",
+      "original_bytes": 1150,
+      "original_sha256": "1375bc4ddb6ae4268487a9cff91bf3f723e85118ce44a798d01dff9564183dd0",
+      "redactions": {},
+      "source_path": "work/vnext/c0-sol-first/raw/pytest.txt",
+      "transformation": "exact-copy"
+    },
+    {
+      "archived_bytes": 1581,
+      "archived_path": "raw/history/collection-missing-kubernetes.txt",
+      "archived_sha256": "5dd24d684dcfce125b5a2c76d310ff4b5aca45e84dfbedc4f7993c95be0587ed",
+      "original_bytes": 1581,
+      "original_sha256": "5dd24d684dcfce125b5a2c76d310ff4b5aca45e84dfbedc4f7993c95be0587ed",
+      "redactions": {},
+      "source_path": "work/vnext/c0-sol-second/raw/pytest.txt",
+      "transformation": "exact-copy"
+    },
+    {
+      "archived_bytes": 44483,
+      "archived_path": "raw/history/initial-target-3pass-6tls-fail.txt",
+      "archived_sha256": "ec92f929e0a1db5ac3ff54d4ad1414303bb2bfd4cdfc6989a75870061c77fca4",
+      "original_bytes": 44483,
+      "original_sha256": "ec92f929e0a1db5ac3ff54d4ad1414303bb2bfd4cdfc6989a75870061c77fca4",
+      "redactions": {},
+      "source_path": "work/vnext/c0-sol-target/raw/pytest.txt",
+      "transformation": "exact-copy"
+    },
+    {
+      "archived_bytes": 219,
+      "archived_path": "raw/pod/collection.txt",
+      "archived_sha256": "c0c9d56a1338b0a85c18fc804fce854bfa2e989e9500368ff6e22241ce0d8934",
+      "original_bytes": 219,
+      "original_sha256": "c0c9d56a1338b0a85c18fc804fce854bfa2e989e9500368ff6e22241ce0d8934",
+      "redactions": {},
+      "source_path": "work/vnext/c0-sol-target/raw/pod-collection.txt",
+      "transformation": "exact-copy"
+    },
+    {
+      "archived_bytes": 99,
+      "archived_path": "raw/remote/pytest-7pass.txt",
+      "archived_sha256": "896cfad38bea072f90a6603717c305a2e64f1f8ceefbd5ff743f30216473f279",
+      "original_bytes": 99,
+      "original_sha256": "896cfad38bea072f90a6603717c305a2e64f1f8ceefbd5ff743f30216473f279",
+      "redactions": {},
+      "source_path": "work/vnext/c0-sol-remote-r2/raw/pytest.txt",
+      "transformation": "exact-copy"
+    },
+    {
+      "archived_bytes": 98,
+      "archived_path": "raw/pod/default-template-compat.txt",
+      "archived_sha256": "4bcefcc9f6c645923b9993ccf73ad92e6b400ca25458ea14e095857fc2131342",
+      "original_bytes": 98,
+      "original_sha256": "4bcefcc9f6c645923b9993ccf73ad92e6b400ca25458ea14e095857fc2131342",
+      "redactions": {},
+      "source_path": "work/vnext/c0-sol-remote-r2/raw/default-template-compat.txt",
+      "transformation": "exact-copy"
+    },
+    {
+      "archived_bytes": 3184,
+      "archived_path": "raw/history/prearchive-readme.md",
+      "archived_sha256": "8330e15349a80bbc5fad0365dc5db02954073dfc415bfead4119e21b6ea28088",
+      "original_bytes": 3184,
+      "original_sha256": "8330e15349a80bbc5fad0365dc5db02954073dfc415bfead4119e21b6ea28088",
+      "redactions": {},
+      "source_path": "work/vnext/c0-sol-remote-r2/README.md",
+      "transformation": "exact-copy"
+    },
+    {
+      "archived_bytes": 109923,
+      "archived_path": "screenshots/verification.png",
+      "archived_sha256": "b337770ba55adedd5e012653e024ee7c7c307da6d8606290d2114c2a828759bf",
+      "original_bytes": 109923,
+      "original_sha256": "b337770ba55adedd5e012653e024ee7c7c307da6d8606290d2114c2a828759bf",
+      "redactions": {},
+      "source_path": "work/vnext/c0-sol-remote-r2/screenshots/verification.png",
+      "transformation": "exact-copy"
+    },
+    {
+      "archived_bytes": 8239,
+      "archived_path": "raw/http/main-revocation/kali.jsonl",
+      "archived_sha256": "c5b07e08a4eb8ce50ce900be20420d26e0ac0a9d70c0e2578218f4e0df85ef52",
+      "original_bytes": 9329,
+      "original_sha256": "e4d942bf6d67539c4e5381069dd6c7b00965770bffdc54b5a0b4057fd5e34acb",
+      "redactions": {
+        "authorization": 2,
+        "execution_token": 2
+      },
+      "source_path": "work/vnext/c0-sol-remote-r2/raw/b822a945b704/c0-kali-https.jsonl",
+      "transformation": "decoded-json-recursive-redaction+reencoded-base64"
+    },
+    {
+      "archived_bytes": 5061,
+      "archived_path": "raw/http/main-revocation/platform.jsonl",
+      "archived_sha256": "b52486717b4aa42b7de8bddc189f04ee1ab475f9457cc1fe81ad0166612a4f2b",
+      "original_bytes": 6702,
+      "original_sha256": "8db1c51a0826f2ca7ac19310648ee7c6dd59b2d35be9a1658ec4932c71ce41f5",
+      "redactions": {
+        "authorization": 3,
+        "execution_token": 3
+      },
+      "source_path": "work/vnext/c0-sol-remote-r2/raw/b822a945b704/c0-platform-https.jsonl",
+      "transformation": "decoded-json-recursive-redaction+reencoded-base64"
+    },
+    {
+      "archived_bytes": 4044,
+      "archived_path": "raw/http/main-revocation/gate-p03.jsonl",
+      "archived_sha256": "c7db003576259fce05587feed86d15251f2a746761a7ba15c4b1684ed7fb8a75",
+      "original_bytes": 5987,
+      "original_sha256": "3bd01bf9f3681185046e5951936b43eaaec6ae75193314a99a5ef98618981663",
+      "redactions": {
+        "authorization": 3
+      },
+      "source_path": "work/vnext/c0-sol-remote-r2/raw/b822a945b704/p06-tool-http-exchanges.jsonl",
+      "transformation": "decoded-json-recursive-redaction+reencoded-base64"
+    },
+    {
+      "archived_bytes": 4676,
+      "archived_path": "raw/http/callback-lost-ack/platform.jsonl",
+      "archived_sha256": "5271cd413e178134f104d8595f333d3896e58a2eda6540af5a57fe81ec28aa65",
+      "original_bytes": 6308,
+      "original_sha256": "ce41746fd7db924598b0c1e7bd9bdbe2fd4069bd7c0672fdf2607f3f1cc5b870",
+      "redactions": {
+        "authorization": 3,
+        "execution_token": 3
+      },
+      "source_path": "work/vnext/c0-sol-remote-r2/raw/382794ef5011/c0-platform-https.jsonl",
+      "transformation": "decoded-json-recursive-redaction+reencoded-base64"
+    },
+    {
+      "archived_bytes": 4851,
+      "archived_path": "raw/http/callback-503/platform.jsonl",
+      "archived_sha256": "4bdb1b0af5b712537dd4c3be23bd3916d0e2d8d9f32ce2f2d6e287aa2a226e22",
+      "original_bytes": 6488,
+      "original_sha256": "e56262814c31d57488fc49e22596323d20b5411e83483c2d81c83c57ee7c3a54",
+      "redactions": {
+        "authorization": 3,
+        "execution_token": 3
+      },
+      "source_path": "work/vnext/c0-sol-remote-r2/raw/f39b985609cf/c0-platform-https.jsonl",
+      "transformation": "decoded-json-recursive-redaction+reencoded-base64"
+    },
+    {
+      "archived_bytes": 4980,
+      "archived_path": "raw/http/callback-bad-ack/platform.jsonl",
+      "archived_sha256": "603261e8811e8862c57091bcd668bb99c5404c1e7739001381a79329cbd469c6",
+      "original_bytes": 6617,
+      "original_sha256": "63e02a6ec107032ad18f3491172fbf8fb63dc2fd7196ec0f3f8ae6660faf1560",
+      "redactions": {
+        "authorization": 3,
+        "execution_token": 3
+      },
+      "source_path": "work/vnext/c0-sol-remote-r2/raw/2d7809d2e735/c0-platform-https.jsonl",
+      "transformation": "decoded-json-recursive-redaction+reencoded-base64"
+    },
+    {
+      "archived_bytes": 6490,
+      "archived_path": "raw/http/dispatch-not-registered/kali.jsonl",
+      "archived_sha256": "c4e631c500686ef357a6ba94f2d5f2b6bb5a533df39659a863e26f39180418be",
+      "original_bytes": 7571,
+      "original_sha256": "e5b09e74e3efe7052f34ab7dc4d249f116525ff2aba3d4eca5fc3e6b8d4e16d0",
+      "redactions": {
+        "authorization": 2,
+        "execution_token": 2
+      },
+      "source_path": "work/vnext/c0-sol-remote-r2/raw/917e9296c298/c0-kali-https.jsonl",
+      "transformation": "decoded-json-recursive-redaction+reencoded-base64"
+    },
+    {
+      "archived_bytes": 1687,
+      "archived_path": "raw/http/dispatch-not-registered/platform.jsonl",
+      "archived_sha256": "3bdccc6efe499d6a5c92ad09ab709ff3f22496a02eca1458e80d0c5f4cf853f8",
+      "original_bytes": 2234,
+      "original_sha256": "b8aa7a84cb7927c33035ed7e0b4b8cd1bdc28e67b44bfbff59041c48161d8250",
+      "redactions": {
+        "authorization": 1,
+        "execution_token": 1
+      },
+      "source_path": "work/vnext/c0-sol-remote-r2/raw/917e9296c298/c0-platform-https.jsonl",
+      "transformation": "decoded-json-recursive-redaction+reencoded-base64"
+    },
+    {
+      "archived_bytes": 6088,
+      "archived_path": "raw/http/tamper-and-identity/kali.jsonl",
+      "archived_sha256": "c3d101998abdb6d14daa53923ad2442d9a4ec802ea280f72943676ca913948d3",
+      "original_bytes": 7175,
+      "original_sha256": "83c8cd4e696e5bb4d12655f6dce752c4ee22d4bbd24313d756fd4ce1759b228d",
+      "redactions": {
+        "authorization": 2,
+        "execution_token": 2
+      },
+      "source_path": "work/vnext/c0-sol-remote-r2/raw/c42020885ee8/c0-kali-https.jsonl",
+      "transformation": "decoded-json-recursive-redaction+reencoded-base64"
+    },
+    {
+      "archived_bytes": 3297,
+      "archived_path": "raw/http/tamper-and-identity/platform.jsonl",
+      "archived_sha256": "f5f7f76cc77e0b44eee2964f3eb269b1a8ee1c6ab6ee2920eba315e310402058",
+      "original_bytes": 4387,
+      "original_sha256": "905d417681ac2f985ac21510effcf8afa7cecd37584b4c9ea7a65c4d11230995",
+      "redactions": {
+        "authorization": 2,
+        "execution_token": 2
+      },
+      "source_path": "work/vnext/c0-sol-remote-r2/raw/c42020885ee8/c0-platform-https.jsonl",
+      "transformation": "decoded-json-recursive-redaction+reencoded-base64"
+    },
+    {
+      "archived_bytes": 63989,
+      "archived_path": "raw/sql/remote-main-revocation.postgres-events.jsonl.gz",
+      "archived_sha256": "2ba071a75f17243eadcd0c32e4f59184c4237bb5d2be52223cdea814ddf0f484",
+      "original_bytes": 996632,
+      "original_sha256": "2563e66e13c409c9b9ecb9d225499d21847015ad127fff205bdc34b439c6d4d9",
+      "redactions": {
+        "execution_token": 16
+      },
+      "sanitized_uncompressed_bytes": 962760,
+      "sanitized_uncompressed_sha256": "de0b34fa22c4a0a5c26341ed74e7db08db3cca0cededd915893ad27b5624f191",
+      "source_path": "work/vnext/c0-sol-remote-r2/raw/b822a945b704/postgres-events.jsonl",
+      "transformation": "recursive-redaction+gzip-mtime-0"
+    },
+    {
+      "archived_bytes": 1171,
+      "archived_path": "raw/identity/remote-main-revocation.p06-identity-events.jsonl",
+      "archived_sha256": "f3f167a8e316d24b550176a23d25d3cda20a9805513d483c64a0a96820a8fd4c",
+      "original_bytes": 1223,
+      "original_sha256": "6c1ca28f9be26db3f5cd3272f0572701e1ebe5a3f26b63c0241b059ee3ed8831",
+      "redactions": {},
+      "source_path": "work/vnext/c0-sol-remote-r2/raw/b822a945b704/p06-identity-events.jsonl",
+      "transformation": "recursive-redaction"
+    },
+    {
+      "archived_bytes": 53000,
+      "archived_path": "raw/sql/remote-callback-lost-ack.postgres-events.jsonl.gz",
+      "archived_sha256": "8e88252905288d2111651eedb8e1b2f3e8e4fe96d13c2a093e70c370c8c83cfd",
+      "original_bytes": 680460,
+      "original_sha256": "d4ee4073e4f342b3d5374c3412c954906fc61050ef450e5523edce7bc4f59943",
+      "redactions": {
+        "execution_token": 7
+      },
+      "sanitized_uncompressed_bytes": 660576,
+      "sanitized_uncompressed_sha256": "b1b4c15e36c74a2afb63aae19767806c4b2f526497c944814f2d53e92d42dc52",
+      "source_path": "work/vnext/c0-sol-remote-r2/raw/382794ef5011/postgres-events.jsonl",
+      "transformation": "recursive-redaction+gzip-mtime-0"
+    },
+    {
+      "archived_bytes": 1171,
+      "archived_path": "raw/identity/remote-callback-lost-ack.p06-identity-events.jsonl",
+      "archived_sha256": "992b3bf20a3b8b378c672124008b4cea0517bc51bec9fd6d154bf2ab966d6103",
+      "original_bytes": 1223,
+      "original_sha256": "6d2339301c78d68fe72cd0414587e14563a51d6fcec0cfff882f64b61c1253b5",
+      "redactions": {},
+      "source_path": "work/vnext/c0-sol-remote-r2/raw/382794ef5011/p06-identity-events.jsonl",
+      "transformation": "recursive-redaction"
+    },
+    {
+      "archived_bytes": 53010,
+      "archived_path": "raw/sql/remote-callback-503.postgres-events.jsonl.gz",
+      "archived_sha256": "ead593a09fb185356757b63105aa877d1aaf3397841ec099212bae6d799ed749",
+      "original_bytes": 680502,
+      "original_sha256": "fbd1878eebdcb66302cd48cc3ba9618655699411c2c06323d893251c8710cef9",
+      "redactions": {
+        "execution_token": 7
+      },
+      "sanitized_uncompressed_bytes": 660618,
+      "sanitized_uncompressed_sha256": "94e0ffeccc2ec4b2e96f647fd2a91550d02c6199f20e83b15d0f5b10dd0d8881",
+      "source_path": "work/vnext/c0-sol-remote-r2/raw/f39b985609cf/postgres-events.jsonl",
+      "transformation": "recursive-redaction+gzip-mtime-0"
+    },
+    {
+      "archived_bytes": 1171,
+      "archived_path": "raw/identity/remote-callback-503.p06-identity-events.jsonl",
+      "archived_sha256": "f4148aceaabe32cb440ac371683272146114335f9a056a4eadfba838e5a056c9",
+      "original_bytes": 1223,
+      "original_sha256": "31135fc5ae090182483bda257c4842f9dd3168624b8ed5f8b508ce8882fe6997",
+      "redactions": {},
+      "source_path": "work/vnext/c0-sol-remote-r2/raw/f39b985609cf/p06-identity-events.jsonl",
+      "transformation": "recursive-redaction"
+    },
+    {
+      "archived_bytes": 53022,
+      "archived_path": "raw/sql/remote-callback-bad-ack.postgres-events.jsonl.gz",
+      "archived_sha256": "f89c9667f73ee8f7d56426ef357868fefe4669570cd076f3401142db7ebe2374",
+      "original_bytes": 680481,
+      "original_sha256": "ae87051958a39d326b2b96cfaeb67ba0411957fc6313304e5c7020f88ae402f2",
+      "redactions": {
+        "execution_token": 7
+      },
+      "sanitized_uncompressed_bytes": 660597,
+      "sanitized_uncompressed_sha256": "eb41fef25c485c47dcf1b9e22144aff8e976c531176c7e3af39cbaec7ba6a7fa",
+      "source_path": "work/vnext/c0-sol-remote-r2/raw/2d7809d2e735/postgres-events.jsonl",
+      "transformation": "recursive-redaction+gzip-mtime-0"
+    },
+    {
+      "archived_bytes": 1171,
+      "archived_path": "raw/identity/remote-callback-bad-ack.p06-identity-events.jsonl",
+      "archived_sha256": "679f9a5d21a59fa9d09757613a47f822cc7362c74ab32270eeac8fcb0c5a5252",
+      "original_bytes": 1223,
+      "original_sha256": "e3e659b3b71dc81c324d222419bffc4d0dd81ca04a0f463feef9a2f75b7576b0",
+      "redactions": {},
+      "source_path": "work/vnext/c0-sol-remote-r2/raw/2d7809d2e735/p06-identity-events.jsonl",
+      "transformation": "recursive-redaction"
+    },
+    {
+      "archived_bytes": 53991,
+      "archived_path": "raw/sql/remote-dispatch-not-registered.postgres-events.jsonl.gz",
+      "archived_sha256": "debd9e0e99af1dcd8ad3f026852ed064524febc6185642f1a2407c1722d43bf2",
+      "original_bytes": 699896,
+      "original_sha256": "996c3e61f2a3e6311ec4746815ae6812c97a9253497a631e61c833d1af1bb039",
+      "redactions": {
+        "execution_token": 6
+      },
+      "sanitized_uncompressed_bytes": 678938,
+      "sanitized_uncompressed_sha256": "6f09bc6a4ecf3da657502703b00352470f5144167248a0a6001f7ae702b8968e",
+      "source_path": "work/vnext/c0-sol-remote-r2/raw/917e9296c298/postgres-events.jsonl",
+      "transformation": "recursive-redaction+gzip-mtime-0"
+    },
+    {
+      "archived_bytes": 1171,
+      "archived_path": "raw/identity/remote-dispatch-not-registered.p06-identity-events.jsonl",
+      "archived_sha256": "809495e8c49abeea32b4bc63acf8454de2bd34cf96fffa4641df34720e47183e",
+      "original_bytes": 1223,
+      "original_sha256": "93689a3f5586077c5767d2b8d43704e1e0550b6b525417275227886c8c4db3bd",
+      "redactions": {},
+      "source_path": "work/vnext/c0-sol-remote-r2/raw/917e9296c298/p06-identity-events.jsonl",
+      "transformation": "recursive-redaction"
+    },
+    {
+      "archived_bytes": 50270,
+      "archived_path": "raw/sql/remote-tamper-and-identity.postgres-events.jsonl.gz",
+      "archived_sha256": "f5fe38b5d8b4004376ea9343ede2dcc94a0c87d9867e191ddd807a1d242eede5",
+      "original_bytes": 586876,
+      "original_sha256": "27fde4b65eebd56de2dde048769bedce8c862f83415e82cc22c29c85f5cf7422",
+      "redactions": {
+        "execution_token": 2
+      },
+      "sanitized_uncompressed_bytes": 571011,
+      "sanitized_uncompressed_sha256": "a835f99007765394db66b7595ecbdf23fa541f88aafbeb4ad297c4da4c6eba3a",
+      "source_path": "work/vnext/c0-sol-remote-r2/raw/c42020885ee8/postgres-events.jsonl",
+      "transformation": "recursive-redaction+gzip-mtime-0"
+    },
+    {
+      "archived_bytes": 1171,
+      "archived_path": "raw/identity/remote-tamper-and-identity.p06-identity-events.jsonl",
+      "archived_sha256": "5c89253d3c5f6a938c633c0ebebdd6e9165384105ba5a303db4dea6a38e1200b",
+      "original_bytes": 1223,
+      "original_sha256": "b1ca58971a9114c76a5c701fbf71a92db5cd08dfb8bdcf413f987fad15a2a4e0",
+      "redactions": {},
+      "source_path": "work/vnext/c0-sol-remote-r2/raw/c42020885ee8/p06-identity-events.jsonl",
+      "transformation": "recursive-redaction"
+    },
+    {
+      "archived_bytes": 52307,
+      "archived_path": "raw/sql/pod-current-permit-lease-registration.postgres-events.jsonl.gz",
+      "archived_sha256": "8407e0179944a1635f5a07ff5642e4b0f4db7b993d0260be401224c2d5e4dba1",
+      "original_bytes": 747079,
+      "original_sha256": "3a8cb71c55409fd574b83705762a8603b73728c52f904cb0fad55faca1164af0",
+      "redactions": {},
+      "sanitized_uncompressed_bytes": 723095,
+      "sanitized_uncompressed_sha256": "e15e2dbc3d898a729748a2992c4669403fd5f6388a95bb58567bad2b6a77a70f",
+      "source_path": "work/vnext/c0-sol-target/raw/4f90f372f2f1/postgres-events.jsonl",
+      "transformation": "recursive-redaction+gzip-mtime-0"
+    },
+    {
+      "archived_bytes": 47886,
+      "archived_path": "raw/sql/pod-foreign-owner-rejected.postgres-events.jsonl.gz",
+      "archived_sha256": "7ca88783ef7514923703a3ab186b87831c1f47ffd7cc95d2384b97bcfe915ccc",
+      "original_bytes": 573991,
+      "original_sha256": "d6e85ea48b0527a5abbc026270702527781cdcc040a8acd289999c77f754decd",
+      "redactions": {},
+      "sanitized_uncompressed_bytes": 558385,
+      "sanitized_uncompressed_sha256": "068b2952701f23276dd56776bc21fa83a318186f7280ca197da72f5b9947cbdf",
+      "source_path": "work/vnext/c0-sol-target/raw/1ec62e5feac8/postgres-events.jsonl",
+      "transformation": "recursive-redaction+gzip-mtime-0"
+    }
+  ],
+  "generated_at": "2026-09-13T14:28:42.482422+00:00",
+  "policy": {
+    "originals": "local ignored work/ files; never staged",
+    "private_keys": "not present in captured source set and not copied",
+    "publishable_derivative": "recursive credential redaction with per-secret and per-file SHA-256 provenance"
+  },
+  "schema_version": "wuji.c0-runtime-adapters-evidence.v1",
+  "source_binding": {
+    "code_commit": "d2beac6980aab7959367299f91e4dd2558de9b59",
+    "pod_result": "2 passed within the initial 3-pass/6-TLS-failure run",
+    "remote_result": "7 passed in 14.81s",
+    "test_base_head": "890b54064f370c6e9ace2bc5d92cce2a86a1eefc"
+  }
+}

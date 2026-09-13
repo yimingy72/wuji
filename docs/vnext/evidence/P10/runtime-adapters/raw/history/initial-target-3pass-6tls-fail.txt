@@ -1,0 +1,792 @@
+.FFFFFF..                                                                [100%]
+=================================== FAILURES ===================================
+_ test_real_https_workspace_read_persists_p03_and_old_receipt_after_revocation _
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x10accf8c0>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-277/test_real_https_workspace_read0')
+audit_directory = PosixPath('work/vnext/c0-sol-target/raw/b822a945b704')
+
+    def test_real_https_workspace_read_persists_p03_and_old_receipt_after_revocation(
+        db_environment, tmp_path, audit_directory
+    ):
+        with tool_case(db_environment, tmp_path, audit_directory) as case:
+            with _remote_stack(case, tmp_path, audit_directory) as stack:
+                case.gate.executors[stack.binding.executor_ref] = stack.remote
+                response = case.client.post(
+                    "/internal/v2/tool-calls",
+                    json=workspace_tool_request(provider_call_id="call-c0-real-https"),
+                    headers=tool_headers(case, "c0-real-https"),
+                )
+                assert response.status_code == 200
+                receipt = response.json()
+>               assert receipt["status"] == "complete"
+E               AssertionError: assert 'unknown' == 'complete'
+E                 
+E                 - complete
+E                 + unknown
+
+tests/vnext/test_remote_workspace.py:328: AssertionError
+_ test_callback_commits_then_lost_or_invalid_ack_keeps_prepared_unknown[drop] __
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+>           yield
+
+.venv/lib/python3.13/site-packages/httpx/_transports/default.py:101: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.13/site-packages/httpx/_transports/default.py:250: in handle_request
+    resp = self._pool.handle_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.13/site-packages/httpcore/_sync/connection_pool.py:256: in handle_request
+    raise exc from None
+.venv/lib/python3.13/site-packages/httpcore/_sync/connection_pool.py:236: in handle_request
+    response = connection.handle_request(
+.venv/lib/python3.13/site-packages/httpcore/_sync/connection.py:101: in handle_request
+    raise exc
+.venv/lib/python3.13/site-packages/httpcore/_sync/connection.py:78: in handle_request
+    stream = self._connect(request)
+             ^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.13/site-packages/httpcore/_sync/connection.py:156: in _connect
+    stream = stream.start_tls(**kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.13/site-packages/httpcore/_backends/sync.py:154: in start_tls
+    with map_exceptions(exc_map):
+         ^^^^^^^^^^^^^^^^^^^^^^^
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:162: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+map = {<class 'TimeoutError'>: <class 'httpcore.ConnectTimeout'>, <class 'OSError'>: <class 'httpcore.ConnectError'>}
+
+    @contextlib.contextmanager
+    def map_exceptions(map: ExceptionMapping) -> typing.Iterator[None]:
+        try:
+            yield
+        except Exception as exc:  # noqa: PIE786
+            for from_exc, to_exc in map.items():
+                if isinstance(exc, from_exc):
+>                   raise to_exc(exc) from exc
+E                   httpcore.ConnectError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: Missing Authority Key Identifier (_ssl.c:1032)
+
+.venv/lib/python3.13/site-packages/httpcore/_exceptions.py:14: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+self = <wuji_core.admission.remote_workspace.RemoteToolAdmission object at 0x10b152490>
+path = '/internal/v2/executors/workspace-reader-fixture/permits/check'
+payload = {'identity': {'tenant_id': 'tenant-fixture', 'project_id': 'project-fixture', 'task_id': 'task-fixture', 'work_item_id...e5c2-401e-bf4c-890dd345abf2', 'permit_digest': '006fd56e0c9344629a98a5f1c17c278b134268fbd311c776a611b38064db1df1', ...}
+
+    def post(self, path, payload):
+        url, body, headers = self._request(path, payload)
+        try:
+            transport = httpx.HTTPTransport(verify=self._tls, retries=0, trust_env=False)
+            with httpx.Client(transport=transport, trust_env=False, follow_redirects=False,
+                              timeout=self.timeout_seconds) as client:
+>               with client.stream("POST", url, content=body, headers=headers) as response:
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+packages/wuji-core/src/wuji_core/admission/remote_workspace.py:155: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+.venv/lib/python3.13/site-packages/httpx/_client.py:868: in stream
+    response = self.send(
+.venv/lib/python3.13/site-packages/httpx/_client.py:914: in send
+    response = self._send_handling_auth(
+.venv/lib/python3.13/site-packages/httpx/_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+.venv/lib/python3.13/site-packages/httpx/_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.13/site-packages/httpx/_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.13/site-packages/httpx/_transports/default.py:249: in handle_request
+    with map_httpcore_exceptions():
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:162: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+            yield
+        except Exception as exc:
+            mapped_exc = None
+    
+            for from_exc, to_exc in HTTPCORE_EXC_MAP.items():
+                if not isinstance(exc, from_exc):
+                    continue
+                # We want to map to the most specific exception we can find.
+                # Eg if `exc` is an `httpcore.ReadTimeout`, we want to map to
+                # `httpx.ReadTimeout`, not just `httpx.TimeoutException`.
+                if mapped_exc is None or issubclass(to_exc, mapped_exc):
+                    mapped_exc = to_exc
+    
+            if mapped_exc is None:  # pragma: no cover
+                raise
+    
+            message = str(exc)
+>           raise mapped_exc(message) from exc
+E           httpx.ConnectError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: Missing Authority Key Identifier (_ssl.c:1032)
+
+.venv/lib/python3.13/site-packages/httpx/_transports/default.py:118: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x10ad816d0>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-277/test_callback_commits_then_los0')
+audit_directory = PosixPath('work/vnext/c0-sol-target/raw/382794ef5011')
+fault_mode = 'drop'
+
+    @pytest.mark.parametrize("fault_mode", ["drop", "status_503", "bad_ack"])
+    def test_callback_commits_then_lost_or_invalid_ack_keeps_prepared_unknown(
+        db_environment, tmp_path, audit_directory, fault_mode
+    ):
+        fault = ScriptedHttpFault(
+            path="/internal/v2/executors/workspace-reader-fixture/permits/check",
+            phase="after",
+            mode=fault_mode,
+            purpose="check_execution",
+        )
+        with tool_case(db_environment, tmp_path, audit_directory) as case:
+            permit = _authorize(case, "call-c0-callback-" + fault_mode)
+            with _remote_stack(
+                case, tmp_path, audit_directory, callback_fault=fault
+            ) as stack:
+                local_kali = WorkspaceReadExecutor(
+                    root=case.workspace,
+                    receipt_root=case.receipt_root,
+                    admission=stack.remote_admission,
+                    receiver_id=stack.binding.receiver_id,
+                    environment_ref=stack.binding.environment_ref,
+                )
+                with pytest.raises(OSError) as ambiguous:
+                    asyncio.run(local_kali.dispatch(permit))
+                assert isinstance(ambiguous.value, RemoteExecutorTransportError)
+                assert not isinstance(ambiguous.value, DomainError)
+>               stored = asyncio.run(local_kali.query(permit))
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_remote_workspace.py:398: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/asyncio/runners.py:196: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/asyncio/runners.py:119: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/asyncio/base_events.py:726: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+packages/wuji-core/src/wuji_core/admission/tools.py:698: in query
+    return await asyncio.to_thread(self._query, permit)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/asyncio/threads.py:26: in to_thread
+    return await loop.run_in_executor(None, func_call)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/concurrent/futures/thread.py:59: in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+packages/wuji-core/src/wuji_core/admission/tools.py:614: in _query
+    self.admission.validate_receipt_permit(permit, receiver_id=self.receiver_id)
+packages/wuji-core/src/wuji_core/admission/remote_workspace.py:359: in validate_receipt_permit
+    self._check(permit, receiver_id=receiver_id, purpose="validate_receipt")
+packages/wuji-core/src/wuji_core/admission/remote_workspace.py:345: in _check
+    result = self.post("/internal/v2/executors/"
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <wuji_core.admission.remote_workspace.RemoteToolAdmission object at 0x10b152490>
+path = '/internal/v2/executors/workspace-reader-fixture/permits/check'
+payload = {'identity': {'tenant_id': 'tenant-fixture', 'project_id': 'project-fixture', 'task_id': 'task-fixture', 'work_item_id...e5c2-401e-bf4c-890dd345abf2', 'permit_digest': '006fd56e0c9344629a98a5f1c17c278b134268fbd311c776a611b38064db1df1', ...}
+
+    def post(self, path, payload):
+        url, body, headers = self._request(path, payload)
+        try:
+            transport = httpx.HTTPTransport(verify=self._tls, retries=0, trust_env=False)
+            with httpx.Client(transport=transport, trust_env=False, follow_redirects=False,
+                              timeout=self.timeout_seconds) as client:
+                with client.stream("POST", url, content=body, headers=headers) as response:
+                    self._response_headers(response)
+                    result = bytearray()
+                    for chunk in response.iter_raw(chunk_size=65536):
+                        if len(result) + len(chunk) > self.max_response_bytes:
+                            raise RemoteExecutorTransportError("Executor response exceeds its wire limit")
+                        result.extend(chunk)
+                    return self._response(response.status_code, result)
+        except httpx.HTTPError as error:
+>           raise RemoteExecutorTransportError("Executor HTTPS request was not confirmed") from error
+E           wuji_core.admission.remote_workspace.RemoteExecutorTransportError: Executor HTTPS request was not confirmed
+
+packages/wuji-core/src/wuji_core/admission/remote_workspace.py:164: RemoteExecutorTransportError
+_ test_callback_commits_then_lost_or_invalid_ack_keeps_prepared_unknown[status_503] _
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+>           yield
+
+.venv/lib/python3.13/site-packages/httpx/_transports/default.py:101: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.13/site-packages/httpx/_transports/default.py:250: in handle_request
+    resp = self._pool.handle_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.13/site-packages/httpcore/_sync/connection_pool.py:256: in handle_request
+    raise exc from None
+.venv/lib/python3.13/site-packages/httpcore/_sync/connection_pool.py:236: in handle_request
+    response = connection.handle_request(
+.venv/lib/python3.13/site-packages/httpcore/_sync/connection.py:101: in handle_request
+    raise exc
+.venv/lib/python3.13/site-packages/httpcore/_sync/connection.py:78: in handle_request
+    stream = self._connect(request)
+             ^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.13/site-packages/httpcore/_sync/connection.py:156: in _connect
+    stream = stream.start_tls(**kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.13/site-packages/httpcore/_backends/sync.py:154: in start_tls
+    with map_exceptions(exc_map):
+         ^^^^^^^^^^^^^^^^^^^^^^^
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:162: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+map = {<class 'TimeoutError'>: <class 'httpcore.ConnectTimeout'>, <class 'OSError'>: <class 'httpcore.ConnectError'>}
+
+    @contextlib.contextmanager
+    def map_exceptions(map: ExceptionMapping) -> typing.Iterator[None]:
+        try:
+            yield
+        except Exception as exc:  # noqa: PIE786
+            for from_exc, to_exc in map.items():
+                if isinstance(exc, from_exc):
+>                   raise to_exc(exc) from exc
+E                   httpcore.ConnectError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: Missing Authority Key Identifier (_ssl.c:1032)
+
+.venv/lib/python3.13/site-packages/httpcore/_exceptions.py:14: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+self = <wuji_core.admission.remote_workspace.RemoteToolAdmission object at 0x10af2bb10>
+path = '/internal/v2/executors/workspace-reader-fixture/permits/check'
+payload = {'identity': {'tenant_id': 'tenant-fixture', 'project_id': 'project-fixture', 'task_id': 'task-fixture', 'work_item_id...9eef-475e-919e-bf554f2d483a', 'permit_digest': 'ec2c3fddaa749a5a044f9a4330173e9508a16150707478d027f09661e17163a6', ...}
+
+    def post(self, path, payload):
+        url, body, headers = self._request(path, payload)
+        try:
+            transport = httpx.HTTPTransport(verify=self._tls, retries=0, trust_env=False)
+            with httpx.Client(transport=transport, trust_env=False, follow_redirects=False,
+                              timeout=self.timeout_seconds) as client:
+>               with client.stream("POST", url, content=body, headers=headers) as response:
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+packages/wuji-core/src/wuji_core/admission/remote_workspace.py:155: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+.venv/lib/python3.13/site-packages/httpx/_client.py:868: in stream
+    response = self.send(
+.venv/lib/python3.13/site-packages/httpx/_client.py:914: in send
+    response = self._send_handling_auth(
+.venv/lib/python3.13/site-packages/httpx/_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+.venv/lib/python3.13/site-packages/httpx/_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.13/site-packages/httpx/_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.13/site-packages/httpx/_transports/default.py:249: in handle_request
+    with map_httpcore_exceptions():
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:162: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+            yield
+        except Exception as exc:
+            mapped_exc = None
+    
+            for from_exc, to_exc in HTTPCORE_EXC_MAP.items():
+                if not isinstance(exc, from_exc):
+                    continue
+                # We want to map to the most specific exception we can find.
+                # Eg if `exc` is an `httpcore.ReadTimeout`, we want to map to
+                # `httpx.ReadTimeout`, not just `httpx.TimeoutException`.
+                if mapped_exc is None or issubclass(to_exc, mapped_exc):
+                    mapped_exc = to_exc
+    
+            if mapped_exc is None:  # pragma: no cover
+                raise
+    
+            message = str(exc)
+>           raise mapped_exc(message) from exc
+E           httpx.ConnectError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: Missing Authority Key Identifier (_ssl.c:1032)
+
+.venv/lib/python3.13/site-packages/httpx/_transports/default.py:118: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x10b153890>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-277/test_callback_commits_then_los1')
+audit_directory = PosixPath('work/vnext/c0-sol-target/raw/f39b985609cf')
+fault_mode = 'status_503'
+
+    @pytest.mark.parametrize("fault_mode", ["drop", "status_503", "bad_ack"])
+    def test_callback_commits_then_lost_or_invalid_ack_keeps_prepared_unknown(
+        db_environment, tmp_path, audit_directory, fault_mode
+    ):
+        fault = ScriptedHttpFault(
+            path="/internal/v2/executors/workspace-reader-fixture/permits/check",
+            phase="after",
+            mode=fault_mode,
+            purpose="check_execution",
+        )
+        with tool_case(db_environment, tmp_path, audit_directory) as case:
+            permit = _authorize(case, "call-c0-callback-" + fault_mode)
+            with _remote_stack(
+                case, tmp_path, audit_directory, callback_fault=fault
+            ) as stack:
+                local_kali = WorkspaceReadExecutor(
+                    root=case.workspace,
+                    receipt_root=case.receipt_root,
+                    admission=stack.remote_admission,
+                    receiver_id=stack.binding.receiver_id,
+                    environment_ref=stack.binding.environment_ref,
+                )
+                with pytest.raises(OSError) as ambiguous:
+                    asyncio.run(local_kali.dispatch(permit))
+                assert isinstance(ambiguous.value, RemoteExecutorTransportError)
+                assert not isinstance(ambiguous.value, DomainError)
+>               stored = asyncio.run(local_kali.query(permit))
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_remote_workspace.py:398: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/asyncio/runners.py:196: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/asyncio/runners.py:119: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/asyncio/base_events.py:726: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+packages/wuji-core/src/wuji_core/admission/tools.py:698: in query
+    return await asyncio.to_thread(self._query, permit)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/asyncio/threads.py:26: in to_thread
+    return await loop.run_in_executor(None, func_call)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/concurrent/futures/thread.py:59: in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+packages/wuji-core/src/wuji_core/admission/tools.py:614: in _query
+    self.admission.validate_receipt_permit(permit, receiver_id=self.receiver_id)
+packages/wuji-core/src/wuji_core/admission/remote_workspace.py:359: in validate_receipt_permit
+    self._check(permit, receiver_id=receiver_id, purpose="validate_receipt")
+packages/wuji-core/src/wuji_core/admission/remote_workspace.py:345: in _check
+    result = self.post("/internal/v2/executors/"
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <wuji_core.admission.remote_workspace.RemoteToolAdmission object at 0x10af2bb10>
+path = '/internal/v2/executors/workspace-reader-fixture/permits/check'
+payload = {'identity': {'tenant_id': 'tenant-fixture', 'project_id': 'project-fixture', 'task_id': 'task-fixture', 'work_item_id...9eef-475e-919e-bf554f2d483a', 'permit_digest': 'ec2c3fddaa749a5a044f9a4330173e9508a16150707478d027f09661e17163a6', ...}
+
+    def post(self, path, payload):
+        url, body, headers = self._request(path, payload)
+        try:
+            transport = httpx.HTTPTransport(verify=self._tls, retries=0, trust_env=False)
+            with httpx.Client(transport=transport, trust_env=False, follow_redirects=False,
+                              timeout=self.timeout_seconds) as client:
+                with client.stream("POST", url, content=body, headers=headers) as response:
+                    self._response_headers(response)
+                    result = bytearray()
+                    for chunk in response.iter_raw(chunk_size=65536):
+                        if len(result) + len(chunk) > self.max_response_bytes:
+                            raise RemoteExecutorTransportError("Executor response exceeds its wire limit")
+                        result.extend(chunk)
+                    return self._response(response.status_code, result)
+        except httpx.HTTPError as error:
+>           raise RemoteExecutorTransportError("Executor HTTPS request was not confirmed") from error
+E           wuji_core.admission.remote_workspace.RemoteExecutorTransportError: Executor HTTPS request was not confirmed
+
+packages/wuji-core/src/wuji_core/admission/remote_workspace.py:164: RemoteExecutorTransportError
+_ test_callback_commits_then_lost_or_invalid_ack_keeps_prepared_unknown[bad_ack] _
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+>           yield
+
+.venv/lib/python3.13/site-packages/httpx/_transports/default.py:101: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.13/site-packages/httpx/_transports/default.py:250: in handle_request
+    resp = self._pool.handle_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.13/site-packages/httpcore/_sync/connection_pool.py:256: in handle_request
+    raise exc from None
+.venv/lib/python3.13/site-packages/httpcore/_sync/connection_pool.py:236: in handle_request
+    response = connection.handle_request(
+.venv/lib/python3.13/site-packages/httpcore/_sync/connection.py:101: in handle_request
+    raise exc
+.venv/lib/python3.13/site-packages/httpcore/_sync/connection.py:78: in handle_request
+    stream = self._connect(request)
+             ^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.13/site-packages/httpcore/_sync/connection.py:156: in _connect
+    stream = stream.start_tls(**kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.13/site-packages/httpcore/_backends/sync.py:154: in start_tls
+    with map_exceptions(exc_map):
+         ^^^^^^^^^^^^^^^^^^^^^^^
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:162: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+map = {<class 'TimeoutError'>: <class 'httpcore.ConnectTimeout'>, <class 'OSError'>: <class 'httpcore.ConnectError'>}
+
+    @contextlib.contextmanager
+    def map_exceptions(map: ExceptionMapping) -> typing.Iterator[None]:
+        try:
+            yield
+        except Exception as exc:  # noqa: PIE786
+            for from_exc, to_exc in map.items():
+                if isinstance(exc, from_exc):
+>                   raise to_exc(exc) from exc
+E                   httpcore.ConnectError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: Missing Authority Key Identifier (_ssl.c:1032)
+
+.venv/lib/python3.13/site-packages/httpcore/_exceptions.py:14: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+self = <wuji_core.admission.remote_workspace.RemoteToolAdmission object at 0x10b2ae8b0>
+path = '/internal/v2/executors/workspace-reader-fixture/permits/check'
+payload = {'identity': {'tenant_id': 'tenant-fixture', 'project_id': 'project-fixture', 'task_id': 'task-fixture', 'work_item_id...0f5e-48a5-838d-2f1bb1defecd', 'permit_digest': '2609d44b34d28bdc4361efe0979013cea4a3e898780a984a4aec7e978b2e6bfd', ...}
+
+    def post(self, path, payload):
+        url, body, headers = self._request(path, payload)
+        try:
+            transport = httpx.HTTPTransport(verify=self._tls, retries=0, trust_env=False)
+            with httpx.Client(transport=transport, trust_env=False, follow_redirects=False,
+                              timeout=self.timeout_seconds) as client:
+>               with client.stream("POST", url, content=body, headers=headers) as response:
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+packages/wuji-core/src/wuji_core/admission/remote_workspace.py:155: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+.venv/lib/python3.13/site-packages/httpx/_client.py:868: in stream
+    response = self.send(
+.venv/lib/python3.13/site-packages/httpx/_client.py:914: in send
+    response = self._send_handling_auth(
+.venv/lib/python3.13/site-packages/httpx/_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+.venv/lib/python3.13/site-packages/httpx/_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.13/site-packages/httpx/_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.13/site-packages/httpx/_transports/default.py:249: in handle_request
+    with map_httpcore_exceptions():
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:162: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+            yield
+        except Exception as exc:
+            mapped_exc = None
+    
+            for from_exc, to_exc in HTTPCORE_EXC_MAP.items():
+                if not isinstance(exc, from_exc):
+                    continue
+                # We want to map to the most specific exception we can find.
+                # Eg if `exc` is an `httpcore.ReadTimeout`, we want to map to
+                # `httpx.ReadTimeout`, not just `httpx.TimeoutException`.
+                if mapped_exc is None or issubclass(to_exc, mapped_exc):
+                    mapped_exc = to_exc
+    
+            if mapped_exc is None:  # pragma: no cover
+                raise
+    
+            message = str(exc)
+>           raise mapped_exc(message) from exc
+E           httpx.ConnectError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: Missing Authority Key Identifier (_ssl.c:1032)
+
+.venv/lib/python3.13/site-packages/httpx/_transports/default.py:118: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x10b2acd60>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-277/test_callback_commits_then_los2')
+audit_directory = PosixPath('work/vnext/c0-sol-target/raw/2d7809d2e735')
+fault_mode = 'bad_ack'
+
+    @pytest.mark.parametrize("fault_mode", ["drop", "status_503", "bad_ack"])
+    def test_callback_commits_then_lost_or_invalid_ack_keeps_prepared_unknown(
+        db_environment, tmp_path, audit_directory, fault_mode
+    ):
+        fault = ScriptedHttpFault(
+            path="/internal/v2/executors/workspace-reader-fixture/permits/check",
+            phase="after",
+            mode=fault_mode,
+            purpose="check_execution",
+        )
+        with tool_case(db_environment, tmp_path, audit_directory) as case:
+            permit = _authorize(case, "call-c0-callback-" + fault_mode)
+            with _remote_stack(
+                case, tmp_path, audit_directory, callback_fault=fault
+            ) as stack:
+                local_kali = WorkspaceReadExecutor(
+                    root=case.workspace,
+                    receipt_root=case.receipt_root,
+                    admission=stack.remote_admission,
+                    receiver_id=stack.binding.receiver_id,
+                    environment_ref=stack.binding.environment_ref,
+                )
+                with pytest.raises(OSError) as ambiguous:
+                    asyncio.run(local_kali.dispatch(permit))
+                assert isinstance(ambiguous.value, RemoteExecutorTransportError)
+                assert not isinstance(ambiguous.value, DomainError)
+>               stored = asyncio.run(local_kali.query(permit))
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_remote_workspace.py:398: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/asyncio/runners.py:196: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/asyncio/runners.py:119: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/asyncio/base_events.py:726: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+packages/wuji-core/src/wuji_core/admission/tools.py:698: in query
+    return await asyncio.to_thread(self._query, permit)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/asyncio/threads.py:26: in to_thread
+    return await loop.run_in_executor(None, func_call)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/concurrent/futures/thread.py:59: in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+packages/wuji-core/src/wuji_core/admission/tools.py:614: in _query
+    self.admission.validate_receipt_permit(permit, receiver_id=self.receiver_id)
+packages/wuji-core/src/wuji_core/admission/remote_workspace.py:359: in validate_receipt_permit
+    self._check(permit, receiver_id=receiver_id, purpose="validate_receipt")
+packages/wuji-core/src/wuji_core/admission/remote_workspace.py:345: in _check
+    result = self.post("/internal/v2/executors/"
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <wuji_core.admission.remote_workspace.RemoteToolAdmission object at 0x10b2ae8b0>
+path = '/internal/v2/executors/workspace-reader-fixture/permits/check'
+payload = {'identity': {'tenant_id': 'tenant-fixture', 'project_id': 'project-fixture', 'task_id': 'task-fixture', 'work_item_id...0f5e-48a5-838d-2f1bb1defecd', 'permit_digest': '2609d44b34d28bdc4361efe0979013cea4a3e898780a984a4aec7e978b2e6bfd', ...}
+
+    def post(self, path, payload):
+        url, body, headers = self._request(path, payload)
+        try:
+            transport = httpx.HTTPTransport(verify=self._tls, retries=0, trust_env=False)
+            with httpx.Client(transport=transport, trust_env=False, follow_redirects=False,
+                              timeout=self.timeout_seconds) as client:
+                with client.stream("POST", url, content=body, headers=headers) as response:
+                    self._response_headers(response)
+                    result = bytearray()
+                    for chunk in response.iter_raw(chunk_size=65536):
+                        if len(result) + len(chunk) > self.max_response_bytes:
+                            raise RemoteExecutorTransportError("Executor response exceeds its wire limit")
+                        result.extend(chunk)
+                    return self._response(response.status_code, result)
+        except httpx.HTTPError as error:
+>           raise RemoteExecutorTransportError("Executor HTTPS request was not confirmed") from error
+E           wuji_core.admission.remote_workspace.RemoteExecutorTransportError: Executor HTTPS request was not confirmed
+
+packages/wuji-core/src/wuji_core/admission/remote_workspace.py:164: RemoteExecutorTransportError
+_ test_ambiguous_dispatch_queries_same_attempt_once_and_not_registered_stays_unknown _
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x10b2afce0>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-277/test_ambiguous_dispatch_querie0')
+audit_directory = PosixPath('work/vnext/c0-sol-target/raw/917e9296c298')
+
+    def test_ambiguous_dispatch_queries_same_attempt_once_and_not_registered_stays_unknown(
+        db_environment, tmp_path, audit_directory
+    ):
+        fault = ScriptedHttpFault(
+            path="/internal/v2/executor/dispatch",
+            phase="before",
+            mode="drop",
+            times=None,
+        )
+        with tool_case(db_environment, tmp_path, audit_directory) as case:
+            permit = _authorize(case, "call-c0-not-registered")
+            with _remote_stack(case, tmp_path, audit_directory, kali_fault=fault) as stack:
+                case.gate.executors[stack.binding.executor_ref] = stack.remote
+                result = asyncio.run(case.gate.execute_permit(case.access, permit))
+                assert result.status == "unknown"
+>               assert result.tool_attempt_id == permit.tool_attempt_id
+E               AssertionError: assert ToolAttemptId(root='74d8376a-8870-40b0-badd-77583cbe4678') == '74d8376a-8870-40b0-badd-77583cbe4678'
+E                +  where ToolAttemptId(root='74d8376a-8870-40b0-badd-77583cbe4678') = ToolCallReceipt(tool_call_id='2640f274-9686-4c6c-9544-dba37c537f05', operation_id='2640f274-9686-4c6c-9544-dba37c537f0...n: 'unknown'>, evidence_receipt=None, result_ref=None, reason_code=<ErrorCode2.OPERATION_UNKNOWN: 'OPERATION_UNKNOWN'>).tool_attempt_id
+E                +  and   '74d8376a-8870-40b0-badd-77583cbe4678' = ToolPermit(tool_call_id='2640f274-9686-4c6c-9544-dba37c537f05', tool_attempt_id='74d8376a-8870-40b0-badd-77583cbe4678'...sion.txt',), expires_at=datetime.datetime(2026, 9, 13, 14, 10, 46, 677766, tzinfo=datetime.timezone.utc), replay=False).tool_attempt_id
+
+tests/vnext/test_remote_workspace.py:430: AssertionError
+_ test_https_tamper_wrong_executor_and_wrong_gate_are_rejected_from_db_authority _
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+>           yield
+
+.venv/lib/python3.13/site-packages/httpx/_transports/default.py:101: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.13/site-packages/httpx/_transports/default.py:250: in handle_request
+    resp = self._pool.handle_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.13/site-packages/httpcore/_sync/connection_pool.py:256: in handle_request
+    raise exc from None
+.venv/lib/python3.13/site-packages/httpcore/_sync/connection_pool.py:236: in handle_request
+    response = connection.handle_request(
+.venv/lib/python3.13/site-packages/httpcore/_sync/connection.py:101: in handle_request
+    raise exc
+.venv/lib/python3.13/site-packages/httpcore/_sync/connection.py:78: in handle_request
+    stream = self._connect(request)
+             ^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.13/site-packages/httpcore/_sync/connection.py:156: in _connect
+    stream = stream.start_tls(**kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.13/site-packages/httpcore/_backends/sync.py:154: in start_tls
+    with map_exceptions(exc_map):
+         ^^^^^^^^^^^^^^^^^^^^^^^
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:162: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+map = {<class 'TimeoutError'>: <class 'httpcore.ConnectTimeout'>, <class 'OSError'>: <class 'httpcore.ConnectError'>}
+
+    @contextlib.contextmanager
+    def map_exceptions(map: ExceptionMapping) -> typing.Iterator[None]:
+        try:
+            yield
+        except Exception as exc:  # noqa: PIE786
+            for from_exc, to_exc in map.items():
+                if isinstance(exc, from_exc):
+>                   raise to_exc(exc) from exc
+E                   httpcore.ConnectError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: Missing Authority Key Identifier (_ssl.c:1032)
+
+.venv/lib/python3.13/site-packages/httpcore/_exceptions.py:14: ConnectError
+
+The above exception was the direct cause of the following exception:
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x10b9183b0>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-277/test_https_tamper_wrong_execut0')
+audit_directory = PosixPath('work/vnext/c0-sol-target/raw/c42020885ee8')
+
+    def test_https_tamper_wrong_executor_and_wrong_gate_are_rejected_from_db_authority(
+        db_environment, tmp_path, audit_directory
+    ):
+        with tool_case(db_environment, tmp_path, audit_directory) as case:
+            permit = _authorize(case, "call-c0-tamper")
+            with _remote_stack(case, tmp_path, audit_directory) as stack:
+                original = permit.stored()
+                tampered = deepcopy(original)
+                tampered["arguments"] = {"path": "other.txt"}
+>               tamper_response = _https_post(
+                    stack.kali_server.url + "/internal/v2/executor/dispatch",
+                    ca_file=stack.certificates.ca_file,
+                    token=stack.tokens.gate,
+                    payload={"permit": tampered, "permit_digest": digest(tampered)},
+                )
+
+tests/vnext/test_remote_workspace.py:460: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/vnext/test_remote_workspace.py:150: in _https_post
+    return client.post(
+.venv/lib/python3.13/site-packages/httpx/_client.py:1144: in post
+    return self.request(
+.venv/lib/python3.13/site-packages/httpx/_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.13/site-packages/httpx/_client.py:914: in send
+    response = self._send_handling_auth(
+.venv/lib/python3.13/site-packages/httpx/_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+.venv/lib/python3.13/site-packages/httpx/_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.13/site-packages/httpx/_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.13/site-packages/httpx/_transports/default.py:249: in handle_request
+    with map_httpcore_exceptions():
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+work/toolchain/python/cpython-3.13.15-macos-aarch64-none/lib/python3.13/contextlib.py:162: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    @contextlib.contextmanager
+    def map_httpcore_exceptions() -> typing.Iterator[None]:
+        global HTTPCORE_EXC_MAP
+        if len(HTTPCORE_EXC_MAP) == 0:
+            HTTPCORE_EXC_MAP = _load_httpcore_exceptions()
+        try:
+            yield
+        except Exception as exc:
+            mapped_exc = None
+    
+            for from_exc, to_exc in HTTPCORE_EXC_MAP.items():
+                if not isinstance(exc, from_exc):
+                    continue
+                # We want to map to the most specific exception we can find.
+                # Eg if `exc` is an `httpcore.ReadTimeout`, we want to map to
+                # `httpx.ReadTimeout`, not just `httpx.TimeoutException`.
+                if mapped_exc is None or issubclass(to_exc, mapped_exc):
+                    mapped_exc = to_exc
+    
+            if mapped_exc is None:  # pragma: no cover
+                raise
+    
+            message = str(exc)
+>           raise mapped_exc(message) from exc
+E           httpx.ConnectError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: Missing Authority Key Identifier (_ssl.c:1032)
+
+.venv/lib/python3.13/site-packages/httpx/_transports/default.py:118: ConnectError
+=========================== short test summary info ============================
+FAILED tests/vnext/test_remote_workspace.py::test_real_https_workspace_read_persists_p03_and_old_receipt_after_revocation
+FAILED tests/vnext/test_remote_workspace.py::test_callback_commits_then_lost_or_invalid_ack_keeps_prepared_unknown[drop]
+FAILED tests/vnext/test_remote_workspace.py::test_callback_commits_then_lost_or_invalid_ack_keeps_prepared_unknown[status_503]
+FAILED tests/vnext/test_remote_workspace.py::test_callback_commits_then_lost_or_invalid_ack_keeps_prepared_unknown[bad_ack]
+FAILED tests/vnext/test_remote_workspace.py::test_ambiguous_dispatch_queries_same_attempt_once_and_not_registered_stays_unknown
+FAILED tests/vnext/test_remote_workspace.py::test_https_tamper_wrong_executor_and_wrong_gate_are_rejected_from_db_authority
+6 failed, 3 passed in 15.59s

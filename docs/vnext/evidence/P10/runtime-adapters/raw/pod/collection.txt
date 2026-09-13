@@ -1,0 +1,4 @@
+tests/vnext/test_pod_runtime.py::test_current_p05_permit_session_lease_verified_uid_and_receiver_registration
+tests/vnext/test_pod_runtime.py::test_foreign_pod_owner_cannot_register_receiver
+
+2 tests collected in 0.26s
