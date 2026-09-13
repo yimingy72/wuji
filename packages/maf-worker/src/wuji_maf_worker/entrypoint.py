@@ -12,6 +12,6 @@ async def run_assignment(assignment, *, host, context, run_credential,
         model_gate_url=model_gate_url, tool_gate_url=tool_gate_url,
     )
     async for _event in runtime.execute(assignment):
-        pass  # Raw output and result receipt were already persisted by the host.
+        pass  # The Host has persisted either the result or the native input receipt.
     await runtime.aclose()
-    return runtime.result
+    return runtime.input_receipt if runtime.input_receipt is not None else runtime.result

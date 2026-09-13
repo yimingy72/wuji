@@ -7,11 +7,12 @@ from pathlib import Path
 import re
 import sys
 
-from agent_framework import create_harness_agent
+from agent_framework import ContextWindowCompactionStrategy, create_harness_agent
 from agent_framework.openai import OpenAIChatCompletionClient
 from openai import AsyncOpenAI
 
 from wuji_core.http import canonical_json_bytes
+from wuji_core.contracts.sessions import SessionLimits
 
 
 @dataclass(frozen=True)
@@ -68,9 +69,80 @@ class HarnessProfile:
         return profile
 
 
+@dataclass(frozen=True)
+class SessionHarnessProfile(HarnessProfile):
+    """An explicit candidate combination; only the platform can publish it."""
+
+    history_source_id: str
+    memory_mode: str
+    memory_source_id: str
+    session_limits: SessionLimits
+    max_context_window_tokens: int
+    compaction_enabled: bool
+    schema_version: str = "wuji.harness.session.v1"
+
+    def __post_init__(self):
+        super().__post_init__()
+        if (
+            self.schema_version != "wuji.harness.session.v1"
+            or self.memory_mode not in {"disabled", "pinned_context"}
+            or not isinstance(self.session_limits, SessionLimits)
+            or type(self.compaction_enabled) is not bool
+            or type(self.max_context_window_tokens) is not int
+            or self.max_context_window_tokens <= self.max_output_tokens
+            or any(not re.fullmatch(r"[a-z][a-z0-9_]{0,63}", source) for source in (
+                self.history_source_id, self.memory_source_id,
+            ))
+            or self.history_source_id == self.memory_source_id
+            or {self.history_source_id, self.memory_source_id} & {"compaction"}
+        ):
+            raise ValueError("invalid versioned Session Profile")
+
+    def snapshot(self):
+        body = {name: getattr(self, name) for name in HarnessProfile.__dataclass_fields__}
+        body["tool_definition_refs"] = list(self.tool_definition_refs)
+        body.update({
+            "schema_version": self.schema_version,
+            "history_source_id": self.history_source_id,
+            "memory_mode": self.memory_mode, "memory_source_id": self.memory_source_id,
+            "session_limits": self.session_limits.model_dump(mode="python"),
+            "max_context_window_tokens": self.max_context_window_tokens,
+            "compaction_enabled": self.compaction_enabled,
+            "capabilities": {key: False for key in (
+                "todo", "mode", "file_memory", "file_access", "skills", "shell",
+                "web_search", "background_agents", "outer_loop", "auto_approval", "mcp",
+            )},
+        })
+        body["capabilities"].update({
+            "compaction": self.compaction_enabled, "restoration": True,
+            "native_approval": True, "versioned_memory": self.memory_mode != "disabled",
+        })
+        return {
+            "ref": self.ref, "revision": self.revision,
+            "digest": sha256(canonical_json_bytes(body)).hexdigest(), "body": body,
+        }
+
+    @classmethod
+    def from_snapshot(cls, snapshot):
+        body = dict(snapshot["body"])
+        body.pop("capabilities", None)
+        body["tool_definition_refs"] = tuple(body["tool_definition_refs"])
+        body["session_limits"] = SessionLimits.model_validate(body["session_limits"])
+        profile = cls(**body)
+        if canonical_json_bytes(profile.snapshot()) != canonical_json_bytes(snapshot):
+            raise ValueError("Session Profile snapshot mismatch")
+        return profile
+
+
+def parse_profile(snapshot):
+    if snapshot["body"].get("schema_version") == "wuji.harness.session.v1":
+        return SessionHarnessProfile.from_snapshot(snapshot)
+    return HarnessProfile.from_snapshot(snapshot)
+
+
 def build_agent(*, resolved, profile, model_http, model_gate_url, run_credential,
-                tools, middleware, response_parser):
-    """Return the real Agent and its owned OpenAI transport for one fresh Run."""
+                tools, middleware, response_parser, history=None, memory_provider=None):
+    """Build the same released public Harness for a fixed fresh/restored profile."""
     if (
         sys.version_info[:3] != (3, 13, 15)
         or version("agent-framework-core") != "1.18.0"
@@ -82,6 +154,38 @@ def build_agent(*, resolved, profile, model_http, model_gate_url, run_credential
     limits = resolved["limits"]
     if not tools or limits["max_model_requests"] < 1 or limits["max_tool_calls"] < 1:
         raise ValueError("M1 needs a nonempty bounded tool profile")
+    session_options = {}
+    if isinstance(profile, SessionHarnessProfile):
+        if (
+            history is None or history.source_id != profile.history_source_id
+            or history.compatibility.profile_snapshot != profile.snapshot()
+            or history.limits != profile.session_limits
+            or (memory_provider is not None) != (profile.memory_mode == "pinned_context")
+            or profile.session_limits.max_object_bytes > limits["max_single_output_bytes"]
+            or profile.session_limits.max_total_bytes > limits["max_total_output_bytes"]
+        ):
+            raise ValueError("providers do not match the fixed Session combination")
+        session_options = {"history_provider": history, "context_providers": []}
+        if memory_provider is not None:
+            if memory_provider.source_id != profile.memory_source_id:
+                raise ValueError("memory source differs from the fixed profile")
+            session_options["context_providers"].append(memory_provider)
+        if profile.compaction_enabled:
+            # These public strategies use native token/annotation processing,
+            # never a hidden summarization client or another Agent loop.
+            strategy_options = {
+                "max_context_window_tokens": profile.max_context_window_tokens,
+                "max_output_tokens": profile.max_output_tokens,
+                "keep_last_tool_call_groups": 4,
+                "preserve_first_user_group": True,
+                "tool_eviction_threshold": 0.5, "truncation_threshold": 0.8,
+            }
+            session_options.update({
+                "before_compaction_strategy": ContextWindowCompactionStrategy(**strategy_options),
+                "after_compaction_strategy": ContextWindowCompactionStrategy(**strategy_options),
+            })
+    elif history is not None or memory_provider is not None:
+        raise ValueError("M1 does not accept Session providers")
     native = AsyncOpenAI(
         api_key=run_credential, base_url=model_gate_url.rstrip("/") + "/",
         http_client=model_http, max_retries=0, organization="", project="",
@@ -103,11 +207,13 @@ def build_agent(*, resolved, profile, model_http, model_gate_url, run_credential
         harness_instructions="", agent_instructions=profile.instructions,
         tools=tools, middleware=[middleware],
         max_output_tokens=profile.max_output_tokens,
-        disable_compaction=True, disable_todo=True, disable_mode=True,
+        disable_compaction=not (isinstance(profile, SessionHarnessProfile) and profile.compaction_enabled),
+        disable_todo=True, disable_mode=True,
         disable_file_memory=True, file_access_store=None,
         skills_provider=None, skills_paths=None, shell_executor=None,
         background_agents=None, disable_web_search=True,
         disable_tool_auto_approval=True, loop_should_continue=None,
         default_options={"allow_multiple_tool_calls": False},
+        **session_options,
     )
     return agent, native
