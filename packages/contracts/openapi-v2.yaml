@@ -671,6 +671,68 @@ paths:
         '422': {$ref: '#/components/responses/InvalidSchema'}
         '503': {$ref: '#/components/responses/Unavailable'}
 
+  /internal/v2/executors/{executor_ref}/permits/check:
+    post:
+      operationId: checkExecutorPermitV2
+      summary: Validate the registered executor against the persisted exact tool permit
+      tags: [Internal]
+      parameters:
+        - name: executor_ref
+          in: path
+          required: true
+          schema: {type: string, minLength: 1, maxLength: 256}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ExecutorPermitCheckRequest'}}}}
+      responses:
+        '200': {description: Exact operation and purpose validated by the platform, content: {application/json: {schema: {$ref: '#/components/schemas/ExecutorPermitCheckResponse'}}}}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /internal/v2/executor/dispatch:
+    post:
+      operationId: dispatchWorkspaceExecutorV2
+      summary: Dispatch an existing tool attempt to its registered workspace receiver
+      tags: [Internal]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ExecutorDispatchRequest'}}}}
+      responses:
+        '200': {description: Durable receiver execution receipt, content: {application/json: {schema: {$ref: '#/components/schemas/ExecutorReceiptResponse'}}}}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /internal/v2/executor/query:
+    post:
+      operationId: queryWorkspaceExecutorV2
+      summary: Read the same attempt receipt without reexecuting its tool
+      tags: [Internal]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ExecutorQueryRequest'}}}}
+      responses:
+        '200': {description: Current durable receiver receipt, content: {application/json: {schema: {$ref: '#/components/schemas/ExecutorReceiptResponse'}}}}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /internal/v2/executor/cancel:
+    post:
+      operationId: cancelWorkspaceExecutorV2
+      summary: Request cancellation and query the same durable attempt
+      tags: [Internal]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ExecutorCancelRequest'}}}}
+      responses:
+        '200': {description: Actual cancellation or current operation receipt, content: {application/json: {schema: {$ref: '#/components/schemas/ExecutorReceiptResponse'}}}}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+
 components:
   securitySchemes:
     BearerAuth:
@@ -830,6 +892,138 @@ components:
         application/json:
           schema: {$ref: '#/components/schemas/ErrorResponse'}
   schemas:
+    ExecutorPermitPurpose:
+      type: string
+      enum: [check_execution, validate_receipt]
+    ExecutorAttemptId:
+      type: string
+      pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+    ExecutorPermitDocument:
+      type: object
+      additionalProperties: false
+      description: >-
+        The complete immutable ToolPermit.stored document. Native arguments and
+        runtime remain exact JSON and are also validated by domain contracts.
+        Its original strict JSON is the digest source; generated datetime
+        reserialization must not replace the original bytes or stored fields.
+        This document never establishes identity or permission by itself.
+      required: [tool_call_id, tool_attempt_id, identity, executor_ref, tool_definition_ref, arguments, arguments_digest, resource_keys, expires_at, execution_token, subject, token_id, roles, runtime]
+      properties:
+        tool_call_id: {type: string, minLength: 1, maxLength: 256}
+        tool_attempt_id: {$ref: '#/components/schemas/ExecutorAttemptId'}
+        identity: {$ref: '#/components/schemas/RunIdentity'}
+        executor_ref: {type: string, minLength: 1, maxLength: 256}
+        tool_definition_ref: {type: string, minLength: 1, maxLength: 256}
+        arguments: {type: object, additionalProperties: true}
+        arguments_digest: {$ref: '#/components/schemas/Sha256Digest'}
+        resource_keys:
+          type: array
+          maxItems: 1024
+          items: {type: string, minLength: 1, maxLength: 4096}
+        expires_at: {type: string, format: date-time}
+        execution_token: {type: string, minLength: 1, maxLength: 16384}
+        subject: {type: string, minLength: 1, maxLength: 256}
+        token_id: {type: string, minLength: 1, maxLength: 256}
+        roles:
+          type: array
+          minItems: 1
+          maxItems: 64
+          items: {type: string, minLength: 1, maxLength: 256}
+        runtime: {type: object, additionalProperties: true}
+    ExecutorDispatchRequest:
+      type: object
+      additionalProperties: false
+      required: [permit, permit_digest]
+      properties:
+        permit: {$ref: '#/components/schemas/ExecutorPermitDocument'}
+        permit_digest: {$ref: '#/components/schemas/Sha256Digest'}
+    ExecutorQueryRequest:
+      type: object
+      additionalProperties: false
+      required: [permit, permit_digest]
+      properties:
+        permit: {$ref: '#/components/schemas/ExecutorPermitDocument'}
+        permit_digest: {$ref: '#/components/schemas/Sha256Digest'}
+    ExecutorCancelRequest:
+      type: object
+      additionalProperties: false
+      required: [permit, permit_digest, reason]
+      properties:
+        permit: {$ref: '#/components/schemas/ExecutorPermitDocument'}
+        permit_digest: {$ref: '#/components/schemas/Sha256Digest'}
+        reason: {type: string, minLength: 1, maxLength: 4096}
+    ExecutorPermitCheckRequest:
+      type: object
+      additionalProperties: false
+      required: [identity, tool_attempt_id, execution_token, permit_digest, purpose]
+      properties:
+        identity: {$ref: '#/components/schemas/RunIdentity'}
+        tool_attempt_id: {$ref: '#/components/schemas/ExecutorAttemptId'}
+        execution_token: {type: string, minLength: 1, maxLength: 16384}
+        permit_digest: {$ref: '#/components/schemas/Sha256Digest'}
+        purpose: {$ref: '#/components/schemas/ExecutorPermitPurpose'}
+    ExecutorPermitCheckResponse:
+      type: object
+      additionalProperties: false
+      required: [tool_attempt_id, permit_digest, purpose]
+      properties:
+        tool_attempt_id: {$ref: '#/components/schemas/ExecutorAttemptId'}
+        permit_digest: {$ref: '#/components/schemas/Sha256Digest'}
+        purpose: {$ref: '#/components/schemas/ExecutorPermitPurpose'}
+    ExecutorReceiptResponse:
+      type: object
+      additionalProperties: false
+      required: [tool_attempt_id, receiver_id, receipt_id, status, started_at, exited_at, source_receipt, output_base64, output_bytes, output_sha256, media_type, completeness, error_code, permit_digest]
+      properties:
+        tool_attempt_id: {$ref: '#/components/schemas/ExecutorAttemptId'}
+        receiver_id: {type: string, minLength: 1, maxLength: 256}
+        receipt_id: {type: string, minLength: 1, maxLength: 256}
+        status: {type: string, enum: [not_started, running, exited, unknown]}
+        started_at:
+          oneOf:
+            - {type: string, format: date-time}
+            - {type: 'null'}
+        exited_at:
+          oneOf:
+            - {type: string, format: date-time}
+            - {type: 'null'}
+        source_receipt: {type: object, additionalProperties: true}
+        output_base64:
+          oneOf:
+            - {type: string, contentEncoding: base64, maxLength: 89478488}
+            - {type: 'null'}
+        output_bytes:
+          oneOf:
+            - {type: string, pattern: '^(0|[1-9][0-9]*)$', maxLength: 20}
+            - {type: 'null'}
+        output_sha256:
+          oneOf:
+            - {$ref: '#/components/schemas/Sha256Digest'}
+            - {type: 'null'}
+        media_type:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 256}
+            - {type: 'null'}
+        completeness: {type: string, enum: [complete, partial, unknown]}
+        error_code:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 256}
+            - {type: 'null'}
+        permit_digest: {$ref: '#/components/schemas/Sha256Digest'}
+      oneOf:
+        - properties:
+            output_base64: {type: 'null'}
+            output_bytes: {type: 'null'}
+            output_sha256: {type: 'null'}
+        - properties:
+            output_base64: {type: string}
+            output_bytes: {type: string}
+            output_sha256: {type: string}
+      description: >-
+        Output fields are all null or all present. Empty bytes use an empty
+        base64 string, count "0" and SHA256 of empty bytes. Consumers verify
+        canonical base64, exact decoded byte count, digest and deployment limit
+        before constructing the domain receipt. An unknown receipt is not exit.
     RevisionString:
       type: string
       pattern: '^(0|[1-9][0-9]*)$'
