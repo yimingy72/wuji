@@ -84,6 +84,6 @@ D09 的工程验证按被测路径保留真实媒介：纯规则输出、实际�
 | 项目入口 | `scripts/vnext/uv.sh`、`scripts/uv.sh`、toolchain bootstrap 及现有 platform lifecycle/control/core/gateway/test wrapper 可执行；`build-core.sh` 需由 `sh` 调用。根 package scripts 已含 vNext 合同、测试收集和开发入口。 |
 | 隔离 PostgreSQL | 当前实际 fixture 是 PostgreSQL 16.2、仅 Unix socket；0600 配置位于 `work/vnext/postgres-fixture.json`，受管客户端位于 `work/toolchain/postgres-fixture/binary/bin`，并已用于 P06 现有隔离数据库证据。`tests/vnext/support/postgres.py` 每例创建随机数据库、migration/app 角色和 `vnext` schema，并在 finally 清理。默认 PATH 缺 `psql`/`pg_isready` 只表示命令未暴露，不表示 PostgreSQL 不可用；本轮仅核对非敏感版本、网络模式和路径，未读取或输出连接字段值/凭据，未连接、探活或新建数据库。 |
 | Docker | CLI 29.6.2 与 `desktop-linux` context 存在；对应 socket 不存在，未发现 Docker 后端进程。本轮未启动 Docker、未连接 daemon。 |
-| Kubernetes | kubectl v1.36.1 客户端存在，当前 context 名为 `minikube`；本机缺 minikube/kind/k3d/helm，缓存时间为 2023-11-11。按约束未查询或启动未知集群，因此集群可用性未核验。 |
+| Kubernetes | 历史只读记录中的 `minikube`/未核验状态已由 2026-09-13 14:00–14:03 +0800 新证据更新：当前 context/cluster 为 `docker-desktop`，server `https://kubernetes.docker.internal:6443` 解析到 `127.0.0.1`；client/server 均 v1.36.1，单节点 `Ready=True`，`kube-system` 9/9 Pod Running/ready、重启 0。`wuji-test` 当前不存在；当前身份对该 namespace 名称的 Pod get/create/delete SubjectAccessReview 均为 yes，但未实际创建 Pod。节点为 linux/arm64，旧基础清单要求 linux/amd64，业务映像与受管资源尚未核验；因此只能作为 P10/M2 后续准备，不能声称 Pod、隔离或 P10/M2 通过。非秘密命令摘要见受限本地 `.superpowers/sdd/vnext-v2/k8s-readiness.md`。 |
 
 本地备份位于忽略目录 `work/backups/vnext-d11-20260913T122725+0800/`，目录权限 0700。它保存提交代码 bundle、binary diff、稳定未跟踪文档和单独的 P06 活跃证据快照及清单；不包含依赖缓存、toolchain、虚拟环境或运行数据全树。P06 活跃目录在未暂停并行开发的窗口内复制，只能视为受限本地、非原子快照，不进入 Git。
