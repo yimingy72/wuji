@@ -36,6 +36,8 @@ Worker 只使用已安装 MAF 的公开 Session/history/memory/approval/compacti
 
 仅开放通过真实 SDK 检查的 settled_boundary、approval_boundary；任意流中断/未完整发布/不兼容版本为 non_resumable。原生压缩只改变工作历史，保留原始资料、回执与历史归档；压缩后恢复检查候选标签、反证及工具请求/结果配对。仅有 compaction 事件不构成通过。
 
+M1 已发布 Profile 的关闭能力和摘要保持不变。新增恢复、记忆或压缩组合使用显式新 Profile 版本/摘要，并在 Task 激活前固定；不得让原版本的 `restoration=false` 因代码升级自动变为可恢复。新组合的能力状态按 SOL 实际验证结果发布。
+
 ## 输入和批准
 
 InputService 只接受受信 Worker Host 观察到的真实原生待批 Content，或已登记的人类问题。服务核对归属、固定 checkpoint、实际模型请求/原消息与工具定义/原始参数映射；模型生成 `input_required` 或猜一个 call ID 不能登记平台等待。登记 input、approval 与真实源引用同事务，发布边界先完成。P05 只根据原 input receipt 和 Supervisor 进程事实进入 waiting_input/释放容量，Worker 不能自报 exited。

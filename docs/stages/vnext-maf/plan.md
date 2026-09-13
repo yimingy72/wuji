@@ -4,6 +4,7 @@
 - 实际计划：[P00—P20](../../vnext/PLAN.md)，机器索引：[plan_tasks.json](../../vnext/plan_tasks.json)。
 - 框架复用、权限/数据/兼容、接口、文件所有权和依赖按上述计划及[实施决定](../../vnext/decision-register.md)。
 - D11 交付组织：[M0–M5、操作前沿与六类既有合同交接](../../vnext/delivery-milestones.md)。它只重排可运行成果的交付次序，不增加任务/AC、替换权威 Spec，或预先标记实现和验收通过。
+- M3 接缝：[P08 会话与审批实施合同](../../vnext/P08-implementation-contract.md)固定完整发布、原生调用身份、操作前沿及 P05/P06/P09/M2 消费；沿用原任务依赖和模型分工。
 - 分支：`codex/vnext-maf`；绝对工作树：`/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf`。
 
 主代理负责实际基线、计划一致性、契约/迁移/锁文件归属、审查与集成。按用户最新决定，修复、测试、验证、代码复核和轻量重复任务统一由 `gpt-5.6-sol/xhigh` 承担；核心功能开发或重大复杂问题才用 `gpt-6-astra/xhigh`。核心开发与测试可按不重叠文件分工，共享数据库验证串行执行；交接保留原始证据，不因换模型重跑。不另建用户开发任务。使用版本隔离的 Superpowers 台账记录任务、原始结果、修复与审查，不反复派发已完成任务。

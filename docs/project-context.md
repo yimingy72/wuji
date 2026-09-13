@@ -6,6 +6,8 @@
 
 本轮最新模型分工见实施决定 D10：修复、验证及轻量重复工作使用 SOL/xhigh，核心开发或重大复杂问题才使用 GPT-6/xhigh；下文及历史报告中的旧模型限定仅描述当时约定。
 
+2026-09-13 M3 接入入口：[P08 完整会话、原生审批与恢复实施合同](vnext/P08-implementation-contract.md)。它补齐已批准 P08 对现有 P05/P06/P09 和 M2 Worker 的接口，当前为实现准备，不代表恢复/审批验收通过。
+
 更新：2026-09-11；当前文档与GitHub交付分支为 `codex/github-upload`，业务来源为 `codex/phase-2-web-assessment@40472c6`（旧运行检出保留），架构收口起点6ee84b5。此页负责恢复背景与导航；设计正文、阶段验收各有独立权威来源，不在此复制完整架构。先读根 [AGENTS.md](../AGENTS.md)。
 
 GitHub 克隆入口：默认分支 `codex/github-upload` 基于 W1 记录提交 `40472c6` 整理，本文档及阶段文档均在当前克隆内。下文工作树路径描述原开发机器的来源，不是克隆依赖；版本对应见[仓库交接说明](repository-handoff.md)。
