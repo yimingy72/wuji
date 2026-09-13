@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<testsuites>
+	<testcase name="redelivery after a lost running response reuses the actual process" time="0.182006" classname="test" file="/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/tests/task-workers/maf-supervisor.test.mjs"/>
+	<testcase name="a crash after prepared and before spawn becomes unknown without spawning" time="0.241662" classname="test" file="/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/tests/task-workers/maf-supervisor.test.mjs"/>
+	<testcase name="a crash before prepared leaves no operation and redelivery spawns once" time="0.399770" classname="test" file="/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/tests/task-workers/maf-supervisor.test.mjs"/>
+	<testcase name="a crash after actual spawn and before the running receipt never spawns the operation twice" time="0.366446" classname="test" file="/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/tests/task-workers/maf-supervisor.test.mjs"/>
+	<testcase name="a crash after the running receipt and before the response never spawns the operation twice" time="0.355716" classname="test" file="/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/tests/task-workers/maf-supervisor.test.mjs"/>
+	<testcase name="an assignment from an old runtime attempt is rejected before spawn" time="0.290550" classname="test" file="/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/tests/task-workers/maf-supervisor.test.mjs"/>
+	<testcase name="redelivery with a different assignment digest is rejected without another spawn" time="0.259656" classname="test" file="/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/tests/task-workers/maf-supervisor.test.mjs"/>
+	<testcase name="stop rejects stale identity and accepted control waits for actual exit" time="1.050458" classname="test" file="/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/tests/task-workers/maf-supervisor.test.mjs"/>
+	<testcase name="a bare boolean permission cannot start a process" time="0.007783" classname="test" file="/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/tests/task-workers/maf-supervisor.test.mjs"/>
+	<testcase name="one inbox has one owner and keeps its receiver identity across reopen" time="0.008803" classname="test" file="/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/tests/task-workers/maf-supervisor.test.mjs"/>
+	<!-- tests 10 -->
+	<!-- suites 0 -->
+	<!-- pass 10 -->
+	<!-- fail 0 -->
+	<!-- cancelled 0 -->
+	<!-- skipped 0 -->
+	<!-- todo 0 -->
+	<!-- duration_ms 5191.985083 -->
+</testsuites>

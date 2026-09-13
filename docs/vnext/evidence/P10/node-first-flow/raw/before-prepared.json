@@ -1,0 +1,430 @@
+{
+  "schema_version": "wuji.p10-node-fixture.v1",
+  "generated_at": "2026-09-13T06:43:09.220Z",
+  "label": "before-prepared",
+  "assignment": {
+    "schema_version": "wuji.assignment.v2",
+    "operation_id": "start-before-prepared",
+    "identity": {
+      "tenant_id": "tenant-p10",
+      "project_id": "project-p10",
+      "task_id": "task-before-prepared",
+      "work_item_id": "work-before-prepared",
+      "agent_run_id": "run-before-prepared",
+      "execution_epoch": "1",
+      "run_epoch": "1",
+      "runtime_attempt": "1",
+      "receiver_id": "receiver-p10"
+    },
+    "work_kind": "explore",
+    "snapshot_id": "snapshot-before-prepared",
+    "profile_refs": [
+      "harmless-node-v1"
+    ],
+    "session_manifest_ref": null,
+    "tool_definition_refs": [
+      "read_record:v1"
+    ],
+    "limits": {
+      "max_work_items": 4,
+      "max_reason_runs": 1,
+      "max_model_requests": 2,
+      "max_tool_calls": 2,
+      "max_single_output_bytes": 65536,
+      "max_total_output_bytes": 131072,
+      "max_elapsed_seconds": 30,
+      "max_attempts_per_work": 1,
+      "repair_attempts": 0
+    },
+    "resume_reason": null
+  },
+  "receiver": {
+    "receiver_id": "receiver-p10",
+    "runtime_attempt": "1",
+    "environment_ref": "local-before-prepared",
+    "pod_uid": "pod-before-prepared"
+  },
+  "actual_starts": [
+    {
+      "operation_id": "start-before-prepared",
+      "fixture_instance_id": "288ea5d9-4454-478b-aaeb-59e896aa8795",
+      "pid": 23657
+    }
+  ],
+  "child_lifecycle": [
+    {
+      "event": "birth",
+      "operation_id": "start-before-prepared",
+      "fixture_instance_id": "288ea5d9-4454-478b-aaeb-59e896aa8795",
+      "pid": 23657,
+      "ppid": 23656,
+      "observed_at": "2026-09-13T06:43:09.189Z",
+      "monotonic_ns": "406826946797000"
+    },
+    {
+      "event": "exit",
+      "operation_id": "start-before-prepared",
+      "fixture_instance_id": "288ea5d9-4454-478b-aaeb-59e896aa8795",
+      "pid": 23657,
+      "ppid": 23656,
+      "observed_at": "2026-09-13T06:43:09.201Z",
+      "monotonic_ns": "406826958509625",
+      "reason": "release_file",
+      "exit_code": 0
+    }
+  ],
+  "supervisor_crashes": [
+    {
+      "window": "before_prepared",
+      "operation_id": "start-before-prepared",
+      "pid": 23653
+    }
+  ],
+  "http_exchanges": [
+    {
+      "request": {
+        "method": "PUT",
+        "url": "http://127.0.0.1:63561/operations/start-before-prepared",
+        "headers": {
+          "Accept": "application/json",
+          "Authorization": "Bearer p10-test-controller-token",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "assignment": {
+            "schema_version": "wuji.assignment.v2",
+            "operation_id": "start-before-prepared",
+            "identity": {
+              "tenant_id": "tenant-p10",
+              "project_id": "project-p10",
+              "task_id": "task-before-prepared",
+              "work_item_id": "work-before-prepared",
+              "agent_run_id": "run-before-prepared",
+              "execution_epoch": "1",
+              "run_epoch": "1",
+              "runtime_attempt": "1",
+              "receiver_id": "receiver-p10"
+            },
+            "work_kind": "explore",
+            "snapshot_id": "snapshot-before-prepared",
+            "profile_refs": [
+              "harmless-node-v1"
+            ],
+            "session_manifest_ref": null,
+            "tool_definition_refs": [
+              "read_record:v1"
+            ],
+            "limits": {
+              "max_work_items": 4,
+              "max_reason_runs": 1,
+              "max_model_requests": 2,
+              "max_tool_calls": 2,
+              "max_single_output_bytes": 65536,
+              "max_total_output_bytes": 131072,
+              "max_elapsed_seconds": 30,
+              "max_attempts_per_work": 1,
+              "repair_attempts": 0
+            },
+            "resume_reason": null
+          },
+          "profile_id": "harmless-node-v1"
+        }
+      },
+      "response": null,
+      "error": {
+        "name": "TypeError",
+        "message": "fetch failed"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "http://127.0.0.1:63563/operations/start-before-prepared",
+        "headers": {
+          "Accept": "application/json",
+          "Authorization": "Bearer p10-test-controller-token"
+        },
+        "body": null
+      },
+      "response": {
+        "status": 404,
+        "headers": {
+          "cache-control": "no-store",
+          "connection": "keep-alive",
+          "content-type": "application/json",
+          "date": "Sun, 13 Sep 2026 06:43:09 GMT",
+          "keep-alive": "timeout=5",
+          "transfer-encoding": "chunked"
+        },
+        "body": {
+          "code": "OPERATION_NOT_FOUND"
+        },
+        "responseText": "{\"code\":\"OPERATION_NOT_FOUND\"}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "url": "http://127.0.0.1:63563/operations/start-before-prepared",
+        "headers": {
+          "Accept": "application/json",
+          "Authorization": "Bearer p10-test-controller-token",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "assignment": {
+            "schema_version": "wuji.assignment.v2",
+            "operation_id": "start-before-prepared",
+            "identity": {
+              "tenant_id": "tenant-p10",
+              "project_id": "project-p10",
+              "task_id": "task-before-prepared",
+              "work_item_id": "work-before-prepared",
+              "agent_run_id": "run-before-prepared",
+              "execution_epoch": "1",
+              "run_epoch": "1",
+              "runtime_attempt": "1",
+              "receiver_id": "receiver-p10"
+            },
+            "work_kind": "explore",
+            "snapshot_id": "snapshot-before-prepared",
+            "profile_refs": [
+              "harmless-node-v1"
+            ],
+            "session_manifest_ref": null,
+            "tool_definition_refs": [
+              "read_record:v1"
+            ],
+            "limits": {
+              "max_work_items": 4,
+              "max_reason_runs": 1,
+              "max_model_requests": 2,
+              "max_tool_calls": 2,
+              "max_single_output_bytes": 65536,
+              "max_total_output_bytes": 131072,
+              "max_elapsed_seconds": 30,
+              "max_attempts_per_work": 1,
+              "repair_attempts": 0
+            },
+            "resume_reason": null
+          },
+          "profile_id": "harmless-node-v1"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "cache-control": "no-store",
+          "connection": "keep-alive",
+          "content-type": "application/json",
+          "date": "Sun, 13 Sep 2026 06:43:09 GMT",
+          "keep-alive": "timeout=5",
+          "transfer-encoding": "chunked"
+        },
+        "body": {
+          "assignment_digest": "64c0eeee05719b99756c2bff729f23db8bd0032bed56c4203a861601d16575d9",
+          "identity": {
+            "agent_run_id": "run-before-prepared",
+            "execution_epoch": "1",
+            "project_id": "project-p10",
+            "receiver_id": "receiver-p10",
+            "run_epoch": "1",
+            "runtime_attempt": "1",
+            "task_id": "task-before-prepared",
+            "tenant_id": "tenant-p10",
+            "work_item_id": "work-before-prepared"
+          },
+          "observation": {
+            "environment_ref": "local-before-prepared",
+            "identity": {
+              "agent_run_id": "run-before-prepared",
+              "execution_epoch": "1",
+              "project_id": "project-p10",
+              "receiver_id": "receiver-p10",
+              "run_epoch": "1",
+              "runtime_attempt": "1",
+              "task_id": "task-before-prepared",
+              "tenant_id": "tenant-p10",
+              "work_item_id": "work-before-prepared"
+            },
+            "kind": "started",
+            "observed_at": "2026-09-13T06:43:09.177Z",
+            "operation_id": "start-before-prepared",
+            "pod_uid": "pod-before-prepared",
+            "process": {
+              "birth_id": "1da0645fd1c6075aed5200f957405fe944d846d1ae18b7734954d164868ba4ca:68b579876db18dd3eaba3383a7dc0ab2d3abbc28a01dc6e636ff991bc36cd049:child-process-spawn-event",
+              "exit_code": null,
+              "exited_at": null,
+              "pid": 23657,
+              "started_at": "2026-09-13T06:43:09.150Z"
+            },
+            "reason": "running",
+            "receipt_id": "265aba6f0a107359dd5829349d5e993dade47abf93afa928e1f0060265c1f2f5",
+            "source_digest": "e19c28ffcd2508ed213ed1533e23b2c822c6c8723f9252c9796c475b9195226f",
+            "source_receipt": "{\"environment_ref\":\"local-before-prepared\",\"identity\":{\"agent_run_id\":\"run-before-prepared\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-before-prepared\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-before-prepared\"},\"kind\":\"started\",\"observed_at\":\"2026-09-13T06:43:09.177Z\",\"operation_id\":\"start-before-prepared\",\"pod_uid\":\"pod-before-prepared\",\"process\":{\"birth_id\":\"1da0645fd1c6075aed5200f957405fe944d846d1ae18b7734954d164868ba4ca:68b579876db18dd3eaba3383a7dc0ab2d3abbc28a01dc6e636ff991bc36cd049:child-process-spawn-event\",\"exit_code\":null,\"exited_at\":null,\"pid\":23657,\"started_at\":\"2026-09-13T06:43:09.150Z\"},\"reason\":\"running\",\"receipt_id\":\"265aba6f0a107359dd5829349d5e993dade47abf93afa928e1f0060265c1f2f5\"}"
+          },
+          "operation_id": "start-before-prepared",
+          "profile_id": "harmless-node-v1",
+          "receiver": {
+            "environment_ref": "local-before-prepared",
+            "pod_uid": "pod-before-prepared",
+            "receiver_id": "receiver-p10",
+            "runtime_attempt": "1"
+          },
+          "state": "running"
+        },
+        "responseText": "{\"assignment_digest\":\"64c0eeee05719b99756c2bff729f23db8bd0032bed56c4203a861601d16575d9\",\"identity\":{\"agent_run_id\":\"run-before-prepared\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-before-prepared\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-before-prepared\"},\"observation\":{\"environment_ref\":\"local-before-prepared\",\"identity\":{\"agent_run_id\":\"run-before-prepared\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-before-prepared\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-before-prepared\"},\"kind\":\"started\",\"observed_at\":\"2026-09-13T06:43:09.177Z\",\"operation_id\":\"start-before-prepared\",\"pod_uid\":\"pod-before-prepared\",\"process\":{\"birth_id\":\"1da0645fd1c6075aed5200f957405fe944d846d1ae18b7734954d164868ba4ca:68b579876db18dd3eaba3383a7dc0ab2d3abbc28a01dc6e636ff991bc36cd049:child-process-spawn-event\",\"exit_code\":null,\"exited_at\":null,\"pid\":23657,\"started_at\":\"2026-09-13T06:43:09.150Z\"},\"reason\":\"running\",\"receipt_id\":\"265aba6f0a107359dd5829349d5e993dade47abf93afa928e1f0060265c1f2f5\",\"source_digest\":\"e19c28ffcd2508ed213ed1533e23b2c822c6c8723f9252c9796c475b9195226f\",\"source_receipt\":\"{\\\"environment_ref\\\":\\\"local-before-prepared\\\",\\\"identity\\\":{\\\"agent_run_id\\\":\\\"run-before-prepared\\\",\\\"execution_epoch\\\":\\\"1\\\",\\\"project_id\\\":\\\"project-p10\\\",\\\"receiver_id\\\":\\\"receiver-p10\\\",\\\"run_epoch\\\":\\\"1\\\",\\\"runtime_attempt\\\":\\\"1\\\",\\\"task_id\\\":\\\"task-before-prepared\\\",\\\"tenant_id\\\":\\\"tenant-p10\\\",\\\"work_item_id\\\":\\\"work-before-prepared\\\"},\\\"kind\\\":\\\"started\\\",\\\"observed_at\\\":\\\"2026-09-13T06:43:09.177Z\\\",\\\"operation_id\\\":\\\"start-before-prepared\\\",\\\"pod_uid\\\":\\\"pod-before-prepared\\\",\\\"process\\\":{\\\"birth_id\\\":\\\"1da0645fd1c6075aed5200f957405fe944d846d1ae18b7734954d164868ba4ca:68b579876db18dd3eaba3383a7dc0ab2d3abbc28a01dc6e636ff991bc36cd049:child-process-spawn-event\\\",\\\"exit_code\\\":null,\\\"exited_at\\\":null,\\\"pid\\\":23657,\\\"started_at\\\":\\\"2026-09-13T06:43:09.150Z\\\"},\\\"reason\\\":\\\"running\\\",\\\"receipt_id\\\":\\\"265aba6f0a107359dd5829349d5e993dade47abf93afa928e1f0060265c1f2f5\\\"}\"},\"operation_id\":\"start-before-prepared\",\"profile_id\":\"harmless-node-v1\",\"receiver\":{\"environment_ref\":\"local-before-prepared\",\"pod_uid\":\"pod-before-prepared\",\"receiver_id\":\"receiver-p10\",\"runtime_attempt\":\"1\"},\"state\":\"running\"}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "http://127.0.0.1:63563/operations/start-before-prepared",
+        "headers": {
+          "Accept": "application/json",
+          "Authorization": "Bearer p10-test-controller-token"
+        },
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "cache-control": "no-store",
+          "connection": "keep-alive",
+          "content-type": "application/json",
+          "date": "Sun, 13 Sep 2026 06:43:09 GMT",
+          "keep-alive": "timeout=5",
+          "transfer-encoding": "chunked"
+        },
+        "body": {
+          "assignment_digest": "64c0eeee05719b99756c2bff729f23db8bd0032bed56c4203a861601d16575d9",
+          "identity": {
+            "agent_run_id": "run-before-prepared",
+            "execution_epoch": "1",
+            "project_id": "project-p10",
+            "receiver_id": "receiver-p10",
+            "run_epoch": "1",
+            "runtime_attempt": "1",
+            "task_id": "task-before-prepared",
+            "tenant_id": "tenant-p10",
+            "work_item_id": "work-before-prepared"
+          },
+          "observation": {
+            "environment_ref": "local-before-prepared",
+            "identity": {
+              "agent_run_id": "run-before-prepared",
+              "execution_epoch": "1",
+              "project_id": "project-p10",
+              "receiver_id": "receiver-p10",
+              "run_epoch": "1",
+              "runtime_attempt": "1",
+              "task_id": "task-before-prepared",
+              "tenant_id": "tenant-p10",
+              "work_item_id": "work-before-prepared"
+            },
+            "kind": "started",
+            "observed_at": "2026-09-13T06:43:09.177Z",
+            "operation_id": "start-before-prepared",
+            "pod_uid": "pod-before-prepared",
+            "process": {
+              "birth_id": "1da0645fd1c6075aed5200f957405fe944d846d1ae18b7734954d164868ba4ca:68b579876db18dd3eaba3383a7dc0ab2d3abbc28a01dc6e636ff991bc36cd049:child-process-spawn-event",
+              "exit_code": null,
+              "exited_at": null,
+              "pid": 23657,
+              "started_at": "2026-09-13T06:43:09.150Z"
+            },
+            "reason": "running",
+            "receipt_id": "265aba6f0a107359dd5829349d5e993dade47abf93afa928e1f0060265c1f2f5",
+            "source_digest": "e19c28ffcd2508ed213ed1533e23b2c822c6c8723f9252c9796c475b9195226f",
+            "source_receipt": "{\"environment_ref\":\"local-before-prepared\",\"identity\":{\"agent_run_id\":\"run-before-prepared\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-before-prepared\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-before-prepared\"},\"kind\":\"started\",\"observed_at\":\"2026-09-13T06:43:09.177Z\",\"operation_id\":\"start-before-prepared\",\"pod_uid\":\"pod-before-prepared\",\"process\":{\"birth_id\":\"1da0645fd1c6075aed5200f957405fe944d846d1ae18b7734954d164868ba4ca:68b579876db18dd3eaba3383a7dc0ab2d3abbc28a01dc6e636ff991bc36cd049:child-process-spawn-event\",\"exit_code\":null,\"exited_at\":null,\"pid\":23657,\"started_at\":\"2026-09-13T06:43:09.150Z\"},\"reason\":\"running\",\"receipt_id\":\"265aba6f0a107359dd5829349d5e993dade47abf93afa928e1f0060265c1f2f5\"}"
+          },
+          "operation_id": "start-before-prepared",
+          "profile_id": "harmless-node-v1",
+          "receiver": {
+            "environment_ref": "local-before-prepared",
+            "pod_uid": "pod-before-prepared",
+            "receiver_id": "receiver-p10",
+            "runtime_attempt": "1"
+          },
+          "state": "running"
+        },
+        "responseText": "{\"assignment_digest\":\"64c0eeee05719b99756c2bff729f23db8bd0032bed56c4203a861601d16575d9\",\"identity\":{\"agent_run_id\":\"run-before-prepared\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-before-prepared\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-before-prepared\"},\"observation\":{\"environment_ref\":\"local-before-prepared\",\"identity\":{\"agent_run_id\":\"run-before-prepared\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-before-prepared\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-before-prepared\"},\"kind\":\"started\",\"observed_at\":\"2026-09-13T06:43:09.177Z\",\"operation_id\":\"start-before-prepared\",\"pod_uid\":\"pod-before-prepared\",\"process\":{\"birth_id\":\"1da0645fd1c6075aed5200f957405fe944d846d1ae18b7734954d164868ba4ca:68b579876db18dd3eaba3383a7dc0ab2d3abbc28a01dc6e636ff991bc36cd049:child-process-spawn-event\",\"exit_code\":null,\"exited_at\":null,\"pid\":23657,\"started_at\":\"2026-09-13T06:43:09.150Z\"},\"reason\":\"running\",\"receipt_id\":\"265aba6f0a107359dd5829349d5e993dade47abf93afa928e1f0060265c1f2f5\",\"source_digest\":\"e19c28ffcd2508ed213ed1533e23b2c822c6c8723f9252c9796c475b9195226f\",\"source_receipt\":\"{\\\"environment_ref\\\":\\\"local-before-prepared\\\",\\\"identity\\\":{\\\"agent_run_id\\\":\\\"run-before-prepared\\\",\\\"execution_epoch\\\":\\\"1\\\",\\\"project_id\\\":\\\"project-p10\\\",\\\"receiver_id\\\":\\\"receiver-p10\\\",\\\"run_epoch\\\":\\\"1\\\",\\\"runtime_attempt\\\":\\\"1\\\",\\\"task_id\\\":\\\"task-before-prepared\\\",\\\"tenant_id\\\":\\\"tenant-p10\\\",\\\"work_item_id\\\":\\\"work-before-prepared\\\"},\\\"kind\\\":\\\"started\\\",\\\"observed_at\\\":\\\"2026-09-13T06:43:09.177Z\\\",\\\"operation_id\\\":\\\"start-before-prepared\\\",\\\"pod_uid\\\":\\\"pod-before-prepared\\\",\\\"process\\\":{\\\"birth_id\\\":\\\"1da0645fd1c6075aed5200f957405fe944d846d1ae18b7734954d164868ba4ca:68b579876db18dd3eaba3383a7dc0ab2d3abbc28a01dc6e636ff991bc36cd049:child-process-spawn-event\\\",\\\"exit_code\\\":null,\\\"exited_at\\\":null,\\\"pid\\\":23657,\\\"started_at\\\":\\\"2026-09-13T06:43:09.150Z\\\"},\\\"reason\\\":\\\"running\\\",\\\"receipt_id\\\":\\\"265aba6f0a107359dd5829349d5e993dade47abf93afa928e1f0060265c1f2f5\\\"}\"},\"operation_id\":\"start-before-prepared\",\"profile_id\":\"harmless-node-v1\",\"receiver\":{\"environment_ref\":\"local-before-prepared\",\"pod_uid\":\"pod-before-prepared\",\"receiver_id\":\"receiver-p10\",\"runtime_attempt\":\"1\"},\"state\":\"running\"}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "http://127.0.0.1:63563/operations/start-before-prepared",
+        "headers": {
+          "Accept": "application/json",
+          "Authorization": "Bearer p10-test-controller-token"
+        },
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "cache-control": "no-store",
+          "connection": "keep-alive",
+          "content-type": "application/json",
+          "date": "Sun, 13 Sep 2026 06:43:09 GMT",
+          "keep-alive": "timeout=5",
+          "transfer-encoding": "chunked"
+        },
+        "body": {
+          "assignment_digest": "64c0eeee05719b99756c2bff729f23db8bd0032bed56c4203a861601d16575d9",
+          "identity": {
+            "agent_run_id": "run-before-prepared",
+            "execution_epoch": "1",
+            "project_id": "project-p10",
+            "receiver_id": "receiver-p10",
+            "run_epoch": "1",
+            "runtime_attempt": "1",
+            "task_id": "task-before-prepared",
+            "tenant_id": "tenant-p10",
+            "work_item_id": "work-before-prepared"
+          },
+          "observation": {
+            "environment_ref": "local-before-prepared",
+            "identity": {
+              "agent_run_id": "run-before-prepared",
+              "execution_epoch": "1",
+              "project_id": "project-p10",
+              "receiver_id": "receiver-p10",
+              "run_epoch": "1",
+              "runtime_attempt": "1",
+              "task_id": "task-before-prepared",
+              "tenant_id": "tenant-p10",
+              "work_item_id": "work-before-prepared"
+            },
+            "kind": "exited",
+            "observed_at": "2026-09-13T06:43:09.209Z",
+            "operation_id": "start-before-prepared",
+            "pod_uid": "pod-before-prepared",
+            "process": {
+              "birth_id": "1da0645fd1c6075aed5200f957405fe944d846d1ae18b7734954d164868ba4ca:68b579876db18dd3eaba3383a7dc0ab2d3abbc28a01dc6e636ff991bc36cd049:child-process-spawn-event",
+              "exit_code": 0,
+              "exited_at": "2026-09-13T06:43:09.203Z",
+              "pid": 23657,
+              "started_at": "2026-09-13T06:43:09.150Z"
+            },
+            "reason": "exited",
+            "receipt_id": "c88378e0b400eb22968deffe9f5474cd5f7d7905401c4613724051324293259c",
+            "source_digest": "d91a8940433e46dc9358d7eb53261a4d26ed98517d336b213b5887f032a6638a",
+            "source_receipt": "{\"environment_ref\":\"local-before-prepared\",\"identity\":{\"agent_run_id\":\"run-before-prepared\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-before-prepared\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-before-prepared\"},\"kind\":\"exited\",\"observed_at\":\"2026-09-13T06:43:09.209Z\",\"operation_id\":\"start-before-prepared\",\"pod_uid\":\"pod-before-prepared\",\"process\":{\"birth_id\":\"1da0645fd1c6075aed5200f957405fe944d846d1ae18b7734954d164868ba4ca:68b579876db18dd3eaba3383a7dc0ab2d3abbc28a01dc6e636ff991bc36cd049:child-process-spawn-event\",\"exit_code\":0,\"exited_at\":\"2026-09-13T06:43:09.203Z\",\"pid\":23657,\"started_at\":\"2026-09-13T06:43:09.150Z\"},\"reason\":\"exited\",\"receipt_id\":\"c88378e0b400eb22968deffe9f5474cd5f7d7905401c4613724051324293259c\"}"
+          },
+          "operation_id": "start-before-prepared",
+          "profile_id": "harmless-node-v1",
+          "receiver": {
+            "environment_ref": "local-before-prepared",
+            "pod_uid": "pod-before-prepared",
+            "receiver_id": "receiver-p10",
+            "runtime_attempt": "1"
+          },
+          "state": "exited"
+        },
+        "responseText": "{\"assignment_digest\":\"64c0eeee05719b99756c2bff729f23db8bd0032bed56c4203a861601d16575d9\",\"identity\":{\"agent_run_id\":\"run-before-prepared\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-before-prepared\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-before-prepared\"},\"observation\":{\"environment_ref\":\"local-before-prepared\",\"identity\":{\"agent_run_id\":\"run-before-prepared\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-before-prepared\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-before-prepared\"},\"kind\":\"exited\",\"observed_at\":\"2026-09-13T06:43:09.209Z\",\"operation_id\":\"start-before-prepared\",\"pod_uid\":\"pod-before-prepared\",\"process\":{\"birth_id\":\"1da0645fd1c6075aed5200f957405fe944d846d1ae18b7734954d164868ba4ca:68b579876db18dd3eaba3383a7dc0ab2d3abbc28a01dc6e636ff991bc36cd049:child-process-spawn-event\",\"exit_code\":0,\"exited_at\":\"2026-09-13T06:43:09.203Z\",\"pid\":23657,\"started_at\":\"2026-09-13T06:43:09.150Z\"},\"reason\":\"exited\",\"receipt_id\":\"c88378e0b400eb22968deffe9f5474cd5f7d7905401c4613724051324293259c\",\"source_digest\":\"d91a8940433e46dc9358d7eb53261a4d26ed98517d336b213b5887f032a6638a\",\"source_receipt\":\"{\\\"environment_ref\\\":\\\"local-before-prepared\\\",\\\"identity\\\":{\\\"agent_run_id\\\":\\\"run-before-prepared\\\",\\\"execution_epoch\\\":\\\"1\\\",\\\"project_id\\\":\\\"project-p10\\\",\\\"receiver_id\\\":\\\"receiver-p10\\\",\\\"run_epoch\\\":\\\"1\\\",\\\"runtime_attempt\\\":\\\"1\\\",\\\"task_id\\\":\\\"task-before-prepared\\\",\\\"tenant_id\\\":\\\"tenant-p10\\\",\\\"work_item_id\\\":\\\"work-before-prepared\\\"},\\\"kind\\\":\\\"exited\\\",\\\"observed_at\\\":\\\"2026-09-13T06:43:09.209Z\\\",\\\"operation_id\\\":\\\"start-before-prepared\\\",\\\"pod_uid\\\":\\\"pod-before-prepared\\\",\\\"process\\\":{\\\"birth_id\\\":\\\"1da0645fd1c6075aed5200f957405fe944d846d1ae18b7734954d164868ba4ca:68b579876db18dd3eaba3383a7dc0ab2d3abbc28a01dc6e636ff991bc36cd049:child-process-spawn-event\\\",\\\"exit_code\\\":0,\\\"exited_at\\\":\\\"2026-09-13T06:43:09.203Z\\\",\\\"pid\\\":23657,\\\"started_at\\\":\\\"2026-09-13T06:43:09.150Z\\\"},\\\"reason\\\":\\\"exited\\\",\\\"receipt_id\\\":\\\"c88378e0b400eb22968deffe9f5474cd5f7d7905401c4613724051324293259c\\\"}\"},\"operation_id\":\"start-before-prepared\",\"profile_id\":\"harmless-node-v1\",\"receiver\":{\"environment_ref\":\"local-before-prepared\",\"pod_uid\":\"pod-before-prepared\",\"receiver_id\":\"receiver-p10\",\"runtime_attempt\":\"1\"},\"state\":\"exited\"}"
+      }
+    }
+  ]
+}

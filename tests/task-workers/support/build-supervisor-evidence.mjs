@@ -97,7 +97,10 @@ for (const { name, body } of records) {
   );
 }
 
-await writeFile(join(evidenceRoot, "http-reproduction.md"), `${http.join("\n")}\n`);
+await writeFile(
+  join(evidenceRoot, "http-reproduction.md"),
+  `${http.join("\n").trimEnd()}\n`,
+);
 
 const rows = records.map(({ body }) => `
   <tr>

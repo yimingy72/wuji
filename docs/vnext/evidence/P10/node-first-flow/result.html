@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>P10 Node Supervisor verification</title>
+<style>
+body{margin:0;background:#0b1020;color:#e8edf7;font:16px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace}
+main{width:1180px;margin:0 auto;padding:44px}h1{font:700 34px/1.2 system-ui;margin:0 0 10px}.muted{color:#9aabc7}
+.status{display:flex;gap:18px;margin:28px 0}.card{background:#141c32;border:1px solid #2b3b61;border-radius:12px;padding:18px 22px;min-width:180px}
+.value{font:700 30px system-ui;color:#70e1a1}.label{color:#9aabc7;margin-top:4px}table{width:100%;border-collapse:collapse;background:#11182a}
+th,td{padding:12px 14px;border:1px solid #293750;text-align:left}th{background:#19243d;color:#bcd0f7}code{color:#ffd479}
+.scope{margin-top:26px;padding:16px 18px;border-left:4px solid #f3b85b;background:#171a25}footer{margin-top:28px;color:#8291aa;font-size:13px}
+</style></head><body><main>
+<h1>P10 Node Supervisor — First Flow</h1>
+<div class="muted">真实 Node 24.20.0 + 独立 Supervisor/guardian/harmless child；被测 core <code>72d26a02</code>，测试 <code>8e2fc7df</code></div>
+<div class="status"><div class="card"><div class="value">10/10</div><div class="label">tests passed</div></div>
+<div class="card"><div class="value">0</div><div class="label">failures</div></div>
+<div class="card"><div class="value">5.19s</div><div class="label">Node test duration</div></div></div>
+<table><thead><tr><th>场景</th><th>Supervisor SIGKILL</th><th>actual starts</th><th>birth</th><th>exit</th><th>HTTP exchanges</th></tr></thead>
+<tbody>
+  <tr>
+    <td>after-running-before-response</td>
+    <td>1</td>
+    <td>1</td>
+    <td>1</td>
+    <td>1</td>
+    <td>5</td>
+  </tr>
+  <tr>
+    <td>after-spawn-before-running-receipt</td>
+    <td>1</td>
+    <td>1</td>
+    <td>1</td>
+    <td>1</td>
+    <td>5</td>
+  </tr>
+  <tr>
+    <td>before-prepared</td>
+    <td>1</td>
+    <td>1</td>
+    <td>1</td>
+    <td>1</td>
+    <td>5</td>
+  </tr>
+  <tr>
+    <td>control-exit</td>
+    <td>0</td>
+    <td>1</td>
+    <td>1</td>
+    <td>1</td>
+    <td>8</td>
+  </tr>
+  <tr>
+    <td>digest-conflict</td>
+    <td>0</td>
+    <td>1</td>
+    <td>1</td>
+    <td>1</td>
+    <td>4</td>
+  </tr>
+  <tr>
+    <td>old-runtime</td>
+    <td>0</td>
+    <td>1</td>
+    <td>1</td>
+    <td>1</td>
+    <td>4</td>
+  </tr>
+  <tr>
+    <td>prepared-before-spawn</td>
+    <td>1</td>
+    <td>0</td>
+    <td>0</td>
+    <td>0</td>
+    <td>3</td>
+  </tr></tbody></table>
+<div class="scope">范围：四个 crash 窗口、同 operation 幂等、旧 runtime/control 身份、摘要冲突、结构化授权、inbox ownership 与真实退出。此图不代表 P09/P05/MAF/HostTransport/K8s 的完整 M2 集成。</div>
+<footer>Command: WUJI_P10_EVIDENCE_DIR=docs/vnext/evidence/P10/node-first-flow/raw work/toolchain/bin/node --test … tests/task-workers/maf-supervisor.test.mjs</footer>
+</main></body></html>

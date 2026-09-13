@@ -1,0 +1,748 @@
+{
+  "schema_version": "wuji.p10-node-fixture.v1",
+  "generated_at": "2026-09-13T06:43:11.541Z",
+  "label": "control-exit",
+  "assignment": {
+    "schema_version": "wuji.assignment.v2",
+    "operation_id": "start-control-exit",
+    "identity": {
+      "tenant_id": "tenant-p10",
+      "project_id": "project-p10",
+      "task_id": "task-control-exit",
+      "work_item_id": "work-control-exit",
+      "agent_run_id": "run-control-exit",
+      "execution_epoch": "1",
+      "run_epoch": "1",
+      "runtime_attempt": "1",
+      "receiver_id": "receiver-p10"
+    },
+    "work_kind": "explore",
+    "snapshot_id": "snapshot-control-exit",
+    "profile_refs": [
+      "harmless-node-v1"
+    ],
+    "session_manifest_ref": null,
+    "tool_definition_refs": [
+      "read_record:v1"
+    ],
+    "limits": {
+      "max_work_items": 4,
+      "max_reason_runs": 1,
+      "max_model_requests": 2,
+      "max_tool_calls": 2,
+      "max_single_output_bytes": 65536,
+      "max_total_output_bytes": 131072,
+      "max_elapsed_seconds": 30,
+      "max_attempts_per_work": 1,
+      "repair_attempts": 0
+    },
+    "resume_reason": null
+  },
+  "receiver": {
+    "receiver_id": "receiver-p10",
+    "runtime_attempt": "1",
+    "environment_ref": "local-control-exit",
+    "pod_uid": "pod-control-exit"
+  },
+  "actual_starts": [
+    {
+      "operation_id": "start-control-exit",
+      "fixture_instance_id": "f5bccdad-f641-4900-94d6-e8954a974dce",
+      "pid": 23761
+    }
+  ],
+  "child_lifecycle": [
+    {
+      "event": "birth",
+      "operation_id": "start-control-exit",
+      "fixture_instance_id": "f5bccdad-f641-4900-94d6-e8954a974dce",
+      "pid": 23761,
+      "ppid": 23739,
+      "observed_at": "2026-09-13T06:43:10.754Z",
+      "monotonic_ns": "406828512057708"
+    },
+    {
+      "event": "exit",
+      "operation_id": "start-control-exit",
+      "fixture_instance_id": "f5bccdad-f641-4900-94d6-e8954a974dce",
+      "pid": 23761,
+      "ppid": 23739,
+      "observed_at": "2026-09-13T06:43:11.523Z",
+      "monotonic_ns": "406829280678083",
+      "reason": "SIGTERM",
+      "exit_code": 0
+    }
+  ],
+  "supervisor_crashes": [],
+  "http_exchanges": [
+    {
+      "request": {
+        "method": "PUT",
+        "url": "http://127.0.0.1:63582/operations/start-control-exit",
+        "headers": {
+          "Accept": "application/json",
+          "Authorization": "Bearer p10-test-controller-token",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "assignment": {
+            "schema_version": "wuji.assignment.v2",
+            "operation_id": "start-control-exit",
+            "identity": {
+              "tenant_id": "tenant-p10",
+              "project_id": "project-p10",
+              "task_id": "task-control-exit",
+              "work_item_id": "work-control-exit",
+              "agent_run_id": "run-control-exit",
+              "execution_epoch": "1",
+              "run_epoch": "1",
+              "runtime_attempt": "1",
+              "receiver_id": "receiver-p10"
+            },
+            "work_kind": "explore",
+            "snapshot_id": "snapshot-control-exit",
+            "profile_refs": [
+              "harmless-node-v1"
+            ],
+            "session_manifest_ref": null,
+            "tool_definition_refs": [
+              "read_record:v1"
+            ],
+            "limits": {
+              "max_work_items": 4,
+              "max_reason_runs": 1,
+              "max_model_requests": 2,
+              "max_tool_calls": 2,
+              "max_single_output_bytes": 65536,
+              "max_total_output_bytes": 131072,
+              "max_elapsed_seconds": 30,
+              "max_attempts_per_work": 1,
+              "repair_attempts": 0
+            },
+            "resume_reason": null
+          },
+          "profile_id": "harmless-node-v1"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "cache-control": "no-store",
+          "connection": "keep-alive",
+          "content-type": "application/json",
+          "date": "Sun, 13 Sep 2026 06:43:10 GMT",
+          "keep-alive": "timeout=5",
+          "transfer-encoding": "chunked"
+        },
+        "body": {
+          "assignment_digest": "6e140d27f77d6b2e4ae723f39b0b3361c1764bfe4a55519ec220014db79cdee7",
+          "identity": {
+            "agent_run_id": "run-control-exit",
+            "execution_epoch": "1",
+            "project_id": "project-p10",
+            "receiver_id": "receiver-p10",
+            "run_epoch": "1",
+            "runtime_attempt": "1",
+            "task_id": "task-control-exit",
+            "tenant_id": "tenant-p10",
+            "work_item_id": "work-control-exit"
+          },
+          "observation": {
+            "environment_ref": "local-control-exit",
+            "identity": {
+              "agent_run_id": "run-control-exit",
+              "execution_epoch": "1",
+              "project_id": "project-p10",
+              "receiver_id": "receiver-p10",
+              "run_epoch": "1",
+              "runtime_attempt": "1",
+              "task_id": "task-control-exit",
+              "tenant_id": "tenant-p10",
+              "work_item_id": "work-control-exit"
+            },
+            "kind": "started",
+            "observed_at": "2026-09-13T06:43:10.738Z",
+            "operation_id": "start-control-exit",
+            "pod_uid": "pod-control-exit",
+            "process": {
+              "birth_id": "15295880fb0ae76774e72da7646ff3da8121b538c99a92f3c4471006cbbaf352:75cc58daeb29eb7302af26621ff2294ac144467a6651d2b5d81571c0661f7ca8:child-process-spawn-event",
+              "exit_code": null,
+              "exited_at": null,
+              "pid": 23761,
+              "started_at": "2026-09-13T06:43:10.712Z"
+            },
+            "reason": "running",
+            "receipt_id": "ae6e73fda4edb900ed0d7f16e6a388d8f29565f72627889898dd43b6727b0d8e",
+            "source_digest": "099ed1d9fbc5608aa06d972e19d69a043733433a3c7e8a2ad482c5d57594ed39",
+            "source_receipt": "{\"environment_ref\":\"local-control-exit\",\"identity\":{\"agent_run_id\":\"run-control-exit\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-control-exit\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-control-exit\"},\"kind\":\"started\",\"observed_at\":\"2026-09-13T06:43:10.738Z\",\"operation_id\":\"start-control-exit\",\"pod_uid\":\"pod-control-exit\",\"process\":{\"birth_id\":\"15295880fb0ae76774e72da7646ff3da8121b538c99a92f3c4471006cbbaf352:75cc58daeb29eb7302af26621ff2294ac144467a6651d2b5d81571c0661f7ca8:child-process-spawn-event\",\"exit_code\":null,\"exited_at\":null,\"pid\":23761,\"started_at\":\"2026-09-13T06:43:10.712Z\"},\"reason\":\"running\",\"receipt_id\":\"ae6e73fda4edb900ed0d7f16e6a388d8f29565f72627889898dd43b6727b0d8e\"}"
+          },
+          "operation_id": "start-control-exit",
+          "profile_id": "harmless-node-v1",
+          "receiver": {
+            "environment_ref": "local-control-exit",
+            "pod_uid": "pod-control-exit",
+            "receiver_id": "receiver-p10",
+            "runtime_attempt": "1"
+          },
+          "state": "running"
+        },
+        "responseText": "{\"assignment_digest\":\"6e140d27f77d6b2e4ae723f39b0b3361c1764bfe4a55519ec220014db79cdee7\",\"identity\":{\"agent_run_id\":\"run-control-exit\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-control-exit\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-control-exit\"},\"observation\":{\"environment_ref\":\"local-control-exit\",\"identity\":{\"agent_run_id\":\"run-control-exit\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-control-exit\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-control-exit\"},\"kind\":\"started\",\"observed_at\":\"2026-09-13T06:43:10.738Z\",\"operation_id\":\"start-control-exit\",\"pod_uid\":\"pod-control-exit\",\"process\":{\"birth_id\":\"15295880fb0ae76774e72da7646ff3da8121b538c99a92f3c4471006cbbaf352:75cc58daeb29eb7302af26621ff2294ac144467a6651d2b5d81571c0661f7ca8:child-process-spawn-event\",\"exit_code\":null,\"exited_at\":null,\"pid\":23761,\"started_at\":\"2026-09-13T06:43:10.712Z\"},\"reason\":\"running\",\"receipt_id\":\"ae6e73fda4edb900ed0d7f16e6a388d8f29565f72627889898dd43b6727b0d8e\",\"source_digest\":\"099ed1d9fbc5608aa06d972e19d69a043733433a3c7e8a2ad482c5d57594ed39\",\"source_receipt\":\"{\\\"environment_ref\\\":\\\"local-control-exit\\\",\\\"identity\\\":{\\\"agent_run_id\\\":\\\"run-control-exit\\\",\\\"execution_epoch\\\":\\\"1\\\",\\\"project_id\\\":\\\"project-p10\\\",\\\"receiver_id\\\":\\\"receiver-p10\\\",\\\"run_epoch\\\":\\\"1\\\",\\\"runtime_attempt\\\":\\\"1\\\",\\\"task_id\\\":\\\"task-control-exit\\\",\\\"tenant_id\\\":\\\"tenant-p10\\\",\\\"work_item_id\\\":\\\"work-control-exit\\\"},\\\"kind\\\":\\\"started\\\",\\\"observed_at\\\":\\\"2026-09-13T06:43:10.738Z\\\",\\\"operation_id\\\":\\\"start-control-exit\\\",\\\"pod_uid\\\":\\\"pod-control-exit\\\",\\\"process\\\":{\\\"birth_id\\\":\\\"15295880fb0ae76774e72da7646ff3da8121b538c99a92f3c4471006cbbaf352:75cc58daeb29eb7302af26621ff2294ac144467a6651d2b5d81571c0661f7ca8:child-process-spawn-event\\\",\\\"exit_code\\\":null,\\\"exited_at\\\":null,\\\"pid\\\":23761,\\\"started_at\\\":\\\"2026-09-13T06:43:10.712Z\\\"},\\\"reason\\\":\\\"running\\\",\\\"receipt_id\\\":\\\"ae6e73fda4edb900ed0d7f16e6a388d8f29565f72627889898dd43b6727b0d8e\\\"}\"},\"operation_id\":\"start-control-exit\",\"profile_id\":\"harmless-node-v1\",\"receiver\":{\"environment_ref\":\"local-control-exit\",\"pod_uid\":\"pod-control-exit\",\"receiver_id\":\"receiver-p10\",\"runtime_attempt\":\"1\"},\"state\":\"running\"}"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:63582/operations/start-control-exit/control",
+        "headers": {
+          "Accept": "application/json",
+          "Authorization": "Bearer p10-test-controller-token",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "control_operation_id": "stop-stale",
+          "action": "stop",
+          "identity": {
+            "tenant_id": "tenant-p10",
+            "project_id": "project-p10",
+            "task_id": "task-control-exit",
+            "work_item_id": "work-control-exit",
+            "agent_run_id": "run-control-exit",
+            "execution_epoch": "1",
+            "run_epoch": "0",
+            "runtime_attempt": "1",
+            "receiver_id": "receiver-p10"
+          }
+        }
+      },
+      "response": {
+        "status": 409,
+        "headers": {
+          "cache-control": "no-store",
+          "connection": "keep-alive",
+          "content-type": "application/json",
+          "date": "Sun, 13 Sep 2026 06:43:10 GMT",
+          "keep-alive": "timeout=5",
+          "transfer-encoding": "chunked"
+        },
+        "body": {
+          "code": "STALE_EXECUTION"
+        },
+        "responseText": "{\"code\":\"STALE_EXECUTION\"}"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:63582/operations/start-control-exit/control",
+        "headers": {
+          "Accept": "application/json",
+          "Authorization": "Bearer p10-test-controller-token",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "control_operation_id": "stop-current",
+          "action": "stop",
+          "identity": {
+            "tenant_id": "tenant-p10",
+            "project_id": "project-p10",
+            "task_id": "task-control-exit",
+            "work_item_id": "work-control-exit",
+            "agent_run_id": "run-control-exit",
+            "execution_epoch": "1",
+            "run_epoch": "1",
+            "runtime_attempt": "1",
+            "receiver_id": "receiver-p10"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "cache-control": "no-store",
+          "connection": "keep-alive",
+          "content-type": "application/json",
+          "date": "Sun, 13 Sep 2026 06:43:10 GMT",
+          "keep-alive": "timeout=5",
+          "transfer-encoding": "chunked"
+        },
+        "body": {
+          "accepted_at": "2026-09-13T06:43:10.759Z",
+          "execution": {
+            "assignment_digest": "6e140d27f77d6b2e4ae723f39b0b3361c1764bfe4a55519ec220014db79cdee7",
+            "identity": {
+              "agent_run_id": "run-control-exit",
+              "execution_epoch": "1",
+              "project_id": "project-p10",
+              "receiver_id": "receiver-p10",
+              "run_epoch": "1",
+              "runtime_attempt": "1",
+              "task_id": "task-control-exit",
+              "tenant_id": "tenant-p10",
+              "work_item_id": "work-control-exit"
+            },
+            "observation": {
+              "environment_ref": "local-control-exit",
+              "identity": {
+                "agent_run_id": "run-control-exit",
+                "execution_epoch": "1",
+                "project_id": "project-p10",
+                "receiver_id": "receiver-p10",
+                "run_epoch": "1",
+                "runtime_attempt": "1",
+                "task_id": "task-control-exit",
+                "tenant_id": "tenant-p10",
+                "work_item_id": "work-control-exit"
+              },
+              "kind": "started",
+              "observed_at": "2026-09-13T06:43:10.738Z",
+              "operation_id": "start-control-exit",
+              "pod_uid": "pod-control-exit",
+              "process": {
+                "birth_id": "15295880fb0ae76774e72da7646ff3da8121b538c99a92f3c4471006cbbaf352:75cc58daeb29eb7302af26621ff2294ac144467a6651d2b5d81571c0661f7ca8:child-process-spawn-event",
+                "exit_code": null,
+                "exited_at": null,
+                "pid": 23761,
+                "started_at": "2026-09-13T06:43:10.712Z"
+              },
+              "reason": "running",
+              "receipt_id": "ae6e73fda4edb900ed0d7f16e6a388d8f29565f72627889898dd43b6727b0d8e",
+              "source_digest": "099ed1d9fbc5608aa06d972e19d69a043733433a3c7e8a2ad482c5d57594ed39",
+              "source_receipt": "{\"environment_ref\":\"local-control-exit\",\"identity\":{\"agent_run_id\":\"run-control-exit\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-control-exit\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-control-exit\"},\"kind\":\"started\",\"observed_at\":\"2026-09-13T06:43:10.738Z\",\"operation_id\":\"start-control-exit\",\"pod_uid\":\"pod-control-exit\",\"process\":{\"birth_id\":\"15295880fb0ae76774e72da7646ff3da8121b538c99a92f3c4471006cbbaf352:75cc58daeb29eb7302af26621ff2294ac144467a6651d2b5d81571c0661f7ca8:child-process-spawn-event\",\"exit_code\":null,\"exited_at\":null,\"pid\":23761,\"started_at\":\"2026-09-13T06:43:10.712Z\"},\"reason\":\"running\",\"receipt_id\":\"ae6e73fda4edb900ed0d7f16e6a388d8f29565f72627889898dd43b6727b0d8e\"}"
+            },
+            "operation_id": "start-control-exit",
+            "profile_id": "harmless-node-v1",
+            "receiver": {
+              "environment_ref": "local-control-exit",
+              "pod_uid": "pod-control-exit",
+              "receiver_id": "receiver-p10",
+              "runtime_attempt": "1"
+            },
+            "state": "running"
+          },
+          "identity": {
+            "agent_run_id": "run-control-exit",
+            "execution_epoch": "1",
+            "project_id": "project-p10",
+            "receiver_id": "receiver-p10",
+            "run_epoch": "1",
+            "runtime_attempt": "1",
+            "task_id": "task-control-exit",
+            "tenant_id": "tenant-p10",
+            "work_item_id": "work-control-exit"
+          },
+          "operation_id": "stop-current",
+          "start_operation_id": "start-control-exit",
+          "status": "accepted"
+        },
+        "responseText": "{\"accepted_at\":\"2026-09-13T06:43:10.759Z\",\"execution\":{\"assignment_digest\":\"6e140d27f77d6b2e4ae723f39b0b3361c1764bfe4a55519ec220014db79cdee7\",\"identity\":{\"agent_run_id\":\"run-control-exit\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-control-exit\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-control-exit\"},\"observation\":{\"environment_ref\":\"local-control-exit\",\"identity\":{\"agent_run_id\":\"run-control-exit\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-control-exit\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-control-exit\"},\"kind\":\"started\",\"observed_at\":\"2026-09-13T06:43:10.738Z\",\"operation_id\":\"start-control-exit\",\"pod_uid\":\"pod-control-exit\",\"process\":{\"birth_id\":\"15295880fb0ae76774e72da7646ff3da8121b538c99a92f3c4471006cbbaf352:75cc58daeb29eb7302af26621ff2294ac144467a6651d2b5d81571c0661f7ca8:child-process-spawn-event\",\"exit_code\":null,\"exited_at\":null,\"pid\":23761,\"started_at\":\"2026-09-13T06:43:10.712Z\"},\"reason\":\"running\",\"receipt_id\":\"ae6e73fda4edb900ed0d7f16e6a388d8f29565f72627889898dd43b6727b0d8e\",\"source_digest\":\"099ed1d9fbc5608aa06d972e19d69a043733433a3c7e8a2ad482c5d57594ed39\",\"source_receipt\":\"{\\\"environment_ref\\\":\\\"local-control-exit\\\",\\\"identity\\\":{\\\"agent_run_id\\\":\\\"run-control-exit\\\",\\\"execution_epoch\\\":\\\"1\\\",\\\"project_id\\\":\\\"project-p10\\\",\\\"receiver_id\\\":\\\"receiver-p10\\\",\\\"run_epoch\\\":\\\"1\\\",\\\"runtime_attempt\\\":\\\"1\\\",\\\"task_id\\\":\\\"task-control-exit\\\",\\\"tenant_id\\\":\\\"tenant-p10\\\",\\\"work_item_id\\\":\\\"work-control-exit\\\"},\\\"kind\\\":\\\"started\\\",\\\"observed_at\\\":\\\"2026-09-13T06:43:10.738Z\\\",\\\"operation_id\\\":\\\"start-control-exit\\\",\\\"pod_uid\\\":\\\"pod-control-exit\\\",\\\"process\\\":{\\\"birth_id\\\":\\\"15295880fb0ae76774e72da7646ff3da8121b538c99a92f3c4471006cbbaf352:75cc58daeb29eb7302af26621ff2294ac144467a6651d2b5d81571c0661f7ca8:child-process-spawn-event\\\",\\\"exit_code\\\":null,\\\"exited_at\\\":null,\\\"pid\\\":23761,\\\"started_at\\\":\\\"2026-09-13T06:43:10.712Z\\\"},\\\"reason\\\":\\\"running\\\",\\\"receipt_id\\\":\\\"ae6e73fda4edb900ed0d7f16e6a388d8f29565f72627889898dd43b6727b0d8e\\\"}\"},\"operation_id\":\"start-control-exit\",\"profile_id\":\"harmless-node-v1\",\"receiver\":{\"environment_ref\":\"local-control-exit\",\"pod_uid\":\"pod-control-exit\",\"receiver_id\":\"receiver-p10\",\"runtime_attempt\":\"1\"},\"state\":\"running\"},\"identity\":{\"agent_run_id\":\"run-control-exit\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-control-exit\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-control-exit\"},\"operation_id\":\"stop-current\",\"start_operation_id\":\"start-control-exit\",\"status\":\"accepted\"}"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:63582/operations/start-control-exit/control",
+        "headers": {
+          "Accept": "application/json",
+          "Authorization": "Bearer p10-test-controller-token",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "control_operation_id": "stop-current",
+          "action": "stop",
+          "identity": {
+            "tenant_id": "tenant-p10",
+            "project_id": "project-p10",
+            "task_id": "task-control-exit",
+            "work_item_id": "work-control-exit",
+            "agent_run_id": "run-control-exit",
+            "execution_epoch": "1",
+            "run_epoch": "1",
+            "runtime_attempt": "1",
+            "receiver_id": "receiver-p10"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "cache-control": "no-store",
+          "connection": "keep-alive",
+          "content-type": "application/json",
+          "date": "Sun, 13 Sep 2026 06:43:10 GMT",
+          "keep-alive": "timeout=5",
+          "transfer-encoding": "chunked"
+        },
+        "body": {
+          "accepted_at": "2026-09-13T06:43:10.759Z",
+          "execution": {
+            "assignment_digest": "6e140d27f77d6b2e4ae723f39b0b3361c1764bfe4a55519ec220014db79cdee7",
+            "identity": {
+              "agent_run_id": "run-control-exit",
+              "execution_epoch": "1",
+              "project_id": "project-p10",
+              "receiver_id": "receiver-p10",
+              "run_epoch": "1",
+              "runtime_attempt": "1",
+              "task_id": "task-control-exit",
+              "tenant_id": "tenant-p10",
+              "work_item_id": "work-control-exit"
+            },
+            "observation": {
+              "environment_ref": "local-control-exit",
+              "identity": {
+                "agent_run_id": "run-control-exit",
+                "execution_epoch": "1",
+                "project_id": "project-p10",
+                "receiver_id": "receiver-p10",
+                "run_epoch": "1",
+                "runtime_attempt": "1",
+                "task_id": "task-control-exit",
+                "tenant_id": "tenant-p10",
+                "work_item_id": "work-control-exit"
+              },
+              "kind": "started",
+              "observed_at": "2026-09-13T06:43:10.738Z",
+              "operation_id": "start-control-exit",
+              "pod_uid": "pod-control-exit",
+              "process": {
+                "birth_id": "15295880fb0ae76774e72da7646ff3da8121b538c99a92f3c4471006cbbaf352:75cc58daeb29eb7302af26621ff2294ac144467a6651d2b5d81571c0661f7ca8:child-process-spawn-event",
+                "exit_code": null,
+                "exited_at": null,
+                "pid": 23761,
+                "started_at": "2026-09-13T06:43:10.712Z"
+              },
+              "reason": "running",
+              "receipt_id": "ae6e73fda4edb900ed0d7f16e6a388d8f29565f72627889898dd43b6727b0d8e",
+              "source_digest": "099ed1d9fbc5608aa06d972e19d69a043733433a3c7e8a2ad482c5d57594ed39",
+              "source_receipt": "{\"environment_ref\":\"local-control-exit\",\"identity\":{\"agent_run_id\":\"run-control-exit\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-control-exit\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-control-exit\"},\"kind\":\"started\",\"observed_at\":\"2026-09-13T06:43:10.738Z\",\"operation_id\":\"start-control-exit\",\"pod_uid\":\"pod-control-exit\",\"process\":{\"birth_id\":\"15295880fb0ae76774e72da7646ff3da8121b538c99a92f3c4471006cbbaf352:75cc58daeb29eb7302af26621ff2294ac144467a6651d2b5d81571c0661f7ca8:child-process-spawn-event\",\"exit_code\":null,\"exited_at\":null,\"pid\":23761,\"started_at\":\"2026-09-13T06:43:10.712Z\"},\"reason\":\"running\",\"receipt_id\":\"ae6e73fda4edb900ed0d7f16e6a388d8f29565f72627889898dd43b6727b0d8e\"}"
+            },
+            "operation_id": "start-control-exit",
+            "profile_id": "harmless-node-v1",
+            "receiver": {
+              "environment_ref": "local-control-exit",
+              "pod_uid": "pod-control-exit",
+              "receiver_id": "receiver-p10",
+              "runtime_attempt": "1"
+            },
+            "state": "running"
+          },
+          "identity": {
+            "agent_run_id": "run-control-exit",
+            "execution_epoch": "1",
+            "project_id": "project-p10",
+            "receiver_id": "receiver-p10",
+            "run_epoch": "1",
+            "runtime_attempt": "1",
+            "task_id": "task-control-exit",
+            "tenant_id": "tenant-p10",
+            "work_item_id": "work-control-exit"
+          },
+          "operation_id": "stop-current",
+          "start_operation_id": "start-control-exit",
+          "status": "accepted"
+        },
+        "responseText": "{\"accepted_at\":\"2026-09-13T06:43:10.759Z\",\"execution\":{\"assignment_digest\":\"6e140d27f77d6b2e4ae723f39b0b3361c1764bfe4a55519ec220014db79cdee7\",\"identity\":{\"agent_run_id\":\"run-control-exit\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-control-exit\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-control-exit\"},\"observation\":{\"environment_ref\":\"local-control-exit\",\"identity\":{\"agent_run_id\":\"run-control-exit\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-control-exit\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-control-exit\"},\"kind\":\"started\",\"observed_at\":\"2026-09-13T06:43:10.738Z\",\"operation_id\":\"start-control-exit\",\"pod_uid\":\"pod-control-exit\",\"process\":{\"birth_id\":\"15295880fb0ae76774e72da7646ff3da8121b538c99a92f3c4471006cbbaf352:75cc58daeb29eb7302af26621ff2294ac144467a6651d2b5d81571c0661f7ca8:child-process-spawn-event\",\"exit_code\":null,\"exited_at\":null,\"pid\":23761,\"started_at\":\"2026-09-13T06:43:10.712Z\"},\"reason\":\"running\",\"receipt_id\":\"ae6e73fda4edb900ed0d7f16e6a388d8f29565f72627889898dd43b6727b0d8e\",\"source_digest\":\"099ed1d9fbc5608aa06d972e19d69a043733433a3c7e8a2ad482c5d57594ed39\",\"source_receipt\":\"{\\\"environment_ref\\\":\\\"local-control-exit\\\",\\\"identity\\\":{\\\"agent_run_id\\\":\\\"run-control-exit\\\",\\\"execution_epoch\\\":\\\"1\\\",\\\"project_id\\\":\\\"project-p10\\\",\\\"receiver_id\\\":\\\"receiver-p10\\\",\\\"run_epoch\\\":\\\"1\\\",\\\"runtime_attempt\\\":\\\"1\\\",\\\"task_id\\\":\\\"task-control-exit\\\",\\\"tenant_id\\\":\\\"tenant-p10\\\",\\\"work_item_id\\\":\\\"work-control-exit\\\"},\\\"kind\\\":\\\"started\\\",\\\"observed_at\\\":\\\"2026-09-13T06:43:10.738Z\\\",\\\"operation_id\\\":\\\"start-control-exit\\\",\\\"pod_uid\\\":\\\"pod-control-exit\\\",\\\"process\\\":{\\\"birth_id\\\":\\\"15295880fb0ae76774e72da7646ff3da8121b538c99a92f3c4471006cbbaf352:75cc58daeb29eb7302af26621ff2294ac144467a6651d2b5d81571c0661f7ca8:child-process-spawn-event\\\",\\\"exit_code\\\":null,\\\"exited_at\\\":null,\\\"pid\\\":23761,\\\"started_at\\\":\\\"2026-09-13T06:43:10.712Z\\\"},\\\"reason\\\":\\\"running\\\",\\\"receipt_id\\\":\\\"ae6e73fda4edb900ed0d7f16e6a388d8f29565f72627889898dd43b6727b0d8e\\\"}\"},\"operation_id\":\"start-control-exit\",\"profile_id\":\"harmless-node-v1\",\"receiver\":{\"environment_ref\":\"local-control-exit\",\"pod_uid\":\"pod-control-exit\",\"receiver_id\":\"receiver-p10\",\"runtime_attempt\":\"1\"},\"state\":\"running\"},\"identity\":{\"agent_run_id\":\"run-control-exit\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-control-exit\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-control-exit\"},\"operation_id\":\"stop-current\",\"start_operation_id\":\"start-control-exit\",\"status\":\"accepted\"}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "http://127.0.0.1:63582/operations/start-control-exit",
+        "headers": {
+          "Accept": "application/json",
+          "Authorization": "Bearer p10-test-controller-token"
+        },
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "cache-control": "no-store",
+          "connection": "keep-alive",
+          "content-type": "application/json",
+          "date": "Sun, 13 Sep 2026 06:43:11 GMT",
+          "keep-alive": "timeout=5",
+          "transfer-encoding": "chunked"
+        },
+        "body": {
+          "assignment_digest": "6e140d27f77d6b2e4ae723f39b0b3361c1764bfe4a55519ec220014db79cdee7",
+          "identity": {
+            "agent_run_id": "run-control-exit",
+            "execution_epoch": "1",
+            "project_id": "project-p10",
+            "receiver_id": "receiver-p10",
+            "run_epoch": "1",
+            "runtime_attempt": "1",
+            "task_id": "task-control-exit",
+            "tenant_id": "tenant-p10",
+            "work_item_id": "work-control-exit"
+          },
+          "observation": {
+            "environment_ref": "local-control-exit",
+            "identity": {
+              "agent_run_id": "run-control-exit",
+              "execution_epoch": "1",
+              "project_id": "project-p10",
+              "receiver_id": "receiver-p10",
+              "run_epoch": "1",
+              "runtime_attempt": "1",
+              "task_id": "task-control-exit",
+              "tenant_id": "tenant-p10",
+              "work_item_id": "work-control-exit"
+            },
+            "kind": "started",
+            "observed_at": "2026-09-13T06:43:10.738Z",
+            "operation_id": "start-control-exit",
+            "pod_uid": "pod-control-exit",
+            "process": {
+              "birth_id": "15295880fb0ae76774e72da7646ff3da8121b538c99a92f3c4471006cbbaf352:75cc58daeb29eb7302af26621ff2294ac144467a6651d2b5d81571c0661f7ca8:child-process-spawn-event",
+              "exit_code": null,
+              "exited_at": null,
+              "pid": 23761,
+              "started_at": "2026-09-13T06:43:10.712Z"
+            },
+            "reason": "running",
+            "receipt_id": "ae6e73fda4edb900ed0d7f16e6a388d8f29565f72627889898dd43b6727b0d8e",
+            "source_digest": "099ed1d9fbc5608aa06d972e19d69a043733433a3c7e8a2ad482c5d57594ed39",
+            "source_receipt": "{\"environment_ref\":\"local-control-exit\",\"identity\":{\"agent_run_id\":\"run-control-exit\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-control-exit\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-control-exit\"},\"kind\":\"started\",\"observed_at\":\"2026-09-13T06:43:10.738Z\",\"operation_id\":\"start-control-exit\",\"pod_uid\":\"pod-control-exit\",\"process\":{\"birth_id\":\"15295880fb0ae76774e72da7646ff3da8121b538c99a92f3c4471006cbbaf352:75cc58daeb29eb7302af26621ff2294ac144467a6651d2b5d81571c0661f7ca8:child-process-spawn-event\",\"exit_code\":null,\"exited_at\":null,\"pid\":23761,\"started_at\":\"2026-09-13T06:43:10.712Z\"},\"reason\":\"running\",\"receipt_id\":\"ae6e73fda4edb900ed0d7f16e6a388d8f29565f72627889898dd43b6727b0d8e\"}"
+          },
+          "operation_id": "start-control-exit",
+          "profile_id": "harmless-node-v1",
+          "receiver": {
+            "environment_ref": "local-control-exit",
+            "pod_uid": "pod-control-exit",
+            "receiver_id": "receiver-p10",
+            "runtime_attempt": "1"
+          },
+          "state": "running"
+        },
+        "responseText": "{\"assignment_digest\":\"6e140d27f77d6b2e4ae723f39b0b3361c1764bfe4a55519ec220014db79cdee7\",\"identity\":{\"agent_run_id\":\"run-control-exit\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-control-exit\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-control-exit\"},\"observation\":{\"environment_ref\":\"local-control-exit\",\"identity\":{\"agent_run_id\":\"run-control-exit\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-control-exit\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-control-exit\"},\"kind\":\"started\",\"observed_at\":\"2026-09-13T06:43:10.738Z\",\"operation_id\":\"start-control-exit\",\"pod_uid\":\"pod-control-exit\",\"process\":{\"birth_id\":\"15295880fb0ae76774e72da7646ff3da8121b538c99a92f3c4471006cbbaf352:75cc58daeb29eb7302af26621ff2294ac144467a6651d2b5d81571c0661f7ca8:child-process-spawn-event\",\"exit_code\":null,\"exited_at\":null,\"pid\":23761,\"started_at\":\"2026-09-13T06:43:10.712Z\"},\"reason\":\"running\",\"receipt_id\":\"ae6e73fda4edb900ed0d7f16e6a388d8f29565f72627889898dd43b6727b0d8e\",\"source_digest\":\"099ed1d9fbc5608aa06d972e19d69a043733433a3c7e8a2ad482c5d57594ed39\",\"source_receipt\":\"{\\\"environment_ref\\\":\\\"local-control-exit\\\",\\\"identity\\\":{\\\"agent_run_id\\\":\\\"run-control-exit\\\",\\\"execution_epoch\\\":\\\"1\\\",\\\"project_id\\\":\\\"project-p10\\\",\\\"receiver_id\\\":\\\"receiver-p10\\\",\\\"run_epoch\\\":\\\"1\\\",\\\"runtime_attempt\\\":\\\"1\\\",\\\"task_id\\\":\\\"task-control-exit\\\",\\\"tenant_id\\\":\\\"tenant-p10\\\",\\\"work_item_id\\\":\\\"work-control-exit\\\"},\\\"kind\\\":\\\"started\\\",\\\"observed_at\\\":\\\"2026-09-13T06:43:10.738Z\\\",\\\"operation_id\\\":\\\"start-control-exit\\\",\\\"pod_uid\\\":\\\"pod-control-exit\\\",\\\"process\\\":{\\\"birth_id\\\":\\\"15295880fb0ae76774e72da7646ff3da8121b538c99a92f3c4471006cbbaf352:75cc58daeb29eb7302af26621ff2294ac144467a6651d2b5d81571c0661f7ca8:child-process-spawn-event\\\",\\\"exit_code\\\":null,\\\"exited_at\\\":null,\\\"pid\\\":23761,\\\"started_at\\\":\\\"2026-09-13T06:43:10.712Z\\\"},\\\"reason\\\":\\\"running\\\",\\\"receipt_id\\\":\\\"ae6e73fda4edb900ed0d7f16e6a388d8f29565f72627889898dd43b6727b0d8e\\\"}\"},\"operation_id\":\"start-control-exit\",\"profile_id\":\"harmless-node-v1\",\"receiver\":{\"environment_ref\":\"local-control-exit\",\"pod_uid\":\"pod-control-exit\",\"receiver_id\":\"receiver-p10\",\"runtime_attempt\":\"1\"},\"state\":\"running\"}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "http://127.0.0.1:63582/operations/start-control-exit",
+        "headers": {
+          "Accept": "application/json",
+          "Authorization": "Bearer p10-test-controller-token"
+        },
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "cache-control": "no-store",
+          "connection": "keep-alive",
+          "content-type": "application/json",
+          "date": "Sun, 13 Sep 2026 06:43:11 GMT",
+          "keep-alive": "timeout=5",
+          "transfer-encoding": "chunked"
+        },
+        "body": {
+          "assignment_digest": "6e140d27f77d6b2e4ae723f39b0b3361c1764bfe4a55519ec220014db79cdee7",
+          "identity": {
+            "agent_run_id": "run-control-exit",
+            "execution_epoch": "1",
+            "project_id": "project-p10",
+            "receiver_id": "receiver-p10",
+            "run_epoch": "1",
+            "runtime_attempt": "1",
+            "task_id": "task-control-exit",
+            "tenant_id": "tenant-p10",
+            "work_item_id": "work-control-exit"
+          },
+          "observation": {
+            "environment_ref": "local-control-exit",
+            "identity": {
+              "agent_run_id": "run-control-exit",
+              "execution_epoch": "1",
+              "project_id": "project-p10",
+              "receiver_id": "receiver-p10",
+              "run_epoch": "1",
+              "runtime_attempt": "1",
+              "task_id": "task-control-exit",
+              "tenant_id": "tenant-p10",
+              "work_item_id": "work-control-exit"
+            },
+            "kind": "started",
+            "observed_at": "2026-09-13T06:43:10.738Z",
+            "operation_id": "start-control-exit",
+            "pod_uid": "pod-control-exit",
+            "process": {
+              "birth_id": "15295880fb0ae76774e72da7646ff3da8121b538c99a92f3c4471006cbbaf352:75cc58daeb29eb7302af26621ff2294ac144467a6651d2b5d81571c0661f7ca8:child-process-spawn-event",
+              "exit_code": null,
+              "exited_at": null,
+              "pid": 23761,
+              "started_at": "2026-09-13T06:43:10.712Z"
+            },
+            "reason": "running",
+            "receipt_id": "ae6e73fda4edb900ed0d7f16e6a388d8f29565f72627889898dd43b6727b0d8e",
+            "source_digest": "099ed1d9fbc5608aa06d972e19d69a043733433a3c7e8a2ad482c5d57594ed39",
+            "source_receipt": "{\"environment_ref\":\"local-control-exit\",\"identity\":{\"agent_run_id\":\"run-control-exit\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-control-exit\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-control-exit\"},\"kind\":\"started\",\"observed_at\":\"2026-09-13T06:43:10.738Z\",\"operation_id\":\"start-control-exit\",\"pod_uid\":\"pod-control-exit\",\"process\":{\"birth_id\":\"15295880fb0ae76774e72da7646ff3da8121b538c99a92f3c4471006cbbaf352:75cc58daeb29eb7302af26621ff2294ac144467a6651d2b5d81571c0661f7ca8:child-process-spawn-event\",\"exit_code\":null,\"exited_at\":null,\"pid\":23761,\"started_at\":\"2026-09-13T06:43:10.712Z\"},\"reason\":\"running\",\"receipt_id\":\"ae6e73fda4edb900ed0d7f16e6a388d8f29565f72627889898dd43b6727b0d8e\"}"
+          },
+          "operation_id": "start-control-exit",
+          "profile_id": "harmless-node-v1",
+          "receiver": {
+            "environment_ref": "local-control-exit",
+            "pod_uid": "pod-control-exit",
+            "receiver_id": "receiver-p10",
+            "runtime_attempt": "1"
+          },
+          "state": "running"
+        },
+        "responseText": "{\"assignment_digest\":\"6e140d27f77d6b2e4ae723f39b0b3361c1764bfe4a55519ec220014db79cdee7\",\"identity\":{\"agent_run_id\":\"run-control-exit\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-control-exit\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-control-exit\"},\"observation\":{\"environment_ref\":\"local-control-exit\",\"identity\":{\"agent_run_id\":\"run-control-exit\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-control-exit\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-control-exit\"},\"kind\":\"started\",\"observed_at\":\"2026-09-13T06:43:10.738Z\",\"operation_id\":\"start-control-exit\",\"pod_uid\":\"pod-control-exit\",\"process\":{\"birth_id\":\"15295880fb0ae76774e72da7646ff3da8121b538c99a92f3c4471006cbbaf352:75cc58daeb29eb7302af26621ff2294ac144467a6651d2b5d81571c0661f7ca8:child-process-spawn-event\",\"exit_code\":null,\"exited_at\":null,\"pid\":23761,\"started_at\":\"2026-09-13T06:43:10.712Z\"},\"reason\":\"running\",\"receipt_id\":\"ae6e73fda4edb900ed0d7f16e6a388d8f29565f72627889898dd43b6727b0d8e\",\"source_digest\":\"099ed1d9fbc5608aa06d972e19d69a043733433a3c7e8a2ad482c5d57594ed39\",\"source_receipt\":\"{\\\"environment_ref\\\":\\\"local-control-exit\\\",\\\"identity\\\":{\\\"agent_run_id\\\":\\\"run-control-exit\\\",\\\"execution_epoch\\\":\\\"1\\\",\\\"project_id\\\":\\\"project-p10\\\",\\\"receiver_id\\\":\\\"receiver-p10\\\",\\\"run_epoch\\\":\\\"1\\\",\\\"runtime_attempt\\\":\\\"1\\\",\\\"task_id\\\":\\\"task-control-exit\\\",\\\"tenant_id\\\":\\\"tenant-p10\\\",\\\"work_item_id\\\":\\\"work-control-exit\\\"},\\\"kind\\\":\\\"started\\\",\\\"observed_at\\\":\\\"2026-09-13T06:43:10.738Z\\\",\\\"operation_id\\\":\\\"start-control-exit\\\",\\\"pod_uid\\\":\\\"pod-control-exit\\\",\\\"process\\\":{\\\"birth_id\\\":\\\"15295880fb0ae76774e72da7646ff3da8121b538c99a92f3c4471006cbbaf352:75cc58daeb29eb7302af26621ff2294ac144467a6651d2b5d81571c0661f7ca8:child-process-spawn-event\\\",\\\"exit_code\\\":null,\\\"exited_at\\\":null,\\\"pid\\\":23761,\\\"started_at\\\":\\\"2026-09-13T06:43:10.712Z\\\"},\\\"reason\\\":\\\"running\\\",\\\"receipt_id\\\":\\\"ae6e73fda4edb900ed0d7f16e6a388d8f29565f72627889898dd43b6727b0d8e\\\"}\"},\"operation_id\":\"start-control-exit\",\"profile_id\":\"harmless-node-v1\",\"receiver\":{\"environment_ref\":\"local-control-exit\",\"pod_uid\":\"pod-control-exit\",\"receiver_id\":\"receiver-p10\",\"runtime_attempt\":\"1\"},\"state\":\"running\"}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "http://127.0.0.1:63582/operations/start-control-exit",
+        "headers": {
+          "Accept": "application/json",
+          "Authorization": "Bearer p10-test-controller-token"
+        },
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "cache-control": "no-store",
+          "connection": "keep-alive",
+          "content-type": "application/json",
+          "date": "Sun, 13 Sep 2026 06:43:11 GMT",
+          "keep-alive": "timeout=5",
+          "transfer-encoding": "chunked"
+        },
+        "body": {
+          "assignment_digest": "6e140d27f77d6b2e4ae723f39b0b3361c1764bfe4a55519ec220014db79cdee7",
+          "identity": {
+            "agent_run_id": "run-control-exit",
+            "execution_epoch": "1",
+            "project_id": "project-p10",
+            "receiver_id": "receiver-p10",
+            "run_epoch": "1",
+            "runtime_attempt": "1",
+            "task_id": "task-control-exit",
+            "tenant_id": "tenant-p10",
+            "work_item_id": "work-control-exit"
+          },
+          "observation": {
+            "environment_ref": "local-control-exit",
+            "identity": {
+              "agent_run_id": "run-control-exit",
+              "execution_epoch": "1",
+              "project_id": "project-p10",
+              "receiver_id": "receiver-p10",
+              "run_epoch": "1",
+              "runtime_attempt": "1",
+              "task_id": "task-control-exit",
+              "tenant_id": "tenant-p10",
+              "work_item_id": "work-control-exit"
+            },
+            "kind": "started",
+            "observed_at": "2026-09-13T06:43:10.738Z",
+            "operation_id": "start-control-exit",
+            "pod_uid": "pod-control-exit",
+            "process": {
+              "birth_id": "15295880fb0ae76774e72da7646ff3da8121b538c99a92f3c4471006cbbaf352:75cc58daeb29eb7302af26621ff2294ac144467a6651d2b5d81571c0661f7ca8:child-process-spawn-event",
+              "exit_code": null,
+              "exited_at": null,
+              "pid": 23761,
+              "started_at": "2026-09-13T06:43:10.712Z"
+            },
+            "reason": "running",
+            "receipt_id": "ae6e73fda4edb900ed0d7f16e6a388d8f29565f72627889898dd43b6727b0d8e",
+            "source_digest": "099ed1d9fbc5608aa06d972e19d69a043733433a3c7e8a2ad482c5d57594ed39",
+            "source_receipt": "{\"environment_ref\":\"local-control-exit\",\"identity\":{\"agent_run_id\":\"run-control-exit\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-control-exit\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-control-exit\"},\"kind\":\"started\",\"observed_at\":\"2026-09-13T06:43:10.738Z\",\"operation_id\":\"start-control-exit\",\"pod_uid\":\"pod-control-exit\",\"process\":{\"birth_id\":\"15295880fb0ae76774e72da7646ff3da8121b538c99a92f3c4471006cbbaf352:75cc58daeb29eb7302af26621ff2294ac144467a6651d2b5d81571c0661f7ca8:child-process-spawn-event\",\"exit_code\":null,\"exited_at\":null,\"pid\":23761,\"started_at\":\"2026-09-13T06:43:10.712Z\"},\"reason\":\"running\",\"receipt_id\":\"ae6e73fda4edb900ed0d7f16e6a388d8f29565f72627889898dd43b6727b0d8e\"}"
+          },
+          "operation_id": "start-control-exit",
+          "profile_id": "harmless-node-v1",
+          "receiver": {
+            "environment_ref": "local-control-exit",
+            "pod_uid": "pod-control-exit",
+            "receiver_id": "receiver-p10",
+            "runtime_attempt": "1"
+          },
+          "state": "running"
+        },
+        "responseText": "{\"assignment_digest\":\"6e140d27f77d6b2e4ae723f39b0b3361c1764bfe4a55519ec220014db79cdee7\",\"identity\":{\"agent_run_id\":\"run-control-exit\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-control-exit\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-control-exit\"},\"observation\":{\"environment_ref\":\"local-control-exit\",\"identity\":{\"agent_run_id\":\"run-control-exit\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-control-exit\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-control-exit\"},\"kind\":\"started\",\"observed_at\":\"2026-09-13T06:43:10.738Z\",\"operation_id\":\"start-control-exit\",\"pod_uid\":\"pod-control-exit\",\"process\":{\"birth_id\":\"15295880fb0ae76774e72da7646ff3da8121b538c99a92f3c4471006cbbaf352:75cc58daeb29eb7302af26621ff2294ac144467a6651d2b5d81571c0661f7ca8:child-process-spawn-event\",\"exit_code\":null,\"exited_at\":null,\"pid\":23761,\"started_at\":\"2026-09-13T06:43:10.712Z\"},\"reason\":\"running\",\"receipt_id\":\"ae6e73fda4edb900ed0d7f16e6a388d8f29565f72627889898dd43b6727b0d8e\",\"source_digest\":\"099ed1d9fbc5608aa06d972e19d69a043733433a3c7e8a2ad482c5d57594ed39\",\"source_receipt\":\"{\\\"environment_ref\\\":\\\"local-control-exit\\\",\\\"identity\\\":{\\\"agent_run_id\\\":\\\"run-control-exit\\\",\\\"execution_epoch\\\":\\\"1\\\",\\\"project_id\\\":\\\"project-p10\\\",\\\"receiver_id\\\":\\\"receiver-p10\\\",\\\"run_epoch\\\":\\\"1\\\",\\\"runtime_attempt\\\":\\\"1\\\",\\\"task_id\\\":\\\"task-control-exit\\\",\\\"tenant_id\\\":\\\"tenant-p10\\\",\\\"work_item_id\\\":\\\"work-control-exit\\\"},\\\"kind\\\":\\\"started\\\",\\\"observed_at\\\":\\\"2026-09-13T06:43:10.738Z\\\",\\\"operation_id\\\":\\\"start-control-exit\\\",\\\"pod_uid\\\":\\\"pod-control-exit\\\",\\\"process\\\":{\\\"birth_id\\\":\\\"15295880fb0ae76774e72da7646ff3da8121b538c99a92f3c4471006cbbaf352:75cc58daeb29eb7302af26621ff2294ac144467a6651d2b5d81571c0661f7ca8:child-process-spawn-event\\\",\\\"exit_code\\\":null,\\\"exited_at\\\":null,\\\"pid\\\":23761,\\\"started_at\\\":\\\"2026-09-13T06:43:10.712Z\\\"},\\\"reason\\\":\\\"running\\\",\\\"receipt_id\\\":\\\"ae6e73fda4edb900ed0d7f16e6a388d8f29565f72627889898dd43b6727b0d8e\\\"}\"},\"operation_id\":\"start-control-exit\",\"profile_id\":\"harmless-node-v1\",\"receiver\":{\"environment_ref\":\"local-control-exit\",\"pod_uid\":\"pod-control-exit\",\"receiver_id\":\"receiver-p10\",\"runtime_attempt\":\"1\"},\"state\":\"running\"}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "http://127.0.0.1:63582/operations/start-control-exit",
+        "headers": {
+          "Accept": "application/json",
+          "Authorization": "Bearer p10-test-controller-token"
+        },
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "cache-control": "no-store",
+          "connection": "keep-alive",
+          "content-type": "application/json",
+          "date": "Sun, 13 Sep 2026 06:43:11 GMT",
+          "keep-alive": "timeout=5",
+          "transfer-encoding": "chunked"
+        },
+        "body": {
+          "assignment_digest": "6e140d27f77d6b2e4ae723f39b0b3361c1764bfe4a55519ec220014db79cdee7",
+          "identity": {
+            "agent_run_id": "run-control-exit",
+            "execution_epoch": "1",
+            "project_id": "project-p10",
+            "receiver_id": "receiver-p10",
+            "run_epoch": "1",
+            "runtime_attempt": "1",
+            "task_id": "task-control-exit",
+            "tenant_id": "tenant-p10",
+            "work_item_id": "work-control-exit"
+          },
+          "observation": {
+            "environment_ref": "local-control-exit",
+            "identity": {
+              "agent_run_id": "run-control-exit",
+              "execution_epoch": "1",
+              "project_id": "project-p10",
+              "receiver_id": "receiver-p10",
+              "run_epoch": "1",
+              "runtime_attempt": "1",
+              "task_id": "task-control-exit",
+              "tenant_id": "tenant-p10",
+              "work_item_id": "work-control-exit"
+            },
+            "kind": "exited",
+            "observed_at": "2026-09-13T06:43:11.532Z",
+            "operation_id": "start-control-exit",
+            "pod_uid": "pod-control-exit",
+            "process": {
+              "birth_id": "15295880fb0ae76774e72da7646ff3da8121b538c99a92f3c4471006cbbaf352:75cc58daeb29eb7302af26621ff2294ac144467a6651d2b5d81571c0661f7ca8:child-process-spawn-event",
+              "exit_code": 0,
+              "exited_at": "2026-09-13T06:43:11.526Z",
+              "pid": 23761,
+              "started_at": "2026-09-13T06:43:10.712Z"
+            },
+            "reason": "exited",
+            "receipt_id": "14c40b338de95a16e6104812495fed776df1babc20f77735fb84ef7e601dc397",
+            "source_digest": "b235339ce4a8315e86ba468d606c6107496e0463bd40c4283b893b52713089b3",
+            "source_receipt": "{\"environment_ref\":\"local-control-exit\",\"identity\":{\"agent_run_id\":\"run-control-exit\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-control-exit\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-control-exit\"},\"kind\":\"exited\",\"observed_at\":\"2026-09-13T06:43:11.532Z\",\"operation_id\":\"start-control-exit\",\"pod_uid\":\"pod-control-exit\",\"process\":{\"birth_id\":\"15295880fb0ae76774e72da7646ff3da8121b538c99a92f3c4471006cbbaf352:75cc58daeb29eb7302af26621ff2294ac144467a6651d2b5d81571c0661f7ca8:child-process-spawn-event\",\"exit_code\":0,\"exited_at\":\"2026-09-13T06:43:11.526Z\",\"pid\":23761,\"started_at\":\"2026-09-13T06:43:10.712Z\"},\"reason\":\"exited\",\"receipt_id\":\"14c40b338de95a16e6104812495fed776df1babc20f77735fb84ef7e601dc397\"}"
+          },
+          "operation_id": "start-control-exit",
+          "profile_id": "harmless-node-v1",
+          "receiver": {
+            "environment_ref": "local-control-exit",
+            "pod_uid": "pod-control-exit",
+            "receiver_id": "receiver-p10",
+            "runtime_attempt": "1"
+          },
+          "state": "exited"
+        },
+        "responseText": "{\"assignment_digest\":\"6e140d27f77d6b2e4ae723f39b0b3361c1764bfe4a55519ec220014db79cdee7\",\"identity\":{\"agent_run_id\":\"run-control-exit\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-control-exit\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-control-exit\"},\"observation\":{\"environment_ref\":\"local-control-exit\",\"identity\":{\"agent_run_id\":\"run-control-exit\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-control-exit\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-control-exit\"},\"kind\":\"exited\",\"observed_at\":\"2026-09-13T06:43:11.532Z\",\"operation_id\":\"start-control-exit\",\"pod_uid\":\"pod-control-exit\",\"process\":{\"birth_id\":\"15295880fb0ae76774e72da7646ff3da8121b538c99a92f3c4471006cbbaf352:75cc58daeb29eb7302af26621ff2294ac144467a6651d2b5d81571c0661f7ca8:child-process-spawn-event\",\"exit_code\":0,\"exited_at\":\"2026-09-13T06:43:11.526Z\",\"pid\":23761,\"started_at\":\"2026-09-13T06:43:10.712Z\"},\"reason\":\"exited\",\"receipt_id\":\"14c40b338de95a16e6104812495fed776df1babc20f77735fb84ef7e601dc397\",\"source_digest\":\"b235339ce4a8315e86ba468d606c6107496e0463bd40c4283b893b52713089b3\",\"source_receipt\":\"{\\\"environment_ref\\\":\\\"local-control-exit\\\",\\\"identity\\\":{\\\"agent_run_id\\\":\\\"run-control-exit\\\",\\\"execution_epoch\\\":\\\"1\\\",\\\"project_id\\\":\\\"project-p10\\\",\\\"receiver_id\\\":\\\"receiver-p10\\\",\\\"run_epoch\\\":\\\"1\\\",\\\"runtime_attempt\\\":\\\"1\\\",\\\"task_id\\\":\\\"task-control-exit\\\",\\\"tenant_id\\\":\\\"tenant-p10\\\",\\\"work_item_id\\\":\\\"work-control-exit\\\"},\\\"kind\\\":\\\"exited\\\",\\\"observed_at\\\":\\\"2026-09-13T06:43:11.532Z\\\",\\\"operation_id\\\":\\\"start-control-exit\\\",\\\"pod_uid\\\":\\\"pod-control-exit\\\",\\\"process\\\":{\\\"birth_id\\\":\\\"15295880fb0ae76774e72da7646ff3da8121b538c99a92f3c4471006cbbaf352:75cc58daeb29eb7302af26621ff2294ac144467a6651d2b5d81571c0661f7ca8:child-process-spawn-event\\\",\\\"exit_code\\\":0,\\\"exited_at\\\":\\\"2026-09-13T06:43:11.526Z\\\",\\\"pid\\\":23761,\\\"started_at\\\":\\\"2026-09-13T06:43:10.712Z\\\"},\\\"reason\\\":\\\"exited\\\",\\\"receipt_id\\\":\\\"14c40b338de95a16e6104812495fed776df1babc20f77735fb84ef7e601dc397\\\"}\"},\"operation_id\":\"start-control-exit\",\"profile_id\":\"harmless-node-v1\",\"receiver\":{\"environment_ref\":\"local-control-exit\",\"pod_uid\":\"pod-control-exit\",\"receiver_id\":\"receiver-p10\",\"runtime_attempt\":\"1\"},\"state\":\"exited\"}"
+      }
+    }
+  ]
+}

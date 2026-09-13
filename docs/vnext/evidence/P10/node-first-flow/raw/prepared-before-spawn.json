@@ -1,0 +1,290 @@
+{
+  "schema_version": "wuji.p10-node-fixture.v1",
+  "generated_at": "2026-09-13T06:43:08.820Z",
+  "label": "prepared-before-spawn",
+  "assignment": {
+    "schema_version": "wuji.assignment.v2",
+    "operation_id": "start-prepared-before-spawn",
+    "identity": {
+      "tenant_id": "tenant-p10",
+      "project_id": "project-p10",
+      "task_id": "task-prepared-before-spawn",
+      "work_item_id": "work-prepared-before-spawn",
+      "agent_run_id": "run-prepared-before-spawn",
+      "execution_epoch": "1",
+      "run_epoch": "1",
+      "runtime_attempt": "1",
+      "receiver_id": "receiver-p10"
+    },
+    "work_kind": "explore",
+    "snapshot_id": "snapshot-prepared-before-spawn",
+    "profile_refs": [
+      "harmless-node-v1"
+    ],
+    "session_manifest_ref": null,
+    "tool_definition_refs": [
+      "read_record:v1"
+    ],
+    "limits": {
+      "max_work_items": 4,
+      "max_reason_runs": 1,
+      "max_model_requests": 2,
+      "max_tool_calls": 2,
+      "max_single_output_bytes": 65536,
+      "max_total_output_bytes": 131072,
+      "max_elapsed_seconds": 30,
+      "max_attempts_per_work": 1,
+      "repair_attempts": 0
+    },
+    "resume_reason": null
+  },
+  "receiver": {
+    "receiver_id": "receiver-p10",
+    "runtime_attempt": "1",
+    "environment_ref": "local-prepared-before-spawn",
+    "pod_uid": "pod-prepared-before-spawn"
+  },
+  "actual_starts": [],
+  "child_lifecycle": [],
+  "supervisor_crashes": [
+    {
+      "window": "after_prepared_before_spawn",
+      "operation_id": "start-prepared-before-spawn",
+      "pid": 23588
+    }
+  ],
+  "http_exchanges": [
+    {
+      "request": {
+        "method": "PUT",
+        "url": "http://127.0.0.1:63557/operations/start-prepared-before-spawn",
+        "headers": {
+          "Accept": "application/json",
+          "Authorization": "Bearer p10-test-controller-token",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "assignment": {
+            "schema_version": "wuji.assignment.v2",
+            "operation_id": "start-prepared-before-spawn",
+            "identity": {
+              "tenant_id": "tenant-p10",
+              "project_id": "project-p10",
+              "task_id": "task-prepared-before-spawn",
+              "work_item_id": "work-prepared-before-spawn",
+              "agent_run_id": "run-prepared-before-spawn",
+              "execution_epoch": "1",
+              "run_epoch": "1",
+              "runtime_attempt": "1",
+              "receiver_id": "receiver-p10"
+            },
+            "work_kind": "explore",
+            "snapshot_id": "snapshot-prepared-before-spawn",
+            "profile_refs": [
+              "harmless-node-v1"
+            ],
+            "session_manifest_ref": null,
+            "tool_definition_refs": [
+              "read_record:v1"
+            ],
+            "limits": {
+              "max_work_items": 4,
+              "max_reason_runs": 1,
+              "max_model_requests": 2,
+              "max_tool_calls": 2,
+              "max_single_output_bytes": 65536,
+              "max_total_output_bytes": 131072,
+              "max_elapsed_seconds": 30,
+              "max_attempts_per_work": 1,
+              "repair_attempts": 0
+            },
+            "resume_reason": null
+          },
+          "profile_id": "harmless-node-v1"
+        }
+      },
+      "response": null,
+      "error": {
+        "name": "TypeError",
+        "message": "fetch failed"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "http://127.0.0.1:63559/operations/start-prepared-before-spawn",
+        "headers": {
+          "Accept": "application/json",
+          "Authorization": "Bearer p10-test-controller-token"
+        },
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "cache-control": "no-store",
+          "connection": "keep-alive",
+          "content-type": "application/json",
+          "date": "Sun, 13 Sep 2026 06:43:08 GMT",
+          "keep-alive": "timeout=5",
+          "transfer-encoding": "chunked"
+        },
+        "body": {
+          "assignment_digest": "06ea33eb3eaa20fbca1392569d90ddb2707bfce4385e90699187b7130fcbdd13",
+          "identity": {
+            "agent_run_id": "run-prepared-before-spawn",
+            "execution_epoch": "1",
+            "project_id": "project-p10",
+            "receiver_id": "receiver-p10",
+            "run_epoch": "1",
+            "runtime_attempt": "1",
+            "task_id": "task-prepared-before-spawn",
+            "tenant_id": "tenant-p10",
+            "work_item_id": "work-prepared-before-spawn"
+          },
+          "observation": {
+            "environment_ref": "local-prepared-before-spawn",
+            "identity": {
+              "agent_run_id": "run-prepared-before-spawn",
+              "execution_epoch": "1",
+              "project_id": "project-p10",
+              "receiver_id": "receiver-p10",
+              "run_epoch": "1",
+              "runtime_attempt": "1",
+              "task_id": "task-prepared-before-spawn",
+              "tenant_id": "tenant-p10",
+              "work_item_id": "work-prepared-before-spawn"
+            },
+            "kind": "unknown",
+            "observed_at": "2026-09-13T06:43:08.807Z",
+            "operation_id": "start-prepared-before-spawn",
+            "pod_uid": "pod-prepared-before-spawn",
+            "process": null,
+            "reason": "process_truth_unresolved",
+            "receipt_id": "26c7cbb0df5b0b16bc5509dc6cd1f57dc3602c707e1b8a50c9f307b739eaacb4",
+            "source_digest": "397d813963417b018a9b64da89e076786c495fe143bd5cce3ea2d85237aae27a",
+            "source_receipt": "{\"environment_ref\":\"local-prepared-before-spawn\",\"identity\":{\"agent_run_id\":\"run-prepared-before-spawn\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-prepared-before-spawn\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-prepared-before-spawn\"},\"kind\":\"unknown\",\"observed_at\":\"2026-09-13T06:43:08.807Z\",\"operation_id\":\"start-prepared-before-spawn\",\"pod_uid\":\"pod-prepared-before-spawn\",\"process\":null,\"reason\":\"process_truth_unresolved\",\"receipt_id\":\"26c7cbb0df5b0b16bc5509dc6cd1f57dc3602c707e1b8a50c9f307b739eaacb4\"}"
+          },
+          "operation_id": "start-prepared-before-spawn",
+          "profile_id": "harmless-node-v1",
+          "receiver": {
+            "environment_ref": "local-prepared-before-spawn",
+            "pod_uid": "pod-prepared-before-spawn",
+            "receiver_id": "receiver-p10",
+            "runtime_attempt": "1"
+          },
+          "state": "unknown"
+        },
+        "responseText": "{\"assignment_digest\":\"06ea33eb3eaa20fbca1392569d90ddb2707bfce4385e90699187b7130fcbdd13\",\"identity\":{\"agent_run_id\":\"run-prepared-before-spawn\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-prepared-before-spawn\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-prepared-before-spawn\"},\"observation\":{\"environment_ref\":\"local-prepared-before-spawn\",\"identity\":{\"agent_run_id\":\"run-prepared-before-spawn\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-prepared-before-spawn\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-prepared-before-spawn\"},\"kind\":\"unknown\",\"observed_at\":\"2026-09-13T06:43:08.807Z\",\"operation_id\":\"start-prepared-before-spawn\",\"pod_uid\":\"pod-prepared-before-spawn\",\"process\":null,\"reason\":\"process_truth_unresolved\",\"receipt_id\":\"26c7cbb0df5b0b16bc5509dc6cd1f57dc3602c707e1b8a50c9f307b739eaacb4\",\"source_digest\":\"397d813963417b018a9b64da89e076786c495fe143bd5cce3ea2d85237aae27a\",\"source_receipt\":\"{\\\"environment_ref\\\":\\\"local-prepared-before-spawn\\\",\\\"identity\\\":{\\\"agent_run_id\\\":\\\"run-prepared-before-spawn\\\",\\\"execution_epoch\\\":\\\"1\\\",\\\"project_id\\\":\\\"project-p10\\\",\\\"receiver_id\\\":\\\"receiver-p10\\\",\\\"run_epoch\\\":\\\"1\\\",\\\"runtime_attempt\\\":\\\"1\\\",\\\"task_id\\\":\\\"task-prepared-before-spawn\\\",\\\"tenant_id\\\":\\\"tenant-p10\\\",\\\"work_item_id\\\":\\\"work-prepared-before-spawn\\\"},\\\"kind\\\":\\\"unknown\\\",\\\"observed_at\\\":\\\"2026-09-13T06:43:08.807Z\\\",\\\"operation_id\\\":\\\"start-prepared-before-spawn\\\",\\\"pod_uid\\\":\\\"pod-prepared-before-spawn\\\",\\\"process\\\":null,\\\"reason\\\":\\\"process_truth_unresolved\\\",\\\"receipt_id\\\":\\\"26c7cbb0df5b0b16bc5509dc6cd1f57dc3602c707e1b8a50c9f307b739eaacb4\\\"}\"},\"operation_id\":\"start-prepared-before-spawn\",\"profile_id\":\"harmless-node-v1\",\"receiver\":{\"environment_ref\":\"local-prepared-before-spawn\",\"pod_uid\":\"pod-prepared-before-spawn\",\"receiver_id\":\"receiver-p10\",\"runtime_attempt\":\"1\"},\"state\":\"unknown\"}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "url": "http://127.0.0.1:63559/operations/start-prepared-before-spawn",
+        "headers": {
+          "Accept": "application/json",
+          "Authorization": "Bearer p10-test-controller-token",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "assignment": {
+            "schema_version": "wuji.assignment.v2",
+            "operation_id": "start-prepared-before-spawn",
+            "identity": {
+              "tenant_id": "tenant-p10",
+              "project_id": "project-p10",
+              "task_id": "task-prepared-before-spawn",
+              "work_item_id": "work-prepared-before-spawn",
+              "agent_run_id": "run-prepared-before-spawn",
+              "execution_epoch": "1",
+              "run_epoch": "1",
+              "runtime_attempt": "1",
+              "receiver_id": "receiver-p10"
+            },
+            "work_kind": "explore",
+            "snapshot_id": "snapshot-prepared-before-spawn",
+            "profile_refs": [
+              "harmless-node-v1"
+            ],
+            "session_manifest_ref": null,
+            "tool_definition_refs": [
+              "read_record:v1"
+            ],
+            "limits": {
+              "max_work_items": 4,
+              "max_reason_runs": 1,
+              "max_model_requests": 2,
+              "max_tool_calls": 2,
+              "max_single_output_bytes": 65536,
+              "max_total_output_bytes": 131072,
+              "max_elapsed_seconds": 30,
+              "max_attempts_per_work": 1,
+              "repair_attempts": 0
+            },
+            "resume_reason": null
+          },
+          "profile_id": "harmless-node-v1"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "cache-control": "no-store",
+          "connection": "keep-alive",
+          "content-type": "application/json",
+          "date": "Sun, 13 Sep 2026 06:43:08 GMT",
+          "keep-alive": "timeout=5",
+          "transfer-encoding": "chunked"
+        },
+        "body": {
+          "assignment_digest": "06ea33eb3eaa20fbca1392569d90ddb2707bfce4385e90699187b7130fcbdd13",
+          "identity": {
+            "agent_run_id": "run-prepared-before-spawn",
+            "execution_epoch": "1",
+            "project_id": "project-p10",
+            "receiver_id": "receiver-p10",
+            "run_epoch": "1",
+            "runtime_attempt": "1",
+            "task_id": "task-prepared-before-spawn",
+            "tenant_id": "tenant-p10",
+            "work_item_id": "work-prepared-before-spawn"
+          },
+          "observation": {
+            "environment_ref": "local-prepared-before-spawn",
+            "identity": {
+              "agent_run_id": "run-prepared-before-spawn",
+              "execution_epoch": "1",
+              "project_id": "project-p10",
+              "receiver_id": "receiver-p10",
+              "run_epoch": "1",
+              "runtime_attempt": "1",
+              "task_id": "task-prepared-before-spawn",
+              "tenant_id": "tenant-p10",
+              "work_item_id": "work-prepared-before-spawn"
+            },
+            "kind": "unknown",
+            "observed_at": "2026-09-13T06:43:08.807Z",
+            "operation_id": "start-prepared-before-spawn",
+            "pod_uid": "pod-prepared-before-spawn",
+            "process": null,
+            "reason": "process_truth_unresolved",
+            "receipt_id": "26c7cbb0df5b0b16bc5509dc6cd1f57dc3602c707e1b8a50c9f307b739eaacb4",
+            "source_digest": "397d813963417b018a9b64da89e076786c495fe143bd5cce3ea2d85237aae27a",
+            "source_receipt": "{\"environment_ref\":\"local-prepared-before-spawn\",\"identity\":{\"agent_run_id\":\"run-prepared-before-spawn\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-prepared-before-spawn\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-prepared-before-spawn\"},\"kind\":\"unknown\",\"observed_at\":\"2026-09-13T06:43:08.807Z\",\"operation_id\":\"start-prepared-before-spawn\",\"pod_uid\":\"pod-prepared-before-spawn\",\"process\":null,\"reason\":\"process_truth_unresolved\",\"receipt_id\":\"26c7cbb0df5b0b16bc5509dc6cd1f57dc3602c707e1b8a50c9f307b739eaacb4\"}"
+          },
+          "operation_id": "start-prepared-before-spawn",
+          "profile_id": "harmless-node-v1",
+          "receiver": {
+            "environment_ref": "local-prepared-before-spawn",
+            "pod_uid": "pod-prepared-before-spawn",
+            "receiver_id": "receiver-p10",
+            "runtime_attempt": "1"
+          },
+          "state": "unknown"
+        },
+        "responseText": "{\"assignment_digest\":\"06ea33eb3eaa20fbca1392569d90ddb2707bfce4385e90699187b7130fcbdd13\",\"identity\":{\"agent_run_id\":\"run-prepared-before-spawn\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-prepared-before-spawn\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-prepared-before-spawn\"},\"observation\":{\"environment_ref\":\"local-prepared-before-spawn\",\"identity\":{\"agent_run_id\":\"run-prepared-before-spawn\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-prepared-before-spawn\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-prepared-before-spawn\"},\"kind\":\"unknown\",\"observed_at\":\"2026-09-13T06:43:08.807Z\",\"operation_id\":\"start-prepared-before-spawn\",\"pod_uid\":\"pod-prepared-before-spawn\",\"process\":null,\"reason\":\"process_truth_unresolved\",\"receipt_id\":\"26c7cbb0df5b0b16bc5509dc6cd1f57dc3602c707e1b8a50c9f307b739eaacb4\",\"source_digest\":\"397d813963417b018a9b64da89e076786c495fe143bd5cce3ea2d85237aae27a\",\"source_receipt\":\"{\\\"environment_ref\\\":\\\"local-prepared-before-spawn\\\",\\\"identity\\\":{\\\"agent_run_id\\\":\\\"run-prepared-before-spawn\\\",\\\"execution_epoch\\\":\\\"1\\\",\\\"project_id\\\":\\\"project-p10\\\",\\\"receiver_id\\\":\\\"receiver-p10\\\",\\\"run_epoch\\\":\\\"1\\\",\\\"runtime_attempt\\\":\\\"1\\\",\\\"task_id\\\":\\\"task-prepared-before-spawn\\\",\\\"tenant_id\\\":\\\"tenant-p10\\\",\\\"work_item_id\\\":\\\"work-prepared-before-spawn\\\"},\\\"kind\\\":\\\"unknown\\\",\\\"observed_at\\\":\\\"2026-09-13T06:43:08.807Z\\\",\\\"operation_id\\\":\\\"start-prepared-before-spawn\\\",\\\"pod_uid\\\":\\\"pod-prepared-before-spawn\\\",\\\"process\\\":null,\\\"reason\\\":\\\"process_truth_unresolved\\\",\\\"receipt_id\\\":\\\"26c7cbb0df5b0b16bc5509dc6cd1f57dc3602c707e1b8a50c9f307b739eaacb4\\\"}\"},\"operation_id\":\"start-prepared-before-spawn\",\"profile_id\":\"harmless-node-v1\",\"receiver\":{\"environment_ref\":\"local-prepared-before-spawn\",\"pod_uid\":\"pod-prepared-before-spawn\",\"receiver_id\":\"receiver-p10\",\"runtime_attempt\":\"1\"},\"state\":\"unknown\"}"
+      }
+    }
+  ]
+}

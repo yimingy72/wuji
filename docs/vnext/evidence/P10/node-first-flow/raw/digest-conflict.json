@@ -1,0 +1,408 @@
+{
+  "schema_version": "wuji.p10-node-fixture.v1",
+  "generated_at": "2026-09-13T06:43:10.494Z",
+  "label": "digest-conflict",
+  "assignment": {
+    "schema_version": "wuji.assignment.v2",
+    "operation_id": "start-digest-conflict",
+    "identity": {
+      "tenant_id": "tenant-p10",
+      "project_id": "project-p10",
+      "task_id": "task-digest-conflict",
+      "work_item_id": "work-digest-conflict",
+      "agent_run_id": "run-digest-conflict",
+      "execution_epoch": "1",
+      "run_epoch": "1",
+      "runtime_attempt": "1",
+      "receiver_id": "receiver-p10"
+    },
+    "work_kind": "explore",
+    "snapshot_id": "snapshot-digest-conflict",
+    "profile_refs": [
+      "harmless-node-v1"
+    ],
+    "session_manifest_ref": null,
+    "tool_definition_refs": [
+      "read_record:v1"
+    ],
+    "limits": {
+      "max_work_items": 4,
+      "max_reason_runs": 1,
+      "max_model_requests": 2,
+      "max_tool_calls": 2,
+      "max_single_output_bytes": 65536,
+      "max_total_output_bytes": 131072,
+      "max_elapsed_seconds": 30,
+      "max_attempts_per_work": 1,
+      "repair_attempts": 0
+    },
+    "resume_reason": null
+  },
+  "receiver": {
+    "receiver_id": "receiver-p10",
+    "runtime_attempt": "1",
+    "environment_ref": "local-digest-conflict",
+    "pod_uid": "pod-digest-conflict"
+  },
+  "actual_starts": [
+    {
+      "operation_id": "start-digest-conflict",
+      "fixture_instance_id": "5847b9c0-cb95-468e-869d-974188dd848f",
+      "pid": 23737
+    }
+  ],
+  "child_lifecycle": [
+    {
+      "event": "birth",
+      "operation_id": "start-digest-conflict",
+      "fixture_instance_id": "5847b9c0-cb95-468e-869d-974188dd848f",
+      "pid": 23737,
+      "ppid": 23736,
+      "observed_at": "2026-09-13T06:43:10.466Z",
+      "monotonic_ns": "406828224182333"
+    },
+    {
+      "event": "exit",
+      "operation_id": "start-digest-conflict",
+      "fixture_instance_id": "5847b9c0-cb95-468e-869d-974188dd848f",
+      "pid": 23737,
+      "ppid": 23736,
+      "observed_at": "2026-09-13T06:43:10.478Z",
+      "monotonic_ns": "406828235578333",
+      "reason": "release_file",
+      "exit_code": 0
+    }
+  ],
+  "supervisor_crashes": [],
+  "http_exchanges": [
+    {
+      "request": {
+        "method": "PUT",
+        "url": "http://127.0.0.1:63580/operations/start-digest-conflict",
+        "headers": {
+          "Accept": "application/json",
+          "Authorization": "Bearer p10-test-controller-token",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "assignment": {
+            "schema_version": "wuji.assignment.v2",
+            "operation_id": "start-digest-conflict",
+            "identity": {
+              "tenant_id": "tenant-p10",
+              "project_id": "project-p10",
+              "task_id": "task-digest-conflict",
+              "work_item_id": "work-digest-conflict",
+              "agent_run_id": "run-digest-conflict",
+              "execution_epoch": "1",
+              "run_epoch": "1",
+              "runtime_attempt": "1",
+              "receiver_id": "receiver-p10"
+            },
+            "work_kind": "explore",
+            "snapshot_id": "snapshot-digest-conflict",
+            "profile_refs": [
+              "harmless-node-v1"
+            ],
+            "session_manifest_ref": null,
+            "tool_definition_refs": [
+              "read_record:v1"
+            ],
+            "limits": {
+              "max_work_items": 4,
+              "max_reason_runs": 1,
+              "max_model_requests": 2,
+              "max_tool_calls": 2,
+              "max_single_output_bytes": 65536,
+              "max_total_output_bytes": 131072,
+              "max_elapsed_seconds": 30,
+              "max_attempts_per_work": 1,
+              "repair_attempts": 0
+            },
+            "resume_reason": null
+          },
+          "profile_id": "harmless-node-v1"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "cache-control": "no-store",
+          "connection": "keep-alive",
+          "content-type": "application/json",
+          "date": "Sun, 13 Sep 2026 06:43:10 GMT",
+          "keep-alive": "timeout=5",
+          "transfer-encoding": "chunked"
+        },
+        "body": {
+          "assignment_digest": "fb2e72dc303efd4644e29d6903d92285154414edc377db1fcc78a51675e34303",
+          "identity": {
+            "agent_run_id": "run-digest-conflict",
+            "execution_epoch": "1",
+            "project_id": "project-p10",
+            "receiver_id": "receiver-p10",
+            "run_epoch": "1",
+            "runtime_attempt": "1",
+            "task_id": "task-digest-conflict",
+            "tenant_id": "tenant-p10",
+            "work_item_id": "work-digest-conflict"
+          },
+          "observation": {
+            "environment_ref": "local-digest-conflict",
+            "identity": {
+              "agent_run_id": "run-digest-conflict",
+              "execution_epoch": "1",
+              "project_id": "project-p10",
+              "receiver_id": "receiver-p10",
+              "run_epoch": "1",
+              "runtime_attempt": "1",
+              "task_id": "task-digest-conflict",
+              "tenant_id": "tenant-p10",
+              "work_item_id": "work-digest-conflict"
+            },
+            "kind": "started",
+            "observed_at": "2026-09-13T06:43:10.452Z",
+            "operation_id": "start-digest-conflict",
+            "pod_uid": "pod-digest-conflict",
+            "process": {
+              "birth_id": "8382b6367cbb8fe478afd3736a926cac6f254e28938ac4a79cb8ee8b39b03508:84ec13239a10d30259bcada29ac39fdb0fc5a908d774dbac0bf440ccd14f44dd:child-process-spawn-event",
+              "exit_code": null,
+              "exited_at": null,
+              "pid": 23737,
+              "started_at": "2026-09-13T06:43:10.431Z"
+            },
+            "reason": "running",
+            "receipt_id": "7900f5f3cd1dbc21f71cbad62e348037444267810e01dcaef58d9874add10559",
+            "source_digest": "5ccc99a2d56d4f768a99c34552f35fa660eaab6ddb86de49bcf72e31e9dc1d8d",
+            "source_receipt": "{\"environment_ref\":\"local-digest-conflict\",\"identity\":{\"agent_run_id\":\"run-digest-conflict\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-digest-conflict\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-digest-conflict\"},\"kind\":\"started\",\"observed_at\":\"2026-09-13T06:43:10.452Z\",\"operation_id\":\"start-digest-conflict\",\"pod_uid\":\"pod-digest-conflict\",\"process\":{\"birth_id\":\"8382b6367cbb8fe478afd3736a926cac6f254e28938ac4a79cb8ee8b39b03508:84ec13239a10d30259bcada29ac39fdb0fc5a908d774dbac0bf440ccd14f44dd:child-process-spawn-event\",\"exit_code\":null,\"exited_at\":null,\"pid\":23737,\"started_at\":\"2026-09-13T06:43:10.431Z\"},\"reason\":\"running\",\"receipt_id\":\"7900f5f3cd1dbc21f71cbad62e348037444267810e01dcaef58d9874add10559\"}"
+          },
+          "operation_id": "start-digest-conflict",
+          "profile_id": "harmless-node-v1",
+          "receiver": {
+            "environment_ref": "local-digest-conflict",
+            "pod_uid": "pod-digest-conflict",
+            "receiver_id": "receiver-p10",
+            "runtime_attempt": "1"
+          },
+          "state": "running"
+        },
+        "responseText": "{\"assignment_digest\":\"fb2e72dc303efd4644e29d6903d92285154414edc377db1fcc78a51675e34303\",\"identity\":{\"agent_run_id\":\"run-digest-conflict\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-digest-conflict\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-digest-conflict\"},\"observation\":{\"environment_ref\":\"local-digest-conflict\",\"identity\":{\"agent_run_id\":\"run-digest-conflict\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-digest-conflict\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-digest-conflict\"},\"kind\":\"started\",\"observed_at\":\"2026-09-13T06:43:10.452Z\",\"operation_id\":\"start-digest-conflict\",\"pod_uid\":\"pod-digest-conflict\",\"process\":{\"birth_id\":\"8382b6367cbb8fe478afd3736a926cac6f254e28938ac4a79cb8ee8b39b03508:84ec13239a10d30259bcada29ac39fdb0fc5a908d774dbac0bf440ccd14f44dd:child-process-spawn-event\",\"exit_code\":null,\"exited_at\":null,\"pid\":23737,\"started_at\":\"2026-09-13T06:43:10.431Z\"},\"reason\":\"running\",\"receipt_id\":\"7900f5f3cd1dbc21f71cbad62e348037444267810e01dcaef58d9874add10559\",\"source_digest\":\"5ccc99a2d56d4f768a99c34552f35fa660eaab6ddb86de49bcf72e31e9dc1d8d\",\"source_receipt\":\"{\\\"environment_ref\\\":\\\"local-digest-conflict\\\",\\\"identity\\\":{\\\"agent_run_id\\\":\\\"run-digest-conflict\\\",\\\"execution_epoch\\\":\\\"1\\\",\\\"project_id\\\":\\\"project-p10\\\",\\\"receiver_id\\\":\\\"receiver-p10\\\",\\\"run_epoch\\\":\\\"1\\\",\\\"runtime_attempt\\\":\\\"1\\\",\\\"task_id\\\":\\\"task-digest-conflict\\\",\\\"tenant_id\\\":\\\"tenant-p10\\\",\\\"work_item_id\\\":\\\"work-digest-conflict\\\"},\\\"kind\\\":\\\"started\\\",\\\"observed_at\\\":\\\"2026-09-13T06:43:10.452Z\\\",\\\"operation_id\\\":\\\"start-digest-conflict\\\",\\\"pod_uid\\\":\\\"pod-digest-conflict\\\",\\\"process\\\":{\\\"birth_id\\\":\\\"8382b6367cbb8fe478afd3736a926cac6f254e28938ac4a79cb8ee8b39b03508:84ec13239a10d30259bcada29ac39fdb0fc5a908d774dbac0bf440ccd14f44dd:child-process-spawn-event\\\",\\\"exit_code\\\":null,\\\"exited_at\\\":null,\\\"pid\\\":23737,\\\"started_at\\\":\\\"2026-09-13T06:43:10.431Z\\\"},\\\"reason\\\":\\\"running\\\",\\\"receipt_id\\\":\\\"7900f5f3cd1dbc21f71cbad62e348037444267810e01dcaef58d9874add10559\\\"}\"},\"operation_id\":\"start-digest-conflict\",\"profile_id\":\"harmless-node-v1\",\"receiver\":{\"environment_ref\":\"local-digest-conflict\",\"pod_uid\":\"pod-digest-conflict\",\"receiver_id\":\"receiver-p10\",\"runtime_attempt\":\"1\"},\"state\":\"running\"}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "url": "http://127.0.0.1:63580/operations/start-digest-conflict",
+        "headers": {
+          "Accept": "application/json",
+          "Authorization": "Bearer p10-test-controller-token",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "assignment": {
+            "schema_version": "wuji.assignment.v2",
+            "operation_id": "start-digest-conflict",
+            "identity": {
+              "tenant_id": "tenant-p10",
+              "project_id": "project-p10",
+              "task_id": "task-digest-conflict",
+              "work_item_id": "work-digest-conflict",
+              "agent_run_id": "run-digest-conflict",
+              "execution_epoch": "1",
+              "run_epoch": "1",
+              "runtime_attempt": "1",
+              "receiver_id": "receiver-p10"
+            },
+            "work_kind": "explore",
+            "snapshot_id": "snapshot-conflicting",
+            "profile_refs": [
+              "harmless-node-v1"
+            ],
+            "session_manifest_ref": null,
+            "tool_definition_refs": [
+              "read_record:v1"
+            ],
+            "limits": {
+              "max_work_items": 4,
+              "max_reason_runs": 1,
+              "max_model_requests": 2,
+              "max_tool_calls": 2,
+              "max_single_output_bytes": 65536,
+              "max_total_output_bytes": 131072,
+              "max_elapsed_seconds": 30,
+              "max_attempts_per_work": 1,
+              "repair_attempts": 0
+            },
+            "resume_reason": null
+          },
+          "profile_id": "harmless-node-v1"
+        }
+      },
+      "response": {
+        "status": 409,
+        "headers": {
+          "cache-control": "no-store",
+          "connection": "keep-alive",
+          "content-type": "application/json",
+          "date": "Sun, 13 Sep 2026 06:43:10 GMT",
+          "keep-alive": "timeout=5",
+          "transfer-encoding": "chunked"
+        },
+        "body": {
+          "code": "INPUT_DIGEST_CONFLICT"
+        },
+        "responseText": "{\"code\":\"INPUT_DIGEST_CONFLICT\"}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "http://127.0.0.1:63580/operations/start-digest-conflict",
+        "headers": {
+          "Accept": "application/json",
+          "Authorization": "Bearer p10-test-controller-token"
+        },
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "cache-control": "no-store",
+          "connection": "keep-alive",
+          "content-type": "application/json",
+          "date": "Sun, 13 Sep 2026 06:43:10 GMT",
+          "keep-alive": "timeout=5",
+          "transfer-encoding": "chunked"
+        },
+        "body": {
+          "assignment_digest": "fb2e72dc303efd4644e29d6903d92285154414edc377db1fcc78a51675e34303",
+          "identity": {
+            "agent_run_id": "run-digest-conflict",
+            "execution_epoch": "1",
+            "project_id": "project-p10",
+            "receiver_id": "receiver-p10",
+            "run_epoch": "1",
+            "runtime_attempt": "1",
+            "task_id": "task-digest-conflict",
+            "tenant_id": "tenant-p10",
+            "work_item_id": "work-digest-conflict"
+          },
+          "observation": {
+            "environment_ref": "local-digest-conflict",
+            "identity": {
+              "agent_run_id": "run-digest-conflict",
+              "execution_epoch": "1",
+              "project_id": "project-p10",
+              "receiver_id": "receiver-p10",
+              "run_epoch": "1",
+              "runtime_attempt": "1",
+              "task_id": "task-digest-conflict",
+              "tenant_id": "tenant-p10",
+              "work_item_id": "work-digest-conflict"
+            },
+            "kind": "started",
+            "observed_at": "2026-09-13T06:43:10.452Z",
+            "operation_id": "start-digest-conflict",
+            "pod_uid": "pod-digest-conflict",
+            "process": {
+              "birth_id": "8382b6367cbb8fe478afd3736a926cac6f254e28938ac4a79cb8ee8b39b03508:84ec13239a10d30259bcada29ac39fdb0fc5a908d774dbac0bf440ccd14f44dd:child-process-spawn-event",
+              "exit_code": null,
+              "exited_at": null,
+              "pid": 23737,
+              "started_at": "2026-09-13T06:43:10.431Z"
+            },
+            "reason": "running",
+            "receipt_id": "7900f5f3cd1dbc21f71cbad62e348037444267810e01dcaef58d9874add10559",
+            "source_digest": "5ccc99a2d56d4f768a99c34552f35fa660eaab6ddb86de49bcf72e31e9dc1d8d",
+            "source_receipt": "{\"environment_ref\":\"local-digest-conflict\",\"identity\":{\"agent_run_id\":\"run-digest-conflict\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-digest-conflict\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-digest-conflict\"},\"kind\":\"started\",\"observed_at\":\"2026-09-13T06:43:10.452Z\",\"operation_id\":\"start-digest-conflict\",\"pod_uid\":\"pod-digest-conflict\",\"process\":{\"birth_id\":\"8382b6367cbb8fe478afd3736a926cac6f254e28938ac4a79cb8ee8b39b03508:84ec13239a10d30259bcada29ac39fdb0fc5a908d774dbac0bf440ccd14f44dd:child-process-spawn-event\",\"exit_code\":null,\"exited_at\":null,\"pid\":23737,\"started_at\":\"2026-09-13T06:43:10.431Z\"},\"reason\":\"running\",\"receipt_id\":\"7900f5f3cd1dbc21f71cbad62e348037444267810e01dcaef58d9874add10559\"}"
+          },
+          "operation_id": "start-digest-conflict",
+          "profile_id": "harmless-node-v1",
+          "receiver": {
+            "environment_ref": "local-digest-conflict",
+            "pod_uid": "pod-digest-conflict",
+            "receiver_id": "receiver-p10",
+            "runtime_attempt": "1"
+          },
+          "state": "running"
+        },
+        "responseText": "{\"assignment_digest\":\"fb2e72dc303efd4644e29d6903d92285154414edc377db1fcc78a51675e34303\",\"identity\":{\"agent_run_id\":\"run-digest-conflict\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-digest-conflict\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-digest-conflict\"},\"observation\":{\"environment_ref\":\"local-digest-conflict\",\"identity\":{\"agent_run_id\":\"run-digest-conflict\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-digest-conflict\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-digest-conflict\"},\"kind\":\"started\",\"observed_at\":\"2026-09-13T06:43:10.452Z\",\"operation_id\":\"start-digest-conflict\",\"pod_uid\":\"pod-digest-conflict\",\"process\":{\"birth_id\":\"8382b6367cbb8fe478afd3736a926cac6f254e28938ac4a79cb8ee8b39b03508:84ec13239a10d30259bcada29ac39fdb0fc5a908d774dbac0bf440ccd14f44dd:child-process-spawn-event\",\"exit_code\":null,\"exited_at\":null,\"pid\":23737,\"started_at\":\"2026-09-13T06:43:10.431Z\"},\"reason\":\"running\",\"receipt_id\":\"7900f5f3cd1dbc21f71cbad62e348037444267810e01dcaef58d9874add10559\",\"source_digest\":\"5ccc99a2d56d4f768a99c34552f35fa660eaab6ddb86de49bcf72e31e9dc1d8d\",\"source_receipt\":\"{\\\"environment_ref\\\":\\\"local-digest-conflict\\\",\\\"identity\\\":{\\\"agent_run_id\\\":\\\"run-digest-conflict\\\",\\\"execution_epoch\\\":\\\"1\\\",\\\"project_id\\\":\\\"project-p10\\\",\\\"receiver_id\\\":\\\"receiver-p10\\\",\\\"run_epoch\\\":\\\"1\\\",\\\"runtime_attempt\\\":\\\"1\\\",\\\"task_id\\\":\\\"task-digest-conflict\\\",\\\"tenant_id\\\":\\\"tenant-p10\\\",\\\"work_item_id\\\":\\\"work-digest-conflict\\\"},\\\"kind\\\":\\\"started\\\",\\\"observed_at\\\":\\\"2026-09-13T06:43:10.452Z\\\",\\\"operation_id\\\":\\\"start-digest-conflict\\\",\\\"pod_uid\\\":\\\"pod-digest-conflict\\\",\\\"process\\\":{\\\"birth_id\\\":\\\"8382b6367cbb8fe478afd3736a926cac6f254e28938ac4a79cb8ee8b39b03508:84ec13239a10d30259bcada29ac39fdb0fc5a908d774dbac0bf440ccd14f44dd:child-process-spawn-event\\\",\\\"exit_code\\\":null,\\\"exited_at\\\":null,\\\"pid\\\":23737,\\\"started_at\\\":\\\"2026-09-13T06:43:10.431Z\\\"},\\\"reason\\\":\\\"running\\\",\\\"receipt_id\\\":\\\"7900f5f3cd1dbc21f71cbad62e348037444267810e01dcaef58d9874add10559\\\"}\"},\"operation_id\":\"start-digest-conflict\",\"profile_id\":\"harmless-node-v1\",\"receiver\":{\"environment_ref\":\"local-digest-conflict\",\"pod_uid\":\"pod-digest-conflict\",\"receiver_id\":\"receiver-p10\",\"runtime_attempt\":\"1\"},\"state\":\"running\"}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "http://127.0.0.1:63580/operations/start-digest-conflict",
+        "headers": {
+          "Accept": "application/json",
+          "Authorization": "Bearer p10-test-controller-token"
+        },
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "cache-control": "no-store",
+          "connection": "keep-alive",
+          "content-type": "application/json",
+          "date": "Sun, 13 Sep 2026 06:43:10 GMT",
+          "keep-alive": "timeout=5",
+          "transfer-encoding": "chunked"
+        },
+        "body": {
+          "assignment_digest": "fb2e72dc303efd4644e29d6903d92285154414edc377db1fcc78a51675e34303",
+          "identity": {
+            "agent_run_id": "run-digest-conflict",
+            "execution_epoch": "1",
+            "project_id": "project-p10",
+            "receiver_id": "receiver-p10",
+            "run_epoch": "1",
+            "runtime_attempt": "1",
+            "task_id": "task-digest-conflict",
+            "tenant_id": "tenant-p10",
+            "work_item_id": "work-digest-conflict"
+          },
+          "observation": {
+            "environment_ref": "local-digest-conflict",
+            "identity": {
+              "agent_run_id": "run-digest-conflict",
+              "execution_epoch": "1",
+              "project_id": "project-p10",
+              "receiver_id": "receiver-p10",
+              "run_epoch": "1",
+              "runtime_attempt": "1",
+              "task_id": "task-digest-conflict",
+              "tenant_id": "tenant-p10",
+              "work_item_id": "work-digest-conflict"
+            },
+            "kind": "exited",
+            "observed_at": "2026-09-13T06:43:10.491Z",
+            "operation_id": "start-digest-conflict",
+            "pod_uid": "pod-digest-conflict",
+            "process": {
+              "birth_id": "8382b6367cbb8fe478afd3736a926cac6f254e28938ac4a79cb8ee8b39b03508:84ec13239a10d30259bcada29ac39fdb0fc5a908d774dbac0bf440ccd14f44dd:child-process-spawn-event",
+              "exit_code": 0,
+              "exited_at": "2026-09-13T06:43:10.480Z",
+              "pid": 23737,
+              "started_at": "2026-09-13T06:43:10.431Z"
+            },
+            "reason": "exited",
+            "receipt_id": "1396677773a932f96e6a27e2245b46802f4d930f314217bf1ce20d69ae3e6338",
+            "source_digest": "1e457eabe03f62e113241c934a9407fd7b3577395a669206026ef12fc2ca8960",
+            "source_receipt": "{\"environment_ref\":\"local-digest-conflict\",\"identity\":{\"agent_run_id\":\"run-digest-conflict\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-digest-conflict\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-digest-conflict\"},\"kind\":\"exited\",\"observed_at\":\"2026-09-13T06:43:10.491Z\",\"operation_id\":\"start-digest-conflict\",\"pod_uid\":\"pod-digest-conflict\",\"process\":{\"birth_id\":\"8382b6367cbb8fe478afd3736a926cac6f254e28938ac4a79cb8ee8b39b03508:84ec13239a10d30259bcada29ac39fdb0fc5a908d774dbac0bf440ccd14f44dd:child-process-spawn-event\",\"exit_code\":0,\"exited_at\":\"2026-09-13T06:43:10.480Z\",\"pid\":23737,\"started_at\":\"2026-09-13T06:43:10.431Z\"},\"reason\":\"exited\",\"receipt_id\":\"1396677773a932f96e6a27e2245b46802f4d930f314217bf1ce20d69ae3e6338\"}"
+          },
+          "operation_id": "start-digest-conflict",
+          "profile_id": "harmless-node-v1",
+          "receiver": {
+            "environment_ref": "local-digest-conflict",
+            "pod_uid": "pod-digest-conflict",
+            "receiver_id": "receiver-p10",
+            "runtime_attempt": "1"
+          },
+          "state": "exited"
+        },
+        "responseText": "{\"assignment_digest\":\"fb2e72dc303efd4644e29d6903d92285154414edc377db1fcc78a51675e34303\",\"identity\":{\"agent_run_id\":\"run-digest-conflict\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-digest-conflict\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-digest-conflict\"},\"observation\":{\"environment_ref\":\"local-digest-conflict\",\"identity\":{\"agent_run_id\":\"run-digest-conflict\",\"execution_epoch\":\"1\",\"project_id\":\"project-p10\",\"receiver_id\":\"receiver-p10\",\"run_epoch\":\"1\",\"runtime_attempt\":\"1\",\"task_id\":\"task-digest-conflict\",\"tenant_id\":\"tenant-p10\",\"work_item_id\":\"work-digest-conflict\"},\"kind\":\"exited\",\"observed_at\":\"2026-09-13T06:43:10.491Z\",\"operation_id\":\"start-digest-conflict\",\"pod_uid\":\"pod-digest-conflict\",\"process\":{\"birth_id\":\"8382b6367cbb8fe478afd3736a926cac6f254e28938ac4a79cb8ee8b39b03508:84ec13239a10d30259bcada29ac39fdb0fc5a908d774dbac0bf440ccd14f44dd:child-process-spawn-event\",\"exit_code\":0,\"exited_at\":\"2026-09-13T06:43:10.480Z\",\"pid\":23737,\"started_at\":\"2026-09-13T06:43:10.431Z\"},\"reason\":\"exited\",\"receipt_id\":\"1396677773a932f96e6a27e2245b46802f4d930f314217bf1ce20d69ae3e6338\",\"source_digest\":\"1e457eabe03f62e113241c934a9407fd7b3577395a669206026ef12fc2ca8960\",\"source_receipt\":\"{\\\"environment_ref\\\":\\\"local-digest-conflict\\\",\\\"identity\\\":{\\\"agent_run_id\\\":\\\"run-digest-conflict\\\",\\\"execution_epoch\\\":\\\"1\\\",\\\"project_id\\\":\\\"project-p10\\\",\\\"receiver_id\\\":\\\"receiver-p10\\\",\\\"run_epoch\\\":\\\"1\\\",\\\"runtime_attempt\\\":\\\"1\\\",\\\"task_id\\\":\\\"task-digest-conflict\\\",\\\"tenant_id\\\":\\\"tenant-p10\\\",\\\"work_item_id\\\":\\\"work-digest-conflict\\\"},\\\"kind\\\":\\\"exited\\\",\\\"observed_at\\\":\\\"2026-09-13T06:43:10.491Z\\\",\\\"operation_id\\\":\\\"start-digest-conflict\\\",\\\"pod_uid\\\":\\\"pod-digest-conflict\\\",\\\"process\\\":{\\\"birth_id\\\":\\\"8382b6367cbb8fe478afd3736a926cac6f254e28938ac4a79cb8ee8b39b03508:84ec13239a10d30259bcada29ac39fdb0fc5a908d774dbac0bf440ccd14f44dd:child-process-spawn-event\\\",\\\"exit_code\\\":0,\\\"exited_at\\\":\\\"2026-09-13T06:43:10.480Z\\\",\\\"pid\\\":23737,\\\"started_at\\\":\\\"2026-09-13T06:43:10.431Z\\\"},\\\"reason\\\":\\\"exited\\\",\\\"receipt_id\\\":\\\"1396677773a932f96e6a27e2245b46802f4d930f314217bf1ce20d69ae3e6338\\\"}\"},\"operation_id\":\"start-digest-conflict\",\"profile_id\":\"harmless-node-v1\",\"receiver\":{\"environment_ref\":\"local-digest-conflict\",\"pod_uid\":\"pod-digest-conflict\",\"receiver_id\":\"receiver-p10\",\"runtime_attempt\":\"1\"},\"state\":\"exited\"}"
+      }
+    }
+  ]
+}
