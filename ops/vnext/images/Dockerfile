@@ -20,6 +20,7 @@ RUN uv sync --project /opt/wuji/packages/maf-worker --frozen --no-dev --python /
     && chown 10001:10000 /var/lib/wuji/agent /var/lib/wuji/platform \
     && chown 10002:10000 /workspace
 COPY services/maf-supervisor /opt/wuji/services/maf-supervisor
+RUN chmod -R a+rX /opt/wuji
 
 FROM base AS agent
 ENV NODE_EXTRA_CA_CERTS=/config/ca.crt \
@@ -37,6 +38,7 @@ COPY ops/vnext/deployment_common.py /opt/wuji/ops/vnext/deployment_common.py
 COPY ops/vnext/gate_deployment.py ops/vnext/kali_deployment.py ops/vnext/pod_deployment.py /opt/wuji/ops/vnext/
 COPY ops/vnext/bootstrap.py ops/vnext/synthetic_model.py /opt/wuji/ops/vnext/
 COPY services/wuji-kali-executor /opt/wuji/services/wuji-kali-executor
+RUN chmod -R a+rX /opt/wuji
 ENV PATH=/opt/wuji/ops/vnext/.venv/bin:$PATH \
     PYTHONPATH=/opt/wuji/ops/vnext \
     WUJI_DEPLOYMENT_CONFIG=/config/deployment.json

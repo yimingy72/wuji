@@ -7,6 +7,7 @@ from hashlib import sha256
 import json
 from ipaddress import ip_address
 import os
+import re
 from pathlib import Path
 import subprocess
 import tempfile
@@ -146,10 +147,40 @@ def build_images(raw):
         if (image["Os"], image["Architecture"]) != ("linux", "arm64"):
             raise ValueError("unexpected built image platform")
         digest = json.loads(build_metadata.read_bytes())["containerimage.digest"]
-        images[target] = {"tag": tag, "id": image["Id"], "manifest_digest": digest,
-            "reference":tag.rsplit(":",1)[0]+"@"+digest, "source_revision": revision}
+        images[target] = {"tag": tag, "id": image["Id"], "exporter_digest": digest,
+            "source_revision": revision}
     save(raw / "images.json", json.dumps(images, sort_keys=True, indent=2).encode())
     return images
+
+
+def publish_images(images_path, raw):
+    _, data = run(["docker","inspect","wuji-vnext-build-registry"],raw,"registry-inspect",timeout=30)
+    registry = json.loads(data)[0]
+    if registry["Config"].get("Labels",{}).get("app.kubernetes.io/managed-by") != MANAGER:
+        raise ValueError("local build registry is not owned")
+    if registry["HostConfig"]["NetworkMode"] != "host" or "REGISTRY_HTTP_ADDR=127.0.0.1:0" not in registry["Config"]["Env"]:
+        raise ValueError("build registry must bind only the Docker VM loopback")
+    run(["docker","logs","wuji-vnext-build-registry"],raw,"registry-log",timeout=30)
+    logs=(raw/"registry-log.stdout").read_text()+(raw/"registry-log.stderr").read_text()
+    ports=re.findall(r'listening on 127\.0\.0\.1:([0-9]+)',logs)
+    if not ports:
+        raise ValueError("registry has no observed loopback listener")
+    origin = "127.0.0.1:" + ports[-1]
+    published = {}
+    for target, image in json.loads(images_path.read_bytes()).items():
+        if target not in {"agent","platform","kali"}:
+            raise ValueError("unsupported deployment image")
+        repository = origin + "/wuji-vnext-" + target
+        tag = repository + ":" + image["source_revision"][:12]
+        run(["docker","tag",image["id"],tag],raw,"tag-"+target,timeout=30)
+        run(["docker","push",tag],raw,"push-"+target)
+        _, data = run(["docker","image","inspect",tag],raw,"published-"+target,timeout=30)
+        actual = json.loads(data)[0]
+        refs = [ref for ref in actual["RepoDigests"] if ref.startswith(repository+"@sha256:")]
+        if actual["Id"] != image["id"] or len(refs) != 1:
+            raise ValueError("published repository digest does not resolve the built image")
+        published[target] = {"id":image["id"],"reference":refs[0],"source_revision":image["source_revision"]}
+    save(raw/"images-published.json",json.dumps(published,sort_keys=True,indent=2).encode())
 
 
 def secret_manifest(name, files):
@@ -223,10 +254,11 @@ def cleanup(inventory_path, raw):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=("prepare", "build", "deploy", "test", "status", "cleanup"))
+    parser.add_argument("command", choices=("prepare", "build", "publish", "deploy", "test", "status", "cleanup"))
     parser.add_argument("--state-directory", type=Path, default=STATE)
     parser.add_argument("--manifest", type=Path)
     parser.add_argument("--inventory", type=Path)
+    parser.add_argument("--images", type=Path)
     args = parser.parse_args()
     os.umask(0o077)
     state = args.state_directory.resolve()
@@ -243,6 +275,10 @@ def main():
             "namespace": NAMESPACE, "ca_sha256": sha256(ca).hexdigest()}).encode())
     elif args.command == "build":
         build_images(raw)
+    elif args.command == "publish":
+        if args.images is None:
+            parser.error("publish requires the exact fixed-build inventory")
+        publish_images(args.images.resolve(), raw)
     elif args.command == "deploy":
         if args.manifest is None:
             parser.error("deploy requires an explicit prepared bundle")
