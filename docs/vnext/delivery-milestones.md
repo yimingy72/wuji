@@ -82,7 +82,7 @@ D09 的工程验证按被测路径保留真实媒介：纯规则输出、实际�
 | Codex 管理运行时 | bundle `26.909.12148` 可用，提供独立 Git、Node、pnpm 和 Python 路径。 |
 | 项目自管工具链 | `work/toolchain/bin/node` 24.20.0、pnpm 10.32.1、uv 0.12.11 可执行；`.venv`、根 `node_modules` 与 `packages/maf-worker/.venv` 存在。默认 PATH 为 Node 26.0.0/Python 3.14.6，默认 `uv` shim 因缺 pyenv 3.13.15 不可用，开发命令应使用项目 wrapper。 |
 | 项目入口 | `scripts/vnext/uv.sh`、`scripts/uv.sh`、toolchain bootstrap 及现有 platform lifecycle/control/core/gateway/test wrapper 可执行；`build-core.sh` 需由 `sh` 调用。根 package scripts 已含 vNext 合同、测试收集和开发入口。 |
-| 隔离 PostgreSQL | `tests/vnext/support/postgres.py` 从忽略的 `work/vnext/postgres-fixture.json` 读取受限本地连接描述，每例创建随机数据库、migration/app 角色和 `vnext` schema，并在 finally 清理；本轮未读取 manifest、未打印凭据、未连接数据库。默认 PATH 缺 `psql`/`pg_isready`，能否运行依赖既有 fixture 后端。 |
+| 隔离 PostgreSQL | 当前实际 fixture 是 PostgreSQL 16.2、仅 Unix socket；0600 配置位于 `work/vnext/postgres-fixture.json`，受管客户端位于 `work/toolchain/postgres-fixture/binary/bin`，并已用于 P06 现有隔离数据库证据。`tests/vnext/support/postgres.py` 每例创建随机数据库、migration/app 角色和 `vnext` schema，并在 finally 清理。默认 PATH 缺 `psql`/`pg_isready` 只表示命令未暴露，不表示 PostgreSQL 不可用；本轮仅核对非敏感版本、网络模式和路径，未读取或输出连接字段值/凭据，未连接、探活或新建数据库。 |
 | Docker | CLI 29.6.2 与 `desktop-linux` context 存在；对应 socket 不存在，未发现 Docker 后端进程。本轮未启动 Docker、未连接 daemon。 |
 | Kubernetes | kubectl v1.36.1 客户端存在，当前 context 名为 `minikube`；本机缺 minikube/kind/k3d/helm，缓存时间为 2023-11-11。按约束未查询或启动未知集群，因此集群可用性未核验。 |
 
