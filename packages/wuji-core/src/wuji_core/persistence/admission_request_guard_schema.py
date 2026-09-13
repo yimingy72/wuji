@@ -259,6 +259,113 @@ def upgrade(connection, application_role):
 
     _function(
         connection,
+        "guard_admission_counter_purpose",
+        f"""RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog AS $$
+        DECLARE purpose text := current_setting('wuji.request_purpose',true); BEGIN
+        {owner}
+        IF NEW.model_attempts < OLD.model_attempts
+           OR NEW.tool_attempts < OLD.tool_attempts
+           OR NEW.output_bytes < OLD.output_bytes
+           OR NEW.received_bytes < OLD.received_bytes
+           OR NEW.retained_bytes < OLD.retained_bytes
+           OR NEW.forwarded_bytes < OLD.forwarded_bytes THEN
+          RAISE EXCEPTION 'admission counters cannot decrease' USING ERRCODE='42501';
+        ELSIF purpose='model_request' AND
+          ROW(NEW.tool_attempts,NEW.output_bytes,NEW.received_bytes,
+              NEW.retained_bytes,NEW.forwarded_bytes) IS DISTINCT FROM
+          ROW(OLD.tool_attempts,OLD.output_bytes,OLD.received_bytes,
+              OLD.retained_bytes,OLD.forwarded_bytes) THEN
+          RAISE EXCEPTION 'model request cannot mutate tool or output counters' USING ERRCODE='42501';
+        ELSIF purpose='tool_request' AND
+          ROW(NEW.model_attempts,NEW.output_bytes,NEW.received_bytes,
+              NEW.retained_bytes,NEW.forwarded_bytes) IS DISTINCT FROM
+          ROW(OLD.model_attempts,OLD.output_bytes,OLD.received_bytes,
+              OLD.retained_bytes,OLD.forwarded_bytes) THEN
+          RAISE EXCEPTION 'tool request cannot mutate model or output counters' USING ERRCODE='42501';
+        ELSIF purpose IN ('model_settle','tool_settle') AND
+          ROW(NEW.model_attempts,NEW.tool_attempts) IS DISTINCT FROM
+          ROW(OLD.model_attempts,OLD.tool_attempts) THEN
+          RAISE EXCEPTION 'settlement cannot mutate attempt counters' USING ERRCODE='42501';
+        ELSIF purpose NOT IN ('model_request','tool_request','model_settle','tool_settle') THEN
+          RAISE EXCEPTION 'request purpose required' USING ERRCODE='42501';
+        END IF; RETURN NEW; END $$""",
+    )
+    _trigger(
+        connection,
+        "admission_counter",
+        "admission_counter_purpose",
+        "UPDATE",
+        "guard_admission_counter_purpose",
+    )
+
+    _function(
+        connection,
+        "guard_model_call_purpose",
+        f"""RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog AS $$
+        DECLARE purpose text := current_setting('wuji.request_purpose',true); BEGIN
+        {owner}
+        IF purpose='model_request' THEN
+          IF OLD.send_state<>'not_sent' OR NEW.send_state<>'sending'
+             OR ROW(NEW.response_state,NEW.billing_state,NEW.local_state,NEW.inflight,
+                    NEW.upstream_status,NEW.content_type,NEW.gateway_usage_ref,
+                    NEW.gateway_spend_ref,NEW.response_available,NEW.received_bytes,
+                    NEW.retained_bytes,NEW.forwarded_bytes,NEW.output_bytes,
+                    NEW.settlement_json) IS DISTINCT FROM
+                ROW(OLD.response_state,OLD.billing_state,OLD.local_state,OLD.inflight,
+                    OLD.upstream_status,OLD.content_type,OLD.gateway_usage_ref,
+                    OLD.gateway_spend_ref,OLD.response_available,OLD.received_bytes,
+                    OLD.retained_bytes,OLD.forwarded_bytes,OLD.output_bytes,
+                    OLD.settlement_json) THEN
+            RAISE EXCEPTION 'model request cannot mutate settlement fields' USING ERRCODE='42501';
+          END IF;
+        ELSIF purpose='model_settle' THEN
+          IF OLD.send_state='not_sent' AND NEW.send_state IS DISTINCT FROM OLD.send_state THEN
+            RAISE EXCEPTION 'model settlement cannot cross the send fence' USING ERRCODE='42501';
+          END IF;
+        ELSE RAISE EXCEPTION 'model write purpose required' USING ERRCODE='42501';
+        END IF; RETURN NEW; END $$""",
+    )
+    _trigger(
+        connection,
+        "model_call",
+        "model_call_purpose",
+        "UPDATE",
+        "guard_model_call_purpose",
+    )
+
+    _function(
+        connection,
+        "guard_tool_attempt_purpose",
+        f"""RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog AS $$
+        DECLARE purpose text := current_setting('wuji.request_purpose',true); BEGIN
+        {owner}
+        IF purpose='tool_request' THEN
+          IF OLD.status<>'admitted' OR NEW.status<>'dispatched'
+             OR ROW(NEW.started_at,NEW.receipt_json,NEW.output,NEW.output_media_type,
+                    NEW.output_completeness,NEW.capture_json,NEW.result_receipt_json,
+                    NEW.received_bytes,NEW.retained_bytes,NEW.forwarded_bytes,
+                    NEW.output_bytes,NEW.received_digest,NEW.limit_reason)
+                IS DISTINCT FROM
+                ROW(OLD.started_at,OLD.receipt_json,OLD.output,OLD.output_media_type,
+                    OLD.output_completeness,OLD.capture_json,OLD.result_receipt_json,
+                    OLD.received_bytes,OLD.retained_bytes,OLD.forwarded_bytes,
+                    OLD.output_bytes,OLD.received_digest,OLD.limit_reason) THEN
+            RAISE EXCEPTION 'tool request cannot mutate settlement fields' USING ERRCODE='42501';
+          END IF;
+        ELSIF purpose<>'tool_settle' THEN
+          RAISE EXCEPTION 'tool write purpose required' USING ERRCODE='42501';
+        END IF; RETURN NEW; END $$""",
+    )
+    _trigger(
+        connection,
+        "tool_attempt",
+        "tool_attempt_purpose",
+        "UPDATE",
+        "guard_tool_attempt_purpose",
+    )
+
+    _function(
+        connection,
         "guard_tool_call_purpose",
         f"""RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog AS $$
         DECLARE purpose text := current_setting('wuji.request_purpose',true);
@@ -304,6 +411,13 @@ def upgrade(connection, application_role):
           RAISE EXCEPTION 'tool write purpose required' USING ERRCODE='42501';
         END IF; RETURN NEW; END $$""",
     )
+    _trigger(
+        connection,
+        "tool_call",
+        "tool_call_purpose",
+        "UPDATE",
+        "guard_tool_call_purpose",
+    )
 
     _function(
         connection,
@@ -346,6 +460,13 @@ def upgrade(connection, application_role):
         ELSE RAISE EXCEPTION 'tool resource write purpose required' USING ERRCODE='42501';
         END IF; RETURN NEW; END $$""",
     )
+    _trigger(
+        connection,
+        "resource_reservation",
+        "resource_reservation_purpose",
+        "UPDATE",
+        "guard_resource_reservation_purpose",
+    )
 
     _function(
         connection,
@@ -367,6 +488,13 @@ def upgrade(connection, application_role):
         ELSE RAISE EXCEPTION 'tool settlement purpose required' USING ERRCODE='42501';
         END IF; RETURN NEW; END $$""",
     )
+    _trigger(
+        connection,
+        "run_operation_settlement",
+        "run_settlement_purpose",
+        "UPDATE",
+        "guard_run_settlement_purpose",
+    )
 
     functions = (
         "guard_admission_counter_insert",
@@ -378,6 +506,9 @@ def upgrade(connection, application_role):
         "guard_collector_binding_insert",
         "guard_resource_reservation_insert",
         "guard_run_settlement_insert",
+        "guard_admission_counter_purpose",
+        "guard_model_call_purpose",
+        "guard_tool_attempt_purpose",
         "guard_tool_call_purpose",
         "guard_tool_claim_purpose",
         "guard_resource_reservation_purpose",
