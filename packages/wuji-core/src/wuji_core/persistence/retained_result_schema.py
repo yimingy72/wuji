@@ -234,6 +234,96 @@ def upgrade(connection, application_role):
           RETURN NEXT;
         END $$""",
         "REVOKE EXECUTE ON FUNCTION vnext.open_receiver_result(text,text,text,text,text,text) FROM PUBLIC",
+        """CREATE OR REPLACE FUNCTION vnext.can_read_scheduler_snapshot(t text,p text,k text,s text)
+        RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $$
+        SELECT COALESCE(vnext.in_scope(t,p,k),false) AND (
+          EXISTS(
+            SELECT 1 FROM vnext.scheduler_snapshot_reader r JOIN vnext.task_access a
+              USING(tenant_id,project_id,task_id,subject)
+            JOIN vnext.run_writer rw USING(tenant_id,project_id,task_id,agent_run_id,subject)
+            JOIN vnext.scheduler_assignment d USING(tenant_id,project_id,task_id,agent_run_id,snapshot_id)
+            JOIN vnext.run_credential c
+              ON (c.tenant_id,c.project_id,c.task_id,c.agent_run_id,c.subject)=
+                 (r.tenant_id,r.project_id,r.task_id,r.agent_run_id,r.subject)
+            JOIN vnext.agent_run ar
+              ON (ar.tenant_id,ar.project_id,ar.task_id,ar.agent_run_id)=
+                 (r.tenant_id,r.project_id,r.task_id,r.agent_run_id)
+            JOIN vnext.task z
+              ON (z.tenant_id,z.project_id,z.task_id)=(r.tenant_id,r.project_id,r.task_id)
+            JOIN vnext.work_item wi
+              ON (wi.tenant_id,wi.project_id,wi.task_id,wi.work_item_id,wi.current_run_id)=
+                 (ar.tenant_id,ar.project_id,ar.task_id,ar.work_item_id,ar.agent_run_id)
+            WHERE r.tenant_id=t AND r.project_id=p AND r.task_id=k AND r.snapshot_id=s
+              AND r.subject=current_setting('wuji.subject',true)
+              AND c.token_id=current_setting('wuji.token_id',true)
+              AND c.document_json::jsonb->>'subject'=r.subject
+              AND c.document_json::jsonb->>'token_id'=c.token_id
+              AND c.document_json::jsonb->'identity'=jsonb_build_object(
+                'tenant_id',t,'project_id',p,'task_id',k,'work_item_id',ar.work_item_id,
+                'agent_run_id',ar.agent_run_id,'execution_epoch',ar.execution_epoch::text,
+                'run_epoch',ar.run_epoch::text,'runtime_attempt',ar.runtime_attempt::text,
+                'receiver_id',ar.receiver_id)
+              AND NOT c.revoked AND (c.document_json::jsonb->>'expires_at')::timestamptz>clock_timestamp()
+              AND a.can_read AND NOT rw.revoked AND a.clearance=r.clearance
+              AND a.clearance=COALESCE(NULLIF(current_setting('wuji.clearance',true),'')::integer,-1)
+              AND ar.execution_allowed AND ar.stop_kind IS NULL
+              AND ar.process_state IN ('registered','starting','running')
+              AND ar.execution_epoch=z.execution_epoch AND ar.runtime_attempt=z.runtime_attempt
+              AND wi.run_epoch=ar.run_epoch AND wi.desired_state='run'
+              AND wi.state IN ('leased','running')
+              AND z.execution_allowed AND z.desired_state='run' AND z.observed_state='running'
+              AND z.completion_epoch_id IS NULL)
+          OR (
+            current_setting('wuji.retained_result',true)='true'
+            AND EXISTS(
+              SELECT 1 FROM vnext.retained_result_binding b
+              JOIN vnext.scheduler_assignment d ON
+                (d.tenant_id,d.project_id,d.task_id,d.agent_run_id,d.operation_id,d.assignment_digest)=
+                (b.tenant_id,b.project_id,b.task_id,b.agent_run_id,b.operation_id,b.assignment_digest)
+              JOIN vnext.scheduler_snapshot_reader original_reader ON
+                (original_reader.tenant_id,original_reader.project_id,original_reader.task_id,
+                 original_reader.agent_run_id,original_reader.snapshot_id)=
+                (d.tenant_id,d.project_id,d.task_id,d.agent_run_id,d.snapshot_id)
+              JOIN vnext.snapshot_manifest manifest ON
+                (manifest.tenant_id,manifest.project_id,manifest.task_id,manifest.snapshot_id)=
+                (d.tenant_id,d.project_id,d.task_id,d.snapshot_id)
+              JOIN vnext.agent_run ar ON
+                (ar.tenant_id,ar.project_id,ar.task_id,ar.agent_run_id)=
+                (b.tenant_id,b.project_id,b.task_id,b.agent_run_id)
+              JOIN vnext.scheduler_receiver receiver ON
+                (receiver.tenant_id,receiver.project_id,receiver.task_id,
+                 receiver.runtime_attempt,receiver.receiver_id,receiver.receiver_subject,
+                 receiver.environment_ref,receiver.pod_uid)=
+                (b.tenant_id,b.project_id,b.task_id,b.runtime_attempt,b.receiver_id,
+                 b.receiver_subject,b.environment_ref,b.pod_uid)
+              JOIN vnext.task_access receiver_acl ON
+                (receiver_acl.tenant_id,receiver_acl.project_id,receiver_acl.task_id,
+                 receiver_acl.subject)=
+                (b.tenant_id,b.project_id,b.task_id,b.receiver_subject)
+              JOIN vnext.run_writer receiver_writer ON
+                (receiver_writer.tenant_id,receiver_writer.project_id,receiver_writer.task_id,
+                 receiver_writer.agent_run_id,receiver_writer.subject)=
+                (b.tenant_id,b.project_id,b.task_id,b.agent_run_id,b.receiver_subject)
+              WHERE (b.tenant_id,b.project_id,b.task_id,b.agent_run_id,
+                     b.receiver_subject,b.assignment_digest)=
+                (t,p,k,current_setting('wuji.retained_run',true),
+                 current_setting('wuji.subject',true),
+                 current_setting('wuji.retained_assignment_digest',true))
+                AND d.snapshot_id=s
+                AND d.assignment_json::jsonb->>'operation_id'=b.operation_id
+                AND d.assignment_json::jsonb->'identity'->>'agent_run_id'=b.agent_run_id
+                AND d.assignment_digest=encode(sha256(convert_to(d.assignment_json,'UTF8')),'hex')
+                AND receiver.enabled
+                AND (ar.runtime_attempt,ar.receiver_id,ar.environment_ref,ar.pod_uid)=
+                  (b.runtime_attempt,b.receiver_id,b.environment_ref,b.pod_uid)
+                AND receiver_acl.can_read AND receiver_acl.can_observe AND receiver_acl.can_settle
+                AND NOT receiver_acl.can_write AND NOT receiver_acl.can_model_output
+                AND receiver_acl.clearance=b.access_level
+                AND receiver_acl.clearance=COALESCE(NULLIF(current_setting('wuji.clearance',true),'')::integer,-1)
+                AND manifest.access_level<=receiver_acl.clearance
+                AND original_reader.clearance<=receiver_acl.clearance
+                AND receiver_writer.can_settle AND NOT receiver_writer.revoked))) $$""",
+        "REVOKE EXECUTE ON FUNCTION vnext.can_read_scheduler_snapshot(text,text,text,text) FROM PUBLIC",
         """CREATE OR REPLACE FUNCTION vnext.require_model_mutation(t text,p text,k text,r text,w text)
         RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$ BEGIN
           IF current_setting('wuji.model_output',true) IS DISTINCT FROM 'true'
@@ -259,6 +349,7 @@ def upgrade(connection, application_role):
         "bind_receiver_result(text,text,text,text)",
         "lock_current_run_credential(text,text,text,text,text)",
         "open_receiver_result(text,text,text,text,text,text)",
+        "can_read_scheduler_snapshot(text,text,text,text)",
         "require_model_mutation(text,text,text,text,text)",
     ]:
         connection.execute(
