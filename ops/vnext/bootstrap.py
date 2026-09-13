@@ -50,7 +50,7 @@ def initialize(config):
                      flags.get("control",False),flags.get("observe",False),flags.get("admit",False)))
             connection.execute("""INSERT INTO vnext.knowledge_actor(tenant_id,project_id,task_id,subject,producer_kind,qualified_human)
                 VALUES(%s,%s,%s,%s,'human',true)""", (*owner,config["operator_subject"]))
-            connection.execute("INSERT INTO vnext.task_assessment_policy(tenant_id,project_id,task_id,policy_version) VALUES(%s,%s,%s,'deployment-v1')",owner)
+            connection.execute("INSERT INTO vnext.task_assessment_policy(tenant_id,project_id,task_id,policy_version) VALUES(%s,%s,%s,'assessment-policy-v1')",owner)
             for key,tier,tenant_binding in (("deployment-global","global",None),
                     ("model:"+config["admission"]["model"]["ref"],"model",None),("tenant:"+tenant,"tenant",tenant)):
                 connection.execute("INSERT INTO vnext.capacity_pool(pool_key,tier,tenant_id,capacity,published_ref) VALUES(%s,%s,%s,2,'deployment-v1')",(key,tier,tenant_binding))
