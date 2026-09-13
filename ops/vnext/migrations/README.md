@@ -1,9 +1,27 @@
 # vnext migration head
 
-Current head: `vnext_0013_receiver_results`, following
-`vnext_0012_p13_projection`, `vnext_0011_p09_dispatch_fairness`, and
-`vnext_0010_p09_scheduler`. Apply it through the existing
+Current head: `vnext_0014_p08_session_approval`, following
+`vnext_0013_receiver_results`, `vnext_0012_p13_projection`, and
+`vnext_0011_p09_dispatch_fairness`. Apply it through the existing
 `wuji_core.persistence.schema.migrate(connection, application_role=...)` entry.
+
+The 0014 migration installs P08's immutable Session object graph, manifest
+publication, holder transfer, persisted input/approval/delivery records and
+approval-to-ToolAttempt/dispatch-Outbox deferred invariant. Session roots retain
+their actual Worker writer subject and token ID; the receiver publishes only
+after checking the current registered assignment, receiver and non-revoked Run
+writer. Worker credentials do not gain observe or control authority, and the
+four P06 model/tool request/settle purposes keep their existing meanings.
+
+`session_capability.document_json` distinguishes a short-lived, exact
+`mechanism_candidate` from `verified`. A candidate is deployment-owner-only and
+is usable solely by its fixed `evaluation_mode=mechanism_synthetic` Task,
+loopback synthetic model, runtime/receiver/Pod and fixture workspace-read
+executors. It may start without pretending full evidence already exists.
+Verified publication requires non-empty reviewed evidence refs and a new
+immutable capability ref; a candidate is never updated into verified status.
+The candidate path does not bypass normal Scope, Run, frontier, CAS, budget or
+permission checks.
 
 The 0013 migration adds the retained-result binding between one immutable P09
 Assignment, its non-settling source Worker, and the actual registered receiver.

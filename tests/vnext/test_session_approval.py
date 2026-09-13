@@ -1,6 +1,7 @@
 """P08 SessionManifest and native approval acceptance tests."""
 
 import asyncio
+from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 from inspect import Parameter
 
@@ -32,12 +33,76 @@ from wuji_core.contracts.sessions import (
     ApprovalDeliveryDecision,
     HumanInput,
     InputPayload,
+    NativeCallBinding,
 )
+from wuji_core.contracts.execution import SessionManifest
+from wuji_core.contracts.envelopes import RunIdentity
+from wuji_core.admission.registry import SessionCapabilityRegistration
 from wuji_core.http import canonical_json_bytes, strict_json_loads
+from wuji_core.execution.sessions import document, provider_messages
+from wuji_core.persistence.uow import DomainError
 from wuji_maf_worker.approvals import approval_response_message
 from wuji_maf_worker.factory import HarnessProfile, parse_profile
 from wuji_maf_worker.history import PinnedMemoryContextProvider, VersionedMemoryStore
 from wuji_maf_worker.tools import ModelCallIdentity
+
+
+def _capability_document(*, status, evidence_refs, candidate_binding):
+    published_at = datetime(2026, 9, 13, tzinfo=timezone.utc)
+    profile_body = {
+        "schema_version": "wuji.harness.session.v1",
+        "ref": "harness.explore.p08-candidate.v1",
+        "revision": "1",
+        "work_kind": "explore",
+        "lock_digest": "b" * 64,
+        "memory_mode": "disabled",
+        "session_limits": session_limits().model_dump(mode="python"),
+        "compaction_enabled": True,
+        "capabilities": {},
+    }
+    profile_snapshot = {
+        "ref": profile_body["ref"],
+        "revision": profile_body["revision"],
+        "body": profile_body,
+        "digest": sha256(canonical_json_bytes(profile_body)).hexdigest(),
+    }
+    client_snapshot = {
+        "ref": "fixture-model-v1",
+        "revision": "1",
+        "protocol": "chat_completions",
+        "client_model": "p08-synthetic",
+        "upstream_model": "p08-synthetic-upstream",
+        "capability_ref": "chat-completions-fixture",
+        "max_retries": 0,
+    }
+    runtime_snapshot = {"ref": "runtime-p08-v1", "revision": "1"}
+    framework_snapshot = {
+        "python": "3.13.15",
+        "agent_framework_core": "1.18.0",
+        "agent_framework_openai": "1.14.3",
+    }
+    return {
+        "ref": "session-capability-p08-candidate",
+        "revision": "1",
+        "published_at": published_at,
+        "validation_status": status,
+        "candidate_binding": candidate_binding,
+        "profile_snapshot": profile_snapshot,
+        "profile_digest": profile_snapshot["digest"],
+        "client_snapshot": client_snapshot,
+        "client_digest": sha256(canonical_json_bytes(client_snapshot)).hexdigest(),
+        "runtime_snapshot": runtime_snapshot,
+        "runtime_digest": sha256(canonical_json_bytes(runtime_snapshot)).hexdigest(),
+        "framework_snapshot": framework_snapshot,
+        "framework_digest": sha256(canonical_json_bytes(framework_snapshot)).hexdigest(),
+        "lock_digest": profile_body["lock_digest"],
+        "limits": profile_body["session_limits"],
+        "recovery_classes": ["settled_boundary", "approval_boundary"],
+        "memory_mode": "disabled",
+        "approver_subjects": ["operator-p08"],
+        "approval_ttl_seconds": 300,
+        "evidence_refs": evidence_refs,
+    }
 
 
 def test_session_repository_exposes_frozen_publish_and_load_contract():
@@ -62,6 +127,178 @@ def test_session_repository_exposes_frozen_publish_and_load_contract():
         ("session_id", Parameter.POSITIONAL_OR_KEYWORD, REQUIRED),
         ("revision", Parameter.KEYWORD_ONLY, None),
     )
+
+
+def test_p08_migration_follows_receiver_results_and_keeps_session_guards():
+    from wuji_core.persistence import schema as aggregate_schema
+    from wuji_core.persistence import session_schema
+
+    ddl = "\n".join(session_schema.statements())
+
+    assert session_schema.PARENT_HEAD == "vnext_0013_receiver_results"
+    assert session_schema.HEAD == "vnext_0014_p08_session_approval"
+    assert aggregate_schema.HEAD == session_schema.HEAD
+    assert "writer_token_id" in ddl
+    assert "CREATE TABLE vnext.session_capability" in ddl
+    assert "approval, original ToolCall, Attempt and Outbox must commit together" in ddl
+    assert "require_scheduler_identity(text,text,text,jsonb)" in ddl
+
+
+def test_mechanism_candidate_requires_exact_short_lived_binding_without_fake_pass():
+    published_at = datetime(2026, 9, 13, tzinfo=timezone.utc)
+    binding = {
+        "tenant_id": "tenant-p08",
+        "project_id": "project-p08",
+        "task_id": "task-p08",
+        "receiver_id": "receiver-p08",
+        "runtime_attempt": "1",
+        "pod_uid": "pod-p08",
+        "model_gateway_digest": "c" * 64,
+        "expires_at": published_at + timedelta(minutes=30),
+    }
+
+    candidate = SessionCapabilityRegistration.model_validate(
+        _capability_document(
+            status="mechanism_candidate",
+            evidence_refs=[],
+            candidate_binding=binding,
+        )
+    )
+
+    assert candidate.validation_status == "mechanism_candidate"
+    assert candidate.evidence_refs == []
+    assert candidate.candidate_binding.model_dump(mode="json") == {
+        **binding,
+        "expires_at": "2026-09-13T00:30:00Z",
+    }
+    identity = RunIdentity.model_validate(
+        {
+            "tenant_id": binding["tenant_id"],
+            "project_id": binding["project_id"],
+            "task_id": binding["task_id"],
+            "work_item_id": "work-p08",
+            "agent_run_id": "run-p08",
+            "receiver_id": binding["receiver_id"],
+            "execution_epoch": "1",
+            "run_epoch": "1",
+            "runtime_attempt": binding["runtime_attempt"],
+        }
+    )
+    assert candidate.candidate_binding.matches_identity(identity)
+    assert not candidate.candidate_binding.matches_identity(
+        identity.model_copy(update={"receiver_id": "other-receiver"})
+    )
+    with pytest.raises(ValueError, match="short-lived exact binding"):
+        SessionCapabilityRegistration.model_validate(
+            _capability_document(
+                status="mechanism_candidate",
+                evidence_refs=[],
+                candidate_binding={
+                    **binding,
+                    "expires_at": published_at + timedelta(hours=2),
+                },
+            )
+        )
+
+
+def test_verified_session_capability_requires_real_evidence_and_new_immutable_record():
+    verified = _capability_document(
+        status="verified",
+        evidence_refs=["docs/vnext/evidence/P08/final/binding.json"],
+        candidate_binding=None,
+    )
+    verified["ref"] = "session-capability-p08-verified"
+
+    registration = SessionCapabilityRegistration.model_validate(verified)
+
+    assert registration.validation_status == "verified"
+    assert registration.candidate_binding is None
+    with pytest.raises(ValueError, match="verified capability requires actual evidence"):
+        SessionCapabilityRegistration.model_validate(
+            _capability_document(
+                status="verified",
+                evidence_refs=[],
+                candidate_binding=None,
+            )
+        )
+
+
+def test_session_manifest_uses_json_mode_for_canonical_saved_at_bytes():
+    blob = {
+        "id": "session-root-p08",
+        "version": "1",
+        "sha256": "a" * 64,
+    }
+    manifest = SessionManifest.model_validate(
+        {
+            "session_id": "native-session-p08",
+            "work_item_id": "work-p08",
+            "checkpoint_revision": "1",
+            "owner_run_id": "run-p08",
+            "run_epoch": "1",
+            "history_root": blob,
+            "message_end": "1",
+            "provider_state_ref": {**blob, "id": "provider-root-p08"},
+            "memory_manifest_ref": {**blob, "id": "memory-root-p08"},
+            "pending_operation_refs": [],
+            "lock_digest": "b" * 64,
+            "recovery_class": "settled_boundary",
+            "saved_at": datetime(2026, 9, 13, tzinfo=timezone.utc),
+        }
+    )
+
+    body = document(manifest)
+    encoded = canonical_json_bytes(body)
+
+    assert isinstance(manifest.model_dump(mode="python")["saved_at"], datetime)
+    assert body["saved_at"] == "2026-09-13T00:00:00Z"
+    assert strict_json_loads(encoded) == body
+
+
+def test_provider_sse_preserves_full_call_identity_and_raw_argument_fragments():
+    provider_call_id = "p" * 1024
+    raw = (
+        b'data: {"choices":[{"index":0,"delta":{"tool_calls":['
+        b'{"index":0,"id":"'
+        + provider_call_id.encode("ascii")
+        + b'","function":{"name":"read_fixture","arguments":"{\\"path\\":"}}]}}]}\n\n'
+        b'data: {"choices":[{"index":0,"delta":{"tool_calls":['
+        b'{"index":0,"function":{"arguments":"\\"version.txt\\"}"}}]}}]}\n\n'
+        b'data: [DONE]\n\n'
+    )
+
+    parsed = provider_messages(raw, "text/event-stream")
+
+    assert parsed == {
+        0: {
+            "content": "",
+            "tool_calls": [
+                {
+                    "id": provider_call_id,
+                    "function": {
+                        "name": "read_fixture",
+                        "arguments": NATIVE_ARGUMENTS,
+                    },
+                }
+            ],
+        }
+    }
+    binding = NativeCallBinding(
+        model_attempt_id=MODEL_ATTEMPT_ID,
+        message_id=f"model-attempt:{MODEL_ATTEMPT_ID}:choice:0",
+        provider_call_id=provider_call_id,
+        sdk_content_id=SDK_CONTENT_ID,
+        tool_definition_ref=TOOL_DEFINITION["ref"],
+        native_arguments=NATIVE_ARGUMENTS,
+        arguments_digest=sha256(
+            canonical_json_bytes(strict_json_loads(NATIVE_ARGUMENTS))
+        ).hexdigest(),
+    )
+    assert binding.provider_call_id == provider_call_id
+
+    with pytest.raises(DomainError) as incomplete:
+        provider_messages(raw.rsplit(b"data: [DONE]", 1)[0], "text/event-stream")
+    assert incomplete.value.code == "OPERATION_UNKNOWN"
 
 
 def test_existing_m1_profile_snapshot_remains_the_original_false_capability_shape():

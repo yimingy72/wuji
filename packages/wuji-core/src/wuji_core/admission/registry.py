@@ -1,7 +1,8 @@
 """Published configuration and independently revocable Run credentials."""
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from hashlib import sha256
+from ipaddress import ip_address
 from typing import Literal
 from urllib.parse import urlsplit
 
@@ -93,19 +94,90 @@ class RunCredentialBinding(Configuration):
     allowed_tool_refs: list[str] = Field(max_length=256)
 
 
+class MechanismCandidateBinding(Configuration):
+    tenant_id: str = Field(min_length=1, max_length=256)
+    project_id: str = Field(min_length=1, max_length=256)
+    task_id: str = Field(min_length=1, max_length=256)
+    receiver_id: str = Field(min_length=1, max_length=256)
+    runtime_attempt: str = Field(pattern=r"^[1-9][0-9]*$")
+    pod_uid: str = Field(min_length=1, max_length=256)
+    model_gateway_digest: str = Field(pattern=r"^[a-f0-9]{64}$")
+    expires_at: AwareDatetime
+
+    def matches_identity(self, identity):
+        value = identity.model_dump(mode="json")
+        return (
+            (value["tenant_id"], value["project_id"], value["task_id"])
+            == (self.tenant_id, self.project_id, self.task_id)
+            and value["receiver_id"] == self.receiver_id
+            and value["runtime_attempt"] == self.runtime_attempt
+        )
+
+
 class SessionCapabilityRegistration(Published):
     """Deployment publication of an exact tested combination, never a Worker flag."""
+    validation_status: Literal["mechanism_candidate", "verified"]
+    candidate_binding: MechanismCandidateBinding | None = None
     profile_snapshot: dict
+    profile_digest: str = Field(pattern=r"^[a-f0-9]{64}$")
     client_snapshot: dict
+    client_digest: str = Field(pattern=r"^[a-f0-9]{64}$")
     runtime_snapshot: dict
+    runtime_digest: str = Field(pattern=r"^[a-f0-9]{64}$")
     framework_snapshot: dict
+    framework_digest: str = Field(pattern=r"^[a-f0-9]{64}$")
     lock_digest: str = Field(pattern=r"^[a-f0-9]{64}$")
     limits: dict
     recovery_classes: list[Literal["settled_boundary", "approval_boundary"]] = Field(min_length=1, max_length=2)
     memory_mode: Literal["disabled", "pinned_context"]
     approver_subjects: list[str] = Field(min_length=1, max_length=256)
     approval_ttl_seconds: int = Field(gt=0, le=86400)
-    evidence_refs: list[str] = Field(min_length=1, max_length=128)
+    evidence_refs: list[str] = Field(default_factory=list, max_length=128)
+
+    @model_validator(mode="after")
+    def validation_boundary(self):
+        try:
+            body = self.profile_snapshot["body"]
+            expected = {
+                "profile": self.profile_snapshot["digest"],
+                "client": configuration_digest(self.client_snapshot),
+                "runtime": configuration_digest(self.runtime_snapshot),
+                "framework": configuration_digest(self.framework_snapshot),
+            }
+        except (KeyError, TypeError) as error:
+            raise ValueError("capability snapshots require exact digests") from error
+        if (
+            self.profile_digest != expected["profile"]
+            or self.profile_digest != configuration_digest(body)
+            or self.client_digest != expected["client"]
+            or self.runtime_digest != expected["runtime"]
+            or self.framework_digest != expected["framework"]
+        ):
+            raise ValueError("capability snapshots require exact digests")
+        if self.validation_status == "mechanism_candidate":
+            lifetime = (
+                None
+                if self.candidate_binding is None
+                else self.candidate_binding.expires_at - self.published_at
+            )
+            if (
+                self.candidate_binding is None
+                or lifetime is None
+                or lifetime <= timedelta(0)
+                or lifetime > timedelta(hours=1)
+            ):
+                raise ValueError("mechanism candidate requires a short-lived exact binding")
+        elif self.candidate_binding is not None or not self.evidence_refs:
+            raise ValueError("verified capability requires actual evidence and a new immutable record")
+        return self
+
+
+def configuration_digest(value):
+    return sha256(canonical_json_bytes(value)).hexdigest()
+
+
+def model_gateway_digest(url):
+    return configuration_digest({"gateway_url": url})
 
 
 def session_client_snapshot(config):
@@ -129,6 +201,17 @@ def register_session_capability(connection, *, tenant_id, capability):
             or not all(isinstance(ref, str) and 1 <= len(ref) <= 2048 for ref in capability.evidence_refs)
             or capability.framework_snapshot != {"python": "3.13.15", "agent_framework_core": "1.18.0", "agent_framework_openai": "1.14.3"}):
         raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+    if capability.validation_status == "mechanism_candidate":
+        if capability.candidate_binding.tenant_id != tenant_id:
+            raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+        try:
+            _validate_mechanism_candidate(
+                connection,
+                capability=capability,
+                run_binding=None,
+            )
+        except (KeyError, TypeError, ValueError) as error:
+            raise DomainError("CAPABILITY_UNAVAILABLE", 503) from error
     # The owner must publish only after reviewing the referenced actual evidence.
     # Runtime consumers cannot create this record or turn a candidate into passed.
     raw = json_text(capability.model_dump(mode="json"))
@@ -139,6 +222,119 @@ def register_session_capability(connection, *, tenant_id, capability):
         return
     connection.execute("INSERT INTO vnext.session_capability(tenant_id,ref,profile_digest,document_json,digest) VALUES(%s,%s,%s,%s,%s)",
         (tenant_id, capability.ref, profile["digest"], raw, sha256(raw.encode()).hexdigest()))
+
+
+def _loopback_model(url):
+    target = urlsplit(url)
+    if (
+        target.scheme != "http"
+        or not target.hostname
+        or target.username
+        or target.password
+        or target.query
+        or target.fragment
+    ):
+        return False
+    if target.hostname == "localhost":
+        return True
+    try:
+        return ip_address(target.hostname).is_loopback
+    except ValueError:
+        return False
+
+
+def _validate_mechanism_candidate(connection, *, capability, run_binding):
+    binding = capability.candidate_binding
+    if binding is None or binding.expires_at <= datetime.now(timezone.utc):
+        raise ValueError("expired mechanism candidate")
+    owner = (binding.tenant_id, binding.project_id, binding.task_id)
+    task = row(connection.execute(
+        "SELECT * FROM vnext.task WHERE tenant_id=%s AND project_id=%s AND task_id=%s",
+        owner,
+    ))
+    if task is None or not task["definition_json"] or sha256(task["definition_json"].encode()).hexdigest() != task["definition_digest"]:
+        raise ValueError("mechanism candidate Task definition mismatch")
+    definition = strict_json_loads(task["definition_json"])
+    if (
+        definition.get("evaluation_mode") != "mechanism_synthetic"
+        or str(task["runtime_attempt"]) != binding.runtime_attempt
+    ):
+        raise ValueError("mechanism candidate Task is not synthetic")
+    config_row = connection.execute(
+        "SELECT document_json FROM vnext.admission_config WHERE tenant_id=%s AND project_id=%s AND task_id=%s",
+        owner,
+    ).fetchone()
+    if config_row is None:
+        raise ValueError("mechanism candidate admission config absent")
+    config = TaskAdmissionConfig.model_validate(strict_json_loads(config_row[0]))
+    _match_definition(task, config)
+    body = capability.profile_snapshot["body"]
+    actual_profile = definition.get("worker_profiles", {}).get(body["work_kind"])
+    if (
+        canonical_json_bytes(actual_profile) != canonical_json_bytes(capability.profile_snapshot)
+        or capability.client_snapshot != session_client_snapshot(config)
+        or canonical_json_bytes(capability.runtime_snapshot) != canonical_json_bytes(config.runtime.model_dump(mode="json"))
+        or not _loopback_model(config.model.gateway_url)
+        or binding.model_gateway_digest != model_gateway_digest(config.model.gateway_url)
+    ):
+        raise ValueError("mechanism candidate fixed profile/model mismatch")
+    receiver = row(connection.execute(
+        "SELECT * FROM vnext.scheduler_receiver WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND runtime_attempt=%s",
+        (*owner, binding.runtime_attempt),
+    ))
+    if (
+        receiver is None
+        or not receiver["enabled"]
+        or receiver["model_mode"] != "synthetic"
+        or receiver["receiver_id"] != binding.receiver_id
+        or receiver["pod_uid"] != binding.pod_uid
+        or canonical_json_bytes(
+            strict_json_loads(receiver["harness_profiles_json"]).get(
+                body["work_kind"]
+            )
+        )
+        != canonical_json_bytes(capability.profile_snapshot)
+    ):
+        raise ValueError("mechanism candidate receiver mismatch")
+    tool_refs = body.get("tool_definition_refs")
+    if not tool_refs or set(tool_refs) - set(config.allowed_tool_refs) or set(tool_refs) - set(config.runtime.allowed_tool_refs):
+        raise ValueError("mechanism candidate tool profile mismatch")
+    for ref in tool_refs:
+        tool_row = row(connection.execute(
+            "SELECT * FROM vnext.tool_definition WHERE tenant_id=%s AND ref=%s",
+            (binding.tenant_id, ref),
+        ))
+        if tool_row is None or tool_row["revoked"]:
+            raise ValueError("mechanism candidate tool unavailable")
+        tool = ToolDefinition.model_validate(strict_json_loads(tool_row["document_json"]))
+        executor_row = connection.execute(
+            "SELECT document_json FROM vnext.executor_registration WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND ref=%s",
+            (*owner, tool.executor_ref),
+        ).fetchone()
+        if executor_row is None:
+            raise ValueError("mechanism candidate executor absent")
+        executor = ExecutorRegistration.model_validate(strict_json_loads(executor_row[0]))
+        if (
+            tool.allowed_target_kinds != ["workspace_read"]
+            or executor.evidence_origin != "fixture_capture"
+            or executor.receiver_id != binding.receiver_id
+            or ref not in executor.allowed_tool_refs
+        ):
+            raise ValueError("mechanism candidate requires fixture workspace reads")
+    if run_binding is not None:
+        identity = run_binding.identity
+        if (
+            not binding.matches_identity(identity)
+            or set(tool_refs) - set(run_binding.allowed_tool_refs)
+        ):
+            raise ValueError("mechanism candidate current Run mismatch")
+        run = row(connection.execute(
+            "SELECT * FROM vnext.agent_run WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND agent_run_id=%s",
+            (*owner, identity.agent_run_id),
+        ))
+        if run is None or run["pod_uid"] != binding.pod_uid:
+            raise ValueError("mechanism candidate current Pod mismatch")
+    return config
 
 
 def _owner_only(connection):
@@ -250,39 +446,53 @@ class AdmissionRegistry:
                     or profile_snapshot["ref"] != body["ref"] or profile_snapshot["revision"] != body["revision"]
                     or body["lock_digest"] != config.runtime.lock_digest):
                 raise ValueError("unpublished Session profile")
-            candidates = tx.connection.execute(
+            stored_records = tx.connection.execute(
                 "SELECT document_json,digest FROM vnext.session_capability WHERE tenant_id=%s AND profile_digest=%s AND NOT revoked",
                 (tx.owner[0], profile_snapshot["digest"]),
             ).fetchall()
-            candidates = [(raw, stored_digest) for raw, stored_digest in candidates
-                if strict_json_loads(raw).get("client_snapshot") == session_client_snapshot(config)
-                and canonical_json_bytes(strict_json_loads(raw).get("runtime_snapshot")) == canonical_json_bytes(config.runtime.model_dump(mode="json"))]
-            if len(candidates) != 1:
-                raise ValueError("an exact verified Session capability is required")
-            raw, stored_digest = candidates[0]
-            record = SessionCapabilityRegistration.model_validate(strict_json_loads(raw))
-            limits = SessionLimits.model_validate(record.limits)
             disabled = {name: False for name in ("todo", "mode", "file_memory", "file_access", "skills", "shell", "web_search", "background_agents", "outer_loop", "auto_approval", "mcp")}
             caps = {**disabled, "restoration": True, "compaction": body["compaction_enabled"],
                 "native_approval": True, "versioned_memory": body["memory_mode"] == "pinned_context"}
-            if (record.published_at > datetime.now(timezone.utc) or sha256(raw.encode()).hexdigest() != stored_digest
-                    or canonical_json_bytes(record.profile_snapshot) != canonical_json_bytes(profile_snapshot)
-                    or record.client_snapshot != session_client_snapshot(config)
-                    or canonical_json_bytes(record.runtime_snapshot) != canonical_json_bytes(config.runtime.model_dump(mode="json"))
-                    or record.lock_digest != config.runtime.lock_digest or record.memory_mode != body["memory_mode"]
-                    or record.limits != body["session_limits"] or body["capabilities"] != caps
-                    or record.framework_snapshot != {"python": "3.13.15", "agent_framework_core": "1.18.0", "agent_framework_openai": "1.14.3"}
-                    or limits.max_total_bytes > config.runtime.limits.max_total_output_bytes
-                    or limits.max_object_bytes > config.runtime.limits.max_single_output_bytes
-                    or limits.max_pending_approvals > config.runtime.max_pending_operations):
-                raise ValueError("Session capability combination differs")
+            matches = []
+            for raw, stored_digest in stored_records:
+                record = SessionCapabilityRegistration.model_validate(strict_json_loads(raw))
+                limits = SessionLimits.model_validate(record.limits)
+                if (record.published_at > datetime.now(timezone.utc) or sha256(raw.encode()).hexdigest() != stored_digest
+                        or canonical_json_bytes(record.profile_snapshot) != canonical_json_bytes(profile_snapshot)
+                        or record.profile_digest != profile_snapshot["digest"]
+                        or record.client_snapshot != session_client_snapshot(config)
+                        or canonical_json_bytes(record.runtime_snapshot) != canonical_json_bytes(config.runtime.model_dump(mode="json"))
+                        or record.lock_digest != config.runtime.lock_digest or record.memory_mode != body["memory_mode"]
+                        or record.limits != body["session_limits"] or body["capabilities"] != caps
+                        or record.framework_snapshot != {"python": "3.13.15", "agent_framework_core": "1.18.0", "agent_framework_openai": "1.14.3"}
+                        or limits.max_total_bytes > config.runtime.limits.max_total_output_bytes
+                        or limits.max_object_bytes > config.runtime.limits.max_single_output_bytes
+                        or limits.max_pending_approvals > config.runtime.max_pending_operations):
+                    continue
+                if record.validation_status == "mechanism_candidate":
+                    try:
+                        _validate_mechanism_candidate(
+                            tx.connection,
+                            capability=record,
+                            run_binding=tx.run_binding,
+                        )
+                    except (DomainError, KeyError, TypeError, ValueError):
+                        continue
+                matches.append((record, limits, raw, stored_digest))
+            verified = [item for item in matches if item[0].validation_status == "verified"]
+            selected = verified if verified else matches
+            if len(selected) != 1:
+                raise ValueError("one exact verified or fixed mechanism candidate is required")
+            record, limits, raw, stored_digest = selected[0]
             compatibility = SessionCompatibility(profile_snapshot=profile_snapshot,
                 client_snapshot=record.client_snapshot, runtime_snapshot=record.runtime_snapshot,
                 framework_snapshot=record.framework_snapshot, lock_digest=record.lock_digest,
-                capability_ref=record.ref, capability_digest=stored_digest)
+                capability_ref=record.ref, capability_digest=stored_digest,
+                validation_status=record.validation_status)
             return {"compatibility": compatibility, "limits": limits, "memory_mode": record.memory_mode,
                 "recovery_classes": tuple(record.recovery_classes), "approval_ttl_seconds": record.approval_ttl_seconds,
-                "approver_subjects": tuple(record.approver_subjects), "evidence_refs": tuple(record.evidence_refs)}
+                "approver_subjects": tuple(record.approver_subjects), "evidence_refs": tuple(record.evidence_refs),
+                "validation_status": record.validation_status}
         except (KeyError, TypeError, ValueError) as error:
             raise DomainError("CAPABILITY_UNAVAILABLE", 503) from error
 

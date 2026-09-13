@@ -41,6 +41,7 @@ class SessionCompatibility(SessionModel):
     lock_digest: Digest
     capability_ref: Text
     capability_digest: Digest
+    validation_status: Literal["mechanism_candidate", "verified"]
 
 
 class MessagePosition(SessionModel):
