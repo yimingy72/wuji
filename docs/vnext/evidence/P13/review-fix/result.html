@@ -1,0 +1,22 @@
+<!doctype html><html lang="zh"><meta charset="utf-8"><title>P13 review fixes</title>
+<style>body{font:16px system-ui;margin:32px;background:#f5f7fa;color:#182331}h1{font-size:28px}pre{white-space:pre-wrap;background:white;border:1px solid #d5dee8;padding:16px;font:13px ui-monospace}.ok{color:#145c35;font-weight:700}.meta{color:#40546a}</style>
+<h1>P13 · 两项 P2 定向修复</h1><p class="ok">3 passed in 3.16s · generation check exit 0</p>
+<p class="meta">代码提交 69e3a1d906b3f0948651afc12b176f03ee6281dc<br>真实签名 ASGI · 隔离 nonowner PostgreSQL · 保存响应渲染</p>
+<h2>命令</h2><pre>WUJI_TEST_EVIDENCE_DIR=&quot;$PWD/docs/vnext/evidence/P13/review-fix/raw&quot; ./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_view_snapshots.py::test_openapi_declares_actual_410_responses_for_snapshot_reads tests/vnext/test_view_snapshots.py::test_history_lists_only_saved_views_and_freezes_its_opaque_page tests/vnext/test_view_snapshots.py::test_expired_view_and_snapshot_return_explicit_410_errors -q
+3 passed in 3.16s
+
+./scripts/vnext/uv.sh run --frozen python scripts/vnext/generate_contracts.py --check
+exit 0</pre>
+<h2>live + historical snapshot 拒绝</h2><pre>{
+  &quot;code&quot;: &quot;INVALID_SCHEMA&quot;,
+  &quot;message&quot;: &quot;The request could not be completed.&quot;,
+  &quot;request_id&quot;: &quot;6adbde96-1535-4caa-b4fd-35338146ccef&quot;,
+  &quot;retryable&quot;: false,
+  &quot;details&quot;: {}
+}</pre><h2>过期 index cursor 410</h2><pre>{
+  &quot;code&quot;: &quot;VIEW_EXPIRED&quot;,
+  &quot;message&quot;: &quot;The request could not be completed.&quot;,
+  &quot;request_id&quot;: &quot;22ea640b-de0e-4125-928c-009838d91a63&quot;,
+  &quot;retryable&quot;: false,
+  &quot;details&quot;: {}
+}</pre><p>旧 12 项未重跑；本页不是产品 UI。</p></html>

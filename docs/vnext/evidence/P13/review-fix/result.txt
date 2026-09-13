@@ -1,0 +1,4 @@
+...                                                                      [100%]
+3 passed in 3.16s
+
+Generated Python and TypeScript v2 contracts match OpenAPI.

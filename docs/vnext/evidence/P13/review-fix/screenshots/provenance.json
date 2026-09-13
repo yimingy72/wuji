@@ -1,0 +1,13 @@
+{
+  "tool": "mcp__cua_repl: in-app browser Tab.screenshot(fullPage=false)",
+  "url": "http://127.0.0.1:8768/result.html",
+  "source": "../result.html",
+  "source_sha256": "ea0ed8524f791a205c7ab98c9394da9845054fc11922ad2ab52d05480ee74a39",
+  "screenshot": "p13-review-fix.jpg",
+  "media_type": "image/jpeg",
+  "pixel_width": 1280,
+  "pixel_height": 720,
+  "screenshot_sha256": "de8f62e2a7891b87f5ed07ddfc35c2cef382ee2625b39137117a5fea44d87ce5",
+  "content": "Saved P13 review-fix command result and actual API denials; not a live product UI.",
+  "boundary": "Screenshot capture rendered saved files only and made no PostgreSQL or product API request."
+}

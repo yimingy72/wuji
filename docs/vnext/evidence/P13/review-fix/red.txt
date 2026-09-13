@@ -1,0 +1,15 @@
+P13 Turing review-fix RED at input HEAD 29a09e088d504afdcbd1323fdbd229f90718a157
+
+1. OpenAPI 410 declaration
+
+Command:
+./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_view_snapshots.py::test_openapi_declares_actual_410_responses_for_snapshot_reads -q
+
+Result: exit 1; 1 failed in 1.18s. `snapshots` responses contained 200/401/404 and lacked 410, so the first literal assertion failed.
+
+2. live/history selection
+
+Command:
+./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_view_snapshots.py::test_history_lists_only_saved_views_and_freezes_its_opaque_page -q
+
+Result: exit 1; 1 failed in 2.14s. After saving H1 and writing later snapshots, `mode=live&snapshot_id=<H1>` returned HTTP 200 instead of required `422/INVALID_SCHEMA`. The same run had already observed the positive `history+H1` first page and continuation as 200 before reaching this negative assertion.

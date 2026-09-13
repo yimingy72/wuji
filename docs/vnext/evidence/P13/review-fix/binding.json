@@ -1,0 +1,16 @@
+{
+  "code_commit": "69e3a1d906b3f0948651afc12b176f03ee6281dc",
+  "test_command": "WUJI_TEST_EVIDENCE_DIR=\"$PWD/docs/vnext/evidence/P13/review-fix/raw\" ./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_view_snapshots.py::test_openapi_declares_actual_410_responses_for_snapshot_reads tests/vnext/test_view_snapshots.py::test_history_lists_only_saved_views_and_freezes_its_opaque_page tests/vnext/test_view_snapshots.py::test_expired_view_and_snapshot_return_explicit_410_errors -q",
+  "test_result": "3 passed in 3.16s",
+  "test_exit_code": 0,
+  "generation_command": "./scripts/vnext/uv.sh run --frozen python scripts/vnext/generate_contracts.py --check",
+  "generation_result": "generated Python and TypeScript contracts match OpenAPI",
+  "generation_exit_code": 0,
+  "tested_as_working_tree_then_committed_without_content_change": true,
+  "file_sha256": {
+    "packages/contracts/openapi-v2.yaml": "cd23b3b63c0f6dac611c3bacec71806d100c3f9511713023a705018c5ed64c14",
+    "packages/contracts/src/v2/generated.ts": "e6ee7a9f73226a8221240c82ed29c4225af5185672a795f77196a4c1e32b6d01",
+    "packages/wuji-core/src/wuji_core/projection/snapshots.py": "04ab724e25d45397baf166c651d0d8087838b577d31d8029658b034de12dac53",
+    "tests/vnext/test_view_snapshots.py": "c5cea03b3ae18014aab19fe97b6a5a34bc73e08f21250c0ed52fb718869a963a"
+  }
+}
