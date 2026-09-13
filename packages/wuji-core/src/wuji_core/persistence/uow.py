@@ -219,7 +219,7 @@ class UnitOfWork:
                     ).fetchone()
                 owner = (permission["tenant_id"], permission["project_id"], task_id)
                 pools = ()
-                if capability in {"control", "observe", "admit", "retained_result"} or request_purpose:
+                if capability in {"control", "observe", "admit"} or request_purpose:
                     from wuji_core.execution.capacity import prelock_pools
 
                     pools = prelock_pools(connection, owner)
