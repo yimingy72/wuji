@@ -134,17 +134,21 @@ class PrivateIntake:
 
 class WorkerHostBridge:
     def __init__(self, uow, *, registry, credentials, receiver_access, host_factory,
-                 context_builder, ledger, retained_results, child_config, spool_directory):
+                 context_builder, ledger, retained_results, child_config, spool_directory,
+                 session_resolve_encoder=None):
         if not all(callable(fn) for fn in (receiver_access, host_factory, context_builder)):
             raise ValueError("registered controller and context ports are required")
         if not all(callable(getattr(retained_results, name, None)) for name in (
             "submit_result", "archive_sdk",
         )):
             raise ValueError("registered retained-result service is required")
+        if session_resolve_encoder is not None and not callable(session_resolve_encoder):
+            raise ValueError("Session resolve encoder must be callable")
         self.uow, self.registry, self.credentials = uow, registry, credentials
         self.receiver_access, self.host_factory = receiver_access, host_factory
         self.context_builder, self.ledger = context_builder, ledger
         self.retained_results = retained_results
+        self.session_resolve_encoder = session_resolve_encoder
         allowed = {"public_key_pem", "issuer", "audience", "host_origin", "model_gate_url",
                    "tool_gate_url", "wait_timeout_seconds", "transport_timeout_seconds",
                    "max_transport_bytes"}
@@ -318,6 +322,15 @@ class WorkerHostBridge:
         if permission.status.value != "ready":
             raise DomainError("STALE_EXECUTION", 409)
 
+    def current_worker_host(self, access, assignment):
+        """Return only the Host bound to this ready, current Worker Principal."""
+        assignment = WorkerAssignment.model_validate(assignment)
+        self._ready(access, assignment)
+        host = self.host_factory(access)
+        if host.access.principal != access.principal:
+            raise DomainError("STALE_EXECUTION", 409)
+        return host
+
     def _records(self, access, assignment, manifest):
         snapshots = SnapshotRepository(self.uow)
         records = []
@@ -359,11 +372,8 @@ class WorkerHostBridge:
 
     def resolve(self, access, assignment):
         assignment = WorkerAssignment.model_validate(assignment)
-        self._ready(access, assignment)
+        host = self.current_worker_host(access, assignment)
         with self._lock:
-            host = self.host_factory(access)
-            if host.access.principal != access.principal:
-                raise DomainError("STALE_EXECUTION", 409)
             snapshots = SnapshotRepository(self.uow)
             manifest = snapshots.get(assignment.identity.task_id, access, assignment.snapshot_id)
             # Resolve the profile from the frozen Task before building context;
@@ -392,6 +402,11 @@ class WorkerHostBridge:
                     or context.snapshot_id != assignment.snapshot_id):
                 raise DomainError("INVALID_REFERENCE", 422)
             resolved = host.resolve(assignment, context, verified_principal=access.principal)
+            profile_body = resolved.get("profile", {}).get("body", {})
+            if profile_body.get("schema_version") == "wuji.harness.session.v1":
+                if self.session_resolve_encoder is None:
+                    raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+                resolved = self.session_resolve_encoder(resolved)
             reply = wire.WorkerResolvedContext.model_validate({
                 "context": document(context_wire), "resolved": resolved,
                 "assignment_digest": assignment_digest(assignment),
