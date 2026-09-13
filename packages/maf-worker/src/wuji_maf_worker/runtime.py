@@ -344,6 +344,7 @@ class MafRuntime:
                             call_bindings=identity.export_bindings(), tool_receipts=functions.receipts,
                             memory=memory, recovery_class="approval_boundary" if approvals else "settled_boundary",
                             observed_at=observed_at,
+                            rejection_decisions=identity.rejected_decisions(),
                         )
                         staged = StagedSessionObjects.model_validate(await asyncio.to_thread(
                             self._host.stage_session, assignment, objects,

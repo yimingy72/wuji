@@ -125,10 +125,11 @@ class InputService:
                 if not tool.approval_required:
                     raise DomainError("INVALID_REFERENCE", 422)
                 tx.connection.execute(
-                    "INSERT INTO vnext.approval_request(tenant_id,project_id,task_id,approval_ref,input_request_id,work_item_id,session_id,session_revision,manifest_ref,tool_call_id,content_json,binding_json,parameters_digest,tool_digest,scope_digest,profile_digest,qualifications_json,expires_at,access_level) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                    "INSERT INTO vnext.approval_request(tenant_id,project_id,task_id,approval_ref,input_request_id,work_item_id,session_id,session_revision,manifest_ref,tool_call_id,content_json,binding_json,parameters_digest,tool_digest,scope_json,scope_digest,profile_digest,qualifications_json,expires_at,access_level) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                     (*tx.owner, ref, input_id, work["work_item_id"], published.manifest.session_id, published.manifest.checkpoint_revision.root,
                      observation.manifest_ref, binding.tool_call_id, json_text(content), json_text(document(binding)), binding.arguments_digest,
-                     digest(tool.model_dump(mode="json")), digest(definition["task"]["authorization_scope"]),
+                     digest(tool.model_dump(mode="json")), json_text(definition["task"]["authorization_scope"]),
+                     digest(definition["task"]["authorization_scope"]),
                      published.history.compatibility.profile_snapshot["digest"], json_text(list(capability["approver_subjects"])), expires, level),
                 )
             receipt = InputReceipt(input_request_id=input_id, work_item_id=work["work_item_id"], manifest_ref=observation.manifest_ref,

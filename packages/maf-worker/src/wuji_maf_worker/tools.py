@@ -260,6 +260,13 @@ class ModelCallIdentity:
             raise ValueError("delivery does not resolve the complete original approval batch")
         self._decisions = decisions
 
+    def rejected_decisions(self):
+        return tuple(
+            self._decisions[key]
+            for key in sorted(self._decisions)
+            if self._decisions[key].decision == "reject"
+        )
+
 
 class GateFunctions(FunctionMiddleware):
     def __init__(self, *, definitions, identity, lineage, client, url, native_approval=False):

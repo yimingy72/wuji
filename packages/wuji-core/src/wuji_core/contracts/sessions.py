@@ -18,6 +18,27 @@ Digest = Annotated[StrictStr, Field(pattern=r"^[a-f0-9]{64}$")]
 Revision = Annotated[StrictStr, Field(pattern=r"^(0|[1-9][0-9]*)$")]
 Count = Annotated[StrictInt, Field(ge=0)]
 Positive = Annotated[StrictInt, Field(gt=0)]
+NATIVE_REJECTION_TEXT_CORE_1_18_0 = (
+    "Error: Tool call invocation was rejected by user."
+)
+
+
+def native_rejection_content(provider_call_id: str) -> dict[str, Any]:
+    """Canonical public Content observed for a rejected call in core 1.18.0."""
+
+    return {
+        "type": "function_result",
+        "call_id": provider_call_id,
+        "result": NATIVE_REJECTION_TEXT_CORE_1_18_0,
+        "items": [
+            {
+                "type": "text",
+                "text": NATIVE_REJECTION_TEXT_CORE_1_18_0,
+                "additional_properties": {},
+            }
+        ],
+        "additional_properties": {},
+    }
 
 
 class SessionModel(BaseModel):
@@ -77,6 +98,9 @@ class ModelFrontierEntry(SessionModel):
     model_attempt_id: Text
     positions: tuple[MessagePosition, ...]
     request_digest: Digest | None = None
+    request_messages: tuple[dict[str, Any], ...] = ()
+    request_messages_digest: Digest | None = None
+    predecessor_positions: tuple[MessagePosition, ...] = ()
     response_digest: Digest | None = None
     response_ref: BlobRef | None = None
 
@@ -89,10 +113,28 @@ class ToolFrontierEntry(SessionModel):
     receipt_digest: Digest | None = None
 
 
+class RejectedCallFrontierEntry(SessionModel):
+    approval_ref: Text
+    decision_version: Revision
+    call_binding: NativeCallBinding
+    result_position: MessagePosition
+    result_content: dict[str, Any]
+    result_digest: Digest
+
+    @model_validator(mode="after")
+    def native_shape(self):
+        if self.result_content != native_rejection_content(
+            self.call_binding.provider_call_id
+        ):
+            raise ValueError("rejected call requires the fixed native SDK result")
+        return self
+
+
 class OperationFrontier(SessionModel):
     model_entries: tuple[ModelFrontierEntry, ...] = ()
     tool_entries: tuple[ToolFrontierEntry, ...] = ()
     pending_approvals: tuple[NativeCallBinding, ...] = ()
+    rejected_calls: tuple[RejectedCallFrontierEntry, ...] = ()
     archived_history_refs: tuple[BlobRef, ...] = ()
 
 
@@ -181,15 +223,23 @@ class PublishedHistoryRoot(HistoryRoot):
     @model_validator(mode="after")
     def complete_frontier(self):
         for entry in self.frontier.model_entries:
-            if not entry.positions or any(value is None for value in (
-                entry.request_digest, entry.response_digest, entry.response_ref,
-            )):
+            if not entry.positions or not entry.request_messages or any(
+                value is None
+                for value in (
+                    entry.request_digest,
+                    entry.request_messages_digest,
+                    entry.response_digest,
+                    entry.response_ref,
+                )
+            ):
                 raise ValueError("published model frontier requires platform response evidence")
         for entry in self.frontier.tool_entries:
             if not entry.positions or entry.receipt_digest is None:
                 raise ValueError("published tool frontier requires durable receipt and message")
         for call in self.frontier.pending_approvals:
             require_published_call(call)
+        for rejected in self.frontier.rejected_calls:
+            require_published_call(rejected.call_binding)
         return self
 
 

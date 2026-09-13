@@ -8,12 +8,27 @@ from wuji_core.admission.common import current_run, digest
 from wuji_core.contracts.envelopes import BlobRef, WorkerAssignment
 from wuji_core.contracts.execution import SessionManifest
 from wuji_core.contracts.sessions import (
-    BoundaryObjects, ModelFrontierEntry, NativeCallBinding, OperationFrontier,
+    BoundaryObjects, InputPayload, MessagePosition, ModelFrontierEntry,
+    NativeCallBinding,
+    OperationFrontier,
     PublishedHistoryRoot, PublishedMemoryManifestRoot, PublishedProviderStateRoot,
     PublishedSession, RecoveryCheck, SessionReceipt, StagedSessionObjects,
+    native_rejection_content,
 )
 from wuji_core.http import canonical_json_bytes, strict_json_loads
+from wuji_core.http.json_boundary import InvalidJsonDocument
 from wuji_core.persistence.uow import DomainError, json_text, row
+
+
+SESSION_OBJECT_ROLES = {
+    "dependency",
+    "archive",
+    "model_response",
+    "native_arguments",
+    "history_root",
+    "provider_root",
+    "memory_root",
+}
 
 
 def rows(cursor):
@@ -82,6 +97,69 @@ def content_versions(history, position, archives):
                     continue
                 versions.append(content)
     return versions
+
+
+def request_predecessor_positions(history, request_messages):
+    """Map provider-wire operation messages to unique earlier native positions."""
+
+    positions = {}
+    for request in request_messages:
+        expected = []
+        if request.get("role") == "assistant":
+            for call in request.get("tool_calls", []):
+                expected.append(("function_call", call.get("id"), call.get("function")))
+        elif request.get("role") == "tool":
+            expected.append(("function_result", request.get("tool_call_id"), request.get("content")))
+        for kind, call_id, wire in expected:
+            matches = []
+            for message_index, message in enumerate(history.messages):
+                for content_index, content in enumerate(message.get("contents", [])):
+                    native = content.get("function_call", content)
+                    if native.get("call_id") != call_id or native.get("type") != kind:
+                        continue
+                    if kind == "function_call":
+                        arguments = native.get("arguments")
+                        if not isinstance(arguments, str):
+                            arguments = canonical_json_bytes(arguments).decode()
+                        if not isinstance(wire, dict) or wire.get("name") != native.get("name") or wire.get("arguments") != arguments:
+                            continue
+                    else:
+                        result = native.get("result")
+                        if isinstance(result, str):
+                            try:
+                                result = strict_json_loads(result)
+                            except (InvalidJsonDocument, ValueError):
+                                pass
+                        supplied = wire
+                        if isinstance(supplied, str):
+                            try:
+                                supplied = strict_json_loads(supplied)
+                            except (InvalidJsonDocument, ValueError):
+                                pass
+                        if result != supplied:
+                            continue
+                    matches.append((
+                        content.get("type") != kind,
+                        message_index,
+                        content_index,
+                    ))
+            if matches:
+                matches.sort()
+                matches = [match for match in matches if match[0] == matches[0][0]]
+            if len(matches) != 1:
+                raise DomainError("SESSION_FRONTIER_MISMATCH", 409)
+            _wrapped, message_index, content_index = matches[0]
+            position = MessagePosition(
+                message_index=message_index,
+                content_index=content_index,
+                message_digest=digest(history.messages[message_index]),
+                content_digest=digest(
+                    history.messages[message_index]["contents"][content_index]
+                ),
+                native_message_id=history.messages[message_index].get("message_id"),
+            )
+            positions[(message_index, content_index)] = position
+    return tuple(positions[key] for key in sorted(positions))
 
 
 def provider_messages(body, content_type):
@@ -179,7 +257,12 @@ class SessionRepository:
         original_request["model"] = strict_json_loads(record["profile_json"])["model"]["client_model"]
         if digest(original_request) != record["input_digest"]:
             raise DomainError("INPUT_DIGEST_CONFLICT", 409)
-        return record, body, provider_messages(body, record["content_type"])
+        return (
+            record,
+            body,
+            provider_messages(body, record["content_type"]),
+            original_request,
+        )
 
     def _check_call(self, tx, history, binding, provider):
         if binding.message_id != "model-attempt:" + binding.model_attempt_id + ":choice:0":
@@ -279,10 +362,10 @@ class SessionRepository:
             for entry in history.frontier.model_entries:
                 if entry.model_attempt_id in models or not entry.positions:
                     raise DomainError("INVALID_REFERENCE", 422)
-                record, raw, protocol = self._model(tx, history, entry.model_attempt_id)
+                record, raw, protocol, request = self._model(tx, history, entry.model_attempt_id)
                 for position in entry.positions:
                     check_position(history, position)
-                models[entry.model_attempt_id] = (record, raw, protocol)
+                models[entry.model_attempt_id] = (record, raw, protocol, request)
             calls = []
             for call in provider.call_bindings:
                 if call.model_attempt_id not in models:
@@ -331,23 +414,52 @@ class SessionRepository:
                 archives.append(ref)
         model_entries, response_refs = [], {}
         for entry in history.frontier.model_entries:
-            record, raw, _ = models[entry.model_attempt_id]
+            record, raw, _, request = models[entry.model_attempt_id]
             request_digest, response_digest = record["input_digest"], sha256(raw).hexdigest()
             if ((entry.request_digest is not None and entry.request_digest != request_digest)
                     or (entry.response_digest is not None and entry.response_digest != response_digest)):
                 raise DomainError("INPUT_DIGEST_CONFLICT", 409)
             response_ref = save(raw, record["content_type"], role="model_response")
             response_refs[entry.model_attempt_id] = response_ref
-            model_entries.append(entry.model_copy(update={"request_digest": request_digest,
-                "response_digest": response_digest, "response_ref": response_ref}))
+            request_messages = tuple(request.get("messages", ()))
+            model_entries.append(entry.model_copy(update={
+                "request_digest": request_digest,
+                "request_messages": request_messages,
+                "request_messages_digest": digest(request_messages),
+                "predecessor_positions": request_predecessor_positions(
+                    history, request_messages
+                ),
+                "response_digest": response_digest,
+                "response_ref": response_ref,
+            }))
         enriched_calls = []
         for call in calls:
             arguments_ref = save(call.native_arguments.encode("utf-8"), "application/json", role="native_arguments")
             enriched_calls.append(call.model_copy(update={"provider_response_ref": response_refs[call.model_attempt_id], "arguments_ref": arguments_ref}))
+        observed_by_tool = {call.tool_call_id: call for call in calls}
+        enriched_by_tool = {call.tool_call_id: call for call in enriched_calls}
         pending_ids = {call.sdk_content_id for call in history.frontier.pending_approvals}
         enriched_pending = tuple(c for c in enriched_calls if c.sdk_content_id in pending_ids)
         if len(enriched_pending) != len(pending_ids) or len(pending_ids) != len(history.frontier.pending_approvals):
             raise DomainError("INVALID_REFERENCE", 422)
+        enriched_rejections = []
+        for entry in history.frontier.rejected_calls:
+            observed = observed_by_tool.get(entry.call_binding.tool_call_id)
+            enriched = enriched_by_tool.get(entry.call_binding.tool_call_id)
+            result = check_position(history, entry.result_position)
+            if (
+                observed is None
+                or enriched is None
+                or not equal(observed, entry.call_binding)
+                or history.messages[entry.result_position.message_index].get("role") != "tool"
+                or entry.result_content != result
+                or entry.result_digest != digest(result)
+                or result != native_rejection_content(observed.provider_call_id)
+            ):
+                raise DomainError("SESSION_FRONTIER_MISMATCH", 409)
+            enriched_rejections.append(
+                entry.model_copy(update={"call_binding": enriched})
+            )
         files = []
         for file in memory.files:
             if file.object_key is not None:
@@ -361,7 +473,8 @@ class SessionRepository:
         provider = PublishedProviderStateRoot.model_validate({**document(provider), "call_bindings": enriched_calls,
             "object_refs": unique_refs([*provider.object_refs, *response_refs.values(), *(c.arguments_ref for c in enriched_calls)])})
         frontier = OperationFrontier(model_entries=tuple(model_entries), tool_entries=tuple(tools),
-            pending_approvals=enriched_pending, archived_history_refs=unique_refs(archives))
+            pending_approvals=enriched_pending, rejected_calls=tuple(enriched_rejections),
+            archived_history_refs=unique_refs(archives))
         evidence_refs = []
         for entry in tools:
             evidence_refs.extend(BlobRef.model_validate(r) for r in entry.receipt["evidence_receipt"]["artifact_refs"])
@@ -375,6 +488,18 @@ class SessionRepository:
         history_ref = save(canonical_json_bytes(document(history)), "application/json", history.object_refs, "history_root")
         provider_ref = save(canonical_json_bytes(document(provider)), "application/json", provider.object_refs, "provider_root")
         memory_ref = save(canonical_json_bytes(document(memory)), "application/json", memory.object_refs, "memory_root")
+        with self.uow.transaction(worker_access, assignment.identity.task_id, capability="tool_request") as tx:
+            current_run(tx, self.registry.config(tx))
+            self._graph(
+                tx,
+                (history_ref, provider_ref, memory_ref),
+                limits,
+                work_id=assignment.identity.work_item_id,
+                session_id=history.session_id,
+                owner_run_id=assignment.identity.agent_run_id,
+                source_subject=worker_access.principal.subject,
+                source_token_id=worker_access.principal.token_id,
+            )
         return StagedSessionObjects(history_root=history_ref, provider_state_ref=provider_ref,
             memory_manifest_ref=memory_ref, object_refs=unique_refs(refs), lease_owner=lease,
             history=history, provider_state=provider, memory=memory)
@@ -410,9 +535,16 @@ class SessionRepository:
         if expected_models != actual_models or len(expected_models) != len(history.frontier.model_entries):
             raise DomainError("SESSION_FRONTIER_MISMATCH", 409)
         for entry in history.frontier.model_entries:
-            record, raw, protocol = self._model(tx, history, entry.model_attempt_id)
+            record, raw, protocol, request = self._model(tx, history, entry.model_attempt_id)
             if (entry.request_digest != record["input_digest"] or entry.response_digest != sha256(raw).hexdigest()
-                    or entry.response_ref is None or entry.response_ref.sha256.root != entry.response_digest):
+                    or entry.response_ref is None or entry.response_ref.sha256.root != entry.response_digest
+                    or tuple(request.get("messages", ())) != entry.request_messages
+                    or digest(entry.request_messages) != entry.request_messages_digest
+                    or request_predecessor_positions(history, entry.request_messages) != entry.predecessor_positions):
+                raise DomainError("SESSION_FRONTIER_MISMATCH", 409)
+            if entry.predecessor_positions and max(
+                position.message_index for position in entry.predecessor_positions
+            ) >= min(position.message_index for position in entry.positions):
                 raise DomainError("SESSION_FRONTIER_MISMATCH", 409)
             observed_text, observed_calls = [], set()
             text_options = [""]
@@ -442,7 +574,7 @@ class SessionRepository:
         if None in by_id or len(by_id) != len(provider.call_bindings):
             raise DomainError("INVALID_REFERENCE", 422)
         for binding in provider.call_bindings:
-            _, raw, protocol = self._model(tx, history, binding.model_attempt_id)
+            _, raw, protocol, _request = self._model(tx, history, binding.model_attempt_id)
             self._check_call(tx, history, binding, protocol)
             if (binding.arguments_ref is None or binding.arguments_ref.sha256.root != sha256(binding.native_arguments.encode()).hexdigest()
                     or binding.provider_response_ref is None or binding.provider_response_ref.sha256.root != sha256(raw).hexdigest()):
@@ -466,8 +598,15 @@ class SessionRepository:
             if stored is None or not equal(strict_json_loads(stored[0]), evidence):
                 raise DomainError("INVALID_REFERENCE", 422)
         pending = {b.tool_call_id: b for b in history.frontier.pending_approvals}
+        rejected = {e.call_binding.tool_call_id: e for e in history.frontier.rejected_calls}
         native_pending = {c.get("id"): c for c in provider.pending_contents}
-        if len(native_pending) != len(provider.pending_contents) or len(pending) != len(history.frontier.pending_approvals):
+        if (
+            len(native_pending) != len(provider.pending_contents)
+            or len(pending) != len(history.frontier.pending_approvals)
+            or None in rejected
+            or len(rejected) != len(history.frontier.rejected_calls)
+            or set(rejected) & (set(pending) | {e.tool_call_id for e in tool_entries.values()})
+        ):
             raise DomainError("INVALID_REFERENCE", 422)
         if (bool(pending) and not allow_pending) or set(native_pending) != {b.sdk_approval_id for b in pending.values()}:
             raise DomainError("INVALID_REFERENCE", 422)
@@ -477,29 +616,95 @@ class SessionRepository:
         ))
         if {c["tool_call_id"] for c in calls} != set(by_id):
             raise DomainError("SESSION_FRONTIER_MISMATCH", 409)
+        for tool_call_id, entry in rejected.items():
+            result = check_position(history, entry.result_position)
+            approval = row(tx.connection.execute(
+                """SELECT a.*,d.status AS delivery_status,d.receiving_run_id,
+                d.payload_json,i.status AS input_status
+                FROM vnext.approval_request a
+                JOIN vnext.input_delivery d USING(tenant_id,project_id,task_id,input_request_id)
+                JOIN vnext.input_request i USING(tenant_id,project_id,task_id,input_request_id)
+                WHERE a.tenant_id=%s AND a.project_id=%s AND a.task_id=%s
+                  AND a.approval_ref=%s AND a.tool_call_id=%s""",
+                (*tx.owner, entry.approval_ref, tool_call_id),
+            ))
+            if approval is None:
+                raise DomainError("SESSION_FRONTIER_MISMATCH", 409)
+            payload = InputPayload.model_validate(
+                strict_json_loads(approval["payload_json"])
+            )
+            decisions = [
+                decision
+                for decision in payload.decisions
+                if decision.approval_ref == entry.approval_ref
+            ]
+            holder = tx.connection.execute(
+                """SELECT 1 FROM vnext.session_holder
+                WHERE tenant_id=%s AND project_id=%s AND task_id=%s
+                  AND agent_run_id=%s AND manifest_ref=%s AND session_lineage=%s""",
+                (*tx.owner, approval["receiving_run_id"], approval["manifest_ref"],
+                 history.session_lineage),
+            ).fetchone()
+            if (
+                approval["decision"] != "reject"
+                or approval["decision_status"] != "decided"
+                or str(approval["version"]) != entry.decision_version
+                or approval["input_status"] != "resolved"
+                or approval["delivery_status"] != "delivered"
+                or holder is None
+                or len(decisions) != 1
+                or decisions[0].decision != "reject"
+                or str(decisions[0].decision_version) != entry.decision_version
+                or not equal(decisions[0].call_binding, entry.call_binding)
+                or not equal(strict_json_loads(approval["binding_json"]), entry.call_binding)
+                or history.messages[entry.result_position.message_index].get("role") != "tool"
+                or result != entry.result_content
+                or digest(result) != entry.result_digest
+                or result != native_rejection_content(entry.call_binding.provider_call_id)
+            ):
+                raise DomainError("SESSION_FRONTIER_MISMATCH", 409)
+        consumed_positions = {
+            (position.message_index, position.content_index)
+            for model_entry in history.frontier.model_entries
+            for position in model_entry.predecessor_positions
+        }
+        for tool_entry in history.frontier.tool_entries:
+            results = [
+                position
+                for position in tool_entry.positions
+                if check_position(history, position).get("type") == "function_result"
+            ]
+            if len(results) != 1 or (
+                results[0].message_index,
+                results[0].content_index,
+            ) not in consumed_positions:
+                raise DomainError("SESSION_FRONTIER_MISMATCH", 409)
+        for rejected_entry in history.frontier.rejected_calls:
+            if (
+                rejected_entry.result_position.message_index,
+                rejected_entry.result_position.content_index,
+            ) not in consumed_positions:
+                raise DomainError("SESSION_FRONTIER_MISMATCH", 409)
         for call in calls:
             binding = by_id[call["tool_call_id"]]
             if call["tool_call_id"] in pending:
                 original_content = native_pending.get(binding.sdk_approval_id, {})
                 at_position = check_position(history, binding.position)
-                rejected = call["status"] == "cancelled" and tx.connection.execute(
+                was_rejected = call["status"] == "cancelled" and tx.connection.execute(
                     "SELECT 1 FROM vnext.approval_request WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND tool_call_id=%s AND decision='reject' AND decision_status='decided'",
                     (*tx.owner, call["tool_call_id"]),
                 ).fetchone()
                 if (not equal(binding, pending[call["tool_call_id"]]) or call["latest_attempt_id"] is not None
-                        or (call["status"] != "pending_approval" and not rejected)
+                        or (call["status"] != "pending_approval" and not was_rejected)
                         or not (equal(at_position, original_content)
                                 or equal(at_position, original_content.get("function_call")))):
                     raise DomainError("SESSION_FRONTIER_MISMATCH", 409)
             elif call["latest_attempt_id"] not in tool_entries:
                 # A native rejection has no fake ToolAttempt or successful tool result.
-                rejected = tx.connection.execute(
-                    "SELECT 1 FROM vnext.approval_request WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND tool_call_id=%s AND decision='reject' AND decision_status='decided'",
-                    (*tx.owner, call["tool_call_id"]),
-                ).fetchone()
-                if not rejected or call["latest_attempt_id"] is not None or not any(
-                    c.get("type") == "function_result" and c.get("call_id") == binding.provider_call_id
-                    for m in history.messages for c in m.get("contents", [])
+                if (
+                    call["tool_call_id"] not in rejected
+                    or call["status"] != "cancelled"
+                    or call["latest_attempt_id"] is not None
                 ):
                     raise DomainError("SESSION_FRONTIER_MISMATCH", 409)
         source_id = history.compatibility.profile_snapshot["body"]["history_source_id"]
@@ -507,7 +712,9 @@ class SessionRepository:
         if saved_history is None or not equal(saved_history, history.messages):
             raise DomainError("INVALID_REFERENCE", 422)
 
-    def _graph(self, tx, roots, limits, *, publication_id=None, work_id=None, session_id=None, owner_run_id=None):
+    def _graph(self, tx, roots, limits, *, publication_id=None, work_id=None,
+               session_id=None, owner_run_id=None, source_subject=None,
+               source_token_id=None):
         records, bodies, seen, visiting, total = {}, {}, set(), set(), 0
 
         def visit(ref, depth):
@@ -540,7 +747,7 @@ class SessionRepository:
                 ).fetchone()
                 if pin is None:
                     raise DomainError("INVALID_REFERENCE", 422)
-            elif record["agent_run_id"] != owner_run_id:
+            else:
                 ancestor = tx.connection.execute(
                     "SELECT 1 FROM vnext.session_manifest s JOIN vnext.publication_ref p USING(tenant_id,project_id,task_id,publication_id) WHERE s.tenant_id=%s AND s.project_id=%s AND s.task_id=%s AND s.session_id=%s AND s.work_item_id=%s AND p.artifact_id=%s AND p.artifact_revision=%s",
                     (*tx.owner, session_id, work_id, ref.id, ref.version.root),
@@ -550,7 +757,41 @@ class SessionRepository:
                     (*tx.owner, record["tool_attempt_id"], work_id),
                 ).fetchone() if record["tool_attempt_id"] else None
                 if not ancestor and not evidence:
-                    raise DomainError("INVALID_REFERENCE", 422)
+                    if (
+                        record["agent_run_id"] != owner_run_id
+                        or record["provenance"] != "model_output"
+                        or metadata is None
+                        or metadata["agent_run_id"] != owner_run_id
+                        or metadata["role"] not in SESSION_OBJECT_ROLES
+                        or metadata["access_level"] < record["access_level"]
+                        or (
+                            source_subject is not None
+                            and record["writer_subject"] != source_subject
+                        )
+                        or (
+                            source_token_id is not None
+                            and metadata["writer_token_id"] != source_token_id
+                        )
+                    ):
+                        raise DomainError("INVALID_REFERENCE", 422)
+                    writer = tx.connection.execute(
+                        """SELECT 1 FROM vnext.run_credential credential
+                        JOIN vnext.run_writer writer ON
+                          (writer.tenant_id,writer.project_id,writer.task_id,
+                           writer.agent_run_id,writer.subject)=
+                          (credential.tenant_id,credential.project_id,credential.task_id,
+                           credential.agent_run_id,credential.subject)
+                        WHERE credential.tenant_id=%s AND credential.project_id=%s
+                          AND credential.task_id=%s AND credential.agent_run_id=%s
+                          AND credential.subject=%s AND credential.token_id=%s
+                          AND NOT credential.revoked AND NOT writer.revoked
+                          AND (credential.document_json::jsonb->>'expires_at')::timestamptz
+                              >clock_timestamp()""",
+                        (*tx.owner, owner_run_id, record["writer_subject"],
+                         metadata["writer_token_id"]),
+                    ).fetchone()
+                    if writer is None:
+                        raise DomainError("STALE_EXECUTION", 409)
             children = () if metadata is None else tuple(BlobRef.model_validate(r) for r in strict_json_loads(metadata["refs_json"]))
             records[key], bodies[key] = record, data
             seen.add(key)

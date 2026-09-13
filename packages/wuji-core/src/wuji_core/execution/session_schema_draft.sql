@@ -52,6 +52,7 @@ CREATE TABLE vnext.approval_request(
   approval_ref text NOT NULL,input_request_id text NOT NULL,work_item_id text NOT NULL,
   session_id text NOT NULL,session_revision numeric NOT NULL,manifest_ref text NOT NULL,tool_call_id text NOT NULL,
   content_json text NOT NULL,binding_json text NOT NULL,parameters_digest text NOT NULL,tool_digest text NOT NULL,
+  scope_json text NOT NULL CHECK(jsonb_typeof(scope_json::jsonb)='array'),
   scope_digest text NOT NULL,profile_digest text NOT NULL,qualifications_json text NOT NULL,
   expires_at timestamptz NOT NULL,access_level integer NOT NULL,
   version numeric NOT NULL DEFAULT 1 CHECK(version>=1 AND version=trunc(version)),
@@ -103,6 +104,92 @@ CREATE TABLE vnext.input_answer(
   input_request_id text NOT NULL,idempotency_key text NOT NULL,payload_digest text NOT NULL,
   PRIMARY KEY(tenant_id,project_id,task_id,input_request_id),
   FOREIGN KEY(tenant_id,project_id,task_id,input_request_id) REFERENCES vnext.input_request(tenant_id,project_id,task_id,input_request_id));
+
+CREATE FUNCTION vnext.guard_input_intake_insert() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog AS $$
+BEGIN
+  IF current_user=pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=TG_RELID)) THEN RETURN NEW; END IF;
+  IF current_setting('wuji.observe',true) IS DISTINCT FROM 'true'
+    OR NEW.status<>'pending' OR NEW.session_id IS NULL OR NEW.session_revision IS NULL
+    OR jsonb_typeof(NEW.wait_ref_json::jsonb)<>'object'
+    OR jsonb_typeof(NEW.source_receipt_json::jsonb)<>'object'
+    OR NOT EXISTS(SELECT 1 FROM vnext.session_manifest sm WHERE
+      (sm.tenant_id,sm.project_id,sm.task_id,sm.session_id,sm.revision,sm.work_item_id)=
+      (NEW.tenant_id,NEW.project_id,NEW.task_id,NEW.session_id,NEW.session_revision,NEW.work_item_id)
+      AND sm.access_level<=NEW.access_level)
+  THEN RAISE EXCEPTION 'input intake must start pending from a published Session' USING ERRCODE='42501'; END IF;
+  RETURN NEW;
+END $$;
+CREATE TRIGGER input_intake_insert BEFORE INSERT ON vnext.input_request FOR EACH ROW EXECUTE FUNCTION vnext.guard_input_intake_insert();
+
+CREATE FUNCTION vnext.guard_approval_intake_insert() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog AS $$
+DECLARE callrow vnext.tool_call; inputrow vnext.input_request; manifest vnext.session_manifest;
+  toolrow vnext.tool_definition; capability vnext.session_capability; taskrow vnext.task;
+  native_args jsonb;
+BEGIN
+  IF current_user=pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=TG_RELID)) THEN RETURN NEW; END IF;
+  IF current_setting('wuji.observe',true) IS DISTINCT FROM 'true'
+    OR NEW.version<>1 OR NEW.decision_status<>'pending' OR NEW.decision IS NOT NULL
+    OR NEW.decided_by IS NOT NULL OR NEW.decided_at IS NOT NULL OR NEW.decision_reason IS NOT NULL
+    OR NEW.consumed_attempt_id IS NOT NULL OR NEW.consumed_by_run IS NOT NULL
+    OR jsonb_typeof(NEW.content_json::jsonb)<>'object'
+    OR jsonb_typeof(NEW.binding_json::jsonb)<>'object'
+    OR jsonb_typeof(NEW.qualifications_json::jsonb)<>'array'
+    OR jsonb_array_length(NEW.qualifications_json::jsonb)=0
+  THEN RAISE EXCEPTION 'approval intake must start pending without a decision' USING ERRCODE='42501'; END IF;
+  SELECT * INTO inputrow FROM vnext.input_request WHERE
+    (tenant_id,project_id,task_id,input_request_id,work_item_id,session_id,session_revision,status)=
+    (NEW.tenant_id,NEW.project_id,NEW.task_id,NEW.input_request_id,NEW.work_item_id,
+     NEW.session_id,NEW.session_revision,'pending');
+  SELECT * INTO manifest FROM vnext.session_manifest WHERE
+    (tenant_id,project_id,task_id,session_id,revision,work_item_id,manifest_ref)=
+    (NEW.tenant_id,NEW.project_id,NEW.task_id,NEW.session_id,NEW.session_revision,
+     NEW.work_item_id,NEW.manifest_ref);
+  SELECT * INTO callrow FROM vnext.tool_call WHERE
+    (tenant_id,project_id,task_id,tool_call_id,work_item_id,status)=
+    (NEW.tenant_id,NEW.project_id,NEW.task_id,NEW.tool_call_id,NEW.work_item_id,'pending_approval');
+  SELECT * INTO toolrow FROM vnext.tool_definition WHERE
+    tenant_id=NEW.tenant_id AND ref=callrow.tool_definition_version AND NOT revoked;
+  SELECT * INTO taskrow FROM vnext.task WHERE
+    (tenant_id,project_id,task_id)=(NEW.tenant_id,NEW.project_id,NEW.task_id);
+  SELECT * INTO capability FROM vnext.session_capability WHERE
+    tenant_id=NEW.tenant_id AND profile_digest=NEW.profile_digest AND NOT revoked
+    AND document_json::jsonb->>'profile_digest'=NEW.profile_digest
+    AND document_json::jsonb->'approver_subjects'=NEW.qualifications_json::jsonb;
+  native_args:=CASE jsonb_typeof(NEW.content_json::jsonb->'function_call'->'arguments')
+    WHEN 'string' THEN (NEW.content_json::jsonb->'function_call'->>'arguments')::jsonb
+    ELSE NEW.content_json::jsonb->'function_call'->'arguments' END;
+  IF inputrow IS NULL OR manifest IS NULL OR callrow IS NULL OR toolrow IS NULL
+    OR capability IS NULL OR taskrow IS NULL OR callrow.latest_attempt_id IS NOT NULL
+    OR NOT (manifest.manifest_json::jsonb->'pending_operation_refs' ? NEW.tool_call_id)
+    OR callrow.session_lineage IS DISTINCT FROM manifest.session_lineage
+    OR NEW.binding_json::jsonb->>'tool_call_id' IS DISTINCT FROM NEW.tool_call_id
+    OR NEW.binding_json::jsonb->>'provider_call_id' IS DISTINCT FROM callrow.provider_call_id
+    OR NEW.binding_json::jsonb->>'message_id' IS DISTINCT FROM callrow.message_id
+    OR NEW.binding_json::jsonb->>'tool_definition_ref' IS DISTINCT FROM callrow.tool_definition_version
+    OR NEW.binding_json::jsonb->>'arguments_digest' IS DISTINCT FROM NEW.parameters_digest
+    OR NEW.content_json::jsonb->>'id' IS DISTINCT FROM NEW.binding_json::jsonb->>'sdk_approval_id'
+    OR NEW.content_json::jsonb->'function_call'->>'id' IS DISTINCT FROM NEW.binding_json::jsonb->>'sdk_content_id'
+    OR NEW.content_json::jsonb->'function_call'->>'call_id' IS DISTINCT FROM callrow.provider_call_id
+    OR native_args IS DISTINCT FROM callrow.request_json::jsonb->'arguments'
+    OR NEW.tool_digest IS DISTINCT FROM encode(sha256(convert_to(toolrow.document_json,'UTF8')),'hex')
+    OR NEW.scope_digest IS DISTINCT FROM encode(sha256(convert_to(NEW.scope_json,'UTF8')),'hex')
+    OR NEW.scope_json::jsonb IS DISTINCT FROM taskrow.definition_json::jsonb->'task'->'authorization_scope'
+  THEN RAISE EXCEPTION 'approval intake source differs from the published frontier' USING ERRCODE='42501'; END IF;
+  RETURN NEW;
+END $$;
+CREATE TRIGGER approval_intake_insert BEFORE INSERT ON vnext.approval_request FOR EACH ROW EXECUTE FUNCTION vnext.guard_approval_intake_insert();
+
+CREATE FUNCTION vnext.check_approval_intake_source() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$
+BEGIN
+  IF NOT EXISTS(SELECT 1 FROM vnext.input_source src WHERE
+    (src.tenant_id,src.project_id,src.task_id,src.input_request_id,src.manifest_ref)=
+    (NEW.tenant_id,NEW.project_id,NEW.task_id,NEW.input_request_id,NEW.manifest_ref)
+    AND src.receipt_json::jsonb->'approval_refs' ? NEW.approval_ref)
+  THEN RAISE EXCEPTION 'approval intake requires its trusted source receipt' USING ERRCODE='23514'; END IF;
+  RETURN NEW;
+END $$;
+CREATE CONSTRAINT TRIGGER approval_intake_source AFTER INSERT ON vnext.approval_request
+  DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION vnext.check_approval_intake_source();
 
 CREATE FUNCTION vnext.guard_session_object() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog AS $$
 DECLARE a vnext.artifact;
@@ -158,6 +245,109 @@ BEGIN
   RETURN NEW;
 END $$;
 CREATE TRIGGER approval_update BEFORE UPDATE ON vnext.approval_request FOR EACH ROW EXECUTE FUNCTION vnext.guard_approval_update();
+
+-- Extend the exact 0009 tool_request state machine with one P08 approval edge.
+-- Every other transition remains byte-for-byte equivalent to the 0009 guard.
+CREATE OR REPLACE FUNCTION vnext.guard_tool_call_purpose() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog AS $$
+DECLARE purpose text := current_setting('wuji.request_purpose',true);
+DECLARE approval_admit boolean := false; DECLARE attach boolean := false;
+DECLARE dispatched boolean := false; DECLARE cancel_intent boolean := false;
+DECLARE safe_retry boolean := false;
+BEGIN
+  IF current_user=pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=TG_RELID)) THEN RETURN NEW; END IF;
+  IF purpose='tool_request' THEN
+    approval_admit := OLD.status='pending_approval' AND OLD.latest_attempt_id IS NULL
+      AND NEW.status='admitted' AND NEW.latest_attempt_id IS NULL
+      AND (to_jsonb(NEW)-'status') IS NOT DISTINCT FROM (to_jsonb(OLD)-'status')
+      AND EXISTS(
+        SELECT 1 FROM vnext.approval_request ar
+        JOIN vnext.session_manifest sm ON
+          (sm.tenant_id,sm.project_id,sm.task_id,sm.session_id,sm.revision,sm.manifest_ref)=
+          (ar.tenant_id,ar.project_id,ar.task_id,ar.session_id,ar.session_revision,ar.manifest_ref)
+        JOIN vnext.session_holder h ON
+          (h.tenant_id,h.project_id,h.task_id,h.manifest_ref,h.session_lineage)=
+          (sm.tenant_id,sm.project_id,sm.task_id,sm.manifest_ref,sm.session_lineage)
+        JOIN vnext.work_item w ON
+          (w.tenant_id,w.project_id,w.task_id,w.work_item_id,w.current_run_id)=
+          (h.tenant_id,h.project_id,h.task_id,h.work_item_id,h.agent_run_id)
+        JOIN vnext.agent_run run ON
+          (run.tenant_id,run.project_id,run.task_id,run.work_item_id,run.agent_run_id)=
+          (w.tenant_id,w.project_id,w.task_id,w.work_item_id,w.current_run_id)
+        JOIN vnext.run_credential credential ON
+          (credential.tenant_id,credential.project_id,credential.task_id,credential.agent_run_id,
+           credential.subject,credential.token_id)=
+          (run.tenant_id,run.project_id,run.task_id,run.agent_run_id,
+           current_setting('wuji.subject',true),current_setting('wuji.token_id',true))
+        WHERE (ar.tenant_id,ar.project_id,ar.task_id,ar.tool_call_id)=
+          (NEW.tenant_id,NEW.project_id,NEW.task_id,NEW.tool_call_id)
+          AND ar.work_item_id=NEW.work_item_id
+          AND ar.decision_status='decided' AND ar.decision='approve'
+          AND ar.expires_at>clock_timestamp()
+          AND h.session_lineage=NEW.session_lineage
+          AND w.desired_state='run' AND run.execution_allowed
+          AND run.run_epoch=w.run_epoch
+          AND NOT credential.revoked
+          AND (credential.document_json::jsonb->>'expires_at')::timestamptz>clock_timestamp()
+          AND ar.binding_json::jsonb->>'tool_call_id'=NEW.tool_call_id
+          AND ar.binding_json::jsonb->>'message_id'=NEW.message_id
+          AND ar.binding_json::jsonb->>'provider_call_id'=NEW.provider_call_id
+          AND ar.binding_json::jsonb->>'tool_definition_ref'=NEW.tool_definition_version
+          AND ar.binding_json::jsonb->>'arguments_digest'=ar.parameters_digest
+          AND ar.content_json::jsonb->>'id'=ar.binding_json::jsonb->>'sdk_approval_id'
+          AND ar.content_json::jsonb->'function_call'->>'id'=ar.binding_json::jsonb->>'sdk_content_id'
+          AND ar.content_json::jsonb->'function_call'->>'call_id'=NEW.provider_call_id
+          AND CASE jsonb_typeof(ar.content_json::jsonb->'function_call'->'arguments')
+            WHEN 'string' THEN (ar.content_json::jsonb->'function_call'->>'arguments')::jsonb
+            ELSE ar.content_json::jsonb->'function_call'->'arguments' END
+              = NEW.request_json::jsonb->'arguments'
+          AND NEW.request_json::jsonb->>'session_lineage'=NEW.session_lineage
+          AND NEW.request_json::jsonb->>'message_id'=NEW.message_id
+          AND NEW.request_json::jsonb->>'provider_call_id'=NEW.provider_call_id
+          AND NEW.request_json::jsonb->>'tool_definition_ref'=NEW.tool_definition_version
+          AND NEW.request_json::jsonb->>'sdk_content_id'=ar.binding_json::jsonb->>'sdk_content_id'
+          AND NEW.request_json::jsonb->>'sdk_approval_id'=ar.binding_json::jsonb->>'sdk_approval_id');
+    attach := OLD.status='admitted' AND OLD.latest_attempt_id IS NULL
+      AND NEW.status='admitted' AND NEW.latest_attempt_id IS NOT NULL
+      AND EXISTS(SELECT 1 FROM vnext.tool_attempt a
+        WHERE (a.tenant_id,a.project_id,a.task_id,a.tool_call_id,a.tool_attempt_id)=
+              (NEW.tenant_id,NEW.project_id,NEW.task_id,NEW.tool_call_id,NEW.latest_attempt_id)
+          AND a.status='admitted' AND a.retry_request_id IS NULL);
+    dispatched := OLD.status='admitted' AND NEW.status='dispatched'
+      AND NEW.latest_attempt_id=OLD.latest_attempt_id
+      AND EXISTS(SELECT 1 FROM vnext.tool_attempt a
+        WHERE (a.tenant_id,a.project_id,a.task_id,a.tool_attempt_id)=
+              (NEW.tenant_id,NEW.project_id,NEW.task_id,NEW.latest_attempt_id)
+          AND a.status='dispatched');
+    cancel_intent :=
+      (OLD.status='pending_approval' AND OLD.latest_attempt_id IS NULL
+       AND NEW.status='cancelled' AND NEW.latest_attempt_id IS NULL)
+      OR (OLD.status IN ('admitted','dispatched','running','unknown','evidence_pending','cancel_requested')
+          AND OLD.latest_attempt_id IS NOT NULL AND NEW.status='cancel_requested'
+          AND NEW.latest_attempt_id=OLD.latest_attempt_id);
+    safe_retry := OLD.status IN ('failed','cancelled')
+      AND NEW.status='admitted' AND NEW.latest_attempt_id IS NOT NULL
+      AND NEW.latest_attempt_id IS DISTINCT FROM OLD.latest_attempt_id
+      AND EXISTS(SELECT 1 FROM vnext.tool_attempt n
+        JOIN vnext.tool_attempt p ON
+          (p.tenant_id,p.project_id,p.task_id,p.tool_attempt_id)=
+          (OLD.tenant_id,OLD.project_id,OLD.task_id,OLD.latest_attempt_id)
+        WHERE (n.tenant_id,n.project_id,n.task_id,n.tool_call_id,n.tool_attempt_id)=
+              (NEW.tenant_id,NEW.project_id,NEW.task_id,NEW.tool_call_id,NEW.latest_attempt_id)
+          AND n.status='admitted' AND n.retry_request_id IS NOT NULL
+          AND p.status IN ('failed','cancelled')
+          AND p.receipt_json::jsonb->>'status' IN ('not_started','exited'));
+    IF NEW IS DISTINCT FROM OLD
+       AND NOT (approval_admit OR attach OR dispatched OR cancel_intent OR safe_retry) THEN
+      IF OLD.status='pending_approval' AND NEW.status='admitted' THEN
+        RAISE EXCEPTION 'exact approved Session operation required' USING ERRCODE='42501';
+      END IF;
+      RAISE EXCEPTION 'tool request transition is not registered' USING ERRCODE='42501';
+    END IF;
+  ELSIF purpose<>'tool_settle' THEN
+    RAISE EXCEPTION 'tool write purpose required' USING ERRCODE='42501';
+  END IF;
+  RETURN NEW;
+END $$;
 
 CREATE FUNCTION vnext.check_approval_attempt() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$
 DECLARE t text:=NEW.tenant_id;p text:=NEW.project_id;k text:=NEW.task_id;i text; a vnext.tool_attempt;c vnext.tool_call; approval vnext.approval_request; definition jsonb;
@@ -259,6 +449,8 @@ BEGIN
   END LOOP;
 END $$;
 
-REVOKE EXECUTE ON FUNCTION vnext.guard_session_object(),vnext.guard_session_holder(),vnext.guard_approval_update(),vnext.check_approval_attempt(),vnext.guard_input_delivery() FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION vnext.guard_input_intake_insert(),vnext.guard_approval_intake_insert(),
+  vnext.check_approval_intake_source(),vnext.guard_session_object(),vnext.guard_session_holder(),
+  vnext.guard_approval_update(),vnext.check_approval_attempt(),vnext.guard_input_delivery() FROM PUBLIC;
 -- Immutable source/holder/object rows have no UPDATE/DELETE grants. Existing
 -- session_immutable/publication_sealed and artifact GC pin/lease rules remain.

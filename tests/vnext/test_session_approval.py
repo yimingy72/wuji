@@ -4,6 +4,9 @@ import asyncio
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 from inspect import Parameter
+import json
+from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from agent_framework import (
@@ -39,12 +42,19 @@ from wuji_core.contracts.execution import SessionManifest
 from wuji_core.contracts.envelopes import RunIdentity
 from wuji_core.admission.registry import SessionCapabilityRegistration
 from wuji_core.http import canonical_json_bytes, strict_json_loads
-from wuji_core.execution.sessions import document, provider_messages
+from wuji_core.execution.sessions import (
+    document,
+    provider_messages,
+    request_predecessor_positions,
+)
 from wuji_core.persistence.uow import DomainError
 from wuji_maf_worker.approvals import approval_response_message
 from wuji_maf_worker.factory import HarnessProfile, parse_profile
 from wuji_maf_worker.history import PinnedMemoryContextProvider, VersionedMemoryStore
 from wuji_maf_worker.tools import ModelCallIdentity
+
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _capability_document(*, status, evidence_refs, candidate_binding):
@@ -140,6 +150,15 @@ def test_p08_migration_follows_receiver_results_and_keeps_session_guards():
     assert aggregate_schema.HEAD == session_schema.HEAD
     assert "writer_token_id" in ddl
     assert "CREATE TABLE vnext.session_capability" in ddl
+    assert "approval_admit boolean := false" in ddl
+    assert "OLD.status='pending_approval'" in ddl
+    assert "NEW.status='admitted' AND NEW.latest_attempt_id IS NULL" in ddl
+    assert "exact approved Session operation required" in ddl
+    assert "guard_input_intake_insert" in ddl
+    assert "input intake must start pending" in ddl
+    assert "guard_approval_intake_insert" in ddl
+    assert "approval intake must start pending" in ddl
+    assert "check_approval_intake_source" in ddl
     assert "approval, original ToolCall, Attempt and Outbox must commit together" in ddl
     assert "require_scheduler_identity(text,text,text,jsonb)" in ddl
 
@@ -221,6 +240,136 @@ def test_verified_session_capability_requires_real_evidence_and_new_immutable_re
                 candidate_binding=None,
             )
         )
+
+
+def test_rejected_frontier_binds_persisted_decision_to_actual_native_result():
+    from wuji_core.contracts.sessions import (
+        MessagePosition,
+        RejectedCallFrontierEntry,
+        native_rejection_content,
+    )
+
+    p01 = json.loads(
+        (REPOSITORY_ROOT / "docs/vnext/capability-record.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    resumed = p01["raw_sdk_and_http"]["cases"]["reject"]["processes"][1][
+        "result"
+    ]
+    messages = resumed["session_after"]["state"]["in_memory"]["messages"]
+    result_message_index = next(
+        index for index, message in enumerate(messages) if message["role"] == "tool"
+    )
+    result_message = messages[result_message_index]
+    assert len(result_message["contents"]) == 1
+    actual_p01_result = result_message["contents"][0]
+    actual_p01_call_id = resumed["approval_response"]["function_call"]["call_id"]
+    assert actual_p01_result == native_rejection_content(actual_p01_call_id)
+
+    original, pending, _native_response = pending_native_identity()
+    binding = original.export_bindings()[0]
+    restored = ModelCallIdentity([TOOL_DEFINITION], max_bytes=65_536)
+    restored.restore_bindings(
+        call_bindings=(binding,),
+        pending_contents=(Content.from_dict(pending.to_dict()),),
+        lineage=SESSION_LINEAGE,
+    )
+    decision = ApprovalDeliveryDecision(
+        approval_ref="approval-p08-reject",
+        decision_version="2",
+        decision="reject",
+        pending_content=pending.to_dict(),
+        call_binding=binding,
+    )
+    payload = InputPayload(kind="approval", decisions=(decision,))
+    restored.bind_delivery(
+        HumanInput(
+            delivery_id="delivery-p08-reject",
+            input_request_id="input-p08-reject",
+            manifest_ref="manifest-p08",
+            payload_digest=sha256(
+                canonical_json_bytes(payload.model_dump(mode="python"))
+            ).hexdigest(),
+            payload=payload,
+        )
+    )
+
+    assert restored.rejected_decisions() == (decision,)
+    result_content = native_rejection_content(binding.provider_call_id)
+    result_message = {
+        "role": "tool",
+        "contents": [result_content],
+        "additional_properties": {},
+        "type": "message",
+    }
+    result_message_index = 2
+    result_position = MessagePosition(
+        message_index=result_message_index,
+        content_index=0,
+        message_digest=sha256(canonical_json_bytes(result_message)).hexdigest(),
+        content_digest=sha256(canonical_json_bytes(result_content)).hexdigest(),
+    )
+    entry = RejectedCallFrontierEntry(
+        approval_ref=decision.approval_ref,
+        decision_version=decision.decision_version,
+        call_binding=binding,
+        result_position=result_position,
+        result_content=result_content,
+        result_digest=result_position.content_digest,
+    )
+
+    assert entry.result_content["type"] == "function_result"
+    assert entry.result_content["call_id"] == binding.provider_call_id
+    assert entry.result_content["items"][0]["text"] == entry.result_content["result"]
+
+
+def test_p06_request_messages_bind_tool_result_to_earlier_native_position():
+    p01 = json.loads(
+        (REPOSITORY_ROOT / "docs/vnext/capability-record.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    case = p01["raw_sdk_and_http"]["cases"]["reject"]
+    resumed = case["processes"][1]["result"]
+    history = SimpleNamespace(
+        messages=tuple(
+            resumed["session_after"]["state"]["in_memory"]["messages"]
+        )
+    )
+    request_messages = tuple(
+        json.loads(case["restore_http"][0]["request_body"])["messages"]
+    )
+
+    positions = request_predecessor_positions(history, request_messages)
+
+    assert {
+        history.messages[position.message_index]["contents"][position.content_index][
+            "type"
+        ]
+        for position in positions
+    } == {"function_call", "function_result"}
+    result_position = next(
+        position
+        for position in positions
+        if history.messages[position.message_index]["contents"][
+            position.content_index
+        ]["type"]
+        == "function_result"
+    )
+    assert result_position.message_index < len(history.messages) - 1
+
+    without_tool_result = tuple(
+        message for message in request_messages if message.get("role") != "tool"
+    )
+    incomplete = request_predecessor_positions(history, without_tool_result)
+    assert all(
+        history.messages[position.message_index]["contents"][position.content_index][
+            "type"
+        ]
+        != "function_result"
+        for position in incomplete
+    )
 
 
 def test_session_manifest_uses_json_mode_for_canonical_saved_at_bytes():

@@ -8,7 +8,8 @@ from agent_framework import AgentSession, Content
 from wuji_core.contracts.sessions import (
     BoundaryObject, BoundaryObjects, MemoryFile, MemoryManifestRoot,
     ModelFrontierEntry, NativeCallBinding, OperationFrontier, ProviderStateRoot,
-    PublishedSession, SessionCompatibility, SessionLimits, ToolFrontierEntry,
+    PublishedSession, RejectedCallFrontierEntry, SessionCompatibility,
+    SessionLimits, ToolFrontierEntry, native_rejection_content,
 )
 from wuji_core.http import canonical_json_bytes, strict_json_loads
 from wuji_maf_worker.approvals import extract_approval_requests, validate_pending
@@ -49,6 +50,28 @@ def _positions(observed, messages):
     return tuple(found[key] for key in sorted(found))
 
 
+def _rejected_entry(history, binding, *, approval_ref, decision_version):
+    expected = native_rejection_content(binding.provider_call_id)
+    matches = []
+    for index, message in enumerate(history.messages):
+        if message.get("role") != "tool":
+            continue
+        for offset, content in enumerate(message.get("contents", [])):
+            if content == expected:
+                matches.append((index, offset, content))
+    if len(matches) != 1:
+        raise ValueError("native rejection result is missing or ambiguous")
+    index, offset, content = matches[0]
+    return RejectedCallFrontierEntry(
+        approval_ref=approval_ref,
+        decision_version=decision_version,
+        call_binding=binding,
+        result_position=_position(history.messages, index, offset),
+        result_content=content,
+        result_digest=digest(content),
+    )
+
+
 @dataclass(frozen=True)
 class RestoredNativeSession:
     """Local public SDK objects, never a substitute for a PublishedSession DTO."""
@@ -70,9 +93,10 @@ class NativeSessionAdapter:
         if len(canonical_json_bytes(body)) > self.limits.max_object_bytes:
             raise ValueError("native root exceeds the fixed object bound")
 
-    def _frontier(self, history, bindings, receipts, pending):
+    def _frontier(self, history, bindings, receipts, pending, rejections):
         models = {}
         tools = {}
+        prior_rejections = ()
         prior = getattr(history, "published", None)
         if prior is not None:
             for entry in prior.history.frontier.model_entries:
@@ -81,6 +105,7 @@ class NativeSessionAdapter:
                     "positions": _positions(originals, history.messages),
                 })
             tools = {entry.tool_call_id: entry for entry in prior.history.frontier.tool_entries}
+            prior_rejections = prior.history.frontier.rejected_calls
         for attempt, originals in history.model_observations.items():
             models[attempt] = ModelFrontierEntry(
                 model_attempt_id=attempt,
@@ -110,15 +135,42 @@ class NativeSessionAdapter:
             if len(positions) != 2 or any(position is None for position in positions):
                 raise ValueError("tool request/result pairing is missing or ambiguous")
             tools[call_id] = entry.model_copy(update={"positions": tuple(positions)})
+        rejected = {}
+        for entry in prior_rejections:
+            binding = by_call.get(entry.call_binding.tool_call_id)
+            if binding is None:
+                raise ValueError("published rejection lost its original call binding")
+            rejected[binding.tool_call_id] = _rejected_entry(
+                history,
+                binding,
+                approval_ref=entry.approval_ref,
+                decision_version=entry.decision_version,
+            )
+        for decision in rejections:
+            binding = NativeCallBinding.model_validate(decision.call_binding)
+            if (
+                decision.decision != "reject"
+                or binding.tool_call_id in rejected
+                or binding.tool_call_id in tools
+            ):
+                raise ValueError("rejected call is duplicated or has an execution receipt")
+            rejected[binding.tool_call_id] = _rejected_entry(
+                history,
+                binding,
+                approval_ref=decision.approval_ref,
+                decision_version=decision.decision_version,
+            )
         pending_ids = {content.id for content in pending}
         return OperationFrontier(
             model_entries=tuple(models.values()), tool_entries=tuple(tools.values()),
             pending_approvals=tuple(b for b in bindings if b.sdk_approval_id in pending_ids),
+            rejected_calls=tuple(rejected.values()),
             archived_history_refs=() if prior is None else prior.history.frontier.archived_history_refs,
         )
 
     def export_boundary(self, *, session, response, history, call_bindings,
-                        tool_receipts, memory, recovery_class, observed_at):
+                        tool_receipts, memory, recovery_class, observed_at,
+                        rejection_decisions=()):
         if not isinstance(session, AgentSession) or recovery_class not in {"settled_boundary", "approval_boundary"}:
             raise ValueError("only observed public native boundaries can be published")
         if observed_at.tzinfo is None or observed_at.utcoffset() is None:
@@ -136,7 +188,13 @@ class NativeSessionAdapter:
             raise ValueError("native calls must first receive a canonical ToolGate identity")
         if response.continuation_token is not None:
             raise ValueError("unfinished native continuation is not a restorable boundary")
-        history.frontier = self._frontier(history, bindings, tool_receipts, pending)
+        history.frontier = self._frontier(
+            history,
+            bindings,
+            tool_receipts,
+            pending,
+            tuple(rejection_decisions),
+        )
         root = history.export()
         if root.session_id != session.session_id or root.compatibility != self.compatibility:
             raise ValueError("native Session/history compatibility mismatch")
