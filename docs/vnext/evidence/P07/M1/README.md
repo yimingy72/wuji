@@ -6,6 +6,10 @@
 `5cfd581129c7991deaddaad9bfdaf8b4ee34b140` 修复并定向验证。当前证据见
 [review-fixes/README.md](review-fixes/README.md)。下文 `bcc64ff` 结果保留为修复前的真实历史证据，不作为当前代码结论。
 
+审查原文已从 SDD scratch 按原字节归档：初审
+[P07-M1-review.md](reviews/P07-M1-review.md)（SHA256 `c51b8eddddc46b8efafc59413265ca50168d9544d0626ea35b16182d8906bbee`）与 PASS 复审
+[P07-M1-rereview.md](reviews/P07-M1-rereview.md)（SHA256 `595ddf15759872004c88b3018b51fcdbc518be72bbdbdd68590518a883d5e0eb`）。
+
 状态：**M1/P07 hosted integration slice passed**。被测代码 SHA 为
 `bcc64ffa67ea3b910f62b065853108cdb7d67614`；核心起点为
 `a014904085108b27cce78f3ffdc30d6d60ad03ef`，P06 既有基线为
