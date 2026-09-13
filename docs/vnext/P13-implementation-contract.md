@@ -28,6 +28,8 @@ Task Origin 使用 TaskView.version，Work 使用 WorkItemView.revision，Artifa
 
 现有 ViewQuery 足够先固定 live/history、节点/边限额及 snapshot/cursor。前端搜索只能查已获授权的展示内容，展开可重新获取新 view 后调整折叠；若后来确需服务器过滤字段，再在 P13 所有权下做明确的窄 OpenAPI 增量，不自行增加通用查询 DSL。
 
+2026-09-13 独立复核后的主代理裁定：公共 `mode=live` 必须不带 `snapshot_id`；`mode=history` 必须带实际保存的 `snapshot_id`。非法组合返回 `422/INVALID_SCHEMA`，不能把历史内容持久化为 live 查询身份。续页仍绑定原 mode/snapshot/query。records 与 snapshots 的实际过期路径统一在单一 OpenAPI 声明 `410`，保留 typed 历史不可用/游标过期恢复语义；这两项修复按新的定向证据记录，不追改原 12 项结果。
+
 Cursor 使用随机 opaque handle，服务端保存分页位置及上述绑定/期限；不能把内部序号 JSON Base64 后仅签名。分页读取完整已保存 materialization，原节点 revision/评估/关系不变。分页可以输出增量片段，但边端点必须已在当前或此前同 view 页内交付；客户端按精确 ID 合并，不能把不同 view 或 query 的页拼接。节点/边各自限额均实际约束每页，未交付完时给 continuation 和明确 truncated，不回传隐藏总数。
 
 每次图页、历史、记录或内容读取先核对当前 ACL、全部实际依据可读性和派生权限。权限变化使旧 view 失效；不以部分已隐藏依据继续展示一个看似完整的 Fact/摘要。原隐藏端点对应的边、标签、摘要和计数也不输出。纯 builder 的端点过滤只是一层保护，不替代该读取边界。allowed_actions 仅为重验后的提示，history 一律空动作。
