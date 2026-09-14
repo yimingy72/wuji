@@ -93,7 +93,13 @@ class InputService:
                 return InputReceipt.model_validate(strict_json_loads(old["receipt_json"]))
             self.sessions._current_writer(tx, work, run)
             self.sessions.require_current_root_writer(tx, published.manifest)
-            self.sessions._frontier(tx, published.history, published.provider_state, allow_pending=True)
+            self.sessions._frontier(
+                tx,
+                published.history,
+                published.provider_state,
+                published.memory,
+                allow_pending=True,
+            )
             if work["input_request_id"]:
                 prior = current_input(tx, work)
                 if prior["status"] == "pending":

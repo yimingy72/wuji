@@ -7,6 +7,7 @@ from uuid import uuid4
 from wuji_core.admission.common import current_run, digest
 from wuji_core.contracts.envelopes import BlobRef, WorkerAssignment
 from wuji_core.contracts.execution import SessionManifest
+from wuji_core.contracts.knowledge import KnowledgeRef
 from wuji_core.contracts.sessions import (
     BoundaryObjects, InputPayload, MessagePosition, ModelFrontierEntry,
     NativeCallBinding,
@@ -122,10 +123,13 @@ def content_versions(history, position, archives):
     return versions
 
 
-def request_predecessor_positions(history, request_messages, *, instructions=None):
+def request_predecessor_positions(
+    history, request_messages, *, instructions=None, external_messages=()
+):
     """Map each provider-wire history message to its unique native predecessor."""
 
     positions, seen = [], set()
+    external = list(external_messages)
     for request_index, request in enumerate(request_messages):
         expected = []
         if (
@@ -136,6 +140,13 @@ def request_predecessor_positions(history, request_messages, *, instructions=Non
             # Harness agent instructions are inserted by the fixed SDK client and
             # are not persisted by HistoryProvider. Their exact bytes remain in
             # the authoritative P06 request and the published Profile snapshot.
+            continue
+        external_key = (request.get("role"), request.get("content"))
+        if external_key in external:
+            # Fixed ContextProvider messages are not stored by HistoryProvider.
+            # Callers may exempt only exact messages reconstructed from trusted,
+            # immutable inputs; consume each expected insertion at most once.
+            external.remove(external_key)
             continue
         if request.get("role") == "assistant":
             for call in request.get("tool_calls", []):
@@ -205,6 +216,8 @@ def request_predecessor_positions(history, request_messages, *, instructions=Non
                 raise DomainError("SESSION_FRONTIER_MISMATCH", 409)
             seen.add(key)
             positions.append(position)
+    if external:
+        raise DomainError("SESSION_FRONTIER_MISMATCH", 409)
     return tuple(positions)
 
 
@@ -274,6 +287,67 @@ class SessionRepository:
                 or len(history.frontier.pending_approvals) > capability["limits"].max_pending_approvals):
             raise DomainError("LIMIT_BLOCKED", 429)
         return capability
+
+    def _memory_context(self, tx, history, memory):
+        """Reconstruct the public ContextProvider message from pinned source bytes."""
+
+        configured = tuple(
+            history.compatibility.profile_snapshot["body"].get("memory_inputs", ())
+        )
+        files = {file.path: file for file in memory.files}
+        if len(files) != len(memory.files) or set(files) != {
+            item.get("path") for item in configured if isinstance(item, dict)
+        }:
+            raise DomainError("INVALID_REFERENCE", 422)
+        rendered_files = []
+        for item in sorted(configured, key=lambda value: value["path"]):
+            try:
+                source_ref = KnowledgeRef.model_validate(item["ref"])
+                file = files[item["path"]]
+            except (KeyError, TypeError, ValueError) as error:
+                raise DomainError("INVALID_REFERENCE", 422) from error
+            if source_ref.entity_type.value != "artifact" or file.ref is None:
+                raise DomainError("INVALID_REFERENCE", 422)
+            source = row(tx.connection.execute(
+                """SELECT artifact.* FROM vnext.snapshot_ref snapshot
+                JOIN vnext.artifact artifact ON
+                  (artifact.tenant_id,artifact.project_id,artifact.task_id,
+                   artifact.entity_id,artifact.revision)=
+                  (snapshot.tenant_id,snapshot.project_id,snapshot.task_id,
+                   snapshot.entity_id,snapshot.revision)
+                WHERE snapshot.tenant_id=%s AND snapshot.project_id=%s
+                  AND snapshot.task_id=%s AND snapshot.snapshot_id=%s
+                  AND snapshot.entity_type='artifact' AND snapshot.entity_id=%s
+                  AND snapshot.revision=%s AND snapshot.access_level<=%s
+                  AND artifact.access_level<=%s""",
+                (*tx.owner, history.snapshot_id, source_ref.id,
+                 source_ref.revision.root, tx.permissions["clearance"],
+                 tx.permissions["clearance"]),
+            ))
+            fixed = self.artifacts.record(tx, file.ref)
+            if (
+                source is None
+                or source["state"] != "sealed"
+                or fixed["state"] != "sealed"
+                or not source["media_type"].startswith("text/")
+                or not fixed["media_type"].startswith("text/")
+            ):
+                raise DomainError("INVALID_REFERENCE", 422)
+            source_bytes = self.artifacts.checked_bytes(source)
+            if self.artifacts.checked_bytes(fixed) != source_bytes:
+                raise DomainError("INPUT_DIGEST_CONFLICT", 409)
+            try:
+                text = source_bytes.decode("utf-8")
+            except UnicodeDecodeError as error:
+                raise DomainError("INVALID_REFERENCE", 422) from error
+            rendered_files.append({"path": item["path"], "text": text})
+        if not rendered_files:
+            return None
+        return canonical_json_bytes({
+            "schema_version": "wuji.session.memory-context.v1",
+            "session_id": history.session_id,
+            "files": rendered_files,
+        }).decode("utf-8")
 
     def _writer(self, access, assignment):
         binding = self.registry.binding(access)
@@ -477,6 +551,19 @@ class SessionRepository:
             objects_by_key[obj.key] = ref
             if obj.key == "history-archive":
                 archives.append(ref)
+        files = []
+        for file in memory.files:
+            if file.object_key is not None:
+                if file.object_key not in objects_by_key:
+                    raise DomainError("INVALID_REFERENCE", 422)
+                files.append(file.model_copy(update={"ref": objects_by_key[file.object_key], "object_key": None}))
+            else:
+                files.append(file)
+        memory_refs = unique_refs([*memory.object_refs, *memory.state_refs, *(f.ref for f in files)])
+        memory = PublishedMemoryManifestRoot.model_validate({**document(memory), "files": files, "object_refs": memory_refs})
+        with self.uow.transaction(worker_access, assignment.identity.task_id, capability="tool_request") as tx:
+            current_run(tx, self.registry.config(tx))
+            memory_context = self._memory_context(tx, history, memory)
         model_entries, response_refs, reused_refs = [], {}, []
         for entry in history.frontier.model_entries:
             record, raw, _, request = models[entry.model_attempt_id]
@@ -503,6 +590,9 @@ class SessionRepository:
                     instructions=history.compatibility.profile_snapshot["body"][
                         "instructions"
                     ],
+                    external_messages=(() if memory_context is None else (
+                        ("user", memory_context),
+                    )),
                 ),
                 "response_digest": response_digest,
                 "response_ref": response_ref,
@@ -547,16 +637,6 @@ class SessionRepository:
             if not equal(enriched, entry.call_binding):
                 raise DomainError("SESSION_FRONTIER_MISMATCH", 409)
             enriched_rejections.append(entry)
-        files = []
-        for file in memory.files:
-            if file.object_key is not None:
-                if file.object_key not in objects_by_key:
-                    raise DomainError("INVALID_REFERENCE", 422)
-                files.append(file.model_copy(update={"ref": objects_by_key[file.object_key], "object_key": None}))
-            else:
-                files.append(file)
-        memory_refs = unique_refs([*memory.object_refs, *memory.state_refs, *(f.ref for f in files)])
-        memory = PublishedMemoryManifestRoot.model_validate({**document(memory), "files": files, "object_refs": memory_refs})
         provider = PublishedProviderStateRoot.model_validate({**document(provider), "call_bindings": enriched_calls,
             "object_refs": unique_refs([*provider.object_refs, *response_refs.values(), *(c.arguments_ref for c in enriched_calls)])})
         frontier = OperationFrontier(model_entries=tuple(model_entries), tool_entries=tuple(tools),
@@ -571,7 +651,7 @@ class SessionRepository:
         # Recheck the complete frontier before writing immutable root bytes.
         with self.uow.transaction(worker_access, assignment.identity.task_id, capability="tool_request") as tx:
             current_run(tx, self.registry.config(tx))
-            self._frontier(tx, history, provider, allow_pending=True)
+            self._frontier(tx, history, provider, memory, allow_pending=True)
         history_ref = save(canonical_json_bytes(document(history)), "application/json", history.object_refs, "history_root")
         provider_ref = save(canonical_json_bytes(document(provider)), "application/json", provider.object_refs, "provider_root")
         memory_ref = save(canonical_json_bytes(document(memory)), "application/json", memory.object_refs, "memory_root")
@@ -635,8 +715,9 @@ class SessionRepository:
             messages.extend(archive["messages"])
         return tuple(messages)
 
-    def _frontier(self, tx, history, provider, *, allow_pending):
+    def _frontier(self, tx, history, provider, memory, *, allow_pending):
         archives = self._archives(tx, history)
+        memory_context = self._memory_context(tx, history, memory)
         model_positions = set()
         expected_models = {e.model_attempt_id for e in history.frontier.model_entries}
         actual_models = {r[0] for r in tx.connection.execute(
@@ -657,6 +738,9 @@ class SessionRepository:
                         instructions=history.compatibility.profile_snapshot["body"][
                             "instructions"
                         ],
+                        external_messages=(() if memory_context is None else (
+                            ("user", memory_context),
+                        )),
                     ) != entry.predecessor_positions):
                 raise DomainError("SESSION_FRONTIER_MISMATCH", 409)
             response_start = min(position.message_index for position in entry.positions)
@@ -1080,7 +1164,8 @@ class SessionRepository:
             provider = PublishedProviderStateRoot.model_validate(strict_json_loads(bodies[ref_key(manifest.provider_state_ref)]))
             memory = PublishedMemoryManifestRoot.model_validate(strict_json_loads(bodies[ref_key(manifest.memory_manifest_ref)]))
             self._root_agreement(manifest, history, provider, memory, capability, records)
-            self._frontier(tx, history, provider, allow_pending=manifest.recovery_class.value == "approval_boundary")
+            self._frontier(tx, history, provider, memory,
+                allow_pending=manifest.recovery_class.value == "approval_boundary")
             level = max(r["access_level"] for r in records.values())
             publication_id, manifest_ref = "session:" + str(uuid4()), "session-checkpoint:" + str(uuid4())
             tx.connection.execute("INSERT INTO vnext.publication(tenant_id,project_id,task_id,publication_id,kind,access_level) VALUES(%s,%s,%s,%s,'session_manifest',%s)", (*tx.owner, publication_id, level))
@@ -1152,6 +1237,7 @@ class SessionRepository:
                 if holder is None:
                     raise DomainError("STALE_EXECUTION", 409)
             self._frontier(tx, published.history, published.provider_state,
+                published.memory,
                 allow_pending=manifest.recovery_class.value == "approval_boundary")
             return RecoveryCheck(resumable=True, manifest_ref=published.receipt.manifest_ref,
                 session_id=manifest.session_id, checkpoint_revision=manifest.checkpoint_revision.root,

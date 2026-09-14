@@ -169,6 +169,7 @@ def _configure_scheduler(
     gateway_url: str = "https://model.fixture.invalid/v1",
     approval_required: bool = False,
     max_single_output_bytes: int = 4096,
+    max_total_output_bytes: int = 65_536,
     evaluation_mode: str | None = None,
 ) -> None:
     registry = __import__(
@@ -180,7 +181,7 @@ def _configure_scheduler(
         gateway_url=gateway_url,
         max_model_requests=8,
         max_tool_calls=8,
-        max_total_output_bytes=65_536,
+        max_total_output_bytes=max_total_output_bytes,
         allowed_tool_refs=[TOOL_REF],
     )
     config = config.model_copy(
@@ -333,6 +334,7 @@ def scheduler_case(
     gateway_url: str = "https://model.fixture.invalid/v1",
     approval_required: bool = False,
     max_single_output_bytes: int = 4096,
+    max_total_output_bytes: int = 65_536,
     evaluation_mode: str | None = None,
 ):
     keys = SchedulerKeys.generate()
@@ -351,6 +353,7 @@ def scheduler_case(
             gateway_url=gateway_url,
             approval_required=approval_required,
             max_single_output_bytes=max_single_output_bytes,
+            max_total_output_bytes=max_total_output_bytes,
             evaluation_mode=evaluation_mode,
         )
         artifact_ref, claim_ref, intent_ref = _publish_intent(

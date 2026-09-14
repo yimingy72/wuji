@@ -18,10 +18,12 @@ from wuji_core.persistence.uow import AccessContext, DomainError
 def create_worker_host_router(bridge):
     router = VNextAPIRouter()
 
-    async def invoke(request, method, payload):
+    async def invoke(request, method, payload, *, exclude_unset=False):
         access = AccessContext(current_principal(request), request.state.request_id)
         try:
             result = await run_in_threadpool(method, access, payload)
+            if exclude_unset and hasattr(result, "model_dump"):
+                result = result.model_dump(mode="python", exclude_unset=True)
             return DecimalJSONResponse(document(result), headers={"Cache-Control": "no-store"})
         except (DomainError, ValidationError, psycopg.Error, OSError, ValueError, TimeoutError) as error:
             return error_response(request, error)
@@ -32,7 +34,12 @@ def create_worker_host_router(bridge):
 
     @router.post("/internal/v2/worker-host/resolve")
     async def resolve(request: Request, payload: WorkerBridgeRequest):
-        return await invoke(request, bridge.resolve, payload.assignment)
+        return await invoke(
+            request,
+            bridge.resolve,
+            payload.assignment,
+            exclude_unset=True,
+        )
 
     @router.post("/internal/v2/worker-host/archive-sdk")
     async def archive(request: Request, payload: WorkerArchiveRequest):

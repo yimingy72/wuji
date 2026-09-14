@@ -530,6 +530,112 @@ def test_real_rejection_http_restores_native_denial_without_execution(
         assert result_receipt["components"] == []
 
 
+def test_fixed_memory_and_native_compaction_survive_two_child_generations(
+    db_environment,
+    tmp_path,
+    audit_directory,
+):
+    fixed_memory = {
+        "counterevidence.txt": b"the current hypothesis remains unconfirmed\n",
+        "facts/current.txt": b"fixture memory revision seven\n",
+    }
+    with p08_candidate_case(
+        db_environment,
+        tmp_path,
+        audit_directory,
+        initial_child=True,
+        memory_files=fixed_memory,
+        compaction_enabled=True,
+        max_context_window_tokens=1_200,
+        max_output_tokens=80,
+        session_max_total_bytes=131_072,
+    ) as case:
+        case.upstream.release_first_response.set()
+        initial = case.child_execute(case.assignment, expect_input=True)
+        assert initial.exited["observation"]["process"]["exit_code"] == 0, (
+            initial.worker_stderr
+        )
+        assert initial.input_receipt is not None
+        assert initial.session_receipt is not None
+        first = _published_session(case)
+        assert first.memory.enabled is True
+        assert {file.path for file in first.memory.files} == set(fixed_memory)
+        for file in first.memory.files:
+            key = file.ref.id + "@" + file.ref.version.root
+            assert first.object_bytes[key] == fixed_memory[file.path]
+            assert file.ref.sha256.root == case.memory_source_refs[
+                file.path
+            ].sha256.root
+
+        approval_ref = initial.input_receipt.approval_refs[0]
+        response = case.approval_client.post(
+            f"/api/v2/approvals/{approval_ref}/decisions",
+            json={
+                "schema_version": "wuji.api.v2",
+                "decision": "approve",
+                "expected_version": "1",
+                "reason": "fixed memory and compaction recovery",
+            },
+            headers={
+                "Authorization": "Bearer " + case.approval_token,
+                "Idempotency-Key": "p08-memory-compaction-approve",
+            },
+        )
+        assert response.status_code == 202, response.text
+        resumed_assignment = next(
+            item
+            for item in case.scheduler.scheduler.tick(limit=2).assignments
+            if item.identity.work_item_id == case.assignment.identity.work_item_id
+        )
+        resumed = case.child_execute(resumed_assignment)
+        assert resumed.exited["observation"]["process"]["exit_code"] == 0, (
+            resumed.worker_stderr
+        )
+
+        final = _published_session(case)
+        assert final.receipt.checkpoint_revision == "2"
+        assert len(final.history.frontier.model_entries) == 2
+        original_binding = first.provider_state.call_bindings[0]
+        restored_binding = final.provider_state.call_bindings[0]
+        assert restored_binding.model_dump(exclude={"position"}) == (
+            original_binding.model_dump(exclude={"position"})
+        )
+        assert restored_binding.position.model_dump(exclude={"message_digest"}) == (
+            original_binding.position.model_dump(exclude={"message_digest"})
+        )
+        assert final.history.frontier.archived_history_refs
+        for file in final.memory.files:
+            key = file.ref.id + "@" + file.ref.version.root
+            assert final.object_bytes[key] == fixed_memory[file.path]
+        excluded = [
+            message
+            for message in final.history.messages
+            if message.get("additional_properties", {}).get("_excluded") is True
+        ]
+        assert {message["role"] for message in excluded} == {"assistant", "tool"}
+        assert {
+            message["additional_properties"]["_group"]["id"]
+            for message in excluded
+        } == {"group_chatcmpl-m1-tool"}
+        assert {
+            message["additional_properties"]["_exclude_reason"]
+            for message in excluded
+        } == {"truncation"}
+        for entry in final.history.frontier.model_entries:
+            assert entry.request_messages
+            assert entry.request_messages_digest == sha256(
+                canonical_json_bytes(entry.request_messages)
+            ).hexdigest()
+        assert all(
+            sum(
+                "wuji.session.memory-context.v1" in message.get("content", "")
+                for message in entry.request_messages
+                if isinstance(message.get("content"), str)
+            ) == 1
+            for entry in final.history.frontier.model_entries
+        )
+
+
 def _published_session(case):
     with case.control.uow.transaction(
         case.scheduler.receiver_access,

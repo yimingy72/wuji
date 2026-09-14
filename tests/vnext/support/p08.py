@@ -167,6 +167,7 @@ def p08_candidate_case(
     compaction_enabled=False,
     max_context_window_tokens=8_192,
     max_output_tokens=2_048,
+    session_max_total_bytes=65_536,
 ):
     """One production Scheduler assignment through PG, Gates and released MAF."""
 
@@ -201,7 +202,7 @@ def p08_candidate_case(
         max_objects=64,
         max_reference_depth=8,
         max_object_bytes=32_768,
-        max_total_bytes=65_536,
+        max_total_bytes=session_max_total_bytes,
         max_messages=128,
         max_pending_approvals=4,
     )
@@ -293,6 +294,7 @@ def p08_candidate_case(
             gateway_url=upstream.url,
             approval_required=True,
             max_single_output_bytes=fixed_limits.max_object_bytes,
+            max_total_output_bytes=fixed_limits.max_total_bytes,
             evaluation_mode="mechanism_synthetic",
         ) as scheduler:
             control = scheduler.control
