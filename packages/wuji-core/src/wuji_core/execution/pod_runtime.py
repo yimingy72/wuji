@@ -376,11 +376,29 @@ The Task Pod only receives its own restricted runtime/TLS credentials.
         with self._mutex:
             self._require_open()
             try:
+                revoked_uid = None
                 with self.permits.transaction() as tx:
-                    self.permits.in_transaction(tx)
+                    # Read the durable receiver binding before checking that the
+                    # Task is still runnable.  A cancelled/revoked Task must be
+                    # able to stop its exact previously registered Pod; failing
+                    # closed at this point must not leak the environment.
                     existing = self._registered(tx)
                     if existing is not None:
                         self._match_registered(existing)
+                    try:
+                        self.permits.in_transaction(tx)
+                    except PermitDenied:
+                        if existing is None or not existing["pod_uid"]:
+                            raise
+                        revoked_uid = existing["pod_uid"]
+                if revoked_uid is not None:
+                    stopped = self.stop(pod_uid=revoked_uid)
+                    self._registered_uid = None
+                    self._observed_uid = None
+                    return RuntimeObservation(
+                        stopped.state, stopped.pod_name, stopped.pod_uid,
+                        "permit_revoked",
+                    )
                 # Once P09 has observed a UID, absence means reconcile the old
                 # generation; it is never permission to create a replacement.
                 if self._registered_uid is not None:
