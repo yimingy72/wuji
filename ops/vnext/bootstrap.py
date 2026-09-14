@@ -21,6 +21,9 @@ def initialize(config):
     params = config["database"]
     tls = {"sslmode":"verify-full", "sslrootcert":config["ca_file"], "connect_timeout":5}
     roles = config["roles"]
+    capacity = config.get("capacity", 2)
+    if type(capacity) is not int or not 1 <= capacity <= 1000000:
+        raise ValueError("deployment capacity must be a positive bounded integer")
     if set(roles) != {"wuji_migration", "wuji_app", "wuji_pod"}:
         raise ValueError("only the isolated deployment database roles are supported")
     with psycopg.connect(**params, **tls, autocommit=True) as admin:
@@ -53,7 +56,7 @@ def initialize(config):
             connection.execute("INSERT INTO vnext.task_assessment_policy(tenant_id,project_id,task_id,policy_version) VALUES(%s,%s,%s,'assessment-policy-v1')",owner)
             for key,tier,tenant_binding in (("deployment-global","global",None),
                     ("model:"+config["admission"]["model"]["ref"],"model",None),("tenant:"+tenant,"tenant",tenant)):
-                connection.execute("INSERT INTO vnext.capacity_pool(pool_key,tier,tenant_id,capacity,published_ref) VALUES(%s,%s,%s,2,'deployment-v1') ON CONFLICT (pool_key) DO NOTHING",(key,tier,tenant_binding))
+                connection.execute("INSERT INTO vnext.capacity_pool(pool_key,tier,tenant_id,capacity,published_ref) VALUES(%s,%s,%s,%s,'deployment-v1') ON CONFLICT (pool_key) DO NOTHING",(key,tier,tenant_binding,capacity))
                 connection.execute("INSERT INTO vnext.task_capacity_pool(tenant_id,project_id,task_id,pool_key) VALUES(%s,%s,%s,%s) ON CONFLICT DO NOTHING",(*owner,key))
             register_tool_definition(connection,tenant_id=tenant,definition=config["tool"])
             register_executor(connection,owner=owner,executor=config["executor"])

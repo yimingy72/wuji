@@ -381,7 +381,7 @@ def configure(root, state, images):
     config=TaskRuntimeConfig(**{**config_values,**{k:ContainerResources(**config_values[k]) for k in ("agent_resources","kali_resources")}})
     tls={p.name:p.read_bytes() for p in (state/"tls").iterdir() if p.suffix in {".key",".crt"} and p.name!="ca.key"}
     bootstrap={"database":{**db,"user":"bootstrap","password":(state/"credentials/bootstrap.password").read_text()},
-        "roles":passwords,"ca_file":"/config/ca.crt","owner":owner,"definition":definition,"admission":admission,
+        "capacity":1,"roles":passwords,"ca_file":"/config/ca.crt","owner":owner,"definition":definition,"admission":admission,
         "operator_subject":"operator","pod_controller_subject":"pod-controller", "identity":{"issuer":issuer,"audience":audience},
         "public_key_file":"/config/identity.pub","operator_token_file":"/run/wuji/bootstrap/operator.token",
         "task_access":{"operator":{"write":True,"control":True},"scheduler":{"admit":True},
