@@ -189,6 +189,51 @@ def refresh_images(root, state, images):
         raise ValueError("runtime ConfigMap task-config binding differs")
     runtime_data["deployment.json"] = canonical_json_bytes(runtime).decode()
 
+    # ``platform.json`` is the actual apply bundle.  The sidecar manifests above
+    # are useful for inspection, but refreshing only those files leaves the live
+    # runtime ConfigMap on the old image pair and recreates the exact
+    # Controller/template mismatch this command is meant to repair.  Update the
+    # existing owned bundle in place, changing only published image references
+    # and the runtime deployment payload; credentials, PVCs, and Task-owned
+    # resources remain byte-for-byte untouched.
+    platform_path = configuration / "platform.json"
+    platform_manifest = _read_json(platform_path)
+    if platform_manifest.get("kind") != "List" or not isinstance(platform_manifest.get("items"), list):
+        raise ValueError("platform deployment manifest is invalid")
+    platform_items = platform_manifest["items"]
+    runtime_cm_matches = [
+        item for item in platform_items
+        if item.get("kind") == "ConfigMap"
+        and (item.get("metadata") or {}).get("name") == runtime_configmap.get("metadata", {}).get("name")
+    ]
+    if len(runtime_cm_matches) != 1:
+        raise ValueError("platform bundle must have one runtime ConfigMap")
+    platform_runtime_cm = runtime_cm_matches[0]
+    platform_runtime_data = platform_runtime_cm.get("data")
+    if not isinstance(platform_runtime_data, dict) or "deployment.json" not in platform_runtime_data:
+        raise ValueError("platform runtime ConfigMap deployment.json is required")
+    platform_runtime_config = json.loads(platform_runtime_data["deployment.json"])
+    platform_runtime_task = ((platform_runtime_config.get("pod_runtime") or {}).get("task_config"))
+    if not isinstance(platform_runtime_task, dict) or _without_images(platform_runtime_task) != _without_images(base):
+        raise ValueError("platform runtime ConfigMap task-config binding differs")
+    platform_runtime_data["deployment.json"] = canonical_json_bytes(runtime).decode()
+
+    for deployment_name in ("runtime", "scheduler", "gates"):
+        matches = [
+            item for item in platform_items
+            if item.get("kind") == "Deployment"
+            and (item.get("metadata") or {}).get("name") == deployment_name
+        ]
+        if len(matches) != 1:
+            raise ValueError(f"platform bundle must have one {deployment_name} Deployment")
+        containers = ((matches[0].get("spec") or {}).get("template") or {}).get("spec", {}).get("containers")
+        if not isinstance(containers, list) or not containers:
+            raise ValueError(f"{deployment_name} Deployment containers are required")
+        for container in containers:
+            if not isinstance(container, dict) or not isinstance(container.get("image"), str):
+                raise ValueError(f"{deployment_name} Deployment image binding is invalid")
+            container["image"] = refs["platform"]
+
     task_configmaps_path = configuration / "task-configmaps.json"
     task_configmaps = _read_json(task_configmaps_path)
     if task_configmaps.get("kind") != "List" or not isinstance(task_configmaps.get("items"), list):
@@ -238,7 +283,7 @@ def refresh_images(root, state, images):
     }
 
     touched = [*task_files, runtime_path, runtime_manifest_path,
-               runtime_configmap_path, task_configmaps_path,
+               runtime_configmap_path, platform_path, task_configmaps_path,
                configuration / "task-pod.json", configuration / "image-set.json",
                configuration / "refresh-manifest.json"]
     backup = _refresh_backup(state, touched)
@@ -249,6 +294,7 @@ def refresh_images(root, state, images):
             + [(runtime_path, runtime),
                (runtime_manifest_path, runtime_manifest),
                (runtime_configmap_path, runtime_configmap),
+               (platform_path, platform_manifest),
                (task_configmaps_path, task_configmaps),
                (configuration / "task-pod.json", task_pod),
                (configuration / "image-set.json", image_set_document),
@@ -339,7 +385,7 @@ def configure(root, state, images):
         "operator_subject":"operator","pod_controller_subject":"pod-controller", "identity":{"issuer":issuer,"audience":audience},
         "public_key_file":"/config/identity.pub","operator_token_file":"/run/wuji/bootstrap/operator.token",
         "task_access":{"operator":{"write":True,"control":True},"scheduler":{"admit":True},
-            "pod-controller":{"control":True,"observe":True},"receiver":{"observe":True,"settle":True},
+            "pod-controller":{"control":True,"observe":True,"admit":True},"receiver":{"observe":True,"settle":True},
             "collector":{"capture":True,"settle":True},"gate":{}},
         "tool":{"ref":tool_ref,"revision":"1","published_at":published,"name":"read_workspace",
             "input_schema":{"type":"object","additionalProperties":False,"required":["path"],"properties":{"path":{"type":"string"}}},

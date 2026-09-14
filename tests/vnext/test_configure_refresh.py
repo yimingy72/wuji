@@ -105,6 +105,54 @@ def _task_configmaps():
     }
 
 
+def _platform_manifest(runtime, platform_image=OLD_PLATFORM):
+    return {
+        "apiVersion": "v1",
+        "kind": "List",
+        "items": [
+            {
+                "apiVersion": "v1",
+                "kind": "ConfigMap",
+                "metadata": {"name": "runtime-config", "namespace": NAMESPACE},
+                "data": {
+                    "deployment.json": json.dumps(runtime, sort_keys=True, separators=(",", ":")),
+                    "profiles.json": "[]",
+                },
+            },
+            *[
+                {
+                    "apiVersion": "apps/v1",
+                    "kind": "Deployment",
+                    "metadata": {"name": name, "namespace": NAMESPACE},
+                    "spec": {
+                        "template": {
+                            "spec": {
+                                "containers": [
+                                    {"name": name, "image": platform_image},
+                                    *([{"name": "synthetic-model", "image": platform_image}] if name == "gates" else []),
+                                ]
+                            }
+                        }
+                    },
+                }
+                for name in ("runtime", "scheduler", "gates")
+            ],
+            {
+                "apiVersion": "v1",
+                "kind": "Secret",
+                "metadata": {"name": "runtime-credentials", "namespace": NAMESPACE},
+                "data": {"opaque": "preserve-me"},
+            },
+            {
+                "apiVersion": "v1",
+                "kind": "PersistentVolumeClaim",
+                "metadata": {"name": "runtime-state", "namespace": NAMESPACE},
+                "spec": {"resources": {"requests": {"storage": "1Gi"}}},
+            },
+        ],
+    }
+
+
 def test_refresh_images_preserves_binding_and_aligns_template(tmp_path):
     state = tmp_path / "state"
     bundle = state / "configuration"
@@ -157,6 +205,7 @@ def test_refresh_images_preserves_binding_and_aligns_template(tmp_path):
     _write(bundle / "runtime-deployment.json", runtime)
     _write(bundle / "runtime-deployment-manifest.json", runtime_manifest)
     _write(bundle / "runtime-configmap.json", runtime_configmap)
+    _write(bundle / "platform.json", _platform_manifest(runtime))
     _write(bundle / "task-configmaps.json", _task_configmaps())
 
     result = configure.refresh_images(
@@ -197,6 +246,14 @@ def test_refresh_images_preserves_binding_and_aligns_template(tmp_path):
     assert cm_deployment["pod_runtime"]["task_config"] == deployment["pod_runtime"]["task_config"]
     assert runtime_cm["data"]["profiles.json"] == "[]"
     assert json.loads((bundle / "runtime-deployment-manifest.json").read_bytes())["spec"]["template"]["spec"]["containers"][0]["image"] == NEW_PLATFORM
+    applied = json.loads((bundle / "platform.json").read_bytes())
+    applied_runtime_cm = next(item for item in applied["items"] if item["kind"] == "ConfigMap" and item["metadata"]["name"] == "runtime-config")
+    assert json.loads(applied_runtime_cm["data"]["deployment.json"])["pod_runtime"]["task_config"] == deployment["pod_runtime"]["task_config"]
+    for name in ("runtime", "scheduler", "gates"):
+        applied_deployment = next(item for item in applied["items"] if item["kind"] == "Deployment" and item["metadata"]["name"] == name)
+        assert {container["image"] for container in applied_deployment["spec"]["template"]["spec"]["containers"]} == {NEW_PLATFORM}
+    assert next(item for item in applied["items"] if item["kind"] == "Secret")["data"] == {"opaque": "preserve-me"}
+    assert next(item for item in applied["items"] if item["kind"] == "PersistentVolumeClaim")["spec"] == {"resources": {"requests": {"storage": "1Gi"}}}
     assert json.loads((bundle / "public.json").read_bytes())["owner"] == owner
     assert json.loads((bundle / "task-configmaps.json").read_bytes()) == _task_configmaps()
     assert build_task_pod(task_runtime)["metadata"]["annotations"]["wuji.dev/template-digest"] == task_runtime.template_digest
