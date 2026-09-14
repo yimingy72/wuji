@@ -6,12 +6,12 @@ dependencies = [
   "wuji-core",
   "agent-framework-core==1.18.0",
   "agent-framework-openai==1.14.3",
+  "httpx==0.28.1",
 ]
 
 [dependency-groups]
 dev = [
   "datamodel-code-generator==0.79.0",
-  "httpx==0.28.1",
   "psycopg[binary]==3.3.5",
   "pytest==9.1.1",
 ]
