@@ -1,3 +1,4 @@
+import { authUrl } from './config';
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const projectPathPattern = /^\/projects(?:\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:\/tasks(?:\/(new|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}))?)?)?\/?$/i;
 
@@ -44,6 +45,5 @@ export function loginPath(returnTo: string): string {
 }
 
 export function beginLoginPath(returnTo: string): string {
-  const search = new URLSearchParams({ return_to: normalizeReturnTo(returnTo) });
-  return `/api/v1/auth/login?${search.toString()}`;
+  return authUrl(normalizeReturnTo(returnTo));
 }

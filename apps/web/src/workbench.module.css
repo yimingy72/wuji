@@ -41,6 +41,17 @@
 .skip:focus { top: 8px; }
 
 .eyebrow { margin-bottom: 8px; color: var(--muted); font: 10px/1.4 var(--mono); letter-spacing: .13em; }
+.content { min-width: 0; display: flex; flex-direction: column; }
+.railMark { margin-top: auto; color: var(--muted); font-size: 17px; }
+.staticShellPage { width: min(920px, 100%); margin: auto; display: grid; gap: 18px; }
+.staticShellPage h1 { font-size: clamp(26px, 4vw, 38px); }
+.lede { max-width: 680px; color: var(--muted); font-size: 15px; }
+.integrationPanel { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.integrationItem { min-width: 0; display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 16px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); }
+.integrationIcon { width: 32px; height: 32px; display: grid; place-items: center; color: var(--accent); background: var(--selected); border-radius: 6px; }
+.integrationItem strong { display: block; font-size: 12px; }
+.integrationItem p { margin-top: 3px; overflow-wrap: anywhere; color: var(--muted); font: 10px/1.5 var(--mono); }
+@media (max-width: 700px) { .integrationPanel { grid-template-columns: minmax(0, 1fr); } }
 .centerStatus { min-height: 300px; flex: 1; display: grid; place-items: center; color: var(--muted); }
 .privacy { width: min(620px, 100%); margin: auto; }
 .alert { width: min(680px, 100%); }

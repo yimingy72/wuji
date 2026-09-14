@@ -1,3 +1,4 @@
+import { apiUrl } from '../../config';
 import { Alert, Button, Spin } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
 import type {
@@ -171,8 +172,8 @@ export async function readTopologySnapshot(
 ): Promise<TopologySnapshotInput> {
   let response: Response;
   try {
-    response = await fetch(topologyRequestPath(taskId, mode, snapshotId), {
-      credentials: 'same-origin',
+    response = await fetch(apiUrl(topologyRequestPath(taskId, mode, snapshotId)), {
+      credentials: 'include',
       headers: { Accept: 'application/json' },
       signal,
     });

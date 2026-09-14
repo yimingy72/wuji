@@ -27,8 +27,11 @@ import {
 } from './queries';
 import { isProjectId, loginPath, returnToFromRequest } from './routing';
 import { getIdentitySnapshot } from './state';
+import { isWebIntegrationConfigured } from './config';
+import { StaticShellPage } from './StaticShell';
 
 async function requireSession(request: Request) {
+  if (!isWebIntegrationConfigured) throw redirect('/');
   try {
     return await loadCurrentSession();
   } catch (error) {
@@ -89,8 +92,8 @@ export const router = createBrowserRouter([
     hydrateFallbackElement: <HydrateFallbackPage />,
     errorElement: <AppearanceProvider><RouteErrorPage /></AppearanceProvider>,
     children: [
-      { index: true, loader: () => redirect('/projects') },
-      { path: 'login', element: <LoginPage /> },
+      { index: true, element: isWebIntegrationConfigured ? undefined : <StaticShellPage />, loader: isWebIntegrationConfigured ? () => redirect('/projects') : undefined },
+      { path: 'login', element: isWebIntegrationConfigured ? <LoginPage /> : <StaticShellPage /> },
       {
         path: 'projects',
         loader: projectsLoader,
@@ -124,7 +127,7 @@ export const router = createBrowserRouter([
       { path: 'projects/:projectId/drafts', loader: projectLoader, element: <DraftsPage />, errorElement: <RouteErrorPage /> },
       { path: 'projects/:projectId/drafts/:draftId', loader: projectLoader, element: <CreationPage />, errorElement: <RouteErrorPage /> },
       { path: 'settings/tenants/:tenantId/models', loader: async ({request}) => { await prepareProjectsRoute(); await requireSession(request); return null; }, element: <ModelsPage />, errorElement: <RouteErrorPage /> },
-      { path: '*', element: <NotFoundPage /> },
+      { path: '*', element: isWebIntegrationConfigured ? <NotFoundPage /> : <StaticShellPage /> },
     ],
   },
 ]);

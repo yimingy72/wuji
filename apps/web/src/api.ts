@@ -1,3 +1,4 @@
+import { apiUrl } from './config';
 import type { components } from '@wuji/contracts/types';
 import {
   validateAssessmentView, validateObservationPage, validateVerificationPage, validateVerificationDetail,
@@ -107,8 +108,8 @@ async function getValidated<T>(
 ): Promise<T> {
   let response: Response;
   try {
-    response = await fetch(path, {
-      credentials: 'same-origin',
+    response = await fetch(apiUrl(path), {
+      credentials: 'include',
       headers: { Accept: 'application/json' },
       signal,
     });
@@ -146,10 +147,10 @@ async function postValidated<T>(
 ): Promise<T> {
   let response: Response;
   try {
-    response = await fetch(path, {
+    response = await fetch(apiUrl(path), {
       method,
-      mode: 'same-origin',
-      credentials: 'same-origin',
+      mode: 'cors',
+      credentials: 'include',
       headers: {
         Accept: 'application/json',
         'Content-Type': 'application/json',
@@ -325,9 +326,9 @@ export function postTaskControl(
 export async function postLogout(csrfToken: string, signal: AbortSignal): Promise<void> {
   let response: Response;
   try {
-    response = await fetch('/api/v1/auth/logout', {
+    response = await fetch(apiUrl('/api/v1/auth/logout'), {
       method: 'POST',
-      credentials: 'same-origin',
+      credentials: 'include',
       headers: {
         Accept: 'application/json',
         'X-CSRF-Token': csrfToken,
