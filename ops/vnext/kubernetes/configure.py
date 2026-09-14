@@ -413,7 +413,7 @@ def configure(root, state, images):
             settings["secret_refs"]={"signing-key":"/run/wuji/credentials/signing.key","encryption-key":"/run/wuji/credentials/encryption.key"}
         if name=="runtime":
             credentials["receiver.token"]=tokens["receiver"]
-            settings.update(task_ids=[task],receiver_token_file="/run/wuji/credentials/receiver.token",
+            settings.update(task_ids=[task],work_kinds=["reason","explore","report"],receiver_token_file="/run/wuji/credentials/receiver.token",
                 supervisor_url=f"https://task-agent.{NAMESPACE}.svc:8443",host_origin=f"https://runtime.{NAMESPACE}.svc:8443",
                 model_gate_url=f"https://gates.{NAMESPACE}.svc:8443/internal/v2/model",tool_gate_url=f"https://gates.{NAMESPACE}.svc:8443/internal/v2/tool-calls",
                 public_commands=True,public_approvals=True,journal_path="/var/lib/wuji/platform/state/dispatch.sqlite3",
@@ -455,6 +455,29 @@ def configure(root, state, images):
         obj=secret(config.resource_names[role+"_auth"],{bearer_name:tokens[bearer_subject],"tls.crt":tls["task-"+role+".crt"],"tls.key":tls["task-"+role+".key"]})
         obj["metadata"].update(labels=config.identity_labels,annotations=config.ownership_annotations);objects.append(obj)
         svc=service("task-"+role,8443 if role=="agent" else 8444);svc["spec"]["selector"]=config.identity_labels;objects.append(svc)
+    # Populate only the synthetic mechanism fixture through a Kubernetes Job.
+    # The production ToolGate still authorizes and records the subsequent read.
+    initializer_name = config.task_prefix + "-workspace-init"
+    initializer_meta = metadata(initializer_name)
+    initializer_meta["labels"].update(config.identity_labels)
+    initializer_meta["annotations"] = config.ownership_annotations
+    objects.append({"apiVersion":"batch/v1","kind":"Job","metadata":initializer_meta,
+        "spec":{"backoffLimit":0,"activeDeadlineSeconds":120,"template":{
+            "metadata":{"labels":dict(initializer_meta["labels"]),"annotations":dict(initializer_meta["annotations"])},
+            "spec":{"automountServiceAccountToken":False,"nodeSelector":{"kubernetes.io/arch":"arm64"},
+                "restartPolicy":"Never","securityContext":{"runAsNonRoot":True,"fsGroup":10000,
+                    "seccompProfile":{"type":"RuntimeDefault"}},
+                "containers":[{"name":"workspace-init","image":image_refs["kali"],
+                    "command":["sh","-c","umask 077; printf 'wuji-c2-fixture-v1\n' > /workspace/version.txt"],
+                    "securityContext":{"runAsUser":10002,"runAsGroup":10000,"runAsNonRoot":True,
+                        "allowPrivilegeEscalation":False,"readOnlyRootFilesystem":True,
+                        "capabilities":{"drop":["ALL"]}},
+                    "volumeMounts":[{"name":"kali-work","mountPath":"/workspace"},
+                        {"name":"tmp","mountPath":"/tmp"}],
+                    "resources":{"requests":{"cpu":"25m","memory":"32Mi"},
+                        "limits":{"cpu":"250m","memory":"128Mi"}}}],
+                "volumes":[{"name":"kali-work","persistentVolumeClaim":{"claimName":config.resource_names["kali_work"]}},
+                    {"name":"tmp","emptyDir":{"sizeLimit":"16Mi"}}]}}}})
     objects += [{"apiVersion":"v1","kind":"ServiceAccount","metadata":metadata("runtime")},
         {"apiVersion":"rbac.authorization.k8s.io/v1","kind":"Role","metadata":metadata("runtime"),"rules":[
             {"apiGroups":[""],"resources":["pods"],"verbs":["get","list","create","delete"]},
