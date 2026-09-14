@@ -14,7 +14,7 @@
 - A2：`9a83e64`接入0015/0016增量迁移；[原输出](../../../work/p08/a2-session-writer-exit-1/stdout.txt)为6 passed / 23.60s / exit0，覆盖已知旧0014升级及精确退出撤销条件；不是新增6项真实OS退出验收。
 - B1：`37aa463`移除测试中重复安装已统一迁移locator的前提；[原输出](../../../work/p11/b1-control-api-2/stdout.txt)为2 passed / 1.75s / exit0，实际PG+签名HTTP路由。前一安装冲突失败保留；这些本地结果的永久成果包尚待收口。
 - C0：生产核心`3bd7d8a`/`e89dea8`、0017迁移`890b540`及SOL消费者修复`d2beac6`；Remote 7 passed / 14.81s，另2项Pod许可/receiver数据库检查通过。已有[永久原始证据、截图、HTTP/SQL与源码绑定](../../vnext/evidence/P10/runtime-adapters/README.md)，归档提交`eccc155`；严格TLS、丢ACK保持unknown、错误身份拒绝等按包内范围通过。记录型PodClient不代表K8s运行。
-- C1/C2：`9d42f5e`/`708accc`已提交TLS与arm64部署装配；独立K8s测试namespace、PG及PVC已实际创建，完整Task Pod执行链仍in-progress，不能以镜像/Job或资源创建标通过。
+- C1/C2：`9d42f5e`/`708accc`完成TLS与arm64部署装配；随后 `a47e198` 修正Worker生产依赖、`3e79cb9`修正合成模型完整endpoint、`2a0c7ee`/`bc0f0f1`补齐work kind与workspace初始化、`df5c926`固定单Work容量。fresh6实际K8s链路已通过：[永久证据](../../vnext/evidence/P10/k8s-c2-20260914/README.md)，代码源 `df5c926`，Pod UID `6db41752-9826-4687-aae4-b9cf5e640632`；Reason/Explore各1项完成、4次模型200、2次Kali读取、2次accepted Run、2个sealed Artifact/Observation链和2个P04结果提交。随后通过正式cancel及 `556b8f4` stop修复完成receiver禁用、容量归零和Pod删除。范围限单一合成机制Task，不扩大为完整P08/P12或生产验收。
 - A3：固定memory输入与原生compaction继续实施；`a455363`增加固定输入来源，`cfb1c2d`/`7956660`补对应wire及生成类型。实际child首次因缺wire字段在resolve失败已保留；后续真实child验证仍在进行，纯API/生成检查不替代恢复验收。
 
 | 范围 | 状态 | 说明 |
@@ -34,7 +34,7 @@
 | P08 会话与审批 | in-progress / runtime partial；not accepted | 后续产品/测试已至 `dd400bf`、`6f6892a`。两代真实 Node/Python child 的 approve/reject 为 2 passed / 60.37s / exit 0，运行时 HEAD=`dd400bf` 加保存的 diff，随后提交 `6f6892a`；旧混合 cold 批 5 项与权限 3 项分别保留原范围。真实0014/native boundary已有局部结果。见[本地原始入口与缺口](progress-audit-2026-09-13.md)：压缩、真实 child 记忆、原子失败、并发/CAS/旧 writer、半发布/GC、旧批准控制边界等尚待收口；候选未发布 verified。`f4c3b76` [历史四残留复审](../../vnext/evidence/P08/reviews/P08-platform-rereview.md)不代表最新源码结论，也不能被两项成功路径整体关闭；最新证据仍待永久归档 |
 | P11 控制 API 与恢复集成 | runtime partial；not accepted | `64f4c29`审批路由已被P08真实HTTP消费；`f6cad17` Task/Work command API与受限Work locator已通过后续A2统一迁移/B1两项真实PG+签名HTTP路由检查，见本页更新。正式创建/项目权限/浏览器身份、完整hold/pause/cancel恢复与失败域集成待完成 |
 | P12 可信完成 | not implemented / not accepted | 已有冻结合同与前置服务；可信 precheck、quiescing/settlement、ReportCommit/Delivery 与实际完成协议尚未交付。P10真实退出与P04结果接纳均不替代Task完成 |
-| P10—P12 完整机制验收 | partial / not accepted | 真实 Outbox/child 限定 M2 已通过；完整控制/恢复/可信完成、其他 work kind 与部署仍待实际集成，不扩大已有切片结论 |
+| P10—P12 完整机制验收 | partial / not accepted | 真实 Outbox/child 限定 M2 与 fresh6 K8s Explore 切片已通过；完整控制/恢复/可信完成、浏览器入口、其他 work kind 与部署故障矩阵仍待实际集成，不扩大已有切片结论 |
 | P13 受权图投影与持久视图 | backend reviewed / M4 partial | core `3015ca6`、P04 port `592bed2`、0012迁移与测试 `44ddc68` 的[真实结果](../../vnext/evidence/P13/runtime-green/report.md)为 12 项通过。独立审查发现的两项 P2 已在 `69e3a1d` 修复，[定向证据](../../vnext/evidence/P13/review-fix/report.md)为 3 项 / 3.16s、生成检查、22 组 HTTP 与截图；[独立复审](../../vnext/evidence/P13/reviews/P13-rereview.md)关闭两项，[完整证据入口](../../vnext/evidence/P13/README.md)。原 12 项及 pure builder 9项未重跑。Layout、ViewStream、P14正式容器与后续P12类型仍未验收，故不标 M4 全过 |
 | P14 TopologyFlowCanvas fixed DTO slice | reviewed / partial | 原代码 `9a1c8e20ccd57b19e74d748129a3d5d524eab6f4`，修复代码 `bd3111a62a624aa5acef7d167ffe96b18747934a`，证据 `64bbdf2974b39856a2cb29dd1eee97cb1a70ca93`；[实施与截图](../../../tests/topology/report.md)、[修复证据](../../../tests/topology/review-fix-report.md)、[初审归档](../../../tests/topology/P14-review.md)与[PASS 复审](../../../tests/topology/P14-rereview.md)固定实际范围。16 Vitest、2 个受影响 Chromium 用例及 web typecheck 通过；复用原五主题截图。真实 P13 API/Auth、Layout CAS、ViewStream、记录详情与规模 p95 仍 pending/not_run，不是 M4 闭环 |
 | P15—P20 开发和机制验收 | not_run | 按依赖执行，未验证不标通过 |

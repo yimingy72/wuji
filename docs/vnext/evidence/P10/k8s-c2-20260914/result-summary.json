@@ -1,0 +1,40 @@
+{
+  "scope": "single isolated synthetic Explore C2 on local Kubernetes",
+  "date": "2026-09-14",
+  "task_id": "2032601e-79ac-4e5d-bc5f-7a33620e3659",
+  "tenant_id": "d0827540-d568-4165-826e-ed7d2fb713e6",
+  "project_id": "7c614324-a950-4419-b4ce-808151e200e9",
+  "database": "wuji_vnext_c2_20260914_r6",
+  "pod_name": "wuji-task-v-6c55a7ade961603dfaf6fa45d99c531d-a1",
+  "pod_uid": "6db41752-9826-4687-aae4-b9cf5e640632",
+  "source_commit": "df5c926435c2c620bdbd33cd8d2a277440ff980b",
+  "runtime_stop_fix_commit": "556b8f4bfa59ed9cdede9c3aa893212dc5c13c72",
+  "images": {
+    "agent": "127.0.0.1:56615/wuji-vnext-agent@sha256:d771f77f8345bdbc95b7f29cd7f7074f7440e292fc2c8ca251cf610e3fc58cfb",
+    "kali": "127.0.0.1:56615/wuji-vnext-kali@sha256:7a11a2b71e61a25ecc75de2556f793d71ac7123cb75e559b1d28a9c87f892011",
+    "platform": "127.0.0.1:56615/wuji-vnext-platform@sha256:e98f5381230c055a8a478a50308d19e7481aea8c03286c1efbf9f6c4691a8bbd"
+  },
+  "results": {
+    "reason_work": "done",
+    "explore_work": "done",
+    "runs_accepted": 2,
+    "model_requests_200": 4,
+    "tool_attempts_complete": 2,
+    "artifacts_sealed": 8,
+    "observations_complete": 2,
+    "claims_written": 2,
+    "result_submissions_received": 2
+  },
+  "shutdown": {
+    "cancel_http": 202,
+    "receiver_enabled": false,
+    "capacity_used": 0,
+    "task_pod_removed_by_formal_stop": true
+  },
+  "limitations": [
+    "mechanism_synthetic model and fixture workspace only",
+    "Task remains a mechanism test and was cancelled after evidence capture",
+    "P12 trusted completion and full UI/API integration are outside this slice",
+    "historical failed attempts are retained and not rewritten"
+  ]
+}

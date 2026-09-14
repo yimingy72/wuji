@@ -1,0 +1,473 @@
+{
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+        "annotations": {
+            "wuji.dev/config-digest": "8b4cd1335d21f93a651e271ffb70b8e2134fb9b10c2cbd788d6e55a048c324f8",
+            "wuji.dev/execution-epoch": "2",
+            "wuji.dev/scope-digest": "a75b1b86d4457ed8be9e95b512f0ab7010614079ce8d2caf89f6b98af71538d6",
+            "wuji.dev/task-id": "2032601e-79ac-4e5d-bc5f-7a33620e3659",
+            "wuji.dev/template-digest": "f4f864a89fec3c319658567998756a5af523864e59e09b5207bb0e197b3adf5b",
+            "wuji.dev/tenant-id": "d0827540-d568-4165-826e-ed7d2fb713e6"
+        },
+        "creationTimestamp": "2026-09-14T12:47:25Z",
+        "generation": 1,
+        "labels": {
+            "app.kubernetes.io/managed-by": "wuji-task-runtime-controller",
+            "wuji.dev/runtime-attempt": "1",
+            "wuji.dev/task-id": "2032601e-79ac-4e5d-bc5f-7a33620e3659",
+            "wuji.dev/tenant-id": "d0827540-d568-4165-826e-ed7d2fb713e6"
+        },
+        "name": "wuji-task-v-6c55a7ade961603dfaf6fa45d99c531d-a1",
+        "namespace": "wuji-vnext-test",
+        "resourceVersion": "164754",
+        "uid": "6db41752-9826-4687-aae4-b9cf5e640632"
+    },
+    "spec": {
+        "activeDeadlineSeconds": 1800,
+        "automountServiceAccountToken": false,
+        "containers": [
+            {
+                "env": [
+                    {
+                        "name": "WUJI_POD_UID",
+                        "valueFrom": {
+                            "fieldRef": {
+                                "apiVersion": "v1",
+                                "fieldPath": "metadata.uid"
+                            }
+                        }
+                    },
+                    {
+                        "name": "WUJI_POD_NAME",
+                        "valueFrom": {
+                            "fieldRef": {
+                                "apiVersion": "v1",
+                                "fieldPath": "metadata.name"
+                            }
+                        }
+                    },
+                    {
+                        "name": "WUJI_POD_NAMESPACE",
+                        "valueFrom": {
+                            "fieldRef": {
+                                "apiVersion": "v1",
+                                "fieldPath": "metadata.namespace"
+                            }
+                        }
+                    }
+                ],
+                "image": "127.0.0.1:56615/wuji-vnext-agent@sha256:d771f77f8345bdbc95b7f29cd7f7074f7440e292fc2c8ca251cf610e3fc58cfb",
+                "imagePullPolicy": "IfNotPresent",
+                "name": "agent",
+                "resources": {
+                    "limits": {
+                        "cpu": "1",
+                        "memory": "512Mi"
+                    },
+                    "requests": {
+                        "cpu": "100m",
+                        "memory": "128Mi"
+                    }
+                },
+                "securityContext": {
+                    "allowPrivilegeEscalation": false,
+                    "capabilities": {
+                        "drop": [
+                            "ALL"
+                        ]
+                    },
+                    "privileged": false,
+                    "procMount": "Default",
+                    "readOnlyRootFilesystem": true,
+                    "runAsNonRoot": true,
+                    "runAsUser": 10001,
+                    "seccompProfile": {
+                        "type": "RuntimeDefault"
+                    }
+                },
+                "terminationMessagePath": "/dev/termination-log",
+                "terminationMessagePolicy": "File",
+                "volumeMounts": [
+                    {
+                        "mountPath": "/config",
+                        "name": "agent-config",
+                        "readOnly": true
+                    },
+                    {
+                        "mountPath": "/run/wuji/credentials",
+                        "name": "agent-auth",
+                        "readOnly": true
+                    },
+                    {
+                        "mountPath": "/var/lib/wuji/agent",
+                        "name": "agent-state"
+                    },
+                    {
+                        "mountPath": "/tmp",
+                        "name": "agent-tmp"
+                    }
+                ]
+            },
+            {
+                "env": [
+                    {
+                        "name": "WUJI_POD_UID",
+                        "valueFrom": {
+                            "fieldRef": {
+                                "apiVersion": "v1",
+                                "fieldPath": "metadata.uid"
+                            }
+                        }
+                    },
+                    {
+                        "name": "WUJI_POD_NAME",
+                        "valueFrom": {
+                            "fieldRef": {
+                                "apiVersion": "v1",
+                                "fieldPath": "metadata.name"
+                            }
+                        }
+                    },
+                    {
+                        "name": "WUJI_POD_NAMESPACE",
+                        "valueFrom": {
+                            "fieldRef": {
+                                "apiVersion": "v1",
+                                "fieldPath": "metadata.namespace"
+                            }
+                        }
+                    }
+                ],
+                "image": "127.0.0.1:56615/wuji-vnext-kali@sha256:7a11a2b71e61a25ecc75de2556f793d71ac7123cb75e559b1d28a9c87f892011",
+                "imagePullPolicy": "IfNotPresent",
+                "name": "kali",
+                "resources": {
+                    "limits": {
+                        "cpu": "1",
+                        "memory": "512Mi"
+                    },
+                    "requests": {
+                        "cpu": "100m",
+                        "memory": "128Mi"
+                    }
+                },
+                "securityContext": {
+                    "allowPrivilegeEscalation": false,
+                    "capabilities": {
+                        "drop": [
+                            "ALL"
+                        ]
+                    },
+                    "privileged": false,
+                    "procMount": "Default",
+                    "readOnlyRootFilesystem": true,
+                    "runAsNonRoot": true,
+                    "runAsUser": 10002,
+                    "seccompProfile": {
+                        "type": "RuntimeDefault"
+                    }
+                },
+                "terminationMessagePath": "/dev/termination-log",
+                "terminationMessagePolicy": "File",
+                "volumeMounts": [
+                    {
+                        "mountPath": "/config",
+                        "name": "kali-config",
+                        "readOnly": true
+                    },
+                    {
+                        "mountPath": "/run/wuji/credentials",
+                        "name": "kali-auth",
+                        "readOnly": true
+                    },
+                    {
+                        "mountPath": "/workspace",
+                        "name": "kali-work"
+                    },
+                    {
+                        "mountPath": "/tmp",
+                        "name": "kali-tmp"
+                    },
+                    {
+                        "mountPath": "/var/lib/wuji/kali-receipts",
+                        "name": "kali-receipts"
+                    }
+                ]
+            }
+        ],
+        "dnsPolicy": "ClusterFirst",
+        "enableServiceLinks": false,
+        "nodeName": "docker-desktop",
+        "os": {
+            "name": "linux"
+        },
+        "preemptionPolicy": "PreemptLowerPriority",
+        "priority": 0,
+        "restartPolicy": "Never",
+        "schedulerName": "default-scheduler",
+        "securityContext": {
+            "fsGroup": 10000,
+            "fsGroupChangePolicy": "OnRootMismatch",
+            "runAsNonRoot": true,
+            "seccompProfile": {
+                "type": "RuntimeDefault"
+            }
+        },
+        "serviceAccount": "default",
+        "serviceAccountName": "default",
+        "shareProcessNamespace": false,
+        "terminationGracePeriodSeconds": 30,
+        "tolerations": [
+            {
+                "effect": "NoExecute",
+                "key": "node.kubernetes.io/not-ready",
+                "operator": "Exists",
+                "tolerationSeconds": 300
+            },
+            {
+                "effect": "NoExecute",
+                "key": "node.kubernetes.io/unreachable",
+                "operator": "Exists",
+                "tolerationSeconds": 300
+            }
+        ],
+        "volumes": [
+            {
+                "configMap": {
+                    "defaultMode": 292,
+                    "name": "wuji-task-v-6c55a7ade961603dfaf6fa45d99c531d-agent-config"
+                },
+                "name": "agent-config"
+            },
+            {
+                "name": "agent-auth",
+                "secret": {
+                    "defaultMode": 292,
+                    "secretName": "wuji-task-v-6c55a7ade961603dfaf6fa45d99c531d-agent-auth"
+                }
+            },
+            {
+                "name": "agent-state",
+                "persistentVolumeClaim": {
+                    "claimName": "wuji-task-v-6c55a7ade961603dfaf6fa45d99c531d-agent-state"
+                }
+            },
+            {
+                "emptyDir": {
+                    "sizeLimit": "128Mi"
+                },
+                "name": "agent-tmp"
+            },
+            {
+                "configMap": {
+                    "defaultMode": 292,
+                    "name": "wuji-task-v-6c55a7ade961603dfaf6fa45d99c531d-kali-config"
+                },
+                "name": "kali-config"
+            },
+            {
+                "name": "kali-auth",
+                "secret": {
+                    "defaultMode": 292,
+                    "secretName": "wuji-task-v-6c55a7ade961603dfaf6fa45d99c531d-kali-auth"
+                }
+            },
+            {
+                "name": "kali-work",
+                "persistentVolumeClaim": {
+                    "claimName": "wuji-task-v-6c55a7ade961603dfaf6fa45d99c531d-kali-work"
+                }
+            },
+            {
+                "emptyDir": {
+                    "sizeLimit": "128Mi"
+                },
+                "name": "kali-tmp"
+            },
+            {
+                "name": "kali-receipts",
+                "persistentVolumeClaim": {
+                    "claimName": "wuji-task-v-6c55a7ade961603dfaf6fa45d99c531d-kali-receipts"
+                }
+            }
+        ]
+    },
+    "status": {
+        "allocatedResources": {
+            "cpu": "200m",
+            "memory": "256Mi"
+        },
+        "conditions": [
+            {
+                "lastProbeTime": null,
+                "lastTransitionTime": "2026-09-14T12:47:26Z",
+                "observedGeneration": 1,
+                "status": "True",
+                "type": "PodReadyToStartContainers"
+            },
+            {
+                "lastProbeTime": null,
+                "lastTransitionTime": "2026-09-14T12:47:25Z",
+                "observedGeneration": 1,
+                "status": "True",
+                "type": "Initialized"
+            },
+            {
+                "lastProbeTime": null,
+                "lastTransitionTime": "2026-09-14T12:47:26Z",
+                "observedGeneration": 1,
+                "status": "True",
+                "type": "Ready"
+            },
+            {
+                "lastProbeTime": null,
+                "lastTransitionTime": "2026-09-14T12:47:26Z",
+                "observedGeneration": 1,
+                "status": "True",
+                "type": "ContainersReady"
+            },
+            {
+                "lastProbeTime": null,
+                "lastTransitionTime": "2026-09-14T12:47:25Z",
+                "observedGeneration": 1,
+                "status": "True",
+                "type": "PodScheduled"
+            }
+        ],
+        "containerStatuses": [
+            {
+                "allocatedResources": {
+                    "cpu": "100m",
+                    "memory": "128Mi"
+                },
+                "containerID": "docker://cd7822847ee1f3da09ead4ac8fa3c8fd1edfcfdc0d8b540daf605323fcf0e6b2",
+                "image": "127.0.0.1:56615/wuji-vnext-agent:df5c926435c2",
+                "imageID": "docker-pullable://127.0.0.1:56615/wuji-vnext-agent@sha256:d771f77f8345bdbc95b7f29cd7f7074f7440e292fc2c8ca251cf610e3fc58cfb",
+                "lastState": {},
+                "name": "agent",
+                "ready": true,
+                "resources": {
+                    "limits": {
+                        "cpu": "1",
+                        "memory": "512Mi"
+                    },
+                    "requests": {
+                        "cpu": "100m",
+                        "memory": "128Mi"
+                    }
+                },
+                "restartCount": 0,
+                "started": true,
+                "state": {
+                    "running": {
+                        "startedAt": "2026-09-14T12:47:26Z"
+                    }
+                },
+                "volumeMounts": [
+                    {
+                        "mountPath": "/config",
+                        "name": "agent-config",
+                        "readOnly": true,
+                        "recursiveReadOnly": "Disabled"
+                    },
+                    {
+                        "mountPath": "/run/wuji/credentials",
+                        "name": "agent-auth",
+                        "readOnly": true,
+                        "recursiveReadOnly": "Disabled"
+                    },
+                    {
+                        "mountPath": "/var/lib/wuji/agent",
+                        "name": "agent-state"
+                    },
+                    {
+                        "mountPath": "/tmp",
+                        "name": "agent-tmp"
+                    }
+                ]
+            },
+            {
+                "allocatedResources": {
+                    "cpu": "100m",
+                    "memory": "128Mi"
+                },
+                "containerID": "docker://3de54045c5dac6b934480d0f915fb414c07f4247ecde706fc03c49ca3fd7bef2",
+                "image": "127.0.0.1:56615/wuji-vnext-kali:df5c926435c2",
+                "imageID": "docker-pullable://127.0.0.1:56615/wuji-vnext-kali@sha256:7a11a2b71e61a25ecc75de2556f793d71ac7123cb75e559b1d28a9c87f892011",
+                "lastState": {},
+                "name": "kali",
+                "ready": true,
+                "resources": {
+                    "limits": {
+                        "cpu": "1",
+                        "memory": "512Mi"
+                    },
+                    "requests": {
+                        "cpu": "100m",
+                        "memory": "128Mi"
+                    }
+                },
+                "restartCount": 0,
+                "started": true,
+                "state": {
+                    "running": {
+                        "startedAt": "2026-09-14T12:47:26Z"
+                    }
+                },
+                "volumeMounts": [
+                    {
+                        "mountPath": "/config",
+                        "name": "kali-config",
+                        "readOnly": true,
+                        "recursiveReadOnly": "Disabled"
+                    },
+                    {
+                        "mountPath": "/run/wuji/credentials",
+                        "name": "kali-auth",
+                        "readOnly": true,
+                        "recursiveReadOnly": "Disabled"
+                    },
+                    {
+                        "mountPath": "/workspace",
+                        "name": "kali-work"
+                    },
+                    {
+                        "mountPath": "/tmp",
+                        "name": "kali-tmp"
+                    },
+                    {
+                        "mountPath": "/var/lib/wuji/kali-receipts",
+                        "name": "kali-receipts"
+                    }
+                ]
+            }
+        ],
+        "hostIP": "192.168.65.3",
+        "hostIPs": [
+            {
+                "ip": "192.168.65.3"
+            }
+        ],
+        "observedGeneration": 1,
+        "phase": "Running",
+        "podIP": "10.1.0.70",
+        "podIPs": [
+            {
+                "ip": "10.1.0.70"
+            }
+        ],
+        "qosClass": "Burstable",
+        "resources": {
+            "limits": {
+                "cpu": "2",
+                "memory": "1Gi"
+            },
+            "requests": {
+                "cpu": "181m",
+                "memory": "256Mi"
+            }
+        },
+        "startTime": "2026-09-14T12:47:25Z"
+    }
+}

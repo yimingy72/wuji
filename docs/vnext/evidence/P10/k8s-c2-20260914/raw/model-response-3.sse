@@ -1,0 +1,6 @@
+data: {"id": "synthetic-4673c11d-48bb-4ca0-aef6-abd7b78ae286", "object": "chat.completion.chunk", "created": 1789390053, "model": "synthetic-model", "choices": [{"index": 0, "delta": {"role": "assistant", "content": "{\"schema_version\": \"wuji.agent-payload.v2\", \"claims\": [{\"client_ref\": \"kali-version\", \"kind\": \"observation-summary\", \"assertion_role\": \"candidate_fact\", \"text\": \"The registered Kali read returned durable evidence.\", \"basis_refs\": [{\"entity_type\": \"observation\", \"id\": \"7141f298-4f7a-4975-936b-382d8be4b8e0\", \"revision\": \"1\"}], \"limitations\": [\"one synthetic workspace read\"]}], \"intent_proposals\": [], \"limitations\": [\"synthetic loopback mechanism peer\"]}"}, "finish_reason": null}]}
+
+data: {"id": "synthetic-4673c11d-48bb-4ca0-aef6-abd7b78ae286", "object": "chat.completion.chunk", "created": 1789390053, "model": "synthetic-model", "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}]}
+
+data: [DONE]
+

@@ -1,0 +1,2 @@
+NAME                                              PHASE     UID                                    READY       IMAGES
+wuji-task-v-6c55a7ade961603dfaf6fa45d99c531d-a1   Running   6db41752-9826-4687-aae4-b9cf5e640632   true,true   docker-pullable://127.0.0.1:56615/wuji-vnext-agent@sha256:d771f77f8345bdbc95b7f29cd7f7074f7440e292fc2c8ca251cf610e3fc58cfb,docker-pullable://127.0.0.1:56615/wuji-vnext-kali@sha256:7a11a2b71e61a25ecc75de2556f793d71ac7123cb75e559b1d28a9c87f892011

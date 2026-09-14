@@ -1,0 +1,4 @@
+--- poll 1 12:48:55 ---
+NAME                                                              PHASE       READY       UID
+wuji-task-v-6c55a7ade961603dfaf6fa45d99c531d-a1                   Running     true,true   6db41752-9826-4687-aae4-b9cf5e640632
+wuji-task-v-6c55a7ade961603dfaf6fa45d99c531d-workspace-inidtbht   Succeeded   false       9810e695-7b6c-4ce9-af3a-5b5a24983275

@@ -1,0 +1,8 @@
+LAST                   TYPE     REASON      MESSAGE
+2026-09-14T12:47:25Z   Normal   Scheduled   Successfully assigned wuji-vnext-test/wuji-task-v-6c55a7ade961603dfaf6fa45d99c531d-a1 to docker-desktop
+2026-09-14T12:47:26Z   Normal   Pulled      Container image "127.0.0.1:56615/wuji-vnext-agent@sha256:d771f77f8345bdbc95b7f29cd7f7074f7440e292fc2c8ca251cf610e3fc58cfb" already present on machine and can be accessed by the pod
+2026-09-14T12:47:26Z   Normal   Created     Container created
+2026-09-14T12:47:26Z   Normal   Started     Container started
+2026-09-14T12:47:26Z   Normal   Pulled      Container image "127.0.0.1:56615/wuji-vnext-kali@sha256:7a11a2b71e61a25ecc75de2556f793d71ac7123cb75e559b1d28a9c87f892011" already present on machine and can be accessed by the pod
+2026-09-14T12:47:26Z   Normal   Created     Container created
+2026-09-14T12:47:26Z   Normal   Started     Container started

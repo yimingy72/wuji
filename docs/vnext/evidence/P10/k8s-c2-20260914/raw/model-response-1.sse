@@ -1,0 +1,6 @@
+data: {"id": "synthetic-c21ef8e1-98ec-46c3-a339-70a2481d5bac", "object": "chat.completion.chunk", "created": 1789390052, "model": "synthetic-model", "choices": [{"index": 0, "delta": {"role": "assistant", "tool_calls": [{"index": 0, "id": "call-c2-read", "type": "function", "function": {"name": "read_workspace", "arguments": "{\"path\":\"version.txt\"}"}}]}, "finish_reason": null}]}
+
+data: {"id": "synthetic-c21ef8e1-98ec-46c3-a339-70a2481d5bac", "object": "chat.completion.chunk", "created": 1789390052, "model": "synthetic-model", "choices": [{"index": 0, "delta": {}, "finish_reason": "tool_calls"}]}
+
+data: [DONE]
+

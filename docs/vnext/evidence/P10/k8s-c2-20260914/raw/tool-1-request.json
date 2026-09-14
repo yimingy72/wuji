@@ -1,0 +1,1 @@
+{"approval_ref":null,"arguments":{"path":"version.txt"},"message_id":"model-attempt:b91e97bc-0331-4ed8-b522-17391bac2c2a:choice:0","provider_call_id":"call-c2-read","sdk_approval_id":null,"sdk_content_id":"af-call-f8d7d911e22d41f8a1d502aa837595d3","session_lineage":"run:29da868c-af1c-4203-a17b-a88fe1d4535f","tool_definition_ref":"workspace-read-v1"}

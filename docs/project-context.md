@@ -10,6 +10,8 @@
 
 审核后用户再次明确本地 K8s 可以部署测试；已将新链路 arm64 镜像/隔离部署和实际 Pod 路径提前为近期并行1C，不等待治理/发布阶段。集群可用和本地测试授权均不是阻塞；当前要补齐的是新链路部署装配。实际运行结果仍按证据记录。
 
+2026-09-14 C2 K8s bounded slice 已完成：fresh6 在独立数据库和未来授权 Task 上通过正式 `VNextPodRuntime` 创建/核对 Task Pod、真实 UID 登记、Scheduler/Outbox、MAF、ModelGate、ToolGate、HTTPS Kali workspace_read、P03/P04 接纳和真实子进程退出；随后通过正式取消和 stop 修复释放 receiver/容量并删除 Pod。[永久证据](vnext/evidence/P10/k8s-c2-20260914/README.md)。范围仅合成机制任务，不等于完整 P08/P12 或生产验收。
+
 下一步按[具体开发执行单](stages/vnext-maf/next-batch-plan.md)安排P08修复、P11控制/正式入口、K8s三线：固定共享迁移负责人、0015/0016用途、隔离namespace与HTTPS/候选loopback边界，先取得拒绝结果接纳、实际控制HTTP和首条Pod执行结果。当前为计划准备，尚未增加产品通过项。
 
 2026-09-13 M3 接入入口：[P08 完整会话、原生审批与恢复实施合同](vnext/P08-implementation-contract.md)。产品合同继续适用；其中首RED/旧共享窗口等编排已由停止 Superpowers 的用户决定和[当前计划](stages/vnext-maf/plan.md)替代，不能把实现准备时的状态当作最新进度。
