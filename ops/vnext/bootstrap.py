@@ -53,8 +53,8 @@ def initialize(config):
             connection.execute("INSERT INTO vnext.task_assessment_policy(tenant_id,project_id,task_id,policy_version) VALUES(%s,%s,%s,'assessment-policy-v1')",owner)
             for key,tier,tenant_binding in (("deployment-global","global",None),
                     ("model:"+config["admission"]["model"]["ref"],"model",None),("tenant:"+tenant,"tenant",tenant)):
-                connection.execute("INSERT INTO vnext.capacity_pool(pool_key,tier,tenant_id,capacity,published_ref) VALUES(%s,%s,%s,2,'deployment-v1')",(key,tier,tenant_binding))
-                connection.execute("INSERT INTO vnext.task_capacity_pool(tenant_id,project_id,task_id,pool_key) VALUES(%s,%s,%s,%s)",(*owner,key))
+                connection.execute("INSERT INTO vnext.capacity_pool(pool_key,tier,tenant_id,capacity,published_ref) VALUES(%s,%s,%s,2,'deployment-v1') ON CONFLICT (pool_key) DO NOTHING",(key,tier,tenant_binding))
+                connection.execute("INSERT INTO vnext.task_capacity_pool(tenant_id,project_id,task_id,pool_key) VALUES(%s,%s,%s,%s) ON CONFLICT DO NOTHING",(*owner,key))
             register_tool_definition(connection,tenant_id=tenant,definition=config["tool"])
             register_executor(connection,owner=owner,executor=config["executor"])
             register_task_config(connection,owner=owner,config=config["admission"])
