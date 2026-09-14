@@ -350,7 +350,7 @@ def configure(root, state, images):
         "model":{"ref":"synthetic-model-v1","revision":"1","published_at":published,
             "capability_ref":"synthetic-chat-completions-v1","protocol":"chat_completions",
             "client_model":"synthetic-model","upstream_model":"synthetic-model",
-            "gateway_url":"http://127.0.0.1:8081/v1","task_key_ref":"model-key","max_retries":0},
+            "gateway_url":"http://127.0.0.1:8081/v1/chat/completions","task_key_ref":"model-key","max_retries":0},
         "runtime":{"ref":"k8s-runtime-v1","revision":"1","published_at":published,"lock_digest":lock,
             "limits":{"max_work_items":4,"max_reason_runs":2,"max_model_requests":8,"max_tool_calls":8,
                 "max_single_output_bytes":32768,"max_total_output_bytes":131072,"max_elapsed_seconds":1800,
