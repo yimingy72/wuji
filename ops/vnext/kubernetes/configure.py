@@ -459,7 +459,12 @@ def configure(root, state, images):
     # The production ToolGate still authorizes and records the subsequent read.
     initializer_name = config.task_prefix + "-workspace-init"
     initializer_meta = metadata(initializer_name)
-    initializer_meta["labels"].update(config.identity_labels)
+    # The deployment manager owns the Job; Task identity labels are additive.
+    # Do not replace the manager label with the Task runtime controller label,
+    # otherwise the bounded deployment loader cannot recognize this resource.
+    for key, value in config.identity_labels.items():
+        if key != "app.kubernetes.io/managed-by":
+            initializer_meta["labels"][key] = value
     initializer_meta["annotations"] = config.ownership_annotations
     objects.append({"apiVersion":"batch/v1","kind":"Job","metadata":initializer_meta,
         "spec":{"backoffLimit":0,"activeDeadlineSeconds":120,"template":{
