@@ -220,7 +220,10 @@ class RemoteWorkerHost:
         reply = self._resolved(assignment)
         if canonical_json_bytes(document(reply.context)) != canonical_json_bytes(context_document(context)):
             raise HostTransportError("frozen context changed")
-        return self.session_codec.decode_resolved(document(reply.resolved))
+        resolved = reply.resolved
+        if hasattr(resolved, "model_dump"):
+            resolved = resolved.model_dump(mode="python", exclude_unset=True)
+        return self.session_codec.decode_resolved(document(resolved))
 
     def _session_exchange(self, assignment, action, payload, decode):
         if payload.assignment != assignment:

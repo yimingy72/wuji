@@ -46,7 +46,12 @@ class PodEnvironment:
         observation = self.runtime.ensure()
         if observation.state == "ready":
             discovery = client.DiscoveryV1Api(self.api)
-            for service_name in ("task-agent", "task-kali"):
+            service_names = self.config.get("service_names", {"agent": "task-agent", "kali": "task-kali"})
+            if (not isinstance(service_names, dict)
+                    or set(service_names) != {"agent", "kali"}
+                    or any(not isinstance(value, str) or not value for value in service_names.values())):
+                raise ValueError("fixed Task Pod service names are required")
+            for service_name in (service_names["agent"], service_names["kali"]):
                 slices = discovery.list_namespaced_endpoint_slice(
                     self.runtime.config.namespace,
                     label_selector="kubernetes.io/service-name=" + service_name,
