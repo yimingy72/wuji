@@ -118,13 +118,47 @@ def application_connection(config):
         yield connection
 
 
-def operator_access(config):
+def mint_operator_token(config, *, key_file, ttl_seconds=900):
+    """Mint a bounded operator bearer from the mounted deployment signing key.
+
+    Deployment bearer files are minted once at configure time and expire; a
+    long-lived owner action must not depend on a stale file or extend it.
+    """
+
+    from joserfc import jwt
+    from joserfc.jwk import RSAKey
+    from uuid import uuid4
+
+    if not 60 <= ttl_seconds <= 3600:
+        raise ValueError("operator bearer lifetime must stay bounded")
+    now = int(time.time())
+    claims = {
+        "iss": config["identity"]["issuer"],
+        "aud": config["identity"]["audience"],
+        "sub": config.get("operator_subject", "operator"),
+        "tenant_id": config["owner"][0],
+        "roles": ["operator"],
+        "iat": now,
+        "nbf": now - 1,
+        "exp": now + ttl_seconds,
+        "jti": str(uuid4()),
+    }
+    key = RSAKey.import_key(_read_bytes(key_file, 65536))
+    return jwt.encode({"alg": "RS256", "kid": "deployment-key"}, claims, key)
+
+
+def operator_access(config, *, signing_key_file=None):
     verifier = TokenVerifier(
         public_key_pem=_read_bytes(config["public_key_file"]),
         issuer=config["identity"]["issuer"],
         audience=config["identity"]["audience"],
     )
-    token = _read_bytes(config["operator_token_file"], 16384).decode().strip()
+    if signing_key_file:
+        token = mint_operator_token(config, key_file=signing_key_file)
+        if isinstance(token, bytes):
+            token = token.decode()
+    else:
+        token = _read_bytes(config["operator_token_file"], 16384).decode().strip()
     return AccessContext(verifier.verify(token), "task-launch")
 
 
@@ -872,7 +906,9 @@ def run_phases(config, *, task_id, phases, options):
                 attempt=prepared["runtime_attempt"],
                 pool_keys=deployment_pool_keys(connection, config))
             receipt = admit_initial_intent(
-                application_connection(config), access=operator_access(config), task=task_id,
+                application_connection(config),
+                access=operator_access(config, signing_key_file=options.get("signing_key_file")),
+                task=task_id,
                 definition_lines=prepared["definition"],
                 idempotency_key=f"task-launch-intent-{task_id}")
             binding = binding_document(
@@ -921,7 +957,7 @@ def run_phases(config, *, task_id, phases, options):
 
 
 def _job_manifest(*, name, namespace, image, args, service_account, configmap, secret,
-                  agent_auth, kali_auth):
+                  agent_auth, kali_auth, signing_key_secret="runtime-credentials"):
     return {
         "apiVersion": "batch/v1",
         "kind": "Job",
@@ -957,6 +993,8 @@ def _job_manifest(*, name, namespace, image, args, service_account, configmap, s
                              "readOnly": True},
                             {"name": "kali-auth", "mountPath": "/run/wuji/task-kali-auth",
                              "readOnly": True},
+                            {"name": "signing-key", "mountPath": "/run/wuji/deployment-signing",
+                             "readOnly": True},
                             {"name": "tmp", "mountPath": "/tmp"},
                         ],
                         "resources": {"requests": {"cpu": "100m", "memory": "128Mi"},
@@ -969,6 +1007,8 @@ def _job_manifest(*, name, namespace, image, args, service_account, configmap, s
                                                           "defaultMode": 0o440}},
                         {"name": "kali-auth", "secret": {"secretName": kali_auth,
                                                          "defaultMode": 0o440}},
+                        {"name": "signing-key", "secret": {"secretName": signing_key_secret,
+                                                           "defaultMode": 0o440}},
                         {"name": "tmp", "emptyDir": {"sizeLimit": "32Mi"}},
                     ],
                 },
@@ -984,7 +1024,8 @@ def submit_job(*, args, namespace, job_name, job_args):
         name=job_name, namespace=namespace, image=args.image, args=job_args,
         service_account=args.service_account, configmap=args.public_configmap,
         secret=args.input_secret, agent_auth=args.agent_auth_secret,
-        kali_auth=args.kali_auth_secret))
+        kali_auth=args.kali_auth_secret,
+        signing_key_secret=args.signing_key_secret))
     context = ["--context", args.context] if args.context else []
     rbac = Path(__file__).parent / "kubernetes" / "task-owner-rbac.json"
     subprocess.run(["kubectl", *context, "apply", "-f", str(rbac)],
@@ -1015,6 +1056,8 @@ def main(argv=None):
     parser.add_argument("--gate-url", default="https://gates.wuji-vnext-test.svc:8443")
     parser.add_argument("--agent-auth-dir", default="/run/wuji/task-agent-auth")
     parser.add_argument("--kali-auth-dir", default="/run/wuji/task-kali-auth")
+    parser.add_argument("--operator-signing-key",
+                        default="/run/wuji/deployment-signing/signing.key")
     parser.add_argument("--evidence-ref",
                         default="docs/vnext/evidence/P11/task-roundtrip-20260915/README.md")
     # submit mode (run from the operator workstation)
@@ -1025,6 +1068,7 @@ def main(argv=None):
     parser.add_argument("--service-account", default="task-owner")
     parser.add_argument("--public-configmap", default="bootstrap-public-topo0915")
     parser.add_argument("--input-secret", default="bootstrap-input-topo0915")
+    parser.add_argument("--signing-key-secret", default="runtime-credentials")
     parser.add_argument("--agent-auth-secret", default="")
     parser.add_argument("--kali-auth-secret", default="")
     parser.add_argument("--context", default="docker-desktop")
@@ -1043,6 +1087,8 @@ def main(argv=None):
             "--evidence-ref", args.evidence_ref,
             "--binding", args.binding,
         ]
+        if args.operator_signing_key:
+            job_args += ["--operator-signing-key", args.operator_signing_key]
         if args.binding_in:
             job_args += ["--binding-in", args.binding_in]
         submit_job(args=args, namespace=args.namespace, job_args=job_args,
@@ -1061,6 +1107,7 @@ def main(argv=None):
         options={
             "binding_in": options_binding if args.binding_in else None,
             "binding_path": args.binding,
+            "signing_key_file": args.operator_signing_key or None,
             "agent_image": args.agent_image,
             "kali_image": args.kali_image,
             "base_url": args.base_url,

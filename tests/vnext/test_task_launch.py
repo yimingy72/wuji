@@ -326,3 +326,43 @@ def test_launch_binds_admission_executor_intent_and_capability(
                 connection, config=config, binding=binding
             )
             assert repeat["capabilities"] == result["capabilities"]
+
+
+def test_minted_operator_bearer_binds_the_deployment_identity(tmp_path):
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+
+    from wuji_core.http.auth import TokenVerifier
+
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    key_file = tmp_path / "signing.key"
+    key_file.write_bytes(
+        key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption(),
+        )
+    )
+    config = {
+        "identity": {"issuer": "https://identity.fixture.invalid", "audience": "wuji-vnext-tests"},
+        "owner": [OWNER[0], OWNER[1], OWNER[2]],
+        "operator_subject": "control-fixture",
+    }
+    token = task_launch.mint_operator_token(config, key_file=str(key_file), ttl_seconds=300)
+    if isinstance(token, bytes):
+        token = token.decode()
+    verifier = TokenVerifier(
+        public_key_pem=key.public_key().public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
+        ),
+        issuer="https://identity.fixture.invalid",
+        audience="wuji-vnext-tests",
+    )
+    principal = verifier.verify(token)
+    assert principal.subject == "control-fixture"
+    assert principal.tenant_id == OWNER[0]
+    assert "operator" in principal.roles
+    assert principal.token_id
+    with pytest.raises(ValueError):
+        task_launch.mint_operator_token(config, key_file=str(key_file), ttl_seconds=10)
