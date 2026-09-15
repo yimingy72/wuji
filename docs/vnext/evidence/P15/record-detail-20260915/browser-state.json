@@ -1,0 +1,17 @@
+{
+  "console_error_count": 0,
+  "full_public_record_visible": true,
+  "selected_ref": {
+    "entity_type": "origin",
+    "id": "a41a59ed-29e1-4801-b68b-dfea395eae30",
+    "revision": "1"
+  },
+  "snapshot_id": "bc6e604d-dbf4-4217-a52b-e4a31d24c983",
+  "url": "http://127.0.0.1:44180/",
+  "visible_fields": {
+    "desired_state": "pause",
+    "name": "C2 isolated Kali workspace read",
+    "observed_state": "ready",
+    "scenario": "web_single"
+  }
+}

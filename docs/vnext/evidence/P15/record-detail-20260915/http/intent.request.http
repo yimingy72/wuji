@@ -1,0 +1,6 @@
+GET /api/v2/tasks/a41a59ed-29e1-4801-b68b-dfea395eae30/records/intent/778ac2ff-d006-4764-a11f-9f3e83473ade?revision=1&snapshot_id=529f4925-e163-47dc-8d47-73e70d8d9994 HTTP/1.1
+Host: 127.0.0.1:44180
+User-Agent: wuji-record-detail-verifier/1.0
+Cookie: wuji_vnext_session=[REDACTED]
+Accept: application/json
+

@@ -17,6 +17,7 @@
 - C1/C2：`9d42f5e`/`708accc`完成TLS与arm64部署装配；随后 `a47e198` 修正Worker生产依赖、`3e79cb9`修正合成模型完整endpoint、`2a0c7ee`/`bc0f0f1`补齐work kind与workspace初始化、`df5c926`固定单Work容量。fresh6实际K8s链路已通过：[永久证据](../../vnext/evidence/P10/k8s-c2-20260914/README.md)，代码源 `df5c926`，Pod UID `6db41752-9826-4687-aae4-b9cf5e640632`；Reason/Explore各1项完成、4次模型200、2次Kali读取、2次accepted Run、2个sealed Artifact/Observation链和2个P04结果提交。随后通过正式cancel及 `556b8f4` stop修复完成receiver禁用、容量归零和Pod删除。范围限单一合成机制Task，不扩大为完整P08/P12或生产验收。
 - A3：固定memory输入与原生compaction继续实施；`a455363`增加固定输入来源，`cfb1c2d`/`7956660`补对应wire及生成类型。实际child首次因缺wire字段在resolve失败已保留；后续真实child验证仍在进行，纯API/生成检查不替代恢复验收。
 - P13/P14 K8s浏览器读取：`a8eeb7a`将P13装入Runtime兼容入口，`24f984f`增加独立public `api` Deployment；`e8a5162`增加同源本地浏览器会话BFF与正式React Flow页面，`09ad034`收紧Secret组读取。最终定向检查10项、fresh配置2项和web typecheck/build通过；真实HTTP为匿名401→登录200→会话200→拓扑200→跨Task404→退出204→退出后401，浏览器画布/列表均显示真实Intent与Origin且无控制台错误。见[P13 API证据](../../vnext/evidence/P13/k8s-api-20260915/README.md)和[P14浏览器证据](../../vnext/evidence/P14/k8s-browser-20260915/README.md)。范围仍是本地只读机制身份。
+- P15记录详情局部切片：`e3ce5c8`把当前TopologySnapshot与选择状态交给RecordPanel，按精确revision和同一snapshot读取P13 RecordView；3项Vitest、typecheck/build、Intent/Origin真实HTTP与浏览器点击均通过，见[永久证据](../../vnext/evidence/P15/record-detail-20260915/README.md)。ViewStream、历史选择和Layout CAS仍未实现。
 
 | 范围 | 状态 | 说明 |
 | --- | --- | --- |
@@ -38,7 +39,8 @@
 | P10—P12 完整机制验收 | partial / not accepted | 真实 Outbox/child 限定 M2 与 fresh6 K8s Explore 切片已通过；完整控制/恢复/可信完成、浏览器入口、其他 work kind 与部署故障矩阵仍待实际集成，不扩大已有切片结论 |
 | P13 受权图投影与持久视图 | backend reviewed / M4 partial | core `3015ca6`、P04 port `592bed2`、0012迁移与测试 `44ddc68` 的[真实结果](../../vnext/evidence/P13/runtime-green/report.md)为 12 项通过；两项P2由`69e3a1d`关闭并完成独立复审。`24f984f`后续将同一ProjectionRepository装入独立K8s public API，真实Bearer 200、匿名401、live/history持久化见[API证据](../../vnext/evidence/P13/k8s-api-20260915/README.md)。Layout、ViewStream、记录面板及后续P12类型仍未验收，故不标 M4 全过 |
 | P14 TopologyFlowCanvas fixed DTO slice | reviewed / partial | 原16 Vitest、2个Chromium和复审结论继续有效；`e8a5162`后续把组件接到真实P13 API和本地服务器会话，K8s浏览器实测画布/列表显示两个真实节点，跨Task拒绝、退出失效、截图与完整HTTP见[P14证据](../../vnext/evidence/P14/k8s-browser-20260915/README.md)。生产OIDC、Layout CAS、ViewStream、记录详情与规模p95仍pending/not_run，不是M4闭环 |
-| P15—P20 开发和机制验收 | not_run | 按依赖执行，未验证不标通过 |
+| P15 ViewStream、历史与浏览器 | record detail partial；not accepted | `e3ce5c8`已实测同一snapshot的Intent/Origin详情与引用一致性；[HTTP和截图](../../vnext/evidence/P15/record-detail-20260915/README.md)固定该局部范围。ViewStream重连/reset、历史快照选择、Layout CAS、Artifact预览和规模目标仍not_run |
+| P16—P20 开发和机制验收 | not_run | 按依赖执行，未验证不标通过 |
 | 真实模型效果 | not_run | 需明确模型/数据及新增 USD 额度 |
 | 生产切换/旧数据删除 | not_run | 需独立明确授权；开发不隐式实施 |
 
