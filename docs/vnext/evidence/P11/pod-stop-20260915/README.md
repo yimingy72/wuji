@@ -66,3 +66,46 @@ records the exception class) and is the next P11-C/P10 item.
   because no exit observation exists.
 - Does not prove: a clean worker exit observation/`stop_kind`, the MAF child round trip on this
   revision, or the reason→explore hand-off — all blocked by the dispatch finding above.
+
+## Dispatch-stall diagnosis (2026-09-15, follow-up turn)
+
+Two diagnosability gaps hid the cause; both are fixed in the runtime image:
+
+- `56ba97d`: the dispatch loop logged only the exception class. It now logs a bounded
+  `DomainError.code`, a `RuntimeTransportError.operation` and its integer `status`.
+- `b5cc4ca`: a non-ready Task environment waited silently. It now logs the observation
+  `state`, its `reason` and the Pod name.
+
+With those fixes the stall resolves into two intended guards plus one deployment gap:
+
+1. **The receiver binding is disabled after the Pod stops.** When the Pod was deleted,
+   `pod_runtime._disable(...)` set `scheduler_receiver.enabled=false` for
+   `task-a41a59ed-…-a1` (keeping the old `pod_uid`). The dispatch consumer only delivers to an
+   enabled, matching receiver, so a cancelled/stopped generation has nothing to deliver to.
+   `raw/final-state.txt` records `receiver_enabled=false`.
+2. **The runtime config pins the generation.** `pod_runtime.task_config.execution_epoch` is `2`
+   (the epoch `start` produced). `cancel` advanced the Task to epoch 3 and the owner reset plus
+   `resume` to epoch 4/5, so `validate_execution_permit` denies with
+   "current permission does not match execution_epoch" and `ensure()` returns a stopped/missing
+   observation every cycle. This is the intended generation guard: **a cancelled Task cannot be
+   resumed by the same runtime generation** — a fresh run needs either a re-rendered runtime
+   config carrying the new epoch or a new Task. `raw/resume.response.json` and
+   `raw/fixture-cancel-reset.txt` record the sequence that produced the mismatch.
+3. **No session capability is published.** `vnext.session_capability` has zero rows for the
+   tenant, so even once an assignment is delivered the worker's session path has no published
+   capability to validate against. This is a deployment prerequisite the current K8s bootstrap
+   never writes (the P08 candidate fixture registers it in-process).
+
+Next concrete steps for the worker path:
+
+- create a Task through `POST /api/v2/tasks`, publish its admission (`publish_task_admission`),
+  render the runtime `pod_runtime` for that Task (ids, definition digest, scope digest, and the
+  epoch `start` will produce), restart the runtime, then `start` and confirm the assignment reaches
+  the supervisor;
+- publish a session capability for the tenant as part of the deployment template;
+- decide and document the generation policy for re-enabling a receiver (re-render per epoch versus
+  runtime re-registration).
+
+The environment was returned to a coherent state: the fixture Task is
+`cancel / reconciling / execution_allowed=false / epoch 4 / user_cancel` with no running Pod and a
+disabled receiver (`raw/final-state.txt`).
