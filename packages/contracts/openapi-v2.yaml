@@ -256,6 +256,23 @@ paths:
         '410': {$ref: '#/components/responses/Expired'}
         '422': {$ref: '#/components/responses/InvalidSchema'}
   /api/v2/tasks/{task_id}/layouts/{view_name}:
+    get:
+      operationId: getTaskLayoutV2
+      summary: Read a versioned personal topology layout
+      tags: [Views]
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+        - $ref: '#/components/parameters/ViewName'
+      responses:
+        '200':
+          description: Authorized personal layout preference
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LayoutPreference'
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
     put:
       operationId: putTaskLayoutV2
       summary: Update a versioned personal topology layout
@@ -2476,10 +2493,18 @@ components:
         x: {type: number, format: double, minimum: -10000000, maximum: 10000000}
         y: {type: number, format: double, minimum: -10000000, maximum: 10000000}
         pinned: {type: boolean}
+    LayoutViewport:
+      type: object
+      additionalProperties: false
+      required: [x, y, zoom]
+      properties:
+        x: {type: number, format: double, minimum: -10000000, maximum: 10000000}
+        y: {type: number, format: double, minimum: -10000000, maximum: 10000000}
+        zoom: {type: number, format: double, minimum: 0.2, maximum: 2.0}
     LayoutPatch:
       type: object
       additionalProperties: false
-      required: [schema_version, selection_mode, entries]
+      required: [schema_version, selection_mode, entries, viewport]
       properties:
         schema_version: {$ref: '#/components/schemas/ApiSchemaVersion'}
         selection_mode: {$ref: '#/components/schemas/ViewSelectionMode'}
@@ -2487,12 +2512,27 @@ components:
           type: array
           maxItems: 1000
           items: {$ref: '#/components/schemas/LayoutEntry'}
+        viewport: {$ref: '#/components/schemas/LayoutViewport'}
+    LayoutPreference:
+      type: object
+      additionalProperties: false
+      required: [schema_version, view_name, layout_revision, selection_mode, entries, viewport]
+      properties:
+        schema_version: {$ref: '#/components/schemas/ApiSchemaVersion'}
+        view_name: {type: string, minLength: 1, maxLength: 128}
+        layout_revision: {$ref: '#/components/schemas/RevisionString'}
+        selection_mode: {$ref: '#/components/schemas/ViewSelectionMode'}
+        entries:
+          type: array
+          maxItems: 1000
+          items: {$ref: '#/components/schemas/LayoutEntry'}
+        viewport: {$ref: '#/components/schemas/LayoutViewport'}
     LayoutReceipt:
       type: object
       additionalProperties: false
       required: [view_name, layout_revision, request_id]
       properties:
-        view_name: {type: string, minLength: 1}
+        view_name: {type: string, minLength: 1, maxLength: 128}
         layout_revision: {$ref: '#/components/schemas/RevisionString'}
         request_id: {type: string, minLength: 1}
     ArchiveView:

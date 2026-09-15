@@ -1,9 +1,10 @@
 import { apiUrl } from '../../config';
 import { Alert, Button, Spin } from 'antd';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   KnowledgeRef,
   LayoutPreference,
+  LayoutReceipt,
   NodeEntityType,
   TopologyCommandRequest,
   TopologyExpandRequest,
@@ -12,6 +13,15 @@ import type {
   ViewMode,
 } from './contracts';
 import { TopologyFlowCanvas } from './TopologyFlowCanvas';
+import {
+  LayoutRequestError,
+  layoutPatch,
+  layoutViewName,
+  readLayoutPreference,
+  writeLayoutPreference,
+  type LayoutReader,
+  type LayoutWriter,
+} from './layoutApi';
 import { isRevisionString } from './revision';
 import styles from './topology.module.css';
 
@@ -213,6 +223,9 @@ export interface TopologyContainerProps {
   readonly layout?: LayoutPreference;
   readonly selection?: TopologySelection | null;
   readonly readSnapshot?: TopologySnapshotReader;
+  readonly readLayout?: LayoutReader;
+  readonly writeLayout?: LayoutWriter;
+  readonly persistLayout?: boolean;
   readonly onSelect?: (selection: TopologySelection | null) => void;
   readonly onLayoutChange?: (layout: LayoutPreference) => void;
   readonly onCommandRequested?: (request: TopologyCommandRequest) => void;
@@ -220,14 +233,20 @@ export interface TopologyContainerProps {
   readonly onSnapshotChange?: (snapshot: TopologySnapshotInput) => void;
 }
 
-interface TopologyContainerRequestProps extends Omit<TopologyContainerProps, 'readSnapshot'> {
+interface TopologyContainerRequestProps extends Omit<
+  TopologyContainerProps,
+  'readSnapshot' | 'readLayout' | 'writeLayout'
+> {
   readonly readSnapshot: TopologySnapshotReader;
+  readonly readLayout: LayoutReader;
+  readonly writeLayout: LayoutWriter;
 }
 
 function initialLayout(mode: ViewMode): LayoutPreference {
   return {
-    view_name: 'knowledge',
-    layout_revision: 'local:0',
+    schema_version: 'wuji.api.v2',
+    view_name: layoutViewName(mode),
+    layout_revision: '0',
     selection_mode: mode === 'history' ? 'explicit_revision' : 'follow_latest',
     entries: [],
     viewport: { x: 0, y: 0, zoom: 0.82 },
@@ -247,9 +266,21 @@ function errorCopy(error: unknown): { title: string; description: string } {
       description: '所选快照未保留或已过期，请返回可用快照列表。',
     };
   }
+  if (error instanceof LayoutRequestError && error.status === 404) {
+    return {
+      title: '布局数据不可用',
+      description: '当前任务或视图没有可读取的受权个人布局。',
+    };
+  }
   if (error instanceof Error && error.message === '拓扑响应不符合固定契约') {
     return {
       title: '拓扑响应无法确认',
+      description: '平台响应与当前固定契约不一致，页面没有使用替代数据。',
+    };
+  }
+  if (error instanceof Error && error.message === '布局响应不符合固定契约') {
+    return {
+      title: '布局响应无法确认',
       description: '平台响应与当前固定契约不一致，页面没有使用替代数据。',
     };
   }
@@ -266,29 +297,66 @@ function TopologyContainerRequest({
   layout: controlledLayout,
   selection: controlledSelection,
   readSnapshot,
+  readLayout,
+  writeLayout,
+  persistLayout = true,
   onSelect,
   onLayoutChange,
   onCommandRequested,
   onExpandRequested,
   onSnapshotChange,
 }: TopologyContainerRequestProps) {
+  const viewName = layoutViewName(mode);
+  const canPersistLayout = persistLayout && controlledLayout === undefined;
   const [snapshot, setSnapshot] = useState<TopologySnapshotInput | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
   const [requestRevision, setRequestRevision] = useState(0);
   const [localLayout, setLocalLayout] = useState<LayoutPreference>(() => initialLayout(mode));
+  const [layoutReady, setLayoutReady] = useState(!canPersistLayout);
   const [localSelection, setLocalSelection] = useState<TopologySelection | null>(null);
   const [interactionNotice, setInteractionNotice] = useState<string | null>(null);
+  const [layoutNotice, setLayoutNotice] = useState<string | null>(null);
+  const [pendingLayout, setPendingLayout] = useState<LayoutPreference | null>(null);
+  const [savingLayout, setSavingLayout] = useState(false);
+  const [layoutEpoch, setLayoutEpoch] = useState(0);
+  const pendingRef = useRef<LayoutPreference | null>(null);
+  const savingRef = useRef(false);
+  const activeRef = useRef(true);
+  const saveAbortRef = useRef<AbortController | null>(null);
+  // Last layout revision confirmed by the server. Layout objects computed from
+  // an older revision are stale after a conflict and must never be written.
+  const revisionRef = useRef<string | null>(null);
   const layout = controlledLayout ?? localLayout;
   const selection = controlledSelection === undefined ? localSelection : controlledSelection;
+
+  useEffect(() => {
+    activeRef.current = true;
+    return () => {
+      activeRef.current = false;
+      saveAbortRef.current?.abort();
+    };
+  }, [taskId, mode, snapshotId, readLayout, writeLayout]);
 
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
     setError(null);
-    void readSnapshot(taskId, mode, snapshotId, controller.signal).then((next) => {
+    setLayoutNotice(null);
+    setLayoutReady(!canPersistLayout);
+    pendingRef.current = null;
+    revisionRef.current = null;
+    setPendingLayout(null);
+    const snapshotPromise = readSnapshot(taskId, mode, snapshotId, controller.signal);
+    const layoutPromise = canPersistLayout
+      ? readLayout(taskId, viewName, controller.signal)
+      : Promise.resolve(initialLayout(mode));
+    void Promise.all([snapshotPromise, layoutPromise]).then(([next, nextLayout]) => {
       if (controller.signal.aborted) return;
       setSnapshot(next);
+      setLocalLayout(nextLayout);
+      revisionRef.current = nextLayout.layout_revision;
+      setLayoutReady(true);
       onSnapshotChange?.(next);
     }).catch((reason: unknown) => {
       if (controller.signal.aborted) return;
@@ -297,11 +365,90 @@ function TopologyContainerRequest({
       if (!controller.signal.aborted) setLoading(false);
     });
     return () => controller.abort();
-  }, [mode, onSnapshotChange, readSnapshot, requestRevision, snapshotId, taskId]);
+  }, [canPersistLayout, mode, onSnapshotChange, readLayout, readSnapshot, requestRevision, snapshotId, taskId, viewName]);
+
+  const drainLayout = useCallback(async () => {
+    if (!canPersistLayout || !layoutReady || savingRef.current || !pendingRef.current) return;
+    const requested = pendingRef.current;
+    savingRef.current = true;
+    setSavingLayout(true);
+    const controller = new AbortController();
+    saveAbortRef.current = controller;
+    try {
+      const receipt: LayoutReceipt = await writeLayout(
+        taskId,
+        viewName,
+        layoutPatch(requested),
+        requested.layout_revision,
+        controller.signal,
+      );
+      if (!activeRef.current || controller.signal.aborted) return;
+      // The local content stays the user's newest edit; only the confirmed
+      // revision advances, so queued edits are rebased on the server's answer.
+      revisionRef.current = receipt.layout_revision;
+      setLocalLayout((current) => ({ ...current, layout_revision: receipt.layout_revision }));
+      if (pendingRef.current === requested) {
+        pendingRef.current = null;
+        setPendingLayout(null);
+      } else if (pendingRef.current !== null) {
+        const rebased = { ...pendingRef.current, layout_revision: receipt.layout_revision };
+        pendingRef.current = rebased;
+        setPendingLayout(rebased);
+      }
+    } catch (reason: unknown) {
+      if (!activeRef.current || controller.signal.aborted) return;
+      if (reason instanceof LayoutRequestError && reason.status === 409) {
+        try {
+          const server = await readLayout(taskId, viewName, controller.signal);
+          if (activeRef.current && !controller.signal.aborted) {
+            // Discard every local and queued edit, take the server layout as
+            // the only truth and remount the canvas so no stale drag/viewport
+            // state can be written back automatically after the conflict.
+            revisionRef.current = server.layout_revision;
+            pendingRef.current = null;
+            setPendingLayout(null);
+            setLocalLayout(server);
+            setLayoutEpoch((value) => value + 1);
+            setLayoutNotice('服务器布局已更新，当前修改未覆盖它。');
+          }
+        } catch (reloadError: unknown) {
+          if (activeRef.current && !controller.signal.aborted) {
+            setLayoutNotice(reloadError instanceof Error ? reloadError.message : '布局冲突后无法重新读取服务器布局。');
+          }
+        }
+      } else {
+        pendingRef.current = null;
+        setPendingLayout(null);
+        setLayoutNotice(reason instanceof Error ? reason.message : '布局保存失败，当前修改尚未确认。');
+      }
+    } finally {
+      if (saveAbortRef.current === controller) saveAbortRef.current = null;
+      savingRef.current = false;
+      if (activeRef.current && !controller.signal.aborted) setSavingLayout(false);
+      if (activeRef.current && pendingRef.current !== null) void drainLayout();
+    }
+  }, [canPersistLayout, layoutReady, readLayout, taskId, viewName, writeLayout]);
+
+  const handleLayoutChange = useCallback((next: LayoutPreference) => {
+    // A change computed from a revision that the server already replaced is
+    // dropped: the conflict reload owns the current layout.
+    if (canPersistLayout && next.layout_revision !== revisionRef.current) return;
+    if (!controlledLayout) setLocalLayout(next);
+    onLayoutChange?.(next);
+    if (!canPersistLayout || !layoutReady) return;
+    pendingRef.current = next;
+    setPendingLayout(next);
+    setLayoutNotice(null);
+    void drainLayout();
+  }, [canPersistLayout, controlledLayout, drainLayout, layoutReady, onLayoutChange]);
 
   const copy = useMemo(() => errorCopy(error), [error]);
-  if (loading && !snapshot) {
-    return <div className={styles.containerStatus}><Spin description="正在读取拓扑" /></div>;
+  if (loading && (!snapshot || !layoutReady)) {
+    return (
+      <div className={styles.containerStatus}>
+        <Spin description={canPersistLayout ? '正在读取拓扑与个人布局' : '正在读取拓扑'} />
+      </div>
+    );
   }
   if (!snapshot) {
     return (
@@ -326,6 +473,16 @@ function TopologyContainerRequest({
           action={<Button onClick={() => setRequestRevision((value) => value + 1)}>重新读取</Button>}
         />
       )}
+      {layoutNotice && (
+        <Alert
+          closable
+          type="info"
+          title={layoutNotice}
+          onClose={() => setLayoutNotice(null)}
+        />
+      )}
+      {savingLayout && <span className={styles.notice} role="status">正在保存个人布局…</span>}
+      {pendingLayout && !savingLayout && <span className={styles.notice} role="status">个人布局等待保存</span>}
       {interactionNotice && (
         <Alert
           closable
@@ -335,6 +492,7 @@ function TopologyContainerRequest({
         />
       )}
       <TopologyFlowCanvas
+        key={layoutEpoch}
         snapshot={snapshot}
         layout={layout}
         mode={mode}
@@ -343,10 +501,7 @@ function TopologyContainerRequest({
           if (controlledSelection === undefined) setLocalSelection(next);
           onSelect?.(next);
         }}
-        onLayoutChange={(next) => {
-          if (!controlledLayout) setLocalLayout(next);
-          onLayoutChange?.(next);
-        }}
+        onLayoutChange={handleLayoutChange}
         onCommandRequested={(request) => {
           if (onCommandRequested) onCommandRequested(request);
           else setInteractionNotice('该领域操作尚未接入当前任务入口。');
@@ -362,11 +517,22 @@ function TopologyContainerRequest({
 
 export function TopologyContainer(props: TopologyContainerProps) {
   const reader = props.readSnapshot ?? readTopologySnapshot;
+  const readLayout = props.readLayout ?? readLayoutPreference;
+  const writeLayout = props.writeLayout ?? writeLayoutPreference;
   const requestKey = JSON.stringify([
     props.taskId,
     props.mode,
     props.snapshotId ?? null,
     readerIdentity(reader),
+    props.persistLayout !== false,
   ]);
-  return <TopologyContainerRequest {...props} key={requestKey} readSnapshot={reader} />;
+  return (
+    <TopologyContainerRequest
+      {...props}
+      key={requestKey}
+      readSnapshot={reader}
+      readLayout={readLayout}
+      writeLayout={writeLayout}
+    />
+  );
 }

@@ -198,7 +198,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Read a versioned personal topology layout */
+        get: operations["getTaskLayoutV2"];
         /** Update a versioned personal topology layout */
         put: operations["putTaskLayoutV2"];
         post?: never;
@@ -1629,10 +1630,27 @@ export interface components {
             y: number;
             pinned: boolean;
         };
+        LayoutViewport: {
+            /** Format: double */
+            x: number;
+            /** Format: double */
+            y: number;
+            /** Format: double */
+            zoom: number;
+        };
         LayoutPatch: {
             schema_version: components["schemas"]["ApiSchemaVersion"];
             selection_mode: components["schemas"]["ViewSelectionMode"];
             entries: components["schemas"]["LayoutEntry"][];
+            viewport: components["schemas"]["LayoutViewport"];
+        };
+        LayoutPreference: {
+            schema_version: components["schemas"]["ApiSchemaVersion"];
+            view_name: string;
+            layout_revision: components["schemas"]["RevisionString"];
+            selection_mode: components["schemas"]["ViewSelectionMode"];
+            entries: components["schemas"]["LayoutEntry"][];
+            viewport: components["schemas"]["LayoutViewport"];
         };
         LayoutReceipt: {
             view_name: string;
@@ -2244,6 +2262,32 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             404: components["responses"]["NotFoundOrForbidden"];
             410: components["responses"]["Expired"];
+            422: components["responses"]["InvalidSchema"];
+        };
+    };
+    getTaskLayoutV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: components["parameters"]["TaskId"];
+                view_name: components["parameters"]["ViewName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Authorized personal layout preference */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LayoutPreference"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFoundOrForbidden"];
             422: components["responses"]["InvalidSchema"];
         };
     };

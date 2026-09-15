@@ -33,9 +33,15 @@ class FakeClient:
     def __init__(self, response: FakeResponse):
         self.response = response
         self.requests: list[tuple[str, dict[str, str]]] = []
+        self.request_bodies: list[tuple[str, str, dict[str, str], bytes]] = []
 
     async def get(self, url: str, *, headers: dict[str, str]):
         self.requests.append((url, dict(headers)))
+        return self.response
+
+    async def request(self, method: str, url: str, *, headers: dict[str, str], content: bytes):
+        self.requests.append((url, dict(headers)))
+        self.request_bodies.append((method, url, dict(headers), content))
         return self.response
 
 
@@ -162,3 +168,64 @@ def test_browser_proxy_mints_short_lived_internal_identity(tmp_path):
     assert claims["tenant_id"] == "tenant-fixture"
     assert claims["roles"] == ["operator"]
     assert 0 < claims["exp"] - claims["iat"] <= 60
+
+
+def test_browser_proxy_allows_only_bounded_layout_put_and_preserves_conflict(tmp_path):
+    config, _public = settings(tmp_path)
+    body = json.dumps({
+        "schema_version": "wuji.api.v2",
+        "selection_mode": "follow_latest",
+        "entries": [],
+        "viewport": {"x": 0, "y": 0, "zoom": 0.82},
+    }).encode()
+    error = json.dumps({
+        "code": "STALE_VERSION",
+        "message": "The request could not be completed.",
+        "request_id": "upstream-request",
+        "retryable": False,
+        "details": {},
+    }).encode()
+    fake = FakeClient(FakeResponse(409, error, {"content-type": "application/json"}))
+    app = gateway_module.create_gateway(config, client=fake)
+
+    async def run():
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://127.0.0.1:44180"
+        ) as client:
+            await client.post("/auth/login", headers={"Origin": "http://127.0.0.1:44180"})
+            missing_origin = await client.put(
+                "/api/v2/tasks/task-fixture/layouts/knowledge-live",
+                headers={"Content-Type": "application/json", "If-Match": "0"},
+                content=body,
+            )
+            conflict = await client.put(
+                "/api/v2/tasks/task-fixture/layouts/knowledge-live",
+                headers={
+                    "Origin": "http://127.0.0.1:44180",
+                    "Content-Type": "application/json",
+                    "If-Match": "0",
+                },
+                content=body,
+            )
+            forbidden = await client.put(
+                "/api/v2/tasks/task-fixture/commands",
+                headers={
+                    "Origin": "http://127.0.0.1:44180",
+                    "Content-Type": "application/json",
+                    "If-Match": "0",
+                },
+                content=body,
+            )
+            return missing_origin, conflict, forbidden
+
+    missing_origin, conflict, forbidden = asyncio.run(run())
+    assert missing_origin.status_code == 403
+    assert conflict.status_code == 409
+    assert conflict.content == error
+    assert forbidden.status_code == 404
+    assert len(fake.request_bodies) == 1
+    method, url, headers, forwarded = fake.request_bodies[0]
+    assert method == "PUT"
+    assert url.endswith("/api/v2/tasks/task-fixture/layouts/knowledge-live")
+    assert headers["If-Match"] == "0"
+    assert forwarded == body

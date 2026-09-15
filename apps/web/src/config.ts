@@ -23,7 +23,7 @@ const buildConfig: Partial<WebRuntimeConfig> = {
 };
 
 function value(name: keyof WebRuntimeConfig): string {
-  const runtimeValue = window.__WUJI_CONFIG__?.[name];
+  const runtimeValue = typeof window === 'undefined' ? undefined : window.__WUJI_CONFIG__?.[name];
   const buildValue = buildConfig[name];
   return (runtimeValue ?? buildValue ?? '').trim();
 }

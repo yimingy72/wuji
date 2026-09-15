@@ -99,3 +99,42 @@ test('the same formal component renders in all five shared themes', async ({ pag
     });
   }
 });
+
+async function dragNodeBy(page: import('@playwright/test').Page, selector: string, dx: number, dy: number) {
+  const node = page.locator(selector);
+  await node.waitFor({ state: 'visible' });
+  const box = await node.boundingBox();
+  expect(box).not.toBeNull();
+  if (!box) return;
+  await page.mouse.move(box.x + 12, box.y + 12);
+  await page.mouse.down();
+  for (let step = 1; step <= 8; step += 1) {
+    await page.mouse.move(box.x + 12 + (dx * step) / 8, box.y + 12 + (dy * step) / 8, { steps: 1 });
+  }
+  await page.mouse.up();
+}
+
+test('a stale personal layout save reports the conflict and never rewrites the newer layout', async ({ page }) => {
+  await page.goto('/?theme=silver&case=layout-conflict');
+  await expect(page.getByRole('region', { name: '任务拓扑图' })).toBeVisible();
+  await expect(page.getByTestId('server-revision')).toHaveText('4');
+  await expect(page.getByTestId('write-attempts')).toHaveText('0');
+
+  await page.getByRole('button', { name: '其他标签页保存' }).click();
+  await expect(page.getByTestId('server-revision')).toHaveText('5');
+  const otherTabLayout = await page.getByTestId('server-layout').textContent();
+
+  await dragNodeBy(page, '.react-flow__node[data-id="intent:intent-1@4"]', 60, 40);
+
+  await expect(page.getByTestId('write-status')).toContainText('409');
+  await expect(page.getByRole('alert').filter({ hasText: '服务器布局已更新' })).toBeVisible();
+  await expect(page.getByTestId('write-attempts')).toHaveText('1');
+  await expect(page.getByTestId('server-layout')).toHaveText(otherTabLayout ?? '');
+  await expect(page.getByTestId('server-revision')).toHaveText('5');
+
+  // The user can keep working: a new edit after the conflict saves normally.
+  await dragNodeBy(page, '.react-flow__node[data-id="intent:intent-1@4"]', 40, 30);
+  await expect(page.getByTestId('write-status')).toContainText('200 6');
+  await expect(page.getByTestId('write-attempts')).toHaveText('2');
+  await expect(page.getByTestId('server-revision')).toHaveText('6');
+});

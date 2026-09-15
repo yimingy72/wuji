@@ -100,6 +100,7 @@ class UnitOfWork:
     ):
         if capability not in {
             "read",
+            "layout",
             "write",
             "capture",
             "settle",
@@ -137,6 +138,7 @@ class UnitOfWork:
                     "task": "",
                     "clearance": "-1",
                     "write": "false",
+                    "layout": "false",
                     "assess": "false",
                     "capture": "false",
                     "snapshot": "false",
@@ -169,7 +171,7 @@ class UnitOfWork:
                         if capability == "evidence"
                         else (
                             permission["can_read"]
-                            if capability == "snapshot" or request_purpose
+                            if capability in {"snapshot", "layout"} or request_purpose
                             else permission["can_" + capability]
                         )
                     )
@@ -183,7 +185,7 @@ class UnitOfWork:
                     "project": permission["project_id"],
                     "task": task_id,
                     "clearance": str(permission["clearance"]),
-                    "write": str(capability != "read").lower(),
+                    "write": str(capability not in {"read", "layout"}).lower(),
                     "capture": str(
                         capability in {"evidence", "capture", "settle"}
                         and "collector" in access.principal.roles
@@ -191,6 +193,7 @@ class UnitOfWork:
                         and (permission["can_capture"] or permission["can_settle"])
                     ).lower(),
                     "snapshot": str(capability == "snapshot").lower(),
+                    "layout": str(capability == "layout").lower(),
                     "model_output": str(
                         capability == "model_output"
                         and bool(access.principal.roles & {"worker", "supervisor"})
@@ -224,7 +227,7 @@ class UnitOfWork:
 
                     pools = prelock_pools(connection, owner)
                 # Capacity prelocks, when needed, already precede Task. Resources follow it.
-                lock = " FOR UPDATE" if capability != "read" else ""
+                lock = " FOR UPDATE" if capability not in {"read", "layout"} else ""
                 task = row(
                     connection.execute(
                         "SELECT * FROM vnext.task WHERE tenant_id=%s AND project_id=%s AND task_id=%s"

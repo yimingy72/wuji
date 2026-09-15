@@ -157,9 +157,9 @@ export function VNextWorkbenchPage() {
           <section className={styles.readonlyWorkbench} aria-labelledby="vnext-workbench-title">
             <header className={styles.readonlyHeading}>
               <div>
-                <span className={styles.eyebrow}>LOCAL KUBERNETES · READ ONLY</span>
+                <span className={styles.eyebrow}>LOCAL KUBERNETES · CONTROLLED VIEW</span>
                 <h1 id="vnext-workbench-title">任务拓扑</h1>
-                <p>浏览器会话经服务器映射为短寿命内部身份，当前入口只开放受权读取。</p>
+                <p>浏览器会话经服务器映射为短寿命内部身份，当前入口开放受权读取与个人布局保存。</p>
               </div>
               <Tag color={session ? 'green' : 'gold'}>{session ? '身份已建立' : '等待身份'}</Tag>
             </header>
@@ -236,7 +236,7 @@ export function VNextWorkbenchPage() {
         </main>
         <footer className={styles.statusbar}>
           <span>工作区 <strong>VNEXT</strong></span>
-          <span>K8S API <span aria-hidden="true">/</span> READ ONLY</span>
+          <span>K8S API <span aria-hidden="true">/</span> PERSONAL LAYOUT</span>
         </footer>
       </div>
     </div>

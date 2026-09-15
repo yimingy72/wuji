@@ -1,4 +1,3 @@
-import type { Viewport } from '@xyflow/react';
 import type { components } from '../../../../../packages/contracts/src/v2/generated';
 
 export type KnowledgeRef = components['schemas']['KnowledgeRef'];
@@ -13,14 +12,9 @@ export type SnapshotIndex = components['schemas']['SnapshotIndex'];
 export type SnapshotSummary = components['schemas']['SnapshotSummary'];
 export type ViewMode = components['schemas']['ViewMode'];
 export type ViewSelectionMode = components['schemas']['ViewSelectionMode'];
-
-export interface LayoutPreference {
-  readonly view_name: string;
-  readonly layout_revision: string;
-  readonly selection_mode: ViewSelectionMode;
-  readonly entries: readonly LayoutEntry[];
-  readonly viewport: Readonly<Viewport>;
-}
+export type LayoutPatch = components['schemas']['LayoutPatch'];
+export type LayoutPreference = components['schemas']['LayoutPreference'];
+export type LayoutReceipt = components['schemas']['LayoutReceipt'];
 
 export type TopologySnapshotInput = Readonly<
   Omit<TopologySnapshot, 'nodes' | 'edges' | 'allowed_actions'>

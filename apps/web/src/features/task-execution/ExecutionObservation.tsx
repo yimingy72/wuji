@@ -183,7 +183,7 @@ export function ExecutionObservation({session, projectId, task, timeline}: Omit<
       <span>{isActive(task) ? '运行中每 5 秒核对' : '当前记录'}</span>
     </header>
     <div className={styles.body}>
-      {view === 'topology' && <TopologyContainer taskId={task.id} mode="live" />}
+      {view === 'topology' && <TopologyContainer taskId={task.id} mode="live" persistLayout={false} />}
       {view === 'blackboard' && <Blackboard {...context} selection={selection} onSelect={setSelection} onSelectRun={selectRun} />}
       {view === 'timeline' && <><p className={styles.muted}>已读取的真实任务事件；历史查看不会重新执行。</p>{timeline}</>}
       {view === 'workspace' && <>

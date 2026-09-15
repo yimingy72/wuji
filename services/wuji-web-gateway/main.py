@@ -31,8 +31,13 @@ from wuji_core.http import canonical_json_bytes, strict_json_loads
 COOKIE_NAME = "wuji_vnext_session"
 NO_STORE = {"Cache-Control": "no-store"}
 _READ_PATH = re.compile(
-    r"^/api/v2/tasks/([^/]+)/(?:topology|snapshots|records/[^/]+/[^/]+)$"
+    r"^/api/v2/tasks/([^/]+)/(?:topology|snapshots|records/[^/]+/[^/]+|layouts/(?:knowledge-live|knowledge-history))$"
 )
+_LAYOUT_PATH = re.compile(
+    r"^/api/v2/tasks/([^/]+)/layouts/(knowledge-live|knowledge-history)$"
+)
+_IF_MATCH = re.compile(r"^(0|[1-9][0-9]*)$")
+_MAX_LAYOUT_BODY_BYTES = 262_144
 
 
 class GatewaySettings(BaseModel):
@@ -222,6 +227,10 @@ class BrowserGateway:
         matched = _READ_PATH.fullmatch(path)
         return matched is not None and matched.group(1) == self.settings.task_id
 
+    def allowed_layout(self, path: str) -> bool:
+        matched = _LAYOUT_PATH.fullmatch(path)
+        return matched is not None and matched.group(1) == self.settings.task_id
+
 
 def _problem(status: int, code: str, message: str) -> JSONResponse:
     return JSONResponse(
@@ -303,6 +312,19 @@ def create_gateway(settings: GatewaySettings, *, client=None) -> FastAPI:
         )
         return response
 
+    def upstream_response(upstream: httpx.Response) -> Response:
+        content = upstream.content
+        if len(content) > gateway.settings.max_response_bytes:
+            return _problem(503, "CAPABILITY_UNAVAILABLE", "Topology response exceeds its bound.")
+        if upstream.status_code in {401, 403}:
+            return _problem(503, "CAPABILITY_UNAVAILABLE", "Browser identity could not be mapped.")
+        headers = {"Cache-Control": "no-store"}
+        for name in ("content-type", "x-request-id"):
+            value = upstream.headers.get(name)
+            if value:
+                headers[name] = value
+        return Response(content, status_code=upstream.status_code, headers=headers)
+
     @app.get("/api/v2/{rest:path}")
     async def proxy_read(request: Request, rest: str) -> Response:
         payload = gateway.session(request)
@@ -326,17 +348,49 @@ def create_gateway(settings: GatewaySettings, *, client=None) -> FastAPI:
             )
         except (httpx.HTTPError, OSError, TimeoutError):
             return _problem(503, "CAPABILITY_UNAVAILABLE", "Topology service is unavailable.")
-        content = upstream.content
-        if len(content) > gateway.settings.max_response_bytes:
-            return _problem(503, "CAPABILITY_UNAVAILABLE", "Topology response exceeds its bound.")
-        if upstream.status_code in {401, 403}:
-            return _problem(503, "CAPABILITY_UNAVAILABLE", "Browser identity could not be mapped.")
-        headers = {"Cache-Control": "no-store"}
-        for name in ("content-type", "x-request-id"):
-            value = upstream.headers.get(name)
-            if value:
-                headers[name] = value
-        return Response(content, status_code=upstream.status_code, headers=headers)
+        return upstream_response(upstream)
+
+    @app.put("/api/v2/{rest:path}")
+    async def proxy_layout(request: Request, rest: str) -> Response:
+        payload = gateway.session(request)
+        if payload is None:
+            return _problem(401, "UNAUTHENTICATED", "Browser session is not active.")
+        path = "/api/v2/" + rest
+        if not gateway.allowed_layout(path) or request.url.query:
+            return _problem(404, "NOT_FOUND_OR_FORBIDDEN", "Resource is unavailable.")
+        try:
+            gateway.require_origin(request)
+        except PermissionError:
+            return _problem(403, "FORBIDDEN", "Browser origin is not allowed.")
+        content_type = request.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+        if content_type != "application/json":
+            return _problem(422, "INVALID_SCHEMA", "Layout updates require JSON.")
+        if_match = request.headers.get("if-match", "")
+        if not _IF_MATCH.fullmatch(if_match) or len(if_match) > 1024:
+            return _problem(422, "INVALID_SCHEMA", "If-Match must be a decimal revision.")
+        body = await request.body()
+        if not body or len(body) > min(_MAX_LAYOUT_BODY_BYTES, gateway.settings.max_response_bytes):
+            return _problem(422, "INVALID_SCHEMA", "Layout request exceeds its bound.")
+        try:
+            strict_json_loads(body)
+        except (TypeError, ValueError):
+            return _problem(422, "INVALID_SCHEMA", "Layout request is not strict JSON.")
+        url = gateway.settings.api_base_url + path
+        try:
+            upstream = await gateway.client.request(
+                "PUT",
+                url,
+                headers={
+                    "Authorization": "Bearer " + gateway.internal_bearer(payload),
+                    "Accept": "application/json",
+                    "Content-Type": "application/json",
+                    "If-Match": if_match,
+                },
+                content=body,
+            )
+        except (httpx.HTTPError, OSError, TimeoutError):
+            return _problem(503, "CAPABILITY_UNAVAILABLE", "Topology service is unavailable.")
+        return upstream_response(upstream)
 
     return app
 

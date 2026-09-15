@@ -1159,15 +1159,37 @@ class LayoutPatch(BaseModel):
     schema_version: ApiSchemaVersion
     selection_mode: ViewSelectionMode
     entries: Annotated[list[LayoutEntry], Field(max_length=1000)]
+    viewport: LayoutViewport
+
+
+class LayoutPreference(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    schema_version: ApiSchemaVersion
+    view_name: Annotated[StrictStr, Field(max_length=128, min_length=1)]
+    layout_revision: RevisionString
+    selection_mode: ViewSelectionMode
+    entries: Annotated[list[LayoutEntry], Field(max_length=1000)]
+    viewport: LayoutViewport
 
 
 class LayoutReceipt(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
     )
-    view_name: Annotated[StrictStr, Field(min_length=1)]
+    view_name: Annotated[StrictStr, Field(max_length=128, min_length=1)]
     layout_revision: RevisionString
     request_id: Annotated[StrictStr, Field(min_length=1)]
+
+
+class LayoutViewport(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    x: Annotated[StrictFloat, Field(ge=-10000000.0, le=10000000.0)]
+    y: Annotated[StrictFloat, Field(ge=-10000000.0, le=10000000.0)]
+    zoom: Annotated[StrictFloat, Field(ge=0.2, le=2.0)]
 
 
 class Limitation(RootModel[StrictStr]):
