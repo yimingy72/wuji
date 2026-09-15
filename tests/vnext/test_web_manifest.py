@@ -99,7 +99,9 @@ def test_web_manifest_can_attach_the_local_browser_session_gateway():
     assert gateway["api_base_url"] == "https://api.wuji-vnext-test.svc:8443"
     assert gateway["signing_key_file"] == "/run/wuji/web/identity.key"
     deployment = next(item for item in manifests if item["kind"] == "Deployment")
+    assert deployment["spec"]["template"]["spec"]["securityContext"]["fsGroup"] == 10000
     containers = {item["name"]: item for item in deployment["spec"]["template"]["spec"]["containers"]}
+    assert containers["web"]["securityContext"]["runAsGroup"] == 10000
     assert containers["gateway"]["image"] == GATEWAY_IMAGE
     assert containers["gateway"]["command"][-1] == "8090"
     volumes = {item["name"]: item for item in deployment["spec"]["template"]["spec"]["volumes"]}

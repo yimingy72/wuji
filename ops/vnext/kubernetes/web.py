@@ -153,6 +153,8 @@ def build_web_manifests(
     }
     documents = [web_config]
     if gateway_enabled:
+        pod_spec["securityContext"]["fsGroup"] = 10000
+        pod_spec["containers"][0]["securityContext"]["runAsGroup"] = 10000
         gateway_settings = {
             "schema_version": "wuji.web-gateway.v1",
             "api_base_url": gateway_api_base_url,
