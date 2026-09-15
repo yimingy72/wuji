@@ -17,7 +17,7 @@ def audit(tx, kind, details):
     tx.connection.execute("INSERT INTO vnext.admission_audit(tenant_id,project_id,task_id,audit_id,kind,subject,request_id,details_json) VALUES(%s,%s,%s,%s,%s,%s,%s,%s)", (*tx.owner, str(uuid4()), kind, tx.access.principal.subject, tx.access.request_id, json_text(details)))
 
 
-def current_run(tx, config):
+def current_run(tx, config, *, allow_leased_work=False):
     binding = tx.run_binding
     identity = binding.identity.model_dump(mode="json")
     run = row(tx.connection.execute("SELECT * FROM vnext.agent_run WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND agent_run_id=%s", (*tx.owner, identity["agent_run_id"])))
@@ -25,7 +25,8 @@ def current_run(tx, config):
     if not run or not work or any(str(run[k]) != str(v) for k, v in identity.items()):
         raise DomainError("STALE_EXECUTION", 409)
     held = tx.connection.execute("SELECT 1 FROM vnext.work_suspension WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND work_item_id=%s LIMIT 1", (*tx.owner, work["work_item_id"])).fetchone()
-    if (not task_can_run(tx.task) or not run["execution_allowed"] or run["stop_kind"] is not None or run["process_state"] != "running" or not run["started_at"] or not run["pod_uid"] or not run["process_identity_json"] or work["state"] != "running" or work["desired_state"] != "run" or held or work["current_run_id"] != run["agent_run_id"] or work["run_epoch"] != run["run_epoch"] or tx.task["execution_epoch"] != run["execution_epoch"] or tx.task["runtime_attempt"] != run["runtime_attempt"]):
+    work_states = {"running", "leased"} if allow_leased_work else {"running"}
+    if (not task_can_run(tx.task) or not run["execution_allowed"] or run["stop_kind"] is not None or run["process_state"] != "running" or not run["started_at"] or not run["pod_uid"] or not run["process_identity_json"] or work["state"] not in work_states or work["desired_state"] != "run" or held or work["current_run_id"] != run["agent_run_id"] or work["run_epoch"] != run["run_epoch"] or tx.task["execution_epoch"] != run["execution_epoch"] or tx.task["runtime_attempt"] != run["runtime_attempt"]):
         raise DomainError("STALE_EXECUTION", 409)
     from wuji_core.execution.dependencies import dependencies_satisfied, intent_current
     # The same dependency service reads canonical predecessors/criterion judgments.

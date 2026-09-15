@@ -288,7 +288,13 @@ class WorkerHostBridge:
                     waiting = True
                 elif record["process_state"] == "running":
                     waiting = False
-                    record, _work = current_run(tx, config)
+                    # The child races the platform's own bookkeeping: the start
+                    # observation is recorded first and the work item's
+                    # ``leased -> running`` transition commits in the next
+                    # transaction. A run that is already running with a matching
+                    # started observation is authoritative for this gate, so the
+                    # lease state is accepted here and nowhere else.
+                    record, _work = current_run(tx, config, allow_leased_work=True)
                     observed = row(tx.connection.execute(
                         "SELECT * FROM vnext.execution_observation WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND receipt_id=%s AND agent_run_id=%s",
                         (*tx.owner, record["last_observation_id"], record["agent_run_id"])))
