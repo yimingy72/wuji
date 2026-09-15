@@ -7,9 +7,9 @@
 - M3 接缝：[P08 会话与审批实施合同](../../vnext/P08-implementation-contract.md)固定完整发布、原生调用身份、操作前沿及 P05/P06/P09/M2 消费；沿用原任务依赖和模型分工。
 - M2 复核收口：[实际投递与受信结果补交](../../vnext/P10-implementation-contract.md)固定生产 Outbox 消费、精确执行身份和 current/historical 结果授权，作为已批准 P10 的集成修复，不重写旧 child 检查的覆盖范围。
 - 分支：`codex/vnext-maf`；绝对工作树：`/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf`。
-- 当前开发次序以 [2026-09-13 进度审核与后续安排](progress-audit-2026-09-13.md)为入口：P08恢复收口与P11正式入口并行，继而可信完成、多工作类型、正式工作台和治理/发布。它在已批准 P/AC 内排序，本轮未启动新的开发批次。
-- 用户再次确认本地 K8s 可部署测试：增加近期并行1C，先完成 arm64 新链路镜像/隔离装配并部署已有可运行切片，随功能推进实际 Pod 验证；不再等到P16/P19或最终发布阶段。当前尚无新链路专用部署物，补齐它不需要另行授权；实际部署结果另记。
-- 下一批的负责人、迁移顺序、部署边界和执行入口固定于[下一批开发执行单](next-batch-plan.md)。当前已完成计划准备，执行结果仍按 acceptance 登记；原审计报告保留其当时截面。
+- 当前开发次序以 [2026-09-15 开发任务与下一项执行计划](next-development-plan-2026-09-15.md)为入口：先完成 P15-L Layout CAS 垂直切片，再收口 P08 Session、P11 正式控制和 P12 可信完成，随后实现 ViewStream 与治理/发布。旧 2026-09-13 审核保留其当时截面。
+- 本地 K8s arm64 新链路和首条 Task Pod 机制执行已经取得限定证据；当前 `api`、`runtime`、`scheduler`、`gates`、`wuji-web` 作为后续垂直切片的实际部署底座。具体通过范围仍以 acceptance 和永久证据为准。
+- 2026-09-13 [下一批开发执行单](next-batch-plan.md)保留历史排序；当前负责人、迁移顺序、部署边界和停止条件以[2026-09-15执行计划](next-development-plan-2026-09-15.md)为准。
 
 主代理负责架构、集成与质量。修复、测试、复核和轻量工作用 `gpt-5.6-sol/xhigh`，核心开发或重大复杂问题才用 `gpt-6-astra/xhigh`。按用户 2026-09-13 最新决定停止 Superpowers 流程，直接推进可运行功能，只做必要验证和定向修复；保留原始证据，共享数据库串行，不因交接重跑或反复编写流程文档。旧 Superpowers 台账仅为历史参考。
 

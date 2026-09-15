@@ -1,5 +1,7 @@
 # 下一批开发执行单
 
+> 状态：已被 [2026-09-15 当前开发任务与下一项执行计划](next-development-plan-2026-09-15.md)取代。本文保留 2026-09-13 的 A1/A2/B1/C0–C2 计划截面和历史执行依据。
+
 2026-09-13；状态：用户已认可，in-progress。从计划提交 `1bf066a` 开始本批实施，结果以实际验收记录为准。属于已批准 vNext P08/P10/P11 和后续消费者的实施安排，不另立阶段、不新增 AC。
 
 代码准备基线：`codex/vnext-maf@15aa6cdbc1ab1b22040ea7c3fa5dcb8a37562cd9`，工作树 `work/worktrees/vnext-maf`。基线无 tracked dirty，既有未跟踪资料保留。依据：[Spec](../../vnext/SPEC.md) S09–S11、[Plan](../../vnext/PLAN.md) P08/P10/P11、[当前验收](acceptance.md)、[进度审核](progress-audit-2026-09-13.md)、[P08合同](../../vnext/P08-implementation-contract.md)和[P10合同](../../vnext/P10-implementation-contract.md)。用户已要求停止 Superpowers，修复/验证使用 SOL xhigh，并明确本地 K8s 可部署测试。
