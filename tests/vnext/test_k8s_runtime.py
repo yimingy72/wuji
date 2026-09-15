@@ -23,6 +23,8 @@ _spec.loader.exec_module(operations)
 
 def test_deployment_ca_is_verified_by_worker_httpx_and_controller_urllib(tmp_path):
     operations.certificates(tmp_path / "tls")
+    assert (tmp_path / "tls/api.crt").is_file()
+    assert (tmp_path / "tls/api.key").is_file()
     trusted = ssl.create_default_context(cafile=tmp_path / "tls/ca.crt")
     tls_server = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     tls_server.load_cert_chain(tmp_path / "tls/runtime.crt", tmp_path / "tls/runtime.key")
@@ -84,3 +86,27 @@ def test_deployment_bundle_refuses_foreign_namespace_and_ca_private_key(tmp_path
         operations.manifest_objects(bundle)
     with pytest.raises(ValueError, match="CA signing key"):
         operations.secret_manifest("tls", {"tls.key":tmp_path / "ca.key"})
+
+
+def test_public_api_manifest_has_no_platform_artifact_mount(tmp_path):
+    import importlib.util
+    import sys
+
+    render_path = ROOT / "ops/vnext/kubernetes/render.py"
+    spec = importlib.util.spec_from_file_location("vnext_render", render_path)
+    render = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = render
+    spec.loader.exec_module(render)
+
+    image = "registry.local/wuji-vnext-platform@sha256:" + "a" * 64
+    deployment = render.platform("api", image, ["python", "api.py"])
+    container = deployment["spec"]["template"]["spec"]["containers"][0]
+    volume_names = {
+        item["name"] for item in deployment["spec"]["template"]["spec"]["volumes"]
+    }
+    mount_names = {item["name"] for item in container["volumeMounts"]}
+
+    assert deployment["metadata"]["name"] == "api"
+    assert deployment["spec"]["template"]["spec"]["automountServiceAccountToken"] is False
+    assert "artifacts" not in volume_names
+    assert "artifacts" not in mount_names
