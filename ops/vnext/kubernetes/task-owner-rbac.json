@@ -26,28 +26,92 @@
         }
       },
       "rules": [
-        {"apiGroups": [""], "resources": ["pods"], "verbs": ["get", "list"]},
         {
-          "apiGroups": [""],
-          "resources": ["configmaps", "secrets", "persistentvolumeclaims"],
-          "verbs": ["get", "list", "create", "update", "patch"]
+          "apiGroups": [
+            ""
+          ],
+          "resources": [
+            "pods"
+          ],
+          "verbs": [
+            "get",
+            "list"
+          ]
         },
         {
-          "apiGroups": [""],
-          "resources": ["services"],
-          "resourceNames": ["task-agent", "task-kali"],
-          "verbs": ["get", "update", "patch"]
+          "apiGroups": [
+            ""
+          ],
+          "resources": [
+            "configmaps",
+            "secrets",
+            "persistentvolumeclaims"
+          ],
+          "verbs": [
+            "get",
+            "list",
+            "create",
+            "update",
+            "patch"
+          ]
         },
         {
-          "apiGroups": ["apps"],
-          "resources": ["deployments"],
-          "resourceNames": ["runtime", "gates"],
-          "verbs": ["get", "patch"]
+          "apiGroups": [
+            ""
+          ],
+          "resources": [
+            "services"
+          ],
+          "resourceNames": [
+            "task-agent",
+            "task-kali"
+          ],
+          "verbs": [
+            "get",
+            "update",
+            "patch"
+          ]
         },
         {
-          "apiGroups": ["batch"],
-          "resources": ["jobs"],
-          "verbs": ["get", "list", "create", "delete"]
+          "apiGroups": [
+            "apps"
+          ],
+          "resources": [
+            "deployments"
+          ],
+          "resourceNames": [
+            "runtime",
+            "gates"
+          ],
+          "verbs": [
+            "get",
+            "patch"
+          ]
+        },
+        {
+          "apiGroups": [
+            "batch"
+          ],
+          "resources": [
+            "jobs"
+          ],
+          "verbs": [
+            "get",
+            "list",
+            "create",
+            "delete"
+          ]
+        },
+        {
+          "apiGroups": [
+            "batch"
+          ],
+          "resources": [
+            "jobs/status"
+          ],
+          "verbs": [
+            "get"
+          ]
         }
       ]
     },
@@ -68,7 +132,11 @@
         "name": "task-owner"
       },
       "subjects": [
-        {"kind": "ServiceAccount", "name": "task-owner", "namespace": "wuji-vnext-test"}
+        {
+          "kind": "ServiceAccount",
+          "name": "task-owner",
+          "namespace": "wuji-vnext-test"
+        }
       ]
     }
   ]
