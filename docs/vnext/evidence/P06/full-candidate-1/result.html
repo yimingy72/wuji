@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>P06 final verification</title>
+<style>
+  html { background: #111827; color: #e5e7eb; font: 18px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  body { margin: 0; padding: 42px; }
+  main { max-width: 1080px; margin: auto; border: 1px solid #374151; border-radius: 10px; padding: 30px; background: #0b1020; }
+  h1 { margin: 0 0 8px; font-size: 28px; color: #f9fafb; }
+  .meta { color: #9ca3af; margin-bottom: 28px; }
+  pre { white-space: pre-wrap; margin: 18px 0; color: #d1d5db; }
+  .ok { color: #4ade80; font-weight: 700; }
+  .note { color: #fbbf24; }
+</style>
+<main>
+  <h1>P06 final verification</h1>
+  <div class="meta">candidate f32678d5662965f44b32863e8ecdf306db676ffd<br>migration vnext_0007_p06_admission</div>
+  <pre>$ ./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_run_admission.py -q
+.............                                                            [100%]
+<span class="ok">13 passed in 13.50s</span></pre>
+  <pre>$ work/toolchain/bin/pnpm contracts:check:v2
+Generated Python and TypeScript v2 contracts match OpenAPI.
+packages/contracts/openapi-v2.yaml: validated in 62ms
+<span class="ok">API description valid — exit 0</span>
+<span class="note">1 existing warning: unused AgentPayload component</span></pre>
+  <pre>Boundaries: isolated PostgreSQL · signed ASGI · localhost model HTTP
+production WorkspaceReadExecutor · no paid model · no external target</pre>
+</main>
+</html>

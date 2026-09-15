@@ -1,0 +1,72 @@
+# attempt identity wiring for task 2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0 (owner command output)
+
+## task-owned resources (created by the wire phase)
+configmap/wuji-task-v-d92c6d1e6096f3f5b1e104da8a39a85f-a1-agent-config
+configmap/wuji-task-v-d92c6d1e6096f3f5b1e104da8a39a85f-a1-kali-config
+persistentvolumeclaim/wuji-task-v-d92c6d1e6096f3f5b1e104da8a39a85f-a1-agent-state
+persistentvolumeclaim/wuji-task-v-d92c6d1e6096f3f5b1e104da8a39a85f-a1-kali-receipts
+persistentvolumeclaim/wuji-task-v-d92c6d1e6096f3f5b1e104da8a39a85f-a1-kali-work
+secret/wuji-task-v-d92c6d1e6096f3f5b1e104da8a39a85f-a1-agent-auth
+secret/wuji-task-v-d92c6d1e6096f3f5b1e104da8a39a85f-a1-kali-auth
+
+## fixed Task Service selectors
+task-agent -> {"app.kubernetes.io/managed-by":"wuji-task-runtime-controller","wuji.dev/runtime-attempt":"1","wuji.dev/task-id":"2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0","wuji.dev/tenant-id":"1fc6b1f3-6f24-456b-9dc1-4e14c7197604"}
+task-kali -> {"app.kubernetes.io/managed-by":"wuji-task-runtime-controller","wuji.dev/runtime-attempt":"1","wuji.dev/task-id":"2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0","wuji.dev/tenant-id":"1fc6b1f3-6f24-456b-9dc1-4e14c7197604"}
+
+## runtime pod_runtime
+{
+ "task_ids": [
+  "2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0"
+ ],
+ "receiver": {
+  "credential_template_ref": "deployment-worker-v1",
+  "environment_ref": "pod-environment-2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0-a1",
+  "model_mode": "synthetic",
+  "receiver_id": "task-2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0-a1",
+  "receiver_subject": "receiver"
+ },
+ "task_config": {
+  "agent_image": "127.0.0.1:56615/wuji-vnext-agent@sha256:bee110937a83018d6d7bc3248db43dcc79a97da124edea07bef12091a368f07b",
+  "agent_resources": {
+   "cpu_limit": "1",
+   "cpu_request": "100m",
+   "memory_limit": "512Mi",
+   "memory_request": "128Mi"
+  },
+  "config_digest": "7bb0111c9646d39752c6cae897e65a930697dce809fe33cd9c4362ade5fd475e",
+  "execution_epoch": 2,
+  "expose_pod_identity": true,
+  "kali_image": "127.0.0.1:56615/wuji-vnext-kali@sha256:79979680a2b5a1ba545338ea11f4d7b649cd9b6d29d62db034bdc0b4d72c6ead",
+  "kali_receipts_enabled": true,
+  "kali_resources": {
+   "cpu_limit": "1",
+   "cpu_request": "100m",
+   "memory_limit": "512Mi",
+   "memory_request": "128Mi"
+  },
+  "namespace": "wuji-vnext-test",
+  "pod_deadline_seconds": 1800,
+  "runtime_attempt": 1,
+  "scope_digest": "a75b1b86d4457ed8be9e95b512f0ab7010614079ce8d2caf89f6b98af71538d6",
+  "task_id": "2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0",
+  "tenant_id": "1fc6b1f3-6f24-456b-9dc1-4e14c7197604",
+  "tmp_size_limit": "128Mi"
+ }
+}
+
+## gates executor binding
+{
+ "collector_subject": "collector",
+ "environment_ref": "pod-environment-2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0-a1",
+ "executor_ref": "kali-workspace-v1",
+ "gate_subject": "gate",
+ "project_id": "81e8c413-ba26-45fb-8b5a-1bc477eef99f",
+ "receiver_id": "task-2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0-a1",
+ "task_id": "2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0",
+ "tenant_id": "1fc6b1f3-6f24-456b-9dc1-4e14c7197604"
+}
+
+## task Pod
+NAME                                                              READY   STATUS      RESTARTS   AGE    IP           NODE             NOMINATED NODE   READINESS GATES
+wuji-task-v-d92c6d1e6096f3f5b1e104da8a39a85f-a1                   2/2     Running     0          98s    10.1.0.174   docker-desktop   <none>           <none>
+wuji-task-v-d92c6d1e6096f3f5b1e104da8a39a85f-a1-workspace-h6zd2   0/1     Completed   0          107s   10.1.0.172   docker-desktop   <none>           <none>

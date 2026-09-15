@@ -1,6 +1,6 @@
 # P11-C 收尾计划：从产品入口到真实 worker 往返
 
-- 状态：in-progress（主代理设计并执行）
+- 状态：delivered（owner 命令已交付并实测；worker start 门与结算缺口转下一步）
 - 日期：2026-09-15
 - 工作树：`work/worktrees/vnext-maf`，分支 `codex/vnext-maf`
 - 权威来源：[Spec](../../vnext/SPEC.md)、[P00–P20 Plan](../../vnext/PLAN.md)、[验收](acceptance.md)、[决定 D18](../../vnext/decision-register.md)、[下一项执行计划](next-development-plan-2026-09-15.md)
@@ -73,3 +73,16 @@
 - worker profile 的产品化发布（创建入口直接选择已发布 session profile）。
 - 真实模型网关与生产身份；本轮仍为 synthetic 机制模型。
 - P12 可信完成与报告冻结。
+
+## 8. 执行结果（2026-09-15）
+
+已交付 `ops/vnext/task_launch.py`（commit `d5a246a` 起）与同任务的 owner RBAC，并在真实 K8s 上跑通单条命令四阶段：创建 → definition 定稿 → admission/executor/Intent → `start` 202 → attempt 资源与平台绑定 → runtime 创建并注册 Pod（2/2）→ 3 条 session capability 绑定该 Pod UID。
+随后 scheduler 接纳 reason 工作、runtime 投递 assignment、平台记录真实 `started`/`exited` 观测。证据包见
+[P11-C owner 启动](../../vnext/evidence/P11/task-roundtrip-20260915/README.md)。
+
+未关闭项（转下一步，不在本计划内扩张）：
+
+1. MAF 子进程在 start 门收到 `status=revoked`；`WorkerBridge._await_start` 需要输出**有界的**被拒谓词码，再据此修因（哨兵：`STALE_EXECUTION` / `LIMIT_BLOCKED`）。
+2. 无工具调用的 run 没有 `run_operation_settlement` 行，work 项停在 `reconciling/operations_unsettled`，无法再次接纳；需要定义“零工具尝试”的结算语义。
+3. 投递结果为 unknown 时平台拒绝重投；当受信 receiver 对同一 operation 明确回答 `OPERATION_NOT_FOUND` 时应允许一次受控重投（或提供显式 owner 复核命令），需要单独决定。
+4. 固定名 `task-agent`/`task-kali` 与单 `pod_runtime` 仍是一次一个 Task 的切片；多 Task 并发维持原延期项。

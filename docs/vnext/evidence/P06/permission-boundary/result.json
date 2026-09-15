@@ -1,0 +1,12 @@
+{
+  "candidate_sha": "f32678d5662965f44b32863e8ecdf306db676ffd",
+  "test": "test_run_credential_does_not_grant_control_admit_or_capture",
+  "command": "WUJI_TEST_EVIDENCE_DIR=$PWD/docs/vnext/evidence/P06/permission-boundary/raw ./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_run_admission.py -q -k run_credential_does_not_grant",
+  "exit_code": 0,
+  "passed": 1,
+  "deselected": 13,
+  "test_file_sha256": "39c2e27957718da917373f486b874e7e6995740ab591b36333b738ab07be8486",
+  "support_file_sha256": "3ce765387a7a4380c58ff78eab8e7183a440ce595fc5de3968fed4dd3857a3d3",
+  "http_request_emitted": false,
+  "boundary": "real PostgreSQL ACL and UnitOfWork denial; no HTTP route"
+}

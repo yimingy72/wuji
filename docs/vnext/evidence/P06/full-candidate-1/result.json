@@ -1,0 +1,32 @@
+{
+  "candidate_sha": "f32678d5662965f44b32863e8ecdf306db676ffd",
+  "migration_head": "vnext_0007_p06_admission",
+  "test_command": "WUJI_TEST_EVIDENCE_DIR=$PWD/docs/vnext/evidence/P06/full-candidate-1/raw ./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_run_admission.py -q",
+  "test_exit_code": 0,
+  "tests_passed": 13,
+  "tests_failed": 0,
+  "test_duration_seconds": 13.50,
+  "contract_command": "work/toolchain/bin/pnpm contracts:check:v2",
+  "contract_exit_code": 0,
+  "contract_warning_count": 1,
+  "contract_warning": "Existing unused AgentPayload component",
+  "real_postgresql": true,
+  "signed_inbound_http": true,
+  "localhost_model_http": true,
+  "production_workspace_read_executor": true,
+  "paid_model_or_external_target_access": false,
+  "test_file_sha256": {
+    "tests/vnext/test_run_admission.py": "7c112748b6500765aef791f4a906864b25fb0120fc76440af63051c4386e3495",
+    "tests/vnext/support/p06.py": "3ce765387a7a4380c58ff78eab8e7183a440ce595fc5de3968fed4dd3857a3d3"
+  },
+  "not_run": [
+    "official MCP type normalization and complete MCP transport (P07; mcp.types absent)",
+    "MAF worker and downstream SDK integration (P07)",
+    "P08 durable approval consumption",
+    "Supervisor/Kali remote executor integration (P10)",
+    "real LiteLLM deployment, pricing and billing reconciliation",
+    "external targets and production cutover",
+    "P16 complete telemetry/trace policy",
+    "P17 tool cancel, reconcile, explicit retry, restart and fault matrix"
+  ]
+}

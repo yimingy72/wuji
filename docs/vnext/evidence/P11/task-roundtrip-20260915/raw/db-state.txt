@@ -1,0 +1,55 @@
+# P11-C owner launch state (task 3 = 2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0, task 2 = aa74145f-10c5-4a10-9730-4917e5089e20)
+## task rows
+2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0|run|running|2|1|2026-09-15 15:49:46.398931+00|7bb0111c9646d39752c6cae897e65a930697dce809fe33cd9c4362ade5fd475e
+aa74145f-10c5-4a10-9730-4917e5089e20|run|running|2|1|2026-09-15 15:39:07.203527+00|7bb0111c9646d39752c6cae897e65a930697dce809fe33cd9c4362ade5fd475e
+## work items (task 3)
+explore|reconciling|run|2|operations_unsettled|731ff0e5-e951-40b6-8d3b-a3113ef00b07|1
+reason|reconciling|run|2|operations_unsettled||
+## runs (task 3)
+32225e35-13f5-4827-b96c-ee202f6b43df|exited|exited|none|2|2|2026-09-15 15:50:00.756+00|2026-09-15 15:50:03.67+00
+81e6822c-bb7c-45fa-9aa1-ea59012c7879|exited|exited|none|2|2|2026-09-15 15:50:05.476+00|2026-09-15 15:50:08.505+00
+## observations (task 3)
+ab178499fb402b998893c357d2bc462d0d36932a2ce4104b85817fa1e8058e86|32225e35-13f5-4827-b96c-ee202f6b43df|started|2026-09-15 15:50:00.769+00
+18aba62a5f0a2e51415bb94705039d65d0b7678186eecf444fca3b5bf9977b90|32225e35-13f5-4827-b96c-ee202f6b43df|exited|2026-09-15 15:50:03.67+00
+cc3ebc5eb65bd1de9f26e4bcbdc7e48374b8e8ba3d600c8e43f3fc277a693964|81e6822c-bb7c-45fa-9aa1-ea59012c7879|started|2026-09-15 15:50:05.486+00
+118119b8ec0edca32bc42e9ec11e308587c82aa70f4151811e88c9eafee76bd3|81e6822c-bb7c-45fa-9aa1-ea59012c7879|exited|2026-09-15 15:50:08.505+00
+## counters (task 3)
+0|0|0|0
+## session capabilities
+session-capability-2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0-a1-explore|f|d7c6f81ecaef
+session-capability-2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0-a1-reason|f|839d0a20be85
+session-capability-2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0-a1-report|f|1a70955c2006
+session-capability-85bba46a-12f0-4a50-8b34-54b4446bd0d5-a1-explore|f|ca4373bc4be4
+session-capability-85bba46a-12f0-4a50-8b34-54b4446bd0d5-a1-reason|f|b6a3c490a4cc
+session-capability-85bba46a-12f0-4a50-8b34-54b4446bd0d5-a1-report|f|18ae8bf6fecc
+session-capability-aa74145f-10c5-4a10-9730-4917e5089e20-a1-explore|f|1b9dc6b69ed8
+session-capability-aa74145f-10c5-4a10-9730-4917e5089e20-a1-reason|f|7111f626172f
+session-capability-aa74145f-10c5-4a10-9730-4917e5089e20-a1-report|f|363c7d97c99e
+## receiver (task 3)
+task-2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0-a1|1|t|363d560a-f654-43e0-9183-d6d6f961eb6b|synthetic
+## capacity
+deployment-global|4|3
+model:synthetic-model-v1|4|3
+tenant:1fc6b1f3-6f24-456b-9dc1-4e14c7197604|4|3
+## reservations
+2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0|deployment-global|released
+2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0|deployment-global|released
+2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0|model:synthetic-model-v1|released
+2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0|model:synthetic-model-v1|released
+2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0|tenant:1fc6b1f3-6f24-456b-9dc1-4e14c7197604|released
+2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0|tenant:1fc6b1f3-6f24-456b-9dc1-4e14c7197604|released
+85bba46a-12f0-4a50-8b34-54b4446bd0d5|deployment-global|reserved
+85bba46a-12f0-4a50-8b34-54b4446bd0d5|deployment-global|reserved
+85bba46a-12f0-4a50-8b34-54b4446bd0d5|model:synthetic-model-v1|reserved
+85bba46a-12f0-4a50-8b34-54b4446bd0d5|model:synthetic-model-v1|reserved
+85bba46a-12f0-4a50-8b34-54b4446bd0d5|tenant:1fc6b1f3-6f24-456b-9dc1-4e14c7197604|reserved
+85bba46a-12f0-4a50-8b34-54b4446bd0d5|tenant:1fc6b1f3-6f24-456b-9dc1-4e14c7197604|reserved
+a41a59ed-29e1-4801-b68b-dfea395eae30|deployment-global|reserved
+a41a59ed-29e1-4801-b68b-dfea395eae30|model:synthetic-model-v1|reserved
+a41a59ed-29e1-4801-b68b-dfea395eae30|tenant:1fc6b1f3-6f24-456b-9dc1-4e14c7197604|reserved
+aa74145f-10c5-4a10-9730-4917e5089e20|deployment-global|released
+aa74145f-10c5-4a10-9730-4917e5089e20|deployment-global|released
+aa74145f-10c5-4a10-9730-4917e5089e20|model:synthetic-model-v1|released
+aa74145f-10c5-4a10-9730-4917e5089e20|model:synthetic-model-v1|released
+aa74145f-10c5-4a10-9730-4917e5089e20|tenant:1fc6b1f3-6f24-456b-9dc1-4e14c7197604|released
+aa74145f-10c5-4a10-9730-4917e5089e20|tenant:1fc6b1f3-6f24-456b-9dc1-4e14c7197604|released

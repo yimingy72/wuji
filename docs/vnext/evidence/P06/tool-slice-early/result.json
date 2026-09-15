@@ -1,0 +1,18 @@
+{
+  "phase": "early_tool_consumer_slice",
+  "status": "pass_uncommitted_slice",
+  "command": "WUJI_TEST_EVIDENCE_DIR=$PWD/docs/vnext/evidence/P06/tool-slice-early/raw ./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_run_admission.py -q -k workspace",
+  "exit_code": 0,
+  "head_sha": "688237bcd731b1318466af5c288975b1e568801d",
+  "production_state": "uncommitted P06 tool slice; not CORE_READY",
+  "passed": 2,
+  "deselected": 6,
+  "paid_model_or_target_access": false,
+  "executor": "production WorkspaceReadExecutor over a test-owned local file",
+  "production_file_sha256": {
+    "admission/tools.py": "575dd437020b32009b2007d811646aa6590769e81fb5588bb6cd7fdbdef63bfa",
+    "http/tool_gate.py": "e3204eed9f5df012195a3b5e8acef201e900a4e442c1d0aaf96b26a82806633f",
+    "contracts/admission.py": "058eab9966a165bf337d8f1fb9a9e62f4027bbaf0014527b07180645c3701afd",
+    "persistence/admission_schema.py": "e42157448499ccbbc61828587d5354ea8cd241699e0fc79fefae1f31ca8ea1e6"
+  }
+}

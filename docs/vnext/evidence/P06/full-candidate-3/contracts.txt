@@ -1,0 +1,10 @@
+Reused from the immediately preceding contract check because only
+packages/wuji-core/src/wuji_core/persistence/admission_hardening_schema.py
+changed between 67a8030 and a9a768c; OpenAPI and generated TypeScript hashes are
+unchanged.
+
+> work/toolchain/bin/pnpm contracts:check:v2
+Generated Python and TypeScript v2 contracts match OpenAPI.
+packages/contracts/openapi-v2.yaml: validated in 63ms
+Exit code: 0
+1 warning: existing unused AgentPayload component at line 930.

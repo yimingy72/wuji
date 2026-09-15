@@ -1,0 +1,22 @@
+{
+  "phase": "early_model_consumer_slice",
+  "status": "pass_uncommitted_slice",
+  "command": "WUJI_TEST_EVIDENCE_DIR=$PWD/docs/vnext/evidence/P06/model-slice-early-r2/raw ./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_run_admission.py -q -k 'not workspace'",
+  "exit_code": 0,
+  "head_sha": "78a26e35445ecf75fc479bbe8977f584cdc8e703",
+  "production_state": "uncommitted P06 model slice; not CORE_READY",
+  "passed": 6,
+  "deselected": 2,
+  "paid_model_or_target_access": false,
+  "transport": "real signed ASGI inbound and real localhost HTTP model upstream",
+  "production_file_sha256": {
+    "admission/common.py": "b1c71b7ce445de83255a0b318a8541f22e49857982fcd46285ec6c71d1529cd7",
+    "admission/registry.py": "2a8ead64566ea1aed8d7c96f974c1609fe0d8132e3321ef51f03920be5c510b4",
+    "admission/ledger.py": "a338c86165322de7e6135a254a5eb58f9ff995d174dbe31f348f3acd8eb36b03",
+    "admission/models.py": "5a64b1daeabee04b1a9962f925eff3d724a1df13e0668f1eb1b57b4fd3c7f995",
+    "http/model_gate.py": "5522826916930f5b3b67fa6d12e1723ffa9ccea1b94cb615214481ce7fed084f",
+    "persistence/admission_schema.py": "ea761772a9d79b3777ac877401ff0312b8139c06fefc275a2e25804c024a1114",
+    "persistence/uow.py": "d4141bf2f3b7dd1fba6d12d0a9a7e5a1aea1b0a4917697eaa406d89fbbebb90f",
+    "contracts/openapi-v2.yaml": "5b96ab08d13eb10d794fd94c547a4afb92f9ffb2462e4ffe448570bd912300f2"
+  }
+}

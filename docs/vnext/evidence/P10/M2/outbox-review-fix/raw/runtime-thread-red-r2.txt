@@ -1,0 +1,93 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+__________ test_runtime_service_owns_its_real_dispatch_journal_thread __________
+
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-212/test_runtime_service_owns_its_0')
+
+    def test_runtime_service_owns_its_real_dispatch_journal_thread(tmp_path):
+        body = assignment_body()
+        body["profile_refs"] = [
+            body["profile_refs"][0],
+            "fixture-model-v1",
+            "fixture-runtime-v1",
+        ]
+        assignment = WorkerAssignment.model_validate(body)
+        receiver = receiver_body()
+        registered = RegisteredRun(
+            identity=assignment.identity,
+            start_operation_id=assignment.operation_id,
+            environment_ref=receiver["environment_ref"],
+            pod_uid=receiver["pod_uid"],
+            assignment_digest=sha256(
+                canonical_json_bytes(assignment.model_dump(mode="json"))
+            ).hexdigest(),
+            work_kind=assignment.work_kind.value,
+            harness_profile_id=assignment.profile_refs[0].root,
+            harness_profile_digest="a" * 64,
+        )
+        access = AccessContext(
+            Principal(
+                subject="observer-fixture",
+                tenant_id="tenant-fixture",
+                roles=frozenset({"controller"}),
+                token_id="runtime-service-token",
+            ),
+            "runtime-service-thread",
+        )
+        journal_path = tmp_path / "runtime-dispatch.sqlite3"
+        outbox = DispatchOutbox(
+            None,
+            access=access,
+            transport=object(),
+            journal_path=journal_path,
+        )
+        stop = Event()
+    
+        class JournalRuntime(RuntimeDispatcher):
+            def run_once(self, *, limit=16):
+                del limit
+                stop.set()
+                self.outbox.journal.reserve_send(registered)
+                return ()
+    
+        dispatcher = JournalRuntime(
+            None,
+            access=access,
+            authorized_task_ids=(),
+            work_kinds=("explore",),
+            outbox=outbox,
+            reconciler=object(),
+        )
+        service = runpy.run_path(
+            str(Path(__file__).resolve().parents[2] / "services/wuji-runtime/main.py")
+        )
+        errors = []
+    
+        def invoke():
+            try:
+                service["run"](
+                    dispatcher,
+                    stop=stop,
+                    interval_seconds=0.001,
+                    batch_limit=1,
+                )
+            except Exception as error:
+                errors.append(error)
+    
+        worker = Thread(target=invoke, name="runtime-service-test")
+        worker.start()
+        worker.join(timeout=2)
+    
+        assert not worker.is_alive()
+>       assert errors == []
+E       AssertionError: assert [ProgrammingE...6120435712.')] == []
+E         
+E         Left contains one more item: ProgrammingError('SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 8337564224 and this is thread id 6120435712.')
+E         Use -v to get more diff
+
+tests/vnext/test_maf_child_transport.py:156: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"error": "ProgrammingError", "event": "runtime_dispatch_error"}
+=========================== short test summary info ============================
+FAILED tests/vnext/test_maf_child_transport.py::test_runtime_service_owns_its_real_dispatch_journal_thread
+1 failed in 1.32s

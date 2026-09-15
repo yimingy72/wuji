@@ -1,0 +1,7 @@
+HTTP/1.1 201 Created
+date: Tue, 15 Sep 2026 15:38:12 GMT
+server: uvicorn
+content-length: 400
+content-type: application/json
+x-request-id: f2dde9c2-72eb-4ccd-abd6-ec445af40261
+

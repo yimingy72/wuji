@@ -1,0 +1,17 @@
+Effective candidate SHA: e40e7e2100cf528bf7eba797176b9bd033be48c3
+Core source SHA: 6e90a97fa507717e4f8b06229ca1d2fc5e1593c4
+Node settlement SHA: 01f977d440d36fac765a3277cdde227761151cef
+
+$ WUJI_TEST_EVIDENCE_DIR="$PWD/docs/vnext/evidence/P10/M2/first-roundtrip-r5/raw" ./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_maf_child_transport.py::test_actual_supervisor_child_waits_for_start_and_receiver_replays_bytes -q
+.                                                                        [100%]
+1 passed in 8.91s
+
+$ ./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_maf_child_transport.py -k 'not actual' -q
+..                                                                       [100%]
+2 passed, 1 deselected in 0.80s
+
+$ ./scripts/vnext/uv.sh run --frozen python scripts/vnext/generate_contracts.py --check
+Generated Python and TypeScript v2 contracts match OpenAPI.
+exit 0
+
+Python compileall and Node syntax checks: exit 0

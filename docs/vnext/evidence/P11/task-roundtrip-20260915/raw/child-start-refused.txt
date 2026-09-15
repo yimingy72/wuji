@@ -1,0 +1,38 @@
+# The spawned MAF child was refused at its start gate (2026-09-15 15:43:49 UTC)
+
+Command (read-only, run inside the Task Pod agent container against the failed
+launch directory of run 3579b8db-…; the same code path the child uses):
+
+  $ kubectl -n wuji-vnext-test exec <task-pod> -c agent -- env \
+      WUJI_TLS_CA_FILE=/config/ca.crt \
+      WUJI_WORKER_ASSIGNMENT_FILE=/var/lib/wuji/agent/inbox/launches/<launch>/worker/assignment.json \
+      WUJI_WORKER_BOOTSTRAP_DIRECTORY=/var/lib/wuji/agent/inbox/launches/<launch>/worker \
+      /opt/wuji/packages/maf-worker/.venv/bin/python /tmp/probe-child.py
+
+Output:
+
+  assignment/bridge parsed
+  await_start FAILED HostTransportError Worker start was revoked
+
+Child evidence recorded by the supervisor (never fabricated by the platform):
+
+  $ cat /var/lib/wuji/agent/inbox/launches/<launch>/stderr.log
+  Wuji Worker stopped without a confirmed completion.
+
+  $ ls /var/lib/wuji/agent/inbox/launches/<launch>/worker
+  assignment.json  bridge.json  child-entered
+
+Platform side of the same attempt (task 2abfdd57-…, run 32225e35-…):
+
+  run.dispatch_requested 15:49:59.153
+  execution_observation started 15:50:00.769
+  execution_observation exited  15:50:03.670
+  model_call 0 · tool_call 0 · result_submission 0
+  work_item reason  -> reconciling / operations_unsettled
+  work_item explore -> reconciling / operations_unsettled
+
+Interpretation: the supervisor spawned the guardian and the child, the platform
+recorded a real started/exited pair, and the child aborted because the P05 start
+gate answered status=revoked. The refusal code is not yet surfaced
+(`WorkerBridge._await_start` swallows STALE_EXECUTION / LIMIT_BLOCKED into the
+revoked status), so the exact predicate still needs one bounded operator signal.

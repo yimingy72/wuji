@@ -1,0 +1,1 @@
+{"audience": "wuji-vnext-tests", "issuer": "https://identity.fixture.invalid", "public_key_sha256": "072d9d1aacb3df99910671cbe725567a258ed1f944cfe545abc4bd9f7ec3217a", "roles": ["worker"], "subject": "run-worker-fixture", "tenant_id": "tenant-fixture", "token_id": "24aa07ab-fc7b-4556-b3ae-dc7b8a54859c"}

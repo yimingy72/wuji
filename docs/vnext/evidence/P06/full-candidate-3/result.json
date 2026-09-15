@@ -1,0 +1,53 @@
+{
+  "p06_base_sha": "f32678d5662965f44b32863e8ecdf306db676ffd",
+  "p06_fix_commits": [
+    "67a8030e7c6a7c1cf767aa20a60fd6bfec5fe5e4",
+    "a9a768ced250ad7d80d7bf54f5777b9782550cb5"
+  ],
+  "migration_head": "vnext_0008_p06_admission_hardening",
+  "test_command": "WUJI_TEST_EVIDENCE_DIR=$PWD/docs/vnext/evidence/P06/full-candidate-3/raw ./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_run_admission.py -q",
+  "test_exit_code": 0,
+  "tests_passed": 25,
+  "tests_failed": 0,
+  "test_duration_seconds": 27.67,
+  "contract_command": "work/toolchain/bin/pnpm contracts:check:v2",
+  "contract_exit_code": 0,
+  "contract_evidence_reused": true,
+  "contract_reuse_basis": "Only admission_hardening_schema.py changed after the passing check; OpenAPI and generated TypeScript hashes are unchanged.",
+  "contract_warning_count": 1,
+  "contract_warning": "Existing unused AgentPayload component",
+  "initial_review_red": "7 failed, 14 deselected in 6.49s",
+  "initial_review_targeted_green": "P1 3 passed; P2 4 passed; receipt replay 1 passed",
+  "second_review_red": "2 failed, 23 deselected in 2.68s",
+  "second_review_green": "2 passed, 23 deselected in 2.91s",
+  "real_postgresql": true,
+  "signed_inbound_http": true,
+  "localhost_model_http": true,
+  "production_workspace_read_executor": true,
+  "paid_model_or_external_target_access": false,
+  "test_file_sha256": {
+    "tests/vnext/test_run_admission.py": "745574e6c45e36bc856ed6c43eb4dee30888aa7daf3b99a900d4f65edeb04004",
+    "tests/vnext/support/p06.py": "b2f6da0fcae37a0864450516f0f4f345931b8d37376608894b52743487f45cd3"
+  },
+  "production_file_sha256": {
+    "admission/common.py": "09637e0b5cf751e68a041a80e5580ee636d5847bc3e9964a1a39525004bab1f7",
+    "admission/ledger.py": "3cead43e098112f4a4643d3c151cf84842c34e41d841fe5d6e94a0637701041c",
+    "admission/models.py": "e013fd11ea6383ffa501ed5fda6c92605767fc2baca00e0a1e49f67d51d7e62f",
+    "admission/tools.py": "135186e41b040ac84d34f3cdf705f4833eb4917fd8340a06843c774cfe6f5fdc",
+    "persistence/admission_schema.py": "e42157448499ccbbc61828587d5354ea8cd241699e0fc79fefae1f31ca8ea1e6",
+    "persistence/admission_hardening_schema.py": "f7efad20140a9678e45764c1747a73e23128df99a71ce9b95c21ce544f9128fe",
+    "persistence/schema.py": "eb5aa41ad82b29c640c3a120a92ef0850a943d3a3ebf90d8822cea15fb87976a",
+    "contracts/openapi-v2.yaml": "20057c2d4909858c13a93ea7e56927b149c443719ff32746d7d498ad759e8562",
+    "contracts/src/v2/generated.ts": "4e8e77567216179d51aacce9a2054c128f74fc78d4d60d4064d736170f44e675"
+  },
+  "not_run": [
+    "official MCP type normalization and complete MCP transport (P07; mcp.types absent)",
+    "MAF worker and downstream SDK integration beyond the accepted P07 pure ContextBundle slice",
+    "P08 durable approval consumption",
+    "Supervisor/Kali remote executor integration (P10)",
+    "real LiteLLM deployment, pricing and billing reconciliation",
+    "external targets and production cutover",
+    "P16 complete telemetry/trace policy",
+    "P17 remote cancel/retry/restart and full fault matrix"
+  ]
+}

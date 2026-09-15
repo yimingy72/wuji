@@ -25,6 +25,9 @@
 
 | D18 | 2026-09-15 P11-C 创建入口采用「项目内既有控制权 + 部署发布 profile」模型：`POST /api/v2/tasks` 由 operator/controller 主体调用，tenant/subject 从会话派生，要求调用者在目标项目已有 Task 上具备 `can_control`；model/runtime 快照必须来自该租户`published_profile` 且未撤销；新 Task 只授予创建者本人访问，记为 pause/ready 不自动启动。首个 Task 仍由部署/bootstrap 建立，`admission_config`、容量绑定与调度身份继续由 owner 发布。证据见[P11-C 创建入口](../vnext/evidence/P11/task-creation-20260915/README.md) | 若允许任意已认证主体创建，会出现跨项目/跨租户越权与不可运行的孤儿任务；若要求先有项目成员表，则需新增产品级授权模型，超出本阶段。该模型使创建者可创建但不会获得组织级权限，符合 AGENTS.md 的产品约束 |
 
+
+| D19 | 2026-09-15 P11-C 创建后的 owner 启动采用单一命令四个有序阶段（prepare → activate → wire → capability），语义固定为：definition 必须在首次激活前定稿，激活后只读回、拒改；attempt 的 bearer 材料一律取自部署当前 secret（supervisor 对 controller 通道做逐字节比对），Task Service 证书仍按固定 Service 名复用；session capability 仅在该 attempt 的 Pod 实际注册（receiver 行 + pod UID）后发布，并保持 mechanism_candidate 的短时绑定；容量池键从部署模板 Task 的已发布绑定读取，不按 profile 名推导。证据见[P11-C owner 启动](../vnext/evidence/P11/task-roundtrip-20260915/README.md) | 若让 wire 复用旧 Task 的 bearer 或让 capability 先于 Pod 注册，runtime 与 supervisor 之间会稳定 401、或对未注册 Pod 发布凭据；若允许激活后改 definition，permit 绑定会永久失配。该命令仍不创建 Pod、不写 Fact/Run/结果、不伪造退出 |
+
 21 项任务及共享接口逐项检查表在本工作树的忽略台账 `.superpowers/sdd/vnext-v2/preflight.md`，任务完成以提交、具体测试和审查记录为准。源包 `ACCEPTANCE.md` / `VALIDATION_REPORT.md` 保持原始文档检查事实；实施结果另记，不覆盖原包。
 
 常规实现和修复按批准范围连续推进。必要权限、恢复或真实 MAF 核心能力不满足时，记录实际失败与合同影响，不通过削弱测试或更换框架来宣称通过。

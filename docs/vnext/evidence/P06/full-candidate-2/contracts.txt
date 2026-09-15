@@ -1,0 +1,7 @@
+> wuji-workspace@0.5.0 contracts:check:v2 /Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf
+> ./scripts/vnext/uv.sh run --frozen python scripts/vnext/generate_contracts.py --check && work/toolchain/bin/pnpm exec redocly lint packages/contracts/openapi-v2.yaml
+
+Generated Python and TypeScript v2 contracts match OpenAPI.
+packages/contracts/openapi-v2.yaml: validated in 63ms
+Woohoo! Your API description is valid.
+1 warning: existing unused AgentPayload component at packages/contracts/openapi-v2.yaml:930.

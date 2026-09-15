@@ -1,0 +1,19 @@
+M2 first RED and directed failures
+
+1. Initial bridge interface
+   Command: ./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_maf_child_transport.py -q
+   Result: exit 1; wuji_core.execution.worker_bridge was absent; 1 failed in 0.04s.
+
+2. Generated bridge wire
+   Result: all 10 requested generated DTOs were absent; pure RED failed in 0.04s.
+
+3. First actual child run
+   Result: P05 start was persisted and pre-start model count stayed zero, but
+   WorkerHostBridge read self-only scheduler_receiver with Worker RLS and returned
+   revoked before SDK. The bridge was changed to verify receiver metadata through
+   the registered receiver observe access; no P09 permission or schema changed.
+
+4. Test-support corrections
+   Two bounded corrections used the actual traces: scheduler_config belongs to
+   scheduled.control; WorkerStartPermission represents revocation as HTTP 200 with
+   status=revoked. No third script-investigation round was used.

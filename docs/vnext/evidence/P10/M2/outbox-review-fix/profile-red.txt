@@ -1,0 +1,25 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+________ test_process_receipt_rejects_a_non_harness_assignment_profile _________
+
+    def test_process_receipt_rejects_a_non_harness_assignment_profile():
+        assignment = WorkerAssignment.model_validate(assignment_body())
+        receiver = receiver_body()
+>       run = RegisteredRun(
+            identity=assignment.identity,
+            start_operation_id=assignment.operation_id,
+            environment_ref=receiver["environment_ref"],
+            pod_uid=receiver["pod_uid"],
+            assignment_digest=sha256(
+                canonical_json_bytes(assignment.model_dump(mode="json"))
+            ).hexdigest(),
+            work_kind=assignment.work_kind.value,
+            harness_profile_id=assignment.profile_refs[0].root,
+            harness_profile_digest="a" * 64,
+        )
+E       TypeError: RegisteredRun.__init__() got an unexpected keyword argument 'work_kind'
+
+tests/vnext/test_maf_child_transport.py:41: TypeError
+=========================== short test summary info ============================
+FAILED tests/vnext/test_maf_child_transport.py::test_process_receipt_rejects_a_non_harness_assignment_profile
+1 failed in 0.84s
