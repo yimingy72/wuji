@@ -95,9 +95,13 @@ def test_browser_login_uses_an_httponly_same_site_cookie(tmp_path):
                 "/auth/login", headers={"Origin": "http://127.0.0.1:44180"}
             )
             current = await client.get("/auth/session")
-            return anonymous, forbidden, login, current
+            logout = await client.post(
+                "/auth/logout", headers={"Origin": "http://127.0.0.1:44180"}
+            )
+            after_logout = await client.get("/auth/session")
+            return anonymous, forbidden, login, current, logout, after_logout
 
-    anonymous, forbidden, login, current = asyncio.run(run())
+    anonymous, forbidden, login, current, logout, after_logout = asyncio.run(run())
     assert anonymous.status_code == 401
     assert forbidden.status_code == 403
     assert login.status_code == 200
@@ -112,6 +116,8 @@ def test_browser_login_uses_an_httponly_same_site_cookie(tmp_path):
         "task_id": "task-fixture",
         "expires_at": current.json()["expires_at"],
     }
+    assert logout.status_code == 204
+    assert after_logout.status_code == 401
 
 
 def test_browser_proxy_mints_short_lived_internal_identity(tmp_path):
