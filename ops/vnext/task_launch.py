@@ -400,7 +400,16 @@ def activate(config, *, task_id, version, reason, base_url):
                      "Idempotency-Key": f"task-launch-start-{task_id}"},
         )
     if response.status_code != 202:
-        raise DomainError("CONTROL_REJECTED", response.status_code)
+        # The public command route answers with a bounded error document; keep
+        # only its stable code so an owner run is diagnosable without bodies.
+        try:
+            document = response.json()
+        except ValueError:
+            document = None
+        code = document.get("code") if isinstance(document, dict) else None
+        if not isinstance(code, str) or not 1 <= len(code) <= 64:
+            code = "CONTROL_REJECTED"
+        raise DomainError(code, response.status_code)
     return {"request": payload, "response": response.json()}
 
 
