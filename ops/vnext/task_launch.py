@@ -616,9 +616,20 @@ def ensure_object(core, kind, body, *, namespace):
     return "unchanged"
 
 
+def _replaceable(document):
+    """Drop server-owned metadata/status before a full-object replace."""
+
+    for field in ("managedFields", "creationTimestamp", "selfLink"):
+        document.get("metadata", {}).pop(field, None)
+    document.pop("status", None)
+    return document
+
+
 def replace_service_selector(core, name, selector, *, namespace):
     client = k8s_client().ApiClient()
-    service = client.sanitize_for_serialization(core.read_namespaced_service(name, namespace))
+    service = _replaceable(
+        client.sanitize_for_serialization(core.read_namespaced_service(name, namespace))
+    )
     if service["spec"].get("selector") == selector:
         return "unchanged"
     service["spec"]["selector"] = dict(selector)
@@ -628,7 +639,9 @@ def replace_service_selector(core, name, selector, *, namespace):
 
 def patch_deployment_json(core, name, update, *, namespace):
     client = k8s_client().ApiClient()
-    configmap = client.sanitize_for_serialization(core.read_namespaced_config_map(name, namespace))
+    configmap = _replaceable(
+        client.sanitize_for_serialization(core.read_namespaced_config_map(name, namespace))
+    )
     document = json.loads(configmap["data"]["deployment.json"])
     if update(document) == "unchanged":
         return "unchanged"
@@ -931,7 +944,8 @@ def run_phases(config, *, task_id, phases, options):
                 "executor_ref": published["executor_ref"],
                 "intent_ref": receipt.canonical_ref.model_dump(mode="json")
                 if receipt.canonical_ref is not None else None,
-                "intent_disposition": receipt.disposition,
+                "intent_status": str(receipt.status),
+                "intent_local_ref": receipt.local_ref,
             }
         if "activate" in phases:
             result["activate"] = activate(
@@ -1041,6 +1055,13 @@ def submit_job(*, args, namespace, job_name, job_args):
     logs = subprocess.run(["kubectl", *context, "-n", namespace, "logs", f"job/{job_name}"],
                           check=True, capture_output=True, text=True).stdout
     print(logs.rstrip())
+    status = subprocess.run(
+        ["kubectl", *context, "-n", namespace, "get", "job", job_name, "-o",
+         "jsonpath={.status.conditions[0].type}|{.status.succeeded}|{.status.failed}"],
+        check=True, capture_output=True, text=True).stdout
+    print("TASK_LAUNCH_JOB_STATUS " + status)
+    if "Failed" in status or status.endswith("|0|") is False and "Complete" not in status:
+        raise SystemExit(1)
 
 
 def main(argv=None):

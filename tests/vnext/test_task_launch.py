@@ -366,3 +366,82 @@ def test_minted_operator_bearer_binds_the_deployment_identity(tmp_path):
     assert principal.token_id
     with pytest.raises(ValueError):
         task_launch.mint_operator_token(config, key_file=str(key_file), ttl_seconds=10)
+
+
+def test_run_phases_prepare_hands_the_command_real_connection_factories(
+    monkeypatch, db_environment, audit_directory
+):
+    """The in-cluster path must pass factories, not one opened context manager."""
+
+    with creation_case(db_environment, audit_directory) as case:
+        created = create(case)
+        assert created.status_code == 201, created.text
+        task_id = created.json()["task_id"]
+        owner = (OWNER[0], OWNER[1], task_id)
+
+        with db_environment.migration_connection() as connection:
+            definition, _ = stored_definition(connection, task_id)
+            config = deployment_config(definition)
+            register_tool_definition(connection, tenant_id=OWNER[0], definition=tool_document())
+            seed_pools(connection, definition)
+
+        live = []
+
+        def _owner_connection(_config):
+            """A live owner-role connection; ``run_phases`` closes it itself."""
+
+            manager = db_environment.migration_connection()
+            connection = manager.__enter__()
+            live.append(manager)
+            return connection
+
+        monkeypatch.setattr(task_launch, "owner_connection", _owner_connection)
+        monkeypatch.setattr(
+            task_launch, "application_connection",
+            lambda _config: db_environment.additional_app_connection(),
+        )
+        monkeypatch.setattr(
+            task_launch, "operator_access",
+            lambda _config, signing_key_file=None: AccessContext(
+                Principal(
+                    subject="control-fixture",
+                    tenant_id=OWNER[0],
+                    roles=frozenset({"operator"}),
+                    token_id="task-launch-fixture",
+                ),
+                "task-launch",
+            ),
+        )
+
+        binding, result = task_launch.run_phases(
+            config,
+            task_id=task_id,
+            phases=["prepare"],
+            options={
+                "agent_image": "registry.invalid/agent@sha256:" + "a" * 64,
+                "kali_image": "registry.invalid/kali@sha256:" + "b" * 64,
+                "runtime_origin": "https://runtime.wuji-vnext-test.svc:8443",
+                "gate_url": "https://gates.wuji-vnext-test.svc:8443",
+                "namespace": "wuji-vnext-test",
+                "evidence_ref": "docs/vnext/evidence/P11/task-roundtrip-20260915/README.md",
+            },
+        )
+        assert result["prepare"]["intent_ref"] is not None
+        assert result["prepare"]["intent_status"] == "accepted_shared"
+        assert binding["receiver_id"] == f"task-{task_id}-a1"
+        assert binding["config_digest"] == result["prepare"]["definition_digest"]
+        assert set(binding["profiles"]) == {
+            "harness.reason.deployment.v1",
+            "harness.explore.deployment.v1",
+            "harness.report.deployment.v1",
+        }
+        with db_environment.migration_connection() as connection:
+            with connection.transaction():
+                connection.execute(
+                    "UPDATE vnext.task SET activated_at=now() WHERE task_id=%s", (task_id,)
+                )
+            assert connection.execute(
+                "SELECT count(*) FROM vnext.session_capability WHERE tenant_id=%s",
+                (OWNER[0],),
+            ).fetchone() == (0,)
+        assert owner == (OWNER[0], OWNER[1], task_id)
