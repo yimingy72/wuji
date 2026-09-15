@@ -1,0 +1,2 @@
+NAME                        READY   STATUS    RESTARTS   AGE   IP          NODE             NOMINATED NODE   READINESS GATES
+wuji-web-67c69dff49-dtkkx   2/2     Running   0          26m   10.1.0.85   docker-desktop   <none>           <none>

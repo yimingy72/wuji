@@ -1,0 +1,26 @@
+== Info:   Trying 127.0.0.1:44180...
+== Info: Connected to 127.0.0.1 (127.0.0.1) port 44180
+=> Send header, 85 bytes (0x55)
+0000: GET /healthz HTTP/1.1
+0017: Host: 127.0.0.1:44180
+002e: User-Agent: curl/8.7.1
+0046: Accept: */*
+0053: 
+== Info: Request completely sent off
+<= Recv header, 17 bytes (0x11)
+0000: HTTP/1.1 200 OK
+<= Recv header, 22 bytes (0x16)
+0000: Server: nginx/1.29.1
+<= Recv header, 37 bytes (0x25)
+0000: Date: Tue, 15 Sep 2026 03:31:07 GMT
+<= Recv header, 26 bytes (0x1a)
+0000: Content-Type: text/plain
+<= Recv header, 19 bytes (0x13)
+0000: Content-Length: 3
+<= Recv header, 24 bytes (0x18)
+0000: Connection: keep-alive
+<= Recv header, 2 bytes (0x2)
+0000: 
+<= Recv data, 3 bytes (0x3)
+0000: ok.
+== Info: Connection #0 to host 127.0.0.1 left intact

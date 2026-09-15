@@ -22,7 +22,7 @@
 | P14/P15 工作台 | 真实 K8s 浏览器会话、拓扑画布/列表、记录详情、历史快照选择已实测 | 布局持久化、实时流、Artifact 预览、正式身份和性能目标 | partial |
 | P16–P20 | 已有 Spec/Plan 和前置模块 | 治理、完整端到端、离线归档、发布物与离线评测工具 | not run |
 
-当前活跃 K8s 切片的 `api`、`runtime`、`scheduler`、`gates`、`wuji-web` 可运行。`44180` 只是本地 port-forward，不是集群 Service 自身；转发退出不会改变 Pod 状态。旧 `c2-*` 验证 Deployment 的凭据已过期并处于 CrashLoop，后续只做可逆缩容，不删除其数据库或证据。
+当前活跃 K8s 切片的 `api`、`runtime`、`scheduler`、`gates`、`wuji-web` 可运行。`8e0f30e` 已将 `44180` 改为 Docker Desktop Kubernetes 管理的 `LoadBalancer` Service，不再依赖 `kubectl port-forward`。旧 `c2-*` 验证 Deployment 的凭据已过期并处于 CrashLoop，后续只做可逆缩容，不删除其数据库或证据。
 
 ## 2. 后续开发队列
 

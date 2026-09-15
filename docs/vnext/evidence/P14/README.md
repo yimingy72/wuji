@@ -6,3 +6,4 @@
 - [P14 focused rereview](../../../../tests/topology/P14-rereview.md)
 - [Kubernetes browser workbench](k8s-browser-20260915/README.md): real P13 API, server-side local browser session, React Flow canvas/list rendering, screenshots and complete HTTP exchanges.
 - [Current browser interface inventory](k8s-browser-20260915/interface-inventory.md)
+- [Kubernetes-managed local browser entry](k8s-loadbalancer-20260915/README.md): replaces the temporary port-forward with `Service/wuji-web` LoadBalancer port 44180 and inventories the Docker Desktop image registries.

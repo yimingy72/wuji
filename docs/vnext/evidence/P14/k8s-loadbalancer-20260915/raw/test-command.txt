@@ -1,0 +1,1 @@
+./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_web_manifest.py -q

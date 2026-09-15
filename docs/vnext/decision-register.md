@@ -19,6 +19,7 @@
 | D13 | 按用户审核后要求准备[下一批执行单](../stages/vnext-maf/next-batch-plan.md)：P08修复、P11控制/正式入口和本地K8s装配并行；0014冻结当前定义、0015保持control、0016增量修复，共享迁移单一写入。K8s补真实P05→Pod→receiver和Gate→Kali受控executor接线，保持双容器卷隔离、HTTPS与D12 loopback限制 | 集群可用无需等待后期，但缺失的产品接线不能用fixture或共享挂载冒充；新增核心端口先固定合同，部署/修复/验证使用SOL，核心开发才按需GPT-6。计划准备不构成新测试通过 |
 | D14 | 2026-09-15 本地K8s首个浏览器读取入口采用同Pod BFF：浏览器只持有HttpOnly、SameSite=Strict短会话，BFF按请求签发不超过60秒的内部Bearer，并只代理固定Task的topology/snapshots/records GET。签名键和会话键仅在K8s Secret，前端配置不含Bearer；公开P13 API保持独立Deployment。该适配只用于本地机制工作台，生产OIDC、项目选择和写命令仍按P11/P15完成 | 先获得可审查的真实浏览器路径，同时避免把临时operator token放入JS或浏览器存储；后续正式身份可替换BFF登录来源而不改P13权限检查 |
 | D15 | 2026-09-15 当前下一项冻结为[P15-L Layout CAS垂直切片](../stages/vnext-maf/next-development-plan-2026-09-15.md)：先补齐LayoutPreference GET、viewport wire、0018个人偏好持久化、If-Match CAS、受权node identity校验及K8s浏览器刷新/冲突证据。布局只需当前Task读权，不产生领域事件。完成后先收口P08 Session、P11正式控制和P12可信完成，再实现ViewStream | 当前读工作台已有完整前置且Layout切片范围独立；先实现ViewStream会围绕尚未稳定的控制/完成事件重复调整。OpenAPI现状缺GET和viewport，若不先修合同将无法真实证明刷新保留布局 |
+| D16 | 2026-09-15 本地浏览器入口由`Service/wuji-web`的Docker Desktop Kubernetes `LoadBalancer`直接暴露`localhost:44180`，替换需要常驻宿主机进程的port-forward。Wuji业务Pod仍使用节点可达的Docker VM loopback registry拉取不可变摘要镜像；该registry属于构建/分发基础设施，不冒称K8s业务组件。空的旧`wuji-vnext-registry`只登记为待清理，不在本次删除 | 消除终端退出导致工作台失联；把应用运行平面与集群启动前就必须存在的镜像分发平面明确分开，避免把ClusterIP registry误当作节点可拉取地址或形成自举循环 |
 
 21 项任务及共享接口逐项检查表在本工作树的忽略台账 `.superpowers/sdd/vnext-v2/preflight.md`，任务完成以提交、具体测试和审查记录为准。源包 `ACCEPTANCE.md` / `VALIDATION_REPORT.md` 保持原始文档检查事实；实施结果另记，不覆盖原包。
 
