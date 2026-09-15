@@ -1,0 +1,10 @@
+HTTP/1.1 200 OK
+Server: nginx/1.29.1
+Date: Tue, 15 Sep 2026 02:36:31 GMT
+Content-Type: application/json
+Content-Length: 253
+Connection: keep-alive
+cache-control: no-store
+set-cookie: wuji_vnext_session=[REDACTED]; HttpOnly; Max-Age=1800; Path=/; SameSite=strict
+
+{"authenticated":true,"display_name":"Local Kubernetes operator","tenant_id":"1fc6b1f3-6f24-456b-9dc1-4e14c7197604","project_id":"81e8c413-ba26-45fb-8b5a-1bc477eef99f","task_id":"a41a59ed-29e1-4801-b68b-dfea395eae30","expires_at":"2026-09-15T03:06:31Z"}

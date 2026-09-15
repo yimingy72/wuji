@@ -1,8 +1,8 @@
-"""Render the isolated vNext static web deployment.
+"""Render the isolated vNext web and optional local browser gateway.
 
-This module deliberately has no dependency on the legacy API, Cairn, runtime,
-scheduler, gates, or Task Pod renderers. It only emits the web Deployment,
-Service, and its explicit public runtime configuration.
+This module has no dependency on the legacy API or Cairn. The optional gateway
+is a fixed read-only adapter to the isolated vNext public API; Secret values are
+supplied separately and never emitted by this renderer.
 """
 
 from __future__ import annotations
@@ -79,7 +79,7 @@ def build_web_manifests(
     display_name: str = "Local test operator",
     allowed_origins: tuple[str, ...] = (),
 ) -> list[dict[str, Any]]:
-    """Return ConfigMap, Deployment, and Service for the isolated web shell."""
+    """Return the ConfigMaps, Deployment and Service for the isolated web."""
 
     image = _validate_image(image)
     labels = {"app.kubernetes.io/name": SERVICE_NAME, "wuji.dev/service": "web"}

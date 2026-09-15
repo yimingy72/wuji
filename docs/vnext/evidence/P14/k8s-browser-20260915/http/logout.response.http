@@ -1,0 +1,7 @@
+HTTP/1.1 204 No Content
+Server: nginx/1.29.1
+Date: Tue, 15 Sep 2026 02:36:58 GMT
+Connection: keep-alive
+cache-control: no-store
+set-cookie: wuji_vnext_session=[REDACTED]; expires=Tue, 15 Sep 2026 02:36:58 GMT; HttpOnly; Max-Age=0; Path=/; SameSite=strict
+

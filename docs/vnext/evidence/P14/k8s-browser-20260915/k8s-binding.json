@@ -1,0 +1,43 @@
+{
+  "api": {
+    "deployment": "api",
+    "image": "127.0.0.1:56615/wuji-vnext-platform@sha256:42af7bd277e93541e31144ff562e33ee157e05a738f550762bcb99995ef5e832",
+    "origin": "https://api.wuji-vnext-test.svc:8443",
+    "pod": "api-6f7848bc-4mnjm",
+    "pod_uid": "ac4071fb-2dc2-4246-a784-45d6e03b4ced",
+    "ready": true
+  },
+  "date": "2026-09-15",
+  "gateway_secret": {
+    "keys": [
+      "identity.key",
+      "session.key"
+    ],
+    "name": "wuji-web-gateway-credentials",
+    "uid": "72bba83f-09a8-4f2e-ae23-e0b516e27ba0",
+    "values_included": false
+  },
+  "namespace": "wuji-vnext-test",
+  "project_id": "81e8c413-ba26-45fb-8b5a-1bc477eef99f",
+  "source": {
+    "fresh_api_assembly_test": "eacaf34",
+    "gateway_and_web": "e8a51621f4afcc68a697cb634aaa9b7844378b8a",
+    "logout_test": "f51612c",
+    "manifest_security_fix": "09ad034",
+    "public_api": "24f984f"
+  },
+  "task_id": "a41a59ed-29e1-4801-b68b-dfea395eae30",
+  "tenant_id": "1fc6b1f3-6f24-456b-9dc1-4e14c7197604",
+  "web": {
+    "containers": {
+      "gateway": "127.0.0.1:56615/wuji-vnext-platform@sha256:6e5e5a7ca253a26660f574ddf155564567199e4d19f5c5ca0f7cc989c6e86685",
+      "web": "127.0.0.1:56615/wuji-web@sha256:acb57215c363e5ad92f2b2b43c97c14cfb5160bd53ca3177b8e08c2908b7811a"
+    },
+    "deployment": "wuji-web",
+    "endpoint": "10.1.0.83",
+    "local_url": "http://127.0.0.1:44180/",
+    "pod": "wuji-web-594898d5d-fshj5",
+    "pod_uid": "3e7efebd-6763-4e49-88c7-6b8df6aff667",
+    "ready": true
+  }
+}

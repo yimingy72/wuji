@@ -17,6 +17,7 @@
 | D11 | 采纳用户补充材料中经主代理裁定的交付组织：保持 P00–P20、架构和 75 AC 编号不变，以 M0–M5 组织可运行交付；补入 checkpoint 已纳入操作/原生消息与持久模型/工具回执的操作前沿核对；区分工程验证的原生证据媒介与客户安全成果既有截图/完整 HTTP 包要求；用六类既有合同交接索引承接，不新建框架或平行事实源。原文件作为 review reference 原字节归档，摘要与详细映射见[交付里程碑](delivery-milestones.md) | M0 先关闭 P06 最终消费者与公开交接，M1 先证明最小真实闭环；后续里程碑不能被当作新增 AC、付费试验、部署授权或已完成状态 |
 | D12 | P08 首次真实机制验证采用受限部署 owner 登记的 mechanism_candidate，与 verified 能力状态明确区分；固定 Task/receiver/版本/有效期、不可变 mechanism_synthetic 定义、loopback 合成模型与 fixture workspace_read 工具；所有真实执行/恢复/事务守卫保留。详见[P08 合同](P08-implementation-contract.md) | 避免“必须先有本次 PASS 才能做首次验证”的循环；候选不是已验证证明、生产发布或收费/外部目标许可，通过后以新正式 ref/digest 收口 |
 | D13 | 按用户审核后要求准备[下一批执行单](../stages/vnext-maf/next-batch-plan.md)：P08修复、P11控制/正式入口和本地K8s装配并行；0014冻结当前定义、0015保持control、0016增量修复，共享迁移单一写入。K8s补真实P05→Pod→receiver和Gate→Kali受控executor接线，保持双容器卷隔离、HTTPS与D12 loopback限制 | 集群可用无需等待后期，但缺失的产品接线不能用fixture或共享挂载冒充；新增核心端口先固定合同，部署/修复/验证使用SOL，核心开发才按需GPT-6。计划准备不构成新测试通过 |
+| D14 | 2026-09-15 本地K8s首个浏览器读取入口采用同Pod BFF：浏览器只持有HttpOnly、SameSite=Strict短会话，BFF按请求签发不超过60秒的内部Bearer，并只代理固定Task的topology/snapshots/records GET。签名键和会话键仅在K8s Secret，前端配置不含Bearer；公开P13 API保持独立Deployment。该适配只用于本地机制工作台，生产OIDC、项目选择和写命令仍按P11/P15完成 | 先获得可审查的真实浏览器路径，同时避免把临时operator token放入JS或浏览器存储；后续正式身份可替换BFF登录来源而不改P13权限检查 |
 
 21 项任务及共享接口逐项检查表在本工作树的忽略台账 `.superpowers/sdd/vnext-v2/preflight.md`，任务完成以提交、具体测试和审查记录为准。源包 `ACCEPTANCE.md` / `VALIDATION_REPORT.md` 保持原始文档检查事实；实施结果另记，不覆盖原包。
 

@@ -1,0 +1,6 @@
+GET /auth/session HTTP/1.1
+Host: 127.0.0.1:44180
+User-Agent: wuji-web-gateway-verifier/1.0
+Cookie: wuji_vnext_session=[REDACTED]
+Accept: application/json
+

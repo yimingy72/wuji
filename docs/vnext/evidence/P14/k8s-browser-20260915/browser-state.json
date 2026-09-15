@@ -1,0 +1,17 @@
+{
+  "authenticated_display_name": "Local Kubernetes operator",
+  "bearer_visible_to_browser": false,
+  "console_error_count": 0,
+  "cookie_value_recorded": false,
+  "presentation": "list",
+  "title": "Wuji · 冰蓝",
+  "url": "http://127.0.0.1:44180/",
+  "visible_nodes": [
+    "intent:778ac2ff-d006-4764-a11f-9f3e83473ade@1",
+    "origin:a41a59ed-29e1-4801-b68b-dfea395eae30@1"
+  ],
+  "visible_states": [
+    "admitted",
+    "ready"
+  ]
+}

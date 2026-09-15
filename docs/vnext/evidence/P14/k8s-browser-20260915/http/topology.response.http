@@ -1,0 +1,10 @@
+HTTP/1.1 200 OK
+Server: nginx/1.29.1
+Date: Tue, 15 Sep 2026 02:36:32 GMT
+Content-Type: application/json
+Content-Length: 1009
+Connection: keep-alive
+cache-control: no-store
+x-request-id: 1fbc7cae-fc01-463d-9da0-022c5857fbca
+
+{"view_id":"14c8f3f5-7350-45c7-bb42-b832c3eecc45","snapshot_id":"4d28297b-4022-4c38-a624-12ec5c6c7f8a","view_revision":"1","query_digest":"de12cb7f737c068e06fc19ef2f41d757e2c20ba0fceaca58503dfb5f1aa45718","access_scope_digest":"975495938722b0b12b176950c2a11fa90f75b1ad73f6107c3053e3c5e8bec247","projection_version":"wuji.topology.v1","nodes":[{"id":"intent:778ac2ff-d006-4764-a11f-9f3e83473ade@1","ref":{"entity_type":"intent","id":"778ac2ff-d006-4764-a11f-9f3e83473ade","revision":"1"},"display_kind":"intent","label":"Read version.txt once through the registered Kali workspace tool.","state":"admitted","allowed_actions":[]},{"id":"origin:a41a59ed-29e1-4801-b68b-dfea395eae30@1","ref":{"entity_type":"origin","id":"a41a59ed-29e1-4801-b68b-dfea395eae30","revision":"1"},"display_kind":"origin","label":"C2 isolated Kali workspace read","state":"ready","allowed_actions":[]}],"edges":[],"opaque_cursor":"oH7ZIL6-MOHmUvXFw_Pc2fMHkG-AKuBUY-lS4F4qInk","truncated":false,"continuation":null,"allowed_actions":[]}

@@ -1,0 +1,6 @@
+GET /api/v2/tasks/a41a59ed-29e1-4801-b68b-dfea395eae30/topology?mode=live&node_limit=1000&edge_limit=2000 HTTP/1.1
+Host: 127.0.0.1:44180
+User-Agent: wuji-web-gateway-verifier/1.0
+Cookie: wuji_vnext_session=[REDACTED]
+Accept: application/json
+

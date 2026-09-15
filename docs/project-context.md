@@ -12,6 +12,8 @@
 
 2026-09-14 C2 K8s bounded slice 已完成：fresh6 在独立数据库和未来授权 Task 上通过正式 `VNextPodRuntime` 创建/核对 Task Pod、真实 UID 登记、Scheduler/Outbox、MAF、ModelGate、ToolGate、HTTPS Kali workspace_read、P03/P04 接纳和真实子进程退出；随后通过正式取消和 stop 修复释放 receiver/容量并删除 Pod。[永久证据](vnext/evidence/P10/k8s-c2-20260914/README.md)。范围仅合成机制任务，不等于完整 P08/P12 或生产验收。
 
+2026-09-15 首个真实浏览器读取路径已部署：独立 `api` Deployment 暴露P13受权读取，`wuji-web` 以Nginx+本地会话BFF双容器运行；浏览器通过HttpOnly会话读取同一真实Task的TopologySnapshot并在React Flow画布/列表显示。完整HTTP、Pod/镜像绑定和截图见[P14 K8s浏览器证据](vnext/evidence/P14/k8s-browser-20260915/README.md)，公共API切片见[P13 K8s API证据](vnext/evidence/P13/k8s-api-20260915/README.md)。这是本地只读机制身份，不替代生产OIDC、P11正式创建/控制或P15流与布局。
+
 下一步按[具体开发执行单](stages/vnext-maf/next-batch-plan.md)安排P08修复、P11控制/正式入口、K8s三线：固定共享迁移负责人、0015/0016用途、隔离namespace与HTTPS/候选loopback边界，先取得拒绝结果接纳、实际控制HTTP和首条Pod执行结果。当前为计划准备，尚未增加产品通过项。
 
 2026-09-13 M3 接入入口：[P08 完整会话、原生审批与恢复实施合同](vnext/P08-implementation-contract.md)。产品合同继续适用；其中首RED/旧共享窗口等编排已由停止 Superpowers 的用户决定和[当前计划](stages/vnext-maf/plan.md)替代，不能把实现准备时的状态当作最新进度。
