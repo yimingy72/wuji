@@ -412,6 +412,161 @@ def register_task_config(connection, *, owner, config):
     _insert_fixed(connection, "admission_config", ("tenant_id", "project_id", "task_id"), owner, config)
 
 
+ACCESS_FLAGS = (
+    "can_read",
+    "can_write",
+    "can_capture",
+    "can_settle",
+    "can_gc",
+    "can_assess",
+    "can_control",
+    "can_observe",
+    "can_admit",
+)
+
+
+def publish_task_admission(
+    connection,
+    *,
+    owner,
+    admission,
+    capacity_pool_keys=(),
+    access_grants=(),
+    scheduler_identity=None,
+    pod_controller=None,
+):
+    """Admit one created Task: config, capacity binding and execution identity.
+
+    Owner-side deployment action. It matches the Task definition written by the
+    creation entry, binds the deployment's published pools and records the
+    scheduler/receiver identities that dispatch a Task needs. An empty argument
+    keeps the corresponding part unpublished, so the caller decides when a Task
+    becomes schedulable.
+    """
+
+    _owner_only(connection)
+    task = row(
+        connection.execute(
+            "SELECT * FROM vnext.task WHERE tenant_id=%s AND project_id=%s AND task_id=%s FOR UPDATE",
+            owner,
+        )
+    )
+    if not task or not task["definition_json"]:
+        raise DomainError("INVALID_REFERENCE", 422)
+    register_task_config(connection, owner=owner, config=admission)
+    for pool_key in capacity_pool_keys:
+        pool = row(
+            connection.execute(
+                "SELECT * FROM vnext.capacity_pool WHERE pool_key=%s", (pool_key,)
+            )
+        )
+        if not pool or (pool["tier"] == "tenant" and pool["tenant_id"] != owner[0]):
+            raise DomainError("INVALID_REFERENCE", 422)
+        old = connection.execute(
+            "SELECT 1 FROM vnext.task_capacity_pool WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND pool_key=%s",
+            (*owner, pool_key),
+        ).fetchone()
+        if old is None:
+            connection.execute(
+                "INSERT INTO vnext.task_capacity_pool(tenant_id,project_id,task_id,pool_key) VALUES(%s,%s,%s,%s)",
+                (*owner, pool_key),
+            )
+    for grant in access_grants:
+        subject = grant.get("subject")
+        clearance = grant.get("clearance")
+        if (
+            not isinstance(subject, str)
+            or not subject
+            or type(clearance) is not int
+            or clearance < 0
+            or any(type(grant.get(flag, False)) is not bool for flag in ACCESS_FLAGS)
+        ):
+            raise DomainError("INVALID_SCHEMA", 422)
+        old = row(
+            connection.execute(
+                "SELECT * FROM vnext.task_access WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND subject=%s",
+                (*owner, subject),
+            )
+        )
+        values = tuple(bool(grant.get(flag, False)) for flag in ACCESS_FLAGS) + (clearance,)
+        if old is not None:
+            current = tuple(old[flag] for flag in ACCESS_FLAGS) + (old["clearance"],)
+            if current != values:
+                raise DomainError("INPUT_DIGEST_CONFLICT", 409)
+            continue
+        connection.execute(
+            "INSERT INTO vnext.task_access(tenant_id,project_id,task_id,subject,"
+            + ",".join(ACCESS_FLAGS)
+            + ",clearance) VALUES("
+            + ",".join(["%s"] * (len(ACCESS_FLAGS) + 5))
+            + ")",
+            (*owner, subject, *values),
+        )
+    if scheduler_identity is not None:
+        identity = dict(scheduler_identity)
+        required = (
+            "template_ref",
+            "issuer",
+            "audience",
+            "signing_key_ref",
+            "signing_kid",
+            "encryption_key_ref",
+            "clearance",
+        )
+        if any(not identity.get(name) or (name == "clearance" and type(identity[name]) is not int) for name in required):
+            raise DomainError("INVALID_SCHEMA", 422)
+        old = row(
+            connection.execute(
+                "SELECT * FROM vnext.scheduler_identity_template WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND template_ref=%s",
+                (*owner, identity["template_ref"]),
+            )
+        )
+        expected = tuple(identity[name] for name in required[1:] if name != "clearance") + (identity["clearance"],)
+        if old is not None:
+            current = tuple(old[name] for name in required[1:] if name != "clearance") + (old["clearance"],)
+            if current != expected or not old["enabled"]:
+                raise DomainError("INPUT_DIGEST_CONFLICT", 409)
+        else:
+            connection.execute(
+                """INSERT INTO vnext.scheduler_identity_template(tenant_id,project_id,task_id,
+                template_ref,issuer,audience,signing_key_ref,signing_kid,encryption_key_ref,
+                clearance,enabled) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,true)""",
+                (
+                    *owner,
+                    identity["template_ref"],
+                    identity["issuer"],
+                    identity["audience"],
+                    identity["signing_key_ref"],
+                    identity["signing_kid"],
+                    identity["encryption_key_ref"],
+                    identity["clearance"],
+                ),
+            )
+    if pod_controller is not None:
+        controller = dict(pod_controller)
+        if not controller.get("controller_subject") or not controller.get("login_role"):
+            raise DomainError("INVALID_SCHEMA", 422)
+        old = row(
+            connection.execute(
+                "SELECT * FROM vnext.task_pod_controller WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND controller_subject=%s AND login_role=%s",
+                (*owner, controller["controller_subject"], controller["login_role"]),
+            )
+        )
+        if old is not None:
+            if not old["enabled"]:
+                raise DomainError("INPUT_DIGEST_CONFLICT", 409)
+        else:
+            connection.execute(
+                """INSERT INTO vnext.task_pod_controller(tenant_id,project_id,task_id,
+                controller_subject,login_role,enabled) VALUES(%s,%s,%s,%s,%s,true)""",
+                (
+                    *owner,
+                    controller["controller_subject"],
+                    controller["login_role"],
+                ),
+            )
+
+
 def register_published_profile(connection, *, tenant_id, kind, document):
     """Publish one immutable model/runtime snapshot for Task creation."""
 
