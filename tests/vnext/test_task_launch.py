@@ -107,6 +107,12 @@ def seed_pools(connection, definition) -> None:
             VALUES(%s,%s,%s,4,'deployment-v1') ON CONFLICT (pool_key) DO NOTHING""",
             (pool_key, tier, tenant),
         )
+        # The deployment template Task carries the published capacity binding.
+        connection.execute(
+            """INSERT INTO vnext.task_capacity_pool(tenant_id,project_id,task_id,pool_key)
+            VALUES(%s,%s,%s,%s) ON CONFLICT DO NOTHING""",
+            (OWNER[0], OWNER[1], OWNER[2], pool_key),
+        )
 
 
 def stored_definition(connection, task_id):
@@ -127,7 +133,8 @@ def prepared_task(case, task_id, connection):
     task_launch.ensure_operator_actor(connection, owner=owner, subject="control-fixture")
     published = task_launch.publish_admission(
         connection, owner=owner, config=config,
-        definition=prepared["definition"], attempt=prepared["runtime_attempt"])
+        definition=prepared["definition"], attempt=prepared["runtime_attempt"],
+        pool_keys=task_launch.deployment_pool_keys(connection, config))
     receipt = task_launch.admit_initial_intent(
         case.environment.additional_app_connection,
         access=AccessContext(

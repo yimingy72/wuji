@@ -262,19 +262,34 @@ def admission_grants():
     ]
 
 
-def publish_admission(connection, *, owner, config, definition, attempt):
+def deployment_pool_keys(connection, config):
+    """Capacity pools are the deployment's published catalog, not a guess.
+
+    The owner command reads the keys the deployment already bound to its
+    template Task; every key must still exist in ``vnext.capacity_pool``.
+    """
+
+    if not isinstance(config.get("owner"), list) or len(config["owner"]) != 3:
+        raise ValueError("the deployment template Task is required")
+    rows = connection.execute(
+        "SELECT pool_key FROM vnext.task_capacity_pool"
+        " WHERE tenant_id=%s AND project_id=%s AND task_id=%s ORDER BY pool_key",
+        tuple(config["owner"]),
+    ).fetchall()
+    keys = tuple(row[0] for row in rows)
+    if not keys:
+        raise ValueError("the deployment publishes no capacity pools")
+    return keys
+
+
+def publish_admission(connection, *, owner, config, definition, attempt, pool_keys):
     receiver_id, environment_ref = receiver_ids(owner[2], attempt)
     runtime = definition["runtime_profile"]
-    model = definition["model_profile"]
     publish_task_admission(
         connection,
         owner=owner,
         admission=admission_document(config, definition),
-        capacity_pool_keys=(
-            "deployment-global",
-            "model:" + model["ref"],
-            "tenant:" + owner[0],
-        ),
+        capacity_pool_keys=pool_keys,
         access_grants=admission_grants(),
         scheduler_identity={
             "template_ref": "deployment-worker-v1",
@@ -854,7 +869,8 @@ def run_phases(config, *, task_id, phases, options):
             published = publish_admission(
                 connection, owner=(config["owner"][0], config["owner"][1], task_id),
                 config=config, definition=prepared["definition"],
-                attempt=prepared["runtime_attempt"])
+                attempt=prepared["runtime_attempt"],
+                pool_keys=deployment_pool_keys(connection, config))
             receipt = admit_initial_intent(
                 application_connection(config), access=operator_access(config), task=task_id,
                 definition_lines=prepared["definition"],
