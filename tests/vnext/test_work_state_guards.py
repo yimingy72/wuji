@@ -117,7 +117,14 @@ def control_case(env, tmp_path, audit):
                     "INSERT INTO vnext.task_capacity_pool(tenant_id,project_id,task_id,pool_key) VALUES(%s,%s,%s,%s)",
                     (*OWNER, key),
                 )
-        c.control = mod.ControlService(c.uow, artifacts=c.store)
+        registry = import_module("wuji_core.admission.registry")
+        sessions_module = import_module("wuji_core.execution.sessions")
+        c.sessions = sessions_module.SessionRepository(
+            c.uow, artifacts=c.store, registry=registry.AdmissionRegistry(c.uow)
+        )
+        c.control = mod.ControlService(
+            c.uow, artifacts=c.store, sessions=c.sessions
+        )
         c.control_module = mod
         yield c
 
@@ -209,6 +216,35 @@ def process(*, exited=False, code=0):
         "exited_at": "2026-09-13T01:00:00Z" if exited else None,
         "exit_code": code if exited else None,
     }
+
+
+def resumable_session(monkeypatch, c):
+    """Pin the control transition that runs once a published session validates.
+
+    The fixture's synthetic session deliberately has no stage/publish proof, and
+    session-graph validation itself is P08's own coverage (real stage, publish and
+    permission re-checks). Stubbing only `validate_recovery_in_transaction` keeps
+    this P05 test about the control state machine instead of about the validator.
+    """
+
+    from wuji_core.contracts.sessions import RecoveryCheck
+
+    check = RecoveryCheck(
+        resumable=True,
+        manifest_ref="session-manifest-fixture@1",
+        session_id="session-fixture",
+        checkpoint_revision="1",
+        session_lineage="lineage-fixture",
+        owner_run_id="run-fixture",
+        frontier_digest="b" * 64,
+    )
+    monkeypatch.setattr(
+        c.sessions,
+        "validate_recovery_in_transaction",
+        lambda *_args, **_kwargs: check,
+        raising=True,
+    )
+    return check
 
 
 def settled(c):
@@ -528,9 +564,19 @@ def seed_session(c, *, pending=True, published=True):
                     "INSERT INTO vnext.publication_ref(tenant_id,project_id,task_id,publication_id,artifact_id,artifact_revision) VALUES(%s,%s,%s,'session-publication',%s,%s)",
                     (*OWNER, ref.id, ref.version.root),
                 )
+        # The publication block is written by the migration owner: the stage
+        # trigger only guards application-role inserts. It exists here so the
+        # persisted input delivery can reference a real manifest row.
         m.execute(
-            "INSERT INTO vnext.session_manifest(tenant_id,project_id,task_id,session_id,revision,work_item_id,owner_run_id,manifest_json,publication_id,published_at) VALUES(%s,%s,%s,'session-fixture',1,'work-fixture','run-fixture',%s,'session-publication',clock_timestamp())",
-            (*OWNER, json.dumps(manifest)),
+            "INSERT INTO vnext.session_manifest(tenant_id,project_id,task_id,session_id,revision,work_item_id,owner_run_id,manifest_json,manifest_ref,manifest_digest,frontier_digest,graph_digest,session_lineage,capability_ref,capability_digest,publication_id,published_at) VALUES(%s,%s,%s,'session-fixture',1,'work-fixture','run-fixture',%s,'session-manifest-fixture@1',%s,%s,%s,'lineage-fixture','session-capability-fixture-v1',%s,'session-publication',clock_timestamp())",
+            (
+                *OWNER,
+                json.dumps(manifest),
+                "c" * 64,
+                "d" * 64,
+                "e" * 64,
+                "f" * 64,
+            ),
         )
         m.execute(
             "INSERT INTO vnext.input_request(tenant_id,project_id,task_id,input_request_id,work_item_id,wait_ref_json,status,session_id,session_revision,source_receipt_json) VALUES(%s,%s,%s,'input-fixture','work-fixture',%s,%s,'session-fixture',1,%s)",
@@ -551,12 +597,13 @@ def seed_session(c, *, pending=True, published=True):
 
 
 def test_waiting_input_survives_pause_and_published_resume(
-    db_environment, tmp_path, audit_directory
+    db_environment, tmp_path, audit_directory, monkeypatch
 ):
     with control_case(db_environment, tmp_path, audit_directory) as c:
         prepared_run(c)
         observe(c, "started", process=process())
         seed_session(c)
+        resumable_session(monkeypatch, c)
         settled(c)
         observe(c, "exited", process=process(exited=True))
         assert (
@@ -572,9 +619,18 @@ def test_waiting_input_survives_pause_and_published_resume(
         )
         assert "call-fixture" in work["input_request"]["wait_ref_json"]
         assert work["result_state"] == "none"
-        with c.env.migration_connection() as m:
-            m.execute(
-                "UPDATE vnext.input_request SET status='resolved' WHERE input_request_id='input-fixture'"
+        # P08 owns input resolution: a control-capability transaction that also
+        # persists the delivery, written through the production helper.
+        inputs_module = import_module("wuji_core.execution.inputs")
+        with c.uow.transaction(OPERATOR, TASK, capability="control") as tx:
+            pending_input = inputs_module.current_input(
+                tx, {"input_request_id": "input-fixture", "work_item_id": "work-fixture"}
+            )
+            inputs_module.save_delivery(
+                tx,
+                pending_input,
+                "session-manifest-fixture@1",
+                {"kind": "question", "text": "fixture answer"},
             )
         c.control.refresh(OBSERVER, TASK, "work-fixture")
         assert c.control.read_work(OPERATOR, TASK, "work-fixture")["state"] == "ready"

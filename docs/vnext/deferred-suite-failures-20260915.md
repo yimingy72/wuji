@@ -1,8 +1,8 @@
 # vNext suite failures outside the current task — 2026-09-15
 
-Status: class 1 **fixed**, class 2 **open**. Both failures pre-date the P08-S work below and were
-reproduced at `e97eab8` with the working-tree changes stashed, so they were neither caused by the
-P15-L layout slice nor by the approval-identity fix.
+Status: **both classes fixed**; the runnable vNext set is green (405 passed). Both failures
+pre-dated the P08-S work and were reproduced at `e97eab8` with the working-tree changes stashed, so
+they were neither caused by the P15-L layout slice nor by the approval-identity fix.
 
 Command actually run (real isolated PostgreSQL per test, no cluster required):
 
@@ -24,7 +24,8 @@ Command actually run (real isolated PostgreSQL per test, no cluster required):
   tests/vnext/test_contract_fix_round1.py tests/vnext/test_contract_fix_round2.py -q
 # at e97eab8 + P08-S fixes: 4 failed, 401 passed
 # after the class-1 fix:       2 failed, 403 passed in 367.78s
-#   (raw output: work/vnext/p08s/related-suite-final2.txt)
+# after the class-2 fix:       0 failed, 405 passed in 372.85s
+#   (raw output: work/vnext/p08s/related-suite-final3.txt)
 ```
 
 Two suites cannot even be collected in this environment (`test_configure_refresh.py`,
@@ -70,9 +71,9 @@ Minimal fix direction: extend `tests/vnext/support/p03.py` with a control-capabl
 insert dependencies in a `capability="control"` transaction. The cycle guard itself
 (`check_dependency`) is unchanged and still exercised.
 
-## 2. Exit/reconcile cannot restore a published pending input because the fixture has no SessionRepository
+## 2. Exit/reconcile cannot restore a published pending input because the fixture has no SessionRepository — FIXED
 
-Failing tests:
+Failing tests (before the fix):
 
 ```text
 tests/vnext/test_p05_fix_round1.py::test_f2_settlement_after_exit_restores_published_pending_input
@@ -95,22 +96,26 @@ DEBUG settle state reconciling stop_kind exited settled True  result_accepted Fa
       waiting ('pending','input-fixture') session session-fixture fresh False resumable None
 ```
 
-The first call is the exit observation and correctly lands in
-`reconciling / operations_unsettled`. On the later `reconcile`, `operations_settled` is already true
-and the persisted wait is `pending`, but `ControlService._recoverable` is false:
+`_known_fresh(tx, work)` is false for any run with `stop_kind != 'not_started'`, so the
+waiting-input restore needs `self.sessions.validate_recovery_in_transaction(...)`, and the P05-era
+fixture built `ControlService` without a `SessionRepository`.
 
-- `_known_fresh(tx, work)` is false for any run with `stop_kind != 'not_started'` (this run exited);
-- the fallback path needs `self.sessions.validate_recovery_in_transaction(...)`, and the P05-era
-  fixture builds `ControlService` without a `SessionRepository`, so `self.sessions is None`.
+Fixed by mirroring production wiring and the P08-owned boundaries:
 
-The waiting-input restore branch therefore never runs and the work item stays `reconciling`. This is
-fixture/contract drift from the P08 session-recovery gate, not a proven scheduler regression: in the
-deployed control plane the Session repository is always wired.
+- `control_case` now builds a real `SessionRepository(c.uow, artifacts=c.store,
+  registry=AdmissionRegistry(c.uow))` and passes it to `ControlService` exactly like
+  `ops/vnext/deployment_common.py` does.
+- `resumable_session(monkeypatch, c)` pins only `validate_recovery_in_transaction` (returning a
+  resumable `RecoveryCheck`) and documents that session-graph validation — real stage, publish,
+  permission re-checks — is P08's own coverage in `test_session_permissions.py`.
+- `seed_session` writes the publication block (`manifest_ref`, digests, lineage, capability) through
+  the migration owner so the persisted `input_delivery` row can reference a real manifest, and the
+  test resolves the waiting input through the production `inputs.save_delivery` helper inside a
+  `capability="control"` transaction, which is exactly what the 0014 `guard_input_revoke` trigger
+  demands ("P08 persisted decision required for resolution").
 
-Minimal fix direction (P08-S): construct the real `SessionRepository` in `control_case` and seed a
-published session whose frontier the P08 validator reports as resumable, or decide explicitly that a
-control plane without session validation must fail closed (it already does). The second option only
-requires the tests to state that expectation instead of `waiting_input`.
+Result: both tests pass, and the same production-shaped resolution path is exercised instead of a
+raw `UPDATE ... SET status='resolved'`.
 
 ## Relationship to the current work
 
@@ -121,4 +126,5 @@ requires the tests to state that expectation instead of `waiting_input`.
 - The P08-S commit also fixes the restore-time approval identity check
   (`packages/maf-worker/src/wuji_maf_worker/tools.py`) and three further stale expectations that were
   failing before it (`tests/vnext/test_knowledge_admission.py`, `tests/vnext/test_contract_shapes.py`).
-- Class 2 remains open with the evidence in this file; it is the first item of the P08-S follow-up.
+- Both classes are closed; the raw runs above keep the before/after numbers and the exact
+  commands used.

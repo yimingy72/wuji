@@ -16,6 +16,7 @@ from test_work_state_guards import (
     observe,
     prepared_run,
     process,
+    resumable_session,
     seed_session,
     settled,
 )
@@ -97,12 +98,13 @@ def test_f1_closed_cancel_survives_reconcile_and_late_observation(
 
 
 def test_f2_settlement_after_exit_restores_published_pending_input(
-    db_environment, tmp_path, audit_directory
+    db_environment, tmp_path, audit_directory, monkeypatch
 ):
     with control_case(db_environment, tmp_path, audit_directory) as c:
         prepared_run(c)
         observe(c, "started", process=process())
         refs = seed_session(c)
+        resumable_session(monkeypatch, c)
         # The real byte route supplies the complete HTTP packet for this same
         # checkpoint prerequisite. It is not a fabricated control endpoint.
         response = c.client.get(
