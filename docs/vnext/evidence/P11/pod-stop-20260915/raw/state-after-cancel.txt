@@ -1,0 +1,6 @@
+task=cancel|reconciling|false|3|user_cancel
+work=3db3fecd-430d-4d88-8e2e-9159c296958f|reason|stopping|user_cancel
+work=a4f46c86-aadf-4bea-857b-60cb6a3f8f0e|explore|cancelled|user_cancel
+run=1cd0c6d3-e60f-469b-8cac-ea214c0304be|registered|none|none
+observations=0
+events=intent_shared@1,task.started@2,control.applied@3,run.dispatch_requested@4,work.stop_requested@5,control.applied@6

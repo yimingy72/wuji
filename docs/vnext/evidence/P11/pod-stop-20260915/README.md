@@ -1,0 +1,68 @@
+# P11-C cancel stops the real Task Pod — 2026-09-15
+
+Status: **verified for the stop path**; the worker-assignment dispatch in front of it is **open**.
+
+`POST /api/v2/tasks/a41a59ed-…/commands {"command":"cancel","expected_version":"2"}` was accepted with
+`202` and the running Task Pod was deleted within 5 seconds. The Task did **not** claim a clean stop:
+it reports `cancel / reconciling / execution_allowed=false / execution_epoch=3 / close_trigger=user_cancel`
+with `vnext.execution_observation` still empty, i.e. the process exit is not invented.
+
+![start → real Pod → cancel → Pod deleted](screenshots/k8s-pod-stop.png)
+
+## Environment work that made the run possible
+
+The image roll exposed two pieces of environment debt; both were fixed and recorded:
+
+1. **Expired deployment tokens.** `runtime-credentials`, `scheduler-credentials`,
+   `gates-credentials` and `api-credentials` held tokens that expired ≈4.3 h earlier, so the first
+   runtime pod restart crash-looped with `AuthenticationError: token validation failed`. Fresh tokens
+   for the same subjects/roles (`receiver`, `pod-controller`, `scheduler`, `collector`, `gate`,
+   `operator`) were minted from the deployment signing key with a 24 h lifetime
+   (`raw/refreshed-tokens.json`).
+2. **Plane-wide image roll.** agent, platform, kali and web were rebuilt from `8d6c972`
+   (`raw/images-published.json`) and `api`, `runtime`, `scheduler`, `gates`, `wuji-web` were rolled to
+   those digests — this also brings the earlier worker approval-identity fix into the agent image.
+   The runtime's `pod_runtime.task_config` was re-pointed at the new agent/kali digests with the live
+   `config_digest`/`scope_digest`.
+3. **Fixture authorization window.** The fixture Task's `authorization_expires_at` had passed, which
+   `ControlService._definition` rejects. The deployment owner (migration role, required by
+   `guard_task_control`) refreshed it to `2099-01-01T00:00:00Z`; the definition digest changed and was
+   re-synced into the runtime config (`raw/fixture-window-refresh.txt`).
+4. **Receiver admission grant.** `P05PermitSource.transaction()` requires the caller to hold
+   `can_observe` **and** `can_admit`; the fixture's `receiver` row only had observe. The grant was
+   applied by the migration role (`raw/receiver-admit-grant.txt`). The deployment template should
+   carry this by default (or the permit source should use the `pod-controller` identity).
+
+## Observed sequence
+
+```text
+start  (expected_version 1) -> 202 accepted, e51… task revision 2
+pod    : wuji-task-v-ca604b6abddb91218b985ea232f4c239-a1, uid 9cb99dcf-9586-4436-ab14-78edb6c331eb
+         labels task-id=a41a59ed-… runtime-attempt=1, 2/2 Running
+         agent=wuji-vnext-agent@sha256:bee11093… kali=wuji-vnext-kali@sha256:79979680…
+state  : task run/running epoch 2 · work reason=leased (run 1cd0c6d3-…) explore=blocked
+         events intent_shared@1, task.started@2, control.applied@3, run.dispatch_requested@4
+cancel (expected_version 2) -> 202 accepted, revision 4
+pod    : NotFound within 5 s
+state  : task cancel/reconciling/false/epoch 3/user_cancel
+         work reason=stopping(user_cancel) explore=cancelled(user_cancel)
+         events + work.stop_requested@5, control.applied@6
+         agent_run 1cd0c6d3-… still `registered`, stop_kind none, observations=0
+```
+
+## Open finding (not fixed here)
+
+The worker never executed: while the Pod ran, the runtime logged a continuous
+`{"error": "DomainError", "event": "runtime_dispatch_error"}` cycle (≈1/s), the agent container had no
+output and `agent_run` stayed `registered`. The assignment therefore never reached the supervisor.
+The Pod permit itself was fine (the Pod was created); the failure is in the outbox → supervisor
+dispatch path. This needs its own investigation with the error code surfaced (the current log only
+records the exception class) and is the next P11-C/P10 item.
+
+## What this package does and does not prove
+
+- Proves: an accepted `cancel` removes the real Task Pod, the work items move to
+  `stopping`/`cancelled`, and the Task stays `reconciling` rather than claiming a completed stop
+  because no exit observation exists.
+- Does not prove: a clean worker exit observation/`stop_kind`, the MAF child round trip on this
+  revision, or the reason→explore hand-off — all blocked by the dispatch finding above.

@@ -1,0 +1,37 @@
+NAME                                                              READY   STATUS             RESTARTS          AGE     IP           NODE             NOMINATED NODE   READINESS GATES
+api-6679688cb-79nxk                                               1/1     Running            0                 10m     10.1.0.105   docker-desktop   <none>           <none>
+bootstrap-c2-fresh-4sgw7                                          0/1     Completed          0                 23h     10.1.0.35    docker-desktop   <none>           <none>
+bootstrap-c2-fresh2-vf7dr                                         0/1     Completed          0                 22h     10.1.0.41    docker-desktop   <none>           <none>
+bootstrap-c2-fresh3-ktkl9                                         0/1     Completed          0                 22h     10.1.0.46    docker-desktop   <none>           <none>
+bootstrap-c2-fresh4-7gx7t                                         0/1     Completed          0                 21h     10.1.0.51    docker-desktop   <none>           <none>
+bootstrap-c2-fresh5-xgplq                                         0/1     Completed          0                 21h     10.1.0.56    docker-desktop   <none>           <none>
+bootstrap-c2-fresh6-7xsr7                                         0/1     Completed          0                 20h     10.1.0.62    docker-desktop   <none>           <none>
+bootstrap-c2-r2-8jltz                                             0/1     Error              0                 42h     10.1.0.16    docker-desktop   <none>           <none>
+bootstrap-c2-r3-4qmpf                                             0/1     Completed          0                 42h     10.1.0.17    docker-desktop   <none>           <none>
+bootstrap-c2-r4-wwlx2                                             0/1     Error              0                 25h     10.1.0.28    docker-desktop   <none>           <none>
+bootstrap-c2-topo0915-59zjf                                       0/1     Completed          0                 8h      10.1.0.73    docker-desktop   <none>           <none>
+bootstrap-c2-wsnwb                                                0/1     Error              0                 42h     10.1.0.15    docker-desktop   <none>           <none>
+c1-image-smoke-gtmv7                                              0/1     Completed          0                 43h     10.1.0.14    docker-desktop   <none>           <none>
+c2-bootstrap-fresh-20260914-tzps7                                 0/1     Error              0                 23h     10.1.0.33    docker-desktop   <none>           <none>
+c2-gates-74cf8d9764-jhv9x                                         1/2     CrashLoopBackOff   282 (3m38s ago)   23h     10.1.0.31    docker-desktop   <none>           <none>
+c2-initialize-workspace-20260914-zf4f9                            0/1     Completed          0                 23h     10.1.0.34    docker-desktop   <none>           <none>
+c2-runtime-fcd765549-nz28c                                        0/1     CrashLoopBackOff   282 (4m15s ago)   23h     10.1.0.32    docker-desktop   <none>           <none>
+c2-scheduler-86c754fd9f-pmcht                                     0/1     CrashLoopBackOff   283 (3m33s ago)   23h     10.1.0.30    docker-desktop   <none>           <none>
+gates-56d959474d-wwgrb                                            2/2     Running            0                 10m     10.1.0.107   docker-desktop   <none>           <none>
+initialize-workspace-c2-gtwl8                                     0/1     Completed          0                 42h     10.1.0.21    docker-desktop   <none>           <none>
+p11c-migrate-0019-m9jjx                                           0/1     Completed          0                 64m     10.1.0.94    docker-desktop   <none>           <none>
+p11c-task-admission-w4jzv                                         0/1     Error              0                 37m     10.1.0.96    docker-desktop   <none>           <none>
+p11c-task-admission2-jkqgz                                        0/1     Completed          0                 31m     10.1.0.98    docker-desktop   <none>           <none>
+p15l-migrate-0018-qt6hq                                           0/1     Completed          0                 3h      10.1.0.86    docker-desktop   <none>           <none>
+postgres-5d695f6d5d-r4twk                                         1/1     Running            0                 43h     10.1.0.13    docker-desktop   <none>           <none>
+runtime-578cbfbd7b-nhm8w                                          1/1     Running            0                 7m43s   10.1.0.109   docker-desktop   <none>           <none>
+scheduler-5579d869c5-sfpjs                                        1/1     Running            0                 10m     10.1.0.104   docker-desktop   <none>           <none>
+wuji-task-v-173f2325a29fd6b660a570014ef3edf2-a1                   0/2     Completed          0                 22h     10.1.0.40    docker-desktop   <none>           <none>
+wuji-task-v-27785630a1307e2023320e36aa709408-a1                   0/2     Completed          0                 22h     10.1.0.45    docker-desktop   <none>           <none>
+wuji-task-v-42d9630f96c2cee7bc04590ddb4d73ee-a1                   0/2     Completed          0                 21h     10.1.0.55    docker-desktop   <none>           <none>
+wuji-task-v-6c55a7ade961603dfaf6fa45d99c531d-workspace-inidtbht   0/1     Completed          0                 20h     10.1.0.63    docker-desktop   <none>           <none>
+wuji-task-v-8cacea75d4fba03ca39759dd9215e20a-a1                   0/2     Completed          0                 21h     10.1.0.61    docker-desktop   <none>           <none>
+wuji-task-v-8cacea75d4fba03ca39759dd9215e20a-workspace-ini2n7jh   0/1     Completed          0                 21h     10.1.0.57    docker-desktop   <none>           <none>
+wuji-task-v-9f7bc1dd1e930ce255e515bb87df73c7-a1                   0/2     Completed          0                 22h     10.1.0.50    docker-desktop   <none>           <none>
+wuji-task-v-ca604b6abddb91218b985ea232f4c239-workspace-inizjbvt   0/1     Completed          0                 8h      10.1.0.75    docker-desktop   <none>           <none>
+wuji-web-647f9db979-rdgkm                                         2/2     Running            0                 10m     10.1.0.106   docker-desktop   <none>           <none>

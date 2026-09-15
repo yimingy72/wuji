@@ -1,0 +1,5 @@
+task=run|running|2
+work=3db3fecd-430d-4d88-8e2e-9159c296958f|reason|leased|1cd0c6d3-e60f-469b-8cac-ea214c0304be
+work=a4f46c86-aadf-4bea-857b-60cb6a3f8f0e|explore|blocked|none
+run=1cd0c6d3-e60f-469b-8cac-ea214c0304be|registered|none|none|none
+events=intent_shared@1,task.started@2,control.applied@3,run.dispatch_requested@4

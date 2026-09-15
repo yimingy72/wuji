@@ -1,0 +1,3 @@
+run=1cd0c6d3-e60f-469b-8cac-ea214c0304be|registered|none|none
+events=intent_shared@1,task.started@2,control.applied@3,run.dispatch_requested@4
+observations=0

@@ -1,0 +1,22 @@
+{
+  "agent": {
+    "id": "sha256:0d123b7f706afc2f02fd7dff5524ee89cbf7483a1e02cd131e5d57947a3b80a8",
+    "reference": "127.0.0.1:56615/wuji-vnext-agent@sha256:bee110937a83018d6d7bc3248db43dcc79a97da124edea07bef12091a368f07b",
+    "source_commit": "8d6c972"
+  },
+  "kali": {
+    "id": "sha256:8e9f3189e5747875fc862aad2426357519d294b4eac27a506ccaa26c1baddc5d",
+    "reference": "127.0.0.1:56615/wuji-vnext-kali@sha256:79979680a2b5a1ba545338ea11f4d7b649cd9b6d29d62db034bdc0b4d72c6ead",
+    "source_commit": "8d6c972"
+  },
+  "platform": {
+    "id": "sha256:e51c61481263f4f1e5d31dbea7d57544f3dcbba612a8ce106cd2e79558a8ca06",
+    "reference": "127.0.0.1:56615/wuji-vnext-platform@sha256:4d34345c5ef6f40de76c65650d02c8806836ff9cb23d2889da89cdc68ce2affa",
+    "source_commit": "8d6c972"
+  },
+  "web": {
+    "id": "sha256:babe8ed47555447a8e520f65d5c9c6c5624c89830b6e5a8e13b189d034612710",
+    "reference": "127.0.0.1:56615/wuji-web@sha256:bbaa15ecb63368ccc4320693a9e1c068a9f01fcf7c85607d89b1a379137ed7cb",
+    "source_commit": "8d6c972"
+  }
+}

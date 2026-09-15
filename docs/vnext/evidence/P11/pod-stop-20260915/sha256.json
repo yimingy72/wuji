@@ -1,0 +1,21 @@
+{
+  "algorithm": "sha256",
+  "files": {
+    "README.md": "53b6dbf5043dbdc0a4bacc63cc27317fc7a114a549de9ed37136dab6847a64c6",
+    "raw/cancel.response.json": "cf69f1cc85f406bae701eef465f42116f8741019d1e0af36314c5dc1b6002f16",
+    "raw/fixture-window-refresh.txt": "852c76312db4876f85c707e448b1547c5998418fa82595e5e35b7e1502f1ac6b",
+    "raw/images-published.json": "a2e3be6824ff7c1138dca5fecf2d31a2b2562a78b1679672ee2f3da8dbf01a18",
+    "raw/permit-inputs.txt": "b9a69869f5777c4ac8cbc02e194a3bcc2c1d20ec1698bc8de31be7ccab983b62",
+    "raw/pods-after-stop.txt": "8b7c71a52c01b40ddbc7de4e39f9ddbdbb8918a011fd882a8155db5abf457e82",
+    "raw/receiver-admit-grant.txt": "c217e11ca516879cc2f8384635abf26cdc575b57efec63cda61d8441eea31c04",
+    "raw/refreshed-tokens.json": "3d349cc79ec7c753e7f65d617495f21990b725d897723b32ee976ff8bbbb629f",
+    "raw/runtime-logs.txt": "7dd42f11e91a36c30156c302af406c727a823a6a57a350de4edc12f1634d2955",
+    "raw/scheduler-logs.txt": "48149ae4ef6bd9b7b53a12d5fe5c6e64f1c707e70f00e646e24bd6df0b564275",
+    "raw/start.response.json": "89bc86a1770d86bd76d4fd1a1770b30f71aa496768417ad337ecb671eb538fba",
+    "raw/state-after-cancel.txt": "747b5154f5eb3a338e39a36ac37b27a140a71fe2370457773a4e59acd8eeb8c8",
+    "raw/state-after-start.txt": "813df0c46ce61400713ae9a5e54f36843960a5206f8128b80eee4b2a75f885ca",
+    "raw/state-before-cancel.txt": "93b30909d16245bec0385e76580b5d009954f98174afcc52c0a78da93a8f51b2",
+    "screenshots/k8s-pod-stop.png": "a611c66a7d8f2c75691f8ca8a721812cfac5140ca17d505c9addca4e64975739"
+  },
+  "source_commit": "8d6c972"
+}

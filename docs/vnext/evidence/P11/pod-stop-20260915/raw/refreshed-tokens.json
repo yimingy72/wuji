@@ -1,0 +1,44 @@
+{
+  "api-credentials/service.token": {
+    "expires_in": 86400,
+    "roles": [
+      "operator"
+    ],
+    "subject": "operator"
+  },
+  "gates-credentials/collector.token": {
+    "expires_in": 86400,
+    "roles": [
+      "collector"
+    ],
+    "subject": "collector"
+  },
+  "gates-credentials/service.token": {
+    "expires_in": 86400,
+    "roles": [
+      "gate"
+    ],
+    "subject": "gate"
+  },
+  "runtime-credentials/receiver.token": {
+    "expires_in": 86400,
+    "roles": [
+      "controller"
+    ],
+    "subject": "receiver"
+  },
+  "runtime-credentials/service.token": {
+    "expires_in": 86400,
+    "roles": [
+      "controller"
+    ],
+    "subject": "pod-controller"
+  },
+  "scheduler-credentials/service.token": {
+    "expires_in": 86400,
+    "roles": [
+      "scheduler"
+    ],
+    "subject": "scheduler"
+  }
+}
