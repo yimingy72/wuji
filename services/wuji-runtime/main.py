@@ -36,6 +36,20 @@ def run(
                 if pod_environment is not None:
                     infrastructure = pod_environment.ensure()
                     if infrastructure.state != "ready":
+                        # A non-ready Task environment is a bounded operator
+                        # signal, not a silent wait: without it a disabled
+                        # receiver or stale epoch looks like an idle runtime.
+                        detail = {
+                            "event": "runtime_pod_environment",
+                            "state": infrastructure.state,
+                        }
+                        reason = getattr(infrastructure, "reason", None)
+                        if isinstance(reason, str) and 0 < len(reason) <= 64:
+                            detail["reason"] = reason
+                        pod_name = getattr(infrastructure, "pod_name", None)
+                        if isinstance(pod_name, str) and 0 < len(pod_name) <= 253:
+                            detail["pod_name"] = pod_name
+                        print(json.dumps(detail, sort_keys=True), flush=True)
                         stop.wait(interval_seconds)
                         continue
                 observed = dispatcher.run_once(limit=batch_limit)
