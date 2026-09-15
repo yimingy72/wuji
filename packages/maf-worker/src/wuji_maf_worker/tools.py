@@ -128,9 +128,17 @@ class ModelCallIdentity:
             )
             approval_request_id = None
             if approval_body is not None:
-                approval_request_id = approval_body.get(
-                    "additional_properties", {}
-                ).pop("_approval_request_id", None)
+                properties = approval_body.get("additional_properties") or {}
+                if isinstance(properties, dict):
+                    approval_request_id = properties.pop(
+                        "_approval_request_id", None
+                    )
+                if approval_request_id is None:
+                    # The SDK only records the private request id when it rebinds
+                    # a response through a caller-owned approval session. A
+                    # decision restored by the Host keeps the same native
+                    # identity on the public approval content instead.
+                    approval_request_id = approval_body.get("id")
             checks = {
                 "binding": binding is not None,
                 "pending": pending is not None,

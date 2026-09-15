@@ -201,8 +201,11 @@ def test_result_envelope_rejects_trusted_fields_inside_agent_payload() -> None:
     envelope = _example("result_envelope.json")
     envelope["payload"]["identity"] = envelope["identity"]
 
+    # The envelope keeps the payload opaque by contract; the trusted-field
+    # rejection happens when acceptance validates the same bytes as AgentPayload.
+    ResultEnvelope.model_validate(envelope)
     with pytest.raises(ValidationError):
-        ResultEnvelope.model_validate(envelope)
+        AgentPayload.model_validate(envelope["payload"])
 
 
 def test_work_state_contains_no_superseded_value() -> None:
@@ -349,6 +352,29 @@ def test_openapi_publishes_the_complete_s13_route_set() -> None:
         "/internal/v2/dispatch/claims",
         "/internal/v2/runs/{run_id}",
         "/internal/v2/runs/{run_id}/control",
+        "/internal/v2/model-attempts/{model_attempt_id}",
+        "/internal/v2/tool-calls",
+        "/internal/v2/tool-calls/{tool_call_id}",
+        "/internal/v2/tool-calls/{tool_call_id}/cancel",
+        "/internal/v2/executor/dispatch",
+        "/internal/v2/executor/query",
+        "/internal/v2/executor/cancel",
+        "/internal/v2/executors/{executor_ref}/permits/check",
+        "/internal/v2/worker-host/await-start",
+        "/internal/v2/worker-host/acknowledge-delivery",
+        "/internal/v2/worker-host/load-delivery",
+        "/internal/v2/worker-host/load-session",
+        "/internal/v2/worker-host/publish-session",
+        "/internal/v2/worker-host/register-input",
+        "/internal/v2/worker-host/replay",
+        "/internal/v2/worker-host/resolve",
+        "/internal/v2/worker-host/stage-session",
+        "/internal/v2/worker-host/submit-result",
+        "/internal/v2/worker-host/archive-sdk",
+        "/internal/v2/worker-host/receiver-archive",
+        "/internal/v2/worker-host/receiver-authorize",
+        "/internal/v2/worker-host/receiver-bootstrap",
+        "/internal/v2/worker-host/receiver-replay",
     }
 
 

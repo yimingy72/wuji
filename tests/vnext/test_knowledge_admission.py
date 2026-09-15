@@ -849,16 +849,19 @@ def test_migration_preserves_heads_and_rejects_unknown(db_environment):
     with db_environment.migration_connection() as m:
         migrate(m, application_role=db_environment.application_role)
         migrate(m, application_role=db_environment.application_role)
-        rows = m.execute(
-            "SELECT head FROM vnext.schema_migration ORDER BY head"
-        ).fetchall()
-        assert rows == [
-            ("vnext_0001_p03",),
-            ("vnext_0002_p03_evidence_authority",),
-            ("vnext_0003_p04_knowledge",),
-            ("vnext_0004_p04_assessment_visibility",),
-            ("vnext_0005_p04_input_freshness",),
-        ]
+        heads = {
+            row[0]
+            for row in m.execute("SELECT head FROM vnext.schema_migration").fetchall()
+        }
+        # Later migrations extend the same chain; the P03/P04 heads must remain
+        # recorded and re-running the migration must not duplicate them.
+        assert {
+            "vnext_0001_p03",
+            "vnext_0002_p03_evidence_authority",
+            "vnext_0003_p04_knowledge",
+            "vnext_0004_p04_assessment_visibility",
+            "vnext_0005_p04_input_freshness",
+        } <= heads
         m.execute("INSERT INTO vnext.schema_migration(head) VALUES('unknown')")
         with pytest.raises(ValueError, match="unrecognized"):
             migrate(m, application_role=db_environment.application_role)

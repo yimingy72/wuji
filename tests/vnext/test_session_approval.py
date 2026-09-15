@@ -156,7 +156,9 @@ def test_p08_migration_follows_receiver_results_and_keeps_session_guards():
 
     assert session_schema.PARENT_HEAD == "vnext_0013_receiver_results"
     assert session_schema.HEAD == "vnext_0014_p08_session_approval"
-    assert aggregate_schema.HEAD == session_schema.HEAD
+    # 0015-0018 extend the same ordered chain; the aggregate schema must keep
+    # importing and applying exactly this session head.
+    assert aggregate_schema.SESSION_HEAD == session_schema.HEAD
     assert "writer_token_id" in ddl
     assert "CREATE TABLE vnext.session_capability" in ddl
     assert "approval_admit boolean := false" in ddl
@@ -832,14 +834,26 @@ def test_p06_request_messages_bind_tool_result_to_earlier_native_position():
         json.loads(case["restore_http"][0]["request_body"])["messages"]
     )
 
-    positions = request_predecessor_positions(history, request_messages)
+    instructions = request_messages[0]["content"]
+    with pytest.raises(DomainError) as missing:
+        request_predecessor_positions(history, request_messages)
+    assert missing.value.code == "SESSION_FRONTIER_MISMATCH"
+    with pytest.raises(DomainError) as wrong:
+        request_predecessor_positions(
+            history, request_messages, instructions="Read a different instruction."
+        )
+    assert wrong.value.code == "SESSION_FRONTIER_MISMATCH"
+
+    positions = request_predecessor_positions(
+        history, request_messages, instructions=instructions
+    )
 
     assert {
         history.messages[position.message_index]["contents"][position.content_index][
             "type"
         ]
         for position in positions
-    } == {"function_call", "function_result"}
+    } == {"text", "function_call", "function_result"}
     result_position = next(
         position
         for position in positions
@@ -853,7 +867,9 @@ def test_p06_request_messages_bind_tool_result_to_earlier_native_position():
     without_tool_result = tuple(
         message for message in request_messages if message.get("role") != "tool"
     )
-    incomplete = request_predecessor_positions(history, without_tool_result)
+    incomplete = request_predecessor_positions(
+        history, without_tool_result, instructions=instructions
+    )
     assert all(
         history.messages[position.message_index]["contents"][position.content_index][
             "type"
@@ -1057,6 +1073,15 @@ def test_restored_approved_callback_uses_original_lineage_attempt_and_approval_r
         "sdk_approval_id": SDK_CONTENT_ID,
         "approval_ref": "approval-p08",
     }
+
+    # When the SDK does rebind the response it records the private approval
+    # request id; a value that does not match the pending request must still
+    # fail closed even though the public content carries the right identity.
+    forged_body = approval_response.to_dict()
+    forged_body["additional_properties"] = {"_approval_request_id": "af-foreign"}
+    context.metadata["approval_response"] = Content.from_dict(forged_body)
+    with pytest.raises(ValueError, match="approval_request_id"):
+        restored.bind(context, TOOL_DEFINITION, SESSION_LINEAGE)
 
 
 def test_versioned_memory_store_keeps_only_fixed_relative_utf8_bytes():
