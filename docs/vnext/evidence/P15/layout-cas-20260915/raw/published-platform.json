@@ -1,0 +1,93 @@
+[
+    {
+        "Id": "sha256:a346c59d02790560565a219694130fe77c753dbd46851686e1a849fc1693efb8",
+        "RepoTags": [
+            "127.0.0.1:56615/wuji-vnext-platform:b465238",
+            "wuji-vnext-platform:p15l-final"
+        ],
+        "RepoDigests": [
+            "127.0.0.1:56615/wuji-vnext-platform@sha256:6507e76a16dbe7d3e31e45904ed4d5501d902709179b4707983a7b46df889794"
+        ],
+        "Comment": "buildkit.dockerfile.v0",
+        "Created": "2026-09-15T06:54:53.405890137Z",
+        "Config": {
+            "User": "10001:10000",
+            "ExposedPorts": {
+                "8443/tcp": {}
+            },
+            "Env": [
+                "PATH=/opt/wuji/ops/vnext/.venv/bin:/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "GPG_KEY=7169605F62C751356D054A26A821E680E5FA6305",
+                "PYTHON_VERSION=3.13.15",
+                "PYTHON_SHA256=1e66a7945a48390ee4c2a4268a0e4185884059a13c4aab6d148aa208deea4a76",
+                "UV_PYTHON_DOWNLOADS=never",
+                "UV_LINK_MODE=copy",
+                "PYTHONDONTWRITEBYTECODE=1",
+                "PYTHONNOUSERSITE=1",
+                "PYTHONUNBUFFERED=1",
+                "PYTHONPATH=/opt/wuji/ops/vnext",
+                "WUJI_DEPLOYMENT_CONFIG=/config/deployment.json"
+            ],
+            "Entrypoint": [
+                "python",
+                "/opt/wuji/services/wuji-runtime/main.py",
+                "--factory",
+                "deployment:build_runtime",
+                "--port",
+                "8443",
+                "--ssl-certfile",
+                "/run/wuji/credentials/tls.crt",
+                "--ssl-keyfile",
+                "/run/wuji/credentials/tls.key"
+            ],
+            "WorkingDir": "/opt/wuji",
+            "Labels": {
+                "org.opencontainers.image.revision": "b465238486d3ffd0476bbfa9384dcf60656be237"
+            }
+        },
+        "Architecture": "arm64",
+        "Os": "linux",
+        "Size": 882962273,
+        "GraphDriver": {
+            "Data": {
+                "LowerDir": "/var/lib/docker/overlay2/rwm4x1kvtp1iee0lj84drou87/diff:/var/lib/docker/overlay2/nh56znag66hal6xchehaou9kj/diff:/var/lib/docker/overlay2/rv44j3qqxh20o5994d3beqle0/diff:/var/lib/docker/overlay2/euccihgdyefjk9ypmek146n9m/diff:/var/lib/docker/overlay2/5arknwgrbc0k3f6t5lx8g516f/diff:/var/lib/docker/overlay2/x406gohwt3y81hukglgk2tmsf/diff:/var/lib/docker/overlay2/tpe6f48mh86emegz3aeqbteu8/diff:/var/lib/docker/overlay2/ydccqpl7i97bt6ddfqcnos623/diff:/var/lib/docker/overlay2/jy24go1zxlsqeh39cu82c63y6/diff:/var/lib/docker/overlay2/tddkzdzmtjrdnampno9xusprl/diff:/var/lib/docker/overlay2/txym2r24jj780cc24lnoyyalx/diff:/var/lib/docker/overlay2/oe08mgmi53qvvx0ai1ax85leq/diff:/var/lib/docker/overlay2/hpgcvi99qiy4gan2r3soc5lyf/diff:/var/lib/docker/overlay2/4auez9letnm0th33olcuhq821/diff:/var/lib/docker/overlay2/iwph9tyixczloit9a4lfuxopq/diff:/var/lib/docker/overlay2/mj46oowix4prthknwz0sz9i38/diff:/var/lib/docker/overlay2/zk8jtqnolmjc9rr4s8l4mdogu/diff:/var/lib/docker/overlay2/t1pgspe3w6kdzv6nb5lce08xi/diff:/var/lib/docker/overlay2/lwvgec5m7fgoenh98fbgzonfg/diff:/var/lib/docker/overlay2/7b35aa321e7993f724ede1c28ce187dcf21aaf1084c0cd01c633d84cd5d819bb/diff:/var/lib/docker/overlay2/d8a5beababfef69a2d85d03b4c2d7e87dea618bfea88b642235c6375d944f299/diff:/var/lib/docker/overlay2/bf88b8665a5938740b52a6577f2b45bd31efa144c00bb53bad4a6c627d9d3948/diff:/var/lib/docker/overlay2/bc8d218202e4ed86d2f891cbcda372889f0fb4936e21dfd1e947ad224bfde0db/diff",
+                "MergedDir": "/var/lib/docker/overlay2/82ffnfh1a1j8wuls075nxon5t/merged",
+                "UpperDir": "/var/lib/docker/overlay2/82ffnfh1a1j8wuls075nxon5t/diff",
+                "WorkDir": "/var/lib/docker/overlay2/82ffnfh1a1j8wuls075nxon5t/work"
+            },
+            "Name": "overlay2"
+        },
+        "RootFS": {
+            "Type": "layers",
+            "Layers": [
+                "sha256:13a56b6535801be2adde694dabaf1c2df1d862a390661907dac821c42cd565cc",
+                "sha256:e768ad7c531711e886b0fb43de5d0aeb924a20a204f546120b60cf8d6159b4cb",
+                "sha256:f3d0adb45e3563b173da6251d9d3b24925f1ae0c6e2f17a5ef5c78a0557745bb",
+                "sha256:d21a265ccf0833ec8b966745c090151c265e454ce9e713b7a3a0c6114f9e117b",
+                "sha256:46329acaa54afdb5fc641357884f4dfc08e5d74a23af78490975dca4b48bab00",
+                "sha256:72d4bc2679b744c1b286c9bc84bdba1d8a86149f7614d6d1e4efd89b3c56d2cf",
+                "sha256:929c877d2acc7b0bf14f0dcf146b4d187eb09f1caec5aef5caefb47c06a04d27",
+                "sha256:4d55b153008379aaa22d1008bcfcac46b617d8f9e3b871993fb1a441de378928",
+                "sha256:2456a1190447ab5eee646cf201444c0f8e15c99a3e0eeb83e637caf6833faa17",
+                "sha256:a7d99d934efb5375c743ef0c002bc8ee4a6459fb25de6c11d90d2ace4e659d72",
+                "sha256:7855f63de3ca64b2e9455d721b6c38e98bb4fcc7ea38f90044e1a203ce79f397",
+                "sha256:bc2fca80211196744446bc73dd071fd88036818f2ae2c584f5c8ca3109d76bd5",
+                "sha256:334c318c9b6b3af1a322bf6ec5f0a0aa77709e9fd5de9f6c7cfc0876f98486a6",
+                "sha256:0c14cd3bdd3244d8c2922650a468ea32251255f1afb38dea9059ce17cee68173",
+                "sha256:9d41e7a46572e0a79a044f436b7bdbff0c8cd5c3c0b001d99e8ef082555ad27e",
+                "sha256:8614cf04f43aa3cc6871a432de09c85e22be487213e0c85e02fdac515820cc04",
+                "sha256:7e29b2053b5d930cdf4af55c0ce9221f2e2636016c2c28c03b3768875c127973",
+                "sha256:ffbc94d88a57b400cb03ea6b46d4cab7d59b3d7f5378b5f7cb187baa5632b36f",
+                "sha256:2f9cec83987a7836018e73f5810c8b2b86525bcad1bda1258542240aba4ce8cf",
+                "sha256:346d290fec320820ee38b7f89fa8bafbff6d311a1996f55eb7ae4110f3691cde",
+                "sha256:f92b698f55a876a1c895391ac44e0cbc2c3c646f625c35ae07e2633ed079302c",
+                "sha256:60093eacadb7e5cba33c500a989b19cac054d056c1d80594171e879d820ae200",
+                "sha256:9bbfda82afdee5ceb77b588f5e0f274ed952461816e4b46278f2391715a97760",
+                "sha256:a98eb6585252314ec28d0430ed7460799068d8e03036d313a2b38131b60be248"
+            ]
+        },
+        "Metadata": {
+            "LastTagTime": "2026-09-15T06:55:06.169828129Z"
+        }
+    }
+]

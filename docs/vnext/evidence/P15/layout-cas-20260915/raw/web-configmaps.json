@@ -1,0 +1,59 @@
+{
+    "apiVersion": "v1",
+    "items": [
+        {
+            "apiVersion": "v1",
+            "data": {
+                "config.js": "window.__WUJI_CONFIG__ = {\"apiBaseUrl\":\"\",\"authEntrypoint\":\"/auth/login\",\"mode\":\"vnext-readonly\",\"tenantId\":\"1fc6b1f3-6f24-456b-9dc1-4e14c7197604\",\"projectId\":\"81e8c413-ba26-45fb-8b5a-1bc477eef99f\",\"taskId\":\"a41a59ed-29e1-4801-b68b-dfea395eae30\"};\n"
+            },
+            "kind": "ConfigMap",
+            "metadata": {
+                "annotations": {
+                    "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"v1\",\"data\":{\"config.js\":\"window.__WUJI_CONFIG__ = {\\\"apiBaseUrl\\\":\\\"\\\",\\\"authEntrypoint\\\":\\\"/auth/login\\\",\\\"mode\\\":\\\"vnext-readonly\\\",\\\"tenantId\\\":\\\"1fc6b1f3-6f24-456b-9dc1-4e14c7197604\\\",\\\"projectId\\\":\\\"81e8c413-ba26-45fb-8b5a-1bc477eef99f\\\",\\\"taskId\\\":\\\"a41a59ed-29e1-4801-b68b-dfea395eae30\\\"};\\n\"},\"kind\":\"ConfigMap\",\"metadata\":{\"annotations\":{},\"labels\":{\"app.kubernetes.io/component\":\"web\",\"app.kubernetes.io/managed-by\":\"wuji-vnext-deployment\",\"app.kubernetes.io/name\":\"wuji-web\",\"app.kubernetes.io/part-of\":\"wuji-vnext\",\"wuji.dev/environment\":\"local-test\",\"wuji.dev/service\":\"web\"},\"name\":\"wuji-web-config\",\"namespace\":\"wuji-vnext-test\"}}\n"
+                },
+                "creationTimestamp": "2026-09-14T06:11:38Z",
+                "labels": {
+                    "app.kubernetes.io/component": "web",
+                    "app.kubernetes.io/managed-by": "wuji-vnext-deployment",
+                    "app.kubernetes.io/name": "wuji-web",
+                    "app.kubernetes.io/part-of": "wuji-vnext",
+                    "wuji.dev/environment": "local-test",
+                    "wuji.dev/service": "web"
+                },
+                "name": "wuji-web-config",
+                "namespace": "wuji-vnext-test",
+                "resourceVersion": "263697",
+                "uid": "493acd49-6e5a-45d8-8785-5de92fbadc98"
+            }
+        },
+        {
+            "apiVersion": "v1",
+            "data": {
+                "web-gateway.json": "{\"schema_version\":\"wuji.web-gateway.v1\",\"api_base_url\":\"https://api.wuji-vnext-test.svc:8443\",\"ca_file\":\"/config/api-ca.crt\",\"signing_key_file\":\"/run/wuji/web/identity.key\",\"session_key_file\":\"/run/wuji/web/session.key\",\"issuer\":\"https://identity.wuji-vnext-test.invalid\",\"audience\":\"wuji-vnext-deployment\",\"subject\":\"operator\",\"tenant_id\":\"1fc6b1f3-6f24-456b-9dc1-4e14c7197604\",\"project_id\":\"81e8c413-ba26-45fb-8b5a-1bc477eef99f\",\"task_id\":\"a41a59ed-29e1-4801-b68b-dfea395eae30\",\"roles\":[\"operator\"],\"display_name\":\"Local Kubernetes operator\",\"allowed_origins\":[\"http://127.0.0.1:44180\",\"http://localhost:44180\"],\"session_ttl_seconds\":1800,\"max_response_bytes\":2097152,\"secure_cookie\":false}"
+            },
+            "kind": "ConfigMap",
+            "metadata": {
+                "annotations": {
+                    "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"v1\",\"data\":{\"web-gateway.json\":\"{\\\"schema_version\\\":\\\"wuji.web-gateway.v1\\\",\\\"api_base_url\\\":\\\"https://api.wuji-vnext-test.svc:8443\\\",\\\"ca_file\\\":\\\"/config/api-ca.crt\\\",\\\"signing_key_file\\\":\\\"/run/wuji/web/identity.key\\\",\\\"session_key_file\\\":\\\"/run/wuji/web/session.key\\\",\\\"issuer\\\":\\\"https://identity.wuji-vnext-test.invalid\\\",\\\"audience\\\":\\\"wuji-vnext-deployment\\\",\\\"subject\\\":\\\"operator\\\",\\\"tenant_id\\\":\\\"1fc6b1f3-6f24-456b-9dc1-4e14c7197604\\\",\\\"project_id\\\":\\\"81e8c413-ba26-45fb-8b5a-1bc477eef99f\\\",\\\"task_id\\\":\\\"a41a59ed-29e1-4801-b68b-dfea395eae30\\\",\\\"roles\\\":[\\\"operator\\\"],\\\"display_name\\\":\\\"Local Kubernetes operator\\\",\\\"allowed_origins\\\":[\\\"http://127.0.0.1:44180\\\",\\\"http://localhost:44180\\\"],\\\"session_ttl_seconds\\\":1800,\\\"max_response_bytes\\\":2097152,\\\"secure_cookie\\\":false}\"},\"kind\":\"ConfigMap\",\"metadata\":{\"annotations\":{},\"labels\":{\"app.kubernetes.io/component\":\"web\",\"app.kubernetes.io/managed-by\":\"wuji-vnext-deployment\",\"app.kubernetes.io/name\":\"wuji-web\",\"app.kubernetes.io/part-of\":\"wuji-vnext\",\"wuji.dev/environment\":\"local-test\",\"wuji.dev/service\":\"web\"},\"name\":\"wuji-web-gateway-config\",\"namespace\":\"wuji-vnext-test\"}}\n"
+                },
+                "creationTimestamp": "2026-09-15T02:34:45Z",
+                "labels": {
+                    "app.kubernetes.io/component": "web",
+                    "app.kubernetes.io/managed-by": "wuji-vnext-deployment",
+                    "app.kubernetes.io/name": "wuji-web",
+                    "app.kubernetes.io/part-of": "wuji-vnext",
+                    "wuji.dev/environment": "local-test",
+                    "wuji.dev/service": "web"
+                },
+                "name": "wuji-web-gateway-config",
+                "namespace": "wuji-vnext-test",
+                "resourceVersion": "263698",
+                "uid": "82f63d96-f553-4ec9-a57b-d4cb21756707"
+            }
+        }
+    ],
+    "kind": "List",
+    "metadata": {
+        "resourceVersion": ""
+    }
+}

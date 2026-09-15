@@ -21,6 +21,8 @@
 | D15 | 2026-09-15 当前下一项冻结为[P15-L Layout CAS垂直切片](../stages/vnext-maf/next-development-plan-2026-09-15.md)：先补齐LayoutPreference GET、viewport wire、0018个人偏好持久化、If-Match CAS、受权node identity校验及K8s浏览器刷新/冲突证据。布局只需当前Task读权，不产生领域事件。完成后先收口P08 Session、P11正式控制和P12可信完成，再实现ViewStream | 当前读工作台已有完整前置且Layout切片范围独立；先实现ViewStream会围绕尚未稳定的控制/完成事件重复调整。OpenAPI现状缺GET和viewport，若不先修合同将无法真实证明刷新保留布局 |
 | D16 | 2026-09-15 本地浏览器入口由`Service/wuji-web`的Docker Desktop Kubernetes `LoadBalancer`直接暴露`localhost:44180`，替换需要常驻宿主机进程的port-forward。Wuji业务Pod仍使用节点可达的Docker VM loopback registry拉取不可变摘要镜像；该registry属于构建/分发基础设施，不冒称K8s业务组件。空的旧`wuji-vnext-registry`只登记为待清理，不在本次删除 | 消除终端退出导致工作台失联；把应用运行平面与集群启动前就必须存在的镜像分发平面明确分开，避免把ClusterIP registry误当作节点可拉取地址或形成自举循环 |
 
+| D17 | 2026-09-15 P15-L 完成并实测：个人布局写入只要求当前 Task 读权，使用 `If-Match layout_revision` CAS，锚点必须映射到受权投影中的稳定节点，0 领域语义事件；浏览器端在 409 后必须丢弃本地与已排队编辑、从服务器重载并保持冲突提示，不得再用画布残留状态自动回写。第一次 K8s 实测发现该回写缺陷（旧镜像 40 次后续写、重放已丢弃拖拽、提示消失），修复后同一激进手势只有 1 次 stale 409、0 次后续写。证据见[P15-L 布局 CAS](../vnext/evidence/P15/layout-cas-20260915/README.md) | 若只修服务端 409 而不修客户端，用户会看到“未覆盖”提示却实际写回脏状态；后续 ViewStream/控制事件仍按 D15 顺序在 P08/P11/P12 之后实现 |
+
 21 项任务及共享接口逐项检查表在本工作树的忽略台账 `.superpowers/sdd/vnext-v2/preflight.md`，任务完成以提交、具体测试和审查记录为准。源包 `ACCEPTANCE.md` / `VALIDATION_REPORT.md` 保持原始文档检查事实；实施结果另记，不覆盖原包。
 
 常规实现和修复按批准范围连续推进。必要权限、恢复或真实 MAF 核心能力不满足时，记录实际失败与合同影响，不通过削弱测试或更换框架来宣称通过。

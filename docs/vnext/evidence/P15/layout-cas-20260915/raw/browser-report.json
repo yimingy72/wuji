@@ -1,0 +1,389 @@
+{
+  "steps": [
+    {
+      "name": "session-established",
+      "value": true
+    },
+    {
+      "name": "phase1-baseline",
+      "value": {
+        "revision": "53",
+        "layout": {
+          "schema_version": "wuji.api.v2",
+          "view_name": "knowledge-live",
+          "layout_revision": "53",
+          "selection_mode": "follow_latest",
+          "entries": [
+            {
+              "anchor": {
+                "entity_type": "origin",
+                "id": "a41a59ed-29e1-4801-b68b-dfea395eae30",
+                "revision": null
+              },
+              "x": 120.5,
+              "y": -40.25,
+              "pinned": false
+            },
+            {
+              "anchor": {
+                "entity_type": "intent",
+                "id": "778ac2ff-d006-4764-a11f-9f3e83473ade",
+                "revision": "1"
+              },
+              "x": 640.75,
+              "y": 210.5,
+              "pinned": false
+            }
+          ],
+          "viewport": {
+            "x": -82.67853543836077,
+            "y": 161.65183070204904,
+            "zoom": 0.9848841115216661
+          }
+        }
+      }
+    },
+    {
+      "name": "phase1-second-tab-put",
+      "value": {
+        "status": 200,
+        "body": {
+          "view_name": "knowledge-live",
+          "layout_revision": "54",
+          "request_id": "a234b54f-6411-493f-8415-254b8bbe92b3"
+        }
+      }
+    },
+    {
+      "name": "phase1-second-tab-server",
+      "value": {
+        "schema_version": "wuji.api.v2",
+        "view_name": "knowledge-live",
+        "layout_revision": "54",
+        "selection_mode": "follow_latest",
+        "entries": [
+          {
+            "anchor": {
+              "entity_type": "origin",
+              "id": "a41a59ed-29e1-4801-b68b-dfea395eae30",
+              "revision": null
+            },
+            "x": 77.5,
+            "y": -12.25,
+            "pinned": true
+          }
+        ],
+        "viewport": {
+          "x": -10,
+          "y": 20,
+          "zoom": 0.9
+        }
+      }
+    },
+    {
+      "name": "phase1-conflict-alert-visible",
+      "value": true
+    },
+    {
+      "name": "phase1-server-after-conflict",
+      "value": {
+        "schema_version": "wuji.api.v2",
+        "view_name": "knowledge-live",
+        "layout_revision": "54",
+        "selection_mode": "follow_latest",
+        "entries": [
+          {
+            "anchor": {
+              "entity_type": "origin",
+              "id": "a41a59ed-29e1-4801-b68b-dfea395eae30",
+              "revision": null
+            },
+            "x": 77.5,
+            "y": -12.25,
+            "pinned": true
+          }
+        ],
+        "viewport": {
+          "x": -10,
+          "y": 20,
+          "zoom": 0.9
+        }
+      }
+    },
+    {
+      "name": "phase1-conflict-did-not-overwrite",
+      "value": {
+        "revision": true,
+        "entries": true,
+        "viewport": true
+      }
+    },
+    {
+      "name": "phase2-baseline",
+      "value": {
+        "revision": "55",
+        "layout": {
+          "schema_version": "wuji.api.v2",
+          "view_name": "knowledge-live",
+          "layout_revision": "55",
+          "selection_mode": "follow_latest",
+          "entries": [
+            {
+              "anchor": {
+                "entity_type": "origin",
+                "id": "a41a59ed-29e1-4801-b68b-dfea395eae30",
+                "revision": null
+              },
+              "x": 77.5,
+              "y": -12.25,
+              "pinned": true
+            }
+          ],
+          "viewport": {
+            "x": -17.06632414759457,
+            "y": 251.54145259224663,
+            "zoom": 0.6847267631947688
+          }
+        }
+      }
+    },
+    {
+      "name": "phase2-drag-start-point",
+      "value": {
+        "x": 712.2901550292969,
+        "y": 619.373671875,
+        "id": "intent:778ac2ff-d006-4764-a11f-9f3e83473ade@1"
+      }
+    },
+    {
+      "name": "phase2-save-elapsed-ms",
+      "value": 32
+    },
+    {
+      "name": "phase2-server-after-save",
+      "value": {
+        "schema_version": "wuji.api.v2",
+        "view_name": "knowledge-live",
+        "layout_revision": "58",
+        "selection_mode": "follow_latest",
+        "entries": [
+          {
+            "anchor": {
+              "entity_type": "origin",
+              "id": "a41a59ed-29e1-4801-b68b-dfea395eae30",
+              "revision": null
+            },
+            "x": 77.5,
+            "y": -12.25,
+            "pinned": true
+          },
+          {
+            "anchor": {
+              "entity_type": "intent",
+              "id": "778ac2ff-d006-4764-a11f-9f3e83473ade",
+              "revision": "1"
+            },
+            "x": 1138.2734268417462,
+            "y": 148.3888130968622,
+            "pinned": false
+          }
+        ],
+        "viewport": {
+          "x": -174.26526982380688,
+          "y": 230.71716938080237,
+          "zoom": 0.9289032900692605
+        }
+      }
+    },
+    {
+      "name": "phase2-poll-samples",
+      "value": [
+        {
+          "at": "2026-09-15T06:56:37.477Z",
+          "ms": 31,
+          "revision": "58"
+        }
+      ]
+    },
+    {
+      "name": "phase2-intent-entry",
+      "value": {
+        "anchor": {
+          "entity_type": "intent",
+          "id": "778ac2ff-d006-4764-a11f-9f3e83473ade",
+          "revision": "1"
+        },
+        "x": 1138.2734268417462,
+        "y": 148.3888130968622,
+        "pinned": false
+      }
+    },
+    {
+      "name": "phase2-node-before-reload",
+      "value": {
+        "x": 883,
+        "y": 369,
+        "width": 208,
+        "height": 121
+      }
+    },
+    {
+      "name": "phase2-viewport-before-reload",
+      "value": "matrix(0.928903, 0, 0, 0.928903, -174.265, 230.717)"
+    },
+    {
+      "name": "phase2-node-after-reload",
+      "value": {
+        "x": 883,
+        "y": 369,
+        "width": 208,
+        "height": 121
+      }
+    },
+    {
+      "name": "phase2-viewport-after-reload",
+      "value": "matrix(0.928903, 0, 0, 0.928903, -174.265, 230.717)"
+    },
+    {
+      "name": "phase2-server-after-reload",
+      "value": {
+        "schema_version": "wuji.api.v2",
+        "view_name": "knowledge-live",
+        "layout_revision": "58",
+        "selection_mode": "follow_latest",
+        "entries": [
+          {
+            "anchor": {
+              "entity_type": "origin",
+              "id": "a41a59ed-29e1-4801-b68b-dfea395eae30",
+              "revision": null
+            },
+            "x": 77.5,
+            "y": -12.25,
+            "pinned": true
+          },
+          {
+            "anchor": {
+              "entity_type": "intent",
+              "id": "778ac2ff-d006-4764-a11f-9f3e83473ade",
+              "revision": "1"
+            },
+            "x": 1138.2734268417462,
+            "y": 148.3888130968622,
+            "pinned": false
+          }
+        ],
+        "viewport": {
+          "x": -174.26526982380688,
+          "y": 230.71716938080237,
+          "zoom": 0.9289032900692605
+        }
+      }
+    },
+    {
+      "name": "phase2-persisted-across-reload",
+      "value": {
+        "delta_x": 0,
+        "delta_y": 0,
+        "viewport_equal": true,
+        "entry_matches_dom": true
+      }
+    },
+    {
+      "name": "phase3-stale-put",
+      "value": {
+        "status": 409,
+        "body": {
+          "code": "STALE_VERSION",
+          "message": "The request could not be completed.",
+          "request_id": "1d01556e-24ff-40bf-9c00-36e87a9f70c3",
+          "retryable": false,
+          "details": {}
+        }
+      }
+    },
+    {
+      "name": "phase3-server-after-stale",
+      "value": {
+        "schema_version": "wuji.api.v2",
+        "view_name": "knowledge-live",
+        "layout_revision": "58",
+        "selection_mode": "follow_latest",
+        "entries": [
+          {
+            "anchor": {
+              "entity_type": "origin",
+              "id": "a41a59ed-29e1-4801-b68b-dfea395eae30",
+              "revision": null
+            },
+            "x": 77.5,
+            "y": -12.25,
+            "pinned": true
+          },
+          {
+            "anchor": {
+              "entity_type": "intent",
+              "id": "778ac2ff-d006-4764-a11f-9f3e83473ade",
+              "revision": "1"
+            },
+            "x": 1138.2734268417462,
+            "y": 148.3888130968622,
+            "pinned": false
+          }
+        ],
+        "viewport": {
+          "x": -174.26526982380688,
+          "y": 230.71716938080237,
+          "zoom": 0.9289032900692605
+        }
+      }
+    },
+    {
+      "name": "phase3-stale-did-not-overwrite",
+      "value": {
+        "revision": true,
+        "entries": true,
+        "viewport": true
+      }
+    }
+  ],
+  "console": [
+    {
+      "at": "2026-09-15T06:56:25.014Z",
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+    },
+    {
+      "at": "2026-09-15T06:56:32.045Z",
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 409 (Conflict)"
+    },
+    {
+      "at": "2026-09-15T06:56:39.955Z",
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 409 (Conflict)"
+    }
+  ],
+  "pageErrors": [],
+  "requestFailures": [],
+  "timing": {
+    "phase2_save": 32
+  },
+  "consoleErrors": [
+    {
+      "at": "2026-09-15T06:56:25.014Z",
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+    },
+    {
+      "at": "2026-09-15T06:56:32.045Z",
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 409 (Conflict)"
+    },
+    {
+      "at": "2026-09-15T06:56:39.955Z",
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 409 (Conflict)"
+    }
+  ]
+}

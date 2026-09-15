@@ -1,0 +1,6 @@
+migration_head=vnext_0018_p15_layout
+layout_row=operator|knowledge-live|105|follow_latest|entries=1
+layout_columns=tenant_id,project_id,task_id,subject,view_name,layout_schema,layout_revision,selection_mode,entries_json,viewport_json,updated_at
+rls_enabled=true
+policies=layout_insert,layout_read,layout_update
+domain=tasks:1 outbox:1 claim_revision:0 intent_revision:1 artifact:0 observation:0 work_item:0 agent_run:0 tool_call:0 board_revision:1 event_seq:1

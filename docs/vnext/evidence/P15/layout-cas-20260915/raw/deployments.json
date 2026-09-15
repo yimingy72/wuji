@@ -1,0 +1,471 @@
+{
+    "apiVersion": "v1",
+    "items": [
+        {
+            "apiVersion": "apps/v1",
+            "kind": "Deployment",
+            "metadata": {
+                "annotations": {
+                    "deployment.kubernetes.io/revision": "4",
+                    "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"apps/v1\",\"kind\":\"Deployment\",\"metadata\":{\"annotations\":{},\"labels\":{\"app.kubernetes.io/managed-by\":\"wuji-vnext-deployment\",\"wuji.dev/environment\":\"local-test\"},\"name\":\"api\",\"namespace\":\"wuji-vnext-test\"},\"spec\":{\"replicas\":1,\"selector\":{\"matchLabels\":{\"wuji.dev/service\":\"api\"}},\"strategy\":{\"type\":\"Recreate\"},\"template\":{\"metadata\":{\"labels\":{\"app.kubernetes.io/managed-by\":\"wuji-vnext-deployment\",\"wuji.dev/environment\":\"local-test\",\"wuji.dev/service\":\"api\"}},\"spec\":{\"automountServiceAccountToken\":false,\"containers\":[{\"command\":[\"python\",\"/opt/wuji/services/wuji-api/main.py\",\"--factory\",\"deployment:build_api\",\"--port\",\"8443\",\"--ssl-certfile\",\"/run/wuji/credentials/tls.crt\",\"--ssl-keyfile\",\"/run/wuji/credentials/tls.key\"],\"image\":\"127.0.0.1:56615/wuji-vnext-platform@sha256:42af7bd277e93541e31144ff562e33ee157e05a738f550762bcb99995ef5e832\",\"name\":\"api\",\"readinessProbe\":{\"periodSeconds\":5,\"tcpSocket\":{\"port\":8443}},\"resources\":{\"limits\":{\"cpu\":\"1\",\"memory\":\"768Mi\"},\"requests\":{\"cpu\":\"100m\",\"memory\":\"128Mi\"}},\"securityContext\":{\"allowPrivilegeEscalation\":false,\"capabilities\":{\"drop\":[\"ALL\"]},\"readOnlyRootFilesystem\":true,\"runAsGroup\":10000,\"runAsNonRoot\":true,\"runAsUser\":10001},\"volumeMounts\":[{\"mountPath\":\"/config\",\"name\":\"config\",\"readOnly\":true},{\"mountPath\":\"/run/wuji/credentials\",\"name\":\"credentials\",\"readOnly\":true},{\"mountPath\":\"/tmp\",\"name\":\"tmp\"}]}],\"nodeSelector\":{\"kubernetes.io/arch\":\"arm64\"},\"securityContext\":{\"fsGroup\":10000,\"runAsNonRoot\":true,\"seccompProfile\":{\"type\":\"RuntimeDefault\"}},\"serviceAccountName\":\"default\",\"volumes\":[{\"configMap\":{\"name\":\"api-config\"},\"name\":\"config\"},{\"name\":\"credentials\",\"secret\":{\"defaultMode\":288,\"secretName\":\"api-credentials\"}},{\"emptyDir\":{\"sizeLimit\":\"128Mi\"},\"name\":\"tmp\"}]}}}}\n"
+                },
+                "creationTimestamp": "2026-09-15T01:33:53Z",
+                "generation": 4,
+                "labels": {
+                    "app.kubernetes.io/managed-by": "wuji-vnext-deployment",
+                    "wuji.dev/environment": "local-test"
+                },
+                "name": "api",
+                "namespace": "wuji-vnext-test",
+                "resourceVersion": "295683",
+                "uid": "4d731f3e-a922-4a89-985d-a2dafde6a803"
+            },
+            "spec": {
+                "progressDeadlineSeconds": 600,
+                "replicas": 1,
+                "revisionHistoryLimit": 10,
+                "selector": {
+                    "matchLabels": {
+                        "wuji.dev/service": "api"
+                    }
+                },
+                "strategy": {
+                    "type": "Recreate"
+                },
+                "template": {
+                    "metadata": {
+                        "annotations": {
+                            "kubectl.kubernetes.io/restartedAt": "2026-09-15T09:38:15+08:00"
+                        },
+                        "labels": {
+                            "app.kubernetes.io/managed-by": "wuji-vnext-deployment",
+                            "wuji.dev/environment": "local-test",
+                            "wuji.dev/service": "api"
+                        }
+                    },
+                    "spec": {
+                        "automountServiceAccountToken": false,
+                        "containers": [
+                            {
+                                "command": [
+                                    "python",
+                                    "/opt/wuji/services/wuji-api/main.py",
+                                    "--factory",
+                                    "deployment:build_api",
+                                    "--port",
+                                    "8443",
+                                    "--ssl-certfile",
+                                    "/run/wuji/credentials/tls.crt",
+                                    "--ssl-keyfile",
+                                    "/run/wuji/credentials/tls.key"
+                                ],
+                                "image": "127.0.0.1:56615/wuji-vnext-platform@sha256:6507e76a16dbe7d3e31e45904ed4d5501d902709179b4707983a7b46df889794",
+                                "imagePullPolicy": "IfNotPresent",
+                                "name": "api",
+                                "readinessProbe": {
+                                    "failureThreshold": 3,
+                                    "periodSeconds": 5,
+                                    "successThreshold": 1,
+                                    "tcpSocket": {
+                                        "port": 8443
+                                    },
+                                    "timeoutSeconds": 1
+                                },
+                                "resources": {
+                                    "limits": {
+                                        "cpu": "1",
+                                        "memory": "768Mi"
+                                    },
+                                    "requests": {
+                                        "cpu": "100m",
+                                        "memory": "128Mi"
+                                    }
+                                },
+                                "securityContext": {
+                                    "allowPrivilegeEscalation": false,
+                                    "capabilities": {
+                                        "drop": [
+                                            "ALL"
+                                        ]
+                                    },
+                                    "readOnlyRootFilesystem": true,
+                                    "runAsGroup": 10000,
+                                    "runAsNonRoot": true,
+                                    "runAsUser": 10001
+                                },
+                                "terminationMessagePath": "/dev/termination-log",
+                                "terminationMessagePolicy": "File",
+                                "volumeMounts": [
+                                    {
+                                        "mountPath": "/config",
+                                        "name": "config",
+                                        "readOnly": true
+                                    },
+                                    {
+                                        "mountPath": "/run/wuji/credentials",
+                                        "name": "credentials",
+                                        "readOnly": true
+                                    },
+                                    {
+                                        "mountPath": "/tmp",
+                                        "name": "tmp"
+                                    }
+                                ]
+                            }
+                        ],
+                        "dnsPolicy": "ClusterFirst",
+                        "nodeSelector": {
+                            "kubernetes.io/arch": "arm64"
+                        },
+                        "restartPolicy": "Always",
+                        "schedulerName": "default-scheduler",
+                        "securityContext": {
+                            "fsGroup": 10000,
+                            "runAsNonRoot": true,
+                            "seccompProfile": {
+                                "type": "RuntimeDefault"
+                            }
+                        },
+                        "serviceAccount": "default",
+                        "serviceAccountName": "default",
+                        "terminationGracePeriodSeconds": 30,
+                        "volumes": [
+                            {
+                                "configMap": {
+                                    "defaultMode": 420,
+                                    "name": "api-config"
+                                },
+                                "name": "config"
+                            },
+                            {
+                                "name": "credentials",
+                                "secret": {
+                                    "defaultMode": 288,
+                                    "secretName": "api-credentials"
+                                }
+                            },
+                            {
+                                "emptyDir": {
+                                    "sizeLimit": "128Mi"
+                                },
+                                "name": "tmp"
+                            }
+                        ]
+                    }
+                }
+            },
+            "status": {
+                "availableReplicas": 1,
+                "conditions": [
+                    {
+                        "lastTransitionTime": "2026-09-15T06:55:25Z",
+                        "lastUpdateTime": "2026-09-15T06:55:25Z",
+                        "message": "Deployment has minimum availability.",
+                        "reason": "MinimumReplicasAvailable",
+                        "status": "True",
+                        "type": "Available"
+                    },
+                    {
+                        "lastTransitionTime": "2026-09-15T01:33:53Z",
+                        "lastUpdateTime": "2026-09-15T06:55:25Z",
+                        "message": "ReplicaSet \"api-864d8cf585\" has successfully progressed.",
+                        "reason": "NewReplicaSetAvailable",
+                        "status": "True",
+                        "type": "Progressing"
+                    }
+                ],
+                "observedGeneration": 4,
+                "readyReplicas": 1,
+                "replicas": 1,
+                "terminatingReplicas": 0,
+                "updatedReplicas": 1
+            }
+        },
+        {
+            "apiVersion": "apps/v1",
+            "kind": "Deployment",
+            "metadata": {
+                "annotations": {
+                    "deployment.kubernetes.io/revision": "7",
+                    "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"apps/v1\",\"kind\":\"Deployment\",\"metadata\":{\"annotations\":{},\"labels\":{\"app.kubernetes.io/component\":\"web\",\"app.kubernetes.io/managed-by\":\"wuji-vnext-deployment\",\"app.kubernetes.io/name\":\"wuji-web\",\"app.kubernetes.io/part-of\":\"wuji-vnext\",\"wuji.dev/environment\":\"local-test\",\"wuji.dev/service\":\"web\"},\"name\":\"wuji-web\",\"namespace\":\"wuji-vnext-test\"},\"spec\":{\"replicas\":1,\"selector\":{\"matchLabels\":{\"app.kubernetes.io/name\":\"wuji-web\",\"wuji.dev/service\":\"web\"}},\"strategy\":{\"type\":\"Recreate\"},\"template\":{\"metadata\":{\"labels\":{\"app.kubernetes.io/name\":\"wuji-web\",\"wuji.dev/service\":\"web\"}},\"spec\":{\"automountServiceAccountToken\":false,\"containers\":[{\"image\":\"127.0.0.1:56615/wuji-web@sha256:db056ea8c0c7015d1eeecd0b9afb02da88b5a0de8b31772eee5e813f3cc672ea\",\"imagePullPolicy\":\"IfNotPresent\",\"livenessProbe\":{\"httpGet\":{\"path\":\"/healthz\",\"port\":\"http\"},\"periodSeconds\":15},\"name\":\"web\",\"ports\":[{\"containerPort\":8080,\"name\":\"http\"}],\"readinessProbe\":{\"httpGet\":{\"path\":\"/healthz\",\"port\":\"http\"},\"periodSeconds\":5},\"resources\":{\"limits\":{\"cpu\":\"250m\",\"memory\":\"256Mi\"},\"requests\":{\"cpu\":\"25m\",\"memory\":\"64Mi\"}},\"securityContext\":{\"allowPrivilegeEscalation\":false,\"capabilities\":{\"drop\":[\"ALL\"]},\"readOnlyRootFilesystem\":true,\"runAsGroup\":10000,\"runAsUser\":101},\"volumeMounts\":[{\"mountPath\":\"/tmp\",\"name\":\"tmp\"},{\"mountPath\":\"/usr/share/nginx/html/config.js\",\"name\":\"web-config\",\"readOnly\":true,\"subPath\":\"config.js\"}]},{\"command\":[\"python\",\"/opt/wuji/services/wuji-web-gateway/main.py\",\"--config\",\"/config/web-gateway.json\",\"--host\",\"127.0.0.1\",\"--port\",\"8090\"],\"image\":\"127.0.0.1:56615/wuji-vnext-platform@sha256:6507e76a16dbe7d3e31e45904ed4d5501d902709179b4707983a7b46df889794\",\"imagePullPolicy\":\"IfNotPresent\",\"name\":\"gateway\",\"readinessProbe\":{\"exec\":{\"command\":[\"python\",\"-c\",\"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/healthz',timeout=1).read()\"]},\"periodSeconds\":5},\"resources\":{\"limits\":{\"cpu\":\"250m\",\"memory\":\"256Mi\"},\"requests\":{\"cpu\":\"25m\",\"memory\":\"64Mi\"}},\"securityContext\":{\"allowPrivilegeEscalation\":false,\"capabilities\":{\"drop\":[\"ALL\"]},\"readOnlyRootFilesystem\":true,\"runAsGroup\":10000,\"runAsUser\":10003},\"volumeMounts\":[{\"mountPath\":\"/tmp\",\"name\":\"tmp\"},{\"mountPath\":\"/config/web-gateway.json\",\"name\":\"gateway-config\",\"readOnly\":true,\"subPath\":\"web-gateway.json\"},{\"mountPath\":\"/config/api-ca.crt\",\"name\":\"api-ca\",\"readOnly\":true,\"subPath\":\"ca.crt\"},{\"mountPath\":\"/run/wuji/web\",\"name\":\"gateway-credentials\",\"readOnly\":true}]}],\"nodeSelector\":{\"kubernetes.io/arch\":\"arm64\"},\"securityContext\":{\"fsGroup\":10000,\"runAsNonRoot\":true,\"seccompProfile\":{\"type\":\"RuntimeDefault\"}},\"volumes\":[{\"emptyDir\":{\"sizeLimit\":\"64Mi\"},\"name\":\"tmp\"},{\"configMap\":{\"items\":[{\"key\":\"config.js\",\"path\":\"config.js\"}],\"name\":\"wuji-web-config\"},\"name\":\"web-config\"},{\"configMap\":{\"name\":\"wuji-web-gateway-config\"},\"name\":\"gateway-config\"},{\"configMap\":{\"items\":[{\"key\":\"ca.crt\",\"path\":\"ca.crt\"}],\"name\":\"api-config\"},\"name\":\"api-ca\"},{\"name\":\"gateway-credentials\",\"secret\":{\"defaultMode\":288,\"secretName\":\"wuji-web-gateway-credentials\"}}]}}}}\n"
+                },
+                "creationTimestamp": "2026-09-14T06:11:38Z",
+                "generation": 7,
+                "labels": {
+                    "app.kubernetes.io/component": "web",
+                    "app.kubernetes.io/managed-by": "wuji-vnext-deployment",
+                    "app.kubernetes.io/name": "wuji-web",
+                    "app.kubernetes.io/part-of": "wuji-vnext",
+                    "wuji.dev/environment": "local-test",
+                    "wuji.dev/service": "web"
+                },
+                "name": "wuji-web",
+                "namespace": "wuji-vnext-test",
+                "resourceVersion": "295716",
+                "uid": "01be9817-b8be-4d14-a63f-ecd64c169f3e"
+            },
+            "spec": {
+                "progressDeadlineSeconds": 600,
+                "replicas": 1,
+                "revisionHistoryLimit": 10,
+                "selector": {
+                    "matchLabels": {
+                        "app.kubernetes.io/name": "wuji-web",
+                        "wuji.dev/service": "web"
+                    }
+                },
+                "strategy": {
+                    "type": "Recreate"
+                },
+                "template": {
+                    "metadata": {
+                        "labels": {
+                            "app.kubernetes.io/name": "wuji-web",
+                            "wuji.dev/service": "web"
+                        }
+                    },
+                    "spec": {
+                        "automountServiceAccountToken": false,
+                        "containers": [
+                            {
+                                "image": "127.0.0.1:56615/wuji-web@sha256:db056ea8c0c7015d1eeecd0b9afb02da88b5a0de8b31772eee5e813f3cc672ea",
+                                "imagePullPolicy": "IfNotPresent",
+                                "livenessProbe": {
+                                    "failureThreshold": 3,
+                                    "httpGet": {
+                                        "path": "/healthz",
+                                        "port": "http",
+                                        "scheme": "HTTP"
+                                    },
+                                    "periodSeconds": 15,
+                                    "successThreshold": 1,
+                                    "timeoutSeconds": 1
+                                },
+                                "name": "web",
+                                "ports": [
+                                    {
+                                        "containerPort": 8080,
+                                        "name": "http",
+                                        "protocol": "TCP"
+                                    }
+                                ],
+                                "readinessProbe": {
+                                    "failureThreshold": 3,
+                                    "httpGet": {
+                                        "path": "/healthz",
+                                        "port": "http",
+                                        "scheme": "HTTP"
+                                    },
+                                    "periodSeconds": 5,
+                                    "successThreshold": 1,
+                                    "timeoutSeconds": 1
+                                },
+                                "resources": {
+                                    "limits": {
+                                        "cpu": "250m",
+                                        "memory": "256Mi"
+                                    },
+                                    "requests": {
+                                        "cpu": "25m",
+                                        "memory": "64Mi"
+                                    }
+                                },
+                                "securityContext": {
+                                    "allowPrivilegeEscalation": false,
+                                    "capabilities": {
+                                        "drop": [
+                                            "ALL"
+                                        ]
+                                    },
+                                    "readOnlyRootFilesystem": true,
+                                    "runAsGroup": 10000,
+                                    "runAsUser": 101
+                                },
+                                "terminationMessagePath": "/dev/termination-log",
+                                "terminationMessagePolicy": "File",
+                                "volumeMounts": [
+                                    {
+                                        "mountPath": "/tmp",
+                                        "name": "tmp"
+                                    },
+                                    {
+                                        "mountPath": "/usr/share/nginx/html/config.js",
+                                        "name": "web-config",
+                                        "readOnly": true,
+                                        "subPath": "config.js"
+                                    }
+                                ]
+                            },
+                            {
+                                "command": [
+                                    "python",
+                                    "/opt/wuji/services/wuji-web-gateway/main.py",
+                                    "--config",
+                                    "/config/web-gateway.json",
+                                    "--host",
+                                    "127.0.0.1",
+                                    "--port",
+                                    "8090"
+                                ],
+                                "image": "127.0.0.1:56615/wuji-vnext-platform@sha256:6507e76a16dbe7d3e31e45904ed4d5501d902709179b4707983a7b46df889794",
+                                "imagePullPolicy": "IfNotPresent",
+                                "name": "gateway",
+                                "readinessProbe": {
+                                    "exec": {
+                                        "command": [
+                                            "python",
+                                            "-c",
+                                            "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/healthz',timeout=1).read()"
+                                        ]
+                                    },
+                                    "failureThreshold": 3,
+                                    "periodSeconds": 5,
+                                    "successThreshold": 1,
+                                    "timeoutSeconds": 1
+                                },
+                                "resources": {
+                                    "limits": {
+                                        "cpu": "250m",
+                                        "memory": "256Mi"
+                                    },
+                                    "requests": {
+                                        "cpu": "25m",
+                                        "memory": "64Mi"
+                                    }
+                                },
+                                "securityContext": {
+                                    "allowPrivilegeEscalation": false,
+                                    "capabilities": {
+                                        "drop": [
+                                            "ALL"
+                                        ]
+                                    },
+                                    "readOnlyRootFilesystem": true,
+                                    "runAsGroup": 10000,
+                                    "runAsUser": 10003
+                                },
+                                "terminationMessagePath": "/dev/termination-log",
+                                "terminationMessagePolicy": "File",
+                                "volumeMounts": [
+                                    {
+                                        "mountPath": "/tmp",
+                                        "name": "tmp"
+                                    },
+                                    {
+                                        "mountPath": "/config/web-gateway.json",
+                                        "name": "gateway-config",
+                                        "readOnly": true,
+                                        "subPath": "web-gateway.json"
+                                    },
+                                    {
+                                        "mountPath": "/config/api-ca.crt",
+                                        "name": "api-ca",
+                                        "readOnly": true,
+                                        "subPath": "ca.crt"
+                                    },
+                                    {
+                                        "mountPath": "/run/wuji/web",
+                                        "name": "gateway-credentials",
+                                        "readOnly": true
+                                    }
+                                ]
+                            }
+                        ],
+                        "dnsPolicy": "ClusterFirst",
+                        "nodeSelector": {
+                            "kubernetes.io/arch": "arm64"
+                        },
+                        "restartPolicy": "Always",
+                        "schedulerName": "default-scheduler",
+                        "securityContext": {
+                            "fsGroup": 10000,
+                            "runAsNonRoot": true,
+                            "seccompProfile": {
+                                "type": "RuntimeDefault"
+                            }
+                        },
+                        "terminationGracePeriodSeconds": 30,
+                        "volumes": [
+                            {
+                                "emptyDir": {
+                                    "sizeLimit": "64Mi"
+                                },
+                                "name": "tmp"
+                            },
+                            {
+                                "configMap": {
+                                    "defaultMode": 420,
+                                    "items": [
+                                        {
+                                            "key": "config.js",
+                                            "path": "config.js"
+                                        }
+                                    ],
+                                    "name": "wuji-web-config"
+                                },
+                                "name": "web-config"
+                            },
+                            {
+                                "configMap": {
+                                    "defaultMode": 420,
+                                    "name": "wuji-web-gateway-config"
+                                },
+                                "name": "gateway-config"
+                            },
+                            {
+                                "configMap": {
+                                    "defaultMode": 420,
+                                    "items": [
+                                        {
+                                            "key": "ca.crt",
+                                            "path": "ca.crt"
+                                        }
+                                    ],
+                                    "name": "api-config"
+                                },
+                                "name": "api-ca"
+                            },
+                            {
+                                "name": "gateway-credentials",
+                                "secret": {
+                                    "defaultMode": 288,
+                                    "secretName": "wuji-web-gateway-credentials"
+                                }
+                            }
+                        ]
+                    }
+                }
+            },
+            "status": {
+                "availableReplicas": 1,
+                "conditions": [
+                    {
+                        "lastTransitionTime": "2026-09-15T06:55:38Z",
+                        "lastUpdateTime": "2026-09-15T06:55:38Z",
+                        "message": "Deployment has minimum availability.",
+                        "reason": "MinimumReplicasAvailable",
+                        "status": "True",
+                        "type": "Available"
+                    },
+                    {
+                        "lastTransitionTime": "2026-09-14T06:11:38Z",
+                        "lastUpdateTime": "2026-09-15T06:55:38Z",
+                        "message": "ReplicaSet \"wuji-web-5b68b5c9c5\" has successfully progressed.",
+                        "reason": "NewReplicaSetAvailable",
+                        "status": "True",
+                        "type": "Progressing"
+                    }
+                ],
+                "observedGeneration": 7,
+                "readyReplicas": 1,
+                "replicas": 1,
+                "terminatingReplicas": 0,
+                "updatedReplicas": 1
+            }
+        }
+    ],
+    "kind": "List",
+    "metadata": {
+        "resourceVersion": ""
+    }
+}

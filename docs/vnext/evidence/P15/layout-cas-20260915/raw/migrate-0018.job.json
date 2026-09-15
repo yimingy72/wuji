@@ -1,0 +1,50 @@
+{
+  "apiVersion": "batch/v1",
+  "kind": "Job",
+  "metadata": {
+    "name": "p15l-migrate-0018",
+    "namespace": "wuji-vnext-test",
+    "labels": {
+      "app.kubernetes.io/managed-by": "wuji-vnext-deployment",
+      "wuji.dev/environment": "local-test",
+      "wuji.dev/task": "p15-layout-cas"
+    }
+  },
+  "spec": {
+    "backoffLimit": 0,
+    "ttlSecondsAfterFinished": 86400,
+    "template": {
+      "metadata": {
+        "labels": {
+          "app.kubernetes.io/managed-by": "wuji-vnext-deployment",
+          "wuji.dev/environment": "local-test"
+        }
+      },
+      "spec": {
+        "restartPolicy": "Never",
+        "automountServiceAccountToken": false,
+        "nodeSelector": {"kubernetes.io/arch": "arm64"},
+        "securityContext": {"runAsNonRoot": true, "runAsUser": 10001, "runAsGroup": 10000, "fsGroup": 10000, "seccompProfile": {"type": "RuntimeDefault"}},
+        "containers": [
+          {
+            "name": "migrate",
+            "image": "127.0.0.1:56615/wuji-vnext-platform@sha256:821e1229a547799fb68d75d7526932e547a2fbb266359f3caf1b9ef0dbbcca29",
+            "command": ["python", "-c"],
+            "args": ["import json, psycopg; from wuji_core.persistence.schema import migrate; c=json.load(open('/run/wuji/bootstrap/config.json')); p=dict(c['database']); p.update(user='wuji_migration', password=c['roles']['wuji_migration']); conn=psycopg.connect(**p, sslmode='verify-full', sslrootcert=c['ca_file'], connect_timeout=5, autocommit=True); migrate(conn, application_role='wuji_app'); print('HEAD', conn.execute('select head from vnext.schema_migration order by applied_at desc limit 1').fetchone()[0]); print('TABLE', conn.execute(\"select to_regclass('vnext.layout_preference')\").fetchone()[0])"],
+            "securityContext": {"allowPrivilegeEscalation": false, "readOnlyRootFilesystem": true, "capabilities": {"drop": ["ALL"]}},
+            "volumeMounts": [
+              {"name": "public", "mountPath": "/config", "readOnly": true},
+              {"name": "input", "mountPath": "/run/wuji/bootstrap", "readOnly": true},
+              {"name": "tmp", "mountPath": "/tmp"}
+            ]
+          }
+        ],
+        "volumes": [
+          {"name": "public", "configMap": {"name": "bootstrap-public-topo0915", "defaultMode": 420}},
+          {"name": "input", "secret": {"secretName": "bootstrap-input-topo0915", "defaultMode": 288}},
+          {"name": "tmp", "emptyDir": {"sizeLimit": "32Mi"}}
+        ]
+      }
+    }
+  }
+}

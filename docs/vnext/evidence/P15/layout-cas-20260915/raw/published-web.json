@@ -1,0 +1,81 @@
+[
+    {
+        "Id": "sha256:fcbabb0f179c5f765c02afdcb624d62f721d489e24a26367eb12c61c30677140",
+        "RepoTags": [
+            "127.0.0.1:56615/wuji-web:b465238",
+            "wuji-web:p15l-final"
+        ],
+        "RepoDigests": [
+            "127.0.0.1:56615/wuji-web@sha256:db056ea8c0c7015d1eeecd0b9afb02da88b5a0de8b31772eee5e813f3cc672ea"
+        ],
+        "Comment": "buildkit.dockerfile.v0",
+        "Created": "2026-09-15T06:52:08.300515213Z",
+        "Config": {
+            "User": "101:101",
+            "ExposedPorts": {
+                "8080/tcp": {}
+            },
+            "Env": [
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "NGINX_VERSION=1.29.1",
+                "PKG_RELEASE=1",
+                "DYNPKG_RELEASE=1",
+                "NJS_VERSION=0.9.1",
+                "NJS_RELEASE=1"
+            ],
+            "Entrypoint": [
+                "/docker-entrypoint.sh"
+            ],
+            "Cmd": [
+                "nginx",
+                "-g",
+                "daemon off;"
+            ],
+            "WorkingDir": "/",
+            "Labels": {
+                "maintainer": "NGINX Docker Maintainers <docker-maint@nginx.com>",
+                "org.opencontainers.image.created": "2025-10-10T01:00:55.266Z",
+                "org.opencontainers.image.description": "Unprivileged NGINX Dockerfiles",
+                "org.opencontainers.image.licenses": "Apache-2.0",
+                "org.opencontainers.image.revision": "b465238486d3ffd0476bbfa9384dcf60656be237",
+                "org.opencontainers.image.source": "https://github.com/nginx/docker-nginx-unprivileged",
+                "org.opencontainers.image.title": "docker-nginx-unprivileged",
+                "org.opencontainers.image.url": "https://github.com/nginx/docker-nginx-unprivileged",
+                "org.opencontainers.image.version": "1.29.1-alpine"
+            },
+            "StopSignal": "SIGQUIT",
+            "ArgsEscaped": true
+        },
+        "Architecture": "arm64",
+        "Os": "linux",
+        "Size": 55077513,
+        "GraphDriver": {
+            "Data": {
+                "LowerDir": "/var/lib/docker/overlay2/eqkimk3e1akjjfhorf883rc5x/diff:/var/lib/docker/overlay2/4f7ee487ff91faed65f07c4b7987be7e9a2fd7759656e73241274c3bc77685ee/diff:/var/lib/docker/overlay2/ba993434f6ad1e5ceee7eb2d062bb2dfa9c42fac18bc1286ba0fbb5932b01d35/diff:/var/lib/docker/overlay2/206ac033efa4298c9103a629d1ef36cc93c3b7b843ca1747a6051457ca9bbcbe/diff:/var/lib/docker/overlay2/96bfff90f7aa027c740570d176b5722fe28e86b7af34fc061776f5176d917b59/diff:/var/lib/docker/overlay2/fec6f7ecb27b35ea536810a88a253eb91fe39af1208bf2ae61c0719446be4dbb/diff:/var/lib/docker/overlay2/9c4dc6de3197958946517ab9253ac68f2143ea5d0fc6fc6a4e21c220b16b3d8c/diff:/var/lib/docker/overlay2/dfdff554cceb372d70e565f6e778628f96202ca3c91b3fd4131c3cb0be07795b/diff:/var/lib/docker/overlay2/68547d2682eaf20927ffaacfcbe4e15dc97792f039a354c4058bc2a24c7497fb/diff:/var/lib/docker/overlay2/58fe4aa103cdda9dafd66761c882df09a4b787e49c526553a29e05503e6e9c1c/diff",
+                "MergedDir": "/var/lib/docker/overlay2/892651tg8ps64xxvbphq7idb1/merged",
+                "UpperDir": "/var/lib/docker/overlay2/892651tg8ps64xxvbphq7idb1/diff",
+                "WorkDir": "/var/lib/docker/overlay2/892651tg8ps64xxvbphq7idb1/work"
+            },
+            "Name": "overlay2"
+        },
+        "RootFS": {
+            "Type": "layers",
+            "Layers": [
+                "sha256:0e64f2360a448b389c83fcbc3705e1364ccf43f004bb55233c689e7ce59a1ae9",
+                "sha256:7088c167f7a70b9f16f0c9836b223beb8c1b4a32af85162da4f2603bfaac906a",
+                "sha256:03542b8f7e7b5638dba66bc411d466180e09c2c371bf233467b46af425ffb0b6",
+                "sha256:59e366426015b3efb055ff31029dd017fd3cec08a6517e91cadc9034006d5a49",
+                "sha256:8cab7107ae0b474266e8a5ec3c610daace4602805040bfcf686c065ed191bc11",
+                "sha256:f989b60d6ec600a3373d77581ef4a7f55728be4de2849ba67fc9002b50544018",
+                "sha256:16bb25c70f87c06c9b847b85d7f88bf6745a786bafe973178ef505365138dfe5",
+                "sha256:317ecfb1aa628ec50563aa906b992cf9072d4aa53f108866cc20a217dd2a1a2a",
+                "sha256:b920b24515aa1383ae84d5e783339984bd6c2b3f2eb4e7b86e2e89216e25ce6f",
+                "sha256:8978ca6b47ac933fbb83166edd457211bdc8921c056c5cea7ea709c133e1ca94",
+                "sha256:80bc32daceb1aa501a6560bb226b669cf3844edf97d93cb2210f81a6c7664290"
+            ]
+        },
+        "Metadata": {
+            "LastTagTime": "2026-09-15T06:55:06.19134517Z"
+        }
+    }
+]

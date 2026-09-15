@@ -1,0 +1,802 @@
+[
+  {
+    "at": "2026-09-15T06:59:49.833Z",
+    "kind": "response",
+    "method": "GET",
+    "status": 200,
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"view_name\":\"knowledge-live\",\"layout_revision\":\"62\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origin"
+  },
+  {
+    "at": "2026-09-15T06:59:51.840Z",
+    "kind": "request",
+    "ifMatch": "62",
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origin\",\"id\":\"a41a59ed-29e1-4801-b68b-dfea395eae30\",\"revision\":null},\"x\":77.5,\"y\":-12.25,\"pinned\":true}],\"viewport\":{\"x\":-17.06632414759457,\"y\":251.54145259224663,\"zoom\":0.6847267631947688}}"
+  },
+  {
+    "at": "2026-09-15T06:59:51.882Z",
+    "kind": "response",
+    "method": "PUT",
+    "status": 200,
+    "body": "{\"view_name\":\"knowledge-live\",\"layout_revision\":\"63\",\"request_id\":\"9ee0cccf-073d-4380-92f5-94a73d06647f\"}"
+  },
+  {
+    "at": "2026-09-15T06:59:54.370Z",
+    "kind": "baseline",
+    "revision": "63"
+  },
+  {
+    "at": "2026-09-15T06:59:54.371Z",
+    "kind": "response",
+    "method": "GET",
+    "status": 200,
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"view_name\":\"knowledge-live\",\"layout_revision\":\"63\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origin"
+  },
+  {
+    "at": "2026-09-15T06:59:56.339Z",
+    "kind": "rival-write",
+    "value": {
+      "status": 200,
+      "body": {
+        "view_name": "knowledge-live",
+        "layout_revision": "64",
+        "request_id": "d0e1c235-6e56-49e0-a8fb-2ca133066087"
+      }
+    }
+  },
+  {
+    "at": "2026-09-15T06:59:56.364Z",
+    "kind": "drag-point",
+    "point": {
+      "x": 735.29697265625,
+      "y": 621.1646606445313
+    }
+  },
+  {
+    "at": "2026-09-15T06:59:56.487Z",
+    "kind": "request",
+    "ifMatch": "63",
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origin\",\"id\":\"a41a59ed-29e1-4801-b68b-dfea395eae30\",\"revision\":null},\"x\":77.5,\"y\":-12.25,\"pinned\":true}],\"viewport\":{\"x\":-17.44132414759457,\"y\":251.54145259224663,\"zoom\":0.6847267631947688}}"
+  },
+  {
+    "at": "2026-09-15T06:59:56.525Z",
+    "kind": "response",
+    "method": "PUT",
+    "status": 409,
+    "body": "{\"code\":\"STALE_VERSION\",\"message\":\"The request could not be completed.\",\"request_id\":\"bd20aead-173f-449e-b2bb-645c2dd7f1e4\",\"retryable\":false,\"details\":{}}"
+  },
+  {
+    "at": "2026-09-15T06:59:56.557Z",
+    "kind": "response",
+    "method": "GET",
+    "status": 200,
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"view_name\":\"knowledge-live\",\"layout_revision\":\"64\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origin"
+  },
+  {
+    "at": "2026-09-15T06:59:56.571Z",
+    "kind": "request",
+    "ifMatch": "64",
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origin\",\"id\":\"a41a59ed-29e1-4801-b68b-dfea395eae30\",\"revision\":null},\"x\":77.5,\"y\":-12.25,\"pinned\":true}],\"viewport\":{\"x\":-25,\"y\":20,\"zoom\":0.9}}"
+  },
+  {
+    "at": "2026-09-15T06:59:56.612Z",
+    "kind": "request",
+    "ifMatch": "65",
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origin\",\"id\":\"a41a59ed-29e1-4801-b68b-dfea395eae30\",\"revision\":null},\"x\":77.5,\"y\":-12.25,\"pinned\":true}],\"viewport\":{\"x\":-55,\"y\":20,\"zoom\":0.9}}"
+  },
+  {
+    "at": "2026-09-15T06:59:56.612Z",
+    "kind": "response",
+    "method": "PUT",
+    "status": 200,
+    "body": "{\"view_name\":\"knowledge-live\",\"layout_revision\":\"65\",\"request_id\":\"eea6c6f3-7790-49b2-a829-89857ffeecdb\"}"
+  },
+  {
+    "at": "2026-09-15T06:59:56.641Z",
+    "kind": "request",
+    "ifMatch": "66",
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origin\",\"id\":\"a41a59ed-29e1-4801-b68b-dfea395eae30\",\"revision\":null},\"x\":77.5,\"y\":-12.25,\"pinned\":true}],\"viewport\":{\"x\":-85,\"y\":20,\"zoom\":0.9}}"
+  },
+  {
+    "at": "2026-09-15T06:59:56.641Z",
+    "kind": "response",
+    "method": "PUT",
+    "status": 200,
+    "body": "{\"view_name\":\"knowledge-live\",\"layout_revision\":\"66\",\"request_id\":\"698c72fa-ba8b-4159-a7cd-e84287422e64\"}"
+  },
+  {
+    "at": "2026-09-15T06:59:56.668Z",
+    "kind": "request",
+    "ifMatch": "67",
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origin\",\"id\":\"a41a59ed-29e1-4801-b68b-dfea395eae30\",\"revision\":null},\"x\":77.5,\"y\":-12.25,\"pinned\":true}],\"viewport\":{\"x\":-100,\"y\":20,\"zoom\":0.9}}"
+  },
+  {
+    "at": "2026-09-15T06:59:56.670Z",
+    "kind": "response",
+    "method": "PUT",
+    "status": 200,
+    "body": "{\"view_name\":\"knowledge-live\",\"layout_revision\":\"67\",\"request_id\":\"73e25cc9-fe93-47dd-9a97-ce21b85e5800\"}"
+  },
+  {
+    "at": "2026-09-15T06:59:56.697Z",
+    "kind": "request",
+    "ifMatch": "68",
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origin\",\"id\":\"a41a59ed-29e1-4801-b68b-dfea395eae30\",\"revision\":null},\"x\":77.5,\"y\":-12.25,\"pinned\":true}],\"viewport\":{\"x\":-130,\"y\":20,\"zoom\":0.9}}"
+  },
+  {
+    "at": "2026-09-15T06:59:56.697Z",
+    "kind": "response",
+    "method": "PUT",
+    "status": 200,
+    "body": "{\"view_name\":\"knowledge-live\",\"layout_revision\":\"68\",\"request_id\":\"58edd4e6-f7ca-4130-8f2a-4c7694823f8c\"}"
+  },
+  {
+    "at": "2026-09-15T06:59:56.727Z",
+    "kind": "request",
+    "ifMatch": "69",
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origin\",\"id\":\"a41a59ed-29e1-4801-b68b-dfea395eae30\",\"revision\":null},\"x\":77.5,\"y\":-12.25,\"pinned\":true}],\"viewport\":{\"x\":-160,\"y\":20,\"zoom\":0.9}}"
+  },
+  {
+    "at": "2026-09-15T06:59:56.728Z",
+    "kind": "response",
+    "method": "PUT",
+    "status": 200,
+    "body": "{\"view_name\":\"knowledge-live\",\"layout_revision\":\"69\",\"request_id\":\"d1d9944f-9901-40ef-9974-169ba95142cf\"}"
+  },
+  {
+    "at": "2026-09-15T06:59:56.756Z",
+    "kind": "request",
+    "ifMatch": "70",
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origin\",\"id\":\"a41a59ed-29e1-4801-b68b-dfea395eae30\",\"revision\":null},\"x\":77.5,\"y\":-12.25,\"pinned\":true}],\"viewport\":{\"x\":-190,\"y\":20,\"zoom\":0.9}}"
+  },
+  {
+    "at": "2026-09-15T06:59:56.756Z",
+    "kind": "response",
+    "method": "PUT",
+    "status": 200,
+    "body": "{\"view_name\":\"knowledge-live\",\"layout_revision\":\"70\",\"request_id\":\"0cb12520-38e2-4415-a499-b7547195d81c\"}"
+  },
+  {
+    "at": "2026-09-15T06:59:56.785Z",
+    "kind": "request",
+    "ifMatch": "71",
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origin\",\"id\":\"a41a59ed-29e1-4801-b68b-dfea395eae30\",\"revision\":null},\"x\":77.5,\"y\":-12.25,\"pinned\":true}],\"viewport\":{\"x\":-205,\"y\":20,\"zoom\":0.9}}"
+  },
+  {
+    "at": "2026-09-15T06:59:56.787Z",
+    "kind": "response",
+    "method": "PUT",
+    "status": 200,
+    "body": "{\"view_name\":\"knowledge-live\",\"layout_revision\":\"71\",\"request_id\":\"f2fa6c14-2dee-4d61-8672-3ee6ab9b1c80\"}"
+  },
+  {
+    "at": "2026-09-15T06:59:56.816Z",
+    "kind": "request",
+    "ifMatch": "72",
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origin\",\"id\":\"a41a59ed-29e1-4801-b68b-dfea395eae30\",\"revision\":null},\"x\":77.5,\"y\":-12.25,\"pinned\":true}],\"viewport\":{\"x\":-235,\"y\":20,\"zoom\":0.9}}"
+  },
+  {
+    "at": "2026-09-15T06:59:56.816Z",
+    "kind": "response",
+    "method": "PUT",
+    "status": 200,
+    "body": "{\"view_name\":\"knowledge-live\",\"layout_revision\":\"72\",\"request_id\":\"780b06ea-6d23-4ebd-9cd2-c7d4a552bfda\"}"
+  },
+  {
+    "at": "2026-09-15T06:59:56.845Z",
+    "kind": "request",
+    "ifMatch": "73",
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origin\",\"id\":\"a41a59ed-29e1-4801-b68b-dfea395eae30\",\"revision\":null},\"x\":77.5,\"y\":-12.25,\"pinned\":true}],\"viewport\":{\"x\":-265,\"y\":20,\"zoom\":0.9}}"
+  },
+  {
+    "at": "2026-09-15T06:59:56.845Z",
+    "kind": "response",
+    "method": "PUT",
+    "status": 200,
+    "body": "{\"view_name\":\"knowledge-live\",\"layout_revision\":\"73\",\"request_id\":\"6df1ceb1-5425-4dca-88bb-acd80bf76e8c\"}"
+  },
+  {
+    "at": "2026-09-15T06:59:56.876Z",
+    "kind": "request",
+    "ifMatch": "74",
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origin\",\"id\":\"a41a59ed-29e1-4801-b68b-dfea395eae30\",\"revision\":null},\"x\":77.5,\"y\":-12.25,\"pinned\":true}],\"viewport\":{\"x\":-295,\"y\":20,\"zoom\":0.9}}"
+  },
+  {
+    "at": "2026-09-15T06:59:56.876Z",
+    "kind": "response",
+    "method": "PUT",
+    "status": 200,
+    "body": "{\"view_name\":\"knowledge-live\",\"layout_revision\":\"74\",\"request_id\":\"943f04e6-2f83-4725-aa57-15015135253d\"}"
+  },
+  {
+    "at": "2026-09-15T06:59:56.905Z",
+    "kind": "request",
+    "ifMatch": "75",
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origin\",\"id\":\"a41a59ed-29e1-4801-b68b-dfea395eae30\",\"revision\":null},\"x\":77.5,\"y\":-12.25,\"pinned\":true}],\"viewport\":{\"x\":-325,\"y\":20,\"zoom\":0.9}}"
+  },
+  {
+    "at": "2026-09-15T06:59:56.905Z",
+    "kind": "response",
+    "method": "PUT",
+    "status": 200,
+    "body": "{\"view_name\":\"knowledge-live\",\"layout_revision\":\"75\",\"request_id\":\"dfdf5a22-8da7-4cef-9fab-771ee854792a\"}"
+  },
+  {
+    "at": "2026-09-15T06:59:56.933Z",
+    "kind": "request",
+    "ifMatch": "76",
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origin\",\"id\":\"a41a59ed-29e1-4801-b68b-dfea395eae30\",\"revision\":null},\"x\":77.5,\"y\":-12.25,\"pinned\":true}],\"viewport\":{\"x\":-340,\"y\":20,\"zoom\":0.9}}"
+  },
+  {
+    "at": "2026-09-15T06:59:56.934Z",
+    "kind": "response",
+    "method": "PUT",
+    "status": 200,
+    "body": "{\"view_name\":\"knowledge-live\",\"layout_revision\":\"76\",\"request_id\":\"40f83ba6-fbb1-4f89-a705-41570d98fb11\"}"
+  },
+  {
+    "at": "2026-09-15T06:59:56.972Z",
+    "kind": "request",
+    "ifMatch": "77",
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origin\",\"id\":\"a41a59ed-29e1-4801-b68b-dfea395eae30\",\"revision\":null},\"x\":77.5,\"y\":-12.25,\"pinned\":true}],\"viewport\":{\"x\":-385,\"y\":20,\"zoom\":0.9}}"
+  },
+  {
+    "at": "2026-09-15T06:59:56.973Z",
+    "kind": "response",
+    "method": "PUT",
+    "status": 200,
+    "body": "{\"view_name\":\"knowledge-live\",\"layout_revision\":\"77\",\"request_id\":\"3706f70e-5682-4270-b9e6-a82c12e01144\"}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.063Z",
+    "kind": "request",
+    "ifMatch": "78",
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origin\",\"id\":\"a41a59ed-29e1-4801-b68b-dfea395eae30\",\"revision\":null},\"x\":77.5,\"y\":-12.25,\"pinned\":true}],\"viewport\":{\"x\":-460,\"y\":20,\"zoom\":0.9}}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.063Z",
+    "kind": "response",
+    "method": "PUT",
+    "status": 200,
+    "body": "{\"view_name\":\"knowledge-live\",\"layout_revision\":\"78\",\"request_id\":\"93a5adf3-b5b0-4b94-810c-5120bbe8f476\"}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.107Z",
+    "kind": "request",
+    "ifMatch": "79",
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origin\",\"id\":\"a41a59ed-29e1-4801-b68b-dfea395eae30\",\"revision\":null},\"x\":77.5,\"y\":-12.25,\"pinned\":true}],\"viewport\":{\"x\":-505,\"y\":20,\"zoom\":0.9}}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.107Z",
+    "kind": "response",
+    "method": "PUT",
+    "status": 200,
+    "body": "{\"view_name\":\"knowledge-live\",\"layout_revision\":\"79\",\"request_id\":\"d40f0537-bb7f-43f2-a568-eb409567fa43\"}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.135Z",
+    "kind": "request",
+    "ifMatch": "80",
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origin\",\"id\":\"a41a59ed-29e1-4801-b68b-dfea395eae30\",\"revision\":null},\"x\":77.5,\"y\":-12.25,\"pinned\":true}],\"viewport\":{\"x\":-520,\"y\":20,\"zoom\":0.9}}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.137Z",
+    "kind": "response",
+    "method": "PUT",
+    "status": 200,
+    "body": "{\"view_name\":\"knowledge-live\",\"layout_revision\":\"80\",\"request_id\":\"5b3d1b5c-3b21-4d33-a8e7-fbe20e56bbc1\"}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.166Z",
+    "kind": "request",
+    "ifMatch": "81",
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origin\",\"id\":\"a41a59ed-29e1-4801-b68b-dfea395eae30\",\"revision\":null},\"x\":77.5,\"y\":-12.25,\"pinned\":true}],\"viewport\":{\"x\":-550,\"y\":20,\"zoom\":0.9}}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.167Z",
+    "kind": "response",
+    "method": "PUT",
+    "status": 200,
+    "body": "{\"view_name\":\"knowledge-live\",\"layout_revision\":\"81\",\"request_id\":\"f604e375-5c99-48cd-9294-d5d416a18e83\"}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.196Z",
+    "kind": "request",
+    "ifMatch": "82",
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origin\",\"id\":\"a41a59ed-29e1-4801-b68b-dfea395eae30\",\"revision\":null},\"x\":77.5,\"y\":-12.25,\"pinned\":true}],\"viewport\":{\"x\":-580,\"y\":20,\"zoom\":0.9}}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.197Z",
+    "kind": "response",
+    "method": "PUT",
+    "status": 200,
+    "body": "{\"view_name\":\"knowledge-live\",\"layout_revision\":\"82\",\"request_id\":\"6ff5ae9d-c2ec-4440-8708-1069b77fae0b\"}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.225Z",
+    "kind": "request",
+    "ifMatch": "83",
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origin\",\"id\":\"a41a59ed-29e1-4801-b68b-dfea395eae30\",\"revision\":null},\"x\":77.5,\"y\":-12.25,\"pinned\":true}],\"viewport\":{\"x\":-610,\"y\":20,\"zoom\":0.9}}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.226Z",
+    "kind": "response",
+    "method": "PUT",
+    "status": 200,
+    "body": "{\"view_name\":\"knowledge-live\",\"layout_revision\":\"83\",\"request_id\":\"9743f46d-8b8b-478f-8a4d-0ea0bda61402\"}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.255Z",
+    "kind": "request",
+    "ifMatch": "84",
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origin\",\"id\":\"a41a59ed-29e1-4801-b68b-dfea395eae30\",\"revision\":null},\"x\":77.5,\"y\":-12.25,\"pinned\":true}],\"viewport\":{\"x\":-640,\"y\":20,\"zoom\":0.9}}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.255Z",
+    "kind": "response",
+    "method": "PUT",
+    "status": 200,
+    "body": "{\"view_name\":\"knowledge-live\",\"layout_revision\":\"84\",\"request_id\":\"8a4edafc-b281-4353-96cb-2d76992ac25f\"}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.283Z",
+    "kind": "request",
+    "ifMatch": "85",
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origin\",\"id\":\"a41a59ed-29e1-4801-b68b-dfea395eae30\",\"revision\":null},\"x\":77.5,\"y\":-12.25,\"pinned\":true}],\"viewport\":{\"x\":-655,\"y\":20,\"zoom\":0.9}}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.284Z",
+    "kind": "response",
+    "method": "PUT",
+    "status": 200,
+    "body": "{\"view_name\":\"knowledge-live\",\"layout_revision\":\"85\",\"request_id\":\"8ae9800f-7dc8-401b-b076-c56792ffc72d\"}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.316Z",
+    "kind": "request",
+    "ifMatch": "86",
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origin\",\"id\":\"a41a59ed-29e1-4801-b68b-dfea395eae30\",\"revision\":null},\"x\":77.5,\"y\":-12.25,\"pinned\":true}],\"viewport\":{\"x\":-685,\"y\":20,\"zoom\":0.9}}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.316Z",
+    "kind": "response",
+    "method": "PUT",
+    "status": 200,
+    "body": "{\"view_name\":\"knowledge-live\",\"layout_revision\":\"86\",\"request_id\":\"5d07edbe-eae6-441a-9336-4bc976d525c8\"}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.347Z",
+    "kind": "request",
+    "ifMatch": "87",
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origin\",\"id\":\"a41a59ed-29e1-4801-b68b-dfea395eae30\",\"revision\":null},\"x\":77.5,\"y\":-12.25,\"pinned\":true}],\"viewport\":{\"x\":-715,\"y\":20,\"zoom\":0.9}}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.348Z",
+    "kind": "response",
+    "method": "PUT",
+    "status": 200,
+    "body": "{\"view_name\":\"knowledge-live\",\"layout_revision\":\"87\",\"request_id\":\"4bb103d7-c2d9-45e0-8e69-d8bd7f486cd0\"}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.377Z",
+    "kind": "request",
+    "ifMatch": "88",
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origin\",\"id\":\"a41a59ed-29e1-4801-b68b-dfea395eae30\",\"revision\":null},\"x\":77.5,\"y\":-12.25,\"pinned\":true}],\"viewport\":{\"x\":-745,\"y\":20,\"zoom\":0.9}}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.377Z",
+    "kind": "response",
+    "method": "PUT",
+    "status": 200,
+    "body": "{\"view_name\":\"knowledge-live\",\"layout_revision\":\"88\",\"request_id\":\"94ccfb2c-46e4-4d63-9718-9b82a685b0fb\"}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.405Z",
+    "kind": "request",
+    "ifMatch": "89",
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origin\",\"id\":\"a41a59ed-29e1-4801-b68b-dfea395eae30\",\"revision\":null},\"x\":77.5,\"y\":-12.25,\"pinned\":true}],\"viewport\":{\"x\":-775,\"y\":20,\"zoom\":0.9}}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.405Z",
+    "kind": "response",
+    "method": "PUT",
+    "status": 200,
+    "body": "{\"view_name\":\"knowledge-live\",\"layout_revision\":\"89\",\"request_id\":\"94a8abd4-0305-40b1-a38f-52b40e2b004c\"}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.431Z",
+    "kind": "request",
+    "ifMatch": "90",
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origin\",\"id\":\"a41a59ed-29e1-4801-b68b-dfea395eae30\",\"revision\":null},\"x\":77.5,\"y\":-12.25,\"pinned\":true}],\"viewport\":{\"x\":-790,\"y\":20,\"zoom\":0.9}}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.432Z",
+    "kind": "response",
+    "method": "PUT",
+    "status": 200,
+    "body": "{\"view_name\":\"knowledge-live\",\"layout_revision\":\"90\",\"request_id\":\"9e6992d1-5730-4749-a619-ac79f0d76529\"}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.462Z",
+    "kind": "request",
+    "ifMatch": "91",
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origin\",\"id\":\"a41a59ed-29e1-4801-b68b-dfea395eae30\",\"revision\":null},\"x\":77.5,\"y\":-12.25,\"pinned\":true}],\"viewport\":{\"x\":-820,\"y\":20,\"zoom\":0.9}}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.462Z",
+    "kind": "response",
+    "method": "PUT",
+    "status": 200,
+    "body": "{\"view_name\":\"knowledge-live\",\"layout_revision\":\"91\",\"request_id\":\"70978f85-b0b0-4be3-84a9-fafe5ead3f05\"}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.491Z",
+    "kind": "request",
+    "ifMatch": "92",
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origin\",\"id\":\"a41a59ed-29e1-4801-b68b-dfea395eae30\",\"revision\":null},\"x\":77.5,\"y\":-12.25,\"pinned\":true}],\"viewport\":{\"x\":-850,\"y\":20,\"zoom\":0.9}}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.491Z",
+    "kind": "response",
+    "method": "PUT",
+    "status": 200,
+    "body": "{\"view_name\":\"knowledge-live\",\"layout_revision\":\"92\",\"request_id\":\"3bf166d4-0b5d-483b-aa17-73669c728a37\"}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.524Z",
+    "kind": "request",
+    "ifMatch": "93",
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origin\",\"id\":\"a41a59ed-29e1-4801-b68b-dfea395eae30\",\"revision\":null},\"x\":77.5,\"y\":-12.25,\"pinned\":true}],\"viewport\":{\"x\":-880,\"y\":20,\"zoom\":0.9}}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.525Z",
+    "kind": "response",
+    "method": "PUT",
+    "status": 200,
+    "body": "{\"view_name\":\"knowledge-live\",\"layout_revision\":\"93\",\"request_id\":\"9e9fc7e6-ad43-4b57-aea7-be9ecd9157d5\"}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.563Z",
+    "kind": "request",
+    "ifMatch": "94",
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origin\",\"id\":\"a41a59ed-29e1-4801-b68b-dfea395eae30\",\"revision\":null},\"x\":77.5,\"y\":-12.25,\"pinned\":true}],\"viewport\":{\"x\":-910,\"y\":20,\"zoom\":0.9}}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.563Z",
+    "kind": "response",
+    "method": "PUT",
+    "status": 200,
+    "body": "{\"view_name\":\"knowledge-live\",\"layout_revision\":\"94\",\"request_id\":\"29f9fc99-cce1-49b2-a1f5-3f02db44562d\"}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.593Z",
+    "kind": "request",
+    "ifMatch": "95",
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origin\",\"id\":\"a41a59ed-29e1-4801-b68b-dfea395eae30\",\"revision\":null},\"x\":77.5,\"y\":-12.25,\"pinned\":true}],\"viewport\":{\"x\":-940,\"y\":20,\"zoom\":0.9}}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.594Z",
+    "kind": "response",
+    "method": "PUT",
+    "status": 200,
+    "body": "{\"view_name\":\"knowledge-live\",\"layout_revision\":\"95\",\"request_id\":\"f819d874-0921-4cdb-a7c0-19055359ee8e\"}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.622Z",
+    "kind": "request",
+    "ifMatch": "96",
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origin\",\"id\":\"a41a59ed-29e1-4801-b68b-dfea395eae30\",\"revision\":null},\"x\":77.5,\"y\":-12.25,\"pinned\":true}],\"viewport\":{\"x\":-970,\"y\":18.5234375,\"zoom\":0.9}}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.622Z",
+    "kind": "response",
+    "method": "PUT",
+    "status": 200,
+    "body": "{\"view_name\":\"knowledge-live\",\"layout_revision\":\"96\",\"request_id\":\"8564c7f7-d79d-46d3-b26d-9e9f2cb26e56\"}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.650Z",
+    "kind": "request",
+    "ifMatch": "97",
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origin\",\"id\":\"a41a59ed-29e1-4801-b68b-dfea395eae30\",\"revision\":null},\"x\":77.5,\"y\":-12.25,\"pinned\":true}],\"viewport\":{\"x\":-985,\"y\":17.046875,\"zoom\":0.9}}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.650Z",
+    "kind": "response",
+    "method": "PUT",
+    "status": 200,
+    "body": "{\"view_name\":\"knowledge-live\",\"layout_revision\":\"97\",\"request_id\":\"c4c62515-2095-4659-a69c-c5838a038f1b\"}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.678Z",
+    "kind": "request",
+    "ifMatch": "98",
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origin\",\"id\":\"a41a59ed-29e1-4801-b68b-dfea395eae30\",\"revision\":null},\"x\":77.5,\"y\":-12.25,\"pinned\":true}],\"viewport\":{\"x\":-1015,\"y\":8.09375,\"zoom\":0.9}}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.678Z",
+    "kind": "response",
+    "method": "PUT",
+    "status": 200,
+    "body": "{\"view_name\":\"knowledge-live\",\"layout_revision\":\"98\",\"request_id\":\"909bd76b-937f-4c9a-b114-692855f47d22\"}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.709Z",
+    "kind": "request",
+    "ifMatch": "99",
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origin\",\"id\":\"a41a59ed-29e1-4801-b68b-dfea395eae30\",\"revision\":null},\"x\":77.5,\"y\":-12.25,\"pinned\":true}],\"viewport\":{\"x\":-1045,\"y\":-6.859375,\"zoom\":0.9}}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.709Z",
+    "kind": "response",
+    "method": "PUT",
+    "status": 200,
+    "body": "{\"view_name\":\"knowledge-live\",\"layout_revision\":\"99\",\"request_id\":\"5c9363ab-0a05-4fdd-8ade-298b38520fbf\"}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.738Z",
+    "kind": "request",
+    "ifMatch": "100",
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origin\",\"id\":\"a41a59ed-29e1-4801-b68b-dfea395eae30\",\"revision\":null},\"x\":77.5,\"y\":-12.25,\"pinned\":true}],\"viewport\":{\"x\":-1075,\"y\":-27.8125,\"zoom\":0.9}}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.738Z",
+    "kind": "response",
+    "method": "PUT",
+    "status": 200,
+    "body": "{\"view_name\":\"knowledge-live\",\"layout_revision\":\"100\",\"request_id\":\"d460748c-5426-41ae-8d05-a2d509082e41\"}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.767Z",
+    "kind": "request",
+    "ifMatch": "101",
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origin\",\"id\":\"a41a59ed-29e1-4801-b68b-dfea395eae30\",\"revision\":null},\"x\":77.5,\"y\":-12.25,\"pinned\":true}],\"viewport\":{\"x\":-1090,\"y\":-41.2890625,\"zoom\":0.9}}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.767Z",
+    "kind": "response",
+    "method": "PUT",
+    "status": 200,
+    "body": "{\"view_name\":\"knowledge-live\",\"layout_revision\":\"101\",\"request_id\":\"4fd41b9f-8f6b-4786-b901-d3575e74fdd4\"}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.795Z",
+    "kind": "request",
+    "ifMatch": "102",
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origin\",\"id\":\"a41a59ed-29e1-4801-b68b-dfea395eae30\",\"revision\":null},\"x\":77.5,\"y\":-12.25,\"pinned\":true},{\"anchor\":{\"entity_type\":\"intent\",\"id\":\"778ac2ff-d006-4764-a11f-9f3e83473ade\",\"revision\":\"1\"},\"x\":3190.70948916174,\"y\":720.7045911020161,\"pinned\":false}],\"viewport\":{\"x\":-1105,\"y\":-54.765625,\"zoom\":0.9}}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.796Z",
+    "kind": "response",
+    "method": "PUT",
+    "status": 200,
+    "body": "{\"view_name\":\"knowledge-live\",\"layout_revision\":\"102\",\"request_id\":\"6ab86a0c-ab62-4ae4-b9cd-f69d5476844d\"}"
+  },
+  {
+    "at": "2026-09-15T06:59:57.824Z",
+    "kind": "response",
+    "method": "PUT",
+    "status": 200,
+    "body": "{\"view_name\":\"knowledge-live\",\"layout_revision\":\"103\",\"request_id\":\"1e99505a-13d8-4f48-87c5-7634da0d8d31\"}"
+  },
+  {
+    "at": "2026-09-15T06:59:58.816Z",
+    "kind": "poll-1",
+    "revision": "103",
+    "entries": 2,
+    "viewport": {
+      "x": -1105,
+      "y": -54.765625,
+      "zoom": 0.9
+    }
+  },
+  {
+    "at": "2026-09-15T06:59:58.816Z",
+    "kind": "response",
+    "method": "GET",
+    "status": 200,
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"view_name\":\"knowledge-live\",\"layout_revision\":\"103\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origi"
+  },
+  {
+    "at": "2026-09-15T06:59:59.889Z",
+    "kind": "poll-2",
+    "revision": "103",
+    "entries": 2,
+    "viewport": {
+      "x": -1105,
+      "y": -54.765625,
+      "zoom": 0.9
+    }
+  },
+  {
+    "at": "2026-09-15T06:59:59.890Z",
+    "kind": "response",
+    "method": "GET",
+    "status": 200,
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"view_name\":\"knowledge-live\",\"layout_revision\":\"103\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origi"
+  },
+  {
+    "at": "2026-09-15T07:00:00.920Z",
+    "kind": "poll-3",
+    "revision": "103",
+    "entries": 2,
+    "viewport": {
+      "x": -1105,
+      "y": -54.765625,
+      "zoom": 0.9
+    }
+  },
+  {
+    "at": "2026-09-15T07:00:00.920Z",
+    "kind": "response",
+    "method": "GET",
+    "status": 200,
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"view_name\":\"knowledge-live\",\"layout_revision\":\"103\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origi"
+  },
+  {
+    "at": "2026-09-15T07:00:01.966Z",
+    "kind": "poll-4",
+    "revision": "103",
+    "entries": 2,
+    "viewport": {
+      "x": -1105,
+      "y": -54.765625,
+      "zoom": 0.9
+    }
+  },
+  {
+    "at": "2026-09-15T07:00:01.966Z",
+    "kind": "response",
+    "method": "GET",
+    "status": 200,
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"view_name\":\"knowledge-live\",\"layout_revision\":\"103\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origi"
+  },
+  {
+    "at": "2026-09-15T07:00:03.009Z",
+    "kind": "poll-5",
+    "revision": "103",
+    "entries": 2,
+    "viewport": {
+      "x": -1105,
+      "y": -54.765625,
+      "zoom": 0.9
+    }
+  },
+  {
+    "at": "2026-09-15T07:00:03.009Z",
+    "kind": "response",
+    "method": "GET",
+    "status": 200,
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"view_name\":\"knowledge-live\",\"layout_revision\":\"103\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origi"
+  },
+  {
+    "at": "2026-09-15T07:00:04.045Z",
+    "kind": "poll-6",
+    "revision": "103",
+    "entries": 2,
+    "viewport": {
+      "x": -1105,
+      "y": -54.765625,
+      "zoom": 0.9
+    }
+  },
+  {
+    "at": "2026-09-15T07:00:04.045Z",
+    "kind": "response",
+    "method": "GET",
+    "status": 200,
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"view_name\":\"knowledge-live\",\"layout_revision\":\"103\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origi"
+  },
+  {
+    "at": "2026-09-15T07:00:05.162Z",
+    "kind": "poll-7",
+    "revision": "103",
+    "entries": 2,
+    "viewport": {
+      "x": -1105,
+      "y": -54.765625,
+      "zoom": 0.9
+    }
+  },
+  {
+    "at": "2026-09-15T07:00:05.163Z",
+    "kind": "response",
+    "method": "GET",
+    "status": 200,
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"view_name\":\"knowledge-live\",\"layout_revision\":\"103\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origi"
+  },
+  {
+    "at": "2026-09-15T07:00:06.212Z",
+    "kind": "poll-8",
+    "revision": "103",
+    "entries": 2,
+    "viewport": {
+      "x": -1105,
+      "y": -54.765625,
+      "zoom": 0.9
+    }
+  },
+  {
+    "at": "2026-09-15T07:00:06.212Z",
+    "kind": "response",
+    "method": "GET",
+    "status": 200,
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"view_name\":\"knowledge-live\",\"layout_revision\":\"103\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origi"
+  },
+  {
+    "at": "2026-09-15T07:00:07.263Z",
+    "kind": "poll-9",
+    "revision": "103",
+    "entries": 2,
+    "viewport": {
+      "x": -1105,
+      "y": -54.765625,
+      "zoom": 0.9
+    }
+  },
+  {
+    "at": "2026-09-15T07:00:07.263Z",
+    "kind": "response",
+    "method": "GET",
+    "status": 200,
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"view_name\":\"knowledge-live\",\"layout_revision\":\"103\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origi"
+  },
+  {
+    "at": "2026-09-15T07:00:08.305Z",
+    "kind": "poll-10",
+    "revision": "103",
+    "entries": 2,
+    "viewport": {
+      "x": -1105,
+      "y": -54.765625,
+      "zoom": 0.9
+    }
+  },
+  {
+    "at": "2026-09-15T07:00:08.305Z",
+    "kind": "response",
+    "method": "GET",
+    "status": 200,
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"view_name\":\"knowledge-live\",\"layout_revision\":\"103\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origi"
+  },
+  {
+    "at": "2026-09-15T07:00:09.341Z",
+    "kind": "poll-11",
+    "revision": "103",
+    "entries": 2,
+    "viewport": {
+      "x": -1105,
+      "y": -54.765625,
+      "zoom": 0.9
+    }
+  },
+  {
+    "at": "2026-09-15T07:00:09.341Z",
+    "kind": "response",
+    "method": "GET",
+    "status": 200,
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"view_name\":\"knowledge-live\",\"layout_revision\":\"103\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origi"
+  },
+  {
+    "at": "2026-09-15T07:00:10.383Z",
+    "kind": "poll-12",
+    "revision": "103",
+    "entries": 2,
+    "viewport": {
+      "x": -1105,
+      "y": -54.765625,
+      "zoom": 0.9
+    }
+  },
+  {
+    "at": "2026-09-15T07:00:10.384Z",
+    "kind": "response",
+    "method": "GET",
+    "status": 200,
+    "body": "{\"schema_version\":\"wuji.api.v2\",\"view_name\":\"knowledge-live\",\"layout_revision\":\"103\",\"selection_mode\":\"follow_latest\",\"entries\":[{\"anchor\":{\"entity_type\":\"origi"
+  },
+  {
+    "at": "2026-09-15T07:00:10.386Z",
+    "kind": "alerts-visible",
+    "alerts": []
+  }
+]

@@ -1,0 +1,4 @@
+
+> @wuji/web@0.5.0 typecheck /Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/apps/web
+> tsc --noEmit
+

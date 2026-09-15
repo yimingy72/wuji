@@ -1,0 +1,91 @@
+{
+  "branch": "codex/vnext-maf",
+  "database": {
+    "migration_head": "vnext_0018_p15_layout",
+    "name": "wuji_vnext_ui_20260915",
+    "policies": [
+      "layout_insert",
+      "layout_read",
+      "layout_update"
+    ],
+    "rls": true,
+    "table": "vnext.layout_preference"
+  },
+  "deployments": {
+    "api": {
+      "generation": 4,
+      "images": [
+        "127.0.0.1:56615/wuji-vnext-platform@sha256:6507e76a16dbe7d3e31e45904ed4d5501d902709179b4707983a7b46df889794"
+      ],
+      "uid": "4d731f3e-a922-4a89-985d-a2dafde6a803"
+    },
+    "wuji-web": {
+      "generation": 7,
+      "images": [
+        "127.0.0.1:56615/wuji-web@sha256:db056ea8c0c7015d1eeecd0b9afb02da88b5a0de8b31772eee5e813f3cc672ea",
+        "127.0.0.1:56615/wuji-vnext-platform@sha256:6507e76a16dbe7d3e31e45904ed4d5501d902709179b4707983a7b46df889794"
+      ],
+      "uid": "01be9817-b8be-4d14-a63f-ecd64c169f3e"
+    }
+  },
+  "images": {
+    "platform": {
+      "id": "sha256:a346c59d02790560565a219694130fe77c753dbd46851686e1a849fc1693efb8",
+      "reference": "127.0.0.1:56615/wuji-vnext-platform@sha256:6507e76a16dbe7d3e31e45904ed4d5501d902709179b4707983a7b46df889794",
+      "role": "api and browser gateway"
+    },
+    "web": {
+      "id": "sha256:fcbabb0f179c5f765c02afdcb624d62f721d489e24a26367eb12c61c30677140",
+      "reference": "127.0.0.1:56615/wuji-web@sha256:db056ea8c0c7015d1eeecd0b9afb02da88b5a0de8b31772eee5e813f3cc672ea",
+      "role": "nginx frontend"
+    }
+  },
+  "namespace": "wuji-vnext-test",
+  "pods": {
+    "api": {
+      "images": [
+        "127.0.0.1:56615/wuji-vnext-platform@sha256:6507e76a16dbe7d3e31e45904ed4d5501d902709179b4707983a7b46df889794"
+      ],
+      "labels": {
+        "app.kubernetes.io/managed-by": "wuji-vnext-deployment",
+        "pod-template-hash": "864d8cf585",
+        "wuji.dev/environment": "local-test",
+        "wuji.dev/service": "api"
+      },
+      "name": "api-864d8cf585-4f2ls",
+      "uid": "54ab4ac6-710b-45ac-bedb-ca3881cb8b9a"
+    },
+    "migration_job": {
+      "images": [
+        "127.0.0.1:56615/wuji-vnext-platform@sha256:821e1229a547799fb68d75d7526932e547a2fbb266359f3caf1b9ef0dbbcca29"
+      ],
+      "labels": {
+        "app.kubernetes.io/managed-by": "wuji-vnext-deployment",
+        "batch.kubernetes.io/controller-uid": "82cc0174-ff9c-4f35-bc84-7c7dcaea50ef",
+        "batch.kubernetes.io/job-name": "p15l-migrate-0018",
+        "controller-uid": "82cc0174-ff9c-4f35-bc84-7c7dcaea50ef",
+        "job-name": "p15l-migrate-0018",
+        "wuji.dev/environment": "local-test"
+      },
+      "name": "p15l-migrate-0018-qt6hq",
+      "uid": "fd52238b-cecc-4505-9bb1-18bb538380a3"
+    },
+    "wuji-web": {
+      "images": [
+        "127.0.0.1:56615/wuji-web@sha256:db056ea8c0c7015d1eeecd0b9afb02da88b5a0de8b31772eee5e813f3cc672ea",
+        "127.0.0.1:56615/wuji-vnext-platform@sha256:6507e76a16dbe7d3e31e45904ed4d5501d902709179b4707983a7b46df889794"
+      ],
+      "labels": {
+        "app.kubernetes.io/name": "wuji-web",
+        "pod-template-hash": "5b68b5c9c5",
+        "wuji.dev/service": "web"
+      },
+      "name": "wuji-web-5b68b5c9c5-gqn2h",
+      "uid": "49154ef0-5606-4ad9-9901-ec4b8595de88"
+    }
+  },
+  "recorded_at": "2026-09-15",
+  "source_commit": "b465238486d3ffd0476bbfa9384dcf60656be237",
+  "task_id": "a41a59ed-29e1-4801-b68b-dfea395eae30",
+  "worktree": "work/worktrees/vnext-maf"
+}

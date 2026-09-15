@@ -20,6 +20,8 @@
 - P15记录详情局部切片：`e3ce5c8`把当前TopologySnapshot与选择状态交给RecordPanel，按精确revision和同一snapshot读取P13 RecordView；3项Vitest、typecheck/build、Intent/Origin真实HTTP与浏览器点击均通过，见[永久证据](../../vnext/evidence/P15/record-detail-20260915/README.md)。ViewStream、历史选择和Layout CAS仍未实现。
 - P15历史选择局部切片：`f55f2ab`读取受权snapshot目录并切换`mode=history`；2项Vitest、typecheck/build、目录/历史拓扑/历史RecordView真实HTTP和浏览器选择均通过，见[永久证据](../../vnext/evidence/P15/history-browser-20260915/README.md)。当前目录无续页，因此opaque cursor加载更多未实测；ViewStream和Layout CAS仍未实现。
 
+- P15-L Layout CAS 垂直切片：`b465238` 增加 `GET/PUT .../layouts/{view}`、`LayoutPreference`/viewport wire、0018 个人偏好迁移与 RLS、`LayoutRepository` CAS、BFF 固定只转发该 Task 的 layout GET/PUT 及工作台读写/冲突处理。真实结果：`pytest tests/vnext/test_layouts.py` 5 passed（真实 PostgreSQL + 签名 HTTP）、`test_web_gateway.py` 3 passed、`contracts:check:v2` 通过、拓扑 Vitest 25 passed、Playwright 拓扑 5 passed、typecheck/build 通过；K8s 上登录→revision 51→PUT 200 revision 52→stale 409→GET 不变，浏览器拖动/缩放刷新后节点与 viewport 完全一致，跨 Task 404、缺/错 Origin 403、非法 If-Match/JSON/未知或重复锚点 422、非 layout 写路径不转发，领域计数与 outbox 不变；实测发现并修复 409 后自动回写缺陷（修复前同手势 41 次 PUT/提示消失，修复后仅 1 次 stale 409、0 次后续写）。见[永久证据](../../vnext/evidence/P15/layout-cas-20260915/README.md)。范围限本地机制身份与两个知识视图；ViewStream、重连/重置、Artifact 预览与规模目标仍未实现。
+
 | 范围 | 状态 | 说明 |
 | --- | --- | --- |
 | P00 基线与来源 | accepted（本项） | 基线 c9871a6；源文件保留与实际环境已核对，GPT-6/xhigh 审查无发现 |
@@ -38,8 +40,8 @@
 | P11 控制 API 与恢复集成 | runtime partial；not accepted | `64f4c29`审批路由已被P08真实HTTP消费；`f6cad17` Task/Work command API与受限Work locator已通过后续A2统一迁移/B1两项真实PG+签名HTTP路由检查。2026-09-15本地只读浏览器会话已实测，但它不提供生产OIDC、项目选择或写命令；正式创建/项目权限、完整hold/pause/cancel恢复与失败域集成仍待完成 |
 | P12 可信完成 | not implemented / not accepted | 已有冻结合同与前置服务；可信 precheck、quiescing/settlement、ReportCommit/Delivery 与实际完成协议尚未交付。P10真实退出与P04结果接纳均不替代Task完成 |
 | P10—P12 完整机制验收 | partial / not accepted | 真实 Outbox/child 限定 M2 与 fresh6 K8s Explore 切片已通过；完整控制/恢复/可信完成、浏览器入口、其他 work kind 与部署故障矩阵仍待实际集成，不扩大已有切片结论 |
-| P13 受权图投影与持久视图 | backend reviewed / M4 partial | core `3015ca6`、P04 port `592bed2`、0012迁移与测试 `44ddc68` 的[真实结果](../../vnext/evidence/P13/runtime-green/report.md)为 12 项通过；两项P2由`69e3a1d`关闭并完成独立复审。`24f984f`后续将同一ProjectionRepository装入独立K8s public API，真实Bearer 200、匿名401、live/history持久化见[API证据](../../vnext/evidence/P13/k8s-api-20260915/README.md)。Layout、ViewStream、记录面板及后续P12类型仍未验收，故不标 M4 全过 |
-| P14 TopologyFlowCanvas fixed DTO slice | reviewed / partial | 原16 Vitest、2个Chromium和复审结论继续有效；`e8a5162`后续把组件接到真实P13 API和本地服务器会话，K8s浏览器实测画布/列表显示两个真实节点，跨Task拒绝、退出失效、截图与完整HTTP见[P14证据](../../vnext/evidence/P14/k8s-browser-20260915/README.md)。生产OIDC、Layout CAS、ViewStream、记录详情与规模p95仍pending/not_run，不是M4闭环 |
+| P13 受权图投影与持久视图 | backend reviewed / M4 partial | core `3015ca6`、P04 port `592bed2`、0012迁移与测试 `44ddc68` 的[真实结果](../../vnext/evidence/P13/runtime-green/report.md)为 12 项通过；两项P2由`69e3a1d`关闭并完成独立复审。`24f984f`后续将同一ProjectionRepository装入独立K8s public API，真实Bearer 200、匿名401、live/history持久化见[API证据](../../vnext/evidence/P13/k8s-api-20260915/README.md)。记录面板与历史选择已由 P15 切片补齐，Layout 由 `b465238` 切片补齐；ViewStream 及后续 P12 类型仍未验收，故不标 M4 全过 |
+| P14 TopologyFlowCanvas fixed DTO slice | reviewed / partial | 原16 Vitest、2个Chromium和复审结论继续有效；`e8a5162`后续把组件接到真实P13 API和本地服务器会话，K8s浏览器实测画布/列表显示两个真实节点，跨Task拒绝、退出失效、截图与完整HTTP见[P14证据](../../vnext/evidence/P14/k8s-browser-20260915/README.md)。记录详情、历史选择与 Layout CAS 已由后续 P15 切片补齐；生产OIDC、ViewStream 与规模p95仍pending/not_run，不是M4闭环 |
 | P15 ViewStream、历史与浏览器 | record/history partial；not accepted | `e3ce5c8`已实测同一snapshot的Intent/Origin详情；`f55f2ab`已实测目录和精确历史选择，[P15证据索引](../../vnext/evidence/P15/README.md)固定HTTP与截图。ViewStream重连/reset、历史目录续页、Layout CAS、Artifact预览和规模目标仍not_run |
 | P16—P20 开发和机制验收 | not_run | 按依赖执行，未验证不标通过 |
 | 真实模型效果 | not_run | 需明确模型/数据及新增 USD 额度 |

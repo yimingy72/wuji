@@ -1,0 +1,19 @@
+[WebServer] (node:73534) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:73580) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+
+Running 5 tests using 1 worker
+
+(node:73610) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1/5] tests/topology/browser.spec.ts:5:1 › fixed snapshot remains keyboard-readable and cannot issue graph mutations
+[2/5] tests/topology/browser.spec.ts:50:1 › request dimensions isolate an old snapshot and ignore its late completion
+[3/5] tests/topology/browser.spec.ts:70:1 › live actions invoke callbacks while history exposes no action or callback path
+[4/5] tests/topology/browser.spec.ts:91:1 › the same formal component renders in all five shared themes
+[5/5] tests/topology/browser.spec.ts:117:1 › a stale personal layout save reports the conflict and never rewrites the newer layout
+  5 passed (6.4s)

@@ -1,6 +1,6 @@
 # vNext 当前开发任务与下一项执行计划
 
-- 状态：approved / ready-to-implement
+- 状态：approved；队列第 1 项 P15-L 已交付（`b465238`），下一项为 P08-S
 - 整理日期：2026-09-15
 - 实施工作树：`work/worktrees/vnext-maf`
 - 分支：`codex/vnext-maf`
@@ -26,7 +26,7 @@
 
 ## 2. 后续开发队列
 
-1. **P15-L：Layout CAS 垂直切片。** 完成个人布局的读、写、If-Match 冲突和 K8s 浏览器刷新验证。
+1. **P15-L：Layout CAS 垂直切片。已交付。** `b465238` 完成个人布局读、写、`If-Match` 冲突、K8s 浏览器刷新与真实 409 验证，并在实测中发现、修复 409 后自动回写缺陷。见 [P15-L 证据](../../vnext/evidence/P15/layout-cas-20260915/README.md) 与[验收记录](acceptance.md)。范围限本地机制身份与两个知识视图。
 2. **P08-S：Session/compaction 收口。** 以最新源码重新固定仍未关闭的 memory、原生 compaction、操作前沿、单写/CAS、半发布和旧批准边界；只运行直接相关路径。
 3. **P11-C：正式创建与控制闭环。** 增加真实 Project/Task 创建权限入口，接通 hold/pause/resume/cancel 与实际 Pod/child 观察，不把命令接纳当作进程停止。
 4. **P12-T：可信完成。** 实现 precheck、quiescing、有限结算、ReportCommit/Delivery、迟到反证和 abort-close。
@@ -35,6 +35,10 @@
 7. **P17/P19/P20：集中机制验收、离线归档和独立发布物。** P18 只准备离线工具；真实收费模型试验和生产切换仍需单独授权。
 
 这个顺序先关闭当前可见工作台最小缺口，再回到决定产品是否可信的 Session→控制→完成主链。ViewStream 不先于核心事件生产者收口，避免为随后新增的 Goal、CompletionReview、Report 和控制事件重复修改流合同。
+
+2026-09-15 交付记录：队列第 1 项已按 §3 完成并实测（本地 K8s、真实 PostgreSQL、真实浏览器），证据包为
+[`docs/vnext/evidence/P15/layout-cas-20260915/`](../../vnext/evidence/P15/layout-cas-20260915/README.md)。
+当前队列下一项固定为 **P08-S：Session/compaction 收口**，其后依次为 P11-C、P12-T、P15-S、P15-A/P16、P17/P19/P20。
 
 ## 3. 下一项：P15-L Layout CAS
 

@@ -1,0 +1,286 @@
+{
+    "apiVersion": "v1",
+    "items": [
+        {
+            "apiVersion": "v1",
+            "kind": "Pod",
+            "metadata": {
+                "annotations": {
+                    "kubectl.kubernetes.io/restartedAt": "2026-09-15T09:38:15+08:00"
+                },
+                "creationTimestamp": "2026-09-15T06:55:18Z",
+                "generateName": "api-864d8cf585-",
+                "generation": 1,
+                "labels": {
+                    "app.kubernetes.io/managed-by": "wuji-vnext-deployment",
+                    "pod-template-hash": "864d8cf585",
+                    "wuji.dev/environment": "local-test",
+                    "wuji.dev/service": "api"
+                },
+                "name": "api-864d8cf585-4f2ls",
+                "namespace": "wuji-vnext-test",
+                "ownerReferences": [
+                    {
+                        "apiVersion": "apps/v1",
+                        "blockOwnerDeletion": true,
+                        "controller": true,
+                        "kind": "ReplicaSet",
+                        "name": "api-864d8cf585",
+                        "uid": "e0118bdf-b1b5-4ae7-b953-20701810fe6b"
+                    }
+                ],
+                "resourceVersion": "295682",
+                "uid": "54ab4ac6-710b-45ac-bedb-ca3881cb8b9a"
+            },
+            "spec": {
+                "automountServiceAccountToken": false,
+                "containers": [
+                    {
+                        "command": [
+                            "python",
+                            "/opt/wuji/services/wuji-api/main.py",
+                            "--factory",
+                            "deployment:build_api",
+                            "--port",
+                            "8443",
+                            "--ssl-certfile",
+                            "/run/wuji/credentials/tls.crt",
+                            "--ssl-keyfile",
+                            "/run/wuji/credentials/tls.key"
+                        ],
+                        "image": "127.0.0.1:56615/wuji-vnext-platform@sha256:6507e76a16dbe7d3e31e45904ed4d5501d902709179b4707983a7b46df889794",
+                        "imagePullPolicy": "IfNotPresent",
+                        "name": "api",
+                        "readinessProbe": {
+                            "failureThreshold": 3,
+                            "periodSeconds": 5,
+                            "successThreshold": 1,
+                            "tcpSocket": {
+                                "port": 8443
+                            },
+                            "timeoutSeconds": 1
+                        },
+                        "resources": {
+                            "limits": {
+                                "cpu": "1",
+                                "memory": "768Mi"
+                            },
+                            "requests": {
+                                "cpu": "100m",
+                                "memory": "128Mi"
+                            }
+                        },
+                        "securityContext": {
+                            "allowPrivilegeEscalation": false,
+                            "capabilities": {
+                                "drop": [
+                                    "ALL"
+                                ]
+                            },
+                            "readOnlyRootFilesystem": true,
+                            "runAsGroup": 10000,
+                            "runAsNonRoot": true,
+                            "runAsUser": 10001
+                        },
+                        "terminationMessagePath": "/dev/termination-log",
+                        "terminationMessagePolicy": "File",
+                        "volumeMounts": [
+                            {
+                                "mountPath": "/config",
+                                "name": "config",
+                                "readOnly": true
+                            },
+                            {
+                                "mountPath": "/run/wuji/credentials",
+                                "name": "credentials",
+                                "readOnly": true
+                            },
+                            {
+                                "mountPath": "/tmp",
+                                "name": "tmp"
+                            }
+                        ]
+                    }
+                ],
+                "dnsPolicy": "ClusterFirst",
+                "enableServiceLinks": true,
+                "nodeName": "docker-desktop",
+                "nodeSelector": {
+                    "kubernetes.io/arch": "arm64"
+                },
+                "preemptionPolicy": "PreemptLowerPriority",
+                "priority": 0,
+                "restartPolicy": "Always",
+                "schedulerName": "default-scheduler",
+                "securityContext": {
+                    "fsGroup": 10000,
+                    "runAsNonRoot": true,
+                    "seccompProfile": {
+                        "type": "RuntimeDefault"
+                    }
+                },
+                "serviceAccount": "default",
+                "serviceAccountName": "default",
+                "terminationGracePeriodSeconds": 30,
+                "tolerations": [
+                    {
+                        "effect": "NoExecute",
+                        "key": "node.kubernetes.io/not-ready",
+                        "operator": "Exists",
+                        "tolerationSeconds": 300
+                    },
+                    {
+                        "effect": "NoExecute",
+                        "key": "node.kubernetes.io/unreachable",
+                        "operator": "Exists",
+                        "tolerationSeconds": 300
+                    }
+                ],
+                "volumes": [
+                    {
+                        "configMap": {
+                            "defaultMode": 420,
+                            "name": "api-config"
+                        },
+                        "name": "config"
+                    },
+                    {
+                        "name": "credentials",
+                        "secret": {
+                            "defaultMode": 288,
+                            "secretName": "api-credentials"
+                        }
+                    },
+                    {
+                        "emptyDir": {
+                            "sizeLimit": "128Mi"
+                        },
+                        "name": "tmp"
+                    }
+                ]
+            },
+            "status": {
+                "allocatedResources": {
+                    "cpu": "100m",
+                    "memory": "128Mi"
+                },
+                "conditions": [
+                    {
+                        "lastProbeTime": null,
+                        "lastTransitionTime": "2026-09-15T06:55:19Z",
+                        "observedGeneration": 1,
+                        "status": "True",
+                        "type": "PodReadyToStartContainers"
+                    },
+                    {
+                        "lastProbeTime": null,
+                        "lastTransitionTime": "2026-09-15T06:55:18Z",
+                        "observedGeneration": 1,
+                        "status": "True",
+                        "type": "Initialized"
+                    },
+                    {
+                        "lastProbeTime": null,
+                        "lastTransitionTime": "2026-09-15T06:55:25Z",
+                        "observedGeneration": 1,
+                        "status": "True",
+                        "type": "Ready"
+                    },
+                    {
+                        "lastProbeTime": null,
+                        "lastTransitionTime": "2026-09-15T06:55:25Z",
+                        "observedGeneration": 1,
+                        "status": "True",
+                        "type": "ContainersReady"
+                    },
+                    {
+                        "lastProbeTime": null,
+                        "lastTransitionTime": "2026-09-15T06:55:18Z",
+                        "observedGeneration": 1,
+                        "status": "True",
+                        "type": "PodScheduled"
+                    }
+                ],
+                "containerStatuses": [
+                    {
+                        "allocatedResources": {
+                            "cpu": "100m",
+                            "memory": "128Mi"
+                        },
+                        "containerID": "docker://3beab6b0bc6fe4a167b45b86b0f5b4d84a84a3a8c0eba98eacdf1cd4b0fd623d",
+                        "image": "127.0.0.1:56615/wuji-vnext-platform:b465238",
+                        "imageID": "docker-pullable://127.0.0.1:56615/wuji-vnext-platform@sha256:6507e76a16dbe7d3e31e45904ed4d5501d902709179b4707983a7b46df889794",
+                        "lastState": {},
+                        "name": "api",
+                        "ready": true,
+                        "resources": {
+                            "limits": {
+                                "cpu": "1",
+                                "memory": "768Mi"
+                            },
+                            "requests": {
+                                "cpu": "100m",
+                                "memory": "128Mi"
+                            }
+                        },
+                        "restartCount": 0,
+                        "started": true,
+                        "state": {
+                            "running": {
+                                "startedAt": "2026-09-15T06:55:19Z"
+                            }
+                        },
+                        "volumeMounts": [
+                            {
+                                "mountPath": "/config",
+                                "name": "config",
+                                "readOnly": true,
+                                "recursiveReadOnly": "Disabled"
+                            },
+                            {
+                                "mountPath": "/run/wuji/credentials",
+                                "name": "credentials",
+                                "readOnly": true,
+                                "recursiveReadOnly": "Disabled"
+                            },
+                            {
+                                "mountPath": "/tmp",
+                                "name": "tmp"
+                            }
+                        ]
+                    }
+                ],
+                "hostIP": "192.168.65.3",
+                "hostIPs": [
+                    {
+                        "ip": "192.168.65.3"
+                    }
+                ],
+                "observedGeneration": 1,
+                "phase": "Running",
+                "podIP": "10.1.0.90",
+                "podIPs": [
+                    {
+                        "ip": "10.1.0.90"
+                    }
+                ],
+                "qosClass": "Burstable",
+                "resources": {
+                    "limits": {
+                        "cpu": "1",
+                        "memory": "768Mi"
+                    },
+                    "requests": {
+                        "cpu": "79m",
+                        "memory": "128Mi"
+                    }
+                },
+                "startTime": "2026-09-15T06:55:18Z"
+            }
+        }
+    ],
+    "kind": "List",
+    "metadata": {
+        "resourceVersion": ""
+    }
+}
