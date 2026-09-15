@@ -27,6 +27,59 @@ def access(subject="collector-fixture", tenant="tenant-fixture", role="collector
     )
 
 
+def control_access(tenant="tenant-fixture"):
+    """The control-plane principal for work_dependency (P05 policy)."""
+
+    return access("control-fixture", tenant, "operator")
+
+
+def seed_control_actor(
+    connection,
+    *,
+    tenant="tenant-fixture",
+    project="project-fixture",
+    task="task-fixture",
+):
+    """Grant the control-plane principal after 0006 added `can_control`.
+
+    `seed` runs against partially migrated databases (upgrade tests), so the
+    column and this subject are added explicitly by the tests that need them.
+    """
+
+    connection.execute(
+        "INSERT INTO vnext.task_access(tenant_id,project_id,task_id,subject,can_read,can_write,can_capture,can_settle,can_gc,can_assess,can_control,clearance) VALUES(%s,%s,%s,'control-fixture',true,false,false,false,false,false,true,1) ON CONFLICT DO NOTHING",
+        (tenant, project, task),
+    )
+
+
+def seed_capacity(
+    connection,
+    *,
+    tenant="tenant-fixture",
+    project="project-fixture",
+    task="task-fixture",
+):
+    """Register the global/tenant pools every production control write prelocks.
+
+    Uses the migration connection because the application role may only read
+    pools and update their `used` counter.
+    """
+
+    owner = (tenant, project, task)
+    for pool_key, tier, pool_tenant, capacity in (
+        ("platform", "global", None, 4),
+        (tenant, "tenant", tenant, 4),
+    ):
+        connection.execute(
+            "INSERT INTO vnext.capacity_pool(pool_key,tier,tenant_id,capacity,published_ref) VALUES(%s,%s,%s,%s,'fixture-capacity-v1') ON CONFLICT (pool_key) DO NOTHING",
+            (pool_key, tier, pool_tenant, capacity),
+        )
+        connection.execute(
+            "INSERT INTO vnext.task_capacity_pool(tenant_id,project_id,task_id,pool_key) VALUES(%s,%s,%s,%s) ON CONFLICT DO NOTHING",
+            (*owner, pool_key),
+        )
+
+
 def seed(
     connection,
     *,

@@ -6,7 +6,14 @@ from threading import Barrier
 import psycopg
 import pytest
 
-from support.p03 import access, claim, prepared
+from support.p03 import (
+    access,
+    claim,
+    control_access,
+    prepared,
+    seed_capacity,
+    seed_control_actor,
+)
 
 
 def test_rls_uses_nonowner_role_and_resets_request_scope(db_environment):
@@ -133,13 +140,16 @@ def test_immutable_claim_and_agent_assessment_boundary(db_environment):
 
 def test_two_connections_cannot_commit_dependency_cycle(db_environment):
     with prepared(db_environment) as uow:
+        with db_environment.migration_connection() as m:
+            seed_control_actor(m)
+            seed_capacity(m)
         barrier = Barrier(2)
 
         def insert(source, target):
             barrier.wait(timeout=5)
             try:
                 with uow.transaction(
-                    access(), "task-fixture", capability="write"
+                    control_access(), "task-fixture", capability="control"
                 ) as tx:
                     tx.add_dependency(source, target, "settled")
                 return "committed"

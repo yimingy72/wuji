@@ -1,8 +1,8 @@
 # vNext suite failures outside the current task — 2026-09-15
 
-Status: **recorded / not fixed**. These failures pre-date the P08-S work below and were
-reproduced at `e97eab8` with the working-tree changes stashed, so they are neither caused by
-the P15-L layout slice nor by the approval-identity fix.
+Status: class 1 **fixed**, class 2 **open**. Both failures pre-date the P08-S work below and were
+reproduced at `e97eab8` with the working-tree changes stashed, so they were neither caused by the
+P15-L layout slice nor by the approval-identity fix.
 
 Command actually run (real isolated PostgreSQL per test, no cluster required):
 
@@ -22,16 +22,24 @@ Command actually run (real isolated PostgreSQL per test, no cluster required):
   tests/vnext/test_p05_fix_round1.py tests/vnext/test_control_integration.py \
   tests/vnext/test_view_snapshots.py tests/vnext/test_p03_fix_round1.py \
   tests/vnext/test_contract_fix_round1.py tests/vnext/test_contract_fix_round2.py -q
-# 4 failed, 401 passed in 371.17s   (raw output: work/vnext/p08s/related-suite-after.txt)
+# at e97eab8 + P08-S fixes: 4 failed, 401 passed
+# after the class-1 fix:       2 failed, 403 passed in 367.78s
+#   (raw output: work/vnext/p08s/related-suite-final2.txt)
 ```
 
 Two suites cannot even be collected in this environment (`test_configure_refresh.py`,
 `test_k8s_runtime.py`, `test_pod_runtime.py` need the `kubernetes` package that is only installed
 for the deployment runtime), so they are out of scope for this record.
 
-## 1. `work_dependency` insert is control-plane state but two P03-era tests write it as a domain write
+## 1. `work_dependency` insert is control-plane state but two P03-era tests write it as a domain write — FIXED
 
-Failing tests:
+Fixed by adding `control_access()`, `seed_control_actor()` and `seed_capacity()` to
+`tests/vnext/support/p03.py` and moving the two dependency inserts into a `capability="control"`
+transaction with an operator principal. `seed_control_actor` stays out of the shared `seed()` because
+that helper also runs against pre-0006 schemas in upgrade tests, where `task_access.can_control`
+does not exist yet. Re-run of the two files plus the upgrade guard: 46 passed.
+
+Failing tests (before the fix):
 
 ```text
 tests/vnext/test_rls.py::test_two_connections_cannot_commit_dependency_cycle
@@ -113,4 +121,4 @@ requires the tests to state that expectation instead of `waiting_input`.
 - The P08-S commit also fixes the restore-time approval identity check
   (`packages/maf-worker/src/wuji_maf_worker/tools.py`) and three further stale expectations that were
   failing before it (`tests/vnext/test_knowledge_admission.py`, `tests/vnext/test_contract_shapes.py`).
-- The two classes above remain open with the evidence in this file.
+- Class 2 remains open with the evidence in this file; it is the first item of the P08-S follow-up.

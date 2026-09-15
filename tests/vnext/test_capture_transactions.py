@@ -9,7 +9,14 @@ from pathlib import Path
 
 import pytest
 
-from support.p03 import access, capture_case, module
+from support.p03 import (
+    access,
+    capture_case,
+    control_access,
+    module,
+    seed_capacity,
+    seed_control_actor,
+)
 
 
 def submit(case, envelope=None, headers=None):
@@ -313,6 +320,12 @@ def test_snapshot_pins_revisions_states_relations_after_connection_close(
         assert submit(c).status_code == 202
         with c.uow.transaction(access(), "task-fixture", capability="write") as tx:
             claim(tx, text="version one")
+        with db_environment.migration_connection() as m:
+            seed_control_actor(m)
+            seed_capacity(m)
+        with c.uow.transaction(
+            control_access(), "task-fixture", capability="control"
+        ) as tx:
             tx.add_dependency("work-fixture", "work-b", "settled")
         snapshots = module("persistence.snapshots").SnapshotRepository(c.uow)
         manifest = snapshots.create("task-fixture", access())
