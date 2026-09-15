@@ -1,0 +1,12 @@
+........................................................................ [ 17%]
+........................................................................ [ 35%]
+........................................................................ [ 52%]
+........................................................................ [ 70%]
+........................................................................ [ 88%]
+.................................................                        [100%]
+=============================== warnings summary ===============================
+packages/maf-worker/src/wuji_maf_worker/history.py:134
+  /Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/packages/maf-worker/src/wuji_maf_worker/history.py:134: ExperimentalWarning: [HARNESS] AgentFileStore is experimental and may change or be removed in future versions without notice.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+409 passed, 1 warning in 359.72s (0:05:59)

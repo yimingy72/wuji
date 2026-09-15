@@ -1,0 +1,30 @@
+{
+  "api": {
+    "deployment_image": "127.0.0.1:56615/wuji-vnext-platform@sha256:5ff0bc6770f09277713b9c05abe0389733fffaeb93d9fe3ca0044a485599737c",
+    "pod": "api-7bc5bd5967-ksslt",
+    "pod_uid": "fc3ea0fe-d8bf-4a0d-9acb-a865f84d4826"
+  },
+  "created_task_id": "e51cee17-bc3c-4239-a2a2-8e185d4b34a6",
+  "database": {
+    "catalog": "vnext.published_profile",
+    "function": "vnext.create_task(text,jsonb,jsonb,text,text)",
+    "migration_head": "vnext_0019_p11_task_creation",
+    "name": "wuji_vnext_ui_20260915"
+  },
+  "identity": {
+    "audience": "wuji-vnext-deployment",
+    "issuer": "https://identity.wuji-vnext-test.invalid",
+    "roles": [
+      "operator"
+    ],
+    "signing_key": "Secret/wuji-web-gateway-credentials (value not copied)",
+    "subject": "operator",
+    "token_ttl_seconds": 900
+  },
+  "namespace": "wuji-vnext-test",
+  "project_id": "81e8c413-ba26-45fb-8b5a-1bc477eef99f",
+  "recorded_at": "2026-09-15",
+  "source_commit": "d0204db",
+  "tenant_id": "1fc6b1f3-6f24-456b-9dc1-4e14c7197604",
+  "worktree": "work/worktrees/vnext-maf"
+}

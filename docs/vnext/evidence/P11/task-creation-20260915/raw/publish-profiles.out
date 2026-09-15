@@ -1,0 +1,8 @@
+INSERT 0 1
+INSERT 0 1
+              tenant_id               |  kind   |      ref       | revision | revoked 
+--------------------------------------+---------+----------------+----------+---------
+ 1fc6b1f3-6f24-456b-9dc1-4e14c7197604 | model   | k8s-model-v1   |        1 | f
+ 1fc6b1f3-6f24-456b-9dc1-4e14c7197604 | runtime | k8s-runtime-v1 |        1 | f
+(2 rows)
+

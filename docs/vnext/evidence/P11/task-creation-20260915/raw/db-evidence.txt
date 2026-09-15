@@ -1,0 +1,7 @@
+task=e51cee17-bc3c-4239-a2a2-8e185d4b34a6 desired=pause observed=ready digest_len=64
+definition=P11-C K8s creation probe start_points=["https://fixture.invalid:443"] lock=fcd3633b8cd373d9eabcc4c5db575c4bae835366e60ab11e7764932db9c067dd model=k8s-model-v1 runtime=k8s-runtime-v1
+access=operator read=true write=true control=true clearance=1
+policy=assessment-policy-v1
+domain=claim:0 intent:0 outbox:0 run:0 work:0
+idempotency=operator|p11c-k8s-2|e51cee17-bc3c-4239-a2a2-8e185d4b34a6
+head=vnext_0019_p11_task_creation

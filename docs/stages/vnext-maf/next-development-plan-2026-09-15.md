@@ -1,6 +1,6 @@
 # vNext 当前开发任务与下一项执行计划
 
-- 状态：approved；队列第 1 项 P15-L、第 2 项 P08-S 已交付，下一项为 P11-C
+- 状态：approved；队列第 1 项 P15-L、第 2 项 P08-S、第 3 项 P11-C 创建入口已交付
 - 整理日期：2026-09-15
 - 实施工作树：`work/worktrees/vnext-maf`
 - 分支：`codex/vnext-maf`
@@ -28,7 +28,7 @@
 
 1. **P15-L：Layout CAS 垂直切片。已交付。** `b465238` 完成个人布局读、写、`If-Match` 冲突、K8s 浏览器刷新与真实 409 验证，并在实测中发现、修复 409 后自动回写缺陷。见 [P15-L 证据](../../vnext/evidence/P15/layout-cas-20260915/README.md) 与[验收记录](acceptance.md)。范围限本地机制身份与两个知识视图。
 2. **P08-S：Session/操作前沿收口。已交付（范围限操作前沿与批准边界）。** `93f2fc6`/`2366969`/`cc65fef` 清零 P08 红色基线、修复恢复后批准身份判定与按 attempt 前驱绑定，并核对 F2/F3/F4/F5 四项残留已关闭；真实隔离 PostgreSQL 完整可运行集合 405 passed / 0 failed。见 [P08 残留现状核对](../../vnext/evidence/P08/reviews/P08-residual-closure.md) 与[延期记录](../../vnext/deferred-suite-failures-20260915.md)。固定记忆、原生 compaction 的真实 child 与 GC/半发布边界仍按原计划另行验证。
-3. **P11-C：正式创建与控制闭环。** 增加真实 Project/Task 创建权限入口，接通 hold/pause/resume/cancel 与实际 Pod/child 观察，不把命令接纳当作进程停止。
+3. **P11-C：正式创建与控制闭环。创建入口已交付，控制闭环进行中。** `d0204db` 增加 `POST /api/v2/tasks`：0019 迁移的 `published_profile` 目录与 `vnext.create_task` SECURITY DEFINER 函数、`TaskService`、路由与 K8s 实测（201/幂等重放/409/匿名 401/浏览器入口不转发）；见[P11-C 创建入口证据](../../vnext/evidence/P11/task-creation-20260915/README.md)与[决定 D18](../../vnext/decision-register.md)。仍待完成：owner 发布新 Task 的 admission/容量/调度身份、hold→撤销→停止核对与实际 Pod/child 观察（不把命令接纳当作进程停止）。
 4. **P12-T：可信完成。** 实现 precheck、quiescing、有限结算、ReportCommit/Delivery、迟到反证和 abort-close。
 5. **P15-S：ViewStream。** 在 P08/P11/P12 的事件和完成类型稳定后实现受权 view revision、opaque cursor、SSE、duplicate/gap/reset 和权限变化关流。
 6. **P15-A/P16：Artifact 预览与治理。** 受权内容流、访问审计、保留/GC/purge 和衍生权限。

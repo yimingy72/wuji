@@ -23,6 +23,8 @@
 
 | D17 | 2026-09-15 P15-L 完成并实测：个人布局写入只要求当前 Task 读权，使用 `If-Match layout_revision` CAS，锚点必须映射到受权投影中的稳定节点，0 领域语义事件；浏览器端在 409 后必须丢弃本地与已排队编辑、从服务器重载并保持冲突提示，不得再用画布残留状态自动回写。第一次 K8s 实测发现该回写缺陷（旧镜像 40 次后续写、重放已丢弃拖拽、提示消失），修复后同一激进手势只有 1 次 stale 409、0 次后续写。证据见[P15-L 布局 CAS](../vnext/evidence/P15/layout-cas-20260915/README.md) | 若只修服务端 409 而不修客户端，用户会看到“未覆盖”提示却实际写回脏状态；后续 ViewStream/控制事件仍按 D15 顺序在 P08/P11/P12 之后实现 |
 
+| D18 | 2026-09-15 P11-C 创建入口采用「项目内既有控制权 + 部署发布 profile」模型：`POST /api/v2/tasks` 由 operator/controller 主体调用，tenant/subject 从会话派生，要求调用者在目标项目已有 Task 上具备 `can_control`；model/runtime 快照必须来自该租户`published_profile` 且未撤销；新 Task 只授予创建者本人访问，记为 pause/ready 不自动启动。首个 Task 仍由部署/bootstrap 建立，`admission_config`、容量绑定与调度身份继续由 owner 发布。证据见[P11-C 创建入口](../vnext/evidence/P11/task-creation-20260915/README.md) | 若允许任意已认证主体创建，会出现跨项目/跨租户越权与不可运行的孤儿任务；若要求先有项目成员表，则需新增产品级授权模型，超出本阶段。该模型使创建者可创建但不会获得组织级权限，符合 AGENTS.md 的产品约束 |
+
 21 项任务及共享接口逐项检查表在本工作树的忽略台账 `.superpowers/sdd/vnext-v2/preflight.md`，任务完成以提交、具体测试和审查记录为准。源包 `ACCEPTANCE.md` / `VALIDATION_REPORT.md` 保持原始文档检查事实；实施结果另记，不覆盖原包。
 
 常规实现和修复按批准范围连续推进。必要权限、恢复或真实 MAF 核心能力不满足时，记录实际失败与合同影响，不通过削弱测试或更换框架来宣称通过。
