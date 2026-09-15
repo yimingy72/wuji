@@ -142,3 +142,40 @@ Consequences for the next iteration:
   (`cancel / reconciling / execution_epoch=3 / runtime_attempt=1 / user_cancel`, no Task Pod,
   `raw/final-state-2.txt`), and the runtime correctly logs `PermitDenied` each cycle because the
   cancelled generation has no valid permit.
+
+## Fix landed: resources are scoped to the runtime attempt (2026-09-15)
+
+`TaskRuntimeConfig.resource_names` returned per-Task names (`…-agent-state`, `…-agent-config`), so a
+new runtime attempt reused the previous attempt's agent state and the durable inbox refused the new
+receiver identity. The names now carry the attempt (`wuji-task-…-a<N>-agent-state` …), matching the
+Pod name that already used it (`905fd51`).
+
+- one attempt keeps identical names across restarts, so a restart of the same generation still
+  resumes its own volume;
+- a new attempt gets its own ConfigMaps, Secrets and volumes, so the previous inbox is never
+  presented with a different receiver identity;
+- `tests/vnext/test_pod_runtime.py`, `tests/vnext/test_configure_refresh.py` and
+  `packages/task-runtime/tests` passed (29), plus `test_remote_workspace.py`,
+  `test_maf_child_transport.py`, `test_web_manifest.py` (22).
+
+## Remaining work before the worker round trip can be proven
+
+The code fix is necessary but not sufficient in the deployed environment: the runtime's
+`_check_resources` requires the attempt's ConfigMaps, Secrets, PVCs and the `task-agent`/`task-kali`
+Services to exist and to carry the new attempt's labels/selectors. The deployment renderer
+`ops/vnext/kubernetes/configure.py` already builds exactly that bundle for a Task, so the next step
+is an owner command that:
+
+1. takes a Task plus the new attempt number (or a freshly created Task),
+2. renders the bundle with `runtime_attempt = N`, the `execution_epoch` the next `start`/`resume`
+   will produce, the attempt-scoped `receiver_id`/`environment_ref`, and the current
+   `config_digest`/`scope_digest` from the Task definition,
+3. applies the Task-owned resources and the runtime `pod_runtime` config, restarts the runtime,
+4. then `start`/`resume` and confirm the assignment reaches the supervisor before claiming a clean
+   exit observation.
+
+`vnext.session_capability` is still empty for the tenant; the same owner step must publish it (the
+P08 candidate fixture registers it in-process, the K8s bootstrap never does).
+
+For this reason the local fixture is intentionally left cancelled with no Task Pod, and no
+worker-round-trip claim is made in this package.
