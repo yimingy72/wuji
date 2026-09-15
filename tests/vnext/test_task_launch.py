@@ -229,8 +229,13 @@ def test_launch_prepares_a_created_task_before_activation(db_environment, audit_
             connection.execute(
                 "UPDATE vnext.task SET activated_at=now() WHERE task_id=%s", (task_id,)
             )
+            # An activated Task must read back as unchanged; a late definition
+            # change is refused because the permit already bound the digest.
+            after = task_launch.finalise_definition(connection, owner=owner, config=config)
+            assert after["definition_changed"] is False
+            assert after["definition_digest"] == prepared["definition_digest"]
             with pytest.raises(DomainError) as activated:
-                task_launch.finalise_definition(connection, owner=owner, config=config)
+                task_launch.finalise_definition(connection, owner=owner, config=conflicting)
             assert activated.value.code == "INVALID_STATE"
 
 

@@ -224,14 +224,11 @@ def finalise_definition(connection, *, owner, config):
     if row is None or not row[0]:
         raise DomainError("INVALID_REFERENCE", 422)
     raw, digest, attempt, epoch, activated_at, version = row
-    if activated_at is not None:
-        raise DomainError("INVALID_STATE", 409)
     definition = strict_json_loads(raw)
     if sha256(raw.encode()).hexdigest() != digest:
         raise DomainError("INPUT_DIGEST_CONFLICT", 409)
     profiles = json.loads(canonical_json_bytes(published_session_profiles(config, definition)))
-    if definition.get("worker_profiles") not in (None, profiles):
-        raise DomainError("INPUT_DIGEST_CONFLICT", 409)
+    stored_profiles = definition.get("worker_profiles")
     if definition.get("evaluation_mode") not in (None, "mechanism_synthetic"):
         raise DomainError("INVALID_STATE", 409)
     definition["worker_profiles"] = profiles
@@ -239,6 +236,12 @@ def finalise_definition(connection, *, owner, config):
     updated = json.loads(canonical_json_bytes(definition))
     latest = canonical_json_bytes(updated).decode()
     changed = latest != raw
+    if changed and activated_at is not None:
+        # The Task permit binds the digest recorded by its earliest
+        # ``task.started`` event; a late change can never take effect.
+        raise DomainError("INVALID_STATE", 409)
+    if stored_profiles not in (None, profiles):
+        raise DomainError("INPUT_DIGEST_CONFLICT", 409)
     raw, digest = latest, sha256(latest.encode()).hexdigest()
     if changed:
         connection.execute(
