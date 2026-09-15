@@ -1,5 +1,6 @@
 """Pure configuration refresh checks; no Kubernetes, database or Secret reads."""
 
+import base64
 import importlib.util
 import json
 from pathlib import Path
@@ -257,3 +258,58 @@ def test_refresh_images_preserves_binding_and_aligns_template(tmp_path):
     assert json.loads((bundle / "public.json").read_bytes())["owner"] == owner
     assert json.loads((bundle / "task-configmaps.json").read_bytes()) == _task_configmaps()
     assert build_task_pod(task_runtime)["metadata"]["annotations"]["wuji.dev/template-digest"] == task_runtime.template_digest
+
+
+def test_fresh_configuration_includes_isolated_public_api(tmp_path):
+    operations_spec = importlib.util.spec_from_file_location(
+        "vnext_k8s_operations_for_config", ROOT / "scripts/vnext/k8s.py"
+    )
+    operations = importlib.util.module_from_spec(operations_spec)
+    operations_spec.loader.exec_module(operations)
+
+    state = tmp_path / "state"
+    operations.certificates(state / "tls")
+    credentials = state / "credentials"
+    credentials.mkdir(mode=0o700)
+    (credentials / "bootstrap.password").write_text("bootstrap-fixture-password")
+    bundle = configure.configure(
+        ROOT,
+        state,
+        {
+            "agent": {"reference": NEW_AGENT, "source_revision": "api-source"},
+            "kali": {"reference": NEW_KALI, "source_revision": "api-source"},
+            "platform": {"reference": NEW_PLATFORM, "source_revision": "api-source"},
+        },
+    )
+
+    platform = json.loads((bundle / "platform.json").read_bytes())
+    api_config = next(
+        item for item in platform["items"]
+        if item["kind"] == "ConfigMap" and item["metadata"]["name"] == "api-config"
+    )
+    settings = json.loads(api_config["data"]["deployment.json"])
+    assert settings["role"] == "api"
+    assert settings["artifact_root"] == "/tmp/artifacts"
+
+    api_secret = next(
+        item for item in platform["items"]
+        if item["kind"] == "Secret" and item["metadata"]["name"] == "api-credentials"
+    )
+    database = json.loads(base64.b64decode(api_secret["data"]["database.json"]))
+    assert database["user"] == "wuji_app"
+    assert {"service.token", "tls.crt", "tls.key"} <= set(api_secret["data"])
+
+    api_deployment = next(
+        item for item in platform["items"]
+        if item["kind"] == "Deployment" and item["metadata"]["name"] == "api"
+    )
+    pod = api_deployment["spec"]["template"]["spec"]
+    assert pod["automountServiceAccountToken"] is False
+    assert "artifacts" not in {item["name"] for item in pod["volumes"]}
+    assert "artifacts" not in {
+        item["name"] for item in pod["containers"][0]["volumeMounts"]
+    }
+    assert next(
+        item for item in platform["items"]
+        if item["kind"] == "Service" and item["metadata"]["name"] == "api"
+    )["spec"]["ports"] == [{"port": 8443, "targetPort": 8443, "name": "tls"}]
