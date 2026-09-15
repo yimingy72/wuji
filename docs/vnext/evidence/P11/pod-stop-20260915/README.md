@@ -174,6 +174,14 @@ is an owner command that:
 4. then `start`/`resume` and confirm the assignment reaches the supervisor before claiming a clean
    exit observation.
 
+The complete attempt-identity wiring for this fixture is recorded in
+[`raw/attempt-identity-wirings.txt`](raw/attempt-identity-wirings.txt): the task-owned ConfigMaps,
+Secrets and PVCs; the fixed-name `task-agent`/`task-kali` Services whose selectors carry the attempt
+label; the runtime `pod_runtime` (`task_config.runtime_attempt`/`execution_epoch` and
+`receiver.receiver_id`/`environment_ref`); and the gates `executors[].binding` for the Kali executor.
+A single owner command has to move all of them together — an attempt is one generation, not a Pod
+name.
+
 `vnext.session_capability` is still empty for the tenant; the same owner step must publish it (the
 P08 candidate fixture registers it in-process, the K8s bootstrap never does).
 
