@@ -1,0 +1,26 @@
+{
+  "date": "2026-09-15",
+  "http": {
+    "history_nodes": 2,
+    "record_status": 200,
+    "snapshot_index_items": 7
+  },
+  "namespace": "wuji-vnext-test",
+  "selected_snapshot_id": "529f4925-e163-47dc-8d47-73e70d8d9994",
+  "source": {
+    "api": "24f984f",
+    "gateway": "e8a5162",
+    "history_ui": "f55f2ab",
+    "record_panel": "e3ce5c8"
+  },
+  "task_id": "a41a59ed-29e1-4801-b68b-dfea395eae30",
+  "web": {
+    "containers": {
+      "gateway": "127.0.0.1:56615/wuji-vnext-platform@sha256:6e5e5a7ca253a26660f574ddf155564567199e4d19f5c5ca0f7cc989c6e86685",
+      "web": "127.0.0.1:56615/wuji-web@sha256:a7f0387e449c672c1d9cbd7e6a99e8a6aca46fb429ea63274eef53c0e971e79e"
+    },
+    "pod": "wuji-web-67c69dff49-dtkkx",
+    "pod_uid": "e88704a9-f7f0-4adb-9e31-5343104634af",
+    "ready": true
+  }
+}

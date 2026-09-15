@@ -1,0 +1,10 @@
+HTTP/1.1 200 OK
+Server: nginx/1.29.1
+Date: Tue, 15 Sep 2026 03:07:26 GMT
+Content-Type: application/json
+Content-Length: 550
+Connection: keep-alive
+cache-control: no-store
+x-request-id: b31d1c70-b736-4e0f-b3ab-dd1c78d8c84b
+
+{"assessment":null,"ref":{"entity_type":"origin","id":"a41a59ed-29e1-4801-b68b-dfea395eae30","revision":"1"},"display_kind":"origin","record":{"task_id":"a41a59ed-29e1-4801-b68b-dfea395eae30","tenant_id":"1fc6b1f3-6f24-456b-9dc1-4e14c7197604","project_id":"81e8c413-ba26-45fb-8b5a-1bc477eef99f","version":"1","name":"C2 isolated Kali workspace read","scenario":"web_single","desired_state":"pause","observed_state":"ready","goal_revision":"1","execution_epoch":"1","activated_at":null,"close_trigger":null,"result_outcome":null,"allowed_actions":[]}}
