@@ -99,7 +99,7 @@ def certificates(directory):
     save(directory / "ca.key", key.private_bytes(serialization.Encoding.PEM,
         serialization.PrivateFormat.PKCS8, serialization.NoEncryption()))
     save(directory / "ca.crt", ca.public_bytes(serialization.Encoding.PEM))
-    for service in ("runtime", "gates", "postgres", "task-agent", "task-kali"):
+    for service in ("runtime", "api", "gates", "postgres", "task-agent", "task-kali"):
         leaf_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
         dns = [service, f"{service}.{NAMESPACE}", f"{service}.{NAMESPACE}.svc",
                f"{service}.{NAMESPACE}.svc.cluster.local"]

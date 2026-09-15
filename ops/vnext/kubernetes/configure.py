@@ -404,7 +404,7 @@ def configure(root, state, images):
     base={"schema_version":"wuji.deployment.v1","database_file":"/run/wuji/credentials/database.json",
         "public_key_file":"/config/identity.pub","issuer":issuer,"audience":audience,
         "service_token_file":"/run/wuji/credentials/service.token","ca_file":"/config/ca.crt","profiles_file":"/config/profiles.json"}
-    for name,subject,dbuser in (("runtime","pod-controller","wuji_pod"),("scheduler","scheduler","wuji_app"),("gates","gate","wuji_app")):
+    for name,subject,dbuser in (("runtime","pod-controller","wuji_pod"),("api","operator","wuji_app"),("scheduler","scheduler","wuji_app"),("gates","gate","wuji_app")):
         settings={**base,"role":name}
         credentials={"service.token":tokens[subject],"database.json":canonical_json_bytes({**db,"user":dbuser,"password":passwords[dbuser]})}
         if name!="scheduler":credentials.update({"tls.crt":tls[name+".crt"],"tls.key":tls[name+".key"]})
@@ -433,7 +433,7 @@ def configure(root, state, images):
         if name == "runtime":
             runtime_settings = deepcopy(settings)
             runtime_configmap = deepcopy(platform_configmap)
-        command=(["python",f"/opt/wuji/services/wuji-{name}/main.py","--factory",f"deployment:build_{name}"] if name in {"runtime","scheduler"} else
+        command=(["python",f"/opt/wuji/services/wuji-{name}/main.py","--factory",f"deployment:build_{name}"] if name in {"runtime","api","scheduler"} else
             ["python","-m","uvicorn","gate_deployment:build_gates","--factory","--host","0.0.0.0"])
         if name!="scheduler":command += ["--port","8443","--ssl-certfile","/run/wuji/credentials/tls.crt","--ssl-keyfile","/run/wuji/credentials/tls.key"]
         platform_manifest = platform(name,image_refs["platform"],command,synthetic_model_image=image_refs["platform"] if name=="gates" else None)

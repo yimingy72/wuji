@@ -77,16 +77,17 @@ def task_storage(config):
 
 
 def platform(name, image, command, *, synthetic_model_image=None):
-    if name not in {"runtime", "scheduler", "gates"}:
+    if name not in {"runtime", "api", "scheduler", "gates"}:
         raise ValueError("fixed platform role required")
     mounts = [{"name":"config","mountPath":"/config","readOnly":True},
         {"name":"credentials","mountPath":"/run/wuji/credentials","readOnly":True},
-        {"name":"artifacts","mountPath":"/var/lib/wuji/platform/artifacts"},
         {"name":"tmp","mountPath":"/tmp"}]
     volumes = [{"name":"config","configMap":{"name":name+"-config"}},
         {"name":"credentials","secret":{"secretName":name+"-credentials","defaultMode":288}},
-        {"name":"artifacts","persistentVolumeClaim":{"claimName":"platform-artifacts"}},
         {"name":"tmp","emptyDir":{"sizeLimit":"128Mi"}}]
+    if name != "api":
+        mounts.insert(2, {"name":"artifacts","mountPath":"/var/lib/wuji/platform/artifacts"})
+        volumes.insert(2, {"name":"artifacts","persistentVolumeClaim":{"claimName":"platform-artifacts"}})
     if name == "runtime":
         volumes.append({"name":"state","persistentVolumeClaim":{"claimName":"runtime-state"}})
         mounts.append({"name":"state","mountPath":"/var/lib/wuji/platform/state"})

@@ -33,6 +33,7 @@ FROM base AS platform
 COPY ops/vnext/pyproject.toml ops/vnext/uv.lock /opt/wuji/ops/vnext/
 RUN uv sync --project /opt/wuji/ops/vnext --frozen --no-dev --python /usr/local/bin/python
 COPY services/wuji-runtime /opt/wuji/services/wuji-runtime
+COPY services/wuji-api /opt/wuji/services/wuji-api
 COPY services/wuji-scheduler /opt/wuji/services/wuji-scheduler
 COPY ops/vnext/deployment_common.py /opt/wuji/ops/vnext/deployment_common.py
 COPY ops/vnext/gate_deployment.py ops/vnext/kali_deployment.py ops/vnext/pod_deployment.py /opt/wuji/ops/vnext/
