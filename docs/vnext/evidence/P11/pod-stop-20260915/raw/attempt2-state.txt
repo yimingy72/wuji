@@ -1,0 +1,2 @@
+task=2|3|run|running
+run=registered|none

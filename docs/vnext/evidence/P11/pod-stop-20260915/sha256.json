@@ -1,8 +1,10 @@
 {
   "algorithm": "sha256",
   "files": {
-    "README.md": "622d526e3e31f745b64add67c5b63cbdc3c81f7ef6db141737b0e35e6fbd38cb",
+    "README.md": "3c45e771d9c0503ca2f000241a5b50a71992596a00d6d693ad8a70b079548a56",
     "raw/agent-inbox-conflict.log": "85e7eb223f8f2dd38a7c440803a16bc328ff343fd59907fc7d8c8bd3ed1f39be",
+    "raw/attempt-identity-wirings.txt": "d9287303d1795a0affa84174d739e50f3bac762704cb2505ab9fe33bae809029",
+    "raw/attempt2-state.txt": "6d601d5dc0283b71408d99584461f2f4c7877bce308891d91ba814a917fad6ad",
     "raw/cancel.response.json": "cf69f1cc85f406bae701eef465f42116f8741019d1e0af36314c5dc1b6002f16",
     "raw/final-state-2.txt": "3ca8a39dd35765af46426c84e9e07a96c19a2c97e889352901523a42b829f1a7",
     "raw/final-state.txt": "4dcdf0c7483eec083a2d9ce1a4cdfe472d8af0196773ff5dcc046fdabd3ffde2",

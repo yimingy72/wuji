@@ -187,3 +187,22 @@ P08 candidate fixture registers it in-process, the K8s bootstrap never does).
 
 For this reason the local fixture is intentionally left cancelled with no Task Pod, and no
 worker-round-trip claim is made in this package.
+
+## Third follow-up: the attempt-2 provisioning works, the activation window does not (2026-09-15)
+
+The owner provisioning for attempt 2 succeeded end to end — attempt-scoped ConfigMaps, Secrets and
+PVCs created, `task-agent`/`task-kali` selectors switched to attempt 2, the runtime `pod_runtime` and
+the gates `executors[].binding` moved to `task-…-a2` / `pod-environment-…-a2`, and `resume` was
+accepted (`202`, revision 10). The runtime then kept denying the permit.
+
+Root cause: the permit expires at
+`min(authorization_expires_at, activated_at + runtime.limits.max_elapsed_seconds)`. The fixture was
+activated at 09:32Z with a 1800 s limit, so its execution window closed at 10:02Z — long before this
+attempt. `start` cannot reopen it either (`start` requires `activated_at IS NULL`). An already
+activated Task therefore cannot be re-run by design, no matter how its attempt is re-provisioned;
+attempt identity and activation window are independent guards.
+
+Consequence: the worker round trip must be proven on a **fresh Task** (new activation), which needs
+the same owner provisioning for attempt 1: task-owned ConfigMaps/Secrets/PVCs, `task-agent`/
+`task-kali` selectors, runtime `pod_runtime`, gates `executors[].binding`, and the tenant
+`session_capability`. The fixture stays cancelled/paused with no Task Pod and no worker claim.
