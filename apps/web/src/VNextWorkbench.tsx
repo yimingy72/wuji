@@ -7,6 +7,7 @@ import { apiUrl, webConfig } from './config';
 import { TopologyContainer } from './features/topology/TopologyContainer';
 import type { TopologySelection, TopologySnapshotInput } from './features/topology/contracts';
 import { RecordPanel } from './features/topology/panels/RecordPanel';
+import { SnapshotSelector, type ViewChoice } from './features/topology/panels/SnapshotSelector';
 import { selectedRecordRef } from './features/topology/record';
 import styles from './workbench.module.css';
 
@@ -74,6 +75,7 @@ export function VNextWorkbenchPage() {
   const [busy, setBusy] = useState(false);
   const [snapshot, setSnapshot] = useState<TopologySnapshotInput | null>(null);
   const [selection, setSelection] = useState<TopologySelection | null>(null);
+  const [viewChoice, setViewChoice] = useState<ViewChoice>({ mode: 'live', snapshotId: null });
 
   useEffect(() => {
     const controller = new AbortController();
@@ -204,10 +206,20 @@ export function VNextWorkbenchPage() {
                     { key: 'task', label: 'Task', children: <code>{session.task_id}</code> },
                   ]}
                 />
+                <SnapshotSelector
+                  taskId={taskId}
+                  value={viewChoice}
+                  onChange={(next) => {
+                    setSelection(null);
+                    setSnapshot(null);
+                    setViewChoice(next);
+                  }}
+                />
                 <div className={styles.readonlyTopologyGrid}>
                   <TopologyContainer
                     taskId={taskId}
-                    mode="live"
+                    mode={viewChoice.mode}
+                    snapshotId={viewChoice.snapshotId}
                     selection={selection}
                     onSelect={setSelection}
                     onSnapshotChange={setSnapshot}

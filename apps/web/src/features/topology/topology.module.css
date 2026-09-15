@@ -345,3 +345,32 @@
   color: var(--text);
   font: 10px/1.55 var(--mono);
 }
+
+.snapshotSelector {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(280px, .9fr) auto auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface);
+}
+
+.snapshotSelector > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.snapshotSelector span {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.snapshotError { grid-column: 1 / -1; }
+
+@media (max-width: 1000px) {
+  .snapshotSelector { grid-template-columns: minmax(0, 1fr) auto; }
+  .snapshotSelector > div:first-child,
+  .snapshotSelector :global(.ant-select) { grid-column: 1 / -1; }
+}
