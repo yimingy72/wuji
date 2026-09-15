@@ -271,3 +271,77 @@
     transition: none !important;
   }
 }
+
+.recordPanel {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface);
+}
+
+.recordPanel > header {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.recordPanel > header > div { min-width: 0; }
+
+.recordPanel header span {
+  display: block;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.recordStatus {
+  min-height: 220px;
+  display: grid;
+  place-items: center;
+}
+
+.recordSummary {
+  border-bottom: 1px solid var(--line);
+}
+
+.recordSummary :global(.ant-descriptions-item-label) {
+  width: 132px;
+  color: var(--muted);
+  font: 10px/1.5 var(--mono);
+}
+
+.recordSummary :global(.ant-descriptions-item-content) {
+  overflow-wrap: anywhere;
+  font-size: 11px;
+}
+
+.recordDocument,
+.recordAssessment {
+  padding: 14px;
+}
+
+.recordAssessment {
+  border-bottom: 1px solid var(--line);
+}
+
+.recordDocument h3,
+.recordAssessment h3 {
+  margin: 0 0 10px;
+  font-size: 11px;
+}
+
+.recordDocument pre,
+.recordAssessment pre {
+  max-height: 420px;
+  margin: 0;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font: 10px/1.55 var(--mono);
+}

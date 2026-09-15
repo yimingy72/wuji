@@ -8,6 +8,7 @@ export type NodeEntityType = components['schemas']['NodeEntityType'];
 export type TopologyEdge = components['schemas']['TopologyEdge'];
 export type TopologyNode = components['schemas']['TopologyNode'];
 export type TopologySnapshot = components['schemas']['TopologySnapshot'];
+export type RecordView = components['schemas']['RecordView'];
 export type ViewMode = components['schemas']['ViewMode'];
 export type ViewSelectionMode = components['schemas']['ViewSelectionMode'];
 

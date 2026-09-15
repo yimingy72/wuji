@@ -217,6 +217,7 @@ export interface TopologyContainerProps {
   readonly onLayoutChange?: (layout: LayoutPreference) => void;
   readonly onCommandRequested?: (request: TopologyCommandRequest) => void;
   readonly onExpandRequested?: (request: TopologyExpandRequest) => void;
+  readonly onSnapshotChange?: (snapshot: TopologySnapshotInput) => void;
 }
 
 interface TopologyContainerRequestProps extends Omit<TopologyContainerProps, 'readSnapshot'> {
@@ -269,6 +270,7 @@ function TopologyContainerRequest({
   onLayoutChange,
   onCommandRequested,
   onExpandRequested,
+  onSnapshotChange,
 }: TopologyContainerRequestProps) {
   const [snapshot, setSnapshot] = useState<TopologySnapshotInput | null>(null);
   const [loading, setLoading] = useState(true);
@@ -287,6 +289,7 @@ function TopologyContainerRequest({
     void readSnapshot(taskId, mode, snapshotId, controller.signal).then((next) => {
       if (controller.signal.aborted) return;
       setSnapshot(next);
+      onSnapshotChange?.(next);
     }).catch((reason: unknown) => {
       if (controller.signal.aborted) return;
       setError(reason);
@@ -294,7 +297,7 @@ function TopologyContainerRequest({
       if (!controller.signal.aborted) setLoading(false);
     });
     return () => controller.abort();
-  }, [mode, readSnapshot, requestRevision, snapshotId, taskId]);
+  }, [mode, onSnapshotChange, readSnapshot, requestRevision, snapshotId, taskId]);
 
   const copy = useMemo(() => errorCopy(error), [error]);
   if (loading && !snapshot) {

@@ -1,10 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { LoginOutlined, LogoutOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
 import { Alert, Button, Descriptions, Select, Spin, Tag } from 'antd';
 import { palettes, type PaletteId } from '@wuji/theme';
 import { useAppearance } from './Appearance';
 import { apiUrl, webConfig } from './config';
 import { TopologyContainer } from './features/topology/TopologyContainer';
+import type { TopologySelection, TopologySnapshotInput } from './features/topology/contracts';
+import { RecordPanel } from './features/topology/panels/RecordPanel';
+import { selectedRecordRef } from './features/topology/record';
 import styles from './workbench.module.css';
 
 interface BrowserSession {
@@ -69,6 +72,8 @@ export function VNextWorkbenchPage() {
   const { paletteId, choosePalette } = useAppearance();
   const [state, setState] = useState<SessionState>({ status: 'checking' });
   const [busy, setBusy] = useState(false);
+  const [snapshot, setSnapshot] = useState<TopologySnapshotInput | null>(null);
+  const [selection, setSelection] = useState<TopologySelection | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -109,6 +114,10 @@ export function VNextWorkbenchPage() {
 
   const session = state.status === 'authenticated' ? state.session : null;
   const taskId = session?.task_id ?? webConfig.taskId;
+  const selectedRef = useMemo(
+    () => selectedRecordRef(snapshot, selection),
+    [selection, snapshot],
+  );
 
   return (
     <div className={styles.shell}>
@@ -195,7 +204,20 @@ export function VNextWorkbenchPage() {
                     { key: 'task', label: 'Task', children: <code>{session.task_id}</code> },
                   ]}
                 />
-                <TopologyContainer taskId={taskId} mode="live" />
+                <div className={styles.readonlyTopologyGrid}>
+                  <TopologyContainer
+                    taskId={taskId}
+                    mode="live"
+                    selection={selection}
+                    onSelect={setSelection}
+                    onSnapshotChange={setSnapshot}
+                  />
+                  <RecordPanel
+                    taskId={taskId}
+                    snapshotId={snapshot?.snapshot_id ?? null}
+                    ref={selectedRef}
+                  />
+                </div>
               </>
             )}
           </section>

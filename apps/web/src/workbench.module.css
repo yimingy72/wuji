@@ -267,3 +267,6 @@
 .readonlyHeading p { margin: 8px 0 0; color: var(--muted); font-size: 11px; }
 .readonlyIdentity { background: var(--surface); }
 .readonlyIdentity code { overflow-wrap: anywhere; font-size: 10px; }
+
+.readonlyTopologyGrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 38%); align-items: start; gap: 16px; min-width: 0; }
+@media (max-width: 1100px) { .readonlyTopologyGrid { grid-template-columns: minmax(0, 1fr); } }
