@@ -133,14 +133,18 @@ def mint_operator_token(config, *, key_file, ttl_seconds=900):
     if not 60 <= ttl_seconds <= 3600:
         raise ValueError("operator bearer lifetime must stay bounded")
     now = int(time.time())
+    # Backdate by a bounded skew allowance: the issuing Job and the verifying
+    # service are different Pods, and an `iat` a second in the future is
+    # rejected by a strict claims registry.
+    issued = now - 30
     claims = {
         "iss": config["identity"]["issuer"],
         "aud": config["identity"]["audience"],
         "sub": config.get("operator_subject", "operator"),
         "tenant_id": config["owner"][0],
         "roles": ["operator"],
-        "iat": now,
-        "nbf": now - 1,
+        "iat": issued,
+        "nbf": issued,
         "exp": now + ttl_seconds,
         "jti": str(uuid4()),
     }
