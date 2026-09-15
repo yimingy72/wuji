@@ -260,3 +260,10 @@
 @media (prefers-reduced-motion: reduce) {
   :global(*) { scroll-behavior: auto !important; transition-duration: 0s !important; animation-duration: 0s !important; }
 }
+
+.readonlyWorkbench { display: grid; gap: 18px; min-width: 0; }
+.readonlyHeading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 20px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); }
+.readonlyHeading h1 { margin: 6px 0 0; }
+.readonlyHeading p { margin: 8px 0 0; color: var(--muted); font-size: 11px; }
+.readonlyIdentity { background: var(--surface); }
+.readonlyIdentity code { overflow-wrap: anywhere; font-size: 10px; }

@@ -27,8 +27,9 @@ import {
 } from './queries';
 import { isProjectId, loginPath, returnToFromRequest } from './routing';
 import { getIdentitySnapshot } from './state';
-import { isWebIntegrationConfigured } from './config';
+import { isVNextReadonlyConfigured, isWebIntegrationConfigured } from './config';
 import { StaticShellPage } from './StaticShell';
+import { VNextWorkbenchPage } from './VNextWorkbench';
 
 async function requireSession(request: Request) {
   if (!isWebIntegrationConfigured) throw redirect('/');
@@ -92,8 +93,8 @@ export const router = createBrowserRouter([
     hydrateFallbackElement: <HydrateFallbackPage />,
     errorElement: <AppearanceProvider><RouteErrorPage /></AppearanceProvider>,
     children: [
-      { index: true, element: isWebIntegrationConfigured ? undefined : <StaticShellPage />, loader: isWebIntegrationConfigured ? () => redirect('/projects') : undefined },
-      { path: 'login', element: isWebIntegrationConfigured ? <LoginPage /> : <StaticShellPage /> },
+      { index: true, element: isVNextReadonlyConfigured ? <VNextWorkbenchPage /> : isWebIntegrationConfigured ? undefined : <StaticShellPage />, loader: isWebIntegrationConfigured ? () => redirect('/projects') : undefined },
+      { path: 'login', element: isVNextReadonlyConfigured ? <VNextWorkbenchPage /> : isWebIntegrationConfigured ? <LoginPage /> : <StaticShellPage /> },
       {
         path: 'projects',
         loader: projectsLoader,
@@ -127,7 +128,7 @@ export const router = createBrowserRouter([
       { path: 'projects/:projectId/drafts', loader: projectLoader, element: <DraftsPage />, errorElement: <RouteErrorPage /> },
       { path: 'projects/:projectId/drafts/:draftId', loader: projectLoader, element: <CreationPage />, errorElement: <RouteErrorPage /> },
       { path: 'settings/tenants/:tenantId/models', loader: async ({request}) => { await prepareProjectsRoute(); await requireSession(request); return null; }, element: <ModelsPage />, errorElement: <RouteErrorPage /> },
-      { path: '*', element: isWebIntegrationConfigured ? <NotFoundPage /> : <StaticShellPage /> },
+      { path: '*', element: isVNextReadonlyConfigured ? <VNextWorkbenchPage /> : isWebIntegrationConfigured ? <NotFoundPage /> : <StaticShellPage /> },
     ],
   },
 ]);
