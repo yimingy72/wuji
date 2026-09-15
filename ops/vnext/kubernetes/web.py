@@ -15,7 +15,7 @@ from typing import Any
 NAMESPACE = "wuji-vnext-test"
 SERVICE_NAME = "wuji-web"
 IMAGE_REFERENCE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]*@sha256:[0-9a-f]{64}$")
-LOCAL_ACCESS_COMMAND = "kubectl -n wuji-vnext-test port-forward svc/wuji-web 44180:80"
+LOCAL_ACCESS_URL = "http://127.0.0.1:44180/"
 
 
 def _metadata(name: str, *, labels: dict[str, str] | None = None) -> dict[str, Any]:
@@ -239,12 +239,12 @@ def build_web_manifests(
             "kind": "Service",
             "metadata": {
                 **_metadata(SERVICE_NAME, labels=labels),
-                "annotations": {"wuji.dev/local-access": LOCAL_ACCESS_COMMAND},
+                "annotations": {"wuji.dev/local-access": LOCAL_ACCESS_URL},
             },
             "spec": {
-                "type": "ClusterIP",
+                "type": "LoadBalancer",
                 "selector": labels,
-                "ports": [{"name": "http", "port": 80, "targetPort": "http"}],
+                "ports": [{"name": "http", "port": 44180, "targetPort": "http"}],
             },
         },
     ])

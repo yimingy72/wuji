@@ -8,7 +8,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "ops" / "vnext" / "kubernetes"))
-from web import LOCAL_ACCESS_COMMAND, NAMESPACE, build_web_manifests, render_json_documents
+from web import LOCAL_ACCESS_URL, NAMESPACE, build_web_manifests, render_json_documents
 
 IMAGE = "registry.local/wuji-web@sha256:" + "a" * 64
 GATEWAY_IMAGE = "registry.local/wuji-vnext-platform@sha256:" + "b" * 64
@@ -18,7 +18,7 @@ def _by_kind(manifests):
     return {item["kind"]: item for item in manifests}
 
 
-def test_web_manifest_isolated_arm64_non_root_read_only_and_port_forward_access():
+def test_web_manifest_isolated_arm64_non_root_read_only_and_load_balancer_access():
     manifests = build_web_manifests(
         IMAGE,
         api_base_url="https://api.example.test",
@@ -42,8 +42,9 @@ def test_web_manifest_isolated_arm64_non_root_read_only_and_port_forward_access(
     }
 
     service = _by_kind(manifests)["Service"]
-    assert service["spec"]["ports"] == [{"name": "http", "port": 80, "targetPort": "http"}]
-    assert service["metadata"]["annotations"]["wuji.dev/local-access"] == LOCAL_ACCESS_COMMAND
+    assert service["spec"]["type"] == "LoadBalancer"
+    assert service["spec"]["ports"] == [{"name": "http", "port": 44180, "targetPort": "http"}]
+    assert service["metadata"]["annotations"]["wuji.dev/local-access"] == LOCAL_ACCESS_URL
 
 
 def test_web_manifest_exposes_only_explicit_runtime_configuration():
