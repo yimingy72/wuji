@@ -1071,9 +1071,20 @@ def submit_job(*, args, namespace, job_name, job_args):
                     "--ignore-not-found"], check=True, capture_output=True)
     subprocess.run(["kubectl", *context, "-n", namespace, "apply", "-f", "-"],
                    input=manifest, text=True, check=True, capture_output=True)
-    subprocess.run(["kubectl", *context, "-n", namespace, "wait",
-                    "--for=condition=complete", f"job/{job_name}", "--timeout=900s"],
-                   check=False, capture_output=True)
+    # Wait for a terminal Job condition instead of only `condition=complete`:
+    # a failed owner run must surface in seconds, not after the full deadline.
+    deadline = time.monotonic() + 900
+    while True:
+        probe = subprocess.run(
+            ["kubectl", *context, "-n", namespace, "get", "job", job_name, "-o",
+             "jsonpath={range .status.conditions[*]}{.type}{'\n'}{end}"],
+            check=True, capture_output=True, text=True).stdout.split()
+        if {"Complete", "Failed"} & set(probe):
+            break
+        if time.monotonic() > deadline:
+            print("TASK_LAUNCH_JOB_STATUS timeout")
+            raise SystemExit(1)
+        time.sleep(5)
     logs = subprocess.run(["kubectl", *context, "-n", namespace, "logs", f"job/{job_name}"],
                           check=True, capture_output=True, text=True).stdout
     print(logs.rstrip())
