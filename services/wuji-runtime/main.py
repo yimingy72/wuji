@@ -55,16 +55,23 @@ def run(
                 )
             except Exception as error:
                 # Never log Assignment, credentials, paths, request bodies or peer data.
-                print(
-                    json.dumps(
-                        {
-                            "event": "runtime_dispatch_error",
-                            "error": type(error).__name__,
-                        },
-                        sort_keys=True,
-                    ),
-                    flush=True,
-                )
+                # A stable DomainError code (or the transport operation/status) is
+                # bounded operator metadata and is required to diagnose a stuck
+                # dispatch loop; raw exception messages are not logged.
+                detail = {
+                    "event": "runtime_dispatch_error",
+                    "error": type(error).__name__,
+                }
+                code = getattr(error, "code", None)
+                if isinstance(code, str) and 0 < len(code) <= 64:
+                    detail["code"] = code
+                operation = getattr(error, "operation", None)
+                if isinstance(operation, str) and 0 < len(operation) <= 64:
+                    detail["operation"] = operation
+                status = getattr(error, "status", None)
+                if type(status) is int:
+                    detail["status"] = status
+                print(json.dumps(detail, sort_keys=True), flush=True)
             stop.wait(interval_seconds)
     finally:
         try:
