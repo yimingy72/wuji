@@ -1077,7 +1077,7 @@ def submit_job(*, args, namespace, job_name, job_args):
     while True:
         probe = subprocess.run(
             ["kubectl", *context, "-n", namespace, "get", "job", job_name, "-o",
-             "jsonpath={range .status.conditions[*]}{.type}{'\n'}{end}"],
+             "jsonpath={.status.conditions[*].type}"],
             check=True, capture_output=True, text=True).stdout.split()
         if {"Complete", "Failed"} & set(probe):
             break
