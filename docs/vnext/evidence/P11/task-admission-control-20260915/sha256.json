@@ -1,0 +1,21 @@
+{
+  "algorithm": "sha256",
+  "files": {
+    "README.md": "082d0f868b84c14033ba6b29e25ccd8c38ba9fb63369fb71d9618ce6f65a65bd",
+    "http-reproduction.md": "d95f3adf3453a6f57eef5b83691752db8987c73d4223d6797b54375d50079c15",
+    "raw/admission-job.json": "879a7fad9e1197693ab0a4579f65c54770e3d154ba21b89c96f62f4ab83c23dd",
+    "raw/admission-job.log": "717c7be701b57b369bcccf64a5b34bfe42ed2531e7372d15261f74b2279d599c",
+    "raw/api-image-ref.txt": "2b0cb0a40e3f50e52f681ba63351cfabab913cf975f0c749fe8b19a6bd4730d5",
+    "raw/cancel.response.json": "16b38a7db1297f56bad4f31749e0fce1d11328f5470a4097316a8bdb736f9b33",
+    "raw/pause-cancel-db.txt": "f649edaf27c338e25a92a37c3a20e960b48955d2c78829d6ab38ec0154a431cf",
+    "raw/pause.response.json": "3baba8919169f87c2344aad3e84fd31fe34409e18a62cc18e04085225f832b5b",
+    "raw/related-suite-before.txt": "a639eacb95df3f137c7bba8f66e1838e6dbcc1c5bd3180ce95cf4e7caae51d56",
+    "raw/start-db-evidence.txt": "cd9efb65af1adc043fa610925f64998521b6e18f93901d379a00300d0f892843",
+    "raw/start-replay.response.json": "85deb46e1fcfbe046217231fb33d30e838d67e733857076aeb485792a610ac93",
+    "raw/start-stale.response.json": "13b4ef310be0e3053ba073472cb024577750f67246610d6669ff06a3269ec78b",
+    "raw/start.headers": "f0bbc32cf83ecfbe13dfb4d41e96de0808b6a4d2c381b5026615916a205ea75f",
+    "raw/start.response.json": "85deb46e1fcfbe046217231fb33d30e838d67e733857076aeb485792a610ac93",
+    "screenshots/k8s-admission-control.png": "64ce3626287263d7701efd0e538e0fcdd496785df252638c987960b7100e0cd0"
+  },
+  "source_commit": "8d6c972"
+}

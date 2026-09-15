@@ -1,0 +1,1 @@
+127.0.0.1:56615/wuji-vnext-platform@sha256:4d34345c5ef6f40de76c65650d02c8806836ff9cb23d2889da89cdc68ce2affa

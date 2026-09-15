@@ -1,0 +1,110 @@
+{
+ "apiVersion": "batch/v1",
+ "kind": "Job",
+ "metadata": {
+  "name": "p11c-task-admission2",
+  "namespace": "wuji-vnext-test",
+  "labels": {
+   "app.kubernetes.io/managed-by": "wuji-vnext-deployment",
+   "wuji.dev/environment": "local-test"
+  }
+ },
+ "spec": {
+  "backoffLimit": 0,
+  "ttlSecondsAfterFinished": 86400,
+  "template": {
+   "metadata": {
+    "labels": {
+     "app.kubernetes.io/managed-by": "wuji-vnext-deployment",
+     "wuji.dev/environment": "local-test"
+    }
+   },
+   "spec": {
+    "restartPolicy": "Never",
+    "automountServiceAccountToken": false,
+    "nodeSelector": {
+     "kubernetes.io/arch": "arm64"
+    },
+    "securityContext": {
+     "runAsNonRoot": true,
+     "runAsUser": 10001,
+     "runAsGroup": 10000,
+     "fsGroup": 10000,
+     "seccompProfile": {
+      "type": "RuntimeDefault"
+     }
+    },
+    "containers": [
+     {
+      "name": "admit",
+      "image": "127.0.0.1:56615/wuji-vnext-platform@sha256:4d34345c5ef6f40de76c65650d02c8806836ff9cb23d2889da89cdc68ce2affa",
+      "command": [
+       "python",
+       "-c"
+      ],
+      "args": [
+       "import json, os, psycopg\nfrom wuji_core.admission.registry import publish_task_admission\n\nconfig = json.load(open('/run/wuji/bootstrap/config.json'))\nparams = dict(config['database'])\nparams.update(user='wuji_migration', password=config['roles']['wuji_migration'])\ntask_id = os.environ['TARGET_TASK']\nfixture = os.environ['FIXTURE_TASK']\nowner = (*config['owner'][:2], task_id)\n\nwith psycopg.connect(**params, sslmode='verify-full', sslrootcert=config['ca_file'], connect_timeout=5, autocommit=True) as connection:\n    definition = json.loads(connection.execute(\n        \"SELECT definition_json FROM vnext.task WHERE task_id=%s\", (task_id,)).fetchone()[0])\n    runtime = definition['runtime_profile']\n    admission = {\"model\": definition['model_profile'], \"runtime\": runtime,\n                 \"allowed_tool_refs\": runtime['allowed_tool_refs']}\n    pools = [row[0] for row in connection.execute(\n        \"SELECT pool_key FROM vnext.task_capacity_pool WHERE task_id=%s ORDER BY pool_key\", (fixture,)).fetchall()]\n    grants = []\n    for row in connection.execute(\n        \"\"\"SELECT subject,can_read,can_write,can_capture,can_settle,can_gc,can_assess,\n        can_control,can_observe,can_admit,clearance FROM vnext.task_access\n        WHERE task_id=%s AND subject<>'operator' ORDER BY subject\"\"\", (fixture,)).fetchall():\n        grants.append({\"subject\": row[0], \"can_read\": row[1], \"can_write\": row[2],\n                       \"can_capture\": row[3], \"can_settle\": row[4], \"can_gc\": row[5],\n                       \"can_assess\": row[6], \"can_control\": row[7], \"can_observe\": row[8],\n                       \"can_admit\": row[9], \"clearance\": row[10]})\n    template = connection.execute(\n        \"\"\"SELECT template_ref,issuer,audience,signing_key_ref,signing_kid,\n        encryption_key_ref,clearance FROM vnext.scheduler_identity_template\n        WHERE task_id=%s\"\"\", (fixture,)).fetchone()\n    controller = connection.execute(\n        \"SELECT controller_subject,login_role FROM vnext.task_pod_controller WHERE task_id=%s\",\n        (fixture,)).fetchone()\n    publish_task_admission(\n        connection,\n        owner=owner,\n        admission=admission,\n        capacity_pool_keys=pools,\n        access_grants=grants,\n        scheduler_identity={\"template_ref\": template[0], \"issuer\": template[1],\n                            \"audience\": template[2], \"signing_key_ref\": template[3],\n                            \"signing_kid\": template[4], \"encryption_key_ref\": template[5],\n                            \"clearance\": template[6]},\n        pod_controller={\"controller_subject\": controller[0], \"login_role\": controller[1]},\n    )\n    print(json.dumps({\n        \"event\": \"task_admission_published\", \"task_id\": task_id,\n        \"pools\": pools, \"grants\": [g[\"subject\"] for g in grants],\n        \"template\": template[0], \"controller\": controller[0],\n        \"admission_config\": connection.execute(\n            \"SELECT count(*) FROM vnext.admission_config WHERE task_id=%s\", (task_id,)).fetchone()[0],\n    }))\n"
+      ],
+      "env": [
+       {
+        "name": "TARGET_TASK",
+        "value": "e51cee17-bc3c-4239-a2a2-8e185d4b34a6"
+       },
+       {
+        "name": "FIXTURE_TASK",
+        "value": "a41a59ed-29e1-4801-b68b-dfea395eae30"
+       }
+      ],
+      "securityContext": {
+       "allowPrivilegeEscalation": false,
+       "readOnlyRootFilesystem": true,
+       "capabilities": {
+        "drop": [
+         "ALL"
+        ]
+       }
+      },
+      "volumeMounts": [
+       {
+        "name": "public",
+        "mountPath": "/config",
+        "readOnly": true
+       },
+       {
+        "name": "input",
+        "mountPath": "/run/wuji/bootstrap",
+        "readOnly": true
+       },
+       {
+        "name": "tmp",
+        "mountPath": "/tmp"
+       }
+      ]
+     }
+    ],
+    "volumes": [
+     {
+      "name": "public",
+      "configMap": {
+       "name": "bootstrap-public-topo0915",
+       "defaultMode": 420
+      }
+     },
+     {
+      "name": "input",
+      "secret": {
+       "secretName": "bootstrap-input-topo0915",
+       "defaultMode": 288
+      }
+     },
+     {
+      "name": "tmp",
+      "emptyDir": {
+       "sizeLimit": "32Mi"
+      }
+     }
+    ]
+   }
+  }
+ }
+}

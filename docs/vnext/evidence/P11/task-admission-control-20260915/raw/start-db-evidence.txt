@@ -1,0 +1,6 @@
+task=e51cee17-bc3c-4239-a2a2-8e185d4b34a6 desired=run observed=running allowed=true epoch=2 activated=true
+event=task.started|1
+event=control.applied|2
+receipt=p11c-start-1|3a23647b0215782c03a633fa1c3e6a017bbf0dcf33dd4028c9eeef2e842ee723
+admission=1
+bindings=3

@@ -1,0 +1,4 @@
+task=cancel|quiescing|false|4|user_cancel
+events=task.started@1,control.applied@2,control.applied@3,control.applied@4
+runs=0
+pods=1
