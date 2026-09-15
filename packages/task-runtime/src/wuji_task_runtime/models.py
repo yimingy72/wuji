@@ -146,8 +146,12 @@ class TaskRuntimeConfig:
 
     @property
     def resource_names(self) -> dict[str, str]:
+        # Every runtime attempt owns its own ConfigMaps, Secrets and volumes.
+        # Sharing the previous attempt's agent state would let a new generation
+        # present a different receiver identity against persisted durable state,
+        # which the supervisor inbox correctly refuses (RECEIVER_IDENTITY_CONFLICT).
         return {
-            key: f"{self.task_prefix}-{suffix}"
+            key: f"{self.task_prefix}-a{self.runtime_attempt}-{suffix}"
             for key, suffix in (
                 ("agent_config", "agent-config"), ("kali_config", "kali-config"),
                 ("agent_auth", "agent-auth"), ("kali_auth", "kali-auth"),
