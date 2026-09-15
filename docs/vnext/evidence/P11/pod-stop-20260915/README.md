@@ -109,3 +109,36 @@ Next concrete steps for the worker path:
 The environment was returned to a coherent state: the fixture Task is
 `cancel / reconciling / execution_allowed=false / epoch 4 / user_cancel` with no running Pod and a
 disabled receiver (`raw/final-state.txt`).
+
+## Second follow-up: in-place re-run is refused by the durable inbox (2026-09-15)
+
+To test the dispatch path again I reset the stopped generation in place (owner-side
+`execution_epoch=2`, `desired_state=run`, deleted the stale `scheduler_receiver` row) and let the
+runtime create a new Pod. The Pod came up and the controller created it, but the **agent container
+exited immediately** (`1/2`, exit code 1):
+
+```text
+SupervisorError: RECEIVER_IDENTITY_CONFLICT
+    at new DurableInbox (file:///opt/wuji/services/maf-supervisor/inbox.mjs:25:73)
+    at new NodeSupervisor (file:///opt/wuji/services/maf-supervisor/main.mjs:96:18)
+code: 'RECEIVER_IDENTITY_CONFLICT', status: 409
+```
+
+`raw/agent-inbox-conflict.log` and `raw/pod-after-regeneration.json` keep the原 output.
+
+This is a correct fail-closed guard, not a defect: the durable inbox on the Task's
+`agent-state` volume refuses to serve a different receiver identity. A stopped generation
+therefore **cannot be re-run in place** — the same `runtime_attempt` with a new Pod presents a new
+receiver identity against persisted state.
+
+Consequences for the next iteration:
+
+- a fresh run must use a **new runtime attempt** (`vnext.task.runtime_attempt` + the runtime's
+  `pod_runtime.task_config.runtime_attempt`, `receiver.environment_ref` / `receiver_id`) together
+  with a per-attempt agent state volume or an explicit archival of the previous attempt's inbox;
+- the deployment tooling must render that pair atomically (this is the same owner tooling the
+  creation slice still needs), instead of an operator editing epochs by hand;
+- until then the local fixture stays in its coherent cancelled state
+  (`cancel / reconciling / execution_epoch=3 / runtime_attempt=1 / user_cancel`, no Task Pod,
+  `raw/final-state-2.txt`), and the runtime correctly logs `PermitDenied` each cycle because the
+  cancelled generation has no valid permit.

@@ -1,10 +1,13 @@
 {
   "algorithm": "sha256",
   "files": {
-    "README.md": "a3e569421b0bfed3d5eecc275c1701482b9829cbdc2fc74d2b517917bd2c86f6",
+    "README.md": "8e7e23432a370eb6bbaac533b76eb6578dcb7d91f0acae42e9b9a5444a4adc4b",
+    "raw/agent-inbox-conflict.log": "85e7eb223f8f2dd38a7c440803a16bc328ff343fd59907fc7d8c8bd3ed1f39be",
     "raw/cancel.response.json": "cf69f1cc85f406bae701eef465f42116f8741019d1e0af36314c5dc1b6002f16",
+    "raw/final-state-2.txt": "3ca8a39dd35765af46426c84e9e07a96c19a2c97e889352901523a42b829f1a7",
     "raw/final-state.txt": "4dcdf0c7483eec083a2d9ce1a4cdfe472d8af0196773ff5dcc046fdabd3ffde2",
     "raw/fixture-cancel-reset.txt": "5c60ab7dc8f490bc48ad10a8c98d02971641d45f5c2ce5386d26d2ba9f5c919c",
+    "raw/fixture-regeneration.txt": "aa473e08a964e6c45cecf2546d9f51739c205577735fd04d6b47a754f871f8e6",
     "raw/fixture-window-refresh.txt": "852c76312db4876f85c707e448b1547c5998418fa82595e5e35b7e1502f1ac6b",
     "raw/images-published.json": "a2e3be6824ff7c1138dca5fecf2d31a2b2562a78b1679672ee2f3da8dbf01a18",
     "raw/permit-inputs.txt": "b9a69869f5777c4ac8cbc02e194a3bcc2c1d20ec1698bc8de31be7ccab983b62",
