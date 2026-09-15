@@ -948,10 +948,29 @@ def run_phases(config, *, task_id, phases, options):
                 "intent_local_ref": receipt.local_ref,
             }
         if "activate" in phases:
-            result["activate"] = activate(
-                config, task_id=task_id, version=binding["control_version"],
-                reason="task launch: activate the created Task for its first runtime attempt",
-                base_url=options["base_url"])
+            state = connection.execute(
+                "SELECT activated_at, desired_state, observed_state FROM vnext.task"
+                " WHERE tenant_id=%s AND project_id=%s AND task_id=%s",
+                (binding["tenant_id"], binding["project_id"], task_id),
+            ).fetchone()
+            if state is None:
+                raise DomainError("INVALID_REFERENCE", 422)
+            if state[0] is None:
+                result["activate"] = activate(
+                    config, task_id=task_id, version=binding["control_version"],
+                    reason="task launch: activate the created Task for its first runtime attempt",
+                    base_url=options["base_url"])
+            elif state[1] == "run":
+                # A previous launch (or an operator) already activated this
+                # attempt; the permit and the start receipt are read back from
+                # storage, never re-issued or extended here.
+                result["activate"] = {
+                    "skipped": "already activated",
+                    "desired_state": state[1],
+                    "observed_state": state[2],
+                }
+            else:
+                raise DomainError("INVALID_STATE", 409)
             binding = refreshed_binding(connection, binding)
             result["activate"]["execution_epoch"] = binding["execution_epoch"]
         if "wire" in phases:
@@ -1073,7 +1092,9 @@ def main(argv=None):
     parser.add_argument("--namespace", default="wuji-vnext-test")
     parser.add_argument("--agent-image", required=True)
     parser.add_argument("--kali-image", required=True)
-    parser.add_argument("--base-url", default="https://api.wuji-vnext-test.svc:8443")
+    # This isolated slice serves the public command routes from the runtime
+    # host (public_commands); the API service only carries read/creation routes.
+    parser.add_argument("--base-url", default="https://runtime.wuji-vnext-test.svc:8443")
     parser.add_argument("--runtime-origin", default="https://runtime.wuji-vnext-test.svc:8443")
     parser.add_argument("--gate-url", default="https://gates.wuji-vnext-test.svc:8443")
     parser.add_argument("--agent-auth-dir", default="/run/wuji/task-agent-auth")
