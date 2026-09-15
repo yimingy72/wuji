@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 from contextlib import contextmanager
+from functools import partial
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 import json
@@ -906,7 +907,7 @@ def run_phases(config, *, task_id, phases, options):
                 attempt=prepared["runtime_attempt"],
                 pool_keys=deployment_pool_keys(connection, config))
             receipt = admit_initial_intent(
-                application_connection(config),
+                partial(application_connection, config),
                 access=operator_access(config, signing_key_file=options.get("signing_key_file")),
                 task=task_id,
                 definition_lines=prepared["definition"],
