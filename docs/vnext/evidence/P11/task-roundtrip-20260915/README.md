@@ -76,9 +76,28 @@ The Task Pod on the deploy is `127.0.0.1:56615/wuji-vnext-platform@sha256:d8670d
 5. **Operator diagnostics.** The launch command now reports the bounded rejection code of the
    command route and the terminal Job status instead of failing opaquely.
 
-## 4. Open defects (not closed here)
+## 4. Follow-up runs (tasks `756d55b2-…` and `d682f19a-…`)
 
-1. **The MAF child is refused at the start gate.** The supervisor spawns the guardian and child,
+Three more owner runs after the package above added both bounded operator signals and two fixes:
+
+- `ff54d7d5` logs `{"event": "worker_start_refused", "code": …}` when a child start is collapsed into
+  `revoked`, and `{"event": "runtime_dispatch_transport", "method": …, "status": …}` for every
+  Task-Service delivery. They turned three opaque failures into two named ones.
+- The first delivery of a fresh attempt answered `503` from the supervisor and was then fenced as
+  `previous_delivery_unresolved_no_replay`; the identical PUT through the platform's own transport
+  (`SupervisorHttpTransport`) succeeded minutes later, so the attempt was stranded by a transient
+  callback failure, not by an authorization mismatch. `7784afbd` now waits for the rolled
+  `runtime`/`gates` Deployments to serve before `wire` returns; the next run's queries answered
+  `200`.
+- The child gate still answers `revoked`, and the signal now names it: `STALE_EXECUTION`.
+  `297a838` lets that single gate accept a work item that is still `leased` while its run is already
+  `running` with a matching started observation (the dispatcher records the observation and moves the
+  work item in two transactions). The refusal persists, so at least one further predicate inside
+  `current_run` / the start authorizer is still failing; per-predicate codes are the next step.
+
+## 5. Open defects (not closed here)
+
+1. **The MAF child is refused at the start gate (`STALE_EXECUTION`).** The supervisor spawns the guardian and child,
    the platform records a real started/exited pair, and the child aborts with
    `HostTransportError: Worker start was revoked` — i.e. the P05 start predicate answered
    `status=revoked`. `WorkerBridge._await_start` currently collapses `STALE_EXECUTION` and
@@ -99,7 +118,7 @@ The Task Pod on the deploy is `127.0.0.1:56615/wuji-vnext-platform@sha256:d8670d
    Task's reservation (and the earlier probe Tasks') cannot be released without a real exit
    observation. That is a deployment sizing change, not a domain-state repair.
 
-## 5. Not covered
+## 6. Not covered
 
 Production identity, real model gateway traffic, P12 completion, other work kinds, Pod hardening,
 multi-Task concurrency, and the full P10/P11 acceptance. This evidence binds commit `d5a246a` for
