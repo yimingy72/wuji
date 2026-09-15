@@ -1,5 +1,7 @@
 """Production Runtime/Host composition from explicit mounted deployment files."""
 
+import json
+
 from deployment_common import Deployment, load_settings, read_file, token
 from wuji_core.contracts.knowledge import KnowledgeRef
 from wuji_core.execution.dispatch_outbox import SupervisorHttpTransport
@@ -15,6 +17,25 @@ def build_context(*, records, read_set, snapshot_id, max_records, max_bytes, rel
         limits=ContextLimits(max_records=max_records, max_bytes=max_bytes),
         relations=tuple(ContextRelation(source=KnowledgeRef.model_validate(r["source"]),
             target=KnowledgeRef.model_validate(r["target"]), relation=r["relation"]) for r in relations))
+
+
+def dispatch_audit(record):
+    """Bounded operator signal for a Task-Service delivery attempt.
+
+    Only the method, the HTTP status and the transport error class are emitted;
+    the assignment, bearer, bodies and peer detail stay out of the log.
+    """
+
+    request, response = record.get("request", {}), record.get("response", {})
+    detail = {"event": "runtime_dispatch_transport",
+              "method": request.get("method")}
+    status = response.get("status_code")
+    if type(status) is int:
+        detail["status"] = status
+    error = response.get("error")
+    if isinstance(error, str) and 0 < len(error) <= 64:
+        detail["error"] = error
+    print(json.dumps(detail, sort_keys=True), flush=True)
 
 
 def build_runtime():
@@ -44,7 +65,8 @@ def build_runtime():
         credentials=deployment.issuer(), registry=deployment.registry, control=deployment.control,
         supervisor_transport=SupervisorHttpTransport(settings.supervisor_url,
             authorization=lambda: token(settings.receiver_token_file), ssl_context=deployment.tls,
-            max_response_bytes=min(settings.max_transport_bytes, 1048576)),
+            max_response_bytes=min(settings.max_transport_bytes, 1048576),
+            audit=dispatch_audit),
         host_factory=host_factory, retained_host_factory=retained_factory,
         session_transport=settings.session_transport, context_builder=build_context,
         ledger=deployment.ledger,
