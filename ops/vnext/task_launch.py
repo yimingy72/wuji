@@ -696,6 +696,32 @@ def patch_deployment_json(core, name, update, *, namespace):
     return "replaced"
 
 
+def wait_for_rollout(apps, name, *, namespace, timeout_seconds=300):
+    """Wait until the rolled Deployment actually serves before handing over.
+
+    The supervisor authorizes every child start by calling back into the runtime
+    host through its Service. Returning from ``wire`` while that Deployment is
+    still rolling lets the first callback land on a terminating endpoint, which
+    surfaces as an unknown delivery that can never be replayed.
+    """
+
+    deadline = time.monotonic() + timeout_seconds
+    while True:
+        deployment = apps.read_namespaced_deployment(name, namespace)
+        status = deployment.status
+        desired = deployment.spec.replicas or 1
+        if (
+            (status.updated_replicas or 0) >= desired
+            and (status.available_replicas or 0) >= desired
+            and (status.ready_replicas or 0) >= desired
+            and (status.unavailable_replicas or 0) == 0
+        ):
+            return True
+        if time.monotonic() > deadline:
+            raise DomainError("ROLLOUT_NOT_READY", 504)
+        time.sleep(2)
+
+
 def rollout(apps, name, *, namespace, stamp):
     apps.patch_namespaced_deployment(
         name,
@@ -790,6 +816,8 @@ def wire(binding, *, config, namespace, agent_auth_dir, kali_auth_dir, deploymen
     stamp = str(int(time.time()))
     rollout(apps, "runtime", namespace=namespace, stamp=stamp)
     rollout(apps, "gates", namespace=namespace, stamp=stamp)
+    wait_for_rollout(apps, "runtime", namespace=namespace)
+    wait_for_rollout(apps, "gates", namespace=namespace)
     deadline = time.monotonic() + 300
     while True:
         try:
@@ -810,6 +838,7 @@ def wire(binding, *, config, namespace, agent_auth_dir, kali_auth_dir, deploymen
         time.sleep(3)
     return {
         "actions": actions,
+        "controller_ready": True,
         "pod_name": task_config.pod_name,
         "pod_uid": pod.metadata.uid,
         "resource_names": task_config.resource_names,
