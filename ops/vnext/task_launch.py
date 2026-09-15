@@ -609,10 +609,18 @@ def ensure_object(core, kind, body, *, namespace):
             raise
         creators[kind](namespace, body)
         return "created"
-    comparable = ("data",) if kind != "PersistentVolumeClaim" else ("spec",)
-    for field in comparable:
-        if _canonical(existing.get(field)) != _canonical(body.get(field)):
+    if kind == "PersistentVolumeClaim":
+        # The API server defaults PVC fields (volumeMode, storageClassName), so
+        # compare only the request this command owns.
+        stored = existing.get("spec", {})
+        wanted = body.get("spec", {})
+        if (
+            stored.get("accessModes") != wanted.get("accessModes")
+            or stored.get("resources", {}).get("requests") != wanted.get("resources", {}).get("requests")
+        ):
             raise DomainError("INPUT_DIGEST_CONFLICT", 409)
+    elif _canonical(existing.get("data")) != _canonical(body.get("data")):
+        raise DomainError("INPUT_DIGEST_CONFLICT", 409)
     for key, value in body["metadata"]["labels"].items():
         if existing.get("metadata", {}).get("labels", {}).get(key) != value:
             raise DomainError("INPUT_DIGEST_CONFLICT", 409)
