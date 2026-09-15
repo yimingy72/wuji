@@ -1,0 +1,19 @@
+{
+  "database": "wuji_vnext_ui_20260915",
+  "deployment": {
+    "image": "127.0.0.1:56615/wuji-vnext-platform@sha256:42af7bd277e93541e31144ff562e33ee157e05a738f550762bcb99995ef5e832",
+    "name": "api",
+    "source_commit": "24f984f"
+  },
+  "namespace": "wuji-vnext-test",
+  "pod": {
+    "name": "api-6f7848bc-4mnjm",
+    "phase": "Running",
+    "ready": "True",
+    "uid": "ac4071fb-2dc2-4246-a784-45d6e03b4ced"
+  },
+  "route": "GET /api/v2/tasks/{task_id}/topology",
+  "scope": "local synthetic read-only topology route; bearer auth; no command routes exposed by this service",
+  "service": "api",
+  "task_id": "a41a59ed-29e1-4801-b68b-dfea395eae30"
+}
