@@ -152,19 +152,30 @@ def mint_operator_token(config, *, key_file, ttl_seconds=900):
     return jwt.encode({"alg": "RS256", "kid": "deployment-key"}, claims, key)
 
 
+def operator_token(config, *, signing_key_file=None):
+    """One bearer path for every owner action.
+
+    The mounted ``operator.token`` is minted once by ``configure`` and expires;
+    a long-lived owner run must mint a bounded bearer instead. Mixing the two
+    paths is exactly how a stale bearer reaches an authenticated route.
+    """
+
+    if signing_key_file:
+        token = mint_operator_token(config, key_file=signing_key_file)
+        return token.decode() if isinstance(token, bytes) else token
+    return _read_bytes(config["operator_token_file"], 16384).decode().strip()
+
+
 def operator_access(config, *, signing_key_file=None):
     verifier = TokenVerifier(
         public_key_pem=_read_bytes(config["public_key_file"]),
         issuer=config["identity"]["issuer"],
         audience=config["identity"]["audience"],
     )
-    if signing_key_file:
-        token = mint_operator_token(config, key_file=signing_key_file)
-        if isinstance(token, bytes):
-            token = token.decode()
-    else:
-        token = _read_bytes(config["operator_token_file"], 16384).decode().strip()
-    return AccessContext(verifier.verify(token), "task-launch")
+    return AccessContext(
+        verifier.verify(operator_token(config, signing_key_file=signing_key_file)),
+        "task-launch",
+    )
 
 
 def deployment_profiles(config):
@@ -388,14 +399,14 @@ def admit_initial_intent(connection_factory, *, access, task, definition_lines, 
     )
 
 
-def activate(config, *, task_id, version, reason, base_url):
+def activate(config, *, task_id, version, reason, base_url, signing_key_file=None):
     payload = {
         "schema_version": "wuji.api.v2",
         "command": "start",
         "expected_version": str(version),
         "reason": reason,
     }
-    token = _read_bytes(config["operator_token_file"], 16384).decode().strip()
+    token = operator_token(config, signing_key_file=signing_key_file)
     with httpx.Client(verify=config["ca_file"], trust_env=False, timeout=15.0) as peer:
         response = peer.post(
             f"{base_url}/api/v2/tasks/{task_id}/commands",
@@ -996,7 +1007,8 @@ def run_phases(config, *, task_id, phases, options):
                 result["activate"] = activate(
                     config, task_id=task_id, version=binding["control_version"],
                     reason="task launch: activate the created Task for its first runtime attempt",
-                    base_url=options["base_url"])
+                    base_url=options["base_url"],
+                    signing_key_file=options.get("signing_key_file"))
             elif state[1] == "run":
                 # A previous launch (or an operator) already activated this
                 # attempt; the permit and the start receipt are read back from

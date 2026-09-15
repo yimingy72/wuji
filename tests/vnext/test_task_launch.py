@@ -484,3 +484,28 @@ def test_attempt_material_binds_the_deployment_bearer_not_a_stale_task_secret(tm
     assert material["task-agent.crt"] == b"agent-cert"
     assert material["task-kali.key"] == b"kali-key"
     assert material["ca.crt"] == b"ca"
+
+
+def test_operator_bearer_path_is_single_source(tmp_path):
+    """A stale mounted file must never be used when the signing key is present."""
+
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    key_file = tmp_path / "signing.key"
+    key_file.write_bytes(key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption()))
+    stale = tmp_path / "operator.token"
+    stale.write_text("stale-mounted-bearer")
+    config = {
+        "identity": {"issuer": "https://identity.fixture.invalid", "audience": "wuji-vnext-tests"},
+        "owner": [OWNER[0], OWNER[1], OWNER[2]],
+        "operator_subject": "control-fixture",
+        "operator_token_file": str(stale),
+    }
+    assert task_launch.operator_token(config) == "stale-mounted-bearer"
+    minted = task_launch.operator_token(config, signing_key_file=str(key_file))
+    assert minted != "stale-mounted-bearer" and minted.count(".") == 2
