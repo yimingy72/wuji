@@ -6,6 +6,7 @@ the already authenticated writer; it grants no permission to execute again.
 
 import base64
 from dataclasses import dataclass
+import json
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 import os
@@ -336,6 +337,10 @@ class WorkerHostBridge:
         except DomainError as error:
             if error.code not in {"STALE_EXECUTION", "LIMIT_BLOCKED"}:
                 raise
+            # A refused child start is otherwise indistinguishable from a
+            # revoked credential. Only the stable code is emitted; no identity,
+            # assignment, bearer, path or peer detail is logged.
+            print(json.dumps({"event": "worker_start_refused", "code": error.code}), flush=True)
             response.update(status="revoked", birth_id=None, observation_id=None, source_digest=None)
         return wire.WorkerStartPermission.model_validate(response)
 
