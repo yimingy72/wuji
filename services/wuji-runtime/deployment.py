@@ -5,6 +5,7 @@ from wuji_core.contracts.knowledge import KnowledgeRef
 from wuji_core.execution.dispatch_outbox import SupervisorHttpTransport
 from wuji_core.execution.runtime_dispatcher import build_runtime_controller
 from wuji_core.http import JsonBoundaryLimits
+from wuji_core.projection.snapshots import ProjectionRepository
 from wuji_core.worker_host import PlatformWorkerHost
 from wuji_maf_worker.context import ContextLimits, ContextRelation, build_context_bundle
 
@@ -55,6 +56,7 @@ def build_runtime():
         journal_path=settings.journal_path, spool_directory=settings.spool_directory,
         approval_service=deployment.approvals if settings.public_approvals else None,
         control_service=deployment.control if settings.public_commands else None,
+        projection=ProjectionRepository(deployment.uow, ledger=deployment.ledger),
         json_limits=JsonBoundaryLimits(max_body_bytes=settings.max_transport_bytes))
     if settings.pod_runtime is not None:
         from pod_deployment import PodEnvironment

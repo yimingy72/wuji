@@ -213,6 +213,7 @@ def build_runtime_controller(
     spool_directory,
     approval_service=None,
     control_service=None,
+    projection=None,
     json_limits: JsonBoundaryLimits = DEFAULT_JSON_LIMITS,
     max_configured_tasks: int = 10_000,
 ) -> RuntimeController:
@@ -268,6 +269,14 @@ def build_runtime_controller(
         from wuji_core.http.commands import create_command_router
 
         routers.append(create_command_router(ControlAPI(control_service)))
+    if projection is not None:
+        if getattr(projection, "uow", None) is not uow or not callable(
+            getattr(projection, "topology", None)
+        ):
+            raise ValueError("projection must use the runtime UnitOfWork")
+        from wuji_core.http.topology import create_topology_router
+
+        routers.append(create_topology_router(projection))
     if session_transport:
         from wuji_core.http.session_host import create_session_host_router
 
