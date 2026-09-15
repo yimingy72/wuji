@@ -437,14 +437,25 @@ def attempt_config(binding):
     )
 
 
-def requirement_material(config, *, agent_auth_dir, kali_auth_dir):
+def requirement_material(config, *, agent_auth_dir, kali_auth_dir, deployment_auth_dir,
+                         gates_auth_dir):
+    """The attempt binds the *deployment's current* bearer material.
+
+    The supervisor authenticates the controller channel by exact byte equality
+    with the credential the runtime presents, so an attempt must mount the same
+    bearer the deployment currently issues. Certificate material stays
+    deployment-scoped to the fixed Task Service names.
+    """
+
     agent = Path(agent_auth_dir)
     kali = Path(kali_auth_dir)
+    deployment = Path(deployment_auth_dir)
+    gates = Path(gates_auth_dir)
     return {
         "ca.crt": _read_bytes(config["ca_file"]),
         "identity.pub": _read_bytes(config["public_key_file"]),
-        "receiver.token": _read_bytes(agent / "receiver.token", 16384),
-        "collector.token": _read_bytes(kali / "collector.token", 16384),
+        "receiver.token": _read_bytes(deployment / "receiver.token", 16384),
+        "collector.token": _read_bytes(gates / "collector.token", 16384),
         "task-agent.crt": _read_bytes(agent / "tls.crt", 65536),
         "task-agent.key": _read_bytes(agent / "tls.key", 65536),
         "task-kali.crt": _read_bytes(kali / "tls.crt", 65536),
@@ -670,14 +681,16 @@ def rollout(apps, name, *, namespace, stamp):
     )
 
 
-def wire(binding, *, config, namespace, agent_auth_dir, kali_auth_dir, image):
+def wire(binding, *, config, namespace, agent_auth_dir, kali_auth_dir, deployment_auth_dir,
+         gates_auth_dir, image):
     from kubernetes import config as k8s_config
 
     k8s = k8s_client()
     k8s_config.load_incluster_config()
     core, apps, batch = k8s.CoreV1Api(), k8s.AppsV1Api(), k8s.BatchV1Api()
-    material = requirement_material(config, agent_auth_dir=agent_auth_dir,
-                                    kali_auth_dir=kali_auth_dir)
+    material = requirement_material(
+        config, agent_auth_dir=agent_auth_dir, kali_auth_dir=kali_auth_dir,
+        deployment_auth_dir=deployment_auth_dir, gates_auth_dir=gates_auth_dir)
     task_config, objects = task_objects(binding, material, namespace=namespace)
     actions = {}
     for body in objects:
@@ -989,6 +1002,8 @@ def run_phases(config, *, task_id, phases, options):
                 binding, config=config, namespace=options["namespace"],
                 agent_auth_dir=options["agent_auth_dir"],
                 kali_auth_dir=options["kali_auth_dir"],
+                deployment_auth_dir=options["deployment_auth_dir"],
+                gates_auth_dir=options["gates_auth_dir"],
                 image=options["kali_image"])
             binding = {**binding, **result["wire"]}
         if "capability" in phases:
@@ -1002,7 +1017,8 @@ def run_phases(config, *, task_id, phases, options):
 
 
 def _job_manifest(*, name, namespace, image, args, service_account, configmap, secret,
-                  agent_auth, kali_auth, signing_key_secret="runtime-credentials"):
+                  agent_auth, kali_auth, signing_key_secret="runtime-credentials",
+                  gates_secret="gates-credentials"):
     return {
         "apiVersion": "batch/v1",
         "kind": "Job",
@@ -1040,6 +1056,8 @@ def _job_manifest(*, name, namespace, image, args, service_account, configmap, s
                              "readOnly": True},
                             {"name": "signing-key", "mountPath": "/run/wuji/deployment-signing",
                              "readOnly": True},
+                            {"name": "gates-auth", "mountPath": "/run/wuji/gates-credentials",
+                             "readOnly": True},
                             {"name": "tmp", "mountPath": "/tmp"},
                         ],
                         "resources": {"requests": {"cpu": "100m", "memory": "128Mi"},
@@ -1054,6 +1072,8 @@ def _job_manifest(*, name, namespace, image, args, service_account, configmap, s
                                                          "defaultMode": 0o440}},
                         {"name": "signing-key", "secret": {"secretName": signing_key_secret,
                                                            "defaultMode": 0o440}},
+                        {"name": "gates-auth", "secret": {"secretName": gates_secret,
+                                                          "defaultMode": 0o440}},
                         {"name": "tmp", "emptyDir": {"sizeLimit": "32Mi"}},
                     ],
                 },
@@ -1070,7 +1090,7 @@ def submit_job(*, args, namespace, job_name, job_args):
         service_account=args.service_account, configmap=args.public_configmap,
         secret=args.input_secret, agent_auth=args.agent_auth_secret,
         kali_auth=args.kali_auth_secret,
-        signing_key_secret=args.signing_key_secret))
+        signing_key_secret=args.signing_key_secret, gates_secret=args.gates_auth_secret))
     context = ["--context", args.context] if args.context else []
     rbac = Path(__file__).parent / "kubernetes" / "task-owner-rbac.json"
     subprocess.run(["kubectl", *context, "apply", "-f", str(rbac)],
@@ -1121,6 +1141,8 @@ def main(argv=None):
     parser.add_argument("--gate-url", default="https://gates.wuji-vnext-test.svc:8443")
     parser.add_argument("--agent-auth-dir", default="/run/wuji/task-agent-auth")
     parser.add_argument("--kali-auth-dir", default="/run/wuji/task-kali-auth")
+    parser.add_argument("--deployment-auth-dir", default="/run/wuji/deployment-signing")
+    parser.add_argument("--gates-auth-dir", default="/run/wuji/gates-credentials")
     parser.add_argument("--operator-signing-key",
                         default="/run/wuji/deployment-signing/signing.key")
     parser.add_argument("--evidence-ref",
@@ -1134,6 +1156,7 @@ def main(argv=None):
     parser.add_argument("--public-configmap", default="bootstrap-public-topo0915")
     parser.add_argument("--input-secret", default="bootstrap-input-topo0915")
     parser.add_argument("--signing-key-secret", default="runtime-credentials")
+    parser.add_argument("--gates-auth-secret", default="gates-credentials")
     parser.add_argument("--agent-auth-secret", default="")
     parser.add_argument("--kali-auth-secret", default="")
     parser.add_argument("--context", default="docker-desktop")
@@ -1151,6 +1174,8 @@ def main(argv=None):
             "--gate-url", args.gate_url,
             "--evidence-ref", args.evidence_ref,
             "--binding", args.binding,
+            "--deployment-auth-dir", args.deployment_auth_dir,
+            "--gates-auth-dir", args.gates_auth_dir,
         ]
         if args.operator_signing_key:
             job_args += ["--operator-signing-key", args.operator_signing_key]
@@ -1172,6 +1197,8 @@ def main(argv=None):
         options={
             "binding_in": options_binding if args.binding_in else None,
             "binding_path": args.binding,
+            "deployment_auth_dir": args.deployment_auth_dir,
+            "gates_auth_dir": args.gates_auth_dir,
             "signing_key_file": args.operator_signing_key or None,
             "agent_image": args.agent_image,
             "kali_image": args.kali_image,

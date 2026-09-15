@@ -450,3 +450,37 @@ def test_run_phases_prepare_hands_the_command_real_connection_factories(
                 (OWNER[0],),
             ).fetchone() == (0,)
         assert owner == (OWNER[0], OWNER[1], task_id)
+
+
+def test_attempt_material_binds_the_deployment_bearer_not_a_stale_task_secret(tmp_path):
+    """The supervisor compares the controller bearer byte-for-byte."""
+
+    deployment = tmp_path / "deployment"
+    gates = tmp_path / "gates"
+    agent = tmp_path / "agent"
+    kali = tmp_path / "kali"
+    for directory in (deployment, gates, agent, kali):
+        directory.mkdir()
+    (deployment / "receiver.token").write_bytes(b"current-receiver-bearer")
+    (gates / "collector.token").write_bytes(b"current-collector-bearer")
+    (agent / "receiver.token").write_bytes(b"stale-receiver-bearer")
+    (kali / "collector.token").write_bytes(b"stale-collector-bearer")
+    (agent / "tls.crt").write_bytes(b"agent-cert")
+    (agent / "tls.key").write_bytes(b"agent-key")
+    (kali / "tls.crt").write_bytes(b"kali-cert")
+    (kali / "tls.key").write_bytes(b"kali-key")
+    ca = tmp_path / "ca.crt"
+    ca.write_bytes(b"ca")
+    identity = tmp_path / "identity.pub"
+    identity.write_bytes(b"identity")
+
+    material = task_launch.requirement_material(
+        {"ca_file": str(ca), "public_key_file": str(identity)},
+        agent_auth_dir=str(agent), kali_auth_dir=str(kali),
+        deployment_auth_dir=str(deployment), gates_auth_dir=str(gates),
+    )
+    assert material["receiver.token"] == b"current-receiver-bearer"
+    assert material["collector.token"] == b"current-collector-bearer"
+    assert material["task-agent.crt"] == b"agent-cert"
+    assert material["task-kali.key"] == b"kali-key"
+    assert material["ca.crt"] == b"ca"
