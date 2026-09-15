@@ -220,7 +220,7 @@ def test_layout_migration_is_idempotent_and_is_latest_head(db_environment):
         migrate(connection, application_role=db_environment.application_role)
         assert connection.execute(
             "SELECT head FROM vnext.schema_migration ORDER BY applied_at DESC LIMIT 1"
-        ).fetchone() == ("vnext_0018_p15_layout",)
+        ).fetchone() == ("vnext_0019_p11_task_creation",)
         assert connection.execute(
             "SELECT to_regclass('vnext.layout_preference')"
         ).fetchone() == ("vnext.layout_preference",)

@@ -412,6 +412,44 @@ def register_task_config(connection, *, owner, config):
     _insert_fixed(connection, "admission_config", ("tenant_id", "project_id", "task_id"), owner, config)
 
 
+def register_published_profile(connection, *, tenant_id, kind, document):
+    """Publish one immutable model/runtime snapshot for Task creation."""
+
+    _owner_only(connection)
+    if kind not in {"model", "runtime"}:
+        raise DomainError("INVALID_REFERENCE", 422)
+    profile = (ModelProfile if kind == "model" else RuntimeProfile).model_validate(
+        document
+    )
+    content = json_text(profile.model_dump(mode="json"))
+    lock = profile.lock_digest if isinstance(profile, RuntimeProfile) else None
+    existing = connection.execute(
+        """SELECT document_json,lock_digest,revoked FROM vnext.published_profile
+        WHERE tenant_id=%s AND kind=%s AND ref=%s AND revision=%s""",
+        (tenant_id, kind, profile.ref, int(profile.revision)),
+    ).fetchone()
+    if existing:
+        if existing[0] != content or existing[1] != lock:
+            raise DomainError("INPUT_DIGEST_CONFLICT", 409)
+        if existing[2]:
+            raise DomainError("STALE_EXECUTION", 409)
+        return
+    connection.execute(
+        """INSERT INTO vnext.published_profile(tenant_id,kind,ref,revision,
+        document_json,lock_digest,published_at)
+        VALUES(%s,%s,%s,%s,%s,%s,%s)""",
+        (
+            tenant_id,
+            kind,
+            profile.ref,
+            int(profile.revision),
+            content,
+            lock,
+            profile.published_at,
+        ),
+    )
+
+
 def register_tool_definition(connection, *, tenant_id, definition):
     _owner_only(connection)
     definition = ToolDefinition.model_validate(definition)
