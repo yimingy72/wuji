@@ -1,0 +1,16 @@
+{
+  "body": {
+    "command": "start",
+    "expected_version": "5",
+    "reason": "task launch: activate the rolled runtime attempt",
+    "schema_version": "wuji.api.v2"
+  },
+  "headers": {
+    "Accept": "application/json",
+    "Authorization": "Bearer [REDACTED 900s operator bearer]",
+    "Content-Type": "application/json",
+    "Idempotency-Key": "task-launch-start-86a2a7f2-1c60-4fc7-82d1-748a26fcd6e4-a3"
+  },
+  "method": "POST",
+  "url": "https://127.0.0.1:18455/api/v2/tasks/86a2a7f2-1c60-4fc7-82d1-748a26fcd6e4/commands"
+}

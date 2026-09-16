@@ -1,0 +1,2 @@
+{"event": "task_launch", "phases": ["intent"], "result": {"intent": {"canonical_ref": {"entity_type": "intent", "id": "7bf2cdf8-985a-48a8-a765-971ff11ba69c", "revision": "1"}, "client_ref": "followup-a3", "local_ref": "followup-a3", "status": "accepted_shared"}}, "task_id": "86a2a7f2-1c60-4fc7-82d1-748a26fcd6e4"}
+TASK_LAUNCH_BINDING null

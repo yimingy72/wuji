@@ -1,0 +1,17 @@
+# captured 2026-09-16T11:0x Z, docker-desktop / wuji-vnext-test, code 3307a14, platform image 7644d50e
+
+# $ kubectl -n wuji-vnext-test logs deploy/runtime --since=10m --timestamps | grep transport | head -6 (the delivery of run 993bea1b)
+2026-09-16T11:02:11.237292389Z {"event": "runtime_dispatch_transport", "method": "GET", "status": 404}
+2026-09-16T11:02:11.826660041Z {"event": "runtime_dispatch_transport", "method": "PUT", "status": 200}
+2026-09-16T11:02:11.926962708Z {"event": "runtime_dispatch_transport", "method": "GET", "status": 200}
+2026-09-16T11:02:12.156597375Z {"event": "runtime_dispatch_transport", "method": "GET", "status": 200}
+2026-09-16T11:02:13.871088292Z {"event": "runtime_dispatch_transport", "method": "GET", "status": 200}
+2026-09-16T11:02:13.993481126Z {"event": "runtime_dispatch_transport", "method": "GET", "status": 200}
+
+# ... every transport event of that window, counted by method+status
+  22 "method": "GET", "status": 200
+   1 "method": "GET", "status": 404
+   1 "method": "PUT", "status": 200
+
+# no 401 and no URLError remain in the window
+0

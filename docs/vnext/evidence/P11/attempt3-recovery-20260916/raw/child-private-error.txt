@@ -1,0 +1,42 @@
+# $ kubectl -n wuji-vnext-test exec wuji-task-v-98ce2d5e5b396faca3a3e0438f9e7dc0-a3 -c agent -- sh -c 'cat .../worker/child-error.txt'
+# private diagnostic channel of the Task Pod; it stays on the Pod volume and is quoted here only to name the failing step.
+step=run_assignment
+Traceback (most recent call last):
+  File "/opt/wuji/packages/maf-worker/src/wuji_maf_worker/child_entrypoint.py", line 137, in main
+    asyncio.run(run_child(
+    ~~~~~~~~~~~^^^^^^^^^^^
+        assignment_file=os.environ["WUJI_WORKER_ASSIGNMENT_FILE"],
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        bootstrap_directory=os.environ["WUJI_WORKER_BOOTSTRAP_DIRECTORY"],
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ))
+    ^^
+  File "/usr/local/lib/python3.13/asyncio/runners.py", line 196, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "/usr/local/lib/python3.13/asyncio/runners.py", line 119, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/usr/local/lib/python3.13/asyncio/base_events.py", line 726, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "/opt/wuji/packages/maf-worker/src/wuji_maf_worker/child_entrypoint.py", line 119, in run_child
+    receipt = await run_assignment(
+              ^^^^^^^^^^^^^^^^^^^^^
+    ...<8 lines>...
+    )
+    ^
+  File "/opt/wuji/packages/maf-worker/src/wuji_maf_worker/entrypoint.py", line 75, in run_assignment
+    async for _event in runtime.execute(assignment):
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        pass  # The Host has persisted either the result or the native input receipt.
+
+# $ ... ls worker/ (the child's own request files)
+total 56
+drwx------ 2 10001 root  4096 Sep 16 11:02 .
+drwx------ 3 10001 root  4096 Sep 16 11:02 ..
+-rw------- 1 10001 root   995 Sep 16 11:02 assignment.json
+-rw------- 1 10001 root  3366 Sep 16 11:02 bridge.json
+-rw------- 1 10001 root     0 Sep 16 11:02 child-entered
+-rw------- 1 10001 root  2333 Sep 16 11:02 child-error.txt
+-rw------- 1 10001 root 36673 Sep 16 11:02 sdk-request.json

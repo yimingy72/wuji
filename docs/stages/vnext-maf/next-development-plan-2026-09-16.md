@@ -31,9 +31,17 @@ Task A attempt 2 的第三个 Run（`9e574eb0`）从未被投递成功：receive
 4. **T4 权威拒绝不消耗投递预算。已交付（`9366098`）。** `DispatchJournal.release_send` 让被接收方明确
    拒绝的发送归还预算（保留 `attempted` 单调标记），结果未知的发送仍受三次上限约束；
    `tests/vnext/test_maf_child_transport.py` 20 项通过（含两个新增用例）。
-5. **T5 孤儿 Run 结算。设计中，未实现。** attempt 已终结（permit 撤销且 Pod 已确认删除）而 Run
-   从未被观测时，由受权 reconciler 记录 `environment_stopped` 观测并走既有 `_settle`，使
-   `roll_runtime_attempt` 不再被 `attempt_has_unsettled_run` 卡死。
+5. **T5 孤儿 Run 结算。已交付并实测（`3307a14`）。** 迁移 `vnext_0021_p05_environment_settlement` 让结果
+   投影在"最后观察为 `environment_stopped` 且没有任何执行证据"时有界地写入 `incomplete`；
+   `ControlService._settle` 对同一情形解除 `operations_unsettled` 保持并以
+   `terminal_reason=environment_stopped_before_observation` 收口；runtime 只在 Pod 对象确认不存在时
+   上报该证据。真实集群：attempt 2 的 `9e574eb0` 收口，Task 成功滚动到 attempt 3，随后新 Run 真实投递并
+   执行（见[证据包](../../vnext/evidence/P11/attempt3-recovery-20260916/README.md)）。
+6. **T6 会话边界导出超限。未开始（本次实测发现）。** 同一 Run 的 MAF child 以
+   `ValueError: native root exceeds the fixed object bound`（`wuji_maf_worker/sessions.py:101`，
+   profile 的 `max_object_bytes=16384`）结束，`exit_code=1`、`result_state=incomplete`，因此这条路径
+   还不能产出 accepted 结果。下一步先定位哪个 root（history/provider/memory）超限，再决定是收敛导出内容
+   还是调整已发布 profile 的有界值。
 
 ### T5 已核对的接口事实（实现前不再猜）
 

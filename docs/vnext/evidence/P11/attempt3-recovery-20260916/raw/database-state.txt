@@ -1,0 +1,23 @@
+# $ psql (migration role) on wuji_vnext_ui_20260915
+
+# the run that was delivered to attempt 3
+select left(agent_run_id,8),runtime_attempt,process_state,stop_kind,result_state,left(last_observation_id,24) from vnext.agent_run where task_id='86a2a7f2-1c60-4fc7-82d1-748a26fcd6e4' order by runtime_attempt,agent_run_id;
+98d72f29|att=2|exited|exited|accepted|61daeafe8c52a2ef14788eb6
+9e574eb0|att=2|exited|environment_stopped|incomplete|environment-stopped:9e57
+ee0fa835|att=2|exited|exited|incomplete|4cc2a03632c533eb462eff51
+993bea1b|att=3|exited|exited|incomplete|2e523b7a0de40433314e1f8c
+
+# observations (started then exited for the delivered run)
+993bea1b|exited|2026-09-16 11:02:26.094+00
+993bea1b|started|2026-09-16 11:02:11.822+00
+9e574eb0|environment_stopped|2026-09-16 10:59:47.32916+00
+98d72f29|exited|2026-09-16 09:13:57.906+00
+
+# work items
+53414524|explore|failed|run=ee0fa835|process_failure
+7d552f64|reason|done|run=98d72f29|-
+bd62d4c0|explore|failed|run=9e574eb0|environment_stopped_before_observation
+c9a747a7|explore|failed|run=993bea1b|process_failure
+
+# the Task itself: attempt 3, control_version 6, window opened at activation
+attempt=3|epoch=4|desired=run|observed=running|allowed=true|activated=2026-09-16 11:00:29.858604+00|control_version=6

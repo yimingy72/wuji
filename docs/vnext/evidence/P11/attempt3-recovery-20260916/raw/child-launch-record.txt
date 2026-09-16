@@ -1,0 +1,10 @@
+# $ kubectl -n wuji-vnext-test exec wuji-task-v-98ce2d5e5b396faca3a3e0438f9e7dc0-a3 -c agent -- node -e '<node:sqlite read of /var/lib/wuji/agent/inbox/inbox.sqlite>'
+operation c4a3aae0-b58c-4b97-8f9b-b149fff0ecc4 | run null
+
+# $ ... cat launches/<run>/process.json
+{"body":{"assignment_digest":"6dd59616eeed2e58b0829effa3810a05db095de85b1ff52daf672571750669a2","guardian_birth_id":"a59fabc4489327a450d06020d9b226c51d9e1006b32e1da714b6dda64468c15d","guardian_pid":18,"identity":{"agent_run_id":"993bea1b-63d1-4430-9e40-651bfa78b7da","execution_epoch":"4","project_id":"81e8c413-ba26-45fb-8b5a-1bc477eef99f","receiver_id":"task-86a2a7f2-1c60-4fc7-82d1-748a26fcd6e4-a3","run_epoch":"2","runtime_attempt":"3","task_id":"86a2a7f2-1c60-4fc7-82d1-748a26fcd6e4","tenant_id":"1fc6b1f3-6f24-456b-9dc1-4e14c7197604","work_item_id":"c9a747a7-8c40-44c7-bf3d-d63a67f74342"},"launch_id":"6348e6e4c02c8cb4df8d5b8ef6e93babfd65d5fa9204825826bd74ad6a27dec4","process":{"birth_id":"6348e6e4c02c8cb4df8d5b8ef6e93babfd65d5fa9204825826bd74ad6a27dec4:a59fabc4489327a450d06020d9b226c51d9e1006b32e1da714b6dda64468c15d:36969c88-4be9-4d11-a118-d50eeccf184b:25021460","exit_code":1,"exited_at":"2026-09-16T11:02:25.435Z","pid":25,"started_at":"2026-09-16T11:02:11.801Z"},"reason":"exited","receiver":{"environment_ref":"pod-environment-86a2a7f2-1c60-4fc7-82d1-748a26fcd6e4-a3","pod_uid":"f4805116-f5ba-4e52-ad86-ea12d0c445a8","receiver_id":"task-86a2a7f2-1c60-4fc7-82d1-748a26fcd6e4-a3","runtime_attempt":"3"},"state":"exited"},"signature":"18392d865a5b04c121e01ce529df647dfb00c3296d31a074305ed26c17b508ed"}
+# $ ... tail -12 launches/<run>/stderr.log
+/opt/wuji/packages/maf-worker/src/wuji_maf_worker/history.py:134: ExperimentalWarning: [HARNESS] AgentFileStore is experimental and may change or be removed in future versions without notice.
+Wuji Worker stopped without a confirmed completion (step=run_assignment, error=ValueError).
+
+# $ ... tail -6 launches/<run>/stdout.log

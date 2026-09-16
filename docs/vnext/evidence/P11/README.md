@@ -25,6 +25,11 @@
   receiver bearer 到期（`2026-09-16T09:29:23Z`）之后派发，三次 401 用尽投递预算后停在 `registered`，
   并因 `attempt_has_unsettled_run` 锁死滚动；含 bearer 注册声明、投递日志与数据库事实。
 
+- [attempt 3 recovery](attempt3-recovery-20260916/README.md): attempt 2 的孤儿 Run 按平台环境证据结算
+  （`environment_stopped`），刷新凭据并滚动到 attempt 3 后，新 Run 真实投递（`PUT 200`）、执行并退出，
+  窗口内 0 次 401/URLError；同一 Run 的 child 仍以 `native root exceeds the fixed object bound` 失败，
+  作为下一个缺陷保留。
+
 Still open: owner tooling that derives admission rows from deployment configuration, a runtime attempt
 that carries no worker-assignment dispatch finding, Stage B branches 2 and 3 on their own fixtures, and
 the multi-Task runtime host that would prove one Task is not stopped with another.
