@@ -84,10 +84,14 @@ from wuji_core.persistence.completion_schema import (
     HEAD as COMPLETION_HEAD,
     upgrade as upgrade_completion,
 )
+from wuji_core.persistence.judgment_schema import (
+    HEAD as JUDGMENT_HEAD,
+    upgrade as upgrade_judgments,
+)
 
 # The migration chain's newest head; callers assert against this instead of a
 # hard-coded historical identifier.
-HEAD = COMPLETION_HEAD
+HEAD = JUDGMENT_HEAD
 
 OWNER = "tenant_id,project_id,task_id"
 SCOPE_COLUMNS = (
@@ -460,6 +464,7 @@ def migrate(connection, *, application_role: str) -> None:
                 RUN_SETTLEMENT_HEAD,
                 ENVIRONMENT_SETTLEMENT_HEAD,
                 COMPLETION_HEAD,
+                JUDGMENT_HEAD,
             ]
             if not heads or heads != set(chain[: len(heads)]):
                 raise ValueError("unrecognized vnext migration head")
@@ -485,6 +490,7 @@ def migrate(connection, *, application_role: str) -> None:
                 upgrade_run_settlement_close,
                 upgrade_environment_settlement,
                 upgrade_completion,
+                upgrade_judgments,
             ]
             for upgrade in upgrades[len(heads) - 1 :]:
                 upgrade(connection, application_role)
@@ -607,3 +613,4 @@ def migrate(connection, *, application_role: str) -> None:
         upgrade_run_settlement_close(connection, application_role)
         upgrade_environment_settlement(connection, application_role)
         upgrade_completion(connection, application_role)
+        upgrade_judgments(connection, application_role)

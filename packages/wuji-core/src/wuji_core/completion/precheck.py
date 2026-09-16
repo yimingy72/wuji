@@ -175,6 +175,70 @@ class CompletionService:
             close_trigger=trigger,
         )
 
+    def close(
+        self,
+        access,
+        task_id,
+        *,
+        receipt_key,
+        epoch_id,
+        close_trigger,
+        result_outcome,
+        deadline_seconds=900,
+    ) -> CompletionProposal:
+        """Write the closing decision of the Task's own completion epoch.
+
+        The trigger and the outcome are two independent fields: a budget-exhausted
+        close can still carry a partial result (AC-052).
+        """
+
+        if (
+            not CONTROL_ROLES.intersection(access.principal.roles)
+            or "agent" in access.principal.roles
+        ):
+            raise DomainError("NOT_FOUND_OR_FORBIDDEN")
+        if not isinstance(receipt_key, str) or not 1 <= len(receipt_key) <= 256:
+            raise ValueError("a bounded receipt key is required")
+        if type(deadline_seconds) is not int or not 60 <= deadline_seconds <= 86400:
+            raise ValueError("a bounded closing deadline is required")
+        trigger = CloseTrigger(close_trigger).value
+        outcome = ResultOutcome(result_outcome).value
+        review = self.precheck(access, task_id)
+        if not review.can_propose:
+            raise DomainError("completion_precheck_incomplete", 409)
+        source = canonical_json_bytes(
+            {
+                "decision": "close",
+                "review": review.receipt(),
+                "close_trigger": trigger,
+                "result_outcome": outcome,
+                "epoch_id": epoch_id,
+            }
+        ).decode()
+        moment = datetime.now(timezone.utc)
+        deadline = moment + timedelta(seconds=deadline_seconds)
+        with self.uow.transaction(access, task_id, capability="control") as tx:
+            receipt_id = tx.connection.execute(
+                "SELECT vnext.prepare_completion_close(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                (
+                    *tx.owner,
+                    receipt_key,
+                    epoch_id,
+                    tx.task["control_version"],
+                    tx.task["board_revision"],
+                    deadline,
+                    trigger,
+                    outcome,
+                    source,
+                ),
+            ).fetchone()[0]
+        return CompletionProposal(
+            receipt_id=receipt_id,
+            epoch_id=epoch_id,
+            deadline=deadline,
+            close_trigger=trigger,
+        )
+
     def apply(self, access, task_id, receipt_id):
         """Consume the proposal through the existing P05 state machine."""
 
