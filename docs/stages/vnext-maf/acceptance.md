@@ -84,6 +84,8 @@
 
 - 并发只读与每 Run 工具限额（2026-09-16，代码 `427882b`）：P06 的 `max_inflight_tools` 改为每 Run 计数；声明 `allowed_target_kinds=["workspace_read"]` 的工具按 Run 共享路径（claim 键 `…:read:<agent_run_id>`，只与裸路径独占者冲突），写者保留裸键并通过前缀检查排除读者。真实 K8s：公开入口新建 Task `fc2ff1b0-…` 首次 attempt 中 reason 与 explore 两个 Run 于 12:39:27/28 同时启动并读取同一 `version.txt`，两者 `exit_code=0`、无私有失败文件、`result_state=accepted`、work item 均 `done`；两条 per-Run claim 可见于证据包。测试：`test_run_admission`+`test_remote_workspace`+`test_capture_transactions` 79 passed、`test_maf_child_transport` 22 passed。**未覆盖**：写者路径无真实夹具；多 Task 并发、长会话压缩/记忆与 T2 凭据刷新入库仍未做。见[证据包](../../vnext/evidence/P11/concurrent-read-fix-20260916/README.md)。
 
+- 凭据刷新入库与守卫（2026-09-16，代码本项提交）：新增 `scripts/vnext/refresh_credentials.py`，固定 `runtime-credentials/scheduler-credentials/gates-credentials/api-credentials` 六个字段的计划，TTL 限制 1..72 小时（默认 24），当 `tasks_in_window>0` 或 `enabled_receivers>0` 时拒绝刷新（陈旧未退出 Run 不阻断），输出只含有界元数据，支持 `--dry-run` 与 `--restart`。真实集群：dry-run 守卫计数 `{0,0,6}` → 实际刷新 patch 四个 Secret 并滚动 api/runtime/scheduler/gates（四个 rollout 成功）→ 新 receiver bearer `iat 2026-09-16T14:29:43Z / exp 2026-09-17T14:29:43Z`，T1 启动守卫 `remaining=86342s` 通过。测试：`tests/vnext/test_credential_refresh.py` 15 passed。**未覆盖**：拒绝分支仅有单元覆盖；bearer 仍是部署级共享，按 attempt 独立签发未设计。见[证据包](../../vnext/evidence/P11/credential-refresh-20260916/README.md)。
+
 运行中仅用自建夹具；HTTP/UI成果提供完整交互及截图，离线记录按其原生媒介保留。自行检查与代理审查如实区分；不宣称第三方认证。P13 纯片由主代理委派的 SOL/xhigh 执行，不冒称主代理独立测试。记录文档的提交与被测代码提交分开。
 
 本次 P07/P14 状态更新仅修正实施状态文档的落点，复用上述已绑定代码、测试、截图与审查证据，不重跑验证。导入源包 `docs/vnext/ACCEPTANCE.md` 保持原始字节。

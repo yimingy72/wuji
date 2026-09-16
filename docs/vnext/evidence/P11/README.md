@@ -38,6 +38,10 @@
   按 Run 共享路径后，同一 Task 的 reason 与 explore 两个 Run 同时读 `version.txt`，两者 `exit_code=0`、
   结果均 `accepted`、work item 均 `done`。
 
+- [Credential refresh](credential-refresh-20260916/README.md): `scripts/vnext/refresh_credentials.py` 把
+  bearer 刷新做成仓库内命令（固定目标清单、TTL 1..72h、窗口内/启用 receiver 时拒绝、只打印有界元数据），
+  实测刷新 6 个字段并滚动四个 Deployment；刷新后的 bearer 让 T1 启动守卫在 1800 秒窗口下判定通过。
+
 Still open: owner tooling that derives admission rows from deployment configuration, a runtime attempt
 that carries no worker-assignment dispatch finding, Stage B branches 2 and 3 on their own fixtures, and
 the multi-Task runtime host that would prove one Task is not stopped with another.

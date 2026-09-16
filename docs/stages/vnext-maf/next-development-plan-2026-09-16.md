@@ -47,7 +47,13 @@ Task A attempt 2 的第三个 Run（`9e574eb0`）从未被投递成功：receive
    共享路径（`…:read:<run>`），只与裸路径独占者冲突，写者仍用裸键并排除读者。真实 K8s：新建 Task
    `fc2ff1b0-…` 的 reason 与 explore 两个 Run 同时读同一路径，均 `exit_code=0`、结果均 `accepted`、work item
    均 `done`。见[证据包](../../vnext/evidence/P11/concurrent-read-fix-20260916/README.md)。
-8. **T2 凭据刷新入库。仍未开始。** 目前仍靠仓库外脚本，且 runtime 重启时过期 bearer 会直接拒绝启动。
+8. **T2 凭据刷新入库。已交付并实测（本项提交）。** `scripts/vnext/refresh_credentials.py` 固定六个目标字段、
+   TTL 限 1..72 小时、在 `tasks_in_window>0` 或 `enabled_receivers>0` 时拒绝（陈旧未退出 Run 不阻断），只打印
+   有界元数据，并可 `--restart` 滚动 api/runtime/scheduler/gates。实测：守卫放行（窗口=0、receiver=0、
+   unexited_runs=6）→ patch 四个 Secret → 四个 Deployment rollout 成功 → 新 bearer 24 小时有效，
+   T1 守卫在 1800 秒窗口下 remaining=86342s 通过。见
+   [证据包](../../vnext/evidence/P11/credential-refresh-20260916/README.md)。
+   **仍缺**：拒绝分支只有单元覆盖；bearer 仍是部署级共享，按 attempt 独立签发未设计。
 9. **T8 写入路径与更广并发。未开始。** 写者键的"排除读者"分支只有单元语义；多 Task 并发、长会话压缩/记忆
    与 P12 完成面仍未验证。
 

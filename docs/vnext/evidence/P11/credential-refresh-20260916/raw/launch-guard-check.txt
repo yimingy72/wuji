@@ -1,0 +1,4 @@
+# $ the T1 launch guard now accepts the rotated bearer for a 30-minute attempt
+#   (token fetched to a private temp file; only the returned margin is printed)
+remaining_seconds = 86342
+covers attempt window + margin = True

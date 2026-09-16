@@ -1,0 +1,9 @@
+# $ kubectl -n wuji-vnext-test exec deploy/runtime -- python3 -c '<decode receiver.token claims>'
+iss = https://identity.wuji-vnext-test.invalid
+aud = wuji-vnext-deployment
+sub = receiver
+roles = ['controller']
+iat = 2026-09-16T14:29:43+00:00
+nbf = 2026-09-16T14:29:13+00:00
+exp = 2026-09-17T14:29:43+00:00
+lifetime_hours = 24.0
