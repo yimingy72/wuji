@@ -64,7 +64,7 @@ def deployment_config(definition) -> dict:
     lock = definition["runtime_profile"]["lock_digest"]
     profiles = {
         kind: HarnessProfile(
-            ref=f"harness.{kind}.deployment.v1",
+            ref=f"harness.{kind}.deployment.v2",
             revision="1",
             work_kind=kind,
             instructions="Read version.txt once using the registered workspace tool.",
@@ -509,9 +509,9 @@ def test_run_phases_prepare_hands_the_command_real_connection_factories(
         assert binding["receiver_id"] == f"task-{task_id}-a1"
         assert binding["config_digest"] == result["prepare"]["definition_digest"]
         assert set(binding["profiles"]) == {
-            "harness.reason.deployment.v1",
-            "harness.explore.deployment.v1",
-            "harness.report.deployment.v1",
+            "harness.reason.deployment.v2",
+            "harness.explore.deployment.v2",
+            "harness.report.deployment.v2",
         }
         with db_environment.migration_connection() as connection:
             with connection.transaction():

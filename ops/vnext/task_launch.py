@@ -231,7 +231,13 @@ def published_session_profiles(config, definition):
     )
     return {
         kind: SessionHarnessProfile(
-            ref=f"harness.{kind}.deployment.v1",
+            # The published Session profile is an immutable identity: its body
+            # carries the Session limits, and both the runtime host and the
+            # shared runtime ConfigMap refuse two entries that share a ref with
+            # different bytes. Raising the object/总 bound therefore publishes a
+            # new ref instead of silently rewriting the frozen v1 profile that
+            # already-activated Tasks still pin.
+            ref=f"harness.{kind}.deployment.v2",
             revision="1",
             work_kind=kind,
             instructions=profile["body"]["instructions"],
