@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from functools import partial
 from hashlib import sha256
 import json
 from pathlib import Path
@@ -793,3 +794,26 @@ def test_a_rolled_task_supersedes_its_fixed_executor_binding(
             assert stored["environment_ref"] == f"pod-environment-{task_id}-a2"
             # Registering it again is now a no-op rather than a conflict.
             task_launch.register_executor(connection, owner=owner, executor=executor_for(2))
+
+
+def test_a_followup_intent_is_bounded_before_it_touches_storage():
+    """The owner command refuses a malformed follow-up question or client ref."""
+
+    with pytest.raises(DomainError) as blank:
+        task_launch.admit_followup_intent(
+            None, access=None, task="task-fixture", question="",
+            client_ref="followup", idempotency_key="k",
+        )
+    assert blank.value.code == "INVALID_SCHEMA"
+    with pytest.raises(DomainError) as long:
+        task_launch.admit_followup_intent(
+            None, access=None, task="task-fixture", question="x" * 2049,
+            client_ref="followup", idempotency_key="k",
+        )
+    assert long.value.code == "INVALID_SCHEMA"
+    with pytest.raises(DomainError) as empty_ref:
+        task_launch.admit_followup_intent(
+            None, access=None, task="task-fixture", question="read again",
+            client_ref="---", idempotency_key="k",
+        )
+    assert empty_ref.value.code == "INVALID_REFERENCE"

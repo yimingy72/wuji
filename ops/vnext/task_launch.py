@@ -499,6 +499,44 @@ def admit_initial_intent(connection_factory, *, access, task, definition_lines, 
     )
 
 
+FOLLOWUP_QUESTION = (
+    "Read the fixture workspace file again through the registered Kali workspace"
+    " tool and cite the evidence as a second, independent exploration intent."
+)
+
+
+def admit_followup_intent(connection_factory, *, access, task, question, client_ref,
+                          idempotency_key):
+    """Admit one additional Intent for an already-launched Task.
+
+    Reuses the same signed-controller path as the Task's initial Intent: the
+    scheduler derives new explore work from an admitted Intent, which is the only
+    legitimate way to give a ready Task new work. The idempotency key makes the
+    owner command safe to repeat.
+    """
+
+    unit = UnitOfWork(connection_factory)
+    if not isinstance(question, str) or not 1 <= len(question) <= 2048:
+        raise DomainError("INVALID_SCHEMA", 422)
+    client_ref = "".join(
+        character if character.isalnum() or character in "-_" else "-"
+        for character in str(client_ref)
+    )[:64].strip("-")
+    if not client_ref:
+        raise DomainError("INVALID_REFERENCE", 422)
+    return ClaimService(unit).propose_intent(
+        access,
+        task,
+        {
+            "client_ref": client_ref,
+            "question": question,
+            "basis_refs": [],
+            "expected_output": "wuji.agent-payload.v2",
+        },
+        idempotency_key=idempotency_key,
+    )
+
+
 def activate(config, *, task_id, version, reason, base_url, signing_key_file=None,
              attempt=None):
     payload = {
@@ -1324,10 +1362,29 @@ def run_phases(config, *, task_id, phases, options):
         if path.exists():
             candidate = _read_json(path)
             binding = candidate if candidate.get("task_id") == task_id else None
-    if binding is None and "prepare" not in phases:
+    if binding is None and "prepare" not in phases and set(phases) != {"intent"}:
         raise DomainError("INVALID_REFERENCE", 422)
     result = {}
     try:
+        if "intent" in phases:
+            receipt = admit_followup_intent(
+                partial(application_connection, config),
+                access=operator_access(
+                    config, signing_key_file=options.get("signing_key_file")
+                ),
+                task=task_id,
+                question=options.get("intent_question") or FOLLOWUP_QUESTION,
+                client_ref=options.get("intent_client_ref") or "followup-read",
+                idempotency_key=options.get("intent_key")
+                or f"task-launch-followup-{task_id}",
+            )
+            result["intent"] = {
+                "client_ref": options.get("intent_client_ref") or "followup-read",
+                "canonical_ref": receipt.canonical_ref.model_dump(mode="json")
+                if receipt.canonical_ref is not None else None,
+                "status": str(receipt.status),
+                "local_ref": receipt.local_ref,
+            }
         if options.get("roll_attempt") or "roll" in phases:
             result["roll"] = roll_runtime_attempt(
                 connection,
@@ -1543,10 +1600,13 @@ def main(argv=None):
     parser.add_argument("--config", default="/run/wuji/bootstrap/config.json")
     parser.add_argument("--task", required=True)
     parser.add_argument("--phase", default="all",
-                        choices=["all", "roll", "prepare", "activate", "wire", "capability"])
+                        choices=["all", "roll", "prepare", "activate", "wire", "capability", "intent"])
     parser.add_argument("--roll-attempt", action="store_true",
                         help="roll a Task that can no longer run into a new runtime attempt first")
     parser.add_argument("--roll-reason", default="")
+    parser.add_argument("--intent-question", default="")
+    parser.add_argument("--intent-key", default="")
+    parser.add_argument("--intent-client-ref", default="")
     parser.add_argument("--namespace", default="wuji-vnext-test")
     parser.add_argument("--agent-image", required=True)
     parser.add_argument("--kali-image", required=True)
@@ -1599,6 +1659,12 @@ def main(argv=None):
             job_args += ["--roll-attempt"]
         if args.roll_reason:
             job_args += ["--roll-reason", args.roll_reason]
+        if args.intent_question:
+            job_args += ["--intent-question", args.intent_question]
+        if args.intent_key:
+            job_args += ["--intent-key", args.intent_key]
+        if args.intent_client_ref:
+            job_args += ["--intent-client-ref", args.intent_client_ref]
         if args.binding_in:
             job_args += ["--binding-in", args.binding_in]
         submit_job(args=args, namespace=args.namespace, job_args=job_args,
@@ -1631,6 +1697,9 @@ def main(argv=None):
             "evidence_ref": args.evidence_ref,
             "roll_attempt": args.roll_attempt,
             "roll_reason": args.roll_reason or None,
+            "intent_question": args.intent_question or None,
+            "intent_key": args.intent_key or None,
+            "intent_client_ref": args.intent_client_ref or None,
         },
     )
     print(json.dumps({"event": "task_launch", "task_id": args.task,
