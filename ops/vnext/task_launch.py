@@ -751,10 +751,17 @@ def wait_for_rollout(apps, name, *, namespace, timeout_seconds=300):
         deployment = apps.read_namespaced_deployment(name, namespace)
         status = deployment.status
         desired = deployment.spec.replicas or 1
+        # The status read right after the patch still describes the previous
+        # ReplicaSet, so require the controller to have observed this generation
+        # and no old Pod to remain: the same rule `kubectl rollout status` uses.
+        # Without it a caller could observe "ready" while the new Pod does not
+        # exist yet, which is how an attempt ended up calling a gate that was
+        # still terminating.
         if (
-            (status.updated_replicas or 0) >= desired
+            (status.observed_generation or 0) >= (deployment.metadata.generation or 0)
+            and (status.updated_replicas or 0) >= desired
+            and (status.replicas or 0) == (status.updated_replicas or 0)
             and (status.available_replicas or 0) >= desired
-            and (status.ready_replicas or 0) >= desired
             and (status.unavailable_replicas or 0) == 0
         ):
             return True
