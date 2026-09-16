@@ -1,0 +1,48 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Wuji P11-C round trip</title>
+<style>
+body{background:#10141c;color:#d8e0ee;font:13px/1.45 "SF Mono",Menlo,monospace;margin:0;padding:24px}
+h1{font-size:18px;color:#8fd3ff;margin:0 0 4px} h2{font-size:13px;color:#7ee0a7;margin:18px 0 6px}
+pre{background:#171d28;border:1px solid #263041;border-radius:6px;padding:10px;white-space:pre-wrap;word-break:break-all;margin:0}
+small{color:#8b97ab}
+</style></head><body>
+<h1>Wuji vNext — P11-C: a created Task reaches a real MAF round trip</h1>
+<small>commit 9eb1a8a · namespace wuji-vnext-test · task ea03c0f8-0f77-4f50-88d4-7225d31b0a2a</small>
+<h2>POST /api/v2/tasks  →  the created Task</h2><pre>HTTP/1.1 201
+date: Wed, 16 Sep 2026 03:09:16 GMT
+server: uvicorn
+content-length: 409
+content-type: application/json
+x-request-id: 66ca629e-8764-4976-8708-c9f2f64e0942
+{&quot;task_id&quot;:&quot;ea03c0f8-0f77-4f50-88d4-7225d31b0a2a&quot;,&quot;tenant_id&quot;:&quot;1fc6b1f3-6f24-456b-9dc1-4e14c7197604&quot;,&quot;project_id&quot;:&quot;81e8c413-ba26-45fb-8b5a-1bc477eef99f&quot;,&quot;version&quot;:&quot;1&quot;,&quot;name&quot;:&quot;P11-C round trip probe 2026-09-16&quot;,&quot;scenario&quot;:&quot;web_single&quot;,&quot;desired_state&quot;:&quot;pause&quot;,&quot;observed_state&quot;:&quot;ready&quot;,&quot;goal_revision&quot;:&quot;1&quot;,&quot;execution_epoch&quot;:&quot;1&quot;,&quot;activated_at&quot;:null,&quot;close_trigger&quot;:null,&quot;result_outcome&quot;:null,&quot;allowed_actions&quot;:[]}
+</pre>
+<h2>owner command: prepare → activate → wire → capability</h2><pre>TASK_LAUNCH_JOB_STATUS SuccessCriteriaMet|1|
+{&quot;event&quot;: &quot;task_launch&quot;, &quot;phases&quot;: [&quot;prepare&quot;, &quot;activate&quot;, &quot;wire&quot;, &quot;capability&quot;], &quot;result&quot;: {&quot;activate&quot;: {&quot;execution_epoch&quot;: 2, &quot;request&quot;: {&quot;command&quot;: &quot;start&quot;, &quot;expected_version&quot;: &quot;1&quot;, &quot;reason&quot;: &quot;task launch: activate the created Task for its first runtime attempt&quot;, &quot;schema_version&quot;: &quot;wuji.api.v2&quot;}, &quot;response&quot;: {&quot;code&quot;: null, &quot;command_id&quot;: &quot;task-launch-start-ea03c0f8-0f77-4f50-88d4-7225d31b0a2a&quot;, &quot;disposition&quot;: &quot;accepted&quot;, &quot;request_id&quot;: &quot;20ef4648-916d-4d76-aefa-e7c25598c278&quot;, &quot;resource_ref&quot;: {&quot;entity_type&quot;: &quot;task&quot;, &quot;id&quot;: &quot;ea03c0f8-0f77-4f50-88d4-7225d31b0a2a&quot;, &quot;revision&quot;: &quot;2&quot;}, &quot;resource_version&quot;: &quot;2&quot;}}, &quot;capability&quot;: {&quot;capabilities&quot;: [&quot;session-capability-ea03c0f8-0f77-4f50-88d4-7225d31b0a2a-a1-explore&quot;, &quot;session-capability-ea03c0f8-0f77-4f50-88d4-7225d31b0a2a-a1-reason&quot;, &quot;session-capability-ea03c0f8-0f77-4f50-88d4-7225d31b0a2a-a1-report&quot;]}, &quot;prepare&quot;: {&quot;definition_changed&quot;: true, &quot;definition_digest&quot;: &quot;765a5ff9d8729fed958831843b3cb3a5deaad8315e140cd1a7c13a3d68240468&quot;, &quot;executor_ref&quot;: &quot;kali-workspace-v1&quot;, &quot;intent_local_ref&quot;: &quot;https---fixture-invalid-443&quot;, &quot;intent_ref&quot;: {&quot;entity_type&quot;: &quot;intent&quot;, &quot;id&quot;: &quot;596dbaa7-26d7-4ffb-9df8-665c762fb9ab&quot;, &quot;revision&quot;: &quot;1&quot;}, &quot;intent_status&quot;: &quot;accepte
+...
+TASK_LAUNCH_JOB_STATUS SuccessCriteriaMet|1|</pre>
+<h2>runtime deployment binding written by wire</h2><pre>session_transport True
+task_ids [&#x27;ea03c0f8-0f77-4f50-88d4-7225d31b0a2a&#x27;]
+[&quot;harness.explore.deployment.v1&quot;, &quot;harness.reason.deployment.v1&quot;, &quot;harness.report.deployment.v1&quot;]
+</pre>
+<h2>PostgreSQL: work items, runs, model/tool calls, accepted result</h2><pre>explore|reconciling|operations_unsettled||4|1c832ecb-17c2-45b1-87f8-d90f60ac3182
+reason|done|||5|e500c775-3bd4-46d0-a85c-f82764864682
+e500c775-3bd4-46d0-a85c-f82764864682|9e2ec847-6ee3-487d-ad8b-1a52befb6943|exited|accepted|2026-09-16 03:10:22.13+00|2026-09-16 03:10:35.963+00|exited
+1c832ecb-17c2-45b1-87f8-d90f60ac3182|d463bb8c-d5d7-4704-a740-58ed2d2c972d|exited|none|2026-09-16 03:10:22.867+00|2026-09-16 03:10:31.87+00|exited
+1c832ecb-17c2-45b1-87f8-d90f60ac3182|1|sent|complete
+e500c775-3bd4-46d0-a85c-f82764864682|2|sent|complete
+2ba83c11-3ef2-4ec9-8f09-c121eb07645d|9e2ec847-6ee3-487d-ad8b-1a52befb6943|complete|c0b88981-0c3e-4a92-aab3-f549a72a2c6f
+e500c775-3bd4-46d0-a85c-f82764864682|maf-m1:374b32d976d5730e631c5b3117ae3afb554fa16363d26138008c31c916f17f11|received
+</pre>
+<h2>gate access log for the attempt</h2><pre>INFO:     10.1.1.12:41418 - &quot;POST /internal/v2/model/chat/completions HTTP/1.1&quot; 200 OK
+INFO:     10.1.1.12:41440 - &quot;POST /internal/v2/executors/kali-workspace-v1/permits/check HTTP/1.1&quot; 200 OK
+INFO:     10.1.1.12:41434 - &quot;POST /internal/v2/model/chat/completions HTTP/1.1&quot; 200 OK
+INFO:     10.1.1.12:42246 - &quot;POST /internal/v2/executors/kali-workspace-v1/permits/check HTTP/1.1&quot; 200 OK
+INFO:     10.1.1.12:42248 - &quot;POST /internal/v2/tool-calls HTTP/1.1&quot; 429 Too Many Requests
+INFO:     10.1.1.12:41426 - &quot;POST /internal/v2/tool-calls HTTP/1.1&quot; 200 OK
+INFO:     10.1.1.12:42258 - &quot;POST /internal/v2/model/chat/completions HTTP/1.1&quot; 200 OK
+</pre>
+<h2>child launches inside the Task Pod</h2><pre>=== 3ac1a267eda27ae8521a1e1cb940c61f6301d24895ad21c2577a6391e808d075
+/opt/wuji/packages/maf-worker/src/wuji_maf_worker/history.py:134: ExperimentalWarning: [HARNESS] AgentFileStore is experimental and may change or be removed in future versions without notice.
+Wuji Worker stopped without a confirmed completion (step=run_assignment, error=MiddlewareFailure).
+=== f1a0c6e375b3b44dcef6e52bb4fdd7d5fad800b52288a59d7560fa1f76998f4c
+/opt/wuji/packages/maf-worker/src/wuji_maf_worker/history.py:134: ExperimentalWarning: [HARNESS] AgentFileStore is experimental and may change or be removed in future versions without notice.</pre>
+</body></html>

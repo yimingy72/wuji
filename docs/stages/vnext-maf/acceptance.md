@@ -60,6 +60,7 @@
 | 真实模型效果 | not_run | 需明确模型/数据及新增 USD 额度 |
 | 生产切换/旧数据删除 | not_run | 需独立明确授权；开发不隐式实施 |
 
+- P11-C 往返闭环（2026-09-16，代码 `9eb1a8a`）：创建入口创建的 Task 经 `prepare → activate → wire → capability` 进入真实 runtime attempt；同一次实测中 `reason` work 由 Scheduler 接纳、MAF child 完成 2 次模型调用与 1 次工具调用、结果被平台以 `received/accepted` 接纳并收口为 `done`，gates 同时记录了 `permits/check 200`。同一 attempt 的 `explore` work 工具调用被 `429` 拒绝后停在 `reconciling/operations_unsettled`，属未关闭缺陷。见[证据包](../../vnext/evidence/P11/task-roundtrip-20260916/README.md)；范围仍限本地单 Task 机制切片，不提升 P11/P12/多 Task 验收。
 运行中仅用自建夹具；HTTP/UI成果提供完整交互及截图，离线记录按其原生媒介保留。自行检查与代理审查如实区分；不宣称第三方认证。P13 纯片由主代理委派的 SOL/xhigh 执行，不冒称主代理独立测试。记录文档的提交与被测代码提交分开。
 
 本次 P07/P14 状态更新仅修正实施状态文档的落点，复用上述已绑定代码、测试、截图与审查证据，不重跑验证。导入源包 `docs/vnext/ACCEPTANCE.md` 保持原始字节。

@@ -118,6 +118,14 @@ Three more owner runs after the package above added both bounded operator signal
    Task's reservation (and the earlier probe Tasks') cannot be released without a real exit
    observation. That is a deployment sizing change, not a domain-state repair.
 
+## 7. Status after 2026-09-16
+
+The open defects 1-3 above were closed in the follow-up package
+[task-roundtrip-20260916](../task-roundtrip-20260916/README.md): the child now passes
+`await-start` and `worker-host/resolve`, the first model and tool calls reach the gates, and a run
+result is accepted. The two settlement defects (a run with no tool attempt, and a run whose tool
+call is refused) remain open and are recorded there. Nothing in sections 1-5 above is rewritten.
+
 ## 6. Not covered
 
 Production identity, real model gateway traffic, P12 completion, other work kinds, Pod hardening,
