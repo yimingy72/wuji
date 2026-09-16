@@ -126,9 +126,77 @@ tests/vnext/test_task_creation.py + test_task_launch.py 10 passed (7.64s) on 435
 The live run above is the verification for the deployment-side changes; no unit test can observe a
 ReplicaSet that does not exist yet.
 
+## 7. Follow-up: a Run now closes its own operation set (commit `27673ab`)
+
+The defect that left work `explore` at `reconciling / operations_unsettled` is closed. A Run refused
+before its first tool attempt registered no operation at all, so no producer ever published a
+settlement for it; the platform now derives that empty set from its own durable records.
+
+- contract `POST /internal/v2/tool-settlement` (empty request, bounded receipt), regenerated DTOs and
+  the frozen route set updated;
+- `ToolGate.close_operations` recomputes the status from durable records in a `tool_settle`
+  transaction and never rewrites a settlement another producer published;
+- the MAF child closes its own set on every exit path of `run_assignment`, bounded (5 s) and
+  best-effort;
+- schema `vnext_0020_p06_run_settlement_close` keeps the "admitted tool attempt" rule and adds the
+  empty-set case (no non-terminal attempt, no in-flight model call, no unreleased resource).
+
+Live result for Task `0c33b0bf-ba71-4f07-926d-84b1da38b1ea` (plane `d3db345d`, migration head
+`vnext_0020_p06_run_settlement_close`, both children closed their set with `200`):
+
+```text
+explore|failed||process_failure|458e429b-5843-45f6-90a5-004d94191c2f
+reason|failed||process_failure|8f65c1cc-8c7c-4c41-9605-3bfb96226cd2
+```
+
+```text
+8f65c1cc-8c7c-4c41-9605-3bfb96226cd2|exited|accepted|2026-09-16 03:57:31.701+00|2026-09-16 03:57:45.203+00|exited
+458e429b-5843-45f6-90a5-004d94191c2f|exited|incomplete|2026-09-16 03:57:32.248+00|2026-09-16 03:57:44.012+00|exited
+```
+
+```text
+458e429b-5843-45f6-90a5-004d94191c2f|settled|{"basis":"run_closed_operation_set","open_operations":{"model_calls":0,"resource_reservations":0,"tool_attempts":0},"producer":"p06"}
+8f65c1cc-8c7c-4c41-9605-3bfb96226cd2|settled|{"basis":"durable_tool_attempt_receipts","producer":"p06"}
+```
+
+```text
+3|1|1|vnext_0020_p06_run_settlement_close
+```
+
+```text
+INFO:     10.1.1.23:41104 - "POST /internal/v2/model/chat/completions HTTP/1.1" 200 OK
+INFO:     10.1.1.23:41106 - "POST /internal/v2/model/chat/completions HTTP/1.1" 200 OK
+INFO:     10.1.1.23:56320 - "POST /internal/v2/tool-calls HTTP/1.1" 429 Too Many Requests
+INFO:     10.1.1.23:41114 - "POST /internal/v2/tool-calls HTTP/1.1" 200 OK
+INFO:     10.1.1.23:56334 - "POST /internal/v2/tool-settlement HTTP/1.1" 200 OK
+INFO:     10.1.1.23:56322 - "POST /internal/v2/model/chat/completions HTTP/1.1" 200 OK
+INFO:     10.1.1.23:56342 - "POST /internal/v2/tool-settlement HTTP/1.1" 200 OK
+```
+
+Task Pod `wuji-task-v-0d2544f803b20edba57a5e488b444463-a1`; child launches in
+[`raw/settlement/child-launches.txt`](raw/settlement/child-launches.txt). Neither work item stays at
+`operations_unsettled`: the Run with no tool attempt settled through the new basis
+`run_closed_operation_set`, and the Work item reached the bounded terminal reason `process_failure`.
+
+### 7.1 Defects this run exposed (open)
+
+1. **An accepted result can still leave the Run exiting 1.** The `reason` run's submission is
+   `received` and its receipt `accepted`, yet the child's `submit_result` call answered `409` and the
+   child aborted, so the Work item settled as `process_failure` instead of `done`. The 409 was
+   returned after the platform had already persisted the acceptance; the next step is to name the
+   refusing predicate on the receipt path and decide which one wins.
+2. **A refused tool call reaches the model as a failed function.** The SDK rendered the gate's
+   `429 Too Many Requests` as `Function failed. Error: Client error '429'`, and the Run then died on
+   a later connection error. The refusal itself is correct (bounded limit), but the Run should end in
+   a named state rather than an opaque middleware failure.
+3. **The model-gate connection error is still reachable.** `458e429b` ended with
+   `ChatClientException … APIConnectionError('Connection error.')`; the gate was serving (200s in the
+   same log) so this needs the same bounded classification the other transports already have.
+
 ## 6. Raw material
 
 `raw/create.request.json`, `raw/create.headers`, `raw/create.response.json`, `raw/idempotency-key.txt`,
 `raw/task-id.txt`, `raw/launch.log`, `raw/work-items.txt`, `raw/agent-runs.txt`, `raw/model-calls.txt`,
 `raw/tool-calls.txt`, `raw/result-submissions.txt`, `raw/gates-access.txt`, `raw/runtime-config.txt`,
-`raw/runtime-profiles.txt`, `raw/task-pod.txt`, `raw/child-launches.txt`.
+`raw/runtime-profiles.txt`, `raw/task-pod.txt`, `raw/child-launches.txt`, and the settlement
+follow-up under `raw/settlement/`.

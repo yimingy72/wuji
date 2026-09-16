@@ -1,0 +1,7 @@
+INFO:     10.1.1.23:41104 - "POST /internal/v2/model/chat/completions HTTP/1.1" 200 OK
+INFO:     10.1.1.23:41106 - "POST /internal/v2/model/chat/completions HTTP/1.1" 200 OK
+INFO:     10.1.1.23:56320 - "POST /internal/v2/tool-calls HTTP/1.1" 429 Too Many Requests
+INFO:     10.1.1.23:41114 - "POST /internal/v2/tool-calls HTTP/1.1" 200 OK
+INFO:     10.1.1.23:56334 - "POST /internal/v2/tool-settlement HTTP/1.1" 200 OK
+INFO:     10.1.1.23:56322 - "POST /internal/v2/model/chat/completions HTTP/1.1" 200 OK
+INFO:     10.1.1.23:56342 - "POST /internal/v2/tool-settlement HTTP/1.1" 200 OK

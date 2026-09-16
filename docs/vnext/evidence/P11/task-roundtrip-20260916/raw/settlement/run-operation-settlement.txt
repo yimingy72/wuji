@@ -1,0 +1,2 @@
+458e429b-5843-45f6-90a5-004d94191c2f|settled|{"basis":"run_closed_operation_set","open_operations":{"model_calls":0,"resource_reservations":0,"tool_attempts":0},"producer":"p06"}
+8f65c1cc-8c7c-4c41-9605-3bfb96226cd2|settled|{"basis":"durable_tool_attempt_receipts","producer":"p06"}

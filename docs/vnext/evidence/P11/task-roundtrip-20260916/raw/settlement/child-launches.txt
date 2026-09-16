@@ -1,0 +1,177 @@
+=== 5a36bb00d4a147e010b23700534d96626bceba15713e9ac9fb75882d175634be
+/opt/wuji/packages/maf-worker/src/wuji_maf_worker/history.py:134: ExperimentalWarning: [HARNESS] AgentFileStore is experimental and may change or be removed in future versions without notice.
+Function failed. Error: Client error '429 Too Many Requests' for url 'https://gates.wuji-vnext-test.svc:8443/internal/v2/tool-calls'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+Failed to settle dangling function calls on the service-managed conversation; the next request over this conversation may be rejected by the service.
+Traceback (most recent call last):
+  File "/opt/wuji/packages/maf-worker/src/wuji_maf_worker/tools.py", line 373, in process
+    await call_next()
+  File "/opt/wuji/packages/maf-worker/.venv/lib/python3.13/site-packages/agent_framework/_middleware.py", line 1279, in final_wrapper
+    context.result = await context.result
+                     ^^^^^^^^^^^^^^^^^^^^
+  File "/opt/wuji/packages/maf-worker/.venv/lib/python3.13/site-packages/agent_framework/_tools.py", line 1758, in final_function_handler
+    return await tool.invoke(
+           ^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "/opt/wuji/packages/maf-worker/.venv/lib/python3.13/site-packages/agent_framework/_tools.py", line 845, in invoke
+    result = await self._invoke_function(call_kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/wuji/packages/maf-worker/.venv/lib/python3.13/site-packages/agent_framework/_tools.py", line 629, in _invoke_function
+    return await res if inspect.isawaitable(res) else res
+           ^^^^^^^^^
+  File "/opt/wuji/packages/maf-worker/src/wuji_maf_worker/tools.py", line 395, in invoke
+    response.raise_for_status()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/opt/wuji/packages/maf-worker/.venv/lib/python3.13/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '429 Too Many Requests' for url 'https://gates.wuji-vnext-test.svc:8443/internal/v2/tool-calls'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/opt/wuji/packages/maf-worker/.venv/lib/python3.13/site-packages/agent_framework/_tools.py", line 3944, in _stream_response_with_function_invocation
+    function_processing = await _process_model_function_calls(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<7 lines>...
+    )
+    ^
+  File "/opt/wuji/packages/maf-worker/.venv/lib/python3.13/site-packages/agent_framework/_tools.py", line 3403, in _process_model_function_calls
+    execution = await execute_function_calls(
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<2 lines>...
+    )
+    ^
+  File "/opt/wuji/packages/maf-worker/.venv/lib/python3.13/site-packages/agent_framework/_tools.py", line 2107, in _execute_function_calls
+    result_groups, should_terminate = await _try_execute_function_call_groups(
+                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<7 lines>...
+    )
+    ^
+  File "/opt/wuji/packages/maf-worker/.venv/lib/python3.13/site-packages/agent_framework/_tools.py", line 2037, in _try_execute_function_call_groups
+    execution_results = await asyncio.gather(*execution_tasks)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/wuji/packages/maf-worker/.venv/lib/python3.13/site-packages/agent_framework/_tools.py", line 1854, in _execute_single_function_call
+    result = await _auto_invoke_function(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<8 lines>...
+    )
+    ^
+  File "/opt/wuji/packages/maf-worker/.venv/lib/python3.13/site-packages/agent_framework/_tools.py", line 1768, in _auto_invoke_function
+    function_result = await middleware_pipeline.execute(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<2 lines>...
+    )
+    ^
+  File "/opt/wuji/packages/maf-worker/.venv/lib/python3.13/site-packages/agent_framework/_middleware.py", line 1291, in execute
+    await first_handler()
+  File "/opt/wuji/packages/maf-worker/.venv/lib/python3.13/site-packages/agent_framework/_middleware.py", line 1285, in current_handler
+    await self._middleware[index].process(context, create_next_handler(index + 1))
+  File "/opt/wuji/packages/maf-worker/src/wuji_maf_worker/tools.py", line 377, in process
+    raise MiddlewareFailure("Wuji ToolGate invocation failed") from error
+agent_framework._middleware.MiddlewareFailure: Wuji ToolGate invocation failed
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/opt/wuji/packages/maf-worker/.venv/lib/python3.13/site-packages/openai/_base_client.py", line 1699, in request
+    response = await self._send_request(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "/opt/wuji/packages/maf-worker/.venv/lib/python3.13/site-packages/openai/_client.py", line 1353, in _send_request
+    response = await self._send_with_auth_retry(request, stream=stream, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/wuji/packages/maf-worker/.venv/lib/python3.13/site-packages/openai/_client.py", line 1332, in _send_with_auth_retry
+    response = await super()._send_request(request, stream=stream, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/wuji/packages/maf-worker/.venv/lib/python3.13/site-packages/openai/_base_client.py", line 1618, in _send_request
+    return await self._client.send(request, stream=stream, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/wuji/packages/maf-worker/.venv/lib/python3.13/site-packages/httpx/_client.py", line 1629, in send
+    response = await self._send_handling_auth(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+    )
+    ^
+  File "/opt/wuji/packages/maf-worker/.venv/lib/python3.13/site-packages/httpx/_client.py", line 1657, in _send_handling_auth
+    response = await self._send_handling_redirects(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "/opt/wuji/packages/maf-worker/.venv/lib/python3.13/site-packages/httpx/_client.py", line 1692, in _send_handling_redirects
+    await hook(request)
+  File "/opt/wuji/packages/maf-worker/src/wuji_maf_worker/tools.py", line 67, in request
+    raise ValueError("M1 requires single-choice native streaming")
+ValueError: M1 requires single-choice native streaming
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/opt/wuji/packages/maf-worker/.venv/lib/python3.13/site-packages/agent_framework_openai/_chat_completion_client.py", line 695, in _get_response
+    await client.chat.completions.create(stream=False, **request_options), options
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/wuji/packages/maf-worker/.venv/lib/python3.13/site-packages/openai/resources/chat/completions/completions.py", line 2931, in create
+    return await self._post(
+           ^^^^^^^^^^^^^^^^^
+    ...<55 lines>...
+    )
+    ^
+  File "/opt/wuji/packages/maf-worker/.venv/lib/python3.13/site-packages/openai/_base_client.py", line 1979, in post
+    return await self.request(cast_to, opts, stream=stream, stream_cls=stream_cls)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/wuji/packages/maf-worker/.venv/lib/python3.13/site-packages/openai/_base_client.py", line 1734, in request
+    raise APIConnectionError(request=request) from err
+openai.APIConnectionError: Connection error.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/opt/wuji/packages/maf-worker/.venv/lib/python3.13/site-packages/agent_framework/_tools.py", line 3541, in _settle_dangling_service_function_calls
+    settlement_response = await super_get_response(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<6 lines>...
+    )
+    ^
+  File "/opt/wuji/packages/maf-worker/.venv/lib/python3.13/site-packages/agent_framework/_middleware.py", line 1526, in _execute
+    return await pipeline.execute(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+    ...<2 lines>...
+    )
+    ^
+  File "/opt/wuji/packages/maf-worker/.venv/lib/python3.13/site-packages/agent_framework/_middleware.py", line 1376, in execute
+    await first_handler()
+  File "/opt/wuji/packages/maf-worker/.venv/lib/python3.13/site-packages/agent_framework/_middleware.py", line 1370, in current_handler
+    await self._middleware[index].process(context, create_next_handler(index + 1))
+  File "/opt/wuji/packages/maf-worker/.venv/lib/python3.13/site-packages/agent_framework/_sessions.py", line 1514, in process
+    await self._process_non_streaming(context, call_next, session)
+  File "/opt/wuji/packages/maf-worker/.venv/lib/python3.13/site-packages/agent_framework/_sessions.py", line 1444, in _process_non_streaming
+    await call_next()
+  File "/opt/wuji/packages/maf-worker/.venv/lib/python3.13/site-packages/agent_framework/_middleware.py", line 1370, in current_handler
+    await self._middleware[index].process(context, create_next_handler(index + 1))
+  File "/opt/wuji/packages/maf-worker/.venv/lib/python3.13/site-packages/agent_framework/_sessions.py", line 1683, in process
+    await call_next()
+  File "/opt/wuji/packages/maf-worker/.venv/lib/python3.13/site-packages/agent_framework/_middleware.py", line 1364, in final_wrapper
+    context.result = await context.result
+                     ^^^^^^^^^^^^^^^^^^^^
+  File "/opt/wuji/packages/maf-worker/.venv/lib/python3.13/site-packages/agent_framework/observability.py", line 2162, in _get_response
+    await super_get_response(
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<7 lines>...
+    ),
+    ^
+  File "/opt/wuji/packages/maf-worker/.venv/lib/python3.13/site-packages/agent_framework_openai/_chat_completion_client.py", line 711, in _get_response
+    raise ChatClientException(
+    ...<5 lines>...
+    ) from ex
+agent_framework.exceptions.ChatClientException: ("<class 'agent_framework_openai._chat_completion_client.OpenAIChatCompletionClient'> service failed to complete the prompt: Connection error.", APIConnectionError('Connection error.'))
+Wuji Worker stopped without a confirmed completion (step=run_assignment, error=MiddlewareFailure).
+exit_code 1 run 458e429b-5843-45f6-90a5-004d94191c2f
+=== 658cd5585d729ec61d39ec67a50c71a5cb74624d9a0eaa6270bc30bbcc3f4889
+/opt/wuji/packages/maf-worker/src/wuji_maf_worker/history.py:134: ExperimentalWarning: [HARNESS] AgentFileStore is experimental and may change or be removed in future versions without notice.
+Wuji Worker stopped without a confirmed completion (step=run_assignment, status=409, error=HostTransportError).
+exit_code 1 run 8f65c1cc-8c7c-4c41-9605-3bfb96226cd2
