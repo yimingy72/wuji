@@ -22,6 +22,39 @@ from wuji_core.http.auth import TokenVerifier
 from wuji_maf_worker.context import ContextBundle
 
 
+ERROR_CODE_MAX_BYTES = 4096
+
+
+async def _error_code(response):
+    """Read the frozen error code of one rejected Host response, bounded.
+
+    Returns None for any body that is not a bounded error envelope: a hostile,
+    oversized or non-JSON response must not add text to the operator signal.
+    """
+
+    chunks, size = [], 0
+    try:
+        async for chunk in response.aiter_raw():
+            size += len(chunk)
+            if size > ERROR_CODE_MAX_BYTES:
+                return None
+            chunks.append(chunk)
+    except (httpx.HTTPError, OSError):
+        return None
+    if response.headers.get("content-encoding", "identity") != "identity":
+        return None
+    try:
+        envelope = strict_json_loads(b"".join(chunks))
+    except ValueError:
+        return None
+    code = envelope.get("code") if isinstance(envelope, dict) else None
+    if not isinstance(code, str) or not code or len(code) > 64:
+        return None
+    if not code.isascii() or not code.replace("_", "").isalnum() or not code.isupper():
+        return None
+    return code
+
+
 class HostTransportError(ValueError):
     """Sanitized failure; request bodies, credentials and remote text stay private."""
 
@@ -155,12 +188,17 @@ class RemoteWorkerHost:
                 "POST", self.origin + "/internal/v2/worker-host/" + action, content=body,
             ) as response:
                 if response.status_code != 200:
-                    # Bounded classification only: the HTTP status is stable,
-                    # and reading the body inside this streaming context would
-                    # disturb the success path the child depends on.  The body,
-                    # headers, request and bearer stay private.
+                    # Bounded classification: the HTTP status is stable, and a
+                    # rejected response carries the frozen ErrorEnvelope code
+                    # that names the refusing predicate. Only that bounded code
+                    # is read, and only on this path: the success stream is never
+                    # consumed here, and the body, headers, request and bearer
+                    # stay private.
                     error = HostTransportError("Host request rejected or unresolved")
                     error.status_code = response.status_code
+                    code = await _error_code(response)
+                    if code is not None:
+                        error.code = code
                     raise error
                 if response.headers.get("content-encoding", "identity") != "identity":
                     raise HostTransportError("Host content encoding is unsupported")

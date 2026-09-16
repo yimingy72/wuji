@@ -631,6 +631,33 @@ def test_actual_supervisor_child_waits_for_start_and_receiver_replays_bytes(
         )
 
 
+def test_host_error_code_is_bounded_or_absent():
+    """A rejected Host response names its predicate, or nothing at all."""
+
+    import asyncio
+
+    from wuji_maf_worker.remote_host import _error_code
+
+    class Response:
+        def __init__(self, body, *, encoding="identity"):
+            self._body = body
+            self.headers = {"content-encoding": encoding}
+
+        async def aiter_raw(self):
+            yield self._body
+
+    def read(body, **kwargs):
+        return asyncio.run(_error_code(Response(body, **kwargs)))
+
+    assert read(b'{"code":"STALE_EXECUTION","message":"private"}') == "STALE_EXECUTION"
+    assert read(b'{"code":"INPUT_DIGEST_CONFLICT"}') == "INPUT_DIGEST_CONFLICT"
+    assert read(b'{"code":"lowercase"}') is None
+    assert read(b"not json") is None
+    assert read(b'{"code":"' + b"A" * 200 + b'"}') is None
+    assert read(b'{"code":"STALE_EXECUTION"}', encoding="gzip") is None
+    assert read(b'{"code":"STALE_EXECUTION"}' + b" " * 8192) is None
+
+
 def test_unresolved_delivery_is_retried_only_after_an_authoritative_absence(tmp_path):
     """A send without a receipt is repeated only in a bounded, quiet window."""
 
