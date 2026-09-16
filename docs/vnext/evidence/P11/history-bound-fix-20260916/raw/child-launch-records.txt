@@ -1,0 +1,21 @@
+# $ kubectl -n wuji-vnext-test exec wuji-task-v-98e19a379a5cd7c45f64325cf9f05639-a1 -c agent -- sh -c 'for d in inbox/launches/*; do ...; done'
+# per-launch: run identity from process.json, child-error tail and bounded stderr
+== 0b5806b85248495cb35ba28a7418f6bfeb9d0a460499b272675176e45ac617f9
+"agent_run_id":"c3e30b1f-9fe7-4386-856e-907034fe77ca"
+"exit_code":0
+"reason":"exited"
+-- child-error tail:
+(no private failure: boundary published)
+-- stderr tail:
+/opt/wuji/packages/maf-worker/src/wuji_maf_worker/history.py:134: ExperimentalWarning: [HARNESS] AgentFileStore is experimental and may change or be removed in future versions without notice.
+== 23961baf4770da83a586d67794a1675c95fbde28a4deba6f8e2421c63d7f748e
+"agent_run_id":"a7fd3791-cca3-436b-8038-1227dd7e8b24"
+"exit_code":1
+"reason":"exited"
+-- child-error tail:
+  File "/opt/wuji/packages/maf-worker/src/wuji_maf_worker/tools.py", line 399, in process
+    raise _refusal_failure(refusal) from refusal
+agent_framework._middleware.MiddlewareFailure: Wuji ToolGate refused the invocation
+-- stderr tail:
+agent_framework.exceptions.ChatClientException: ("<class 'agent_framework_openai._chat_completion_client.OpenAIChatCompletionClient'> service failed to complete the prompt: Connection error.", APIConnectionError('Connection error.'))
+Wuji Worker stopped without a confirmed completion (step=run_assignment, code=LIMIT_BLOCKED, status=429, error=MiddlewareFailure).

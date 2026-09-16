@@ -30,6 +30,10 @@
   窗口内 0 次 401/URLError；同一 Run 的 child 仍以 `native root exceeds the fixed object bound` 失败，
   作为下一个缺陷保留。
 
+- [History bound fix](history-bound-fix-20260916/README.md): 发布 `harness.*.deployment.v2` 把 Session 对象上限
+  从固定 16 KiB 改为由准入限额派生（32 KiB / 128 KiB），并让越界错误点名 root 与字节数；新 Task 的 `reason`
+  路径因此产出 **accepted** 结果并 `done`，`explore` 仍保留已知的 `LIMIT_BLOCKED` 失败。
+
 Still open: owner tooling that derives admission rows from deployment configuration, a runtime attempt
 that carries no worker-assignment dispatch finding, Stage B branches 2 and 3 on their own fixtures, and
 the multi-Task runtime host that would prove one Task is not stopped with another.

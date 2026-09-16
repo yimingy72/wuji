@@ -1,0 +1,23 @@
+# $ psql (migration role)
+
+# runs of the new Task
+a7fd3791|exited|exited|incomplete|obs=616f482ad57641c3ac70
+c3e30b1f|exited|exited|accepted|obs=8e5399d38013a9281c6e
+
+# work items
+explore|failed|process_failure
+reason|done|-
+
+# observations
+c3e30b1f|started|2026-09-16 12:03:10.096+00
+a7fd3791|started|2026-09-16 12:03:11.105+00
+a7fd3791|exited|2026-09-16 12:03:23.613+00
+c3e30b1f|exited|2026-09-16 12:03:29.355+00
+
+# the accepted result of the reason run
+submissions=1
+receipts=accepted
+
+# the profile actually published for the new Task
+harness.reason.deployment.v2
+{"max_objects": 32, "max_messages": 128, "max_total_bytes": 131072, "max_object_bytes": 32768, "max_reference_depth": 8, "max_pending_approvals": 4}

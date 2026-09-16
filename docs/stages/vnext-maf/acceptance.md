@@ -80,6 +80,8 @@
 
 - attempt 凭据到期续集：孤儿 Run 结算与 attempt 3 真实派发（2026-09-16，代码 `3307a14`，迁移头 `vnext_0021_p05_environment_settlement`）：迁移 0021 + `ControlService._settle` 让"环境已消失且无任何执行证据"的 Run 有界投影为 `incomplete` 并以 `environment_stopped_before_observation` 收口，runtime 只在 Pod 对象确认不存在时提供该证据。真实 K8s：attempt 2 的 `9e574eb0` 结算后 `roll_runtime_attempt` 放行，刷新 receiver bearer 并滚动到 attempt 3 后，新 Run `993bea1b` 被真实投递（`PUT 200`、22×`GET 200`、0 次 401/URLError）、观测到 `started`/`exited`；公开命令路由的幂等重放返回同一 `request_id`（202）。**未通过**：该 child 以 `native root exceeds the fixed object bound` 退出，未产出 accepted 结果（队列 T6）；T2 仓库内凭据刷新命令仍缺。见[证据包](../../vnext/evidence/P11/attempt3-recovery-20260916/README.md)。
 
+- 会话边界超限修复（2026-09-16，代码 `7ff1281`，含 `1ffb8a3`）：`published_session_profiles` 按准入限额派生 Session 界限并以新身份 `harness.<kind>.deployment.v2` 发布（旧 Task 继续钉 v1，runtime host 与共享 ConfigMap 都拒绝同 ref 不同字节）；`NativeSessionAdapter._bounded` 点名超限 root 与字节数。真实 K8s：公开入口新建的 Task `083f6134-…` 首次 attempt 的 `reason` run `c3e30b1f` 两次模型调用后 `exit_code=0`、无私有失败文件、`result_receipt=accepted`、work `done`；窗口内 `PUT 200×2`、`GET 200×26`、0 次 401/URLError。**未覆盖**：同 Task 的 explore run 仍因工作区互斥 `LIMIT_BLOCKED/429` 与一次模型门连接错误收口 `failed/process_failure`（队列 T7）；长会话压缩/记忆与凭据刷新入库仍待办。见[证据包](../../vnext/evidence/P11/history-bound-fix-20260916/README.md)。
+
 运行中仅用自建夹具；HTTP/UI成果提供完整交互及截图，离线记录按其原生媒介保留。自行检查与代理审查如实区分；不宣称第三方认证。P13 纯片由主代理委派的 SOL/xhigh 执行，不冒称主代理独立测试。记录文档的提交与被测代码提交分开。
 
 本次 P07/P14 状态更新仅修正实施状态文档的落点，复用上述已绑定代码、测试、截图与审查证据，不重跑验证。导入源包 `docs/vnext/ACCEPTANCE.md` 保持原始字节。

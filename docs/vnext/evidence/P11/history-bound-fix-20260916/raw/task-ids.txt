@@ -1,0 +1,5 @@
+# Task created through the public route (POST /api/v2/tasks) and launched with harness.*.deployment.v2
+083f6134-46bd-4237-9cdc-0c88a39da3d0
+
+# the earlier Task whose attempt 1 froze the v1-named profile with wider bounds and never wired
+dc8a9f7f-4731-41c2-93f9-2dd4cf1805d4

@@ -37,11 +37,15 @@ Task A attempt 2 的第三个 Run（`9e574eb0`）从未被投递成功：receive
    `terminal_reason=environment_stopped_before_observation` 收口；runtime 只在 Pod 对象确认不存在时
    上报该证据。真实集群：attempt 2 的 `9e574eb0` 收口，Task 成功滚动到 attempt 3，随后新 Run 真实投递并
    执行（见[证据包](../../vnext/evidence/P11/attempt3-recovery-20260916/README.md)）。
-6. **T6 会话边界导出超限。未开始（本次实测发现）。** 同一 Run 的 MAF child 以
-   `ValueError: native root exceeds the fixed object bound`（`wuji_maf_worker/sessions.py:101`，
-   profile 的 `max_object_bytes=16384`）结束，`exit_code=1`、`result_state=incomplete`，因此这条路径
-   还不能产出 accepted 结果。下一步先定位哪个 root（history/provider/memory）超限，再决定是收敛导出内容
-   还是调整已发布 profile 的有界值。
+6. **T6 会话边界导出超限。已交付并实测（`1ffb8a3` + `7ff1281`）。** Session 对象/总界限改为由准入限额派生
+   （32 KiB / 128 KiB，仍封顶 64 KiB / 256 KiB），以新身份 `harness.<kind>.deployment.v2` 发布（runtime host
+   与共享 ConfigMap 都拒绝同 ref 不同字节，已激活 Task 继续钉 v1）；越界错误点名 root 与两个字节数。真实 K8s：
+   通过公开创建入口新建的 Task `083f6134-…` 首次 attempt 的 `reason` run `c3e30b1f` `exit_code=0`、无私有失败
+   文件、结果回执 `accepted`、work `done`；同窗口 0 次 401/URLError。见
+   [证据包](../../vnext/evidence/P11/history-bound-fix-20260916/README.md)。
+7. **T7 explore 路径的工作区互斥与模型门连接。未开始。** 同一 Task 的 explore run 仍以
+   `code=LIMIT_BLOCKED, status=429, error=MiddlewareFailure`（工作区资源互斥）叠加一次模型门连接错误收口
+   `failed/process_failure`，未产出 accepted 结果。
 
 ### T5 已核对的接口事实（实现前不再猜）
 
