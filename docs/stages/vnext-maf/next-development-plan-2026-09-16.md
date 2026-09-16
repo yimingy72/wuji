@@ -43,9 +43,13 @@ Task A attempt 2 的第三个 Run（`9e574eb0`）从未被投递成功：receive
    通过公开创建入口新建的 Task `083f6134-…` 首次 attempt 的 `reason` run `c3e30b1f` `exit_code=0`、无私有失败
    文件、结果回执 `accepted`、work `done`；同窗口 0 次 401/URLError。见
    [证据包](../../vnext/evidence/P11/history-bound-fix-20260916/README.md)。
-7. **T7 explore 路径的工作区互斥与模型门连接。未开始。** 同一 Task 的 explore run 仍以
-   `code=LIMIT_BLOCKED, status=429, error=MiddlewareFailure`（工作区资源互斥）叠加一次模型门连接错误收口
-   `failed/process_failure`，未产出 accepted 结果。
+7. **T7 并发只读。已交付并实测（`427882b`）。** 在途工具限额改为每 Run 计数；声明只读的工作区工具按 Run
+   共享路径（`…:read:<run>`），只与裸路径独占者冲突，写者仍用裸键并排除读者。真实 K8s：新建 Task
+   `fc2ff1b0-…` 的 reason 与 explore 两个 Run 同时读同一路径，均 `exit_code=0`、结果均 `accepted`、work item
+   均 `done`。见[证据包](../../vnext/evidence/P11/concurrent-read-fix-20260916/README.md)。
+8. **T2 凭据刷新入库。仍未开始。** 目前仍靠仓库外脚本，且 runtime 重启时过期 bearer 会直接拒绝启动。
+9. **T8 写入路径与更广并发。未开始。** 写者键的"排除读者"分支只有单元语义；多 Task 并发、长会话压缩/记忆
+   与 P12 完成面仍未验证。
 
 ### T5 已核对的接口事实（实现前不再猜）
 

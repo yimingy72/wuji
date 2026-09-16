@@ -1,0 +1,52 @@
+<!doctype html><meta charset="utf-8"><style>
+body{background:#0b1020;color:#d6e2ff;font:11px/1.32 "SF Mono",Menlo,monospace;padding:16px;white-space:pre}
+h1{font:600 14px/1.3 "SF Mono",Menlo,monospace;color:#ffd479;margin:0 0 10px}
+</style><h1>two Runs of one Task read the same path concurrently: both accepted, both done</h1># $ kubectl -n wuji-vnext-test exec wuji-task-v-f32e7c0c0c0ba7bbeffd4b9625925623-a1 -c agent -- sh -c &#x27;for d in inbox/launches/*; do ...; done&#x27;
+# both Runs of Task fc2ff1b0 published a boundary: no private failure file, exit_code=0
+== 74166da19aad8d06158ca19fbc7242b0ddb8988aa99cd4a9ad4dac440b2cd90d
+&quot;agent_run_id&quot;:&quot;2ccd9c74-f9b2-443c-8998-dd3dc3737c9f&quot;
+&quot;exit_code&quot;:0
+-- no private failure: boundary published
+-- stderr tail:
+/opt/wuji/packages/maf-worker/src/wuji_maf_worker/history.py:134: ExperimentalWarning: [HARNESS] AgentFileStore is experimental and may change or be removed in future versions without notice.
+== c14dc7ff5409b2c1d746dadcdee958575012849de4dbb829cc91344a63f37598
+&quot;agent_run_id&quot;:&quot;bd912879-2941-41d8-befb-6c8c6356055c&quot;
+&quot;exit_code&quot;:0
+-- no private failure: boundary published
+-- stderr tail:
+/opt/wuji/packages/maf-worker/src/wuji_maf_worker/history.py:134: ExperimentalWarning: [HARNESS] AgentFileStore is experimental and may change or be removed in future versions without notice.
+
+# $ psql (migration role)
+
+# runs and work items of Task fc2ff1b0 (both accepted, both done)
+2ccd9c74|exited|exited|accepted
+bd912879|exited|exited|accepted
+explore|done|-
+reason|done|-
+
+# observations
+bd912879|started|2026-09-16 12:39:27.177+00
+2ccd9c74|started|2026-09-16 12:39:28.272+00
+2ccd9c74|exited|2026-09-16 12:39:48.782+00
+bd912879|exited|2026-09-16 12:39:49.613+00
+
+# result receipts (joined through the submission that owns the run)
+2ccd9c74|accepted
+bd912879|accepted
+
+# every workspace resource claim is per Run (the sharing fix)
+2ccd9c74|workspace:pod-environment-fc2ff1b0-a578-4131-9fc3-4a7a80c74442-a1:version.txt:read:2ccd9c74-f9b2-443c-8998-dd3dc3737c9f|active=false
+bd912879|workspace:pod-environment-fc2ff1b0-a578-4131-9fc3-4a7a80c74442-a1:version.txt:read:bd912879-2941-41d8-befb-6c8c6356055c|active=false
+
+# $ kubectl -n wuji-vnext-test logs deploy/runtime --since=6m --timestamps | grep runtime_dispatch_transport | head -6
+2026-09-16T12:39:26.522867007Z {&quot;event&quot;: &quot;runtime_dispatch_transport&quot;, &quot;method&quot;: &quot;GET&quot;, &quot;status&quot;: 404}
+2026-09-16T12:39:27.184410549Z {&quot;event&quot;: &quot;runtime_dispatch_transport&quot;, &quot;method&quot;: &quot;PUT&quot;, &quot;status&quot;: 200}
+2026-09-16T12:39:27.252330424Z {&quot;event&quot;: &quot;runtime_dispatch_transport&quot;, &quot;method&quot;: &quot;GET&quot;, &quot;status&quot;: 404}
+2026-09-16T12:39:28.347085466Z {&quot;event&quot;: &quot;runtime_dispatch_transport&quot;, &quot;method&quot;: &quot;PUT&quot;, &quot;status&quot;: 200}
+2026-09-16T12:39:28.667694425Z {&quot;event&quot;: &quot;runtime_dispatch_transport&quot;, &quot;method&quot;: &quot;GET&quot;, &quot;status&quot;: 200}
+2026-09-16T12:39:29.063217550Z {&quot;event&quot;: &quot;runtime_dispatch_transport&quot;, &quot;method&quot;: &quot;GET&quot;, &quot;status&quot;: 200}
+
+# every transport event of the window, counted by method+status
+  28 &quot;method&quot;: &quot;GET&quot;, &quot;status&quot;: 200
+   2 &quot;method&quot;: &quot;GET&quot;, &quot;status&quot;: 404
+   2 &quot;method&quot;: &quot;PUT&quot;, &quot;status&quot;: 200

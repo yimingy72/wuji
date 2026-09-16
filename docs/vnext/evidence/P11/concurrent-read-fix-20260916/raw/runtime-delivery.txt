@@ -1,0 +1,12 @@
+# $ kubectl -n wuji-vnext-test logs deploy/runtime --since=6m --timestamps | grep runtime_dispatch_transport | head -6
+2026-09-16T12:39:26.522867007Z {"event": "runtime_dispatch_transport", "method": "GET", "status": 404}
+2026-09-16T12:39:27.184410549Z {"event": "runtime_dispatch_transport", "method": "PUT", "status": 200}
+2026-09-16T12:39:27.252330424Z {"event": "runtime_dispatch_transport", "method": "GET", "status": 404}
+2026-09-16T12:39:28.347085466Z {"event": "runtime_dispatch_transport", "method": "PUT", "status": 200}
+2026-09-16T12:39:28.667694425Z {"event": "runtime_dispatch_transport", "method": "GET", "status": 200}
+2026-09-16T12:39:29.063217550Z {"event": "runtime_dispatch_transport", "method": "GET", "status": 200}
+
+# every transport event of the window, counted by method+status
+  28 "method": "GET", "status": 200
+   2 "method": "GET", "status": 404
+   2 "method": "PUT", "status": 200

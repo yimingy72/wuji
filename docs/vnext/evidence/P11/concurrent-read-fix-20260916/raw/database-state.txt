@@ -1,0 +1,21 @@
+# $ psql (migration role)
+
+# runs and work items of Task fc2ff1b0 (both accepted, both done)
+2ccd9c74|exited|exited|accepted
+bd912879|exited|exited|accepted
+explore|done|-
+reason|done|-
+
+# observations
+bd912879|started|2026-09-16 12:39:27.177+00
+2ccd9c74|started|2026-09-16 12:39:28.272+00
+2ccd9c74|exited|2026-09-16 12:39:48.782+00
+bd912879|exited|2026-09-16 12:39:49.613+00
+
+# result receipts (joined through the submission that owns the run)
+2ccd9c74|accepted
+bd912879|accepted
+
+# every workspace resource claim is per Run (the sharing fix)
+2ccd9c74|workspace:pod-environment-fc2ff1b0-a578-4131-9fc3-4a7a80c74442-a1:version.txt:read:2ccd9c74-f9b2-443c-8998-dd3dc3737c9f|active=false
+bd912879|workspace:pod-environment-fc2ff1b0-a578-4131-9fc3-4a7a80c74442-a1:version.txt:read:bd912879-2941-41d8-befb-6c8c6356055c|active=false

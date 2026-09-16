@@ -34,6 +34,10 @@
   从固定 16 KiB 改为由准入限额派生（32 KiB / 128 KiB），并让越界错误点名 root 与字节数；新 Task 的 `reason`
   路径因此产出 **accepted** 结果并 `done`，`explore` 仍保留已知的 `LIMIT_BLOCKED` 失败。
 
+- [Concurrent workspace read](concurrent-read-fix-20260916/README.md): 在途工具限额改为每 Run 计数、只读工作区工具
+  按 Run 共享路径后，同一 Task 的 reason 与 explore 两个 Run 同时读 `version.txt`，两者 `exit_code=0`、
+  结果均 `accepted`、work item 均 `done`。
+
 Still open: owner tooling that derives admission rows from deployment configuration, a runtime attempt
 that carries no worker-assignment dispatch finding, Stage B branches 2 and 3 on their own fixtures, and
 the multi-Task runtime host that would prove one Task is not stopped with another.

@@ -1,0 +1,14 @@
+# $ kubectl -n wuji-vnext-test exec wuji-task-v-f32e7c0c0c0ba7bbeffd4b9625925623-a1 -c agent -- sh -c 'for d in inbox/launches/*; do ...; done'
+# both Runs of Task fc2ff1b0 published a boundary: no private failure file, exit_code=0
+== 74166da19aad8d06158ca19fbc7242b0ddb8988aa99cd4a9ad4dac440b2cd90d
+"agent_run_id":"2ccd9c74-f9b2-443c-8998-dd3dc3737c9f"
+"exit_code":0
+-- no private failure: boundary published
+-- stderr tail:
+/opt/wuji/packages/maf-worker/src/wuji_maf_worker/history.py:134: ExperimentalWarning: [HARNESS] AgentFileStore is experimental and may change or be removed in future versions without notice.
+== c14dc7ff5409b2c1d746dadcdee958575012849de4dbb829cc91344a63f37598
+"agent_run_id":"bd912879-2941-41d8-befb-6c8c6356055c"
+"exit_code":0
+-- no private failure: boundary published
+-- stderr tail:
+/opt/wuji/packages/maf-worker/src/wuji_maf_worker/history.py:134: ExperimentalWarning: [HARNESS] AgentFileStore is experimental and may change or be removed in future versions without notice.
