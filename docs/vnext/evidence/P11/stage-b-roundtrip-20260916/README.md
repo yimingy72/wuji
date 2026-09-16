@@ -110,7 +110,26 @@ handler swallowed it into an opaque `MiddlewareFailure`. The child's bounded lin
 now fakes the buffered shape, so a streaming implementation cannot pass. The second run above shows the
 corrected line. Both runs are kept: `raw/` is the failing one, `raw2/` the fixed one.
 
-## 4. Limits of this evidence
+## 4. Stage B branch 2 (partial start failure) against the same run
+
+Branch 2 asks for a correct exit and a no-operation/bounded settlement when the
+child never performs a business tool call, and warns against proving that with a
+bare `COUNT(*)=0`. This run shows the platform's own basis instead: the Explore
+Run's tool request was refused before any operation was registered
+(`request.rejected code=LIMIT_BLOCKED`, 05:46:58.647), and the Run then settled as
+
+```text
+912700cd-6300-477f-a6c7-8e9365957742|settled|{"basis":"run_closed_operation_set","open_operations":{"model_calls":0,"resource_reservations":0,"tool_attempts":0},"producer":"p06"}
+```
+
+That basis is derived from durable records under the Task/Run locks, not from a
+sampled count, and the Work item still reached a bounded terminal
+`failed/process_failure`. The 2026-09-16 round-trip §7 recorded the same basis for
+a Run that never attempted a tool call at all. A dedicated fixture whose child
+emits no tool call from the start is still owed; this is the mechanism, not that
+fixture.
+
+## 5. Limits of this evidence
 
 - Only branch 1 of Stage B is covered here (a created Task reaching an accepted result and a real exit).
   Branch 2 (a child that emits no business tool call) and branch 3 (cancel of a running Task) still need
