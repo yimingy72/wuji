@@ -815,10 +815,24 @@ def wire(binding, *, config, namespace, agent_auth_dir, kali_auth_dir, deploymen
         actions[SERVICE_NAMES[role]] = replace_service_selector(
             core, SERVICE_NAMES[role], task_config.identity_labels, namespace=namespace)
 
-    def runtime_update(document):
+    def runtime_tasks(document):
+        """The Task entries this host must serve, in either published shape."""
+
         pod_runtime = document.get("pod_runtime")
         if not isinstance(pod_runtime, dict):
             raise DomainError("INVALID_REFERENCE", 422)
+        tasks = pod_runtime.get("tasks")
+        if tasks is None:
+            if not isinstance(pod_runtime.get("task_config"), dict):
+                raise DomainError("INVALID_REFERENCE", 422)
+            tasks = [{"task_config": pod_runtime["task_config"],
+                      "receiver": pod_runtime.get("receiver")}]
+        if not isinstance(tasks, list) or not tasks:
+            raise DomainError("INVALID_REFERENCE", 422)
+        return pod_runtime, tasks
+
+    def runtime_update(document):
+        pod_runtime, tasks = runtime_tasks(document)
         expected_task = runtime_config_document(binding)
         expected_receiver = {
             "receiver_id": binding["receiver_id"],
@@ -827,15 +841,31 @@ def wire(binding, *, config, namespace, agent_auth_dir, kali_auth_dir, deploymen
             "credential_template_ref": "deployment-worker-v1",
             "model_mode": "synthetic",
         }
+        # Several Tasks may share one runtime host: this attempt replaces only
+        # its own entry, and every other Task keeps its published binding.
+        merged, replaced = [], False
+        for entry in tasks:
+            if not isinstance(entry, dict) or not isinstance(entry.get("task_config"), dict):
+                raise DomainError("INVALID_REFERENCE", 422)
+            if entry["task_config"].get("task_id") == binding["task_id"]:
+                replaced = True
+                entry = {"task_config": expected_task, "receiver": expected_receiver}
+            merged.append(entry)
+        if not replaced:
+            merged.append({"task_config": expected_task, "receiver": expected_receiver})
+        task_ids = sorted({entry["task_config"]["task_id"] for entry in merged})
         changed = (
-            document.get("task_ids") != [binding["task_id"]]
-            or pod_runtime.get("task_config") != expected_task
-            or pod_runtime.get("receiver") != expected_receiver
+            bool(document.get("task_ids") != task_ids)
+            or pod_runtime.get("tasks") != merged
+            or "task_config" in pod_runtime
+            or "receiver" in pod_runtime
             or document.get("session_transport") is not True
         )
-        document["task_ids"] = [binding["task_id"]]
-        pod_runtime["task_config"] = expected_task
-        pod_runtime["receiver"] = expected_receiver
+        document["task_ids"] = task_ids
+        # The legacy single-Task keys are migrated away, not kept beside the list.
+        pod_runtime.pop("task_config", None)
+        pod_runtime.pop("receiver", None)
+        pod_runtime["tasks"] = merged
         # The frozen definition carries `wuji.harness.session.v1` profiles, so
         # the runtime must expose the Session transport that resolves them;
         # without it every resolve answers CAPABILITY_UNAVAILABLE.
@@ -848,26 +878,39 @@ def wire(binding, *, config, namespace, agent_auth_dir, kali_auth_dir, deploymen
     def runtime_profiles_update(document):
         if not isinstance(document, list) or not document:
             raise DomainError("INVALID_REFERENCE", 422)
-        expected = json.loads(canonical_json_bytes([
+        expected = [
             snapshot for _kind, snapshot in sorted(binding["worker_profiles"].items())
-        ]))
-        if document == expected:
+        ]
+        # Profiles are keyed by (ref, revision) and shared by the Tasks served
+        # here. An identical key with different bytes is a real conflict: it must
+        # be refused rather than silently replacing another Task's profile.
+        merged = list(document)
+        positions = {
+            (item.get("ref"), item.get("revision")): index
+            for index, item in enumerate(document)
+            if isinstance(item, dict)
+        }
+        changed = False
+        for snapshot in expected:
+            key = (snapshot.get("ref"), snapshot.get("revision"))
+            if key not in positions:
+                merged.append(snapshot)
+                positions[key] = len(merged) - 1
+                changed = True
+                continue
+            if merged[positions[key]] != snapshot:
+                raise DomainError("INPUT_DIGEST_CONFLICT", 409)
+        if not changed:
             return "unchanged"
-        document[:] = expected
+        document[:] = merged
         return "replaced"
 
-    # The runtime host only resolves a Task profile whose exact published
-    # snapshot it holds, so the attempt's Session profiles are published with
-    # the same bytes that were frozen into the definition.
     actions["runtime-profiles"] = patch_config_data_json(
         core, "runtime-config", "profiles.json", runtime_profiles_update, namespace=namespace)
 
     def gates_update(document):
         executors = document.get("executors")
-        if not isinstance(executors, list) or len(executors) != 1:
-            raise DomainError("INVALID_REFERENCE", 422)
-        binding_document = executors[0].get("binding")
-        if not isinstance(binding_document, dict):
+        if not isinstance(executors, list) or not executors:
             raise DomainError("INVALID_REFERENCE", 422)
         expected = {
             "tenant_id": binding["tenant_id"],
@@ -877,8 +920,26 @@ def wire(binding, *, config, namespace, agent_auth_dir, kali_auth_dir, deploymen
             "receiver_id": binding["receiver_id"],
             "environment_ref": binding["environment_ref"],
         }
-        changed = any(binding_document.get(key) != value for key, value in expected.items())
-        binding_document.update(expected)
+        # One entry per Task: a second Task keeps its own executor binding.
+        changed, replaced = False, False
+        for entry in executors:
+            binding_document = entry.get("binding") if isinstance(entry, dict) else None
+            if not isinstance(binding_document, dict):
+                raise DomainError("INVALID_REFERENCE", 422)
+            if binding_document.get("task_id") != binding["task_id"]:
+                continue
+            replaced = True
+            if any(binding_document.get(key) != value for key, value in expected.items()):
+                changed = True
+                binding_document.update(expected)
+        if not replaced:
+            executors.append({
+                "binding": expected,
+                "base_url": executors[0].get("base_url"),
+                "gate_token_file": executors[0].get("gate_token_file"),
+                "collector_token_file": executors[0].get("collector_token_file"),
+            })
+            changed = True
         return "replaced" if changed else "unchanged"
 
     actions["gates-config"] = patch_deployment_json(core, "gates-config", gates_update,

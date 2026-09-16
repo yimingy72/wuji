@@ -182,3 +182,61 @@ def test_scan_cursor_continues_inside_a_task_and_wraps():
         RuntimeDispatcher._pending_for, "__wrapped__"
     ) else RuntimeDispatcher._pending_for
     assert source is not None
+
+
+def test_a_restricted_start_gate_skips_only_that_tasks_new_dispatch():
+    """A Task whose environment is not ready keeps being reconciled.
+
+    The restriction exists for hosts that serve several Tasks: it bounds *new*
+    starts per Task and never narrows reconciliation, or a stop on one Task
+    would strand the Runs of another.
+    """
+
+    outbox = FakeOutbox({"op-a": observed("run-a"), "op-b": observed("run-b")})
+    reconciler = FakeReconciler()
+    scheduler = dispatcher(
+        tasks=("task-a", "task-b"),
+        outbox=outbox,
+        reconciler=reconciler,
+        pending=(record("task-a", "op-a"), record("task-b", "op-b")),
+    )
+    scheduler._reconcile_candidates = lambda task_id, limit: (
+        PendingReconcile(
+            task_id=task_id,
+            operation_id="reconcile-" + task_id,
+            run=SimpleNamespace(identity=SimpleNamespace(agent_run_id="old-" + task_id)),
+            receiver_enabled=False,
+            process_state="exited",
+            work_state="reconciling",
+        ),
+    )
+    assert {item.task_id for item in scheduler.pending()} == {"task-a", "task-b"}
+
+    scheduler.restrict_starts(("task-a",))
+
+    assert {item.task_id for item in scheduler.pending()} == {"task-a"}
+    scheduler.deliver_pending()
+    assert [call[0] for call in outbox.calls] == ["task-a"]
+    # Reconciliation still covers the Task that may not start.
+    scheduler.reconcile_pending()
+    assert sorted(reconciler.reconciled) == ["old-task-a", "old-task-b"]
+
+    scheduler.restrict_starts(None)
+    assert {item.task_id for item in scheduler.pending()} == {"task-a", "task-b"}
+
+
+def test_a_start_restriction_must_name_authorized_tasks_only():
+    scheduler = dispatcher(
+        tasks=("task-a", "task-b"), outbox=FakeOutbox({}), reconciler=FakeReconciler()
+    )
+
+    with pytest.raises(ValueError):
+        scheduler.restrict_starts(("task-c",))
+    with pytest.raises(ValueError):
+        scheduler.restrict_starts(("task-a", "task-a"))
+    with pytest.raises(ValueError):
+        scheduler.restrict_starts(("",))
+
+    scheduler.restrict_starts(())
+    assert scheduler.pending() == ()
+    assert scheduler.start_allowed("task-a") is False

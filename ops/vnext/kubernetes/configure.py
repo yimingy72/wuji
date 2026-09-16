@@ -78,6 +78,36 @@ def _read_json(path):
         raise ValueError(f"invalid configuration JSON: {path.name}") from error
 
 
+def _runtime_task_entry(document):
+    """The single bootstrap Task entry of one runtime deployment payload.
+
+    The runtime host may publish several Tasks (`pod_runtime.tasks`); this
+    command owns exactly the bootstrap template, so anything else is refused
+    rather than silently rewritten. The earlier `task_config`/`receiver` pair
+    stays readable for a ConfigMap that has not been refreshed yet.
+    """
+
+    pod = document.get("pod_runtime") if isinstance(document, dict) else None
+    if not isinstance(pod, dict):
+        return None
+    tasks = pod.get("tasks")
+    if isinstance(tasks, list):
+        if len(tasks) != 1 or not isinstance(tasks[0], dict):
+            raise ValueError("bootstrap runtime configuration must carry exactly one Task")
+        return tasks[0]
+    if isinstance(pod.get("task_config"), dict):
+        return {"task_config": pod["task_config"], "receiver": pod.get("receiver")}
+    return None
+
+
+def _set_runtime_task(document, task_config):
+    pod = document["pod_runtime"]
+    entry = _runtime_task_entry(document) or {}
+    pod.pop("task_config", None)
+    pod.pop("receiver", None)
+    pod["tasks"] = [{"task_config": task_config, "receiver": entry.get("receiver")}]
+
+
 def _without_images(value):
     result = deepcopy(value)
     result.pop("agent_image", None)
@@ -155,15 +185,15 @@ def refresh_images(root, state, images):
         raise ValueError("Task owner binding changed")
     runtime_path = configuration / "runtime-deployment.json"
     runtime = _read_json(runtime_path)
-    runtime_task = ((runtime.get("pod_runtime") or {}).get("task_config"))
-    if not isinstance(runtime_task, dict) or _without_images(runtime_task) != _without_images(base):
+    runtime_entry = _runtime_task_entry(runtime)
+    if runtime_entry is None or _without_images(runtime_entry["task_config"]) != _without_images(base):
         raise ValueError("runtime deployment task-config binding differs")
 
     updated_task = deepcopy(base)
     updated_task.update(agent_image=refs["agent"], kali_image=refs["kali"])
     task_config = _task_runtime_config(updated_task)
     updated_task = deepcopy(updated_task)
-    runtime["pod_runtime"]["task_config"] = deepcopy(updated_task)
+    _set_runtime_task(runtime, deepcopy(updated_task))
 
     runtime_manifest_path = configuration / "runtime-deployment-manifest.json"
     runtime_manifest = _read_json(runtime_manifest_path)
@@ -184,8 +214,8 @@ def refresh_images(root, state, images):
     if not isinstance(runtime_data, dict) or "deployment.json" not in runtime_data:
         raise ValueError("runtime ConfigMap deployment.json is required")
     old_runtime_config = json.loads(runtime_data["deployment.json"])
-    old_runtime_task = ((old_runtime_config.get("pod_runtime") or {}).get("task_config"))
-    if not isinstance(old_runtime_task, dict) or _without_images(old_runtime_task) != _without_images(base):
+    old_runtime_entry = _runtime_task_entry(old_runtime_config)
+    if old_runtime_entry is None or _without_images(old_runtime_entry["task_config"]) != _without_images(base):
         raise ValueError("runtime ConfigMap task-config binding differs")
     runtime_data["deployment.json"] = canonical_json_bytes(runtime).decode()
 
@@ -213,8 +243,8 @@ def refresh_images(root, state, images):
     if not isinstance(platform_runtime_data, dict) or "deployment.json" not in platform_runtime_data:
         raise ValueError("platform runtime ConfigMap deployment.json is required")
     platform_runtime_config = json.loads(platform_runtime_data["deployment.json"])
-    platform_runtime_task = ((platform_runtime_config.get("pod_runtime") or {}).get("task_config"))
-    if not isinstance(platform_runtime_task, dict) or _without_images(platform_runtime_task) != _without_images(base):
+    platform_runtime_entry = _runtime_task_entry(platform_runtime_config)
+    if platform_runtime_entry is None or _without_images(platform_runtime_entry["task_config"]) != _without_images(base):
         raise ValueError("platform runtime ConfigMap task-config binding differs")
     platform_runtime_data["deployment.json"] = canonical_json_bytes(runtime).decode()
 
@@ -419,8 +449,8 @@ def configure(root, state, images):
                 model_gate_url=f"https://gates.{NAMESPACE}.svc:8443/internal/v2/model",tool_gate_url=f"https://gates.{NAMESPACE}.svc:8443/internal/v2/tool-calls",
                 public_commands=True,public_approvals=True,journal_path="/var/lib/wuji/platform/state/dispatch.sqlite3",
                 spool_directory="/var/lib/wuji/platform/state/intake",
-                pod_runtime={"task_config":config_values,"receiver":{"receiver_id":receiver,"receiver_subject":"receiver",
-                    "environment_ref":environment,"credential_template_ref":"deployment-worker-v1","model_mode":"synthetic"},
+                pod_runtime={"tasks":[{"task_config":config_values,"receiver":{"receiver_id":receiver,"receiver_subject":"receiver",
+                    "environment_ref":environment,"credential_template_ref":"deployment-worker-v1","model_mode":"synthetic"}}],
                     "kubernetes_url":"https://kubernetes.default.svc","kubernetes_ca_file":"/var/run/secrets/kubernetes.io/serviceaccount/ca.crt",
                     "kubernetes_token_file":"/var/run/secrets/kubernetes.io/serviceaccount/token"})
         if name=="gates":

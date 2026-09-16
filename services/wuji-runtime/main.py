@@ -33,10 +33,9 @@ def run(
             lifecycle.enter_context(pod_environment)
         while not stop.is_set():
             try:
-                infrastructure = None
                 if pod_environment is not None:
                     try:
-                        infrastructure = pod_environment.ensure()
+                        pod_environment.ensure()
                     except Exception as error:
                         # The environment is also the only source of new starts,
                         # so its own failure must not stop existing Runs from
@@ -48,36 +47,37 @@ def run(
                         else:
                             detail["error"] = type(error).__name__
                         print(json.dumps(detail, sort_keys=True), flush=True)
-                if infrastructure is not None and infrastructure.state != "ready":
-                    # A non-ready Task environment is a bounded operator signal,
-                    # not a silent wait: without it a disabled receiver or stale
-                    # epoch looks like an idle runtime.  New starts stop here;
-                    # reconciliation of existing Runs continues.
-                    detail = {
-                        "event": "runtime_pod_environment",
-                        "state": infrastructure.state,
-                    }
-                    reason = getattr(infrastructure, "reason", None)
-                    if isinstance(reason, str) and 0 < len(reason) <= 64:
-                        detail["reason"] = reason
-                    pod_name = getattr(infrastructure, "pod_name", None)
-                    if isinstance(pod_name, str) and 0 < len(pod_name) <= 253:
-                        detail["pod_name"] = pod_name
-                    print(json.dumps(detail, sort_keys=True), flush=True)
-                    reconciled = dispatcher.reconcile_pending()
-                    print(
-                        json.dumps(
-                            {
-                                "event": "runtime_reconcile_cycle",
-                                "observed": len(reconciled),
-                                "new_start": False,
-                            },
-                            sort_keys=True,
-                        ),
-                        flush=True,
-                    )
-                    stop.wait(interval_seconds)
-                    continue
+                        # Nothing is known to be ready, so only reconciliation runs.
+                        dispatcher.restrict_starts(())
+                    else:
+                        # A Task whose Pod is not ready stops only its *own* new
+                        # starts. Every authorized Task is still reconciled, and a
+                        # non-ready Task is a bounded operator signal rather than a
+                        # silent wait.
+                        for task_id, state in sorted(pod_environment.observations.items()):
+                            reported = getattr(state, "state", state)
+                            if reported == "ready":
+                                continue
+                            detail = {
+                                "event": "runtime_pod_environment",
+                                "task_id": task_id,
+                                "state": str(reported),
+                            }
+                            reason = getattr(state, "reason", None)
+                            if isinstance(reason, str) and 0 < len(reason) <= 64:
+                                detail["reason"] = reason
+                            pod_name = getattr(state, "pod_name", None)
+                            if isinstance(pod_name, str) and 0 < len(pod_name) <= 253:
+                                detail["pod_name"] = pod_name
+                            failure = getattr(pod_environment, "failures", {}).get(task_id)
+                            if isinstance(failure, str) and 0 < len(failure) <= 64:
+                                detail["error"] = failure
+                            print(json.dumps(detail, sort_keys=True), flush=True)
+                        dispatcher.restrict_starts(
+                            pod_environment.start_eligible_task_ids()
+                        )
+                else:
+                    dispatcher.restrict_starts(None)
                 observed = dispatcher.run_once(limit=batch_limit)
                 states: dict[str, int] = {}
                 for item in observed:

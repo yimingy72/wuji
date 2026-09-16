@@ -2,6 +2,7 @@
 
 import base64
 import runpy
+from types import SimpleNamespace
 import sqlite3
 import time
 from hashlib import sha256
@@ -900,3 +901,172 @@ def test_model_gate_failure_is_classified_by_its_transport_cause():
     rejected = ChatClientException("service failed", ValueError("payload rejected"))
     rejected.__cause__ = ValueError("payload rejected")
     assert type(_model_gate_error(rejected)) is ModelGateRejectedError
+
+
+def test_a_task_whose_environment_is_not_ready_only_stops_its_own_starts():
+    """F01 with several Tasks: one bad environment cannot gate the others.
+
+    The runtime loop must restrict new starts to the Tasks whose own Pod
+    reported ready, and it must keep reconciling every authorized Task.
+    """
+
+    service = runpy.run_path(
+        str(Path(__file__).resolve().parents[2] / "services/wuji-runtime/main.py")
+    )
+    access = AccessContext(
+        Principal(
+            subject="receiver",
+            tenant_id="tenant-fixture",
+            roles=frozenset({"controller"}),
+            token_id="runtime-service-token",
+        ),
+        "runtime-service-thread",
+    )
+
+    class Observation:
+        def __init__(self, state, reason=None):
+            self.state, self.reason = state, reason
+
+    class Environment:
+        def __init__(self):
+            self.observations = {
+                "task-a": Observation("ready"),
+                "task-b": Observation("not_ready", "task_epoch_stale"),
+            }
+            self.failures = {}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def ensure(self):
+            return dict(self.observations)
+
+        def start_eligible_task_ids(self):
+            return tuple(
+                sorted(
+                    task_id
+                    for task_id, value in self.observations.items()
+                    if value.state == "ready"
+                )
+            )
+
+    seen = {}
+    stop = Event()
+
+    class CycleRuntime(RuntimeDispatcher):
+        def run_once(self, *, limit=16):
+            del limit
+            seen["allowed"] = tuple(
+                task_id for task_id in ("task-a", "task-b") if self.start_allowed(task_id)
+            )
+            seen["cycles"] = seen.get("cycles", 0) + 1
+            stop.set()
+            return ()
+
+    dispatcher = CycleRuntime(
+        None,
+        access=access,
+        authorized_task_ids=("task-a", "task-b"),
+        work_kinds=("reason",),
+        outbox=SimpleNamespace(close=lambda: None),
+        reconciler=object(),
+    )
+    errors = []
+
+    def invoke():
+        try:
+            service["run"](
+                dispatcher,
+                stop=stop,
+                interval_seconds=0.001,
+                batch_limit=1,
+                pod_environment=Environment(),
+            )
+        except Exception as error:
+            errors.append(error)
+
+    worker = Thread(target=invoke, name="runtime-multi-task-test")
+    worker.start()
+    worker.join(timeout=2)
+
+    assert not worker.is_alive()
+    assert errors == []
+    assert seen["allowed"] == ("task-a",)
+    assert seen["cycles"] == 1
+
+
+def test_an_unusable_environment_stops_every_new_start_but_keeps_the_loop():
+    """"Nothing is known to be ready" must restrict all starts, not crash."""
+
+    service = runpy.run_path(
+        str(Path(__file__).resolve().parents[2] / "services/wuji-runtime/main.py")
+    )
+    access = AccessContext(
+        Principal(
+            subject="receiver",
+            tenant_id="tenant-fixture",
+            roles=frozenset({"controller"}),
+            token_id="runtime-service-token",
+        ),
+        "runtime-service-thread",
+    )
+    stop = Event()
+    seen = {}
+
+    class BrokenEnvironment:
+        observations = {}
+        failures = {}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def ensure(self):
+            raise ValueError("Task Pod service names are required")
+
+        def start_eligible_task_ids(self):
+            return ()
+
+    class CycleRuntime(RuntimeDispatcher):
+        def run_once(self, *, limit=16):
+            del limit
+            seen["allowed"] = tuple(
+                task_id for task_id in ("task-a",) if self.start_allowed(task_id)
+            )
+            stop.set()
+            return ()
+
+    dispatcher = CycleRuntime(
+        None,
+        access=access,
+        authorized_task_ids=("task-a",),
+        work_kinds=("reason",),
+        outbox=SimpleNamespace(close=lambda: None),
+        reconciler=object(),
+    )
+    errors = []
+
+    def invoke():
+        try:
+            service["run"](
+                dispatcher,
+                stop=stop,
+                interval_seconds=0.001,
+                batch_limit=1,
+                pod_environment=BrokenEnvironment(),
+            )
+        except Exception as error:
+            errors.append(error)
+
+    worker = Thread(target=invoke, name="runtime-broken-environment-test")
+    worker.start()
+    worker.join(timeout=2)
+
+    assert not worker.is_alive()
+    assert errors == []
+    assert seen["allowed"] == ()

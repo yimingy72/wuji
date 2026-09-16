@@ -117,6 +117,7 @@ class RuntimeDispatcher:
         self._dispatch_cursor: dict[str, str] = {}
         self._reconcile_cursor: dict[str, str] = {}
         self.failures: dict[str, str] = {}
+        self._start_restriction: frozenset[str] | None = None
         self._closed = False
 
     def _tasks(self) -> tuple[str, ...]:
@@ -210,11 +211,38 @@ class RuntimeDispatcher:
                 self._dispatch_cursor[task_id] = "0"
             return tuple(pending)
 
+    def restrict_starts(self, task_ids: Iterable[str] | None) -> None:
+        """Bound which Tasks may deliver a *new* start this cycle.
+
+        `None` restores the configured authorization. Reconciliation is never
+        restricted: a Task whose environment is not ready must still have its
+        existing Runs queried and settled, or a stop can strand them. Only
+        identifiers the deployment already authorized are accepted.
+        """
+
+        if task_ids is None:
+            self._start_restriction = None
+            return
+        requested = tuple(task_ids)
+        authorized = self._tasks()
+        if (
+            len(set(requested)) != len(requested)
+            or any(not isinstance(task_id, str) or not task_id for task_id in requested)
+            or not set(requested) <= set(authorized)
+        ):
+            raise ValueError("invalid start restriction")
+        self._start_restriction = frozenset(requested)
+
+    def start_allowed(self, task_id: str) -> bool:
+        return self._start_restriction is None or task_id in self._start_restriction
+
     def pending(self, *, limit: int = 16) -> tuple[PendingDispatch, ...]:
         if self._closed or type(limit) is not int or not 1 <= limit <= 256:
             raise ValueError("a live dispatcher and bounded limit are required")
         pending = []
         for task_id in self._ordered_tasks():
+            if not self.start_allowed(task_id):
+                continue
             remaining = limit - len(pending)
             if not remaining:
                 break
