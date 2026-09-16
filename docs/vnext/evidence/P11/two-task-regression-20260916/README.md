@@ -122,7 +122,52 @@ beside `reason=permit_revoked`. After rolling the image, the four Tasks in this 
 expired attempt window from a cancelled Task or a binding mismatch without reading the database, and messages
 stay internal (only the code and the fixed `reason` vocabulary are printed).
 
-## 5. What is still missing
+## 5. Rolling the stuck attempt (2026-09-16, commits `86995da`, `19a1a8c`)
+
+Task A (`86a2a7f2…`) sat in exactly the state §4 describes: attempt 1 activated at 06:09, window closed,
+no Pod, receiver disabled, capacity released, both Runs exited. The owner command now carries an explicit roll.
+
+```bash
+scripts/vnext/uv.sh run --frozen python ops/vnext/task_launch.py --submit \
+  --task 86a2a7f2-1c60-4fc7-82d1-748a26fcd6e4 --roll-attempt \
+  --roll-reason "attempt window closed after a failed wire; roll to the next runtime attempt" \
+  --image 127.0.0.1:56615/wuji-vnext-platform@sha256:25f8c0fd… \
+  --agent-image 127.0.0.1:56615/wuji-vnext-agent@sha256:39a85c4f… \
+  --kali-image 127.0.0.1:56615/wuji-vnext-kali@sha256:c61ce3bf… \
+  --agent-auth-secret wuji-task-v-ca604b6abddb91218b985ea232f4c239-agent-auth \
+  --kali-auth-secret wuji-task-v-ca604b6abddb91218b985ea232f4c239-kali-auth
+```
+
+The roll itself landed (`raw/launch-A-roll2.log`, database read-back):
+
+```text
+before: 1|2026-09-16 06:09:13+00|run|running   control_version 2
+after:  2||pause|ready                          control_version 3
+outbox: 4|task.attempt_rolled
+```
+
+The first attempt at this run also found a wiring defect that the unit test could not: `--roll-attempt` was added
+to the *binding document* instead of the options the phases receive, so the roll silently never ran (Task stayed at
+attempt 1, no event). `19a1a8c` moved it, and the second run rolled as shown.
+
+## 6. The next blocker on the same path (open)
+
+`prepare` still fails after a successful roll, and it is not the roll's fault:
+
+```text
+File "task_launch.py", line 385, in publish_admission
+File "wuji_core/admission/registry.py", line 622, in register_executor
+File "wuji_core/admission/registry.py", line 378, in _insert_fixed
+DomainError: INPUT_DIGEST_CONFLICT
+```
+
+`publish_admission` re-registers the `kali-workspace-v1` executor binding, and that binding is keyed per Task while
+its content now names attempt 2's `receiver_id`/`environment_ref`; the fixed registry refuses to change it because
+it still holds attempt 1's values. A rolled Task therefore needs those per-attempt rows superseded under the same
+guard the roll uses (previous attempt not runnable, no Pod, no unsettled work), or the registration key must carry
+the attempt. Task A is left at `runtime_attempt=2 / pause / ready`, which is a consistent state to resume from.
+
+## 7. What is still missing
 
 The two Task *Pods* never ran side by side. Task A's attempt is stuck:
 

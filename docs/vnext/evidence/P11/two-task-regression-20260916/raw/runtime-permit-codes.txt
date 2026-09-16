@@ -1,0 +1,20 @@
+{"code": "permit_expired", "event": "runtime_pod_environment", "pod_name": "wuji-task-v-2749e0c5bdd0fb10bb8e78e3b7a0c061-a1", "reason": "permit_revoked", "state": "stopped", "task_id": "3aa77fba-c264-4f79-8223-a656ffd53a37"}
+{"code": "permit_expired", "event": "runtime_pod_environment", "pod_name": "wuji-task-v-b9070a1a459a54cdc4e8fa051550f56f-a1", "reason": "permit_revoked", "state": "stopped", "task_id": "60e7bd1b-3d28-4af9-be4b-067bf0517c08"}
+{"code": "task_not_runnable", "event": "runtime_pod_environment", "pod_name": "wuji-task-v-46cb40c00cc4ee69af35b1036ae21390-a1", "reason": "permit_revoked", "state": "stopped", "task_id": "6ffd59cd-2f11-49ad-a0bc-60328fd1e538"}
+{"code": "permit_expired", "event": "runtime_pod_environment", "pod_name": "wuji-task-v-98ce2d5e5b396faca3a3e0438f9e7dc0-a1", "reason": "permit_revoked", "state": "stopped", "task_id": "86a2a7f2-1c60-4fc7-82d1-748a26fcd6e4"}
+{"event": "runtime_dispatch_cycle", "observed": 0, "states": {}}
+{"code": "permit_expired", "event": "runtime_pod_environment", "pod_name": "wuji-task-v-2749e0c5bdd0fb10bb8e78e3b7a0c061-a1", "reason": "permit_revoked", "state": "stopped", "task_id": "3aa77fba-c264-4f79-8223-a656ffd53a37"}
+{"code": "permit_expired", "event": "runtime_pod_environment", "pod_name": "wuji-task-v-b9070a1a459a54cdc4e8fa051550f56f-a1", "reason": "permit_revoked", "state": "stopped", "task_id": "60e7bd1b-3d28-4af9-be4b-067bf0517c08"}
+{"code": "task_not_runnable", "event": "runtime_pod_environment", "pod_name": "wuji-task-v-46cb40c00cc4ee69af35b1036ae21390-a1", "reason": "permit_revoked", "state": "stopped", "task_id": "6ffd59cd-2f11-49ad-a0bc-60328fd1e538"}
+{"code": "permit_expired", "event": "runtime_pod_environment", "pod_name": "wuji-task-v-98ce2d5e5b396faca3a3e0438f9e7dc0-a1", "reason": "permit_revoked", "state": "stopped", "task_id": "86a2a7f2-1c60-4fc7-82d1-748a26fcd6e4"}
+{"event": "runtime_dispatch_cycle", "observed": 0, "states": {}}
+{"code": "permit_expired", "event": "runtime_pod_environment", "pod_name": "wuji-task-v-2749e0c5bdd0fb10bb8e78e3b7a0c061-a1", "reason": "permit_revoked", "state": "stopped", "task_id": "3aa77fba-c264-4f79-8223-a656ffd53a37"}
+{"code": "permit_expired", "event": "runtime_pod_environment", "pod_name": "wuji-task-v-b9070a1a459a54cdc4e8fa051550f56f-a1", "reason": "permit_revoked", "state": "stopped", "task_id": "60e7bd1b-3d28-4af9-be4b-067bf0517c08"}
+{"code": "task_not_runnable", "event": "runtime_pod_environment", "pod_name": "wuji-task-v-46cb40c00cc4ee69af35b1036ae21390-a1", "reason": "permit_revoked", "state": "stopped", "task_id": "6ffd59cd-2f11-49ad-a0bc-60328fd1e538"}
+{"code": "permit_expired", "event": "runtime_pod_environment", "pod_name": "wuji-task-v-98ce2d5e5b396faca3a3e0438f9e7dc0-a1", "reason": "permit_revoked", "state": "stopped", "task_id": "86a2a7f2-1c60-4fc7-82d1-748a26fcd6e4"}
+{"event": "runtime_dispatch_cycle", "observed": 0, "states": {}}
+{"code": "permit_expired", "event": "runtime_pod_environment", "pod_name": "wuji-task-v-2749e0c5bdd0fb10bb8e78e3b7a0c061-a1", "reason": "permit_revoked", "state": "stopped", "task_id": "3aa77fba-c264-4f79-8223-a656ffd53a37"}
+{"code": "permit_expired", "event": "runtime_pod_environment", "pod_name": "wuji-task-v-b9070a1a459a54cdc4e8fa051550f56f-a1", "reason": "permit_revoked", "state": "stopped", "task_id": "60e7bd1b-3d28-4af9-be4b-067bf0517c08"}
+{"code": "task_not_runnable", "event": "runtime_pod_environment", "pod_name": "wuji-task-v-46cb40c00cc4ee69af35b1036ae21390-a1", "reason": "permit_revoked", "state": "stopped", "task_id": "6ffd59cd-2f11-49ad-a0bc-60328fd1e538"}
+{"code": "permit_expired", "event": "runtime_pod_environment", "pod_name": "wuji-task-v-98ce2d5e5b396faca3a3e0438f9e7dc0-a1", "reason": "permit_revoked", "state": "stopped", "task_id": "86a2a7f2-1c60-4fc7-82d1-748a26fcd6e4"}
+{"event": "runtime_dispatch_cycle", "observed": 0, "states": {}}
