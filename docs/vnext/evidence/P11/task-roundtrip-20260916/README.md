@@ -256,6 +256,19 @@ bounded refusal the platform is supposed to produce for two concurrent work item
   `child-stderr.txt`; naming that second failure is the next diagnostic step, together with the
   product decision of whether a bounded `LIMIT_BLOCKED` should end the Run or be surfaced to the
   model as a retryable refusal.
+- The Reason retry budget cannot currently be spent. `ReasonLedger.fail` (P09) requires
+  `operations_settled` — which this package's settlement work unblocks, and before it the scheduler
+  recorded `preparation_block_reason=OPERATION_UNKNOWN` for exactly that reason — but it then only
+  sets `scheduler_state.failure_count/retry_at` and clears `inflight_reason_work_id`, while the
+  Control settle path has already moved the Work item to the terminal `failed` state. The published
+  work-state contract has no `failed → *` transition and `ClaimWorks._admit` accepts only
+  `ready`/`blocked`, so a non-exhausted `retry_at` can never be leased. In this deployment the point
+  is moot because the published profile sets `repair_attempts: 0` (`failures >= min(max_attempts_per_work,
+  repair_attempts + 1)` is exhausted at the first failure, `retry_at` stays empty, as the live
+  `scheduler_state` rows show), but a deployment with `repair_attempts > 0` would silently lose
+  every retry. Deciding which authority owns a retryable Reason failure — the Control settle path
+  leaving the Work item leasable, or P09 leasing a fresh Run for the same Work item — is an open
+  design task, not something to improvise.
 
 ## 6. Raw material
 
