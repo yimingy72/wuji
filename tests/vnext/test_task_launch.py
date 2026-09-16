@@ -374,8 +374,34 @@ def test_minted_operator_bearer_binds_the_deployment_identity(tmp_path):
         task_launch.mint_operator_token(config, key_file=str(key_file), ttl_seconds=10)
 
 
+def _deployment_auth_dir(tmp_path, *, window_seconds=1800, margin_seconds=900):
+    """A deployment credential directory whose bearer covers the attempt."""
+
+    import time as _time
+
+    directory = tmp_path / "deployment-auth"
+    directory.mkdir(parents=True, exist_ok=True)
+    exp = int(_time.time()) + window_seconds + margin_seconds + 60
+    (directory / "receiver.token").write_bytes(_bearer(exp).encode())
+    return directory
+
+
+def _bearer(exp, *, iat=None, sub="receiver"):
+    import base64 as _b64
+
+    def segment(value):
+        raw = json.dumps(value, sort_keys=True).encode()
+        return _b64.urlsafe_b64encode(raw).decode().rstrip("=")
+
+    payload = {"sub": sub, "exp": exp}
+    if iat is not None:
+        payload["iat"] = iat
+    return (segment({"alg": "RS256", "kid": "deployment-key"})
+            + "." + segment(payload) + ".signature-not-read-here")
+
+
 def test_run_phases_prepare_hands_the_command_real_connection_factories(
-    monkeypatch, db_environment, audit_directory
+    monkeypatch, db_environment, audit_directory, tmp_path
 ):
     """The in-cluster path must pass factories, not one opened context manager."""
 
@@ -424,6 +450,7 @@ def test_run_phases_prepare_hands_the_command_real_connection_factories(
             task_id=task_id,
             phases=["prepare"],
             options={
+                "deployment_auth_dir": str(_deployment_auth_dir(tmp_path)),
                 "agent_image": "registry.invalid/agent@sha256:" + "a" * 64,
                 "kali_image": "registry.invalid/kali@sha256:" + "b" * 64,
                 "runtime_origin": "https://runtime.wuji-vnext-test.svc:8443",
@@ -485,6 +512,47 @@ def test_attempt_material_binds_the_deployment_bearer_not_a_stale_task_secret(tm
     assert material["task-agent.crt"] == b"agent-cert"
     assert material["task-kali.key"] == b"kali-key"
     assert material["ca.crt"] == b"ca"
+
+
+def test_a_bearer_that_dies_inside_the_attempt_window_refuses_the_launch(tmp_path):
+    """Attempt 2 dispatched its third Run 9 minutes after the bearer expired."""
+
+    task_launch = _load_launch_module()
+    token = tmp_path / "receiver.token"
+    moment = 1_800_000_000
+    margin = task_launch.RECEIVER_BEARER_MARGIN_SECONDS
+    window = 1800
+
+    # The exact live shape: mounted at 09:11, expires at 09:29, window 30 min.
+    token.write_bytes(_bearer(moment + 18 * 60).encode())
+    with pytest.raises(DomainError) as refused:
+        task_launch.require_receiver_bearer_window(
+            token, window_seconds=window, now=moment)
+    assert refused.value.code == "receiver_bearer_expires_before_attempt_window"
+
+    # Already expired is the same refusal, never a silent launch.
+    token.write_bytes(_bearer(moment - 1).encode())
+    with pytest.raises(DomainError) as expired:
+        task_launch.require_receiver_bearer_window(
+            token, window_seconds=window, now=moment)
+    assert expired.value.code == "receiver_bearer_expires_before_attempt_window"
+
+    # A bearer covering the window plus the fixed margin is accepted, and the
+    # remaining lifetime is reported without exposing the token bytes.
+    token.write_bytes(_bearer(moment + window + margin + 7, iat=moment).encode())
+    assert task_launch.require_receiver_bearer_window(
+        token, window_seconds=window, now=moment) == window + margin + 7
+
+    # Unreadable material is refused as such instead of being treated as long-lived.
+    token.write_bytes(b"not-a-registered-token")
+    with pytest.raises(DomainError) as unreadable:
+        task_launch.require_receiver_bearer_window(
+            token, window_seconds=window, now=moment)
+    assert unreadable.value.code == "receiver_bearer_unreadable"
+
+    with pytest.raises(DomainError) as unbounded:
+        task_launch.require_receiver_bearer_window(token, window_seconds=0, now=moment)
+    assert unbounded.value.code == "INVALID_REFERENCE"
 
 
 def test_operator_bearer_path_is_single_source(tmp_path):

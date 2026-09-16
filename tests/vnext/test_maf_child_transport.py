@@ -665,6 +665,112 @@ def test_host_error_code_is_bounded_or_absent():
     assert error_code_from_bytes("{\"code\":\"LIMIT_BLOCKED\"}") is None
 
 
+def test_a_401_on_the_controller_channel_is_not_reported_as_a_stale_assignment():
+    """Task A's third Run was refused with 401 and logged as STALE_EXECUTION."""
+
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    from threading import Thread
+
+    from wuji_core.execution.dispatch_outbox import SupervisorHttpTransport
+
+    answers = {"body": b'{"error":"unauthorized"}'}
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):  # noqa: N802 - http.server protocol
+            body = answers["body"]
+            self.send_response(answers.get("status", 401))
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *args):  # keep the test output clean
+            return
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    Thread(target=server.serve_forever, daemon=True).start()
+    records = []
+    transport = SupervisorHttpTransport(
+        f"http://127.0.0.1:{server.server_port}",
+        authorization=lambda: "controller-bearer",
+        max_response_bytes=65536,
+        audit=records.append,
+    )
+    try:
+        # The live body carried no bounded code at all.
+        with pytest.raises(DomainError) as refused:
+            transport.query("operation-fixture")
+        assert refused.value.code == "UNAUTHENTICATED"
+        assert refused.value.status == 401
+
+        # The Maf supervisor's own codes are reported verbatim.
+        for code in (b"UNAUTHENTICATED", b"CONTROLLER_REQUEST_REJECTED"):
+            answers["body"] = b'{"code":"' + code + b'"}'
+            with pytest.raises(DomainError) as named:
+                transport.query("operation-fixture")
+            assert named.value.code == code.decode()
+
+        # A 409 without a whitelisted code keeps the previous conservative report.
+        answers["body"] = b'{"error":"unexpected"}'
+        answers["status"] = 409
+        with pytest.raises(DomainError) as stale:
+            transport.query("operation-fixture")
+        assert stale.value.code == "STALE_EXECUTION"
+    finally:
+        transport.opener.close()
+        server.shutdown()
+        server.server_close()
+    assert [record["response"]["status_code"] for record in records] == [401, 401, 401, 409]
+
+
+def test_an_authoritative_refusal_does_not_burn_the_delivery_budget(tmp_path):
+    """A fixed credential must still deliver the same operation afterwards."""
+
+    from datetime import datetime, timedelta, timezone
+
+    from wuji_core.contracts.envelopes import RunIdentity
+    from wuji_core.execution.dispatch_outbox import (
+        MAX_DELIVERY_SENDS,
+        REDELIVERY_QUIET_SECONDS,
+        DispatchJournal,
+    )
+
+    identity = RunIdentity.model_validate({
+        "tenant_id": "tenant-fixture", "project_id": "project-fixture",
+        "task_id": "task-fixture", "work_item_id": "work-fixture",
+        "agent_run_id": "run-fixture", "execution_epoch": "1", "run_epoch": "1",
+        "runtime_attempt": "1", "receiver_id": "task-fixture-a1",
+    })
+    run = RegisteredRun(identity=identity, start_operation_id="start-fixture",
+        environment_ref="pod-environment-fixture-a1", pod_uid="pod-fixture",
+        assignment_digest="b" * 64, work_kind="reason",
+        harness_profile_id="harness.reason.deployment.v1", harness_profile_digest="c" * 64)
+    journal = DispatchJournal(tmp_path / "journal.sqlite3")
+    try:
+        moment = datetime(2026, 9, 16, 1, 0, tzinfo=timezone.utc)
+        # Every refused send returns its reservation, so the budget never runs
+        # out no matter how long the credential stays broken.
+        for attempt in range(MAX_DELIVERY_SENDS + 3):
+            at = moment + timedelta(seconds=attempt * REDELIVERY_QUIET_SECONDS)
+            assert journal.reserve_send(run, allow_retry=True, now=at) is True
+            journal.release_send(run)
+        assert journal.attempted(run) is True
+
+        # An outcome that is merely unknown still consumes the budget and the
+        # operation stays fail-closed after MAX_DELIVERY_SENDS unknown sends.
+        for attempt in range(MAX_DELIVERY_SENDS):
+            at = moment + timedelta(seconds=(attempt + 20) * REDELIVERY_QUIET_SECONDS)
+            assert journal.reserve_send(run, allow_retry=True, now=at) is True
+        assert journal.reserve_send(run, allow_retry=True, now=at + timedelta(seconds=60)) is False
+
+        # A different assignment for the same key is never silently accepted.
+        other = RegisteredRun(**{**run.__dict__, "assignment_digest": "d" * 64})
+        with pytest.raises(DomainError):
+            journal.release_send(other)
+    finally:
+        journal.close()
+
+
 def test_unresolved_delivery_is_retried_only_after_an_authoritative_absence(tmp_path):
     """A send without a receipt is repeated only in a bounded, quiet window."""
 

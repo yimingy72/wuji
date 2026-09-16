@@ -125,10 +125,19 @@ class SupervisorHttpTransport:
             if method == "GET" and error.code == 404 and code == "OPERATION_NOT_FOUND":
                 return None
             if error.code in {401, 403, 409, 422}:
-                # Whitelist codes; do not expose arbitrary upstream bodies.
-                allowed = {"UNAUTHENTICATED", "STALE_EXECUTION", "INPUT_DIGEST_CONFLICT",
+                # Whitelist codes; do not expose arbitrary upstream bodies. A 401
+                # on this channel always means the controller/receiver credential
+                # was refused; reporting that as a stale assignment hid a real
+                # bearer expiry from the operator.
+                allowed = {"UNAUTHENTICATED", "CONTROLLER_REQUEST_REJECTED",
+                           "STALE_EXECUTION", "INPUT_DIGEST_CONFLICT",
                            "UNREGISTERED_LAUNCH_PROFILE", "INVALID_REFERENCE"}
-                raise DomainError(code if code in allowed else "STALE_EXECUTION", error.code) from None
+                if code in allowed:
+                    raise DomainError(code, error.code) from None
+                raise DomainError(
+                    "UNAUTHENTICATED" if error.code == 401 else "STALE_EXECUTION",
+                    error.code,
+                ) from None
             raise ObservationUnavailable() from None
         except (URLError, TimeoutError, OSError, ValueError) as error:
             self._audit(
@@ -221,6 +230,35 @@ class DispatchJournal:
                     self.owner_thread = None
                     raise
             return self.connection
+
+    def release_send(self, run):
+        """An authoritative refusal must not consume the bounded send budget.
+
+        The receiver answered with an explicit error, so this send registered no
+        durable start. The monotonic ``attempted`` marker stays: an outcome that
+        is merely unknown still fails closed instead of being replayed.
+        """
+
+        key = self.key(run)
+        connection = self._connection()
+        connection.execute("BEGIN IMMEDIATE")
+        try:
+            record = connection.execute(
+                "SELECT assignment_digest,sends FROM delivery WHERE operation_key=?",
+                (key,),
+            ).fetchone()
+            if record is None:
+                raise DomainError("STALE_EXECUTION", 409)
+            if record[0] != run.assignment_digest:
+                raise DomainError("INPUT_DIGEST_CONFLICT", 409)
+            if record[1] > 0:
+                connection.execute(
+                    "UPDATE delivery SET sends=sends-1 WHERE operation_key=?", (key,)
+                )
+            connection.execute("COMMIT")
+        except BaseException:
+            connection.execute("ROLLBACK")
+            raise
 
     @staticmethod
     def key(run):
@@ -346,6 +384,12 @@ class DispatchOutbox:
         except ObservationUnavailable:
             # No new operation, no second PUT, even after a receiver 404.
             return self.inspect(task_id, operation_id)
+        except DomainError:
+            # The receiver refused before registering anything (expired or
+            # mismatched credential, stale assignment). Release the reservation
+            # so a fixed credential can still deliver this exact operation.
+            self.journal.release_send(run)
+            raise
         observed = validate_receipt(run, receipt)
         self.journal.save(run, receipt)
         return observed

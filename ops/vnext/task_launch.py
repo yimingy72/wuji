@@ -23,6 +23,7 @@ repairing it silently.
 from __future__ import annotations
 
 import argparse
+import base64
 from contextlib import contextmanager
 from functools import partial
 from datetime import datetime, timedelta, timezone
@@ -646,6 +647,50 @@ def attempt_config(binding):
             "kali_resources": ContainerResources(**values["kali_resources"]),
         }
     )
+
+
+RECEIVER_BEARER_MARGIN_SECONDS = 900
+
+
+def receiver_bearer_expiry(path, *, now=None):
+    """Read the registered ``exp`` of the deployment receiver bearer.
+
+    Only the registered claims are decoded; the bytes are never logged or
+    persisted. This is a deadline check on our own mounted material, not a
+    substitute for the platform's signature and audience verification.
+    """
+
+    raw = _read_bytes(path, 16384).decode().strip()
+    parts = raw.split(".")
+    if len(parts) != 3 or not parts[1]:
+        raise DomainError("receiver_bearer_unreadable", 409)
+    payload = parts[1] + "=" * (-len(parts[1]) % 4)
+    try:
+        claims = json.loads(base64.urlsafe_b64decode(payload))
+    except (ValueError, TypeError) as error:
+        raise DomainError("receiver_bearer_unreadable", 409) from error
+    exp = claims.get("exp")
+    if type(exp) is not int:
+        raise DomainError("receiver_bearer_unreadable", 409)
+    return exp
+
+
+def require_receiver_bearer_window(path, *, window_seconds, now=None):
+    """Fail closed when the bearer dies inside the attempt it would authorize.
+
+    The supervisor compares the controller bearer byte-for-byte with the copy the
+    attempt mounts, so an attempt that starts near the bearer's ``exp`` cannot be
+    delivered to: every dispatch is refused until the credential is reissued.
+    Refuse the launch instead of spending a runtime attempt on it.
+    """
+
+    if type(window_seconds) is not int or window_seconds < 1:
+        raise DomainError("INVALID_REFERENCE", 422)
+    moment = int(time.time() if now is None else now)
+    remaining = receiver_bearer_expiry(path, now=moment) - moment
+    if remaining < window_seconds + RECEIVER_BEARER_MARGIN_SECONDS:
+        raise DomainError("receiver_bearer_expires_before_attempt_window", 409)
+    return remaining
 
 
 def requirement_material(config, *, agent_auth_dir, kali_auth_dir, deployment_auth_dir,
@@ -1399,6 +1444,11 @@ def run_phases(config, *, task_id, phases, options):
             ensure_operator_actor(
                 connection, owner=(config["owner"][0], config["owner"][1], task_id),
                 subject=config.get("operator_subject", "operator"))
+            require_receiver_bearer_window(
+                Path(options["deployment_auth_dir"]) / "receiver.token",
+                window_seconds=prepared["definition"]["runtime_profile"]["limits"]
+                ["max_elapsed_seconds"],
+            )
             published = publish_admission(
                 connection, owner=(config["owner"][0], config["owner"][1], task_id),
                 config=config, definition=prepared["definition"],
@@ -1468,6 +1518,10 @@ def run_phases(config, *, task_id, phases, options):
             binding = refreshed_binding(connection, binding)
             result["activate"]["execution_epoch"] = binding["execution_epoch"]
         if "wire" in phases:
+            require_receiver_bearer_window(
+                Path(options["deployment_auth_dir"]) / "receiver.token",
+                window_seconds=int(binding["pod_deadline_seconds"]),
+            )
             result["wire"] = wire(
                 binding, config=config, namespace=options["namespace"],
                 agent_auth_dir=options["agent_auth_dir"],
