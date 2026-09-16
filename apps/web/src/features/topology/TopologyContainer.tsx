@@ -321,6 +321,12 @@ function TopologyContainerRequest({
   const [savingLayout, setSavingLayout] = useState(false);
   const [layoutEpoch, setLayoutEpoch] = useState(0);
   const pendingRef = useRef<LayoutPreference | null>(null);
+  // A 409 freezes the write queue until an explicit, successful reload: a
+  // failed reload must never requeue the stale PUT, or the conflict re-fires
+  // without any new user gesture.
+  const layoutConflictRef = useRef(false);
+  const reloadAbortRef = useRef(new AbortController());
+  const [layoutConflict, setLayoutConflict] = useState(false);
   const savingRef = useRef(false);
   const activeRef = useRef(true);
   const saveAbortRef = useRef<AbortController | null>(null);
@@ -367,7 +373,34 @@ function TopologyContainerRequest({
     return () => controller.abort();
   }, [canPersistLayout, mode, onSnapshotChange, readLayout, readSnapshot, requestRevision, snapshotId, taskId, viewName]);
 
+  const reloadLayout = useCallback(async () => {
+    // Read-only recovery: take the server layout as the only truth, then allow
+    // new edits again. Nothing here writes.
+    try {
+      const server = await readLayout(taskId, viewName, reloadAbortRef.current.signal);
+      if (!activeRef.current || reloadAbortRef.current.signal.aborted) return;
+      revisionRef.current = server.layout_revision;
+      pendingRef.current = null;
+      setPendingLayout(null);
+      setLocalLayout(server);
+      setLayoutEpoch((value) => value + 1);
+      layoutConflictRef.current = false;
+      setLayoutConflict(false);
+      setLayoutNotice('服务器布局已更新，当前修改未覆盖它。');
+    } catch (reloadError: unknown) {
+      if (!activeRef.current) return;
+      layoutConflictRef.current = true;
+      setLayoutConflict(true);
+      setLayoutNotice(
+        reloadError instanceof Error
+          ? reloadError.message
+          : '布局冲突后无法重新读取服务器布局。',
+      );
+    }
+  }, [readLayout, taskId, viewName]);
+
   const drainLayout = useCallback(async () => {
+    if (layoutConflictRef.current) return;
     if (!canPersistLayout || !layoutReady || savingRef.current || !pendingRef.current) return;
     const requested = pendingRef.current;
     savingRef.current = true;
@@ -398,24 +431,13 @@ function TopologyContainerRequest({
     } catch (reason: unknown) {
       if (!activeRef.current || controller.signal.aborted) return;
       if (reason instanceof LayoutRequestError && reason.status === 409) {
-        try {
-          const server = await readLayout(taskId, viewName, controller.signal);
-          if (activeRef.current && !controller.signal.aborted) {
-            // Discard every local and queued edit, take the server layout as
-            // the only truth and remount the canvas so no stale drag/viewport
-            // state can be written back automatically after the conflict.
-            revisionRef.current = server.layout_revision;
-            pendingRef.current = null;
-            setPendingLayout(null);
-            setLocalLayout(server);
-            setLayoutEpoch((value) => value + 1);
-            setLayoutNotice('服务器布局已更新，当前修改未覆盖它。');
-          }
-        } catch (reloadError: unknown) {
-          if (activeRef.current && !controller.signal.aborted) {
-            setLayoutNotice(reloadError instanceof Error ? reloadError.message : '布局冲突后无法重新读取服务器布局。');
-          }
-        }
+        // Freeze the queue before any I/O: the conflicting edit is dropped and
+        // cannot be re-sent by the finally block or by a failed reload.
+        layoutConflictRef.current = true;
+        setLayoutConflict(true);
+        pendingRef.current = null;
+        setPendingLayout(null);
+        if (!controller.signal.aborted) await reloadLayout();
       } else {
         pendingRef.current = null;
         setPendingLayout(null);
@@ -427,9 +449,11 @@ function TopologyContainerRequest({
       if (activeRef.current && !controller.signal.aborted) setSavingLayout(false);
       if (activeRef.current && pendingRef.current !== null) void drainLayout();
     }
-  }, [canPersistLayout, layoutReady, readLayout, taskId, viewName, writeLayout]);
+  }, [canPersistLayout, layoutReady, reloadLayout, taskId, viewName, writeLayout]);
 
   const handleLayoutChange = useCallback((next: LayoutPreference) => {
+    // Unresolved conflict: only a successful reload may accept new edits.
+    if (layoutConflictRef.current) return;
     // A change computed from a revision that the server already replaced is
     // dropped: the conflict reload owns the current layout.
     if (canPersistLayout && next.layout_revision !== revisionRef.current) return;
@@ -476,8 +500,15 @@ function TopologyContainerRequest({
       {layoutNotice && (
         <Alert
           closable
-          type="info"
+          type={layoutConflict ? 'warning' : 'info'}
           title={layoutNotice}
+          action={
+            layoutConflict ? (
+              <Button size="small" onClick={() => void reloadLayout()}>
+                重新读取
+              </Button>
+            ) : null
+          }
           onClose={() => setLayoutNotice(null)}
         />
       )}
