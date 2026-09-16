@@ -155,7 +155,13 @@ class RemoteWorkerHost:
                 "POST", self.origin + "/internal/v2/worker-host/" + action, content=body,
             ) as response:
                 if response.status_code != 200:
-                    raise HostTransportError("Host request rejected or unresolved")
+                    # Bounded classification only: the HTTP status is stable,
+                    # and reading the body inside this streaming context would
+                    # disturb the success path the child depends on.  The body,
+                    # headers, request and bearer stay private.
+                    error = HostTransportError("Host request rejected or unresolved")
+                    error.status_code = response.status_code
+                    raise error
                 if response.headers.get("content-encoding", "identity") != "identity":
                     raise HostTransportError("Host content encoding is unsupported")
                 chunks, size = [], 0
