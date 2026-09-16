@@ -62,9 +62,16 @@ Task A attempt 2 的第三个 Run（`9e574eb0`）从未被投递成功：receive
     Run，`propose` 仅在 ready 时写入决定并交给 P05 消费。真实集群 7 个 Task 全部 `wait/criteria_unmet`，
     包括两个 Run 均已接纳、work 均 `done` 的 `fc2ff1b0-…`。见
     [证据包](../../vnext/evidence/P12/completion-precheck-20260916/README.md)。
-11. **P12-B 判定生产与报告冻结。未开始。** 需要从真实证据按 `allowed_methods`/`evidence_requirements`
-    写 `criterion_judgment`；随后 AC-049/AC-052/AC-053 的结算、close_trigger/result_outcome 分离与
-    ReportCommit 冻结、迟到反证追加。
+11. **P12-B 判定生产与关闭决定。部分交付并实测（`267f720` + `91a22b5`）。** 迁移 `vnext_0023_p12_judgments`
+    提供 `record_criterion_judgment`（冻结 revision、幂等、迟到反证只记录不改当前）与
+    `prepare_completion_close`（trigger/outcome 独立、必须匹配当前 epoch）；`completion.judgments` 要求
+    assessor + `can_assess` 且只接受**已封存**证据（回执记录实际校验的引用与 digest）；`CompletionService.close`
+    写关闭决定。真实集群：Task `fc2ff1b0-…` 用真实封存 artifact 写入 `met/current` 判定后 precheck 由
+    `wait/criteria_unmet` 变为 `ready`，写入 quiescing 决定并 apply 成功（`observed_state=quiescing`、
+    `execution_allowed=false`、epoch 已设）。同一 key 用不同回执重放被生产者拒绝。见
+    [证据包](../../vnext/evidence/P12/completion-judgment-20260916/README.md)。
+    **仍缺**：判定的生产来源（谁/按什么规则自动判定）、真正 close（P05 要求全部 Run 已结算）、AC-049 冻结期
+    结算、AC-053 ReportCommit 冻结与迟到反证追加。
 
 ### T5 已核对的接口事实（实现前不再猜）
 

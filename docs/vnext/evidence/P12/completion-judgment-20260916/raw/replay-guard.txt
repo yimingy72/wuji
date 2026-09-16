@@ -1,0 +1,4 @@
+# an earlier run reused judgment-p12-fixture with a different receipt and was refused
+    raise ex.with_traceback(None)
+psycopg.errors.UniqueViolation: judgment key reused with different evidence
+CONTEXT:  PL/pgSQL function vnext.record_criterion_judgment(text,text,text,text,numeric,text,text,text,text,text,text,integer) line 29 at RAISE

@@ -1,0 +1,10 @@
+# $ kubectl -n wuji-vnext-test logs job/p11c-migrate-0023
+HEADS ['vnext_0022_p12_completion', 'vnext_0023_p12_judgments']
+FUNCTIONS 2
+
+# $ kubectl -n wuji-vnext-test logs job/p12-judgment-20260916d
+# the job runs the deployment's own UoW/ControlService and the new producers
+JUDGMENT judgment-p12-final met current ['465ee220dcc6']
+PRECHECK ready () [('version', 'met', 'current')]
+PROPOSE p12-live-completion-final goal_satisfied 2026-09-16T16:13:20.401449+00:00
+APPLIED quiescing True False goal_satisfied

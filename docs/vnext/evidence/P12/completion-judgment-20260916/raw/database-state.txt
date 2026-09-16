@@ -1,0 +1,13 @@
+# $ psql (migration role)
+
+# the persisted judgment and the Goal's current pointer
+version|rev=1|current=judgment-p12-final
+
+# the judgment receipt (evidence refs + checked digest)
+judgment-p12-final|met|current|{"access_level":1,"applicability":"current","criterion_id":"version","evidence":[{"access_level":1,"digest":"465ee220dcc6d4d81eab75c576492801f872fc7c72aa75642478c3a0df1705c8","ref":{"id":"09bc68a8-030c-4c68-b6f2-8f52be48dc72","sha256":"465ee220dcc6d4d81eab75c576492801f872fc7c72aa75642478c3a0df1705c8","version":"1"}}],"judgment_id":"judgment-p12-final","method":"deterministic-sealed-bytes-v1","recorded_at":"","revision":"1","status":"met"}
+
+# the completion decision written for the epoch
+p12-live-completion-final|quiesce|goal_satisfied|null|da99b237-09ab-4559-bed5-a9be68e473af
+
+# the Task after apply
+observed=quiescing|epoch=da99b237-09ab-4559-bed5-a9be68e473af|allowed=false|trigger=goal_satisfied|version=3
