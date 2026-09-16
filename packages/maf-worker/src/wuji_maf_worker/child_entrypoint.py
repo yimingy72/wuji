@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import sys
 import ssl
+import traceback
 
 from wuji_core.contracts import generated as wire
 from wuji_core.contracts.envelopes import ResultReceipt, WorkerAssignment
@@ -32,6 +33,33 @@ def _phase(step):
         if not hasattr(error, "wuji_step"):
             error.wuji_step = step
         raise
+
+
+def private_failure(error, step):
+    """Keep the exact failure on the private channel the Task Pod already owns.
+
+    Only this file carries raw exception text. The operator-visible stderr stays
+    bounded, the file is created owner-only inside the private bootstrap
+    directory, and nothing here is ever copied to the platform or a report.
+    Best-effort: a diagnostic must never change the outcome of the run.
+    """
+
+    directory = os.environ.get("WUJI_WORKER_BOOTSTRAP_DIRECTORY", "")
+    if not directory:
+        return
+    try:
+        path = Path(directory)
+        if not path.is_absolute() or path.is_symlink() or not path.is_dir():
+            return
+        body = ("step=" + step + "\n" + traceback.format_exc(limit=40)).encode()[-16384:]
+        handle = os.open(path / "child-error.txt",
+                         os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+        try:
+            os.write(handle, body)
+        finally:
+            os.close(handle)
+    except OSError:
+        return
 
 
 def validate_completion_receipt(value):
@@ -128,6 +156,13 @@ def main():
         status = getattr(error, "status_code", None)
         if type(status) is int and 100 <= status <= 599:
             detail += f", status={status}"
+        # The exception class name is interpreter-derived, never Task data, and
+        # it is what distinguishes a refused SDK call from a local ValueError.
+        kind = type(error).__name__
+        if not (kind.isascii() and kind.isidentifier() and len(kind) <= 64):
+            kind = "unknown"
+        detail += f", error={kind}"
+        private_failure(error, step)
         sys.stderr.write(
             "Wuji Worker stopped without a confirmed completion"
             f" (step={step}{detail}).\n"
