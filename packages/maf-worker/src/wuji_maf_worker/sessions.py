@@ -96,9 +96,15 @@ class NativeSessionAdapter:
         self.compatibility = SessionCompatibility.model_validate(compatibility)
         self.limits = SessionLimits.model_validate(limits)
 
-    def _bounded(self, body):
-        if len(canonical_json_bytes(body)) > self.limits.max_object_bytes:
-            raise ValueError("native root exceeds the fixed object bound")
+    def _bounded(self, body, label):
+        actual = len(canonical_json_bytes(body))
+        if actual > self.limits.max_object_bytes:
+            # Bounded operator metadata only: the label and two byte counts,
+            # never message content. The private failure file keeps the stack.
+            raise ValueError(
+                "native " + label + " root exceeds the fixed object bound"
+                " (" + str(actual) + " > " + str(self.limits.max_object_bytes) + ")"
+            )
 
     def _frontier(self, history, bindings, receipts, pending, rejections):
         models = {}
@@ -240,10 +246,13 @@ class NativeSessionAdapter:
         expected_memory = self.compatibility.profile_snapshot["body"]["memory_mode"] != "disabled"
         if memory_root.enabled != expected_memory:
             raise ValueError("memory does not match the fixed Session Profile")
-        roots = (root, provider, memory_root)
-        for value in roots:
-            self._bounded(value.model_dump(mode="python"))
-        total = sum(len(canonical_json_bytes(value.model_dump(mode="python"))) for value in roots)
+        roots = (("history", root), ("provider", provider), ("memory", memory_root))
+        for label, value in roots:
+            self._bounded(value.model_dump(mode="python"), label)
+        total = sum(
+            len(canonical_json_bytes(value.model_dump(mode="python")))
+            for _label, value in roots
+        )
         total += sum(len(obj.data) for obj in objects)
         if (
             len(objects) + 3 > self.limits.max_objects

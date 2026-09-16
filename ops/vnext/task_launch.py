@@ -215,12 +215,18 @@ def published_session_profiles(config, definition):
     allowed = tuple(runtime["allowed_tool_refs"])
     if not allowed or len(set(allowed)) != len(allowed):
         raise ValueError("the Task runtime profile has no bounded tool set")
+    # A published boundary carries the complete native message list plus its
+    # operation frontier, so one Session object must at least cover the largest
+    # single artifact the admission profile already allows a Run to produce.
+    # The previous 16 KiB cap refused a real MAF history
+    # ("native root exceeds the fixed object bound") even though every Run in
+    # that Task was well inside its own output budget.
     session_limits = SessionLimits(
         max_objects=32,
         max_reference_depth=8,
         max_messages=128,
-        max_object_bytes=min(16384, limits["max_single_output_bytes"]),
-        max_total_bytes=min(65536, limits["max_total_output_bytes"]),
+        max_object_bytes=min(65536, limits["max_single_output_bytes"]),
+        max_total_bytes=min(262144, limits["max_total_output_bytes"]),
         max_pending_approvals=min(4, runtime["max_pending_operations"]),
     )
     return {

@@ -2,6 +2,8 @@
 
 from decimal import Decimal
 
+import pytest
+
 from support.session_transport import (
     BOUNDARY_BASE64,
     BOUNDARY_BYTES,
@@ -20,6 +22,24 @@ from support.session_transport import (
 from wuji_core.contracts import generated as wire
 from wuji_core.http import canonical_json_bytes
 from wuji_core.persistence.uow import DomainError
+
+
+def test_the_native_object_bound_names_the_root_and_the_sizes():
+    """The live failure named only a generic bound; operators need the root."""
+
+    from support.session_transport import compatibility, session_limits
+    from wuji_maf_worker.sessions import NativeSessionAdapter
+
+    adapter = NativeSessionAdapter(compatibility=compatibility(), limits=session_limits())
+    adapter._bounded({"role": "user"}, "history")
+
+    with pytest.raises(ValueError) as refused:
+        adapter._bounded({"blob": "x" * 20_000}, "provider")
+    message = str(refused.value)
+    assert "native provider root exceeds the fixed object bound" in message
+    # Two bounded byte counts, no message content.
+    assert "(20011 > 16384)" in message
+    assert "x" * 32 not in message
 
 
 def test_session_boundary_transport_uses_explicit_binary_and_preserves_decimal():

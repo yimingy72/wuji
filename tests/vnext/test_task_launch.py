@@ -334,6 +334,51 @@ def test_launch_binds_admission_executor_intent_and_capability(
             assert repeat["capabilities"] == result["capabilities"]
 
 
+def test_published_session_bounds_follow_the_admission_limits():
+    """A real MAF history must fit one bounded Session object.
+
+    Task A's attempt 3 child failed with "native history root exceeds the fixed
+    object bound" while the profile's own runtime limits allowed a 32 KiB single
+    output and 128 KiB total output. The Session bound is derived from those
+    limits, not from a hard 16 KiB ceiling.
+    """
+
+    task_launch = _load_launch_module()
+    lock = task_launch.shipped_worker_lock_digest()
+
+    def definition(single, total):
+        return {
+            "runtime_profile": {
+                "ref": "k8s-runtime-v1", "revision": "1", "lock_digest": lock,
+                "allowed_tool_refs": ["workspace-read-v1"],
+                "max_pending_operations": 4,
+                "limits": {
+                    "max_single_output_bytes": single, "max_total_output_bytes": total,
+                },
+            }
+        }
+
+    profiles = {
+        kind: {"body": {"instructions": "read", "max_context_records": 8,
+                        "max_context_bytes": 4096, "max_output_tokens": 512}}
+        for kind in ("reason", "explore", "report")
+    }
+    config = {"definition": {"worker_profiles": profiles}}
+
+    published = task_launch.published_session_profiles(config, definition(32768, 131072))
+    limits = published["explore"]["body"]["session_limits"]
+    # The profile's real numbers: one object may carry the largest allowed single
+    # output, and the staged total may carry the allowed aggregate.
+    assert limits["max_object_bytes"] == 32768
+    assert limits["max_total_bytes"] == 131072
+
+    # Both stay bounded even when a Task publishes far larger runtime limits.
+    capped = task_launch.published_session_profiles(config, definition(4_000_000, 9_000_000))
+    capped_limits = capped["explore"]["body"]["session_limits"]
+    assert capped_limits["max_object_bytes"] == 65536
+    assert capped_limits["max_total_bytes"] == 262144
+
+
 def test_minted_operator_bearer_binds_the_deployment_identity(tmp_path):
     from cryptography.hazmat.primitives import serialization
     from cryptography.hazmat.primitives.asymmetric import rsa
