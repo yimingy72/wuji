@@ -106,6 +106,22 @@ persisted `task.started` event still match, so this is purely the elapsed window
 to roll to a **new runtime attempt** (fresh activation and binding), which the owner command does not do yet;
 that is the next fix. It is unrelated to multi-Task hosting, and the run above avoided it by using fresh Tasks.
 
+### 4.1 The refusal now names its predicate (commit `7194df2`, live)
+
+`PermitDenied` carries a bounded lowercase code, the runtime keeps it on the observation, and the loop logs it
+beside `reason=permit_revoked`. After rolling the image, the four Tasks in this cluster reported:
+
+```text
+60e7bd1b|stopped|permit_revoked|permit_expired      # window closed
+86a2a7f2|stopped|permit_revoked|permit_expired      # the retry that could never start
+3aa77fba|stopped|permit_revoked|permit_expired      # finished its work, window closed after
+6ffd59cd|stopped|permit_revoked|task_not_runnable    # cancelled by the operator
+```
+
+(raw: `raw/runtime-permit-codes.txt`; the loop kept cycling in the same tail.) An operator can now tell an
+expired attempt window from a cancelled Task or a binding mismatch without reading the database, and messages
+stay internal (only the code and the fixed `reason` vocabulary are printed).
+
 ## 5. What is still missing
 
 The two Task *Pods* never ran side by side. Task A's attempt is stuck:
