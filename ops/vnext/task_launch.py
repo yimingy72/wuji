@@ -696,6 +696,27 @@ def patch_deployment_json(core, name, update, *, namespace):
     return "replaced"
 
 
+def patch_config_data_json(core, name, key, update, *, namespace):
+    """Replace one bounded JSON document inside an existing ConfigMap in place.
+
+    The fixed name and key are read back verbatim so an unrelated document in
+    the same ConfigMap is never rewritten from a guess.
+    """
+
+    client = k8s_client().ApiClient()
+    configmap = _replaceable(
+        client.sanitize_for_serialization(core.read_namespaced_config_map(name, namespace))
+    )
+    if not isinstance(configmap.get("data"), dict) or key not in configmap["data"]:
+        raise DomainError("INVALID_REFERENCE", 422)
+    document = json.loads(configmap["data"][key])
+    if update(document) == "unchanged":
+        return "unchanged"
+    configmap["data"][key] = canonical_json_bytes(document).decode()
+    core.replace_namespaced_config_map(name, namespace, configmap)
+    return "replaced"
+
+
 def wait_for_rollout(apps, name, *, namespace, timeout_seconds=300):
     """Wait until the rolled Deployment actually serves before handing over.
 
@@ -783,14 +804,36 @@ def wire(binding, *, config, namespace, agent_auth_dir, kali_auth_dir, deploymen
             document.get("task_ids") != [binding["task_id"]]
             or pod_runtime.get("task_config") != expected_task
             or pod_runtime.get("receiver") != expected_receiver
+            or document.get("session_transport") is not True
         )
         document["task_ids"] = [binding["task_id"]]
         pod_runtime["task_config"] = expected_task
         pod_runtime["receiver"] = expected_receiver
+        # The frozen definition carries `wuji.harness.session.v1` profiles, so
+        # the runtime must expose the Session transport that resolves them;
+        # without it every resolve answers CAPABILITY_UNAVAILABLE.
+        document["session_transport"] = True
         return "replaced" if changed else "unchanged"
 
     actions["runtime-config"] = patch_deployment_json(core, "runtime-config", runtime_update,
                                                       namespace=namespace)
+
+    def runtime_profiles_update(document):
+        if not isinstance(document, list) or not document:
+            raise DomainError("INVALID_REFERENCE", 422)
+        expected = json.loads(canonical_json_bytes([
+            snapshot for _kind, snapshot in sorted(binding["worker_profiles"].items())
+        ]))
+        if document == expected:
+            return "unchanged"
+        document[:] = expected
+        return "replaced"
+
+    # The runtime host only resolves a Task profile whose exact published
+    # snapshot it holds, so the attempt's Session profiles are published with
+    # the same bytes that were frozen into the definition.
+    actions["runtime-profiles"] = patch_config_data_json(
+        core, "runtime-config", "profiles.json", runtime_profiles_update, namespace=namespace)
 
     def gates_update(document):
         executors = document.get("executors")
