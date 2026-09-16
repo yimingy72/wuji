@@ -1,0 +1,46 @@
+{
+    "audience": "wuji-vnext-deployment",
+    "ca_file": "/config/ca.crt",
+    "database_file": "/run/wuji/credentials/database.json",
+    "executors": [
+        {
+            "base_url": "https://task-kali.wuji-vnext-test.svc:8444",
+            "binding": {
+                "collector_subject": "collector",
+                "environment_ref": "pod-environment-60e7bd1b-3d28-4af9-be4b-067bf0517c08-a1",
+                "executor_ref": "kali-workspace-v1",
+                "gate_subject": "gate",
+                "project_id": "81e8c413-ba26-45fb-8b5a-1bc477eef99f",
+                "receiver_id": "task-60e7bd1b-3d28-4af9-be4b-067bf0517c08-a1",
+                "task_id": "60e7bd1b-3d28-4af9-be4b-067bf0517c08",
+                "tenant_id": "1fc6b1f3-6f24-456b-9dc1-4e14c7197604"
+            },
+            "collector_token_file": "/run/wuji/credentials/collector.token",
+            "gate_token_file": "/run/wuji/credentials/service.token"
+        },
+        {
+            "base_url": "https://task-kali.wuji-vnext-test.svc:8444",
+            "binding": {
+                "collector_subject": "collector",
+                "environment_ref": "pod-environment-86a2a7f2-1c60-4fc7-82d1-748a26fcd6e4-a1",
+                "executor_ref": "kali-workspace-v1",
+                "gate_subject": "gate",
+                "project_id": "81e8c413-ba26-45fb-8b5a-1bc477eef99f",
+                "receiver_id": "task-86a2a7f2-1c60-4fc7-82d1-748a26fcd6e4-a1",
+                "task_id": "86a2a7f2-1c60-4fc7-82d1-748a26fcd6e4",
+                "tenant_id": "1fc6b1f3-6f24-456b-9dc1-4e14c7197604"
+            },
+            "collector_token_file": "/run/wuji/credentials/collector.token",
+            "gate_token_file": "/run/wuji/credentials/service.token"
+        }
+    ],
+    "issuer": "https://identity.wuji-vnext-test.invalid",
+    "profiles_file": "/config/profiles.json",
+    "public_key_file": "/config/identity.pub",
+    "role": "gates",
+    "schema_version": "wuji.deployment.v1",
+    "secret_refs": {
+        "model-key": "/run/wuji/credentials/model.key"
+    },
+    "service_token_file": "/run/wuji/credentials/service.token"
+}

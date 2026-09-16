@@ -1,0 +1,14 @@
+{"event": "runtime_pod_environment", "pod_name": "wuji-task-v-98ce2d5e5b396faca3a3e0438f9e7dc0-a1", "reason": "permit_revoked", "state": "stopped", "task_id": "86a2a7f2-1c60-4fc7-82d1-748a26fcd6e4"}
+{"event": "runtime_dispatch_cycle", "observed": 0, "states": {}}
+{"event": "runtime_pod_environment", "pod_name": "wuji-task-v-b9070a1a459a54cdc4e8fa051550f56f-a1", "reason": "permit_revoked", "state": "stopped", "task_id": "60e7bd1b-3d28-4af9-be4b-067bf0517c08"}
+{"event": "runtime_pod_environment", "pod_name": "wuji-task-v-98ce2d5e5b396faca3a3e0438f9e7dc0-a1", "reason": "permit_revoked", "state": "stopped", "task_id": "86a2a7f2-1c60-4fc7-82d1-748a26fcd6e4"}
+{"event": "runtime_dispatch_cycle", "observed": 0, "states": {}}
+{"event": "runtime_pod_environment", "pod_name": "wuji-task-v-b9070a1a459a54cdc4e8fa051550f56f-a1", "reason": "permit_revoked", "state": "stopped", "task_id": "60e7bd1b-3d28-4af9-be4b-067bf0517c08"}
+{"event": "runtime_pod_environment", "pod_name": "wuji-task-v-98ce2d5e5b396faca3a3e0438f9e7dc0-a1", "reason": "permit_revoked", "state": "stopped", "task_id": "86a2a7f2-1c60-4fc7-82d1-748a26fcd6e4"}
+{"event": "runtime_dispatch_cycle", "observed": 0, "states": {}}
+{"event": "runtime_pod_environment", "pod_name": "wuji-task-v-b9070a1a459a54cdc4e8fa051550f56f-a1", "reason": "permit_revoked", "state": "stopped", "task_id": "60e7bd1b-3d28-4af9-be4b-067bf0517c08"}
+{"event": "runtime_pod_environment", "pod_name": "wuji-task-v-98ce2d5e5b396faca3a3e0438f9e7dc0-a1", "reason": "permit_revoked", "state": "stopped", "task_id": "86a2a7f2-1c60-4fc7-82d1-748a26fcd6e4"}
+{"event": "runtime_dispatch_cycle", "observed": 0, "states": {}}
+{"event": "runtime_pod_environment", "pod_name": "wuji-task-v-b9070a1a459a54cdc4e8fa051550f56f-a1", "reason": "permit_revoked", "state": "stopped", "task_id": "60e7bd1b-3d28-4af9-be4b-067bf0517c08"}
+{"event": "runtime_pod_environment", "pod_name": "wuji-task-v-98ce2d5e5b396faca3a3e0438f9e7dc0-a1", "reason": "permit_revoked", "state": "stopped", "task_id": "86a2a7f2-1c60-4fc7-82d1-748a26fcd6e4"}
+{"event": "runtime_dispatch_cycle", "observed": 0, "states": {}}

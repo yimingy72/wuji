@@ -1,0 +1,6 @@
+HTTP/1.1 201
+date: Wed, 16 Sep 2026 06:08:58 GMT
+server: uvicorn
+content-length: 408
+content-type: application/json
+x-request-id: 352d18fb-c4d3-4440-b30f-3f82d76bc29f

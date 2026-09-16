@@ -1,0 +1,113 @@
+{
+    "audience": "wuji-vnext-deployment",
+    "ca_file": "/config/ca.crt",
+    "database_file": "/run/wuji/credentials/database.json",
+    "host_origin": "https://runtime.wuji-vnext-test.svc:8443",
+    "issuer": "https://identity.wuji-vnext-test.invalid",
+    "journal_path": "/var/lib/wuji/platform/state/dispatch.sqlite3",
+    "model_gate_url": "https://gates.wuji-vnext-test.svc:8443/internal/v2/model",
+    "pod_runtime": {
+        "kubernetes_ca_file": "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt",
+        "kubernetes_token_file": "/var/run/secrets/kubernetes.io/serviceaccount/token",
+        "kubernetes_url": "https://kubernetes.default.svc",
+        "tasks": [
+            {
+                "receiver": {
+                    "credential_template_ref": "deployment-worker-v1",
+                    "environment_ref": "pod-environment-60e7bd1b-3d28-4af9-be4b-067bf0517c08-a1",
+                    "model_mode": "synthetic",
+                    "receiver_id": "task-60e7bd1b-3d28-4af9-be4b-067bf0517c08-a1",
+                    "receiver_subject": "receiver"
+                },
+                "task_config": {
+                    "agent_image": "127.0.0.1:56615/wuji-vnext-agent@sha256:f4b8dfeaf201dc6d65eb51374940a0d05af75a9147ddcdccfb6c86f02fb9cc28",
+                    "agent_resources": {
+                        "cpu_limit": "1",
+                        "cpu_request": "100m",
+                        "memory_limit": "512Mi",
+                        "memory_request": "128Mi"
+                    },
+                    "config_digest": "1d1111c7fe68d72da00a74c2b50657d27f5589f85c0b3d2f608a2d8b9d32cf49",
+                    "execution_epoch": 2,
+                    "expose_pod_identity": true,
+                    "kali_image": "127.0.0.1:56615/wuji-vnext-kali@sha256:eaaa740aa07a40d90f3cd6385ca70cb26bbaefb3cf13b9e8774c639000bdb3e7",
+                    "kali_receipts_enabled": true,
+                    "kali_resources": {
+                        "cpu_limit": "1",
+                        "cpu_request": "100m",
+                        "memory_limit": "512Mi",
+                        "memory_request": "128Mi"
+                    },
+                    "namespace": "wuji-vnext-test",
+                    "pod_deadline_seconds": 1800,
+                    "runtime_attempt": 1,
+                    "scope_digest": "a75b1b86d4457ed8be9e95b512f0ab7010614079ce8d2caf89f6b98af71538d6",
+                    "task_id": "60e7bd1b-3d28-4af9-be4b-067bf0517c08",
+                    "tenant_id": "1fc6b1f3-6f24-456b-9dc1-4e14c7197604",
+                    "tmp_size_limit": "128Mi"
+                }
+            },
+            {
+                "receiver": {
+                    "credential_template_ref": "deployment-worker-v1",
+                    "environment_ref": "pod-environment-86a2a7f2-1c60-4fc7-82d1-748a26fcd6e4-a1",
+                    "model_mode": "synthetic",
+                    "receiver_id": "task-86a2a7f2-1c60-4fc7-82d1-748a26fcd6e4-a1",
+                    "receiver_subject": "receiver"
+                },
+                "task_config": {
+                    "agent_image": "127.0.0.1:56615/wuji-vnext-agent@sha256:6e134574870c5cea6e821e8ae7e4034c46a89b6415aeb884144be5d0f72945f3",
+                    "agent_resources": {
+                        "cpu_limit": "1",
+                        "cpu_request": "100m",
+                        "memory_limit": "512Mi",
+                        "memory_request": "128Mi"
+                    },
+                    "config_digest": "6428690f3f742fcd61b45b53d03a22490761810f5db640df8d1c997e196a3a3f",
+                    "execution_epoch": 2,
+                    "expose_pod_identity": true,
+                    "kali_image": "127.0.0.1:56615/wuji-vnext-kali@sha256:05aa1b1543f68ce1e198eedc021cdb94bab15c19215012fb3b0dd2eaeaccba54",
+                    "kali_receipts_enabled": true,
+                    "kali_resources": {
+                        "cpu_limit": "1",
+                        "cpu_request": "100m",
+                        "memory_limit": "512Mi",
+                        "memory_request": "128Mi"
+                    },
+                    "namespace": "wuji-vnext-test",
+                    "pod_deadline_seconds": 1800,
+                    "runtime_attempt": 1,
+                    "scope_digest": "a75b1b86d4457ed8be9e95b512f0ab7010614079ce8d2caf89f6b98af71538d6",
+                    "task_id": "86a2a7f2-1c60-4fc7-82d1-748a26fcd6e4",
+                    "tenant_id": "1fc6b1f3-6f24-456b-9dc1-4e14c7197604",
+                    "tmp_size_limit": "128Mi"
+                }
+            }
+        ]
+    },
+    "profiles_file": "/config/profiles.json",
+    "public_approvals": true,
+    "public_commands": true,
+    "public_key_file": "/config/identity.pub",
+    "receiver_token_file": "/run/wuji/credentials/receiver.token",
+    "role": "runtime",
+    "schema_version": "wuji.deployment.v1",
+    "secret_refs": {
+        "encryption-key": "/run/wuji/credentials/encryption.key",
+        "signing-key": "/run/wuji/credentials/signing.key"
+    },
+    "service_token_file": "/run/wuji/credentials/service.token",
+    "session_transport": true,
+    "spool_directory": "/var/lib/wuji/platform/state/intake",
+    "supervisor_url": "https://task-agent.wuji-vnext-test.svc:8443",
+    "task_ids": [
+        "60e7bd1b-3d28-4af9-be4b-067bf0517c08",
+        "86a2a7f2-1c60-4fc7-82d1-748a26fcd6e4"
+    ],
+    "tool_gate_url": "https://gates.wuji-vnext-test.svc:8443/internal/v2/tool-calls",
+    "work_kinds": [
+        "reason",
+        "explore",
+        "report"
+    ]
+}
