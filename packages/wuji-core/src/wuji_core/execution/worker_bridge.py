@@ -417,49 +417,83 @@ class WorkerHostBridge:
             records.append(wire.RecordView.model_validate({"ref": ref, "display_kind": kind, "record": payload}))
         return records
 
+    def _resolve_refused(self, step, error):
+        """Emit the bounded predicate that refused one Host context build.
+
+        A refused resolve is otherwise an opaque 5xx/4xx for the child. Only the
+        step label and the stable refusal code/status are emitted; the
+        assignment, manifest, snapshot records, bearers and peer detail stay on
+        the private channel. This is the resolve counterpart of the bounded
+        ``worker_start_refused`` signal.
+        """
+
+        if isinstance(error, DomainError):
+            code, status = error.code, error.status
+        else:
+            code, status = "internal_error", 500
+        print(json.dumps({"event": "worker_resolve_refused", "step": step,
+                          "code": code, "status": status}, sort_keys=True), flush=True)
+
     def resolve(self, access, assignment):
-        assignment = WorkerAssignment.model_validate(assignment)
-        host = self.current_worker_host(access, assignment)
-        with self._lock:
-            snapshots = SnapshotRepository(self.uow)
-            manifest = snapshots.get(assignment.identity.task_id, access, assignment.snapshot_id)
-            # Resolve the profile from the frozen Task before building context;
-            # PlatformWorkerHost validates its complete binding again below.
-            with self.uow.transaction(access, assignment.identity.task_id, capability="model_request") as tx:
-                config = self.registry.config(tx)
-                current_run(tx, config)
-                definition = strict_json_loads(tx.task["definition_json"])
-                profile = definition["worker_profiles"][assignment.work_kind.value]
-                if host.profiles.get(profile["ref"]) != profile:
-                    raise DomainError("CAPABILITY_UNAVAILABLE", 503)
-            body = profile["body"]
-            if len(manifest.refs) > min(body["max_context_records"], 5000):
-                raise DomainError("LIMIT_BLOCKED", 422)
-            context = self.context_builder(
-                records=self._records(access, assignment, manifest), read_set=manifest.refs,
-                snapshot_id=manifest.snapshot_id, max_records=body["max_context_records"],
-                max_bytes=min(body["max_context_bytes"], 16777216), relations=manifest.relations,
-            )
-            context_wire = wire.WorkerContext.model_validate({
-                "snapshot_id": context.snapshot_id, "read_set": list(context.read_set),
-                "record_refs": list(context.record_refs), "text": context.text,
-                "input_digest": context.input_digest,
-            })
-            if (tuple(context.read_set) != manifest.refs or tuple(context.record_refs) != manifest.refs
-                    or context.snapshot_id != assignment.snapshot_id):
-                raise DomainError("INVALID_REFERENCE", 422)
-            resolved = host.resolve(assignment, context, verified_principal=access.principal)
-            profile_body = resolved.get("profile", {}).get("body", {})
-            if profile_body.get("schema_version") == "wuji.harness.session.v1":
-                if self.session_resolve_encoder is None:
-                    raise DomainError("CAPABILITY_UNAVAILABLE", 503)
-                resolved = self.session_resolve_encoder(resolved)
-            reply = wire.WorkerResolvedContext.model_validate({
-                "context": document(context_wire), "resolved": resolved,
-                "assignment_digest": assignment_digest(assignment),
-            })
-            self.intake.save(assignment, "context", context_wire)
-            return reply
+        step = "validate_assignment"
+        try:
+            assignment = WorkerAssignment.model_validate(assignment)
+            step = "current_host"
+            host = self.current_worker_host(access, assignment)
+            with self._lock:
+                step = "snapshot_manifest"
+                snapshots = SnapshotRepository(self.uow)
+                manifest = snapshots.get(assignment.identity.task_id, access, assignment.snapshot_id)
+                # Resolve the profile from the frozen Task before building context;
+                # PlatformWorkerHost validates its complete binding again below.
+                step = "profile_binding"
+                with self.uow.transaction(access, assignment.identity.task_id, capability="model_request") as tx:
+                    config = self.registry.config(tx)
+                    current_run(tx, config)
+                    definition = strict_json_loads(tx.task["definition_json"])
+                    profile = definition["worker_profiles"][assignment.work_kind.value]
+                    if host.profiles.get(profile["ref"]) != profile:
+                        raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+                body = profile["body"]
+                step = "record_limit"
+                if len(manifest.refs) > min(body["max_context_records"], 5000):
+                    raise DomainError("LIMIT_BLOCKED", 422)
+                step = "read_records"
+                records = self._records(access, assignment, manifest)
+                step = "context_build"
+                context = self.context_builder(
+                    records=records, read_set=manifest.refs,
+                    snapshot_id=manifest.snapshot_id, max_records=body["max_context_records"],
+                    max_bytes=min(body["max_context_bytes"], 16777216), relations=manifest.relations,
+                )
+                context_wire = wire.WorkerContext.model_validate({
+                    "snapshot_id": context.snapshot_id, "read_set": list(context.read_set),
+                    "record_refs": list(context.record_refs), "text": context.text,
+                    "input_digest": context.input_digest,
+                })
+                step = "context_binding"
+                if (tuple(context.read_set) != manifest.refs or tuple(context.record_refs) != manifest.refs
+                        or context.snapshot_id != assignment.snapshot_id):
+                    raise DomainError("INVALID_REFERENCE", 422)
+                step = "host_resolve"
+                resolved = host.resolve(assignment, context, verified_principal=access.principal)
+                profile_body = resolved.get("profile", {}).get("body", {})
+                if profile_body.get("schema_version") == "wuji.harness.session.v1":
+                    step = "session_encode"
+                    if self.session_resolve_encoder is None:
+                        raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+                    resolved = self.session_resolve_encoder(resolved)
+                step = "reply_validate"
+                reply = wire.WorkerResolvedContext.model_validate({
+                    "context": document(context_wire), "resolved": resolved,
+                    "assignment_digest": assignment_digest(assignment),
+                })
+                step = "context_spool"
+                self.intake.save(assignment, "context", context_wire)
+                return reply
+        except Exception as error:
+            self._resolve_refused(step, error)
+            raise
 
     def _stored_context(self, assignment, context):
         expected = self.intake.read(assignment, "context")
