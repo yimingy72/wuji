@@ -1,6 +1,7 @@
 """M2 tests for the actual MAF controller/child transport."""
 
 import base64
+import json
 import runpy
 from types import SimpleNamespace
 import sqlite3
@@ -924,14 +925,16 @@ def test_a_task_whose_environment_is_not_ready_only_stops_its_own_starts():
     )
 
     class Observation:
-        def __init__(self, state, reason=None):
-            self.state, self.reason = state, reason
+        def __init__(self, state, reason=None, code=None):
+            self.state, self.reason, self.code = state, reason, code
 
     class Environment:
         def __init__(self):
             self.observations = {
                 "task-a": Observation("ready"),
-                "task-b": Observation("not_ready", "task_epoch_stale"),
+                # The persisted permission is what refused the Task; only its
+                # bounded code reaches the operator line.
+                "task-b": Observation("stopped", "permit_revoked", "permit_expired"),
             }
             self.failures = {}
 
@@ -1070,3 +1073,83 @@ def test_an_unusable_environment_stops_every_new_start_but_keeps_the_loop():
     assert not worker.is_alive()
     assert errors == []
     assert seen["allowed"] == ()
+
+
+def test_the_runtime_loop_names_why_a_task_environment_is_not_ready(capsys):
+    """A not-ready Task reports the bounded predicate code, never a message."""
+
+    service = runpy.run_path(
+        str(Path(__file__).resolve().parents[2] / "services/wuji-runtime/main.py")
+    )
+    access = AccessContext(
+        Principal(
+            subject="receiver",
+            tenant_id="tenant-fixture",
+            roles=frozenset({"controller"}),
+            token_id="runtime-service-token",
+        ),
+        "runtime-service-thread",
+    )
+
+    class Observation:
+        def __init__(self, state, reason, code):
+            self.state, self.reason, self.code = state, reason, code
+
+    class Environment:
+        def __init__(self):
+            self.observations = {
+                "task-a": Observation("stopped", "permit_revoked", "permit_expired"),
+            }
+            self.failures = {}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def ensure(self):
+            return dict(self.observations)
+
+        def start_eligible_task_ids(self):
+            return ()
+
+    stop = Event()
+
+    class CycleRuntime(RuntimeDispatcher):
+        def run_once(self, *, limit=16):
+            del limit
+            stop.set()
+            return ()
+
+    dispatcher = CycleRuntime(
+        None,
+        access=access,
+        authorized_task_ids=("task-a",),
+        work_kinds=("reason",),
+        outbox=SimpleNamespace(close=lambda: None),
+        reconciler=object(),
+    )
+    service["run"](
+        dispatcher,
+        stop=stop,
+        interval_seconds=0.001,
+        batch_limit=1,
+        pod_environment=Environment(),
+    )
+
+    lines = [
+        json.loads(line)
+        for line in capsys.readouterr().out.splitlines()
+        if line.startswith("{")
+    ]
+    reported = [line for line in lines if line.get("event") == "runtime_pod_environment"]
+    assert reported == [
+        {
+            "event": "runtime_pod_environment",
+            "task_id": "task-a",
+            "state": "stopped",
+            "reason": "permit_revoked",
+            "code": "permit_expired",
+        }
+    ]

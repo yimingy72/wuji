@@ -18,7 +18,23 @@ class RuntimeConflict(TaskRuntimeError):
 
 
 class PermitDenied(TaskRuntimeError):
-    pass
+    """A refused start permission, optionally naming the refusing predicate.
+
+    Only the bounded `code` is safe to surface in an operator log; the message
+    stays internal and is never copied into one.
+    """
+
+    def __init__(self, message, *, code=None):
+        super().__init__(message)
+        if code is not None and (
+            not isinstance(code, str)
+            or not 1 <= len(code) <= 64
+            or not code.isascii()
+            or not code.replace("_", "").isalnum()
+            or not code.islower()
+        ):
+            raise ValueError("bounded lowercase permit code required")
+        self.code = code
 
 
 class ResourceMissing(TaskRuntimeError):

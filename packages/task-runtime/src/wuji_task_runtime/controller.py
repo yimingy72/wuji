@@ -42,7 +42,9 @@ class TaskRuntimeController:
         try:
             permit = self.permits.current(config.task_id)
         except Exception:
-            raise PermitDenied("current start permission is unavailable") from None
+            raise PermitDenied(
+                "current start permission is unavailable", code="permit_unavailable"
+            ) from None
         return validate_execution_permit(config, permit, self.clock())
 
     def _check_resources(self, config: TaskRuntimeConfig) -> None:

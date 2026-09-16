@@ -228,15 +228,20 @@ class RuntimeObservation:
     pod_name: str
     pod_uid: str | None
     reason: str | None = None
+    code: str | None = None
 
 
 def validate_execution_permit(config: TaskRuntimeConfig, permit: ExecutionPermit | None, now: datetime) -> ExecutionPermit:
     """Shared binding check; the caller still obtains permission from trusted storage."""
     if not isinstance(now, datetime) or now.utcoffset() is None:
-        raise PermitDenied("controller clock must include a timezone")
-    if not isinstance(permit, ExecutionPermit) or permit.expires_at <= now:
-        raise PermitDenied("current start permission is missing or expired")
+        raise PermitDenied("controller clock must include a timezone", code="permit_clock_invalid")
+    if not isinstance(permit, ExecutionPermit):
+        raise PermitDenied("current start permission is missing", code="permit_missing")
+    if permit.expires_at <= now:
+        # The attempt window is activated_at + the published max_elapsed_seconds.
+        # Only a new runtime attempt can restore permission.
+        raise PermitDenied("current start permission has expired", code="permit_expired")
     for field in ("tenant_id", "task_id", "runtime_attempt", "execution_epoch", "scope_digest", "config_digest"):
         if getattr(permit, field) != getattr(config, field):
-            raise PermitDenied(f"current permission does not match {field}")
+            raise PermitDenied(f"current permission does not match {field}", code="permit_binding_mismatch")
     return permit

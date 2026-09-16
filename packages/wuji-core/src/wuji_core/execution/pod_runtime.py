@@ -192,7 +192,7 @@ class P05PermitSource:
 
     def in_transaction(self, tx):
         if not task_can_run(tx.task):
-            raise PermitDenied("Task is not currently activated and runnable")
+            raise PermitDenied("Task is not currently activated and runnable", code="task_not_runnable")
         definition = self.control._definition(tx)
         admission = self.registry.config(tx)
         expires = min(
@@ -207,11 +207,11 @@ class P05PermitSource:
             ORDER BY event_seq LIMIT 1""", tx.owner,
         ))
         if start is None:
-            raise PermitDenied("a persisted explicit Task start is required")
+            raise PermitDenied("a persisted explicit Task start is required", code="start_event_missing")
         started = strict_json_loads(start["payload_json"])
         if (started.get("task_id") != tx.owner[2]
                 or started.get("definition_digest") != tx.task["definition_digest"]):
-            raise PermitDenied("Task start definition binding differs")
+            raise PermitDenied("Task start definition binding differs", code="start_definition_changed")
         command = tx.connection.execute(
             """SELECT c.operation_id FROM vnext.outbox o
             JOIN vnext.control_receipt c ON
@@ -227,9 +227,9 @@ class P05PermitSource:
             (*tx.owner, start["event_seq"], tx.owner[2]),
         ).fetchone()
         if command is None:
-            raise PermitDenied("the accepted Task start command is unavailable")
+            raise PermitDenied("the accepted Task start command is unavailable", code="start_command_unavailable")
         if self.config.pod_deadline_seconds > admission.runtime.limits.max_elapsed_seconds:
-            raise PermitDenied("Pod deadline exceeds the fixed Task runtime limit")
+            raise PermitDenied("Pod deadline exceeds the fixed Task runtime limit", code="pod_deadline_exceeds_limit")
         permit = ExecutionPermit(
             tenant_id=self.config.tenant_id,
             task_id=self.config.task_id,
@@ -377,6 +377,7 @@ The Task Pod only receives its own restricted runtime/TLS credentials.
             self._require_open()
             try:
                 revoked_uid = None
+                revoked_code = None
                 with self.permits.transaction() as tx:
                     # Read the durable receiver binding before checking that the
                     # Task is still runnable.  A cancelled/revoked Task must be
@@ -387,17 +388,20 @@ The Task Pod only receives its own restricted runtime/TLS credentials.
                         self._match_registered(existing)
                     try:
                         self.permits.in_transaction(tx)
-                    except PermitDenied:
+                    except PermitDenied as denied:
                         if existing is None or not existing["pod_uid"]:
                             raise
                         revoked_uid = existing["pod_uid"]
+                        # Only the bounded predicate code travels with the
+                        # observation; the message stays internal.
+                        revoked_code = denied.code
                 if revoked_uid is not None:
                     stopped = self.stop(pod_uid=revoked_uid)
                     self._registered_uid = None
                     self._observed_uid = None
                     return RuntimeObservation(
                         stopped.state, stopped.pod_name, stopped.pod_uid,
-                        "permit_revoked",
+                        "permit_revoked", revoked_code,
                     )
                 # Once P09 has observed a UID, absence means reconcile the old
                 # generation; it is never permission to create a replacement.

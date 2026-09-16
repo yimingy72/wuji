@@ -69,6 +69,12 @@ def run(
                             pod_name = getattr(state, "pod_name", None)
                             if isinstance(pod_name, str) and 0 < len(pod_name) <= 253:
                                 detail["pod_name"] = pod_name
+                            denied_code = getattr(state, "code", None)
+                            if (
+                                isinstance(denied_code, str)
+                                and 0 < len(denied_code) <= 64
+                            ):
+                                detail["code"] = denied_code
                             failure = getattr(pod_environment, "failures", {}).get(task_id)
                             if isinstance(failure, str) and 0 < len(failure) <= 64:
                                 detail["error"] = failure
