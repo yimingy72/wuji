@@ -167,7 +167,36 @@ it still holds attempt 1's values. A rolled Task therefore needs those per-attem
 guard the roll uses (previous attempt not runnable, no Pod, no unsettled work), or the registration key must carry
 the attempt. Task A is left at `runtime_attempt=2 / pause / ready`, which is a consistent state to resume from.
 
-## 7. What is still missing
+## 7. The rolled Task runs (2026-09-16, commits `3be42f2`, `005fac0`)
+
+Two more blockers stood between the roll and a running attempt, both found live:
+
+1. `publish_admission` re-registered `kali-workspace-v1` with attempt 2's receiver/environment and the fixed
+   registry refused it (`INPUT_DIGEST_CONFLICT`). The owner command now supersedes that row **only** when the
+   stored document names an earlier attempt, the new one names the Task's current attempt, and that earlier
+   attempt is provably dead (no enabled receiver, no un-exited Run, no unreleased capacity). Live read-back after
+   the fix: `"receiver_id":"task-86a2a7f2-…-a2"`.
+2. `activate` replayed the first attempt's `Idempotency-Key`, so the new start was refused as a same-key,
+   different-body conflict. A rolled attempt now uses `task-launch-start-<task>-a<n>`.
+
+With both in the image, the ordinary launch of the rolled Task completed all four phases
+(`TASK_LAUNCH_JOB_STATUS SuccessCriteriaMet|1|`, `raw/launch-A-attempt2b.log`) and the new attempt really ran:
+
+```text
+task:  2|f|run|running|3|4                      # runtime_attempt 2, started, epoch 3, control_version 4
+runs:  98d72f29|2|exited|accepted
+       ee0fa835|2|exited|incomplete
+work:  reason|done
+       explore|failed|process_failure
+events: task.started|2|-   task.attempt_rolled|4|2   task.started|5|-
+pods:  wuji-task-v-98ce2d5e…-a2                    2/2 Running   (the -a1 Pod is gone)
+```
+
+So a Task whose attempt window closed mid-launch is recovered by an explicit, guarded roll and reaches an accepted
+result on the next attempt. The evidence of the stuck state (attempt 1, `permit_expired`, `POD_NOT_READY`) stays in
+§4/§5 unchanged.
+
+## 8. What is still missing
 
 The two Task *Pods* never ran side by side. Task A's attempt is stuck:
 

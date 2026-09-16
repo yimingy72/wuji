@@ -1,0 +1,2 @@
+explore|failed|process_failure
+reason|done|

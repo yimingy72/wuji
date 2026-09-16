@@ -1,0 +1,3 @@
+task.started|2|
+task.attempt_rolled|4|2
+task.started|5|
