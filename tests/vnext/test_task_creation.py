@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 import json
+from pathlib import Path
 from types import SimpleNamespace
 
 from support.http_capture import RecordedTestClient
@@ -25,7 +26,11 @@ from wuji_core.http.tasks import create_task_router
 
 OWNER = ("tenant-fixture", "project-fixture", "task-fixture")
 BASE = "/api/v2/tasks"
-LOCK_DIGEST = sha256(b"fixture-lock").hexdigest()
+# The published runtime profile must name the Worker lock the Task Pod image
+# actually ships; the owner command refuses a frozen definition that names
+# anything else.
+LOCK_DIGEST = sha256((Path(__file__).resolve().parents[2] / "packages" /
+    "maf-worker" / "uv.lock").read_bytes()).hexdigest()
 PUBLISHED_AT = datetime(2026, 9, 15, 2, 0, tzinfo=timezone.utc)
 
 

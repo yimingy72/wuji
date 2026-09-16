@@ -185,10 +185,30 @@ def deployment_profiles(config):
     return profiles
 
 
+def shipped_worker_lock_digest():
+    """The Worker lock the Task Pod image was built with, measured from this build.
+
+    The owner command runs inside the platform image of the same commit, which
+    contains the worker package that the Task Pod mounts. The child compares the
+    frozen profile against the lock it actually shipped, so a definition whose
+    runtime profile names a different lock can only fail inside a live run.
+    """
+
+    path = Path(__file__).resolve().parents[2] / "packages" / "maf-worker" / "uv.lock"
+    if not path.is_file():
+        raise DomainError("INVALID_REFERENCE", 422)
+    return sha256(path.read_bytes()).hexdigest()
+
+
 def published_session_profiles(config, definition):
     """Fixed Session profiles derived from the deployment's published profiles."""
 
     runtime = definition["runtime_profile"]
+    if runtime["lock_digest"] != shipped_worker_lock_digest():
+        # The Task was created from a published runtime profile that does not
+        # describe the Worker build that would run it. Refuse before activation
+        # instead of freezing a permit the child must reject at the first run.
+        raise DomainError("INPUT_DIGEST_CONFLICT", 409)
     limits = runtime["limits"]
     allowed = tuple(runtime["allowed_tool_refs"])
     if not allowed or len(set(allowed)) != len(allowed):
