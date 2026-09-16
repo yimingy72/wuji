@@ -28,6 +28,7 @@ from functools import partial
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 import json
+import re
 from pathlib import Path
 import time
 
@@ -382,9 +383,88 @@ def publish_admission(connection, *, owner, config, definition, attempt, pool_ke
     executor["receiver_id"] = receiver_id
     executor["environment_ref"] = environment_ref
     executor["allowed_tool_refs"] = list(runtime["allowed_tool_refs"])
-    register_executor(connection, owner=owner, executor=executor)
+    try:
+        register_executor(connection, owner=owner, executor=executor)
+    except DomainError as error:
+        if error.code != "INPUT_DIGEST_CONFLICT":
+            raise
+        # A rolled Task names its new attempt here; the same guard the roll used
+        # decides whether the fixed row may be superseded.
+        supersede_rolled_executor(connection, owner=owner, executor=executor)
     return {"receiver_id": receiver_id, "environment_ref": environment_ref,
             "executor_ref": executor["ref"]}
+
+
+ATTEMPT_SUFFIX = re.compile(r"-a(\d+)$")
+
+
+def _attempt_of(value):
+    match = ATTEMPT_SUFFIX.search(value) if isinstance(value, str) else None
+    return int(match.group(1)) if match else None
+
+
+def supersede_rolled_executor(connection, *, owner, executor):
+    """Replace a Task's fixed executor binding after a guarded attempt roll.
+
+    `executor_registration` is keyed per Task while its document names the
+    attempt's receiver and environment, so a rolled Task must supersede the row
+    instead of registering it again. Only an attempt that can no longer run may
+    be replaced, and the replacement must name the Task's current attempt; any
+    other difference stays an INPUT_DIGEST_CONFLICT.
+    """
+
+    from wuji_core.admission.registry import ExecutorRegistration
+    from wuji_core.persistence.uow import json_text
+
+    stored = connection.execute(
+        "SELECT document_json FROM vnext.executor_registration"
+        " WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND ref=%s",
+        (*owner, executor["ref"]),
+    ).fetchone()
+    current = connection.execute(
+        "SELECT runtime_attempt FROM vnext.task"
+        " WHERE tenant_id=%s AND project_id=%s AND task_id=%s",
+        owner,
+    ).fetchone()
+    if stored is None or current is None:
+        raise DomainError("INVALID_REFERENCE", 422)
+    previous = _attempt_of(strict_json_loads(stored[0]).get("environment_ref"))
+    attempt = int(current[0])
+    if (
+        previous is None
+        or previous >= attempt
+        or _attempt_of(executor.get("environment_ref")) != attempt
+    ):
+        raise DomainError("INPUT_DIGEST_CONFLICT", 409)
+    if connection.execute(
+        "SELECT 1 FROM vnext.scheduler_receiver WHERE tenant_id=%s AND project_id=%s"
+        " AND task_id=%s AND runtime_attempt=%s AND enabled LIMIT 1",
+        (*owner, previous),
+    ).fetchone():
+        raise DomainError("attempt_receiver_still_enabled", 409)
+    if connection.execute(
+        "SELECT 1 FROM vnext.agent_run WHERE tenant_id=%s AND project_id=%s"
+        " AND task_id=%s AND runtime_attempt=%s AND process_state<>'exited' LIMIT 1",
+        (*owner, previous),
+    ).fetchone():
+        raise DomainError("attempt_has_unsettled_run", 409)
+    if connection.execute(
+        "SELECT 1 FROM vnext.capacity_reservation WHERE tenant_id=%s AND project_id=%s"
+        " AND task_id=%s AND state<>'released' LIMIT 1",
+        owner,
+    ).fetchone():
+        raise DomainError("attempt_holds_capacity", 409)
+    registration = ExecutorRegistration.model_validate(executor)
+    connection.execute(
+        "UPDATE vnext.executor_registration SET document_json=%s"
+        " WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND ref=%s",
+        (json_text(registration.model_dump(mode="json")), *owner, registration.ref),
+    )
+    return {
+        "previous_runtime_attempt": previous,
+        "runtime_attempt": attempt,
+        "ref": registration.ref,
+    }
 
 
 def receiver_ids(task_id, attempt):

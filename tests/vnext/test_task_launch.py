@@ -704,3 +704,92 @@ def test_roll_moves_an_expired_attempt_and_refuses_a_runnable_one(
                     connection, owner=owner, config=config, reason="fixture"
                 )
             assert registered.value.code == "attempt_receiver_still_enabled"
+
+
+def test_a_rolled_task_supersedes_its_fixed_executor_binding(
+    db_environment, audit_directory
+):
+    """The fixed executor row names the attempt, so a roll must replace it."""
+
+    with creation_case(db_environment, audit_directory) as case:
+        created = create(case)
+        assert created.status_code == 201, created.text
+        task_id = created.json()["task_id"]
+        owner = (OWNER[0], OWNER[1], task_id)
+        with db_environment.migration_connection() as connection:
+            definition, _ = stored_definition(connection, task_id)
+            config = deployment_config(definition)
+            register_tool_definition(connection, tenant_id=OWNER[0], definition=tool_document())
+            admission_limits(connection, owner, max_elapsed_seconds=1800)
+
+            def executor_for(attempt, *, receiver=None, environment=None):
+                document = dict(config["executor"])
+                document["receiver_id"] = receiver or f"task-{task_id}-a{attempt}"
+                document["environment_ref"] = environment or f"pod-environment-{task_id}-a{attempt}"
+                return document
+
+            task_launch.register_executor(connection, owner=owner, executor=executor_for(1))
+
+            # Without a roll the fixed registration still refuses a change.
+            with pytest.raises(DomainError) as conflict:
+                task_launch.register_executor(connection, owner=owner, executor=executor_for(2))
+            assert conflict.value.code == "INPUT_DIGEST_CONFLICT"
+
+            # The rolled Task names attempt 2, but the previous attempt still has
+            # an enabled receiver, so the supersede is refused there too.
+            connection.execute(
+                "UPDATE vnext.task SET runtime_attempt=2,activated_at=NULL,"
+                " desired_state='pause',observed_state='ready' WHERE task_id=%s",
+                (task_id,),
+            )
+            connection.execute(
+                "INSERT INTO vnext.task_access(tenant_id,project_id,task_id,subject)"
+                " VALUES(%s,%s,%s,'receiver')",
+                owner,
+            )
+            connection.execute(
+                """INSERT INTO vnext.scheduler_identity_template(tenant_id,project_id,
+                task_id,template_ref,issuer,audience,signing_key_ref,signing_kid,
+                encryption_key_ref,clearance,enabled)
+                VALUES(%s,%s,%s,'deployment-worker-v1','https://identity.fixture.invalid',
+                'wuji-vnext-deployment','deployment-key','kid','encryption-key',1,true)""",
+                owner,
+            )
+            connection.execute(
+                """INSERT INTO vnext.scheduler_receiver(tenant_id,project_id,task_id,
+                runtime_attempt,receiver_id,environment_ref,model_mode,receiver_subject,
+                credential_template_ref,harness_profiles_json,pod_uid,enabled)
+                VALUES(%s,%s,%s,1,'receiver-a1','environment-a1','synthetic','receiver',
+                'deployment-worker-v1','{}','pod-uid-a1',true)""",
+                owner,
+            )
+            with pytest.raises(DomainError) as live:
+                task_launch.supersede_rolled_executor(
+                    connection, owner=owner, executor=executor_for(2)
+                )
+            assert live.value.code == "attempt_receiver_still_enabled"
+
+            # Once that attempt is stopped the row moves to the current attempt.
+            connection.execute(
+                "UPDATE vnext.scheduler_receiver SET enabled=false WHERE task_id=%s",
+                (task_id,),
+            )
+            superseded = task_launch.supersede_rolled_executor(
+                connection, owner=owner, executor=executor_for(2)
+            )
+            assert superseded == {
+                "previous_runtime_attempt": 1,
+                "runtime_attempt": 2,
+                "ref": "kali-workspace-v1",
+            }
+            stored = json.loads(
+                connection.execute(
+                    "SELECT document_json FROM vnext.executor_registration"
+                    " WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND ref=%s",
+                    (*owner, "kali-workspace-v1"),
+                ).fetchone()[0]
+            )
+            assert stored["receiver_id"] == f"task-{task_id}-a2"
+            assert stored["environment_ref"] == f"pod-environment-{task_id}-a2"
+            # Registering it again is now a no-op rather than a conflict.
+            task_launch.register_executor(connection, owner=owner, executor=executor_for(2))
