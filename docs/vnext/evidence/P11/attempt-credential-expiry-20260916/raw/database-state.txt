@@ -1,0 +1,22 @@
+# $ psql (migration role) — the three Runs of Task A attempt 2
+select left(agent_run_id,8),runtime_attempt,process_state,result_state,(start_operation_id is not null),pod_uid from vnext.agent_run where task_id='86a2a7f2-1c60-4fc7-82d1-748a26fcd6e4';
+98d72f29|2|exited|accepted|start=true
+9e574eb0|2|registered|none|start=true
+ee0fa835|2|exited|incomplete|start=true
+
+# work items
+select left(work_item_id,8),kind,state,left(current_run_id,8),run_epoch,blocked_reason,terminal_reason from vnext.work_item where task_id='86a2a7f2-1c60-4fc7-82d1-748a26fcd6e4';
+bd62d4c0|explore|leased|run=9e574eb0|epoch=2|-|-
+53414524|explore|failed|run=ee0fa835|epoch=2|-|process_failure
+7d552f64|reason|done|run=98d72f29|epoch=2|-|-
+
+# execution observations (none for 9e574eb0)
+98d72f29|started|2026-09-16 09:13:41+00|receiver
+ee0fa835|started|2026-09-16 09:13:42.03+00|receiver
+ee0fa835|exited|2026-09-16 09:13:53.042+00|receiver
+98d72f29|exited|2026-09-16 09:13:57.906+00|receiver
+
+# assignments: created_at per run (op = operation_id)
+98d72f29|op=47d81a3a|created=2026-09-16 09:13:38.651273+00|event_seq=7
+ee0fa835|op=6bd0508b|created=2026-09-16 09:13:38.848935+00|event_seq=8
+9e574eb0|op=e4f4375f|created=2026-09-16 09:38:31.358468+00|event_seq=18

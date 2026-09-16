@@ -21,6 +21,10 @@
   list, per-Task gate executors and per-Task environment reporting, plus the three defects the live attempt
   found and the launch-retry hazard that still blocks two concurrent Task Pods.
 
+- [Attempt credential expiry](attempt-credential-expiry-20260916/README.md): Task A attempt 2 的第三个 Run 在
+  receiver bearer 到期（`2026-09-16T09:29:23Z`）之后派发，三次 401 用尽投递预算后停在 `registered`，
+  并因 `attempt_has_unsettled_run` 锁死滚动；含 bearer 注册声明、投递日志与数据库事实。
+
 Still open: owner tooling that derives admission rows from deployment configuration, a runtime attempt
 that carries no worker-assignment dispatch finding, Stage B branches 2 and 3 on their own fixtures, and
 the multi-Task runtime host that would prove one Task is not stopped with another.

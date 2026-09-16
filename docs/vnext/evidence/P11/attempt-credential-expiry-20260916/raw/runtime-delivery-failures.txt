@@ -1,0 +1,11 @@
+# captured 2026-09-16T09:58Z on docker-desktop, namespace wuji-vnext-test
+# $ kubectl -n wuji-vnext-test logs deploy/runtime --timestamps | grep '"method": "PUT"'
+2026-09-16T09:13:41.038962458Z {"event": "runtime_dispatch_transport", "method": "PUT", "status": 200}
+2026-09-16T09:13:42.036937083Z {"event": "runtime_dispatch_transport", "method": "PUT", "status": 200}
+2026-09-16T09:38:32.285406801Z {"event": "runtime_dispatch_transport", "method": "PUT", "status": 401}
+2026-09-16T09:39:02.760201510Z {"event": "runtime_dispatch_transport", "method": "PUT", "status": 401}
+2026-09-16T09:39:32.821396968Z {"event": "runtime_dispatch_transport", "method": "PUT", "status": 401}
+# $ kubectl -n wuji-vnext-test logs deploy/runtime --timestamps | grep runtime_dispatch_skipped
+2026-09-16T09:38:32.461285676Z {"codes": ["STALE_EXECUTION"], "count": 1, "event": "runtime_dispatch_skipped"}
+2026-09-16T09:39:02.977301093Z {"codes": ["STALE_EXECUTION"], "count": 1, "event": "runtime_dispatch_skipped"}
+2026-09-16T09:39:32.971253343Z {"codes": ["STALE_EXECUTION"], "count": 1, "event": "runtime_dispatch_skipped"}

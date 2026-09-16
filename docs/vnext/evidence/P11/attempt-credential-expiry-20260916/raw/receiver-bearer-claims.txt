@@ -1,0 +1,13 @@
+# $ kubectl -n wuji-vnext-test exec deploy/runtime -- python3 -c '...decode receiver.token payload...'
+# only the registered claims are printed; the signed token bytes are never written to the repository.
+iss = https://identity.wuji-vnext-test.invalid
+aud = wuji-vnext-deployment
+sub = receiver
+roles = ['controller']
+iat = 2026-09-15T09:29:23+00:00
+nbf = 2026-09-15T09:29:22+00:00
+exp = 2026-09-16T09:29:23+00:00
+
+# $ sha256 of the receiver bearer mounted by the runtime and by Task A attempt 2 (first 16 hex)
+c9ec81659d246069
+c9ec81659d246069 (task attempt 2 secret)

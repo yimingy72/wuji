@@ -1,0 +1,22 @@
+# captured 2026-09-16T10:0xZ
+2026-09-16T09:12:51Z Pod wuji-task-v-98ce2d5e5b396faca3a3e0438f9e7dc0-a2-workspace-snlsc Scheduled Successfully assigned wuji-vnext-test/wuji-task-v-98ce2d5e5b396faca3a3e0438f9e7dc0-a2-work
+2026-09-16T09:12:52Z Pod wuji-task-v-98ce2d5e5b396faca3a3e0438f9e7dc0-a2-workspace-snlsc Pulled Container image "127.0.0.1:56615/wuji-vnext-kali@sha256:27bca5d9f9499c82a245037c4a8951fed7
+2026-09-16T09:12:52Z Pod wuji-task-v-98ce2d5e5b396faca3a3e0438f9e7dc0-a2-workspace-snlsc Created Container created
+2026-09-16T09:12:52Z Pod wuji-task-v-98ce2d5e5b396faca3a3e0438f9e7dc0-a2-workspace-snlsc Started Container started
+2026-09-16T09:12:53Z Job wuji-task-v-98ce2d5e5b396faca3a3e0438f9e7dc0-a2-workspace-init Completed Job completed
+2026-09-16T09:13:35Z Pod wuji-task-v-98ce2d5e5b396faca3a3e0438f9e7dc0-a2 Scheduled Successfully assigned wuji-vnext-test/wuji-task-v-98ce2d5e5b396faca3a3e0438f9e7dc0-a2 to d
+2026-09-16T09:13:35Z Pod wuji-task-v-98ce2d5e5b396faca3a3e0438f9e7dc0-a2 Pulled Container image "127.0.0.1:56615/wuji-vnext-agent@sha256:b7facc1c89220e3bec1b376acb42c6c27
+2026-09-16T09:13:36Z Pod wuji-task-v-98ce2d5e5b396faca3a3e0438f9e7dc0-a2 Created Container created
+2026-09-16T09:13:36Z Pod wuji-task-v-98ce2d5e5b396faca3a3e0438f9e7dc0-a2 Started Container started
+2026-09-16T09:13:36Z Pod wuji-task-v-98ce2d5e5b396faca3a3e0438f9e7dc0-a2 Pulled Container image "127.0.0.1:56615/wuji-vnext-kali@sha256:27bca5d9f9499c82a245037c4a8951fed7
+2026-09-16T09:13:36Z Pod wuji-task-v-98ce2d5e5b396faca3a3e0438f9e7dc0-a2 Created Container created
+2026-09-16T09:13:36Z Pod wuji-task-v-98ce2d5e5b396faca3a3e0438f9e7dc0-a2 Started Container started
+2026-09-16T09:42:50Z Pod wuji-task-v-98ce2d5e5b396faca3a3e0438f9e7dc0-a2 Killing Stopping container agent
+2026-09-16T09:42:50Z Pod wuji-task-v-98ce2d5e5b396faca3a3e0438f9e7dc0-a2 Killing Stopping container kali
+
+# $ kubectl -n wuji-vnext-test get endpoints task-agent -o jsonpath
+Warning: v1 Endpoints is deprecated in v1.33+; use discovery.k8s.io/v1 EndpointSlice
+(no subsets = no ready endpoint)
+
+# $ kubectl -n wuji-vnext-test get svc task-agent -o jsonpath='{.spec.selector}'
+{"app.kubernetes.io/managed-by":"wuji-task-runtime-controller","wuji.dev/runtime-attempt":"2","wuji.dev/task-id":"86a2a7f2-1c60-4fc7-82d1-748a26fcd6e4","wuji.dev/tenant-id":"1fc6b1f3-6f24-456b-9dc1-4e14c7197604"}
