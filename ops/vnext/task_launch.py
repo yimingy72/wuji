@@ -499,7 +499,8 @@ def admit_initial_intent(connection_factory, *, access, task, definition_lines, 
     )
 
 
-def activate(config, *, task_id, version, reason, base_url, signing_key_file=None):
+def activate(config, *, task_id, version, reason, base_url, signing_key_file=None,
+             attempt=None):
     payload = {
         "schema_version": "wuji.api.v2",
         "command": "start",
@@ -512,7 +513,11 @@ def activate(config, *, task_id, version, reason, base_url, signing_key_file=Non
             f"{base_url}/api/v2/tasks/{task_id}/commands",
             json=payload,
             headers={"Authorization": "Bearer " + token,
-                     "Idempotency-Key": f"task-launch-start-{task_id}"},
+                     "Idempotency-Key": (
+                         f"task-launch-start-{task_id}"
+                         if attempt is None
+                         else f"task-launch-start-{task_id}-a{attempt}"
+                     )},
         )
     if response.status_code != 202:
         # The public command route answers with a bounded error document; keep
@@ -1381,9 +1386,17 @@ def run_phases(config, *, task_id, phases, options):
             if state[0] is None:
                 result["activate"] = activate(
                     config, task_id=task_id, version=binding["control_version"],
-                    reason="task launch: activate the created Task for its first runtime attempt",
+                    reason=(
+                        "task launch: activate the created Task for its first runtime attempt"
+                        if int(binding["runtime_attempt"]) == 1
+                        else "task launch: activate the rolled runtime attempt"
+                    ),
                     base_url=options["base_url"],
-                    signing_key_file=options.get("signing_key_file"))
+                    signing_key_file=options.get("signing_key_file"),
+                    # A new attempt is a new start command, so it cannot replay
+                    # the first attempt's idempotency key.
+                    attempt=int(binding["runtime_attempt"]),
+                )
             elif state[1] == "run":
                 # A previous launch (or an operator) already activated this
                 # attempt; the permit and the start receipt are read back from
