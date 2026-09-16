@@ -25,14 +25,34 @@ from wuji_maf_worker.context import ContextBundle
 ERROR_CODE_MAX_BYTES = 4096
 
 
-async def bounded_error_code(response):
-    """Read the frozen error code of one rejected response, bounded.
-
-    Shared by the Host and ToolGate transports: both answer with the published
-    ErrorEnvelope, and neither may leak body text into an operator signal.
+def error_code_from_bytes(body, *, encoding="identity"):
+    """Read the frozen error code of one rejected response body, bounded.
 
     Returns None for any body that is not a bounded error envelope: a hostile,
-    oversized or non-JSON response must not add text to the operator signal.
+    oversized or non-JSON response must not add text to an operator signal.
+    """
+
+    if encoding != "identity" or not isinstance(body, (bytes, bytearray)):
+        return None
+    if len(body) > ERROR_CODE_MAX_BYTES:
+        return None
+    try:
+        envelope = strict_json_loads(bytes(body))
+    except ValueError:
+        return None
+    code = envelope.get("code") if isinstance(envelope, dict) else None
+    if not isinstance(code, str) or not code or len(code) > 64:
+        return None
+    if not code.isascii() or not code.replace("_", "").isalnum() or not code.isupper():
+        return None
+    return code
+
+
+async def bounded_error_code(response):
+    """Read that code from one streaming response, without buffering past the limit.
+
+    Only the Host transport streams; the ToolGate transport is buffered and uses
+    `error_code_from_bytes` on the already-read body instead.
     """
 
     chunks, size = [], 0
@@ -44,18 +64,10 @@ async def bounded_error_code(response):
             chunks.append(chunk)
     except (httpx.HTTPError, OSError):
         return None
-    if response.headers.get("content-encoding", "identity") != "identity":
-        return None
-    try:
-        envelope = strict_json_loads(b"".join(chunks))
-    except ValueError:
-        return None
-    code = envelope.get("code") if isinstance(envelope, dict) else None
-    if not isinstance(code, str) or not code or len(code) > 64:
-        return None
-    if not code.isascii() or not code.replace("_", "").isalnum() or not code.isupper():
-        return None
-    return code
+    return error_code_from_bytes(
+        b"".join(chunks),
+        encoding=response.headers.get("content-encoding", "identity"),
+    )
 
 
 class HostTransportError(ValueError):

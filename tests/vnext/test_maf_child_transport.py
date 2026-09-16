@@ -636,7 +636,7 @@ def test_host_error_code_is_bounded_or_absent():
 
     import asyncio
 
-    from wuji_maf_worker.remote_host import bounded_error_code
+    from wuji_maf_worker.remote_host import bounded_error_code, error_code_from_bytes
 
     class Response:
         def __init__(self, body, *, encoding="identity"):
@@ -656,6 +656,11 @@ def test_host_error_code_is_bounded_or_absent():
     assert read(b'{"code":"' + b"A" * 200 + b'"}') is None
     assert read(b'{"code":"STALE_EXECUTION"}', encoding="gzip") is None
     assert read(b'{"code":"STALE_EXECUTION"}' + b" " * 8192) is None
+    # The same bounded parser serves the buffered ToolGate transport.
+    assert error_code_from_bytes(b'{"code":"LIMIT_BLOCKED"}') == "LIMIT_BLOCKED"
+    assert error_code_from_bytes(b'{"code":"LIMIT_BLOCKED"}', encoding="gzip") is None
+    assert error_code_from_bytes(b'{"code":"STALE_EXECUTION"}' + b" " * 8192) is None
+    assert error_code_from_bytes("{\"code\":\"LIMIT_BLOCKED\"}") is None
 
 
 def test_unresolved_delivery_is_retried_only_after_an_authoritative_absence(tmp_path):
@@ -790,14 +795,17 @@ def test_tool_gate_refusal_names_the_published_code_and_keeps_the_escape():
             return Request()
 
     class Response:
+        # The ToolGate client is buffered: `content` is already read, and
+        # consuming it as a stream is exactly the defect this covers.
         status_code = 429
 
         def __init__(self, body):
-            self._body = body
+            self.content = body
             self.headers = {"content-encoding": "identity"}
 
         async def aiter_raw(self):
-            yield self._body
+            raise AssertionError("buffered ToolGate response must not be streamed")
+            yield b""
 
     class Client:
         def __init__(self, body):
@@ -852,6 +860,9 @@ def test_tool_gate_refusal_names_the_published_code_and_keeps_the_escape():
     unnamed = refusal(b"<html>proxy error</html>")
     assert getattr(unnamed, "code", None) is None
     assert unnamed.status_code == 429
+    oversized = refusal(b'{"code":"LIMIT_BLOCKED"}' + b" " * 8192)
+    assert getattr(oversized, "code", None) is None
+    assert oversized.status_code == 429
 
 
 def test_model_gate_failure_is_classified_by_its_transport_cause():

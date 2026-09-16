@@ -6,7 +6,7 @@ from uuid import uuid4
 
 from agent_framework import Content, FunctionMiddleware, FunctionTool, MiddlewareFailure
 
-from wuji_maf_worker.remote_host import bounded_error_code
+from wuji_maf_worker.remote_host import error_code_from_bytes
 
 from wuji_core.contracts.admission import ToolCallRequest, ToolCallReceipt
 from wuji_core.http import canonical_json_bytes, strict_json_loads
@@ -423,7 +423,10 @@ class GateFunctions(FunctionMiddleware):
                     # success body is never consumed here.
                     refusal = ToolGateRefused("ToolGate refused the tool call")
                     refusal.status_code = response.status_code
-                    code = await bounded_error_code(response)
+                    code = error_code_from_bytes(
+                        response.content,
+                        encoding=response.headers.get("content-encoding", "identity"),
+                    )
                     if code is not None:
                         refusal.code = code
                     raise refusal
@@ -454,7 +457,10 @@ class GateFunctions(FunctionMiddleware):
             if response.status_code != 200:
                 refusal = ToolGateRefused("ToolGate refused the pending approval call")
                 refusal.status_code = response.status_code
-                code = await bounded_error_code(response)
+                code = error_code_from_bytes(
+                    response.content,
+                    encoding=response.headers.get("content-encoding", "identity"),
+                )
                 if code is not None:
                     refusal.code = code
                 raise refusal
