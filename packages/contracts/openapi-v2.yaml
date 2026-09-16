@@ -492,6 +492,29 @@ paths:
     {"get": {"operationId": "readToolCallV2", "summary": "readToolCallV2", "tags": ["Internal"], "responses": {"200": {"description": "Current authorized receipt", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ToolCallReceipt"}}}}, "401": {"$ref": "#/components/responses/Unauthenticated"}, "404": {"description": "Missing or not accessible"}, "409": {"$ref": "#/components/responses/Conflict"}, "422": {"$ref": "#/components/responses/InvalidSchema"}, "429": {"$ref": "#/components/responses/LimitBlocked"}, "503": {"$ref": "#/components/responses/Unavailable"}}, "parameters": [{"name": "tool_call_id", "in": "path", "required": true, "schema": {"type": "string", "minLength": 1, "maxLength": 256}}]}}
   /internal/v2/tool-calls/{tool_call_id}/cancel:
     {"post": {"operationId": "cancelToolCallV2", "summary": "cancelToolCallV2", "tags": ["Internal"], "responses": {"200": {"description": "Current authorized receipt", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ToolCallReceipt"}}}}, "401": {"$ref": "#/components/responses/Unauthenticated"}, "404": {"description": "Missing or not accessible"}, "409": {"$ref": "#/components/responses/Conflict"}, "422": {"$ref": "#/components/responses/InvalidSchema"}, "429": {"$ref": "#/components/responses/LimitBlocked"}, "503": {"$ref": "#/components/responses/Unavailable"}}, "parameters": [{"name": "tool_call_id", "in": "path", "required": true, "schema": {"type": "string", "minLength": 1, "maxLength": 256}}, {"$ref": "#/components/parameters/IdempotencyKey"}], "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ToolCancelRequest"}}}}}}
+  /internal/v2/tool-settlement:
+    post:
+      operationId: closeToolSettlementV2
+      summary: Close this Run's own operation set from durable platform records
+      tags: [Internal]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ToolSettlementRequest'
+      responses:
+        '200':
+          description: Current settlement of the calling Run
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolSettlementReceipt'
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/Forbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+        '503': {$ref: '#/components/responses/Unavailable'}
   /internal/v2/worker-host/await-start:
     post:
       operationId: awaitWorkerStartV2
@@ -2818,3 +2841,12 @@ components:
 
     ToolCallReceipt:
       {"type": "object", "additionalProperties": false, "required": ["tool_call_id", "operation_id", "tool_attempt_id", "status", "evidence_receipt", "result_ref", "reason_code"], "properties": {"tool_call_id": {"type": "string", "minLength": 1, "maxLength": 256}, "operation_id": {"type": "string", "minLength": 1, "maxLength": 256}, "tool_attempt_id": {"oneOf": [{"type": "string", "minLength": 1, "maxLength": 256}, {"type": "null"}]}, "status": {"type": "string", "enum": ["pending_approval", "admitted", "dispatched", "running", "evidence_pending", "complete", "unknown", "cancel_requested", "cancelled", "failed"]}, "evidence_receipt": {"oneOf": [{"$ref": "#/components/schemas/EvidenceReceipt"}, {"type": "null"}]}, "result_ref": {"oneOf": [{"$ref": "#/components/schemas/BlobRef"}, {"type": "null"}]}, "reason_code": {"oneOf": [{"$ref": "#/components/schemas/ErrorCode"}, {"type": "null"}]}}}
+
+    ToolSettlementStatus:
+      {"type": "string", "enum": ["settled", "pending"]}
+
+    ToolSettlementRequest:
+      {"type": "object", "additionalProperties": false, "properties": {}}
+
+    ToolSettlementReceipt:
+      {"type": "object", "additionalProperties": false, "required": ["agent_run_id", "status", "open_operations"], "properties": {"agent_run_id": {"type": "string", "minLength": 1, "maxLength": 256}, "status": {"$ref": "#/components/schemas/ToolSettlementStatus"}, "open_operations": {"type": "integer", "minimum": 0}}}

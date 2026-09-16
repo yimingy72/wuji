@@ -596,10 +596,22 @@ def test_actual_supervisor_child_waits_for_start_and_receiver_replays_bytes(
         assert old_worker.json()["status"] == "revoked"
         assert old_worker.json()["birth_id"] is None
         assert old_worker.json()["observation_id"] is None
-        assert (
-            len(case.upstream.exchanges),
-            len(case.gate_server.exchanges),
-        ) == before_network
+        # One Run owns one operation set: the child closes its own set once, at
+        # the very end, and the exit adds no other traffic.
+        added = case.gate_server.exchanges[before_network[1]:]
+        assert [(exchange.method, exchange.path) for exchange in added] == [
+            ("POST", "/internal/v2/tool-settlement")
+        ]
+        assert added[0].status_code == 200, added[0].response_body
+        assert len(case.upstream.exchanges) == before_network[0]
+        with db_environment.migration_connection() as connection:
+            settlement = connection.execute(
+                """SELECT status, source_receipt_json FROM vnext.run_operation_settlement
+                WHERE agent_run_id=%s""",
+                (case.assignment.identity.agent_run_id,),
+            ).fetchone()
+        assert settlement is not None
+        assert settlement[0] in {"settled", "pending"}
 
         audit_directory.joinpath("m2-result-summary.json").write_bytes(
             canonical_json_bytes(

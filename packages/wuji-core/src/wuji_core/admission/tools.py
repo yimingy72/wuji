@@ -13,7 +13,9 @@ from uuid import uuid4
 from pydantic import BaseModel, ConfigDict, AwareDatetime
 from starlette.concurrency import run_in_threadpool
 
-from wuji_core.contracts.admission import ToolCallRequest, ToolCallReceipt
+from wuji_core.contracts.admission import (
+    ToolCallRequest, ToolCallReceipt, ToolSettlementReceipt, ToolSettlementRequest,
+)
 from wuji_core.contracts.envelopes import RunIdentity, CaptureEnvelope, BlobRef
 from wuji_core.http import strict_json_loads
 from wuji_core.http.auth import Principal
@@ -120,12 +122,68 @@ def _attempt(tx, attempt_id):
     return value
 
 
+def _open_operations(tx, run_id):
+    """Count the Run's durable operations the platform has not closed yet.
+
+    The count is derived from platform records only: a Run cannot make its own
+    operation set look closed, and a producer that never registered anything
+    contributes zero rather than blocking every Run that made no tool call.
+    """
+
+    query = (
+        "SELECT count(*) FROM vnext.{} x WHERE x.tenant_id=%s AND x.project_id=%s"
+        " AND x.task_id=%s AND x.agent_run_id=%s AND {}"
+    )
+    counts = {}
+    for name, table, predicate in (
+        ("tool_attempts", "tool_attempt",
+         "x.status IS NOT NULL AND x.status NOT IN ('complete','cancelled','failed')"),
+        ("model_calls", "model_call", "x.inflight"),
+        ("resource_reservations", "resource_reservation", "x.state<>'released'"),
+    ):
+        counts[name] = tx.connection.execute(
+            query.format(table, predicate), (*tx.owner, run_id)
+        ).fetchone()[0]
+    return counts
+
+
 def _settlement(tx, run_id):
     unsettled = tx.connection.execute("SELECT 1 FROM vnext.tool_attempt WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND agent_run_id=%s AND status IS NOT NULL AND status NOT IN ('complete','cancelled','failed') LIMIT 1", (*tx.owner, run_id)).fetchone()
     old = row(tx.connection.execute("SELECT * FROM vnext.run_operation_settlement WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND agent_run_id=%s", (*tx.owner, run_id)))
     if old and old["status"] != "settled" and strict_json_loads(old["source_receipt_json"]).get("producer") != "p06":
         return  # Another producer's unresolved operation must not be erased.
     tx.connection.execute("INSERT INTO vnext.run_operation_settlement(tenant_id,project_id,task_id,agent_run_id,status,source_receipt_json) VALUES(%s,%s,%s,%s,%s,%s) ON CONFLICT(tenant_id,project_id,task_id,agent_run_id) DO UPDATE SET status=EXCLUDED.status,source_receipt_json=EXCLUDED.source_receipt_json", (*tx.owner, run_id, "pending" if unsettled else "settled", json_text({"producer": "p06", "basis": "durable_tool_attempt_receipts"})))
+
+
+def close_operation_set(tx, run_id):
+    """Close the calling Run's own operation set from durable platform records.
+
+    A Run that registered no operation (for example one refused before its first
+    tool attempt) owns an empty operation set. The Run may say that it will
+    start no further operation, but the status is still computed here: while any
+    durable operation is open the row stays ``pending``, and a settlement
+    already published by another producer keeps its own receipt.
+    """
+
+    existing = row(tx.connection.execute("SELECT * FROM vnext.run_operation_settlement WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND agent_run_id=%s", (*tx.owner, run_id)))
+    if existing is not None and existing["status"] == "settled":
+        return "settled", 0
+    if existing is not None and strict_json_loads(existing["source_receipt_json"]).get("producer") != "p06":
+        # Another producer owns this Run's settlement facts; never erase them.
+        return existing["status"], 0
+    counts = _open_operations(tx, run_id)
+    open_operations = sum(counts.values())
+    if existing is None and open_operations and not counts["tool_attempts"]:
+        # The Run never opened a tool operation, so no settlement row may exist
+        # yet: the empty set is only closed once every axis is closed too.
+        return "pending", open_operations
+    tx.connection.execute(
+        "INSERT INTO vnext.run_operation_settlement(tenant_id,project_id,task_id,agent_run_id,status,source_receipt_json) VALUES(%s,%s,%s,%s,%s,%s) ON CONFLICT(tenant_id,project_id,task_id,agent_run_id) DO UPDATE SET status=EXCLUDED.status,source_receipt_json=EXCLUDED.source_receipt_json",
+        (*tx.owner, run_id, "pending" if open_operations else "settled",
+         json_text({"producer": "p06", "basis": "run_closed_operation_set",
+                    "open_operations": counts})),
+    )
+    return ("pending" if open_operations else "settled"), open_operations
 
 
 class ToolAdmission:
@@ -342,6 +400,27 @@ class ToolGate:
             if executor is None or not all(callable(getattr(executor, method, None)) for method in ("dispatch", "query", "cancel")) or collector is None or collector.principal.subject != registration.collector_subject or collector.principal.tenant_id != tx.owner[0] or "collector" not in collector.principal.roles:
                 raise DomainError("CAPABILITY_UNAVAILABLE", 503)
             return registration
+
+    def close_operations(self, access, request):
+        """Close the calling Run's own operation set from durable records.
+
+        The Run states only that it will start no further operation; whether the
+        set is closed is recomputed here from the platform's records, so a Run
+        cannot settle over its own unresolved attempt, in-flight model request
+        or unreleased resource.
+        """
+
+        request = ToolSettlementRequest.model_validate(request)
+        binding = self.registry.binding(access)
+        with self.admission.uow.transaction(access, binding.identity.task_id, capability="tool_settle") as tx:
+            status, open_operations = close_operation_set(tx, binding.identity.agent_run_id)
+            audit(tx, "tool.operation_set_closed",
+                  {"status": status, "open_operations": open_operations})
+        return ToolSettlementReceipt.model_validate({
+            "agent_run_id": binding.identity.agent_run_id,
+            "status": status,
+            "open_operations": open_operations,
+        })
 
     async def execute_permit(self, access, permit):
         if access.principal != permit.access.principal:

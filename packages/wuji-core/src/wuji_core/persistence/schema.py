@@ -69,8 +69,12 @@ from wuji_core.persistence.layout_schema import (
     upgrade as upgrade_layouts,
 )
 from wuji_core.persistence.task_creation_schema import (
-    HEAD,
+    HEAD as TASK_CREATION_HEAD,
     upgrade as upgrade_task_creation,
+)
+from wuji_core.persistence.run_settlement_close_schema import (
+    HEAD,
+    upgrade as upgrade_run_settlement_close,
 )
 
 OWNER = "tenant_id,project_id,task_id"
@@ -440,6 +444,7 @@ def migrate(connection, *, application_role: str) -> None:
                 SESSION_WRITER_EXIT_HEAD,
                 POD_RECEIVER_HEAD,
                 LAYOUT_HEAD,
+                TASK_CREATION_HEAD,
                 HEAD,
             ]
             if not heads or heads != set(chain[: len(heads)]):
@@ -463,6 +468,7 @@ def migrate(connection, *, application_role: str) -> None:
                 upgrade_pod_receivers,
                 upgrade_layouts,
                 upgrade_task_creation,
+                upgrade_run_settlement_close,
             ]
             for upgrade in upgrades[len(heads) - 1 :]:
                 upgrade(connection, application_role)
@@ -582,3 +588,4 @@ def migrate(connection, *, application_role: str) -> None:
         upgrade_pod_receivers(connection, application_role)
         upgrade_layouts(connection, application_role)
         upgrade_task_creation(connection, application_role)
+        upgrade_run_settlement_close(connection, application_role)

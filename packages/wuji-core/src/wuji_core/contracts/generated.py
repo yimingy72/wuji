@@ -1818,6 +1818,26 @@ class ToolDefinitionRef(RootModel[StrictStr]):
     root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
 
 
+class ToolSettlementReceipt(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    agent_run_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    status: ToolSettlementStatus
+    open_operations: Annotated[StrictInt, Field(ge=0)]
+
+
+class ToolSettlementRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+
+
+class ToolSettlementStatus(StrEnum):
+    settled = 'settled'
+    pending = 'pending'
+
+
 class TopologyEdge(BaseModel):
     model_config = ConfigDict(
         extra='forbid',

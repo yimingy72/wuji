@@ -391,6 +391,78 @@ def test_workspace_read_returns_only_after_persisting_evidence(
         assert claims == 0
 
 
+def test_run_closes_its_own_operation_set_from_durable_records(
+    db_environment, tmp_path, audit_directory
+):
+    """Catch a Run that can never close its own empty operation set.
+
+    A Run refused before its first tool attempt registers no operation at all,
+    so no other producer ever publishes a settlement for it and its Work item
+    stays at `operations_unsettled` forever.
+    """
+
+    with tool_case(db_environment, tmp_path, audit_directory) as case:
+        with db_environment.migration_connection() as connection:
+            run_id = connection.execute(
+                """SELECT agent_run_id FROM vnext.run_credential
+                WHERE tenant_id=%s AND subject=%s AND token_id=%s""",
+                (case.credential.principal.tenant_id,
+                 case.credential.principal.subject,
+                 case.credential.principal.token_id),
+            ).fetchone()[0]
+            assert connection.execute(
+                """SELECT count(*) FROM vnext.run_operation_settlement
+                WHERE agent_run_id=%s""",
+                (run_id,),
+            ).fetchone()[0] == 0
+
+        response = case.client.post(
+            "/internal/v2/tool-settlement",
+            json={},
+            headers=tool_headers(case, "tool-settlement-1"),
+        )
+
+        assert response.status_code == 200, response.text
+        receipt = response.json()
+        assert receipt["agent_run_id"] == run_id
+        assert receipt["status"] == "settled"
+        assert receipt["open_operations"] == 0
+        with db_environment.migration_connection() as connection:
+            stored = connection.execute(
+                """SELECT status, source_receipt_json FROM vnext.run_operation_settlement
+                WHERE agent_run_id=%s""",
+                (run_id,),
+            ).fetchone()
+        assert stored[0] == "settled"
+        basis = strict_json_loads(stored[1])
+        assert basis["basis"] == "run_closed_operation_set"
+        assert basis["open_operations"] == {
+            "tool_attempts": 0, "model_calls": 0, "resource_reservations": 0,
+        }
+
+        # A settlement another producer published keeps its own receipt.
+        with db_environment.migration_connection() as connection:
+            connection.execute(
+                """UPDATE vnext.run_operation_settlement SET source_receipt_json=%s
+                WHERE agent_run_id=%s""",
+                ('{"producer":"p08","basis":"published_approval_boundary"}', run_id),
+            )
+        replay = case.client.post(
+            "/internal/v2/tool-settlement",
+            json={},
+            headers=tool_headers(case, "tool-settlement-2"),
+        )
+        assert replay.status_code == 200, replay.text
+        assert replay.json()["status"] == "settled"
+        with db_environment.migration_connection() as connection:
+            kept = connection.execute(
+                """SELECT source_receipt_json FROM vnext.run_operation_settlement
+                WHERE agent_run_id=%s""",
+                (run_id,),
+            ).fetchone()[0]
+        assert strict_json_loads(kept)["producer"] == "p08"
+
+
 def test_revoked_run_cannot_dispatch_workspace_tool(
     db_environment, tmp_path, audit_directory
 ):

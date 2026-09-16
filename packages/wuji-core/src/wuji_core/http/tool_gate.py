@@ -6,7 +6,9 @@ from pydantic import ValidationError
 import psycopg
 from starlette.concurrency import run_in_threadpool
 
-from wuji_core.contracts.admission import ToolCallRequest, ToolCancelRequest
+from wuji_core.contracts.admission import (
+    ToolCallRequest, ToolCancelRequest, ToolSettlementRequest,
+)
 from wuji_core.http import VNextAPIRouter, DecimalJSONResponse
 from wuji_core.http.auth import current_principal
 from wuji_core.http.model_gate import error_response
@@ -21,6 +23,15 @@ def create_tool_router(gate):
         access = AccessContext(current_principal(request), request.state.request_id)
         try:
             receipt = await gate.invoke(access, payload)
+            return DecimalJSONResponse(receipt.model_dump(mode="python"))
+        except (DomainError, ValidationError, psycopg.Error, OSError, ValueError) as error:
+            return error_response(request, error)
+
+    @router.post("/internal/v2/tool-settlement")
+    async def settlement(request: Request, payload: ToolSettlementRequest):
+        access = AccessContext(current_principal(request), request.state.request_id)
+        try:
+            receipt = await run_in_threadpool(gate.close_operations, access, payload)
             return DecimalJSONResponse(receipt.model_dump(mode="python"))
         except (DomainError, ValidationError, psycopg.Error, OSError, ValueError) as error:
             return error_response(request, error)

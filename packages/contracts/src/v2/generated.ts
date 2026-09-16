@@ -413,6 +413,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/internal/v2/tool-settlement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Close this Run's own operation set from durable platform records */
+        post: operations["closeToolSettlementV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/internal/v2/worker-host/await-start": {
         parameters: {
             query?: never;
@@ -1845,6 +1862,14 @@ export interface components {
             result_ref: components["schemas"]["BlobRef"] | null;
             reason_code: components["schemas"]["ErrorCode"] | null;
         };
+        /** @enum {string} */
+        ToolSettlementStatus: "settled" | "pending";
+        ToolSettlementRequest: Record<string, never>;
+        ToolSettlementReceipt: {
+            agent_run_id: string;
+            status: components["schemas"]["ToolSettlementStatus"];
+            open_operations: number;
+        };
     };
     responses: {
         /** @description Command accepted for authoritative processing */
@@ -2696,6 +2721,35 @@ export interface operations {
             409: components["responses"]["Conflict"];
             422: components["responses"]["InvalidSchema"];
             429: components["responses"]["LimitBlocked"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    closeToolSettlementV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ToolSettlementRequest"];
+            };
+        };
+        responses: {
+            /** @description Current settlement of the calling Run */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ToolSettlementReceipt"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidSchema"];
             503: components["responses"]["Unavailable"];
         };
     };
