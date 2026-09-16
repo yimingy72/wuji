@@ -270,6 +270,72 @@ bounded refusal the platform is supposed to produce for two concurrent work item
   leaving the Work item leasable, or P09 leasing a fresh Run for the same Work item — is an open
   design task, not something to improvise.
 
+## 9. Stage B branch 3: cancel a live Task (2026-09-16)
+
+Two created Tasks were taken through the owner command and then cancelled through the public
+command route while the Task was still running:
+
+```http
+POST /api/v2/tasks/{task_id}/commands HTTP/1.1
+Host: 127.0.0.1:18455 (kubectl port-forward svc/runtime 18455:8443)
+Authorization: Bearer <operator JWT>
+Idempotency-Key: cancel-{task_id}-in-flight2
+Content-Type: application/json
+
+{"command":"cancel","expected_version":"2","reason":"stage B branch 3: cancel while work is in flight","schema_version":"wuji.api.v2"}
+```
+
+```http
+HTTP/1.1 202 Accepted
+{"command_id":"cancel-c76e3345-…-in-flight2","disposition":"accepted","resource_ref":{"entity_type":"task","id":"c76e3345-…","revision":"3"},"resource_version":"3","request_id":"ad3fdce8-acca-41fc-ac50-196c825fafa5","code":null}
+```
+
+Task `c76e3345-5bba-48f0-b197-87203581d7d6` after the cancel:
+
+```text
+3|cancel|quiescing|f|user_cancel
+```
+
+```text
+explore|failed|run|process_failure
+reason|done|run|
+```
+
+```text
+f8852215-b202-46b9-ae4e-a9380ba170a6|exited|accepted|exited|2026-09-16 04:57:00.39+00|2026-09-16 04:57:15.07+00
+9f1e07a9-b04d-4962-b7bf-a4c78050638f|exited|incomplete|exited|2026-09-16 04:57:01.055+00|2026-09-16 04:57:10.243+00
+```
+
+```text
+released|6
+```
+
+```text
+NAME                                                              READY   STATUS      RESTARTS   AGE
+wuji-task-v-9ef8092c4d4a2bbb1324facb6fad205b-a1-workspace-zsk78   0/1     Completed   0          2m44s
+```
+
+```text
+{"event": "runtime_pod_environment", "pod_name": "wuji-task-v-9ef8092c4d4a2bbb1324facb6fad205b-a1", "reason": "permit_revoked", "state": "stopped"}
+{"event": "runtime_pod_environment", "pod_name": "wuji-task-v-9ef8092c4d4a2bbb1324facb6fad205b-a1", "reason": "permit_revoked", "state": "stopped"}
+{"event": "runtime_pod_environment", "pod_name": "wuji-task-v-9ef8092c4d4a2bbb1324facb6fad205b-a1", "reason": "permit_revoked", "state": "stopped"}
+```
+
+Verified: the command is accepted at control version 3 with `desired_state=cancel`,
+`observed_state=quiescing`, `execution_allowed=false` and `close_trigger=user_cancel`; the Task Pod is
+deleted and the runtime reports the bounded `permit_revoked / stopped` stop; both Runs keep their real
+`exited` observations (no fabricated exit, `stop_kind=exited`); the already-terminal Work items
+(`reason` done, `explore` failed) are not rewritten; all six capacity reservations end `released`.
+
+**Limit of this evidence:** in both attempts the synthetic fixture's Runs had already reached their
+terminal states by the time the cancel command could be delivered — the Runs finish within ~15 s of
+the Pod becoming ready, which is inside the `wire` phase's own window, and the Service port-forward
+that delivers the command is invalidated by the roll this phase performs. A cancel *during* an
+executing Run, and the refusal of that Run's next admission, are therefore not captured live here;
+that half of the branch is covered by the P05/P06 admission suites (`task_can_run` and the request
+guards) and stays on the deferred list until a longer-running fixture exists. The 2026-09-15 package
+already recorded the Pod-level stop observation.
+
 ## 6. Raw material
 
 `raw/create.request.json`, `raw/create.headers`, `raw/create.response.json`, `raw/idempotency-key.txt`,

@@ -1,0 +1,3 @@
+{"event": "runtime_pod_environment", "pod_name": "wuji-task-v-9ef8092c4d4a2bbb1324facb6fad205b-a1", "reason": "permit_revoked", "state": "stopped"}
+{"event": "runtime_pod_environment", "pod_name": "wuji-task-v-9ef8092c4d4a2bbb1324facb6fad205b-a1", "reason": "permit_revoked", "state": "stopped"}
+{"event": "runtime_pod_environment", "pod_name": "wuji-task-v-9ef8092c4d4a2bbb1324facb6fad205b-a1", "reason": "permit_revoked", "state": "stopped"}
