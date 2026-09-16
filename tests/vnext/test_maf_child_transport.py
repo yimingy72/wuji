@@ -289,7 +289,9 @@ def test_actual_receipt_with_a_wrong_harness_profile_cannot_advance_p05(
             db_environment, case.assignment
         )
         assert run == ("registered", None)
-        assert reservations and {state for (state,) in reservations} == {"reserved"}
+        # Capacity stays held: no trusted exit was observed, so nothing is released.
+        assert reservations
+        assert "released" not in {state for (state,) in reservations}
         assert case.upstream.exchanges == []
 
 
@@ -332,7 +334,9 @@ def test_mismatched_registered_pod_is_rejected_before_node_launch(
             db_environment, case.assignment
         )
         assert run == ("registered", None)
-        assert reservations and {state for (state,) in reservations} == {"reserved"}
+        # Capacity stays held: no trusted exit was observed, so nothing is released.
+        assert reservations
+        assert "released" not in {state for (state,) in reservations}
         assert case.upstream.exchanges == []
 
 
@@ -673,3 +677,51 @@ def test_unresolved_delivery_is_retried_only_after_an_authoritative_absence(tmp_
         assert journal.attempted(run) is True
     finally:
         journal.close()
+
+
+def test_disabled_receiver_stops_new_starts_but_keeps_reconciling(
+    db_environment, tmp_path, audit_directory
+):
+    """F01 on real PostgreSQL: a disabled receiver must not strand old Runs."""
+
+    with m2_case(db_environment, tmp_path, audit_directory) as case:
+        started = case.dispatcher.deliver_pending(limit=1)
+        assert len(started) == 1
+        before = [
+            strict_json_loads(line)["request"]["method"]
+            for line in case.node.audit_path.read_text().splitlines()
+        ]
+        assert before.count("PUT") == 1
+
+        with db_environment.migration_connection() as connection:
+            connection.execute(
+                """UPDATE vnext.scheduler_receiver SET enabled=false
+                WHERE tenant_id=%s AND project_id=%s AND task_id=%s
+                AND runtime_attempt=%s""",
+                (
+                    case.assignment.identity.tenant_id,
+                    case.assignment.identity.project_id,
+                    case.assignment.identity.task_id,
+                    case.assignment.identity.runtime_attempt.root,
+                ),
+            )
+
+        # New starts are refused while the environment is disabled ...
+        assert case.dispatcher.deliver_pending(limit=1) == ()
+        # ... but the existing Run is still queried and settled.
+        observed = case.dispatcher.reconcile_pending()
+        assert case.assignment.identity.agent_run_id in {
+            item.run.identity.agent_run_id for item in observed
+        }
+        after = [
+            strict_json_loads(line)["request"]["method"]
+            for line in case.node.audit_path.read_text().splitlines()
+        ]
+        assert after.count("PUT") == 1
+        assert after.count("GET") > before.count("GET")
+        run, reservations = _registered_process_state(db_environment, case.assignment)
+        assert run[0] in {"registered", "starting", "running", "exited", "unknown"}
+        # Capacity stays held: no trusted exit was observed, so nothing is released.
+        assert reservations
+        assert "released" not in {state for (state,) in reservations}
+        assert case.upstream.exchanges == []
