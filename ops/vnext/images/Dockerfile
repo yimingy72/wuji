@@ -38,6 +38,7 @@ COPY services/wuji-web-gateway /opt/wuji/services/wuji-web-gateway
 COPY services/wuji-scheduler /opt/wuji/services/wuji-scheduler
 COPY ops/vnext/deployment_common.py /opt/wuji/ops/vnext/deployment_common.py
 COPY ops/vnext/gate_deployment.py ops/vnext/kali_deployment.py ops/vnext/pod_deployment.py /opt/wuji/ops/vnext/
+COPY ops/vnext/pod_task_config.py /opt/wuji/ops/vnext/pod_task_config.py
 COPY ops/vnext/bootstrap.py ops/vnext/synthetic_model.py ops/vnext/task_launch.py /opt/wuji/ops/vnext/
 COPY ops/vnext/kubernetes/task-owner-rbac.json /opt/wuji/ops/vnext/kubernetes/task-owner-rbac.json
 COPY services/wuji-kali-executor /opt/wuji/services/wuji-kali-executor
