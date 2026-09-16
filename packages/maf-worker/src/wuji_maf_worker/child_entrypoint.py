@@ -1,6 +1,7 @@
 """Registered inert Python child; one release barrier, one existing MAF run."""
 
 import asyncio
+from contextlib import contextmanager
 from hashlib import sha256
 import os
 from pathlib import Path
@@ -17,6 +18,22 @@ from wuji_maf_worker.remote_host import (
 )
 
 
+@contextmanager
+def _phase(step):
+    """Attach one bounded step label to whatever fails inside it.
+
+    Only the stage name reaches stderr; the exception text, bearer, HTTP request
+    and deployment paths stay on the private diagnostic channel.
+    """
+
+    try:
+        yield
+    except Exception as error:
+        if not hasattr(error, "wuji_step"):
+            error.wuji_step = step
+        raise
+
+
 def validate_completion_receipt(value):
     """Keep saved Input and result receipts distinct from process observations."""
     if not isinstance(value, (ResultReceipt, InputReceipt)):
@@ -30,8 +47,9 @@ async def run_child(*, assignment_file, bootstrap_directory):
     if (not directory.is_absolute() or directory.is_symlink()
             or assignment_path != directory / "assignment.json"):
         raise HostTransportError("fixed private bootstrap layout required")
-    assignment = WorkerAssignment.model_validate(strict_json_loads(private_read(assignment_path, 1048576)))
-    bootstrap = wire.WorkerBootstrap.model_validate(strict_json_loads(private_read(directory / "bridge.json", 1048576)))
+    with _phase("bootstrap"):
+        assignment = WorkerAssignment.model_validate(strict_json_loads(private_read(assignment_path, 1048576)))
+        bootstrap = wire.WorkerBootstrap.model_validate(strict_json_loads(private_read(directory / "bridge.json", 1048576)))
     if (bootstrap.assignment != assignment
             or scalar(bootstrap.assignment_digest) != sha256(canonical_json_bytes(document(assignment))).hexdigest()
             or bootstrap.receiver.receiver_id != assignment.identity.receiver_id
@@ -61,23 +79,27 @@ async def run_child(*, assignment_file, bootstrap_directory):
         max_transport_bytes=bootstrap.max_transport_bytes,
         ssl_context=ssl_context,
     )
-    await host.await_start(assignment, timeout=bootstrap.wait_timeout_seconds)
-    context = await asyncio.to_thread(host.load_context, assignment)
-    # Framework import and Agent construction happen only beyond the durable
-    # platform barrier. Reuse its existing native stream/tool loop verbatim.
-    from wuji_maf_worker.entrypoint import run_assignment
+    with _phase("await_start"):
+        await host.await_start(assignment, timeout=bootstrap.wait_timeout_seconds)
+    with _phase("load_context"):
+        context = await asyncio.to_thread(host.load_context, assignment)
+    with _phase("run_assignment"):
+        # Framework import and Agent construction happen only beyond the durable
+        # platform barrier. Reuse its existing native stream/tool loop verbatim.
+        from wuji_maf_worker.entrypoint import run_assignment
 
-    receipt = await run_assignment(
-        assignment,
-        host=host,
-        context=context,
-        run_credential=bootstrap.run_credential,
-        token_verifier=verifier,
-        model_gate_url=bootstrap.model_gate_url,
-        tool_gate_url=bootstrap.tool_gate_url,
-        ssl_context=ssl_context,
-    )
-    return validate_completion_receipt(receipt)
+        receipt = await run_assignment(
+            assignment,
+            host=host,
+            context=context,
+            run_credential=bootstrap.run_credential,
+            token_verifier=verifier,
+            model_gate_url=bootstrap.model_gate_url,
+            tool_gate_url=bootstrap.tool_gate_url,
+            ssl_context=ssl_context,
+        )
+    with _phase("receipt"):
+        return validate_completion_receipt(receipt)
 
 
 def main():
@@ -90,10 +112,16 @@ def main():
         ))
     except KeyboardInterrupt:
         return 130
-    except Exception:
+    except Exception as error:
         # The exact raw/sdk/result files are the private diagnostic channel.
-        # No exception string, bearer, HTTP request or deployment data is logged.
-        sys.stderr.write("Wuji Worker stopped without a confirmed completion.\n")
+        # No exception string, bearer, HTTP request or deployment data is logged;
+        # only the bounded phase label names the failing stage.
+        step = getattr(error, "wuji_step", "unknown")
+        if not isinstance(step, str) or not 1 <= len(step) <= 64:
+            step = "unknown"
+        sys.stderr.write(
+            f"Wuji Worker stopped without a confirmed completion (step={step}).\n"
+        )
         return 1
     return 0
 
