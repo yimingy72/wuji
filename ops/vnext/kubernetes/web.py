@@ -200,11 +200,16 @@ def build_web_manifests(
                 "limits": {"cpu": "250m", "memory": "256Mi"},
             },
             "readinessProbe": {
+                # The probe starts an interpreter inside the container, so a 1 s
+                # deadline flaps on a loaded node even while the gateway serves.
                 "exec": {"command": [
                     "python", "-c",
-                    "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/healthz',timeout=1).read()",
+                    "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/healthz',timeout=3).read()",
                 ]},
-                "periodSeconds": 5,
+                "periodSeconds": 10,
+                "timeoutSeconds": 5,
+                "failureThreshold": 3,
+                "successThreshold": 1,
             },
             "volumeMounts": [
                 {"name": "tmp", "mountPath": "/tmp"},
