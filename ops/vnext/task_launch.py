@@ -1278,8 +1278,6 @@ def run_phases(config, *, task_id, phases, options):
                     "gate_url": options["gate_url"],
                     "namespace": options["namespace"],
                     "evidence_ref": options["evidence_ref"],
-                    "roll_attempt": options.get("roll_attempt", False),
-                    "roll_reason": options.get("roll_reason") or None,
                 },
             )
             result["prepare"] = {
@@ -1538,6 +1536,8 @@ def main(argv=None):
             "agent_auth_dir": args.agent_auth_dir,
             "kali_auth_dir": args.kali_auth_dir,
             "evidence_ref": args.evidence_ref,
+            "roll_attempt": args.roll_attempt,
+            "roll_reason": args.roll_reason or None,
         },
     )
     print(json.dumps({"event": "task_launch", "task_id": args.task,
