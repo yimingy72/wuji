@@ -33,25 +33,51 @@ def run(
             lifecycle.enter_context(pod_environment)
         while not stop.is_set():
             try:
+                infrastructure = None
                 if pod_environment is not None:
-                    infrastructure = pod_environment.ensure()
-                    if infrastructure.state != "ready":
-                        # A non-ready Task environment is a bounded operator
-                        # signal, not a silent wait: without it a disabled
-                        # receiver or stale epoch looks like an idle runtime.
-                        detail = {
-                            "event": "runtime_pod_environment",
-                            "state": infrastructure.state,
-                        }
-                        reason = getattr(infrastructure, "reason", None)
-                        if isinstance(reason, str) and 0 < len(reason) <= 64:
-                            detail["reason"] = reason
-                        pod_name = getattr(infrastructure, "pod_name", None)
-                        if isinstance(pod_name, str) and 0 < len(pod_name) <= 253:
-                            detail["pod_name"] = pod_name
+                    try:
+                        infrastructure = pod_environment.ensure()
+                    except Exception as error:
+                        # The environment is also the only source of new starts,
+                        # so its own failure must not stop existing Runs from
+                        # being queried and settled below.
+                        detail = {"event": "runtime_pod_environment_error"}
+                        code = getattr(error, "code", None)
+                        if isinstance(code, str) and 0 < len(code) <= 64:
+                            detail["code"] = code
+                        else:
+                            detail["error"] = type(error).__name__
                         print(json.dumps(detail, sort_keys=True), flush=True)
-                        stop.wait(interval_seconds)
-                        continue
+                if infrastructure is not None and infrastructure.state != "ready":
+                    # A non-ready Task environment is a bounded operator signal,
+                    # not a silent wait: without it a disabled receiver or stale
+                    # epoch looks like an idle runtime.  New starts stop here;
+                    # reconciliation of existing Runs continues.
+                    detail = {
+                        "event": "runtime_pod_environment",
+                        "state": infrastructure.state,
+                    }
+                    reason = getattr(infrastructure, "reason", None)
+                    if isinstance(reason, str) and 0 < len(reason) <= 64:
+                        detail["reason"] = reason
+                    pod_name = getattr(infrastructure, "pod_name", None)
+                    if isinstance(pod_name, str) and 0 < len(pod_name) <= 253:
+                        detail["pod_name"] = pod_name
+                    print(json.dumps(detail, sort_keys=True), flush=True)
+                    reconciled = dispatcher.reconcile_pending()
+                    print(
+                        json.dumps(
+                            {
+                                "event": "runtime_reconcile_cycle",
+                                "observed": len(reconciled),
+                                "new_start": False,
+                            },
+                            sort_keys=True,
+                        ),
+                        flush=True,
+                    )
+                    stop.wait(interval_seconds)
+                    continue
                 observed = dispatcher.run_once(limit=batch_limit)
                 states: dict[str, int] = {}
                 for item in observed:
@@ -67,6 +93,21 @@ def run(
                     ),
                     flush=True,
                 )
+                failures = getattr(dispatcher, "failures", None)
+                if isinstance(failures, dict) and failures:
+                    codes = sorted({code for code in failures.values() if isinstance(code, str)})
+                    print(
+                        json.dumps(
+                            {
+                                "event": "runtime_dispatch_skipped",
+                                "count": len(failures),
+                                "codes": codes[:8],
+                            },
+                            sort_keys=True,
+                        ),
+                        flush=True,
+                    )
+                    failures.clear()
             except Exception as error:
                 # Never log Assignment, credentials, paths, request bodies or peer data.
                 # A stable DomainError code (or the transport operation/status) is

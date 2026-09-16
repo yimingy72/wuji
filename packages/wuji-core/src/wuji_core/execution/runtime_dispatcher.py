@@ -8,6 +8,7 @@ derives an operation from caller input, or keeps PostgreSQL open during I/O.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 from typing import Callable, Iterable
 
 from wuji_core.execution.dispatch_outbox import DispatchOutbox
@@ -30,6 +31,27 @@ class PendingDispatch:
     operation_id: str
     assignment_digest: str
     event_seq: str
+
+
+@dataclass(frozen=True)
+class PendingReconcile:
+    """An existing Run that still needs reconciliation, never a new dispatch."""
+
+    task_id: str
+    operation_id: str
+    run: RegisteredRun
+    receiver_enabled: bool
+    process_state: str
+    work_state: str
+
+
+def _bounded_failure(error) -> str:
+    """Bounded, loggable classification; raw peer text never leaves here."""
+
+    code = getattr(error, "code", None)
+    if isinstance(code, str) and 1 <= len(code) <= 64:
+        return code
+    return type(error).__name__
 
 
 @dataclass
@@ -61,6 +83,7 @@ class RuntimeDispatcher:
         outbox: DispatchOutbox,
         reconciler: Reconciler,
         max_configured_tasks: int = 10_000,
+        max_reconcile_per_cycle: int = 16,
     ) -> None:
         work_kinds = tuple(work_kinds)
         if (
@@ -69,6 +92,8 @@ class RuntimeDispatcher:
             or not access.principal.roles.intersection({"controller", "reconciler"})
             or type(max_configured_tasks) is not int
             or not 1 <= max_configured_tasks <= 100_000
+            or type(max_reconcile_per_cycle) is not int
+            or not 1 <= max_reconcile_per_cycle <= 256
             or not work_kinds
             or len(set(work_kinds)) != len(work_kinds)
             or any(kind not in {"reason", "explore", "report"} for kind in work_kinds)
@@ -85,6 +110,13 @@ class RuntimeDispatcher:
         self.outbox = outbox
         self.reconciler = reconciler
         self.max_configured_tasks = max_configured_tasks
+        self.max_reconcile_per_cycle = max_reconcile_per_cycle
+        # Fairness cursors are in-memory hints only: PostgreSQL stays the
+        # authority for what is pending, and a restart simply rescans.
+        self._task_cursor = 0
+        self._dispatch_cursor: dict[str, str] = {}
+        self._reconcile_cursor: dict[str, str] = {}
+        self.failures: dict[str, str] = {}
         self._closed = False
 
     def _tasks(self) -> tuple[str, ...]:
@@ -96,6 +128,16 @@ class RuntimeDispatcher:
         ):
             raise ValueError("invalid authorized task source")
         return tasks
+
+    def _ordered_tasks(self) -> tuple[str, ...]:
+        """Round-robin start offset: no Task can own the head of every batch."""
+
+        tasks = list(self._tasks())
+        if not tasks:
+            return ()
+        offset = self._task_cursor % len(tasks)
+        self._task_cursor = (self._task_cursor + 1) % len(tasks)
+        return tuple(tasks[offset:] + tasks[:offset])
 
     def _pending_for(self, task_id: str, limit: int) -> tuple[PendingDispatch, ...]:
         with self.uow.transaction(self.access, task_id, capability="observe") as tx:
@@ -121,11 +163,13 @@ class RuntimeDispatcher:
                   AND r.receiver_subject=%s AND r.enabled
                   AND w.kind=ANY(%s)
                   AND a.process_state<>'exited'
-                ORDER BY o.event_seq,d.operation_id LIMIT %s""",
+                ORDER BY CASE WHEN o.event_seq>%s THEN 0 ELSE 1 END,
+                         o.event_seq,d.operation_id LIMIT %s""",
                 (
                     *tx.owner,
                     self.access.principal.subject,
                     list(self.work_kinds),
+                    int(self._dispatch_cursor.get(task_id, "0") or 0),
                     limit,
                 ),
             )
@@ -158,34 +202,137 @@ class RuntimeDispatcher:
                         event_seq=str(record["event_seq"]),
                     )
                 )
+            if pending:
+                self._dispatch_cursor[task_id] = pending[-1].event_seq
+            if len(pending) < limit:
+                # Scan exhausted: wrap so the next cycle reconsiders the head
+                # instead of rescanning the same stable prefix forever.
+                self._dispatch_cursor[task_id] = "0"
             return tuple(pending)
 
     def pending(self, *, limit: int = 16) -> tuple[PendingDispatch, ...]:
         if self._closed or type(limit) is not int or not 1 <= limit <= 256:
             raise ValueError("a live dispatcher and bounded limit are required")
         pending = []
-        for task_id in self._tasks():
+        for task_id in self._ordered_tasks():
             remaining = limit - len(pending)
             if not remaining:
                 break
             pending.extend(self._pending_for(task_id, remaining))
         return tuple(pending)
 
+    def _note_failure(self, key: str, error) -> None:
+        self.failures[key] = _bounded_failure(error)
+
     def deliver_pending(self, *, limit: int = 16) -> tuple[ObservedExecution, ...]:
-        """Deliver registered operations after all discovery transactions close."""
+        """Deliver registered operations after all discovery transactions close.
+
+        One refused or unreachable operation must not cancel the rest of the
+        batch: each delivery is isolated and its bounded classification is kept
+        for the next cycle instead of silently disappearing.
+        """
+
         records = self.pending(limit=limit)
-        return tuple(
-            self.outbox.deliver(record.task_id, record.operation_id)
-            for record in records
-        )
+        delivered = []
+        for record in records:
+            try:
+                delivered.append(
+                    self.outbox.deliver(record.task_id, record.operation_id)
+                )
+            except (DomainError, OSError, TimeoutError, ValueError) as error:
+                self._note_failure(record.operation_id, error)
+        return tuple(delivered)
+
+    def _reconcile_candidates(self, task_id: str, limit: int) -> tuple[PendingReconcile, ...]:
+        """Existing Runs that still need reconciliation, enabled or not.
+
+        A disabled receiver or a non-ready Pod only stops *new* starts.  Runs
+        whose work item is not terminal must keep being queried and settled, or
+        a cancel/stop can strand them without any automatic path back.
+        """
+
+        with self.uow.transaction(self.access, task_id, capability="observe") as tx:
+            cursor = tx.connection.execute(
+                """SELECT a.start_operation_id,a.process_state,
+                          COALESCE(r.enabled,false) AS receiver_enabled,w.state AS work_state
+                FROM vnext.agent_run a
+                JOIN vnext.work_item w
+                  ON (w.tenant_id,w.project_id,w.task_id,w.work_item_id)=
+                     (a.tenant_id,a.project_id,a.task_id,a.work_item_id)
+                LEFT JOIN vnext.scheduler_receiver r
+                  ON (r.tenant_id,r.project_id,r.task_id,r.runtime_attempt,r.receiver_id)=
+                     (a.tenant_id,a.project_id,a.task_id,a.runtime_attempt,a.receiver_id)
+                WHERE a.tenant_id=%s AND a.project_id=%s AND a.task_id=%s
+                  AND a.start_operation_id IS NOT NULL
+                  AND w.state NOT IN ('done','cancelled','failed','superseded')
+                ORDER BY CASE WHEN a.agent_run_id>%s THEN 0 ELSE 1 END,
+                         a.agent_run_id LIMIT %s""",
+                (
+                    *tx.owner,
+                    self._reconcile_cursor.get(task_id, ""),
+                    limit,
+                ),
+            )
+            columns = tuple(column.name for column in cursor.description)
+            rows = tuple(dict(zip(columns, values)) for values in cursor.fetchall())
+            candidates = []
+            for record in rows:
+                run, _assignment, _ref = read_registered_run(
+                    tx, record["start_operation_id"]
+                )
+                candidates.append(
+                    PendingReconcile(
+                        task_id=task_id,
+                        operation_id=record["start_operation_id"],
+                        run=run,
+                        receiver_enabled=bool(record["receiver_enabled"]),
+                        process_state=str(record["process_state"]),
+                        work_state=str(record["work_state"]),
+                    )
+                )
+            if candidates:
+                self._reconcile_cursor[task_id] = candidates[-1].run.identity.agent_run_id
+            if len(candidates) < limit:
+                self._reconcile_cursor[task_id] = ""
+            return tuple(candidates)
+
+    def reconcile_pending(self, *, limit: int | None = None) -> tuple[ObservedExecution, ...]:
+        """Query and settle existing Runs; never creates a Run or a new start."""
+
+        budget = self.max_reconcile_per_cycle if limit is None else limit
+        if type(budget) is not int or not 1 <= budget <= 256:
+            raise ValueError("a bounded reconcile limit is required")
+        observed = []
+        for task_id in self._ordered_tasks():
+            remaining = budget - len(observed)
+            if not remaining:
+                break
+            try:
+                candidates = self._reconcile_candidates(task_id, remaining)
+            except (DomainError, OSError, TimeoutError, ValueError) as error:
+                self._note_failure(task_id, error)
+                continue
+            for candidate in candidates:
+                try:
+                    observed.append(self.reconciler.reconcile(candidate.run))
+                except (DomainError, OSError, TimeoutError, ValueError) as error:
+                    self._note_failure(candidate.operation_id, error)
+        return tuple(observed)
 
     def reconcile(self, run: RegisteredRun) -> ObservedExecution:
         return self.reconciler.reconcile(run)
 
     def run_once(self, *, limit: int = 16) -> tuple[ObservedExecution, ...]:
         """One bounded service cycle; retained results precede P05 observation."""
-        delivered = self.deliver_pending(limit=limit)
-        return tuple(self.reconcile(item.run) for item in delivered)
+
+        observed = []
+        for item in self.deliver_pending(limit=limit):
+            try:
+                observed.append(self.reconcile(item.run))
+            except (DomainError, OSError, TimeoutError, ValueError) as error:
+                self._note_failure(item.run.identity.agent_run_id, error)
+        observed.extend(self.reconcile_pending(limit=self.max_reconcile_per_cycle))
+        return tuple(observed)
 
     def close(self) -> None:
         if not self._closed:

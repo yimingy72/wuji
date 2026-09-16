@@ -277,8 +277,13 @@ def test_actual_receipt_with_a_wrong_harness_profile_cannot_advance_p05(
         case.runtime.outbox.transport = _WrongProfileReceiptTransport(
             case.transport, case.assignment.profile_refs[1].root
         )
-        with pytest.raises(DomainError, match="STALE_EXECUTION"):
-            case.dispatcher.deliver_pending(limit=1)
+        # A rejected receipt is isolated per operation (F02): it is classified
+        # for the next cycle instead of aborting the whole batch, and the Run
+        # still must not advance.
+        assert case.dispatcher.deliver_pending(limit=1) == ()
+        assert case.dispatcher.failures == {
+            case.assignment.operation_id: "STALE_EXECUTION"
+        }
 
         run, reservations = _registered_process_state(
             db_environment, case.assignment
