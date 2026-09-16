@@ -1,0 +1,6 @@
+LAST SEEN   TYPE      REASON      OBJECT                          MESSAGE
+39s         Normal    Scheduled   pod/wuji-web-5c97458f56-4xrl2   Successfully assigned wuji-vnext-test/wuji-web-5c97458f56-4xrl2 to docker-desktop
+38s         Normal    Pulled      pod/wuji-web-5c97458f56-4xrl2   Container image "127.0.0.1:56615/wuji-web@sha256:8a56b3f236adea75454128d22e43ee8f88cc929084b3b522728e9710736a31d7" already present on machine and can be accessed by the pod
+38s         Normal    Created     pod/wuji-web-5c97458f56-4xrl2   Container created
+38s         Normal    Started     pod/wuji-web-5c97458f56-4xrl2   Container started
+38s         Warning   Unhealthy   pod/wuji-web-5c97458f56-4xrl2   Readiness probe failed: Get "http://10.1.0.25:8080/healthz": dial tcp 10.1.0.25:8080: connect: connection refused

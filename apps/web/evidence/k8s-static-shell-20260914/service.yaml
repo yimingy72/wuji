@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{"wuji.dev/local-access":"kubectl -n wuji-vnext-test port-forward svc/wuji-web 4180:80"},"labels":{"app.kubernetes.io/component":"web","app.kubernetes.io/name":"wuji-web","app.kubernetes.io/part-of":"wuji-vnext","wuji.dev/service":"web"},"name":"wuji-web","namespace":"wuji-vnext-test"},"spec":{"ports":[{"name":"http","port":80,"targetPort":"http"}],"selector":{"app.kubernetes.io/name":"wuji-web","wuji.dev/service":"web"},"type":"ClusterIP"}}
+    wuji.dev/local-access: kubectl -n wuji-vnext-test port-forward svc/wuji-web 4180:80
+  creationTimestamp: "2026-09-14T06:11:38Z"
+  labels:
+    app.kubernetes.io/component: web
+    app.kubernetes.io/name: wuji-web
+    app.kubernetes.io/part-of: wuji-vnext
+    wuji.dev/service: web
+  name: wuji-web
+  namespace: wuji-vnext-test
+  resourceVersion: "116131"
+  uid: 5a422b8d-99cd-4b65-b455-6f71d8611efa
+spec:
+  clusterIP: 10.100.78.10
+  clusterIPs:
+  - 10.100.78.10
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: http
+  selector:
+    app.kubernetes.io/name: wuji-web
+    wuji.dev/service: web
+  sessionAffinity: None
+  type: ClusterIP
+status:
+  loadBalancer: {}

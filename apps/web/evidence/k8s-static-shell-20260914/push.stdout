@@ -1,0 +1,30 @@
+The push refers to repository [127.0.0.1:56615/wuji-web]
+80b72ef91f5c: Preparing
+d3dc2a9ff605: Preparing
+b920b24515aa: Preparing
+317ecfb1aa62: Preparing
+16bb25c70f87: Preparing
+f989b60d6ec6: Preparing
+8cab7107ae0b: Preparing
+59e366426015: Preparing
+03542b8f7e7b: Preparing
+7088c167f7a7: Preparing
+0e64f2360a44: Preparing
+f989b60d6ec6: Waiting
+8cab7107ae0b: Waiting
+59e366426015: Waiting
+03542b8f7e7b: Waiting
+7088c167f7a7: Waiting
+0e64f2360a44: Waiting
+d3dc2a9ff605: Pushed
+16bb25c70f87: Pushed
+317ecfb1aa62: Pushed
+f989b60d6ec6: Pushed
+8cab7107ae0b: Pushed
+59e366426015: Pushed
+80b72ef91f5c: Pushed
+03542b8f7e7b: Pushed
+7088c167f7a7: Pushed
+0e64f2360a44: Pushed
+b920b24515aa: Pushed
+b1814a9: digest: sha256:8a56b3f236adea75454128d22e43ee8f88cc929084b3b522728e9710736a31d7 size: 2614

@@ -1,0 +1,19 @@
+REQUEST
+GET /config.js HTTP/1.1
+Host: 127.0.0.1:44180
+User-Agent: wuji-web-k8s-verifier/1.0
+Accept: */*
+Connection: close
+
+RESPONSE
+HTTP/1.1 200 OK
+Server: nginx/1.29.1
+Date: Mon, 14 Sep 2026 06:19:11 GMT
+Content-Type: application/javascript
+Content-Length: 64
+Last-Modified: Mon, 14 Sep 2026 06:11:39 GMT
+Connection: close
+ETag: "6aa7901b-40"
+Accept-Ranges: bytes
+
+window.__WUJI_CONFIG__ = {"apiBaseUrl":"","authEntrypoint":""};

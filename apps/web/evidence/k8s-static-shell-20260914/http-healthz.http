@@ -1,0 +1,16 @@
+REQUEST
+GET /healthz HTTP/1.1
+Host: 127.0.0.1:44180
+User-Agent: wuji-web-k8s-verifier/1.0
+Accept: */*
+Connection: close
+
+RESPONSE
+HTTP/1.1 200 OK
+Server: nginx/1.29.1
+Date: Mon, 14 Sep 2026 06:19:10 GMT
+Content-Type: text/plain
+Content-Length: 3
+Connection: close
+
+ok

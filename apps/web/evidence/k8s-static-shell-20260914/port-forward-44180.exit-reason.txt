@@ -1,0 +1,2 @@
+1
+normal verification cleanup: foreground wrapper interrupted with Ctrl-C after HTTP and browser verification completed

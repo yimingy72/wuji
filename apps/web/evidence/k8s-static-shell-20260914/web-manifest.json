@@ -1,0 +1,176 @@
+{
+  "apiVersion": "v1",
+  "data": {
+    "config.js": "window.__WUJI_CONFIG__ = {\"apiBaseUrl\":\"\",\"authEntrypoint\":\"\"};\n"
+  },
+  "kind": "ConfigMap",
+  "metadata": {
+    "labels": {
+      "app.kubernetes.io/component": "web",
+      "app.kubernetes.io/name": "wuji-web",
+      "app.kubernetes.io/part-of": "wuji-vnext",
+      "wuji.dev/service": "web"
+    },
+    "name": "wuji-web-config",
+    "namespace": "wuji-vnext-test"
+  }
+}
+---
+{
+  "apiVersion": "apps/v1",
+  "kind": "Deployment",
+  "metadata": {
+    "labels": {
+      "app.kubernetes.io/component": "web",
+      "app.kubernetes.io/name": "wuji-web",
+      "app.kubernetes.io/part-of": "wuji-vnext",
+      "wuji.dev/service": "web"
+    },
+    "name": "wuji-web",
+    "namespace": "wuji-vnext-test"
+  },
+  "spec": {
+    "replicas": 1,
+    "selector": {
+      "matchLabels": {
+        "app.kubernetes.io/name": "wuji-web",
+        "wuji.dev/service": "web"
+      }
+    },
+    "strategy": {
+      "type": "Recreate"
+    },
+    "template": {
+      "metadata": {
+        "labels": {
+          "app.kubernetes.io/name": "wuji-web",
+          "wuji.dev/service": "web"
+        }
+      },
+      "spec": {
+        "automountServiceAccountToken": false,
+        "containers": [
+          {
+            "image": "127.0.0.1:56615/wuji-web@sha256:8a56b3f236adea75454128d22e43ee8f88cc929084b3b522728e9710736a31d7",
+            "imagePullPolicy": "IfNotPresent",
+            "livenessProbe": {
+              "httpGet": {
+                "path": "/healthz",
+                "port": "http"
+              },
+              "periodSeconds": 15
+            },
+            "name": "web",
+            "ports": [
+              {
+                "containerPort": 8080,
+                "name": "http"
+              }
+            ],
+            "readinessProbe": {
+              "httpGet": {
+                "path": "/healthz",
+                "port": "http"
+              },
+              "periodSeconds": 5
+            },
+            "resources": {
+              "limits": {
+                "cpu": "250m",
+                "memory": "256Mi"
+              },
+              "requests": {
+                "cpu": "25m",
+                "memory": "64Mi"
+              }
+            },
+            "securityContext": {
+              "allowPrivilegeEscalation": false,
+              "capabilities": {
+                "drop": [
+                  "ALL"
+                ]
+              },
+              "readOnlyRootFilesystem": true,
+              "runAsGroup": 101,
+              "runAsUser": 101
+            },
+            "volumeMounts": [
+              {
+                "mountPath": "/tmp",
+                "name": "tmp"
+              },
+              {
+                "mountPath": "/usr/share/nginx/html/config.js",
+                "name": "web-config",
+                "readOnly": true,
+                "subPath": "config.js"
+              }
+            ]
+          }
+        ],
+        "nodeSelector": {
+          "kubernetes.io/arch": "arm64"
+        },
+        "securityContext": {
+          "runAsNonRoot": true,
+          "seccompProfile": {
+            "type": "RuntimeDefault"
+          }
+        },
+        "volumes": [
+          {
+            "emptyDir": {
+              "sizeLimit": "64Mi"
+            },
+            "name": "tmp"
+          },
+          {
+            "configMap": {
+              "items": [
+                {
+                  "key": "config.js",
+                  "path": "config.js"
+                }
+              ],
+              "name": "wuji-web-config"
+            },
+            "name": "web-config"
+          }
+        ]
+      }
+    }
+  }
+}
+---
+{
+  "apiVersion": "v1",
+  "kind": "Service",
+  "metadata": {
+    "annotations": {
+      "wuji.dev/local-access": "kubectl -n wuji-vnext-test port-forward svc/wuji-web 4180:80"
+    },
+    "labels": {
+      "app.kubernetes.io/component": "web",
+      "app.kubernetes.io/name": "wuji-web",
+      "app.kubernetes.io/part-of": "wuji-vnext",
+      "wuji.dev/service": "web"
+    },
+    "name": "wuji-web",
+    "namespace": "wuji-vnext-test"
+  },
+  "spec": {
+    "ports": [
+      {
+        "name": "http",
+        "port": 80,
+        "targetPort": "http"
+      }
+    ],
+    "selector": {
+      "app.kubernetes.io/name": "wuji-web",
+      "wuji.dev/service": "web"
+    },
+    "type": "ClusterIP"
+  }
+}

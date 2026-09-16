@@ -1,0 +1,45 @@
+{
+  "service": {
+    "name": "wuji-web",
+    "namespace": "wuji-vnext-test",
+    "clusterIP": "10.100.78.10",
+    "ports": [
+      {
+        "name": "http",
+        "port": 80,
+        "protocol": "TCP",
+        "targetPort": "http"
+      }
+    ],
+    "selector": {
+      "app.kubernetes.io/name": "wuji-web",
+      "wuji.dev/service": "web"
+    }
+  },
+  "endpoints": [
+    {
+      "addresses": [
+        "10.1.0.25"
+      ],
+      "conditions": {
+        "ready": true,
+        "serving": true,
+        "terminating": false
+      },
+      "targetRef": {
+        "kind": "Pod",
+        "name": "wuji-web-5c97458f56-4xrl2",
+        "namespace": "wuji-vnext-test",
+        "uid": "efdace7a-70ca-49a2-ada7-b3bd96061204"
+      }
+    }
+  ],
+  "matching_pods": [
+    {
+      "name": "wuji-web-5c97458f56-4xrl2",
+      "uid": "efdace7a-70ca-49a2-ada7-b3bd96061204",
+      "podIP": "10.1.0.25",
+      "ready": true
+    }
+  ]
+}

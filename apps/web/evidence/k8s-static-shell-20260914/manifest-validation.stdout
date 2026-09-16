@@ -1,0 +1,1 @@
+{"resource_kinds": ["ConfigMap", "Deployment", "Service"], "namespace": "wuji-vnext-test", "image": "127.0.0.1:56615/wuji-web@sha256:8a56b3f236adea75454128d22e43ee8f88cc929084b3b522728e9710736a31d7", "arch": "arm64"}

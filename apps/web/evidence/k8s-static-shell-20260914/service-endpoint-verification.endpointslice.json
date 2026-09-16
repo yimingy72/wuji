@@ -1,0 +1,70 @@
+{
+    "apiVersion": "v1",
+    "items": [
+        {
+            "addressType": "IPv4",
+            "apiVersion": "discovery.k8s.io/v1",
+            "endpoints": [
+                {
+                    "addresses": [
+                        "10.1.0.25"
+                    ],
+                    "conditions": {
+                        "ready": true,
+                        "serving": true,
+                        "terminating": false
+                    },
+                    "nodeName": "docker-desktop",
+                    "targetRef": {
+                        "kind": "Pod",
+                        "name": "wuji-web-5c97458f56-4xrl2",
+                        "namespace": "wuji-vnext-test",
+                        "uid": "efdace7a-70ca-49a2-ada7-b3bd96061204"
+                    }
+                }
+            ],
+            "kind": "EndpointSlice",
+            "metadata": {
+                "annotations": {
+                    "endpoints.kubernetes.io/last-change-trigger-time": "2026-09-14T06:11:40Z"
+                },
+                "creationTimestamp": "2026-09-14T06:11:38Z",
+                "generateName": "wuji-web-",
+                "generation": 3,
+                "labels": {
+                    "app.kubernetes.io/component": "web",
+                    "app.kubernetes.io/name": "wuji-web",
+                    "app.kubernetes.io/part-of": "wuji-vnext",
+                    "endpointslice.kubernetes.io/managed-by": "endpointslice-controller.k8s.io",
+                    "kubernetes.io/service-name": "wuji-web",
+                    "wuji.dev/service": "web"
+                },
+                "name": "wuji-web-hh2c9",
+                "namespace": "wuji-vnext-test",
+                "ownerReferences": [
+                    {
+                        "apiVersion": "v1",
+                        "blockOwnerDeletion": true,
+                        "controller": true,
+                        "kind": "Service",
+                        "name": "wuji-web",
+                        "uid": "5a422b8d-99cd-4b65-b455-6f71d8611efa"
+                    }
+                ],
+                "resourceVersion": "116160",
+                "uid": "0e99bb0a-e0ec-4a19-b700-8a4ff2da9369"
+            },
+            "ports": [
+                {
+                    "name": "http",
+                    "port": 8080,
+                    "protocol": "TCP"
+                }
+            ]
+        }
+    ],
+    "kind": "List",
+    "metadata": {
+        "resourceVersion": ""
+    }
+}

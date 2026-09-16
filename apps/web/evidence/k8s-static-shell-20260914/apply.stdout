@@ -1,0 +1,3 @@
+configmap/wuji-web-config created
+deployment.apps/wuji-web created
+service/wuji-web created

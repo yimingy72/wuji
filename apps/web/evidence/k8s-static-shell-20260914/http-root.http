@@ -1,0 +1,32 @@
+REQUEST
+GET / HTTP/1.1
+Host: 127.0.0.1:44180
+User-Agent: wuji-web-k8s-verifier/1.0
+Accept: */*
+Connection: close
+
+RESPONSE
+HTTP/1.1 200 OK
+Server: nginx/1.29.1
+Date: Mon, 14 Sep 2026 06:19:11 GMT
+Content-Type: text/html
+Content-Length: 431
+Last-Modified: Mon, 14 Sep 2026 05:59:10 GMT
+Connection: close
+ETag: "6aa78d2e-1af"
+Accept-Ranges: bytes
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Wuji</title>
+    <script src="/config.js"></script>
+    <script type="module" crossorigin src="/assets/index-COOnV0rV.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-D6JwkvWU.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

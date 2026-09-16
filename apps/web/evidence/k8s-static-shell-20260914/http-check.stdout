@@ -1,0 +1,35 @@
+[
+  {
+    "name": "healthz",
+    "path": "/healthz",
+    "status_line": "HTTP/1.1 200 OK",
+    "status": 200,
+    "response_bytes": 145,
+    "body_bytes": 3,
+    "packet_sha256": "3a5b2d39c4d7eeb10a8b79111ceb977dbe9dfaecd2eda8987ada4083915fa753",
+    "body_sha256": "dc51b8c96c2d745df3bd5590d990230a482fd247123599548e0632fdbf97fc22",
+    "body_preview": "ok\n"
+  },
+  {
+    "name": "root",
+    "path": "/",
+    "status_line": "HTTP/1.1 200 OK",
+    "status": 200,
+    "response_bytes": 664,
+    "body_bytes": 431,
+    "packet_sha256": "6a1bd9f23341653cfcc0e9891134c7f82cccb6dc86d355b647c2589c55c04fbf",
+    "body_sha256": "30fd8f2c49a6de45edfb9bbac21573b6718cd05d32725c8d7efd0ae8ba32d658",
+    "body_preview": "<!doctype html>\n<html lang=\"zh-CN\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <title>Wuji</title>\n    <script src=\"/config.js\"></script>\n    <script type=\"module\" crossorigin src=\"/assets/index-COOnV0rV.js\"></script>\n    <link rel=\"stylesheet\" crossorigin href=\"/assets/index-D6JwkvWU.css\">\n  </head>\n  <body>\n    <div id=\"root\"></div>\n  </body>\n</html>\n"
+  },
+  {
+    "name": "config",
+    "path": "/config.js",
+    "status_line": "HTTP/1.1 200 OK",
+    "status": 200,
+    "response_bytes": 308,
+    "body_bytes": 64,
+    "packet_sha256": "97fbeadf345e684bdcccde563a8581b86b4083eae73a8f61bcc524c62be7abc0",
+    "body_sha256": "994b0934dc71f0990e9d3b5afb7ae308cb01ef9a22025e54946a1b87f8776935",
+    "body_preview": "window.__WUJI_CONFIG__ = {\"apiBaseUrl\":\"\",\"authEntrypoint\":\"\"};\n"
+  }
+]

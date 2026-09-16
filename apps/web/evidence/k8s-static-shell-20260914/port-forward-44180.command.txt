@@ -1,0 +1,1 @@
+/opt/homebrew/bin/kubectl --context docker-desktop -n wuji-vnext-test port-forward svc/wuji-web 44180:80
