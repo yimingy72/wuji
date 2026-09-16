@@ -196,7 +196,37 @@ So a Task whose attempt window closed mid-launch is recovered by an explicit, gu
 result on the next attempt. The evidence of the stuck state (attempt 1, `permit_expired`, `POD_NOT_READY`) stays in
 §4/§5 unchanged.
 
-## 8. What is still missing
+## 8. One ready Task beside two stopped Tasks, and the last missing half
+
+The cluster is now in exactly that configuration (`raw/one-good-two-stopped.txt`,
+`raw/one-good-two-stopped-tasks.txt`):
+
+```text
+task 86a2a7f2|2|run|running|        # ready: absent from the runtime's not-ready list
+task 3aa77fba|1|run|running|        # stopped: permit_expired, no Pod
+task 6ffd59cd|1|cancel|quiescing|user_cancel   # stopped: task_not_runnable
+runtime: 3aa77fba|stopped|permit_revoked|permit_expired
+         60e7bd1b|stopped|permit_revoked|permit_expired
+         6ffd59cd|stopped|permit_revoked|task_not_runnable
+```
+
+So the loop reports the stopped Tasks one by one, keeps its dispatch cycles, and never reports the ready one —
+the isolation half is evidenced. The half that is still missing is a **new start delivered to the ready Task while
+the others are stopped**. Both of the ready Task's work items are terminal (`reason|done`, `explore|failed`), so
+nothing new exists to deliver, and creating new work is what blocks it:
+
+- the operator cannot admit an exploration Intent: its `task_access` row is `can_read/can_write/can_control` but
+  **not** `can_admit` (only `pod-controller`, `receiver` and `scheduler` hold that on this Task);
+- the owner command already admits the Task's initial Intent through a proven path (`admit_initial_intent`, used
+  by `prepare`), but it exposes no phase that admits an additional one.
+
+The cheapest legitimate fixture is therefore an owner phase that admits one extra Intent for an already-launched
+Task (same proven code path, same signed controller subject, a new idempotency key). The scheduler would then
+register new explore work and the runtime would deliver a new start to the ready Task's attempt — the missing
+evidence — while the two stopped Tasks stay stopped. Granting an operator subject `can_admit` instead is a
+product decision about who may propose intents, not a test-fixture choice.
+
+## 9. What is still missing
 
 The two Task *Pods* never ran side by side. Task A's attempt is stuck:
 

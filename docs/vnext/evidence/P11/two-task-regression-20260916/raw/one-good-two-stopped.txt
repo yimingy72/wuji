@@ -1,0 +1,3 @@
+3aa77fba ('stopped', 'permit_revoked', 'permit_expired')
+60e7bd1b ('stopped', 'permit_revoked', 'permit_expired')
+6ffd59cd ('stopped', 'permit_revoked', 'task_not_runnable')
