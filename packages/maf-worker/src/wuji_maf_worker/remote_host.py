@@ -25,8 +25,11 @@ from wuji_maf_worker.context import ContextBundle
 ERROR_CODE_MAX_BYTES = 4096
 
 
-async def _error_code(response):
-    """Read the frozen error code of one rejected Host response, bounded.
+async def bounded_error_code(response):
+    """Read the frozen error code of one rejected response, bounded.
+
+    Shared by the Host and ToolGate transports: both answer with the published
+    ErrorEnvelope, and neither may leak body text into an operator signal.
 
     Returns None for any body that is not a bounded error envelope: a hostile,
     oversized or non-JSON response must not add text to the operator signal.
@@ -196,7 +199,7 @@ class RemoteWorkerHost:
                     # stay private.
                     error = HostTransportError("Host request rejected or unresolved")
                     error.status_code = response.status_code
-                    code = await _error_code(response)
+                    code = await bounded_error_code(response)
                     if code is not None:
                         error.code = code
                     raise error

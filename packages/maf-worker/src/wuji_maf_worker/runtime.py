@@ -10,6 +10,7 @@ from urllib.parse import urlsplit
 
 import httpx
 from agent_framework import Message
+from agent_framework.exceptions import ChatClientException
 
 from wuji_core.contracts.envelopes import RunIdentity, WorkerAssignment
 from wuji_core.contracts.execution import SessionManifest
@@ -25,6 +26,45 @@ from wuji_maf_worker.approvals import approval_response_message
 from wuji_maf_worker.history import HistoryArchive, PinnedMemoryContextProvider, VersionedMemoryStore
 from wuji_maf_worker.sessions import NativeSessionAdapter
 from wuji_maf_worker.tools import GateFunctions, ModelCallIdentity
+
+
+class ModelGateTransportError(ValueError):
+    """The child could not complete a model request over its own gate transport.
+
+    The SDK wraps every provider-side failure in ChatClientException. Only the
+    transport cause is classified here: the class name is what reaches the
+    bounded operator signal, and the SDK's own text stays on the private
+    diagnostic channel.
+    """
+
+
+class ModelGateRejectedError(ValueError):
+    """The model gate answered, and the SDK could not use that answer."""
+
+
+# Provider transport causes the SDK re-raises as ChatClientException. The openai
+# client's own transport class is matched by name so the child does not add a
+# direct dependency on that package; a wrong label only changes a diagnostic.
+_TRANSPORT_CAUSE_NAMES = frozenset({
+    "APIConnectionError", "ConnectError", "ConnectTimeout", "PoolTimeout",
+    "ReadError", "ReadTimeout", "RemoteProtocolError", "TransportError",
+    "WriteError", "WriteTimeout",
+})
+
+
+def _model_gate_error(error):
+    cause = error.__cause__
+    while cause is not None:
+        if isinstance(cause, (httpx.HTTPError, OSError, TimeoutError)):
+            break
+        if type(cause).__name__ in _TRANSPORT_CAUSE_NAMES:
+            break
+        cause = cause.__cause__
+    if cause is None:
+        return ModelGateRejectedError("the model gate refused or failed the request")
+    return ModelGateTransportError(
+        "the model gate transport did not complete the request"
+    )
 
 
 @dataclass(frozen=True)
@@ -318,10 +358,15 @@ class MafRuntime:
                             raise ValueError("pending native approvals require persisted decisions")
                         else:
                             messages = None  # Continue the original settled Session, without duplicating its input.
-                    stream = agent.run(messages, session=session, stream=True)
-                    async for update in stream:
-                        retain(update.to_json().encode())
-                    final = await stream.get_final_response()
+                    try:
+                        stream = agent.run(messages, session=session, stream=True)
+                        async for update in stream:
+                            retain(update.to_json().encode())
+                        final = await stream.get_final_response()
+                    except ChatClientException as error:
+                        # Bounded classification only: the tool-refusal path keeps
+                        # its own MiddlewareFailure and code.
+                        raise _model_gate_error(error) from error
                     retain(final.to_json().encode())
                     retain(canonical_json_bytes({"session": session.to_dict()}))
                     approvals = [content for message in final.messages for content in message.contents

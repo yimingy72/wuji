@@ -636,7 +636,7 @@ def test_host_error_code_is_bounded_or_absent():
 
     import asyncio
 
-    from wuji_maf_worker.remote_host import _error_code
+    from wuji_maf_worker.remote_host import bounded_error_code
 
     class Response:
         def __init__(self, body, *, encoding="identity"):
@@ -647,7 +647,7 @@ def test_host_error_code_is_bounded_or_absent():
             yield self._body
 
     def read(body, **kwargs):
-        return asyncio.run(_error_code(Response(body, **kwargs)))
+        return asyncio.run(bounded_error_code(Response(body, **kwargs)))
 
     assert read(b'{"code":"STALE_EXECUTION","message":"private"}') == "STALE_EXECUTION"
     assert read(b'{"code":"INPUT_DIGEST_CONFLICT"}') == "INPUT_DIGEST_CONFLICT"
@@ -764,3 +764,128 @@ def test_disabled_receiver_stops_new_starts_but_keeps_reconciling(
         assert reservations
         assert "released" not in {state for (state,) in reservations}
         assert case.upstream.exchanges == []
+
+
+def test_tool_gate_refusal_names_the_published_code_and_keeps_the_escape():
+    """A refused tool call reaches the operator as a bounded code, never as text.
+
+    The refusal must still escape the native loop (an enforcement outcome is not
+    an invitation for the model to retry), but the escaping failure has to name
+    the refusing predicate instead of being an opaque MiddlewareFailure.
+    """
+
+    import asyncio
+
+    from agent_framework import MiddlewareFailure
+    from wuji_maf_worker.tools import GateFunctions
+
+    class Request:
+        arguments = {"path": "fixture.txt"}
+
+        def model_dump(self, mode="python"):
+            return {"arguments": self.arguments}
+
+    class Identity:
+        def bind(self, context, definition, lineage):
+            return Request()
+
+    class Response:
+        status_code = 429
+
+        def __init__(self, body):
+            self._body = body
+            self.headers = {"content-encoding": "identity"}
+
+        async def aiter_raw(self):
+            yield self._body
+
+    class Client:
+        def __init__(self, body):
+            self.body = body
+
+        async def post(self, url, content):
+            return Response(self.body)
+
+    class Function:
+        name = "read_fixture"
+
+    class Context:
+        function = Function()
+
+    def refusal(body):
+        gate = GateFunctions(
+            definitions=[
+                {
+                    "name": "read_fixture",
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {"path": {"type": "string"}},
+                        "required": ["path"],
+                    },
+                    "allowed_target_kinds": ["workspace_read"],
+                    "approval_required": False,
+                }
+            ],
+            identity=Identity(),
+            lineage=object(),
+            client=Client(body),
+            url="https://gates.fixture.invalid/internal/v2/tool-calls",
+        )
+        tool = gate.registered_tools()[0]
+
+        async def refused():
+            async def call_next():
+                await tool.func(**{"path": "fixture.txt"})
+
+            with pytest.raises(MiddlewareFailure) as failure:
+                await gate.process(Context(), call_next)
+            return failure.value
+
+        return asyncio.run(refused())
+
+    bounded = refusal(b'{"code":"LIMIT_BLOCKED","message":"private refusal text"}')
+    assert bounded.code == "LIMIT_BLOCKED"
+    assert bounded.status_code == 429
+    assert "private" not in str(bounded)
+
+    # A refusal body that is not a bounded envelope adds no code and no text.
+    unnamed = refusal(b"<html>proxy error</html>")
+    assert getattr(unnamed, "code", None) is None
+    assert unnamed.status_code == 429
+
+
+def test_model_gate_failure_is_classified_by_its_transport_cause():
+    """The SDK's wrapped provider failure becomes a bounded local class name."""
+
+    import httpx
+    from agent_framework.exceptions import ChatClientException
+
+    from wuji_maf_worker.runtime import (
+        ModelGateRejectedError,
+        ModelGateTransportError,
+        _model_gate_error,
+    )
+
+    class ProviderConnectionError(Exception):
+        # The openai client's transport class; matched by name, never imported.
+        __name__ = "APIConnectionError"
+
+    inner = httpx.ConnectError("private transport text")
+    provider = ProviderConnectionError("Connection error.")
+    provider.__cause__ = inner
+    wrapped = ChatClientException("service failed to complete the prompt", provider)
+    wrapped.__cause__ = provider
+
+    transport = _model_gate_error(wrapped)
+    assert type(transport) is ModelGateTransportError
+    assert "private" not in str(transport)
+
+    direct = ChatClientException("service failed", inner)
+    direct.__cause__ = inner
+    assert type(_model_gate_error(direct)) is ModelGateTransportError
+
+    # A non-transport SDK failure keeps the other bounded label.
+    assert type(_model_gate_error(ValueError("no cause"))) is ModelGateRejectedError
+    rejected = ChatClientException("service failed", ValueError("payload rejected"))
+    rejected.__cause__ = ValueError("payload rejected")
+    assert type(_model_gate_error(rejected)) is ModelGateRejectedError

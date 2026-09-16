@@ -6,6 +6,8 @@ from uuid import uuid4
 
 from agent_framework import Content, FunctionMiddleware, FunctionTool, MiddlewareFailure
 
+from wuji_maf_worker.remote_host import bounded_error_code
+
 from wuji_core.contracts.admission import ToolCallRequest, ToolCallReceipt
 from wuji_core.http import canonical_json_bytes, strict_json_loads
 
@@ -355,6 +357,26 @@ class ModelCallIdentity:
         )
 
 
+class ToolGateRefused(ValueError):
+    """A bounded, published refusal code from the platform ToolGate.
+
+    The refusal is still an enforcement outcome: it escapes the native loop
+    instead of being handed back as a retry invitation. Only the bounded code
+    and HTTP status travel with it, never response text.
+    """
+
+
+def _refusal_failure(refusal):
+    failure = MiddlewareFailure("Wuji ToolGate refused the invocation")
+    code = getattr(refusal, "code", None)
+    if isinstance(code, str) and 1 <= len(code) <= 64 and code.isascii():
+        failure.code = code
+    status = getattr(refusal, "status_code", None)
+    if type(status) is int and 100 <= status <= 599:
+        failure.status_code = status
+    return failure
+
+
 class GateFunctions(FunctionMiddleware):
     def __init__(self, *, definitions, identity, lineage, client, url, native_approval=False):
         self.definitions = {d["name"]: d for d in definitions}
@@ -371,6 +393,10 @@ class GateFunctions(FunctionMiddleware):
             request = self.identity.bind(context, definition, self.lineage)
             token = self._invocation.set(request)
             await call_next()
+        except ToolGateRefused as refusal:
+            # Keep the escape, but name the refusing predicate so the child's
+            # bounded exit signal is not an opaque MiddlewareFailure.
+            raise _refusal_failure(refusal) from refusal
         except Exception as error:
             # MAF ordinary tool errors become model input. Enforcement failures must
             # escape the native loop instead of becoming an invitation to retry.
@@ -392,7 +418,15 @@ class GateFunctions(FunctionMiddleware):
                 response = await self.client.post(
                     self.url, content=canonical_json_bytes(request.model_dump(mode="python")),
                 )
-                response.raise_for_status()
+                if response.status_code != 200:
+                    # Bounded classification on the refusal path only: the
+                    # success body is never consumed here.
+                    refusal = ToolGateRefused("ToolGate refused the tool call")
+                    refusal.status_code = response.status_code
+                    code = await bounded_error_code(response)
+                    if code is not None:
+                        refusal.code = code
+                    raise refusal
                 receipt = ToolCallReceipt.model_validate(strict_json_loads(response.content))
                 if self.native_approval:
                     self.identity.record_receipt(request, receipt)
@@ -417,7 +451,13 @@ class GateFunctions(FunctionMiddleware):
             response = await self.client.post(
                 self.url, content=canonical_json_bytes(request.model_dump(mode="python")),
             )
-            response.raise_for_status()
+            if response.status_code != 200:
+                refusal = ToolGateRefused("ToolGate refused the pending approval call")
+                refusal.status_code = response.status_code
+                code = await bounded_error_code(response)
+                if code is not None:
+                    refusal.code = code
+                raise refusal
             receipt = ToolCallReceipt.model_validate(strict_json_loads(response.content))
             if (
                 receipt.status.value != "pending_approval"

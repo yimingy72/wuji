@@ -255,7 +255,18 @@ bounded refusal the platform is supposed to produce for two concurrent work item
   reports the follow-up model request as a connection error. Both are recorded in
   `child-stderr.txt`; naming that second failure is the next diagnostic step, together with the
   product decision of whether a bounded `LIMIT_BLOCKED` should end the Run or be surfaced to the
-  model as a retryable refusal.
+  model as a retryable refusal. **Product decision 2026-09-16:** a bounded refusal stays an
+  escape from the native loop and still ends the Run — the model must not be invited to retry a
+  capacity refusal — but the escaping failure now carries the platform's bounded `code` and HTTP
+  status, so the operator signal reads `code=LIMIT_BLOCKED, status=429, error=MiddlewareFailure`
+  instead of an opaque class name, and response text never reaches it. The SDK's follow-up model
+  request is classified the same way: `ModelGateTransportError` when the cause chain holds a
+  transport failure, `ModelGateRejectedError` otherwise. Coverage:
+  `tests/vnext/test_maf_child_transport.py::
+  test_tool_gate_refusal_names_the_published_code_and_keeps_the_escape` and
+  `::test_model_gate_failure_is_classified_by_its_transport_cause`. Not yet re-run live: the
+  classification is covered by the child transport suite, and the next live Task is what will
+  show the new line.
 - The Reason retry budget cannot currently be spent. `ReasonLedger.fail` (P09) requires
   `operations_settled` — which this package's settlement work unblocks, and before it the scheduler
   recorded `preparation_block_reason=OPERATION_UNKNOWN` for exactly that reason — but it then only
