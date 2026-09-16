@@ -1,5 +1,7 @@
 # Wuji 实现进度与后续交付
 
+2026-09-12 当前优先事项：先评审 [Wuji Blackboard / Scheduler / MAF 整体架构](stages/wuji-maf-architecture/spec.md)与[后续阶段分解](stages/wuji-maf-architecture/plan.md)，不急于重构。下文按 Cairn/Pi 编写的后续边界属于现有基线；新方案为 draft，不作为执行指令。
+
 更新：2026-09-11。当前业务来源为W1记录提交40472c6，文档与GitHub入口为codex/github-upload。以下区分已交付机制与待授权/待验证能力，不将路线图作为新业务开发指令。
 
 ## 1. 当前实际基线

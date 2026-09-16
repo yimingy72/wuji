@@ -1,5 +1,7 @@
 # Cairn 黑板与 Wuji 任务的接入设计
 
+2026-09-12：Wuji 自有黑板与持久 Scheduler 的后继设计见 [整体草案](stages/wuji-maf-architecture/spec.md)。当前尚未重构；本页的 Cairn 唯一可写图约束继续适用于 legacy 链路，新方案按 Task 固定后端且禁止双写/双调度。
+
 - 日期：2026-09-10；状态：架构已确认；2026-09-11核心闭环与W1已完成封闭夹具集成，生产扩展仍待验证。
 - 权威取舍：[架构替代决策](cairn-architecture-decision.md)；本页负责共享图与生命周期，Worker/工具边界见[Harness设计](agent-harness-decision.md)。
 - 旧6ee84b5中“仅借鉴Cairn领域模型、PostgreSQL自建黑板、LangGraph持久编排”的方案已被替代。当前0.5.0已有任务黑板只读接口与关系导航，见[核心验收](stages/phase-1c-task-creation/acceptance.md)；旧task_events本身不构成黑板实现证明。

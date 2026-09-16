@@ -1,5 +1,7 @@
 # 架构替代决策：Cairn 调度、平台侧 Agent 与共享 Kali
 
+2026-09-12：本决定保留为当前 Cairn/Pi 交付的依据。后继 [Wuji Blackboard / Scheduler / MAF 架构草案](stages/wuji-maf-architecture/spec.md)处于 review-draft；用户要求先完成设计，尚未执行替换，不改写本页历史批准和验收事实。
+
 - 日期：2026-09-10；状态：accepted；2026-09-11更新：核心执行与W1机制已通过封闭夹具验收，生产目标能力按下文边界分开。
 - 依据：用户批准《Wuji 架构复审修订版：Cairn 调度、平台侧 Agent 与共享 Kali》；用户明确Agent不运行在Kali中，整体架构由主代理独立设计。
 - 后续澄清：Task业务主体、单Task Pod双容器与核心不改边界见[修订记录](stages/cairn-architecture-baseline/clarification.md)；以下为修订后的现行决定。

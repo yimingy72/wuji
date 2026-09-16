@@ -1,5 +1,7 @@
 # Agent Harness 与平台侧 Worker 接入
 
+2026-09-12：Python MAF Harness 的后继组装、会话、工具和控制方案见 [整体草案](stages/wuji-maf-architecture/spec.md)。该方案待评审；本页描述现有 Pi 接入及其实际证据，不将 Pi 压缩验收当作 MAF 可用证明。
+
 - 日期：2026-09-10；2026-09-11状态更新：核心Cairn/Pi/LiteLLM/双容器Task已通过封闭夹具验收，见[记录](stages/phase-1c-task-creation/acceptance.md)。W1已通过真实Pi原生压缩及压缩后持久记录读取，见[W1验收](stages/phase-2-web-assessment/acceptance.md)；长期记忆质量与真实模型效果仍待验收。
 - 权威取舍：[架构替代决策](cairn-architecture-decision.md)；完整部署见[主架构](architecture.md)，共享图协议见[黑板设计](cairn-blackboard-design.md)。
 - 历史：6ee84b5中的LangGraph/Deep Agents首选方案已被替代。[P0验收](stages/phase-1c-prep-p0/acceptance.md)仍只证明原受限Deep Agents/客户端实验，不证明Pi、Cairn或LiteLLM已可用。

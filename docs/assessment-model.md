@@ -1,5 +1,7 @@
 # Wuji 评估、知识与交付模型
 
+2026-09-12：后继 [Wuji / MAF 架构草案](stages/wuji-maf-architecture/spec.md)保留本页评估语义，提出新黑板归属与 Claim/WorkItem 合同；尚未批准或实现。当前 API 枚举与有限能力仍以 W1 Spec/实施合同为准，旧长期示例不覆盖 W1 的实际枚举。
+
 W1实际范围：`closed-web-assessment-v1` 使用固定 `cors-reflection-v1` 方法与匿名HTTP证据；响应元数据和正文分别登记Artifact。验证修订与有限计划不等于完整漏洞生命周期，`confirmed`只确认该方法的条件，Task总Goal保持unknown。具体字段和判据见[实施合同](stages/phase-2-web-assessment/implementation-contracts.md)，实际证据见[验收](stages/phase-2-web-assessment/acceptance.md)。
 
 > 当前架构适用说明（2026-09-10）：验证/覆盖/证据/报告语义保留，但Fact/Intent/Hint与探索图由Cairn唯一维护，Wuji保存原始提交、引用及验证记录，见[架构替代决策](cairn-architecture-decision.md)。跨库关联通过Bridge核对归属和版本，不能声称PostgreSQL外键或单次事务覆盖Cairn；Task预算改为LiteLLM原生USD金额。下文保留完整领域目标；当前仅交付核心快照与W1有限评估子集，字段与接口以阶段实施合同为准。

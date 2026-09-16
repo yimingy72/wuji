@@ -1,6 +1,10 @@
 # Wuji 项目背景与有效文档索引
 
-更新：2026-09-11；当前文档与GitHub交付分支为 `codex/github-upload`，业务来源为 `codex/phase-2-web-assessment@40472c6`（旧运行检出保留），架构收口起点6ee84b5。此页负责恢复背景与导航；设计正文、阶段验收各有独立权威来源，不在此复制完整架构。先读根 [AGENTS.md](../AGENTS.md)。
+更新：2026-09-12；当前文档与GitHub交付分支为 `codex/github-upload`，业务来源为 `codex/phase-2-web-assessment@40472c6`（旧运行检出保留），架构收口起点6ee84b5。此页负责恢复背景与导航；设计正文、阶段验收各有独立权威来源，不在此复制完整架构。先读根 [AGENTS.md](../AGENTS.md)。
+
+2026-09-12 当前工作：用户要求参考“分析 Agent Framework Go”先设计完整架构、不急于重构。已准备 [Wuji Blackboard / Scheduler / MAF 整体草案](stages/wuji-maf-architecture/spec.md)、[设计与后续分解](stages/wuji-maf-architecture/plan.md)、[待评审状态](stages/wuji-maf-architecture/acceptance.md)。具体方案为 review-draft，不代表迁移已批准或实现；下文 Cairn/Pi 约束继续描述已交付基线。新设计细节仅在该 Spec 维护，用户批准后再逐项更新目标基线。
+
+本次本机核对：唯一工作树为 `/Users/yym1ng/Documents/ChatGPT/wuji`，分支 `codex/github-upload`、设计起点 `1d73a767599732d9a53f81ad2cc553f4bf11d84e`；下文 `work/worktrees/` 是原开发机器的历史来源，本检出不存在这些活动工作树。本机没有 `.codegraph/`，源码定位使用 `rg` 和直接读取；纯文档不建立或重建索引。
 
 GitHub 克隆入口：默认分支 `codex/github-upload` 基于 W1 记录提交 `40472c6` 整理，本文档及阶段文档均在当前克隆内。下文工作树路径描述原开发机器的来源，不是克隆依赖；版本对应见[仓库交接说明](repository-handoff.md)。
 
@@ -62,6 +66,7 @@ Wuji 是 Kubernetes 原生的授权安全验证平台。产品流程是创建任
 | 核心闭环与D3-B | accepted（封闭夹具）：6c5934c完成真实创建/启动、Cairn/Pi/共享Kali、Fact/证据/结果/停止及M4关系视图；未开放生产出口和真实外部目标 | [核心总计划](stages/phase-1c-task-creation/core-loop-plan.md)、[D3-B Spec](stages/phase-1c-task-creation/spec.md)/[Plan](stages/phase-1c-task-creation/plan.md)、[状态](stages/phase-1c-task-creation/acceptance.md) |
 | Cairn / Pi / LiteLLM / Runtime集成 | 固定版本已通过真实K8封闭HTTP/合成模型路径；未开放外部目标、生产出口或全量流量采集 | [架构替代决策](cairn-architecture-decision.md)及下节设计 |
 | W1封闭Web评估 | accepted（机制）：f12a46f真实合成闭环及Pi原生压缩通过；4资源三类结果、证据和Reason补充反馈已交付；真实模型自主效果待明确新增USD授权 | [Spec](stages/phase-2-web-assessment/spec.md)、[Plan](stages/phase-2-web-assessment/plan.md)、[状态](stages/phase-2-web-assessment/acceptance.md) |
+| Wuji黑板/调度/MAF架构设计 | review-draft；仅整体方案和阶段分解，未获业务重构批准、未运行MAF或新增测试 | [Spec](stages/wuji-maf-architecture/spec.md)、[Plan](stages/wuji-maf-architecture/plan.md)、[状态](stages/wuji-maf-architecture/acceptance.md) |
 
 表内测试是复用历史记录，未在本次文档提交重跑。B2/B3 测试代码基准为 `e76a265d445ae9548d7f56fdb85f9b8b5c005759`，具体 run 与限制以验收正文为准。架构验收目录的 80 项不是本次或每次开发必须执行的清单。
 
@@ -69,6 +74,7 @@ Wuji 是 Kubernetes 原生的授权安全验证平台。产品流程是创建任
 
 | 任务 | 必读文档 | 阅读时保留的区别 |
 | --- | --- | --- |
+| Wuji自有黑板/调度与MAF新架构 | [整体草案](stages/wuji-maf-architecture/spec.md)、[设计分解](stages/wuji-maf-architecture/plan.md)、[待评审状态](stages/wuji-maf-architecture/acceptance.md)，再对照现行架构和W1记录 | 用户要求先设计；Python Harness、WorkItem、模型准入等为推荐方案，未批准实施；当前Cairn/Pi运行事实不改写 |
 | 新阶段与整体规划 | [架构替代决策](cairn-architecture-decision.md)、[产品](../PRODUCT.md)、[主架构](architecture.md)、[评估模型](assessment-model.md)、[开工准备](predevelopment-plan.md) | 目标架构不等于现有代码；当前阶段以上表记录为准 |
 | 任务创建、范围、配置与交互 | [交互提案](product-interaction-proposal.md)、[场景设计](scenario-execution-design.md)、[前端架构](frontend-architecture.md)、[视觉规则](../DESIGN.md) | 最新用户确认覆盖旧提案；创建与启动分离；旧路径 Scope 兼容需单独处理 |
 | 模型与 Agent 执行 | [Harness 决策](agent-harness-decision.md)、[网关实测](model-gateway-validation.md)、主架构中的LiteLLM / Task金额预算 / ConfigSnapshot | 成熟框架复用、候选集成验证和业务凭据/预算边界分别说明；普通协议通不证明完整 Harness 可用 |
@@ -107,3 +113,5 @@ Wuji 是 Kubernetes 原生的授权安全验证平台。产品流程是创建任
 2026-09-11：W1已获PLEASE IMPLEMENT THIS PLAN授权；当前在独立phase-2-web-assessment工作树实施，仅机制与合成模型，真实效果等待明确新增USD授权。
 
 2026-09-11 W1机制已验收，具体事实与限制见[W1验收](stages/phase-2-web-assessment/acceptance.md)。不再按旧草案将评估接口/有限覆盖/原生压缩机制称为未实现；真实模型效果仍未验收。
+
+2026-09-12：读取参考讨论并核对本机W1源码，准备 Wuji 自有黑板/调度 + Python MAF Harness 的完整架构草案。保持 Task、LiteLLM、双容器和现有证据/评估语义，推荐新增持久 WorkItem、策略模块、Run级准入与会话恢复合同。仅文档准备，不切换框架、运行服务、迁移数据、安装依赖或新增付费验证；后续在应用Plan模式冻结获批阶段合同后实施。
