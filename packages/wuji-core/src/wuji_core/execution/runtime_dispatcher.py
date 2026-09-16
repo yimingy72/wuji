@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
-from typing import Callable, Iterable
+from typing import Callable, Iterable, Mapping
 
 from wuji_core.execution.dispatch_outbox import DispatchOutbox
 from wuji_core.execution.reconcile import (
@@ -118,6 +118,7 @@ class RuntimeDispatcher:
         self._reconcile_cursor: dict[str, str] = {}
         self.failures: dict[str, str] = {}
         self._start_restriction: frozenset[str] | None = None
+        self._ended_environments: dict[str, str] = {}
         self._closed = False
 
     def _tasks(self) -> tuple[str, ...]:
@@ -233,6 +234,33 @@ class RuntimeDispatcher:
             raise ValueError("invalid start restriction")
         self._start_restriction = frozenset(requested)
 
+    def note_ended_environments(self, evidence: Mapping | None) -> None:
+        """Record which Tasks have no runtime environment left this cycle.
+
+        The runtime sets this from the Pod controller's own observation: it
+        reports ``stopped`` only once the Task Pod object is absent, never for a
+        transient Kubernetes failure. A Task listed here gets no new delivery and
+        its never-observed Runs are settled instead of being queried forever.
+        """
+
+        if evidence is None:
+            self._ended_environments = {}
+            return
+        if not isinstance(evidence, dict):
+            raise ValueError("bounded per-Task environment evidence required")
+        authorized = self._tasks()
+        checked = {}
+        for task_id, reason in evidence.items():
+            if (
+                not isinstance(task_id, str)
+                or task_id not in authorized
+                or not isinstance(reason, str)
+                or not 0 < len(reason) <= 512
+            ):
+                raise ValueError("invalid environment evidence")
+            checked[task_id] = reason
+        self._ended_environments = checked
+
     def start_allowed(self, task_id: str) -> bool:
         return self._start_restriction is None or task_id in self._start_restriction
 
@@ -241,7 +269,7 @@ class RuntimeDispatcher:
             raise ValueError("a live dispatcher and bounded limit are required")
         pending = []
         for task_id in self._ordered_tasks():
-            if not self.start_allowed(task_id):
+            if not self.start_allowed(task_id) or task_id in self._ended_environments:
                 continue
             remaining = limit - len(pending)
             if not remaining:
@@ -340,8 +368,18 @@ class RuntimeDispatcher:
             except (DomainError, OSError, TimeoutError, ValueError) as error:
                 self._note_failure(task_id, error)
                 continue
+            ended = self._ended_environments.get(task_id)
             for candidate in candidates:
                 try:
+                    if ended is not None and candidate.process_state == "registered":
+                        # The environment is gone and this Run never produced a
+                        # receipt, so no query can settle it.
+                        observed.append(
+                            self.reconciler.settle_ended_environment(
+                                candidate.run, reason=ended
+                            )
+                        )
+                        continue
                     observed.append(self.reconciler.reconcile(candidate.run))
                 except (DomainError, OSError, TimeoutError, ValueError) as error:
                     self._note_failure(candidate.operation_id, error)

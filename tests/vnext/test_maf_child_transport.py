@@ -771,6 +771,75 @@ def test_an_authoritative_refusal_does_not_burn_the_delivery_budget(tmp_path):
         journal.close()
 
 
+def test_a_gone_pod_settles_a_run_that_was_never_delivered(
+    db_environment, tmp_path, audit_directory
+):
+    """Task A's third Run: the attempt died before any receipt existed."""
+
+    with m2_case(db_environment, tmp_path, audit_directory) as case:
+        run_id = case.assignment.identity.agent_run_id
+        case.dispatcher.note_ended_environments({TASK: "permit_revoked"})
+
+        # A dead Task receives no delivery at all, and the unobserved Run is
+        # settled from the platform's own environment evidence.
+        assert case.dispatcher.pending(limit=1) == ()
+        observed = case.dispatcher.run_once(limit=1)
+        assert observed and {item.state for item in observed} == {"environment_stopped"}
+        assert run_id in {item.run.identity.agent_run_id for item in observed}
+        assert not case.node.audit_path.exists() or "PUT" not in case.node.audit_path.read_text()
+
+        with db_environment.migration_connection() as connection:
+            run = connection.execute(
+                "SELECT process_state,stop_kind,result_state,last_observation_id"
+                " FROM vnext.agent_run WHERE agent_run_id=%s",
+                (run_id,),
+            ).fetchone()
+            work = connection.execute(
+                "SELECT state,terminal_reason FROM vnext.work_item WHERE work_item_id=%s",
+                (case.assignment.identity.work_item_id,),
+            ).fetchone()
+            observation = connection.execute(
+                "SELECT kind,source_receipt FROM vnext.execution_observation"
+                " WHERE agent_run_id=%s AND receipt_id=%s",
+                (run_id, run[3]),
+            ).fetchone()
+        assert run[0] == "exited" and run[1] == "environment_stopped"
+        assert run[2] == "incomplete"
+        assert run[3] == "environment-stopped:" + run_id
+        assert observation[0] == "environment_stopped"
+        assert strict_json_loads(observation[1])["reason"] == "permit_revoked"
+        assert work == ("failed", "environment_stopped_before_observation")
+
+
+def test_a_run_that_may_have_executed_is_not_settled_by_a_gone_pod(
+    db_environment, tmp_path, audit_directory
+):
+    """No evidence is not the same as evidence of nothing."""
+
+    with m2_case(db_environment, tmp_path, audit_directory) as case:
+        run_id = case.assignment.identity.agent_run_id
+        with db_environment.migration_connection() as connection:
+            connection.execute(
+                "UPDATE vnext.agent_run SET process_identity_json=%s WHERE agent_run_id=%s",
+                (json.dumps({"pid": 4321, "birth_id": "fixture-birth",
+                             "started_at": "2026-09-16T01:00:00Z",
+                             "exited_at": None, "exit_code": None}), run_id),
+            )
+        case.dispatcher.note_ended_environments({TASK: "permit_revoked"})
+        case.dispatcher.run_once(limit=1)
+        with db_environment.migration_connection() as connection:
+            run = connection.execute(
+                "SELECT process_state,stop_kind,result_state FROM vnext.agent_run"
+                " WHERE agent_run_id=%s", (run_id,)).fetchone()
+            work = connection.execute(
+                "SELECT state,blocked_reason FROM vnext.work_item WHERE work_item_id=%s",
+                (case.assignment.identity.work_item_id,)).fetchone()
+        # The observation is honest about the environment, and the Work item is
+        # held for settlement instead of being declared finished or failed.
+        assert run == ("exited", "environment_stopped", "none")
+        assert work == ("reconciling", "operations_unsettled")
+
+
 def test_unresolved_delivery_is_retried_only_after_an_authoritative_absence(tmp_path):
     """A send without a receipt is repeated only in a bounded, quiet window."""
 

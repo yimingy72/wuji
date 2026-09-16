@@ -210,6 +210,53 @@ def _known_fresh(tx, work):
     ).fetchone()
 
 
+def _environment_stopped_without_evidence(tx, run):
+    """The attempt's environment ended before this Run produced any evidence.
+
+    Only the platform's own ``environment_stopped`` observation qualifies, and
+    only while the Run holds no process identity, no admitted tool attempt, no
+    in-flight model request, no unreleased reservation and no result submission.
+    This is not proof that no process ever ran; it is the statement that the
+    platform can obtain no further evidence from that environment, so the Run
+    settles instead of holding its Work item forever.
+    """
+
+    if run["stop_kind"] != "environment_stopped" or run["last_observation_id"] is None:
+        return False
+    observation = tx.connection.execute(
+        "SELECT kind FROM vnext.execution_observation WHERE tenant_id=%s AND project_id=%s"
+        " AND task_id=%s AND agent_run_id=%s AND receipt_id=%s",
+        (*tx.owner, run["agent_run_id"], run["last_observation_id"]),
+    ).fetchone()
+    if not observation or observation[0] != "environment_stopped":
+        return False
+    if run["process_identity_json"]:
+        return False
+    if tx.connection.execute(
+        "SELECT 1 FROM vnext.tool_attempt WHERE tenant_id=%s AND project_id=%s AND task_id=%s"
+        " AND agent_run_id=%s AND (status IS NOT NULL OR started_at IS NOT NULL) LIMIT 1",
+        (*tx.owner, run["agent_run_id"]),
+    ).fetchone():
+        return False
+    if tx.connection.execute(
+        "SELECT 1 FROM vnext.model_call WHERE tenant_id=%s AND project_id=%s AND task_id=%s"
+        " AND agent_run_id=%s AND inflight LIMIT 1",
+        (*tx.owner, run["agent_run_id"]),
+    ).fetchone():
+        return False
+    if tx.connection.execute(
+        "SELECT 1 FROM vnext.result_submission WHERE tenant_id=%s AND project_id=%s AND task_id=%s"
+        " AND agent_run_id=%s LIMIT 1",
+        (*tx.owner, run["agent_run_id"]),
+    ).fetchone():
+        return False
+    return not tx.connection.execute(
+        "SELECT 1 FROM vnext.resource_reservation WHERE tenant_id=%s AND project_id=%s AND task_id=%s"
+        " AND agent_run_id=%s AND state<>'released' LIMIT 1",
+        (*tx.owner, run["agent_run_id"]),
+    ).fetchone()
+
+
 def _possibly_running(tx, work):
     return any(run["stop_kind"] is None for run in _runs(tx, work["work_item_id"]))
 
@@ -987,7 +1034,8 @@ class ControlService:
         }:
             return
         settled = operations_settled(tx, run["agent_run_id"])
-        if not settled and run["stop_kind"] != "not_started":
+        empty_evidence = _environment_stopped_without_evidence(tx, run)
+        if not settled and run["stop_kind"] != "not_started" and not empty_evidence:
             if work["state"] in {"running", "leased", "stopping"}:
                 _update_work(
                     tx, work, state="reconciling", blocked_reason="operations_unsettled"
@@ -1035,6 +1083,21 @@ class ControlService:
                 _update_work(tx, work, state="waiting_input", blocked_reason=None)
                 if waiting["status"] == "resolved":
                     self._restore(tx, work)
+            return
+        if empty_evidence:
+            # The environment is gone and the platform holds no execution
+            # evidence: record the actual outcome instead of inventing output or
+            # holding the Work item. Nothing is claimed about a process.
+            mark_missing_output(tx, run["agent_run_id"])
+            if work["state"] in {"leased", "stopping"}:
+                _update_work(tx, work, state="reconciling")
+            if work["state"] in {"running", "reconciling"}:
+                _update_work(
+                    tx,
+                    work,
+                    state="failed",
+                    terminal_reason="environment_stopped_before_observation",
+                )
             return
         state = mark_missing_output(tx, run["agent_run_id"])
         source = (

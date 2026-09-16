@@ -49,6 +49,7 @@ def run(
                         print(json.dumps(detail, sort_keys=True), flush=True)
                         # Nothing is known to be ready, so only reconciliation runs.
                         dispatcher.restrict_starts(())
+                        dispatcher.note_ended_environments(None)
                     else:
                         # A Task whose Pod is not ready stops only its *own* new
                         # starts. Every authorized Task is still reconciled, and a
@@ -82,6 +83,21 @@ def run(
                         dispatcher.restrict_starts(
                             pod_environment.start_eligible_task_ids()
                         )
+                        # A Pod the controller reports as `stopped` is gone: the
+                        # Task can neither be delivered to nor queried, so its
+                        # never-observed Runs settle instead of polling a dead
+                        # Service forever.
+                        ended = {}
+                        for task_id, state in sorted(pod_environment.observations.items()):
+                            if getattr(state, "state", state) != "stopped":
+                                continue
+                            reason = getattr(state, "reason", None)
+                            ended[task_id] = (
+                                reason
+                                if isinstance(reason, str) and 0 < len(reason) <= 512
+                                else "environment_stopped"
+                            )
+                        dispatcher.note_ended_environments(ended)
                 else:
                     dispatcher.restrict_starts(None)
                 observed = dispatcher.run_once(limit=batch_limit)

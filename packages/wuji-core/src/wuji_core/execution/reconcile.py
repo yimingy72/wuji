@@ -5,6 +5,7 @@ This module never creates a Run, spawns a process or writes knowledge/results.
 """
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from hashlib import sha256
 from typing import Mapping
 
@@ -157,6 +158,38 @@ class Reconciler:
         if receipt is None:
             return ObservedExecution(run, "unknown", None, "receiver_record_absent")
         return validate_receipt(run, receipt)
+
+    def settle_ended_environment(self, run: RegisteredRun, *, reason: str) -> ObservedExecution:
+        """The attempt's environment is gone and this Run was never observed.
+
+        The runtime only reports ``stopped`` once the Task Pod object is absent,
+        so no query can ever produce a receipt for this Run. The platform records
+        its own bounded observation rather than inventing a process exit or a
+        result, and never claims the process failed to run.
+        """
+
+        if not isinstance(run, RegisteredRun) or not isinstance(reason, str) or not 0 < len(reason) <= 512:
+            raise ValueError("bounded environment evidence required")
+        observed_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        body = {
+            "receipt_id": "environment-stopped:" + run.identity.agent_run_id,
+            "identity": run.identity.model_dump(mode="json"),
+            "operation_id": run.start_operation_id,
+            "environment_ref": run.environment_ref,
+            "pod_uid": run.pod_uid,
+            "kind": "environment_stopped",
+            "observed_at": observed_at,
+            "process": None,
+            "reason": reason,
+        }
+        source = canonical_json_bytes(body).decode()
+        observation = ExecutionObservation.model_validate({
+            **body, "source_receipt": source,
+            "source_digest": sha256(source.encode()).hexdigest(),
+        })
+        self.control.record_observation(self.access, observation)
+        self.control.reconcile(self.access, run.identity.task_id, run.identity.work_item_id)
+        return ObservedExecution(run, "environment_stopped", None, reason)
 
     def reconcile(self, run: RegisteredRun) -> ObservedExecution:
         observed = self.inspect(run)

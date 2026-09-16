@@ -73,9 +73,17 @@ from wuji_core.persistence.task_creation_schema import (
     upgrade as upgrade_task_creation,
 )
 from wuji_core.persistence.run_settlement_close_schema import (
-    HEAD,
+    HEAD as RUN_SETTLEMENT_HEAD,
     upgrade as upgrade_run_settlement_close,
 )
+from wuji_core.persistence.environment_settlement_schema import (
+    HEAD as ENVIRONMENT_SETTLEMENT_HEAD,
+    upgrade as upgrade_environment_settlement,
+)
+
+# The migration chain's newest head; callers assert against this instead of a
+# hard-coded historical identifier.
+HEAD = ENVIRONMENT_SETTLEMENT_HEAD
 
 OWNER = "tenant_id,project_id,task_id"
 SCOPE_COLUMNS = (
@@ -445,7 +453,8 @@ def migrate(connection, *, application_role: str) -> None:
                 POD_RECEIVER_HEAD,
                 LAYOUT_HEAD,
                 TASK_CREATION_HEAD,
-                HEAD,
+                RUN_SETTLEMENT_HEAD,
+                ENVIRONMENT_SETTLEMENT_HEAD,
             ]
             if not heads or heads != set(chain[: len(heads)]):
                 raise ValueError("unrecognized vnext migration head")
@@ -469,6 +478,7 @@ def migrate(connection, *, application_role: str) -> None:
                 upgrade_layouts,
                 upgrade_task_creation,
                 upgrade_run_settlement_close,
+                upgrade_environment_settlement,
             ]
             for upgrade in upgrades[len(heads) - 1 :]:
                 upgrade(connection, application_role)
@@ -589,3 +599,4 @@ def migrate(connection, *, application_role: str) -> None:
         upgrade_layouts(connection, application_role)
         upgrade_task_creation(connection, application_role)
         upgrade_run_settlement_close(connection, application_role)
+        upgrade_environment_settlement(connection, application_role)

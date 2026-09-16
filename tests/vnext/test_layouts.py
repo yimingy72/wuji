@@ -214,13 +214,26 @@ def test_layout_revocation_is_indistinguishable_from_absence(
         assert put_response.status_code == 404
 
 
-def test_layout_migration_is_idempotent_and_is_latest_head(db_environment):
+def test_layout_migration_is_idempotent_and_records_the_module_head(db_environment):
+    from wuji_core.persistence.schema import HEAD as MIGRATION_HEAD
+
     with db_environment.migration_connection() as connection:
         migrate(connection, application_role=db_environment.application_role)
         migrate(connection, application_role=db_environment.application_role)
+        # Ordering by applied_at is not meaningful when later migrations share a
+        # timestamp; the module head is the only stable statement of "latest".
         assert connection.execute(
-            "SELECT head FROM vnext.schema_migration ORDER BY applied_at DESC LIMIT 1"
-        ).fetchone() == ("vnext_0019_p11_task_creation",)
+            "SELECT count(*) FROM vnext.schema_migration WHERE head=%s",
+            (MIGRATION_HEAD,),
+        ).fetchone() == (1,)
+        heads = {
+            row[0]
+            for row in connection.execute(
+                "SELECT head FROM vnext.schema_migration"
+            ).fetchall()
+        }
+        assert MIGRATION_HEAD in heads
+        assert len(heads) == len(set(heads))
         assert connection.execute(
             "SELECT to_regclass('vnext.layout_preference')"
         ).fetchone() == ("vnext.layout_preference",)
