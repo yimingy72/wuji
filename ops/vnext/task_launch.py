@@ -933,11 +933,18 @@ def wire(binding, *, config, namespace, agent_auth_dir, kali_auth_dir, deploymen
                 changed = True
                 binding_document.update(expected)
         if not replaced:
+            # A new entry clones the deployment's own executor template: the
+            # published binding carries deployment-level subjects that this
+            # attempt must not invent, and only the Task identity changes.
+            template = executors[0]
+            template_binding = template.get("binding") if isinstance(template, dict) else None
+            if not isinstance(template_binding, dict):
+                raise DomainError("INVALID_REFERENCE", 422)
             executors.append({
-                "binding": expected,
-                "base_url": executors[0].get("base_url"),
-                "gate_token_file": executors[0].get("gate_token_file"),
-                "collector_token_file": executors[0].get("collector_token_file"),
+                "binding": {**template_binding, **expected},
+                "base_url": template.get("base_url"),
+                "gate_token_file": template.get("gate_token_file"),
+                "collector_token_file": template.get("collector_token_file"),
             })
             changed = True
         return "replaced" if changed else "unchanged"
