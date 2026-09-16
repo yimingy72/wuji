@@ -119,8 +119,18 @@ def main():
         step = getattr(error, "wuji_step", "unknown")
         if not isinstance(step, str) or not 1 <= len(step) <= 64:
             step = "unknown"
+        # The bounded remote code (never its text) is the operator signal that
+        # names which platform predicate refused the stage.
+        code = getattr(error, "code", None)
+        detail = ""
+        if isinstance(code, str) and 1 <= len(code) <= 64:
+            detail = f", code={code}"
+        status = getattr(error, "status_code", None)
+        if type(status) is int and 100 <= status <= 599:
+            detail += f", status={status}"
         sys.stderr.write(
-            f"Wuji Worker stopped without a confirmed completion (step={step}).\n"
+            "Wuji Worker stopped without a confirmed completion"
+            f" (step={step}{detail}).\n"
         )
         return 1
     return 0
