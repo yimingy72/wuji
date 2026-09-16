@@ -448,6 +448,50 @@ def activate(config, *, task_id, version, reason, base_url, signing_key_file=Non
     return {"request": payload, "response": response.json()}
 
 
+def merge_gates_executors(executors, expected):
+    """Merge this Task's executor entry into the deployment's published list.
+
+    One entry exists per Task. Deployment-level binding fields (for example the
+    published collector/gate subjects) are read from the deployment's own
+    entries and never invented here; entries that disagree on them are a real
+    conflict rather than something to overwrite. Returns the action name.
+    """
+
+    if not isinstance(executors, list) or not executors:
+        raise DomainError("INVALID_REFERENCE", 422)
+    deployment_fields = {}
+    for entry in executors:
+        entry_binding = entry.get("binding") if isinstance(entry, dict) else None
+        if not isinstance(entry_binding, dict):
+            raise DomainError("INVALID_REFERENCE", 422)
+        for key, value in entry_binding.items():
+            if key in expected:
+                continue
+            if key in deployment_fields and deployment_fields[key] != value:
+                raise DomainError("INPUT_DIGEST_CONFLICT", 409)
+            deployment_fields.setdefault(key, value)
+    merged_binding = {**deployment_fields, **expected}
+    changed, replaced = False, False
+    for entry in executors:
+        entry_binding = entry["binding"]
+        if entry_binding.get("task_id") != expected["task_id"]:
+            continue
+        replaced = True
+        if any(entry_binding.get(key) != value for key, value in merged_binding.items()):
+            changed = True
+            entry_binding.update(merged_binding)
+    if not replaced:
+        template = executors[0]
+        executors.append({
+            "binding": dict(merged_binding),
+            "base_url": template.get("base_url"),
+            "gate_token_file": template.get("gate_token_file"),
+            "collector_token_file": template.get("collector_token_file"),
+        })
+        changed = True
+    return "replaced" if changed else "unchanged"
+
+
 def runtime_config_document(binding):
     return {
         "tenant_id": binding["tenant_id"],
@@ -910,44 +954,16 @@ def wire(binding, *, config, namespace, agent_auth_dir, kali_auth_dir, deploymen
 
     def gates_update(document):
         executors = document.get("executors")
-        if not isinstance(executors, list) or not executors:
+        if not isinstance(executors, list):
             raise DomainError("INVALID_REFERENCE", 422)
-        expected = {
+        return merge_gates_executors(executors, {
             "tenant_id": binding["tenant_id"],
             "project_id": binding["project_id"],
             "task_id": binding["task_id"],
             "executor_ref": binding["executor_ref"],
             "receiver_id": binding["receiver_id"],
             "environment_ref": binding["environment_ref"],
-        }
-        # One entry per Task: a second Task keeps its own executor binding.
-        changed, replaced = False, False
-        for entry in executors:
-            binding_document = entry.get("binding") if isinstance(entry, dict) else None
-            if not isinstance(binding_document, dict):
-                raise DomainError("INVALID_REFERENCE", 422)
-            if binding_document.get("task_id") != binding["task_id"]:
-                continue
-            replaced = True
-            if any(binding_document.get(key) != value for key, value in expected.items()):
-                changed = True
-                binding_document.update(expected)
-        if not replaced:
-            # A new entry clones the deployment's own executor template: the
-            # published binding carries deployment-level subjects that this
-            # attempt must not invent, and only the Task identity changes.
-            template = executors[0]
-            template_binding = template.get("binding") if isinstance(template, dict) else None
-            if not isinstance(template_binding, dict):
-                raise DomainError("INVALID_REFERENCE", 422)
-            executors.append({
-                "binding": {**template_binding, **expected},
-                "base_url": template.get("base_url"),
-                "gate_token_file": template.get("gate_token_file"),
-                "collector_token_file": template.get("collector_token_file"),
-            })
-            changed = True
-        return "replaced" if changed else "unchanged"
+        })
 
     actions["gates-config"] = patch_deployment_json(core, "gates-config", gates_update,
                                                     namespace=namespace)

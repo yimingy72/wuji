@@ -509,3 +509,79 @@ def test_operator_bearer_path_is_single_source(tmp_path):
     assert task_launch.operator_token(config) == "stale-mounted-bearer"
     minted = task_launch.operator_token(config, signing_key_file=str(key_file))
     assert minted != "stale-mounted-bearer" and minted.count(".") == 2
+
+
+EXECUTOR_TEMPLATE = {
+    "binding": {
+        "collector_subject": "collector",
+        "gate_subject": "gate",
+        "tenant_id": "tenant-fixture",
+        "project_id": "project-fixture",
+        "task_id": "task-old",
+        "executor_ref": "kali-workspace-v1",
+        "receiver_id": "receiver-old",
+        "environment_ref": "environment-old",
+    },
+    "base_url": "https://task-kali.wuji-vnext-test.svc:8444",
+    "gate_token_file": "/run/wuji/credentials/service.token",
+    "collector_token_file": "/run/wuji/credentials/collector.token",
+}
+
+
+def executor_identity(task_id):
+    return {
+        "tenant_id": "tenant-fixture",
+        "project_id": "project-fixture",
+        "task_id": task_id,
+        "executor_ref": "kali-workspace-v1",
+        "receiver_id": "receiver-" + task_id,
+        "environment_ref": "environment-" + task_id,
+    }
+
+
+def test_a_second_task_clones_the_deployment_executor_binding():
+    """A new entry must not invent the deployment's published subjects."""
+
+    executors = [{"binding": dict(EXECUTOR_TEMPLATE["binding"]), **{
+        key: value for key, value in EXECUTOR_TEMPLATE.items() if key != "binding"
+    }}]
+
+    assert task_launch.merge_gates_executors(executors, executor_identity("task-new")) == "replaced"
+
+    assert [entry["binding"]["task_id"] for entry in executors] == ["task-old", "task-new"]
+    added = executors[1]
+    assert added["binding"]["collector_subject"] == "collector"
+    assert added["binding"]["gate_subject"] == "gate"
+    assert added["base_url"] == EXECUTOR_TEMPLATE["base_url"]
+    assert task_launch.merge_gates_executors(executors, executor_identity("task-new")) == "unchanged"
+
+
+def test_a_task_that_lost_a_deployment_binding_field_is_repaired():
+    """The published subjects come from the deployment's own entries."""
+
+    executors = [
+        {"binding": dict(EXECUTOR_TEMPLATE["binding"]), **{
+            key: value for key, value in EXECUTOR_TEMPLATE.items() if key != "binding"
+        }},
+        {"binding": executor_identity("task-new"), "base_url": "https://task-kali.wuji-vnext-test.svc:8444",
+         "gate_token_file": "/run/wuji/credentials/service.token",
+         "collector_token_file": "/run/wuji/credentials/collector.token"},
+    ]
+
+    assert task_launch.merge_gates_executors(executors, executor_identity("task-new")) == "replaced"
+
+    repaired = executors[1]["binding"]
+    assert repaired["collector_subject"] == "collector"
+    assert repaired["gate_subject"] == "gate"
+    assert repaired["environment_ref"] == "environment-task-new"
+
+
+def test_executor_entries_that_disagree_on_a_deployment_field_are_refused():
+    executors = [
+        {"binding": dict(EXECUTOR_TEMPLATE["binding"])},
+        {"binding": {**EXECUTOR_TEMPLATE["binding"], "task_id": "task-other",
+                     "collector_subject": "other-collector"}},
+    ]
+
+    with pytest.raises(DomainError, match="INPUT_DIGEST_CONFLICT"):
+        task_launch.merge_gates_executors(executors, executor_identity("task-new"))
