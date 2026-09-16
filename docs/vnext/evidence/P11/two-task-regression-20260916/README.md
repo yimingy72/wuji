@@ -226,7 +226,50 @@ register new explore work and the runtime would deliver a new start to the ready
 evidence — while the two stopped Tasks stay stopped. Granting an operator subject `can_admit` instead is a
 product decision about who may propose intents, not a test-fixture choice.
 
-## 9. What is still missing
+## 9. A new start reaches the ready Task while two others stay stopped (2026-09-16, commit `de623e7`)
+
+The owner command gained an `intent` phase (same signed-controller path as the Task's initial Intent, no attempt
+binding, idempotent by key). Admitting one follow-up Intent for the ready Task A produced new work and a new start:
+
+```bash
+scripts/vnext/uv.sh run --frozen python ops/vnext/task_launch.py --submit --phase intent \
+  --task 86a2a7f2-1c60-4fc7-82d1-748a26fcd6e4 --intent-key stage-b-followup-1 \
+  --intent-client-ref followup-read --intent-question "Read the fixture workspace file once more …" \
+  --image … --agent-image … --kali-image …
+# TASK_LAUNCH_JOB_STATUS SuccessCriteriaMet|1|
+```
+
+```text
+intents:  5c0b3b2a|admitted|initial read …          # the launch's own intent
+          65c758b2|admitted|Read the fixture workspace file once more …   # the follow-up
+
+work:     53414524|explore|failed|ee0fa835|5c0b3b2a    # the original explore work
+          bd62d4c0|explore|leased|9e574eb0|65c758b2    # derived from the follow-up intent
+          7d552f64|reason|done|98d72f29|
+
+runs:     98d72f29|2|exited|accepted      # attempt 2, original reason work
+          ee0fa835|2|exited|incomplete    # attempt 2, original explore work
+          9e574eb0|2|registered|none      # NEW start, same attempt 2
+
+outbox:   run.dispatch_requested|9e574eb0-…            # its dispatch request exists
+receiver: 2|task-86a2a7f2-…-a2|t                       # attempt 2's receiver is enabled
+
+runtime:  3aa77fba (stopped|permit_expired)
+          60e7bd1b (stopped|permit_expired)
+          6ffd59cd (stopped|task_not_runnable)
+          # Task A never appears; the loop keeps cycling
+```
+
+So the scheduler derived new explore work from the admitted Intent, admitted a **new Run on Task A's attempt 2**, and
+the runtime kept its dispatch cycles going while the two stopped Tasks stayed stopped — the last missing half of the
+two-Task regression.
+
+**Still open:** that new Run had not executed when this was captured — it is still `registered` and the runtime reports
+`runtime_dispatch_cycle observed: 2, states: {"unknown": 2}`, i.e. it is being queried but the platform sees no
+trusted observation yet. Diagnosing that (delivery to attempt 2's supervisor vs. its own record of the run) is the
+next step, and it is tracked here rather than claimed as done.
+
+## 10. What is still missing
 
 The two Task *Pods* never ran side by side. Task A's attempt is stuck:
 

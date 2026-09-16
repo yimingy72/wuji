@@ -1,0 +1,2 @@
+5c0b3b2a-360d-4ab3-9c76-53c66eb03f1c|admitted|Read the fixture workspace file for Task start point https://fixture.invalid:443 once through the registered Kali workspace tool and cite the returned evidence.
+65c758b2-35e6-4659-a555-67ddddbfbb7d|admitted|Read the fixture workspace file once more through the registered Kali workspace tool and cite the evidence as a second, independent exploration intent.

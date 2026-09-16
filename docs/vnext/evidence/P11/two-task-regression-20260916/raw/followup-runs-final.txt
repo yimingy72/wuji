@@ -1,0 +1,3 @@
+98d72f29|2|exited|accepted
+ee0fa835|2|exited|incomplete
+9e574eb0|2|registered|none
