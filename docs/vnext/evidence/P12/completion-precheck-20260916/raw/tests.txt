@@ -1,0 +1,5 @@
+# $ ./scripts/vnext/uv.sh run --frozen python -m pytest tests/vnext/test_completion_protocol.py -q
+8 passed in 9.00s   (recorded from the run that gated commit 3d2b55c)
+
+# $ ./scripts/vnext/uv.sh run --frozen python -m pytest tests/vnext/test_work_state_guards.py tests/vnext/test_control_integration.py tests/vnext/test_layouts.py tests/vnext/test_session_writer_exit_migration.py tests/vnext/test_completion_protocol.py -q
+49 passed, 1 warning in 76.91s

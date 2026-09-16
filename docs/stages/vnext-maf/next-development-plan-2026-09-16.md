@@ -54,8 +54,17 @@ Task A attempt 2 的第三个 Run（`9e574eb0`）从未被投递成功：receive
    T1 守卫在 1800 秒窗口下 remaining=86342s 通过。见
    [证据包](../../vnext/evidence/P11/credential-refresh-20260916/README.md)。
    **仍缺**：拒绝分支只有单元覆盖；bearer 仍是部署级共享，按 attempt 独立签发未设计。
-9. **T8 写入路径与更广并发。未开始。** 写者键的"排除读者"分支只有单元语义；多 Task 并发、长会话压缩/记忆
-   与 P12 完成面仍未验证。
+9. **T8 写入路径与更广并发。未开始。** 写者键的"排除读者"分支只有单元语义；多 Task 并发（每 Task 独立
+   supervisor 端点）与长会话压缩/记忆仍未验证。
+10. **P12-A 完成 precheck 生产者。已交付并实测（`3d2b55c`）。** 迁移 `vnext_0022_p12_completion` 提供
+    SECURITY DEFINER 的 quiescing 决定生产者；`completion.criteria` 只认已持久化判定（缺失/unknown/
+    not_applicable/非 current 均未满足，空 required 永不满足），`CompletionService.precheck` 不绑定提出者
+    Run，`propose` 仅在 ready 时写入决定并交给 P05 消费。真实集群 7 个 Task 全部 `wait/criteria_unmet`，
+    包括两个 Run 均已接纳、work 均 `done` 的 `fc2ff1b0-…`。见
+    [证据包](../../vnext/evidence/P12/completion-precheck-20260916/README.md)。
+11. **P12-B 判定生产与报告冻结。未开始。** 需要从真实证据按 `allowed_methods`/`evidence_requirements`
+    写 `criterion_judgment`；随后 AC-049/AC-052/AC-053 的结算、close_trigger/result_outcome 分离与
+    ReportCommit 冻结、迟到反证追加。
 
 ### T5 已核对的接口事实（实现前不再猜）
 

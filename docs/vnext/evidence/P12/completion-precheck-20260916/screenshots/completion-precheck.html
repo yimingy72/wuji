@@ -1,0 +1,23 @@
+<!doctype html><meta charset="utf-8"><style>
+body{background:#0b1020;color:#d6e2ff;font:11px/1.32 "SF Mono",Menlo,monospace;padding:16px;white-space:pre}
+h1{font:600 14px/1.3 "SF Mono",Menlo,monospace;color:#ffd479;margin:0 0 10px}
+</style><h1>P12 precheck: no Task may start closing without a persisted judgment</h1># $ kubectl -n wuji-vnext-test logs job/p11c-migrate-0022
+HEADS [&#x27;vnext_0020_p06_run_settlement_close&#x27;, &#x27;vnext_0021_p05_environment_settlement&#x27;, &#x27;vnext_0022_p12_completion&#x27;]
+FUNCTION 1
+
+# $ kubectl -n wuji-vnext-test logs job/p12-precheck-20260916
+# precheck over every Task the runtime serves, using the deployment&#x27;s own UnitOfWork and ControlService
+TASKS 7
+PRECHECK 083f6134-46bd-4237-9cdc-0c88a39da3d0 wait (&#x27;criteria_unmet&#x27;,) [&#x27;version:missing/missing&#x27;]
+PRECHECK 3aa77fba-c264-4f79-8223-a656ffd53a37 wait (&#x27;criteria_unmet&#x27;,) [&#x27;version:missing/missing&#x27;]
+PRECHECK 60e7bd1b-3d28-4af9-be4b-067bf0517c08 wait (&#x27;criteria_unmet&#x27;,) [&#x27;version:missing/missing&#x27;]
+PRECHECK 6ffd59cd-2f11-49ad-a0bc-60328fd1e538 wait (&#x27;criteria_unmet&#x27;,) [&#x27;version:missing/missing&#x27;]
+PRECHECK 86a2a7f2-1c60-4fc7-82d1-748a26fcd6e4 wait (&#x27;criteria_unmet&#x27;,) [&#x27;version:missing/missing&#x27;]
+PRECHECK dc8a9f7f-4731-41c2-93f9-2dd4cf1805d4 wait (&#x27;criteria_unmet&#x27;,) [&#x27;version:missing/missing&#x27;]
+PRECHECK fc2ff1b0-a578-4131-9fc3-4a7a80c74442 wait (&#x27;criteria_unmet&#x27;,) [&#x27;version:missing/missing&#x27;]
+
+# $ ./scripts/vnext/uv.sh run --frozen python -m pytest tests/vnext/test_completion_protocol.py -q
+8 passed in 9.00s   (recorded from the run that gated commit 3d2b55c)
+
+# $ ./scripts/vnext/uv.sh run --frozen python -m pytest tests/vnext/test_work_state_guards.py tests/vnext/test_control_integration.py tests/vnext/test_layouts.py tests/vnext/test_session_writer_exit_migration.py tests/vnext/test_completion_protocol.py -q
+49 passed, 1 warning in 76.91s

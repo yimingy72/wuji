@@ -42,6 +42,10 @@
   bearer 刷新做成仓库内命令（固定目标清单、TTL 1..72h、窗口内/启用 receiver 时拒绝、只打印有界元数据），
   实测刷新 6 个字段并滚动四个 Deployment；刷新后的 bearer 让 T1 启动守卫在 1800 秒窗口下判定通过。
 
+- [Completion precheck](../P12/completion-precheck-20260916/README.md)（P12）：迁移 `vnext_0022_p12_completion`
+  加完成期生产者，precheck 只用已持久化判定；真实集群 7 个 Task 全部 `wait/criteria_unmet`，即使两个 Run 都已
+  被接纳、work 都是 `done`。
+
 Still open: owner tooling that derives admission rows from deployment configuration, a runtime attempt
 that carries no worker-assignment dispatch finding, Stage B branches 2 and 3 on their own fixtures, and
 the multi-Task runtime host that would prove one Task is not stopped with another.

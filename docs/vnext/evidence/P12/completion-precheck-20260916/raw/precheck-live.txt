@@ -1,0 +1,10 @@
+# $ kubectl -n wuji-vnext-test logs job/p12-precheck-20260916
+# precheck over every Task the runtime serves, using the deployment's own UnitOfWork and ControlService
+TASKS 7
+PRECHECK 083f6134-46bd-4237-9cdc-0c88a39da3d0 wait ('criteria_unmet',) ['version:missing/missing']
+PRECHECK 3aa77fba-c264-4f79-8223-a656ffd53a37 wait ('criteria_unmet',) ['version:missing/missing']
+PRECHECK 60e7bd1b-3d28-4af9-be4b-067bf0517c08 wait ('criteria_unmet',) ['version:missing/missing']
+PRECHECK 6ffd59cd-2f11-49ad-a0bc-60328fd1e538 wait ('criteria_unmet',) ['version:missing/missing']
+PRECHECK 86a2a7f2-1c60-4fc7-82d1-748a26fcd6e4 wait ('criteria_unmet',) ['version:missing/missing']
+PRECHECK dc8a9f7f-4731-41c2-93f9-2dd4cf1805d4 wait ('criteria_unmet',) ['version:missing/missing']
+PRECHECK fc2ff1b0-a578-4131-9fc3-4a7a80c74442 wait ('criteria_unmet',) ['version:missing/missing']

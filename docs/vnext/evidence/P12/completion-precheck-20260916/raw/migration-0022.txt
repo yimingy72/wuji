@@ -1,0 +1,3 @@
+# $ kubectl -n wuji-vnext-test logs job/p11c-migrate-0022
+HEADS ['vnext_0020_p06_run_settlement_close', 'vnext_0021_p05_environment_settlement', 'vnext_0022_p12_completion']
+FUNCTION 1
