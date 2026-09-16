@@ -317,19 +317,31 @@ class ReceiverAuthorizer:
     def __init__(self, uow):
         self.uow = uow
 
-    def authorize(self, *, access, action, assignment, assignment_digest, receiver, control_operation_id=None):
+    @staticmethod
+    def _refuse(context, tag, code="STALE_EXECUTION", status=409):
+        """Bounded refusal tag for operator diagnosis; never a caller contract."""
+
+        if isinstance(context, dict):
+            context["authorize_step"] = tag
+        raise DomainError(code, status)
+
+    def authorize(self, *, access, action, assignment, assignment_digest, receiver,
+                  control_operation_id=None, refusal=None):
         if action not in {"query", "start", "stop", "stop_after_current"}:
             raise DomainError("INVALID_REFERENCE", 422)
         assignment = WorkerAssignment.model_validate(assignment)
         with self.uow.transaction(access, assignment.identity.task_id, capability="observe") as tx:
-            run, stored, _ref = read_registered_run(tx, assignment.operation_id)
+            try:
+                run, stored, _ref = read_registered_run(tx, assignment.operation_id)
+            except DomainError as error:
+                self._refuse(refusal, "assignment", str(error.code), error.status)
             if stored != assignment or run.assignment_digest != assignment_digest:
-                raise DomainError("INPUT_DIGEST_CONFLICT", 409)
+                self._refuse(refusal, "assignment", "INPUT_DIGEST_CONFLICT", 409)
             expected = {"receiver_id": run.identity.receiver_id,
                         "runtime_attempt": run.identity.runtime_attempt.root,
                         "environment_ref": run.environment_ref, "pod_uid": run.pod_uid}
             if receiver != expected:
-                raise DomainError("STALE_EXECUTION", 409)
+                self._refuse(refusal, "receiver")
             record = row(tx.connection.execute("""SELECT * FROM vnext.agent_run
                 WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND agent_run_id=%s""",
                 (*tx.owner, run.identity.agent_run_id)))
@@ -364,7 +376,7 @@ class ReceiverAuthorizer:
                 }
                 or (action == "start" and not registered_receiver["enabled"])
             ):
-                raise DomainError("STALE_EXECUTION", 409)
+                self._refuse(refusal, "registration")
             allowed = False
             if action == "start":
                 held = tx.connection.execute("""SELECT 1 FROM vnext.work_suspension
@@ -378,20 +390,20 @@ class ReceiverAuthorizer:
                         or tx.task["execution_epoch"] != record["execution_epoch"]
                         or tx.task["runtime_attempt"] != record["runtime_attempt"]
                         or not intent_current(tx, work) or not dependencies_satisfied(tx, work["work_item_id"])):
-                    raise DomainError("STALE_EXECUTION", 409)
+                    self._refuse(refusal, "task_or_run_state")
                 definition = strict_json_loads(tx.task["definition_json"])
                 expiry = datetime.fromisoformat(definition["task"]["authorization_expires_at"].replace("Z", "+00:00"))
                 if (expiry <= datetime.now(timezone.utc)
                         or (datetime.now(timezone.utc) - tx.task["activated_at"]).total_seconds() >= assignment.limits.max_elapsed_seconds):
-                    raise DomainError("LIMIT_BLOCKED", 429)
+                    self._refuse(refusal, "limits", "LIMIT_BLOCKED", 429)
                 if not tx.capacity_pools:
-                    raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+                    self._refuse(refusal, "capacity_pools", "CAPABILITY_UNAVAILABLE", 503)
                 for pool in tx.capacity_pools:
                     reservation = tx.connection.execute("""SELECT state FROM vnext.capacity_reservation
                         WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND agent_run_id=%s AND pool_key=%s""",
                         (*tx.owner, record["agent_run_id"], pool["pool_key"])).fetchone()
                     if not reservation or reservation[0] == "released":
-                        raise DomainError("STALE_EXECUTION", 409)
+                        self._refuse(refusal, "capacity_reservation")
                 allowed = True
             elif action in {"stop", "stop_after_current"}:
                 if not isinstance(control_operation_id, str) or not control_operation_id:

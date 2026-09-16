@@ -250,6 +250,11 @@ class WorkerHostBridge:
                     "assignment_digest": run.assignment_digest, "receiver": _receiver(run),
                     "birth_id": None, "observation_id": None, "source_digest": None,
                     "valid_until": document(datetime.now(timezone.utc) + timedelta(seconds=2))}
+        # Bounded operator context for a refused start: which step refused and
+        # what the two durable states were. No identity, assignment, bearer or
+        # peer detail is ever attached.
+        refusal = {"step": "receiver_registration", "waiting": None, "process_state": None,
+                   "work_state": None}
         try:
             with self.uow.transaction(
                 receiver_access,
@@ -277,6 +282,7 @@ class WorkerHostBridge:
                     raise DomainError("STALE_EXECUTION", 409)
             # This is the existing real credential purpose, with no counter or
             # send. It rejects revoked/expired credentials even while inert.
+            refusal["step"] = "run_record"
             with self.uow.transaction(access, assignment.identity.task_id, capability="model_request") as tx:
                 config = self.registry.config(tx)
                 record = row(tx.connection.execute(
@@ -284,6 +290,7 @@ class WorkerHostBridge:
                     (*tx.owner, assignment.identity.agent_run_id)))
                 if not record:
                     raise DomainError("STALE_EXECUTION", 409)
+                refusal["process_state"] = str(record["process_state"])
                 if record["process_state"] in {"registered", "starting"}:
                     waiting = True
                 elif record["process_state"] == "running":
@@ -294,7 +301,10 @@ class WorkerHostBridge:
                     # transaction. A run that is already running with a matching
                     # started observation is authoritative for this gate, so the
                     # lease state is accepted here and nowhere else.
-                    record, _work = current_run(tx, config, allow_leased_work=True)
+                    refusal["step"] = "current_run"
+                    record, work = current_run(tx, config, allow_leased_work=True)
+                    refusal["work_state"] = str(work["state"])
+                    refusal["step"] = "observation"
                     observed = row(tx.connection.execute(
                         "SELECT * FROM vnext.execution_observation WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND receipt_id=%s AND agent_run_id=%s",
                         (*tx.owner, record["last_observation_id"], record["agent_run_id"])))
@@ -318,13 +328,16 @@ class WorkerHostBridge:
                                     source_digest=observation.source_digest)
                 else:
                     raise DomainError("STALE_EXECUTION", 409)
+            refusal["waiting"] = waiting
             if waiting:
+                refusal["step"] = "start_authorize"
                 # The actual P09/P05 start predicate includes Task/Work epochs,
                 # holds, dependency/input, authorization expiry and capacity.
                 try:
                     self.authorizer.authorize(
                         access=receiver_access, action="start", assignment=assignment,
                         assignment_digest=run.assignment_digest, receiver=_receiver(run),
+                        refusal=refusal,
                     )
                 except DomainError as error:
                     if (
@@ -346,7 +359,8 @@ class WorkerHostBridge:
             # A refused child start is otherwise indistinguishable from a
             # revoked credential. Only the stable code is emitted; no identity,
             # assignment, bearer, path or peer detail is logged.
-            print(json.dumps({"event": "worker_start_refused", "code": error.code}), flush=True)
+            print(json.dumps({"event": "worker_start_refused", "code": error.code,
+                              **refusal}, sort_keys=True), flush=True)
             response.update(status="revoked", birth_id=None, observation_id=None, source_digest=None)
         return wire.WorkerStartPermission.model_validate(response)
 
