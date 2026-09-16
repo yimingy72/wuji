@@ -193,6 +193,70 @@ Task Pod `wuji-task-v-0d2544f803b20edba57a5e488b444463-a1`; child launches in
    `ChatClientException … APIConnectionError('Connection error.')`; the gate was serving (200s in the
    same log) so this needs the same bounded classification the other transports already have.
 
+## 8. A Run keeps ownership of its own result (commits `8a57620`, `7fc993a`)
+
+The submission that the platform had already accepted but the child reported as a refusal is
+explained and fixed. `8a57620` first made the refused Host response name its predicate, and the next
+live run answered `code=INPUT_DIGEST_CONFLICT`.
+
+`PlatformWorkerHost.submit_result` accepts an existing submission only from its own writer or the
+retained source writer. The supervisor recovered "produced results" for every state other than
+`prepared`, so one query of a still-running child committed the very bytes the child was about to
+submit; the child's own commit was then refused as another writer's replay. Recovery now happens
+only in the terminal states, and a running child is still reported unchanged.
+
+Live result for Task `78dbcb53-6884-4d5b-b6f5-9622d0f2c77e` (plane `fcfc3b3a`, agent `f1ca7f2c`):
+
+```text
+explore|failed||process_failure|bc87ba7b-4f34-49c3-8b4c-493b139ff4b0
+reason|done|||47e83b4c-a07f-40f4-b08a-099c4fa847a2
+```
+
+```text
+47e83b4c-a07f-40f4-b08a-099c4fa847a2|exited|accepted|2026-09-16 04:21:53.012+00|2026-09-16 04:22:07.927+00
+bc87ba7b-4f34-49c3-8b4c-493b139ff4b0|exited|incomplete|2026-09-16 04:21:53.726+00|2026-09-16 04:22:03.577+00
+```
+
+```text
+47e83b4c-a07f-40f4-b08a-099c4fa847a2|maf-m1:94d480c06a134246e7261da4139a94bfcab345cb0e0acefb3365d3820a5c1f2f|run.worker:47e83b4c-a07f-40f4-b08a-099c4fa847a2|received
+```
+
+```text
+47e83b4c-a07f-40f4-b08a-099c4fa847a2|settled|{"basis":"durable_tool_attempt_receipts","producer":"p06"}
+bc87ba7b-4f34-49c3-8b4c-493b139ff4b0|settled|{"basis":"run_closed_operation_set","open_operations":{"model_calls":0,"resource_reservations":0,"tool_attempts":0},"producer":"p06"}
+```
+
+```text
+INFO:     10.1.1.41:35558 - "POST /internal/v2/model/chat/completions HTTP/1.1" 200 OK
+INFO:     10.1.1.41:35578 - "POST /internal/v2/model/chat/completions HTTP/1.1" 200 OK
+INFO:     10.1.1.41:35588 - "POST /internal/v2/executors/kali-workspace-v1/permits/check HTTP/1.1" 200 OK
+INFO:     10.1.1.41:35596 - "POST /internal/v2/executors/kali-workspace-v1/permits/check HTTP/1.1" 200 OK
+INFO:     10.1.1.41:35608 - "POST /internal/v2/tool-calls HTTP/1.1" 429 Too Many Requests
+INFO:     10.1.1.41:35572 - "POST /internal/v2/tool-calls HTTP/1.1" 200 OK
+INFO:     10.1.1.41:35624 - "POST /internal/v2/model/chat/completions HTTP/1.1" 200 OK
+INFO:     10.1.1.41:35634 - "POST /internal/v2/tool-settlement HTTP/1.1" 200 OK
+INFO:     10.1.1.41:35642 - "POST /internal/v2/tool-settlement HTTP/1.1" 200 OK
+```
+
+The `reason` work now completes end to end — the submission is written by
+`run.worker:47e83b4c-…` itself and the Work item reaches `done`. The `explore` work of the same
+attempt is refused with `LIMIT_BLOCKED` while the other Run still held the single workspace path
+(`vnext.admission_audit`, 04:22:02.092 refusal against the 04:22:02.234 completion), which is the
+bounded refusal the platform is supposed to produce for two concurrent work items; it settles as
+`process_failure` instead of hanging. Raw files: `raw/result-ownership/` (including
+`admission-audit.txt` and `child-stderr.txt`).
+
+### 8.1 Notes and remaining items
+
+- The isolated catalogue briefly carried `k8s-runtime-v1` revision 3 with
+  `max_inflight_tools=2`; it was revoked again because the refusal above is the per-resource
+  workspace mutex, not the in-flight limit, so the extra sizing changed nothing.
+- The refused tool call still ends the Run through the SDK's `MiddlewareFailure`, and the SDK then
+  reports the follow-up model request as a connection error. Both are recorded in
+  `child-stderr.txt`; naming that second failure is the next diagnostic step, together with the
+  product decision of whether a bounded `LIMIT_BLOCKED` should end the Run or be surfaced to the
+  model as a retryable refusal.
+
 ## 6. Raw material
 
 `raw/create.request.json`, `raw/create.headers`, `raw/create.response.json`, `raw/idempotency-key.txt`,
