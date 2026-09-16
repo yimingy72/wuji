@@ -608,3 +608,63 @@ def test_actual_supervisor_child_waits_for_start_and_receiver_replays_bytes(
                 }
             )
         )
+
+
+def test_unresolved_delivery_is_retried_only_after_an_authoritative_absence(tmp_path):
+    """A send without a receipt is repeated only in a bounded, quiet window."""
+
+    from datetime import datetime, timedelta, timezone
+
+    from wuji_core.contracts.envelopes import RunIdentity
+    from wuji_core.execution.dispatch_outbox import (
+        REDELIVERY_QUIET_SECONDS,
+        DispatchJournal,
+    )
+
+    identity = RunIdentity.model_validate(
+        {
+            "tenant_id": "tenant-fixture",
+            "project_id": "project-fixture",
+            "task_id": "task-fixture",
+            "work_item_id": "work-fixture",
+            "agent_run_id": "run-fixture",
+            "execution_epoch": "1",
+            "run_epoch": "1",
+            "runtime_attempt": "1",
+            "receiver_id": "task-fixture-a1",
+        }
+    )
+    run = RegisteredRun(
+        identity=identity,
+        start_operation_id="start-fixture",
+        environment_ref="pod-environment-fixture-a1",
+        pod_uid="pod-fixture",
+        assignment_digest="b" * 64,
+        work_kind="reason",
+        harness_profile_id="harness.reason.deployment.v1",
+        harness_profile_digest="c" * 64,
+    )
+    journal = DispatchJournal(tmp_path / "journal.sqlite3")
+    try:
+        moment = datetime(2026, 9, 16, 1, 0, tzinfo=timezone.utc)
+        assert journal.reserve_send(run, now=moment) is True
+        assert journal.reserve_send(run, now=moment) is False
+        assert journal.reserve_send(run, allow_retry=True, now=moment) is False
+        assert journal.reserve_send(
+            run,
+            allow_retry=True,
+            now=moment + timedelta(seconds=REDELIVERY_QUIET_SECONDS),
+        ) is True
+        assert journal.reserve_send(
+            run,
+            allow_retry=True,
+            now=moment + timedelta(seconds=2 * REDELIVERY_QUIET_SECONDS),
+        ) is True
+        assert journal.reserve_send(
+            run,
+            allow_retry=True,
+            now=moment + timedelta(seconds=3 * REDELIVERY_QUIET_SECONDS),
+        ) is False
+        assert journal.attempted(run) is True
+    finally:
+        journal.close()

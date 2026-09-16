@@ -153,8 +153,19 @@ class SupervisorHttpTransport:
         }, control=True)
 
 
+REDELIVERY_QUIET_SECONDS = 30
+MAX_DELIVERY_SENDS = 3
+
+
 class DispatchJournal:
-    """A durable sent marker survives sender crashes; no lease can erase it."""
+    """A durable sent marker survives sender crashes; no lease can erase it.
+
+    A send that has no receipt is only ever repeated when the authenticated
+    receiver answered ``OPERATION_NOT_FOUND`` for that exact operation (i.e. no
+    durable start was registered), at least ``REDELIVERY_QUIET_SECONDS`` after
+    the previous attempt, and fewer than ``MAX_DELIVERY_SENDS`` sends happened.
+    Everything else stays fail-closed.
+    """
 
     def __init__(self, path):
         path = Path(path)
@@ -191,7 +202,18 @@ class DispatchJournal:
                     connection.execute("""CREATE TABLE IF NOT EXISTS delivery(
                         operation_key TEXT PRIMARY KEY, assignment_digest TEXT NOT NULL,
                         attempted INTEGER NOT NULL DEFAULT 0 CHECK(attempted IN(0,1)),
-                        receipt_json TEXT)""")
+                        receipt_json TEXT, sends INTEGER NOT NULL DEFAULT 0,
+                        attempted_at TEXT)""")
+                    columns = {
+                        record[1]
+                        for record in connection.execute("PRAGMA table_info(delivery)")
+                    }
+                    if "sends" not in columns:
+                        connection.execute(
+                            "ALTER TABLE delivery ADD COLUMN sends INTEGER NOT NULL DEFAULT 0")
+                    if "attempted_at" not in columns:
+                        connection.execute(
+                            "ALTER TABLE delivery ADD COLUMN attempted_at TEXT")
                     self.connection = connection
                 except BaseException:
                     if connection is not None:
@@ -205,18 +227,42 @@ class DispatchJournal:
         return canonical_json_bytes({"identity": run.identity.model_dump(mode="json"),
                                      "operation_id": run.start_operation_id}).decode()
 
-    def reserve_send(self, run):
+    def reserve_send(self, run, *, allow_retry=False, now=None):
         key = self.key(run)
+        moment = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
         connection = self._connection()
         connection.execute("BEGIN IMMEDIATE")
         try:
-            connection.execute("INSERT OR IGNORE INTO delivery VALUES(?,?,0,NULL)", (key, run.assignment_digest))
-            record = connection.execute("SELECT assignment_digest,attempted FROM delivery WHERE operation_key=?", (key,)).fetchone()
+            connection.execute(
+                "INSERT OR IGNORE INTO delivery(operation_key,assignment_digest,attempted,"
+                "receipt_json,sends) VALUES(?,?,0,NULL,0)",
+                (key, run.assignment_digest),
+            )
+            record = connection.execute(
+                "SELECT assignment_digest,attempted,receipt_json,sends,attempted_at"
+                " FROM delivery WHERE operation_key=?",
+                (key,),
+            ).fetchone()
             if record[0] != run.assignment_digest:
                 raise DomainError("INPUT_DIGEST_CONFLICT", 409)
             reserved = record[1] == 0
+            if not reserved and allow_retry and record[2] is None and record[3] < MAX_DELIVERY_SENDS:
+                previous = record[4]
+                quiet = previous is None
+                if not quiet:
+                    try:
+                        quiet = (
+                            moment - datetime.fromisoformat(previous)
+                        ).total_seconds() >= REDELIVERY_QUIET_SECONDS
+                    except ValueError:
+                        quiet = False
+                reserved = quiet
             if reserved:
-                connection.execute("UPDATE delivery SET attempted=1 WHERE operation_key=?", (key,))
+                connection.execute(
+                    "UPDATE delivery SET attempted=1,sends=sends+1,attempted_at=?"
+                    " WHERE operation_key=?",
+                    (moment.isoformat(), key),
+                )
             connection.execute("COMMIT")
             return reserved
         except BaseException:
@@ -280,8 +326,6 @@ class DispatchOutbox:
             observed = validate_receipt(run, receipt)
             self.journal.save(run, receipt)
             return observed
-        if self.journal.attempted(run):
-            return ObservedExecution(run, "unknown", None, "previous_delivery_unresolved_no_replay")
         # read_registered_run derived this exact harness ref from the immutable
         # TaskDefinition and checked the complete Assignment profile tuple.
         profile = run.harness_profile_id
@@ -291,8 +335,12 @@ class DispatchOutbox:
             fresh_run, fresh_assignment, fresh_ref = read_registered_run(tx, operation_id)
             if fresh_run != run or fresh_assignment != assignment or fresh_ref != credential_ref:
                 raise DomainError("STALE_EXECUTION", 409)
-        if not self.journal.reserve_send(run):
-            return self.inspect(task_id, operation_id)
+        # The query above returned the receiver's authoritative
+        # ``OPERATION_NOT_FOUND``, so no durable start exists for this exact
+        # operation.  A bounded, quiet-period re-send is a reconciled retry;
+        # every other unresolved send keeps the old fail-closed marker.
+        if not self.journal.reserve_send(run, allow_retry=True):
+            return ObservedExecution(run, "unknown", None, "previous_delivery_unresolved_no_replay")
         try:
             receipt = self.transport.start(assignment, profile_id=profile)
         except ObservationUnavailable:
