@@ -1,0 +1,2 @@
+vnext_0020_p06_run_settlement_close|1
+vnext_0020_p06_run_settlement_close

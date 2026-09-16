@@ -1,0 +1,38 @@
+{
+  "authorization_expires_at": "2099-01-01T00:00:00Z",
+  "authorization_scope": [
+    {
+      "host": "fixture.invalid",
+      "port": 443,
+      "protocol": "https"
+    }
+  ],
+  "budget": {
+    "amount": "1",
+    "currency": "USD"
+  },
+  "goal": {
+    "criteria": [
+      {
+        "allowed_methods": [
+          "deterministic"
+        ],
+        "condition": "version captured",
+        "criterion_id": "version",
+        "evidence_requirements": [
+          "sealed bytes"
+        ],
+        "object": "fixture bytes",
+        "required": true,
+        "responsible_party": "fixture-checker"
+      }
+    ],
+    "text": "Read the isolated workspace version file"
+  },
+  "model_profile_ref": "k8s-model-v1",
+  "name": "Stage B branch 1 round trip 2026-09-16",
+  "project_id": "81e8c413-ba26-45fb-8b5a-1bc477eef99f",
+  "runtime_profile_ref": "k8s-runtime-v1",
+  "scenario": "web_single",
+  "schema_version": "wuji.api.v2"
+}

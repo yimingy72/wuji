@@ -1,0 +1,16 @@
+2026-09-16 05:40:10.134447+00|model.admitted|{"agent_run_id":"51bfa4bf-7b1f-44a2-8ab0-7cde2246f5b6","model_attempt_id":"23c6e643-a551-4161-8bbb-22b51f59d82a"}
+2026-09-16 05:40:10.247517+00|model.sending|{"model_attempt_id":"23c6e643-a551-4161-8bbb-22b51f59d82a"}
+2026-09-16 05:40:10.52257+00|model.local_settlement|{"local_state":"ended","model_attempt_id":"23c6e643-a551-4161-8bbb-22b51f59d82a","response_state":"complete"}
+2026-09-16 05:40:10.601463+00|tool.proposed|{"tool_call_id":"0b81d1c7-578c-4cb2-b9d8-15de1356ec32","tool_definition_ref":"workspace-read-v1"}
+2026-09-16 05:40:10.618296+00|tool.admitted|{"tool_attempt_id":"07346f20-48e7-4e19-9313-30cb6a1e0d0c","tool_call_id":"0b81d1c7-578c-4cb2-b9d8-15de1356ec32"}
+2026-09-16 05:40:10.761427+00|model.admitted|{"agent_run_id":"68bb3201-2e51-47e2-97f1-be6c1cb5b7fb","model_attempt_id":"3d4a6ca8-a4e3-4b10-9c2d-a3c332b33ca3"}
+2026-09-16 05:40:10.809704+00|model.sending|{"model_attempt_id":"3d4a6ca8-a4e3-4b10-9c2d-a3c332b33ca3"}
+2026-09-16 05:40:11.083166+00|tool.execution_receipt|{"receipt_id":"d32cd0e3-aa05-4722-8244-699f132b0d1e","status":"evidence_pending","tool_attempt_id":"07346f20-48e7-4e19-9313-30cb6a1e0d0c"}
+2026-09-16 05:40:11.092706+00|model.local_settlement|{"local_state":"ended","model_attempt_id":"3d4a6ca8-a4e3-4b10-9c2d-a3c332b33ca3","response_state":"complete"}
+2026-09-16 05:40:11.229337+00|request.rejected|{"code":"LIMIT_BLOCKED","purpose":"tool_request"}
+2026-09-16 05:40:11.48316+00|tool.result_ready|{"capture_id":"07346f20-48e7-4e19-9313-30cb6a1e0d0c","tool_attempt_id":"07346f20-48e7-4e19-9313-30cb6a1e0d0c"}
+2026-09-16 05:40:11.909216+00|model.admitted|{"agent_run_id":"51bfa4bf-7b1f-44a2-8ab0-7cde2246f5b6","model_attempt_id":"d8e0f63c-4796-4a47-8688-34c740dfdca9"}
+2026-09-16 05:40:11.998582+00|model.sending|{"model_attempt_id":"d8e0f63c-4796-4a47-8688-34c740dfdca9"}
+2026-09-16 05:40:12.125186+00|tool.operation_set_closed|{"open_operations":0,"status":"settled"}
+2026-09-16 05:40:12.603561+00|model.local_settlement|{"local_state":"ended","model_attempt_id":"d8e0f63c-4796-4a47-8688-34c740dfdca9","response_state":"complete"}
+2026-09-16 05:40:16.177895+00|tool.operation_set_closed|{"open_operations":0,"status":"settled"}

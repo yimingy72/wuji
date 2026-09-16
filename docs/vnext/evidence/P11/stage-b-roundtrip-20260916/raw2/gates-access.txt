@@ -1,0 +1,9 @@
+INFO:     10.1.1.65:55900 - "POST /internal/v2/model/chat/completions HTTP/1.1" 200 OK
+INFO:     10.1.1.65:55928 - "POST /internal/v2/executors/kali-workspace-v1/permits/check HTTP/1.1" 200 OK
+INFO:     10.1.1.65:55940 - "POST /internal/v2/executors/kali-workspace-v1/permits/check HTTP/1.1" 200 OK
+INFO:     10.1.1.65:55914 - "POST /internal/v2/model/chat/completions HTTP/1.1" 200 OK
+INFO:     10.1.1.65:55948 - "POST /internal/v2/tool-calls HTTP/1.1" 429 Too Many Requests
+INFO:     10.1.1.65:55904 - "POST /internal/v2/tool-calls HTTP/1.1" 200 OK
+INFO:     10.1.1.65:55960 - "POST /internal/v2/model/chat/completions HTTP/1.1" 200 OK
+INFO:     10.1.1.65:55962 - "POST /internal/v2/tool-settlement HTTP/1.1" 200 OK
+INFO:     10.1.1.65:34896 - "POST /internal/v2/tool-settlement HTTP/1.1" 200 OK

@@ -1,0 +1,71 @@
+<!doctype html><meta charset="utf-8"><title>Wuji Stage B branch 1 round trip</title>
+<style>
+ body{background:#0f1115;color:#e6e6e6;font:13px/1.5 "SF Mono",Menlo,monospace;margin:0;padding:28px 32px;width:1360px}
+ h1{font-size:19px;margin:0 0 4px} h2{font-size:14px;margin:26px 0 6px;color:#8ab4f8}
+ pre{background:#171a21;border-left:3px solid #8ab4f8;margin:0;padding:12px 14px;white-space:pre-wrap;word-break:break-word}
+ .meta{color:#9aa0a6;margin-bottom:10px}
+</style>
+<h1>Wuji vNext · Stage B branch 1 · created Task to accepted result and real exit</h1>
+<div class="meta">source revision 9e5bfb6de1266c0540923312e4aaa98b5b8b5755 · platform sha256:70c24314… · agent sha256:f4b8dfea… · kali sha256:eaaa740a… · migration vnext_0020_p06_run_settlement_close</div>
+<h2>1. Create the Task through the public route</h2><pre>POST /api/v2/tasks HTTP/1.1
+Host: 127.0.0.1:18454 (kubectl port-forward svc/api 18454:8443)
+Authorization: Bearer &lt;operator JWT, minted from the deployment signing key&gt;
+Idempotency-Key: operator|stage-b-20260916|b2
+Content-Type: application/json
+
+HTTP/1.1 201
+date: Wed, 16 Sep 2026 05:45:32 GMT
+server: uvicorn
+content-length: 437
+content-type: application/json
+x-request-id: 910ecf40-c350-452b-b631-98cabfe80cfa
+
+{"task_id":"60e7bd1b-3d28-4af9-be4b-067bf0517c08","tenant_id":"1fc6b1f3-6f24-456b-9dc1-4e14c7197604","project_id":"81e8c413-ba26-45fb-8b5a-1bc477eef99f","version":"1","name":"Stage B branch 1 round trip 2026-09-16 (buffered refusal fix)","scenario":"web_single","desired_state":"pause","observed_state":"ready","goal_revision":"1","execution_epoch":"1","activated_at":null,"close_trigger":null,"result_outcome":null,"allowed_actions":[]}</pre>
+<h2>2. One owner command takes the Task to a running attempt</h2><pre>$ scripts/vnext/uv.sh run --frozen python ops/vnext/task_launch.py --submit \
+    --task 60e7bd1b-3d28-4af9-be4b-067bf0517c08 \
+    --image 127.0.0.1:56615/wuji-vnext-platform@sha256:70c243148fa19b5d687191f1874db4e7a078438081ac9b878e154af73265e0a2 \
+    --agent-image 127.0.0.1:56615/wuji-vnext-agent@sha256:f4b8dfeaf201dc6d65eb51374940a0d05af75a9147ddcdccfb6c86f02fb9cc28 \
+    --kali-image 127.0.0.1:56615/wuji-vnext-kali@sha256:eaaa740aa07a40d90f3cd6385ca70cb26bbaefb3cf13b9e8774c639000bdb3e7
+TASK_LAUNCH_JOB_STATUS SuccessCriteriaMet|1|
+
+prepare.definition_digest 1d1111c7fe68d72da00a74c2b50657d27f5589f85c0b3d2f608a2d8b9d32cf49
+activate.revision       2  (accepted)
+wire.pod_name           wuji-task-v-b9070a1a459a54cdc4e8fa051550f56f-a1
+wire.controller_ready   true
+capability              session-capability-60e7bd1b-3d28-4af9-be4b-067bf0517c08-a1-explore, session-capability-60e7bd1b-3d28-4af9-be4b-067bf0517c08-a1-reason, session-capability-60e7bd1b-3d28-4af9-be4b-067bf0517c08-a1-report</pre>
+<h2>3. The Task Pod really ran both containers</h2><pre>wuji-task-v-b9070a1a459a54cdc4e8fa051550f56f-a1   2/2   Running   0     78s</pre>
+<h2>4. The platform settled both Runs and stored the result</h2><pre>work_item (kind|state|terminal_reason)
+explore|failed|process_failure
+reason|done|
+
+agent_run (id|process|result|stop|started|exited)
+912700cd-6300-477f-a6c7-8e9365957742|exited|incomplete|exited|2026-09-16 05:46:46.629+00|2026-09-16 05:47:02.337+00
+bbfaf3d7-b8ea-4f12-b831-14c14b035c8a|exited|accepted|exited|2026-09-16 05:46:45.146+00|2026-09-16 05:47:06.356+00
+
+result_submission (run|submission|writer|status)
+bbfaf3d7-b8ea-4f12-b831-14c14b035c8a|maf-m1:496f078a7d26ec61bb1eceb1ffa4288417414d4baa395e02563c235d73ee0054|run.worker:bbfaf3d7-b8ea-4f12-b831-14c14b035c8a|received
+
+run_operation_settlement (run|status|basis)
+bbfaf3d7-b8ea-4f12-b831-14c14b035c8a|settled|{"basis":"durable_tool_attempt_receipts","producer":"p06"}
+912700cd-6300-477f-a6c7-8e9365957742|settled|{"basis":"run_closed_operation_set","open_operations":{"model_calls":0,"resource_reservations":0,"tool_attempts":0},"producer":"p06"}
+
+admission_counter (model|tool|bytes) 3|1|2243
+capacity_reservation released|6
+schema_migration head vnext_0020_p06_run_settlement_close|1
+vnext_0020_p06_run_settlement_close</pre>
+<h2>5. The refused tool call names its predicate in the child</h2><pre>admission_audit: 2026-09-16 05:46:58.647297+00|request.rejected|{"code":"LIMIT_BLOCKED","purpose":"tool_request"}
+gates: POST /internal/v2/tool-calls 429 Too Many Requests
+
+--- /var/lib/wuji/agent/inbox/launches/4b6ca13517da29941d6cb1d776c38e67ba9cb6ab9fe7640c40dfb9aa84f54e0e/stderr.log
+(run exited without a refusal)
+--- /var/lib/wuji/agent/inbox/launches/69b8558f3c3cdb8a9b087f7575c06e13e5f6b460710dbba4d6686d3b082f9192/stderr.log
+Wuji Worker stopped without a confirmed completion (step=run_assignment, code=LIMIT_BLOCKED, status=429, error=MiddlewareFailure).</pre>
+<h2>6. Gate traffic of this Task</h2><pre>INFO:     10.1.1.65:55900 - "POST /internal/v2/model/chat/completions HTTP/1.1" 200 OK
+INFO:     10.1.1.65:55928 - "POST /internal/v2/executors/kali-workspace-v1/permits/check HTTP/1.1" 200 OK
+INFO:     10.1.1.65:55940 - "POST /internal/v2/executors/kali-workspace-v1/permits/check HTTP/1.1" 200 OK
+INFO:     10.1.1.65:55914 - "POST /internal/v2/model/chat/completions HTTP/1.1" 200 OK
+INFO:     10.1.1.65:55948 - "POST /internal/v2/tool-calls HTTP/1.1" 429 Too Many Requests
+INFO:     10.1.1.65:55904 - "POST /internal/v2/tool-calls HTTP/1.1" 200 OK
+INFO:     10.1.1.65:55960 - "POST /internal/v2/model/chat/completions HTTP/1.1" 200 OK
+INFO:     10.1.1.65:55962 - "POST /internal/v2/tool-settlement HTTP/1.1" 200 OK
+INFO:     10.1.1.65:34896 - "POST /internal/v2/tool-settlement HTTP/1.1" 200 OK</pre>

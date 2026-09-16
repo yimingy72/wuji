@@ -1,0 +1,2 @@
+/var/lib/wuji/agent/inbox/launches/c1b16a2d4655260d73611fc709e4cb42af0c1749ead971029bc2b1d9ef511cbb/stderr.log
+/var/lib/wuji/agent/inbox/launches/d1eb039fa1667fb498abb50c44ecffa4bce31228654d3a68aa03fc5208a7af35/stderr.log
