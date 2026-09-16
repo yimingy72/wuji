@@ -14,6 +14,11 @@ import {
 
 const supportDirectory = dirname(fileURLToPath(import.meta.url));
 const child = join(supportDirectory, "support", "bridge-result-child.mjs");
+const holdingChild = join(
+  supportDirectory,
+  "support",
+  "bridge-result-hold-child.mjs",
+);
 
 function resultAck(assignment) {
   return {
@@ -28,7 +33,7 @@ function resultAck(assignment) {
   };
 }
 
-async function fixture(label, persistResults) {
+async function fixture(label, persistResults, command = child) {
   const directory = await mkdtemp(join(tmpdir(), `wuji-m2-${label}-`));
   const assignment = assignmentFor(label);
   const receiver = {
@@ -43,7 +48,7 @@ async function fixture(label, persistResults) {
     profiles: {
       "harmless-node-v1": {
         command: process.execPath,
-        args: [child],
+        args: [command],
         cwd: supportDirectory,
         env: {},
         workKinds: ["explore"],
@@ -114,6 +119,51 @@ test("observe persists only actual files from the fixed worker directory", async
     assert.notEqual(calls.at(-1).directory, "/caller/untrusted");
     assert.equal(JSON.parse(calls.at(-1).sdk).kind, "sdk");
     assert.equal(JSON.parse(calls.at(-1).result).kind, "result");
+  } finally {
+    await value.supervisor.close();
+    await rm(value.directory, { recursive: true, force: true });
+  }
+});
+
+test("a running child keeps ownership of its own result", async () => {
+  const calls = [];
+  const value = await fixture(
+    "running-ownership",
+    async ({ assignment }) => {
+      calls.push(assignment.operation_id);
+      return resultAck(assignment);
+    },
+    holdingChild,
+  );
+  try {
+    await value.supervisor.start(
+      {
+        start_operation_id: value.assignment.operation_id,
+        assignment: value.assignment,
+        profile_id: "harmless-node-v1",
+      },
+      { subject: "service:m2-controller" },
+    );
+    const launches = await waitFor(async () => {
+      const entries = await readdir(join(value.directory, "inbox", "launches"));
+      return entries.length === 1 ? entries : null;
+    });
+    const worker = join(value.directory, "inbox", "launches", launches[0], "worker");
+    await waitFor(async () => {
+      const files = await readdir(worker);
+      return files.includes("result-request.json");
+    });
+
+    const observed = await value.supervisor.query(
+      value.assignment.operation_id,
+      { subject: "service:m2-controller" },
+    );
+
+    // The child wrote the bytes it is about to submit and is still running, so
+    // the supervisor must not recover them: committing here would make the
+    // child's own submission another writer's replay.
+    assert.equal(observed.state, "running");
+    assert.deepEqual(calls, []);
   } finally {
     await value.supervisor.close();
     await rm(value.directory, { recursive: true, force: true });

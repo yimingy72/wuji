@@ -195,8 +195,17 @@ export class NodeSupervisor {
       const answer = await guardianRequest(record.socket_path, record.secret, record.launch_id, 'query');
       const proof = this.validateProof(record, answer.proof);
       if (proof.process) lastKnownProof = proof;
-      if (proof.state !== 'prepared') {
+      // A live child owns its own submission. It writes result-request.json
+      // *before* its Host call is answered, so recovering "produced results"
+      // here would race that call: the receiver would commit the same
+      // submission first and the child's own commit is then refused as another
+      // writer's row. Recovery belongs to the terminal states, where no child
+      // can submit any more.
+      if (proof.state === 'exited' || proof.state === 'not_started') {
         await this.persistProducedResults(record);
+        return this.setState(record, proof.state, proof, proof.reason);
+      }
+      if (proof.state === 'running') {
         return this.setState(record, proof.state, proof, proof.reason);
       }
     } catch {

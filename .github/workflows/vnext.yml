@@ -58,6 +58,8 @@ jobs:
           }
           JSON
       - run: pnpm contracts:check:v2
+      - name: Node Supervisor suites
+        run: node --test tests/task-workers/*.test.mjs
       - name: vNext Python suites (real isolated PostgreSQL per case)
         run: pnpm test:vnext
         env:
