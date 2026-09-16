@@ -877,10 +877,15 @@ def wire(binding, *, config, namespace, agent_auth_dir, kali_auth_dir, deploymen
     actions["gates-config"] = patch_deployment_json(core, "gates-config", gates_update,
                                                     namespace=namespace)
     stamp = str(int(time.time()))
-    rollout(apps, "runtime", namespace=namespace, stamp=stamp)
+    # The first model call of the attempt goes through the gate, and the runtime
+    # creates the Task Pod as soon as it reads this attempt's binding. Roll the
+    # gate to the new binding *first* and wait until it serves: otherwise the
+    # child can start while the gate Service still has no ready endpoint and the
+    # OpenAI client reports an opaque connection error.
     rollout(apps, "gates", namespace=namespace, stamp=stamp)
-    wait_for_rollout(apps, "runtime", namespace=namespace)
     wait_for_rollout(apps, "gates", namespace=namespace)
+    rollout(apps, "runtime", namespace=namespace, stamp=stamp)
+    wait_for_rollout(apps, "runtime", namespace=namespace)
     deadline = time.monotonic() + 300
     while True:
         try:
@@ -928,41 +933,56 @@ def publish_capabilities(connection, *, config, binding):
     published = []
     for kind, profile in binding["worker_profiles"].items():
         capability_ref = f"session-capability-{binding['task_id']}-a{binding['runtime_attempt']}-{kind}"
-        register_session_capability(
-            connection,
-            tenant_id=binding["tenant_id"],
-            capability={
-                "ref": capability_ref,
-                "revision": "1",
-                "published_at": published_at,
-                "validation_status": "mechanism_candidate",
-                "candidate_binding": {
-                    "tenant_id": binding["tenant_id"],
-                    "project_id": binding["project_id"],
-                    "task_id": binding["task_id"],
-                    "receiver_id": binding["receiver_id"],
-                    "runtime_attempt": str(binding["runtime_attempt"]),
-                    "pod_uid": binding["pod_uid"],
-                    "model_gateway_digest": model_gateway_digest(admission.model.gateway_url),
-                    "expires_at": published_at + timedelta(minutes=55),
-                },
-                "profile_snapshot": profile,
-                "profile_digest": profile["digest"],
-                "client_snapshot": client_snapshot,
-                "client_digest": configuration_digest(client_snapshot),
-                "runtime_snapshot": runtime_snapshot,
-                "runtime_digest": configuration_digest(runtime_snapshot),
-                "framework_snapshot": dict(FRAMEWORK_SNAPSHOT),
-                "framework_digest": configuration_digest(FRAMEWORK_SNAPSHOT),
-                "lock_digest": admission.runtime.lock_digest,
-                "limits": profile["body"]["session_limits"],
-                "recovery_classes": ["settled_boundary", "approval_boundary"],
-                "memory_mode": profile["body"]["memory_mode"],
-                "approver_subjects": [config.get("operator_subject", "operator")],
-                "approval_ttl_seconds": 300,
-                "evidence_refs": [binding["evidence_ref"]],
-            },
-        )
+        # The attempt must have registered its receiver before the platform may
+        # publish a Session capability for it, and registration follows the Pod
+        # the runtime created for this same attempt. Wait for that registration
+        # instead of losing the launch to a race with the controller cycle.
+        deadline = time.monotonic() + 120
+        while True:
+            try:
+                register_session_capability(
+                    connection,
+                    tenant_id=binding["tenant_id"],
+                    capability={
+                        "ref": capability_ref,
+                        "revision": "1",
+                        "published_at": published_at,
+                        "validation_status": "mechanism_candidate",
+                        "candidate_binding": {
+                            "tenant_id": binding["tenant_id"],
+                            "project_id": binding["project_id"],
+                            "task_id": binding["task_id"],
+                            "receiver_id": binding["receiver_id"],
+                            "runtime_attempt": str(binding["runtime_attempt"]),
+                            "pod_uid": binding["pod_uid"],
+                            "model_gateway_digest": model_gateway_digest(admission.model.gateway_url),
+                            "expires_at": published_at + timedelta(minutes=55),
+                        },
+                        "profile_snapshot": profile,
+                        "profile_digest": profile["digest"],
+                        "client_snapshot": client_snapshot,
+                        "client_digest": configuration_digest(client_snapshot),
+                        "runtime_snapshot": runtime_snapshot,
+                        "runtime_digest": configuration_digest(runtime_snapshot),
+                        "framework_snapshot": dict(FRAMEWORK_SNAPSHOT),
+                        "framework_digest": configuration_digest(FRAMEWORK_SNAPSHOT),
+                        "lock_digest": admission.runtime.lock_digest,
+                        "limits": profile["body"]["session_limits"],
+                        "recovery_classes": ["settled_boundary", "approval_boundary"],
+                        "memory_mode": profile["body"]["memory_mode"],
+                        "approver_subjects": [config.get("operator_subject", "operator")],
+                        "approval_ttl_seconds": 300,
+                        "evidence_refs": [binding["evidence_ref"]],
+                    },
+                )
+            except DomainError as error:
+                # CAPABILITY_UNAVAILABLE is exactly "this attempt has not
+                # registered its receiver yet"; every other refusal is final.
+                if error.code != "CAPABILITY_UNAVAILABLE" or time.monotonic() > deadline:
+                    raise
+                time.sleep(3)
+            else:
+                break
         published.append(capability_ref)
     return {"capabilities": published}
 
