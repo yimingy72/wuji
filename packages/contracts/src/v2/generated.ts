@@ -1095,6 +1095,7 @@ export interface components {
             max_elapsed_seconds: number;
             max_attempts_per_work: number;
             repair_attempts: number;
+            reason_retry_attempts?: number;
         };
         WorkerAssignment: {
             schema_version: components["schemas"]["AssignmentSchemaVersion"];

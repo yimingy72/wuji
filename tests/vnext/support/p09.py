@@ -171,6 +171,8 @@ def _configure_scheduler(
     max_single_output_bytes: int = 4096,
     max_total_output_bytes: int = 65_536,
     evaluation_mode: str | None = None,
+    reason_retry_attempts: int = 0,
+    repair_attempts: int = 1,
 ) -> None:
     registry = __import__(
         "wuji_core.admission.registry", fromlist=["TaskAdmissionConfig"]
@@ -193,6 +195,8 @@ def _configure_scheduler(
                         update={
                             "max_work_items": max_work_items,
                             "max_single_output_bytes": max_single_output_bytes,
+                            "reason_retry_attempts": reason_retry_attempts,
+                            "repair_attempts": repair_attempts,
                         }
                     ),
                 }
@@ -336,6 +340,8 @@ def scheduler_case(
     max_single_output_bytes: int = 4096,
     max_total_output_bytes: int = 65_536,
     evaluation_mode: str | None = None,
+    reason_retry_attempts: int = 0,
+    repair_attempts: int = 1,
 ):
     keys = SchedulerKeys.generate()
     with control_case(environment, tmp_path, audit_directory) as control:
@@ -355,6 +361,8 @@ def scheduler_case(
             max_single_output_bytes=max_single_output_bytes,
             max_total_output_bytes=max_total_output_bytes,
             evaluation_mode=evaluation_mode,
+            reason_retry_attempts=reason_retry_attempts,
+            repair_attempts=repair_attempts,
         )
         artifact_ref, claim_ref, intent_ref = _publish_intent(
             control, access_level=input_access_level

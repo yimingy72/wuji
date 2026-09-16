@@ -268,7 +268,14 @@ bounded refusal the platform is supposed to produce for two concurrent work item
   `scheduler_state` rows show), but a deployment with `repair_attempts > 0` would silently lose
   every retry. Deciding which authority owns a retryable Reason failure — the Control settle path
   leaving the Work item leasable, or P09 leasing a fresh Run for the same Work item — is an open
-  design task, not something to improvise.
+  design task, not something to improvise. **Resolved 2026-09-16 by decision D20**
+  (`docs/vnext/decision-register.md`): the retry series belongs to P09 and now spends its own
+  published `reason_retry_attempts`; Control keeps marking the finished attempt `failed`, and the
+  retry is a distinct Work item. The claim above was verified rather than accepted: the retry path
+  does lease a fresh Run once the backoff is spent, and it stops at a named `reason_retry_exhausted`
+  block. Coverage: `tests/vnext/test_scheduler_generations.py::
+  test_reason_retry_budget_leases_a_fresh_work_item_then_blocks_when_exhausted`. The original text
+  stays as the finding this decision closes.
 
 ## 9. Stage B branch 3: cancel a live Task (2026-09-16)
 

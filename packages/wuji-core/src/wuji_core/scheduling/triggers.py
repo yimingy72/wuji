@@ -501,9 +501,12 @@ class TriggerRepository:
             raise DomainError("OPERATION_UNKNOWN", 409)
         limits = AdmissionRegistry(None).config(tx).runtime.limits
         failures = state["failure_count"] + 1
-        exhausted = failures >= min(
-            limits.max_attempts_per_work, limits.repair_attempts + 1
-        )
+        # The retry series has its own published budget. `repair_attempts` is the
+        # model schema-repair budget (SPEC 10.2) and `max_attempts_per_work` bounds
+        # one Work item, which a retry never reuses. The task-level Reason cap is
+        # still included so a series cannot spin against an admission refusal.
+        retries = limits.reason_retry_attempts or 0
+        exhausted = failures >= min(limits.max_reason_runs, retries + 1)
         retry_at = (
             None
             if exhausted

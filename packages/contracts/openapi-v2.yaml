@@ -1521,6 +1521,7 @@ components:
         max_elapsed_seconds: {type: integer, minimum: 1, maximum: 31536000}
         max_attempts_per_work: {type: integer, minimum: 1, maximum: 1000}
         repair_attempts: {type: integer, minimum: 0, maximum: 1000}
+        reason_retry_attempts: {type: integer, minimum: 0, maximum: 1000}
     WorkerAssignment:
       type: object
       additionalProperties: false

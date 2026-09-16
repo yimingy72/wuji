@@ -28,6 +28,8 @@
 
 | D19 | 2026-09-15 P11-C 创建后的 owner 启动采用单一命令四个有序阶段（prepare → activate → wire → capability），语义固定为：definition 必须在首次激活前定稿，激活后只读回、拒改；attempt 的 bearer 材料一律取自部署当前 secret（supervisor 对 controller 通道做逐字节比对），Task Service 证书仍按固定 Service 名复用；session capability 仅在该 attempt 的 Pod 实际注册（receiver 行 + pod UID）后发布，并保持 mechanism_candidate 的短时绑定；容量池键从部署模板 Task 的已发布绑定读取，不按 profile 名推导。证据见[P11-C owner 启动](../vnext/evidence/P11/task-roundtrip-20260915/README.md) | 若让 wire 复用旧 Task 的 bearer 或让 capability 先于 Pod 注册，runtime 与 supervisor 之间会稳定 401、或对未注册 Pod 发布凭据；若允许激活后改 definition，permit 绑定会永久失配。该命令仍不创建 Pod、不写 Fact/Run/结果、不伪造退出 |
 
+| D20 | 2026-09-16 Reason 重试系列归 P09 所有，且使用自己的发布预算 `reason_retry_attempts`（可选整数，默认 0 = 首次有界失败即封堵）。Control settle 仍把该次尝试的 Work item 如实标为终态 `failed`（`failed → *` 不存在，重试不复用也不复活它）；P09 在 `ReasonLedger.fail` 记 `failure_count`/`retry_at`，退避到期后由 `_prepare` 以 `reason:{generation}:retry:{failure_count}` 登记身份不同的新 Work item 并正常准入。原实现把 SPEC 10.2 的模型格式修复预算 `repair_attempts` 当成 Reason 重试预算（`min(max_attempts_per_work, repair_attempts + 1)`），因此 `repair_attempts=0` 会静默关闭全部重试，且真正格式修复路径仍缺消费者；现改为 `failures >= min(max_reason_runs, reason_retry_attempts + 1)`，任务级 Reason 上限同时保留以防系列反复撞准入拒绝。证据：`tests/vnext/test_scheduler_generations.py::test_reason_retry_budget_leases_a_fresh_work_item_then_blocks_when_exhausted`（`repair_attempts=0` 下仍租到 retry，耗尽后 `reason_retry_exhausted` 带责任角色；对旧公式该用例失败）；背景见 P11 往返 §8.1 | 若让 Control 把可重试失败留在可租状态，就需在冻结合同外新增状态转移并让 settle 知道 P09 的退避预算；若继续借用 `repair_attempts`，两个语义永远无法独立配置。格式修复（SPEC 10.2）仍是未实现项，不得因本决定被当作已完成 |
+
 21 项任务及共享接口逐项检查表在本工作树的忽略台账 `.superpowers/sdd/vnext-v2/preflight.md`，任务完成以提交、具体测试和审查记录为准。源包 `ACCEPTANCE.md` / `VALIDATION_REPORT.md` 保持原始文档检查事实；实施结果另记，不覆盖原包。
 
 常规实现和修复按批准范围连续推进。必要权限、恢复或真实 MAF 核心能力不满足时，记录实际失败与合同影响，不通过削弱测试或更换框架来宣称通过。

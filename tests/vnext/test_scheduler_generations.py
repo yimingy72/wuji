@@ -1,4 +1,7 @@
+import json
 from datetime import UTC, datetime, timedelta
+from hashlib import sha256
+from uuid import uuid4
 from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
 
@@ -17,9 +20,10 @@ from support.p09 import (
     signed_sibling_worker,
     worker_credential,
 )
-from test_work_state_guards import OPERATOR, command, control_case
+from test_work_state_guards import OBSERVER, OPERATOR, command, control_case
 from wuji_core.admission.registry import revoke_run_credential
 from wuji_core.contracts.envelopes import ResultEnvelope
+from wuji_core.execution.control import ExecutionObservation
 from wuji_core.contracts.execution import WorkDependency
 from wuji_core.execution.dependencies import DependencyService
 from wuji_core.http import canonical_json_bytes, strict_json_loads
@@ -860,3 +864,191 @@ def test_persisted_work_cursor_advances_past_more_than_limit_blocked_candidates(
             ).fetchone()[0]
 
         assert runnable_work_id in admitted_work_ids
+
+
+def observed_process_failure(case, assignment, *, exit_code: int = 1):
+    """Take the scheduler's own Run through the real P05 exit path.
+
+    Only the two facts a Supervisor owns before an exit receipt can exist are
+    seeded: the Run row admission already wrote (its pod/operation identity is
+    read back, never invented) and the durable operation settlement. The Work
+    item transition stays with the production settle path.
+    """
+
+    identity = assignment.identity
+    with case.control.env.migration_connection() as connection:
+        connection.execute(
+            """INSERT INTO vnext.run_operation_settlement(tenant_id,project_id,task_id,agent_run_id,status,source_receipt_json)
+            VALUES(%s,%s,%s,%s,'settled',%s)""",
+            (
+                *OWNER,
+                identity.agent_run_id,
+                json_text(
+                    {
+                        "producer": "p09-reason-retry-fixture",
+                        "open_operations": {
+                            "model_calls": 0,
+                            "resource_reservations": 0,
+                            "tool_attempts": 0,
+                        },
+                        "status": "settled",
+                    }
+                ),
+            ),
+        )
+        environment_ref, pod_uid, operation_id = connection.execute(
+            """SELECT environment_ref,pod_uid,start_operation_id FROM vnext.agent_run
+            WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND agent_run_id=%s""",
+            (*OWNER, identity.agent_run_id),
+        ).fetchone()
+    body = {
+        "receipt_id": str(uuid4()),
+        "identity": identity.model_dump(mode="json"),
+        "operation_id": operation_id,
+        "environment_ref": environment_ref,
+        "pod_uid": pod_uid,
+        "kind": "exited",
+        "observed_at": "2026-09-13T01:00:00Z",
+        "process": {
+            "pid": 4321,
+            "birth_id": "p09-reason-retry-birth",
+            "started_at": "2026-09-13T00:59:00Z",
+            "exited_at": "2026-09-13T01:00:00Z",
+            "exit_code": exit_code,
+        },
+        "reason": "bounded fixture exit receipt; no process was launched",
+    }
+    raw = canonical_json_bytes(body).decode()
+    observation = ExecutionObservation.model_validate(
+        {
+            **body,
+            "source_receipt": raw,
+            "source_digest": sha256(raw.encode()).hexdigest(),
+        }
+    )
+    return case.control.control.record_observation(OBSERVER, observation)
+
+
+def scheduler_state(case):
+    with case.control.env.migration_connection() as connection:
+        return connection.execute(
+            """SELECT inflight_reason_work_id,failure_count,retry_at,blocked_reason
+            FROM vnext.scheduler_state
+            WHERE tenant_id=%s AND project_id=%s AND task_id=%s""",
+            OWNER,
+        ).fetchone()
+
+
+def reason_work_ids(case):
+    with case.control.env.migration_connection() as connection:
+        return [
+            row[0]
+            for row in connection.execute(
+                """SELECT w.work_item_id FROM vnext.work_item w
+                JOIN vnext.scheduler_work s USING(tenant_id,project_id,task_id,work_item_id)
+                WHERE w.tenant_id=%s AND w.project_id=%s AND w.task_id=%s AND w.kind='reason'
+                ORDER BY s.ready_since,w.work_item_id""",
+                OWNER,
+            ).fetchall()
+        ]
+
+
+def test_reason_retry_budget_leases_a_fresh_work_item_then_blocks_when_exhausted(
+    db_environment, tmp_path, audit_directory
+) -> None:
+    """P09 owns the Reason retry series; a spent budget is a named block.
+
+    The published budget is `reason_retry_attempts`, not `repair_attempts` (that
+    profile field is the model schema-repair budget of SPEC 10.2) and not
+    `max_attempts_per_work` (one Work item's Run cap, which a retry never reuses).
+    """
+
+    with scheduler_case(
+        db_environment,
+        tmp_path,
+        audit_directory,
+        reason_retry_attempts=1,
+        max_work_items=8,
+        # A zero schema-repair budget must not silently disable the retry series.
+        repair_attempts=0,
+    ) as case:
+        first = case.scheduler.tick(limit=2)
+        reason = next(
+            assignment
+            for assignment in first.assignments
+            if assignment.work_kind.value == "reason"
+        )
+        observed_process_failure(case, reason)
+        with case.control.env.migration_connection() as connection:
+            settled_work = connection.execute(
+                """SELECT state,terminal_reason FROM vnext.work_item
+                WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND work_item_id=%s""",
+                (*OWNER, reason.identity.work_item_id),
+            ).fetchone()
+        assert settled_work == ("failed", "process_failure")
+        assert (
+            reason.limits.repair_attempts,
+            reason.limits.reason_retry_attempts,
+        ) == (0, 1)
+        assert reason_work_ids(case) == [reason.identity.work_item_id]
+
+        # The failure tick spends one attempt and publishes only the bounded backoff.
+        spent = case.scheduler.tick(
+            limit=4, now=datetime.now(UTC) - timedelta(seconds=5)
+        )
+        inflight, failures, retry_at, blocked_reason = scheduler_state(case)
+        assert spent.assignments == ()
+        assert (inflight, failures, blocked_reason) == (None, 1, None)
+        assert retry_at is not None
+        assert reason_work_ids(case) == [reason.identity.work_item_id]
+
+        # Once the backoff is spent the series leases a distinct Work item.
+        retried = case.scheduler.tick(limit=4)
+        retry = next(
+            assignment
+            for assignment in retried.assignments
+            if assignment.work_kind.value == "reason"
+        )
+        assert retry.identity.work_item_id != reason.identity.work_item_id
+        assert retry.identity.agent_run_id != reason.identity.agent_run_id
+        with case.control.env.migration_connection() as connection:
+            retry_key = connection.execute(
+                """SELECT key_json FROM vnext.scheduler_work
+                WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND work_item_id=%s""",
+                (*OWNER, retry.identity.work_item_id),
+            ).fetchone()[0]
+            spent_work = connection.execute(
+                """SELECT state,terminal_reason FROM vnext.work_item
+                WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND work_item_id=%s""",
+                (*OWNER, reason.identity.work_item_id),
+            ).fetchone()
+        assert json.loads(retry_key)["problem_id"] == (
+            json.loads(retry_key)["problem_id"].split(":retry:")[0] + ":retry:1"
+        )
+        # A settled attempt is never resurrected by its retry.
+        assert spent_work == ("failed", "process_failure")
+
+        observed_process_failure(case, retry)
+        exhausted = case.scheduler.tick(
+            limit=4, now=datetime.now(UTC) - timedelta(seconds=5)
+        )
+        inflight, failures, retry_at, blocked_reason = scheduler_state(case)
+        assert exhausted.assignments == ()
+        assert (inflight, failures, retry_at) == (None, 2, None)
+        assert blocked_reason == "reason_retry_exhausted"
+        with case.control.env.migration_connection() as connection:
+            block = connection.execute(
+                """SELECT reason_code,responsible_role,release_condition,machine_recheck
+                FROM vnext.scheduler_block
+                WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND work_item_id=%s""",
+                (*OWNER, retry.identity.work_item_id),
+            ).fetchone()
+        assert block[0] == "reason_retry_exhausted"
+        assert block[1] == "task_operator"
+        assert block[2] and block[3] is False
+        assert reason_work_ids(case) == [
+            reason.identity.work_item_id,
+            retry.identity.work_item_id,
+        ]
+        # The spent series cannot keep calling the model from later ticks.
+        assert case.scheduler.tick(limit=4).assignments == ()
