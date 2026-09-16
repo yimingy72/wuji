@@ -15,6 +15,7 @@ import yaml
 
 from support.p06 import (
     BlockingSettlementExecutor,
+    ENVIRONMENT,
     CancelDeliveryProbe,
     NATIVE_MODEL_REQUEST,
     NATIVE_MODEL_RESPONSE,
@@ -1173,6 +1174,63 @@ def test_tool_request_inserts_require_admitted_reserved_pending_state(
         assert forged_attempt is None
         assert forged_resource is None
         assert forged_settlement is None
+
+
+def test_two_runs_may_read_one_workspace_path_at_the_same_time(
+    db_environment, tmp_path, audit_directory
+):
+    """Task A's attempt 4: the explore Run lost its read to the reason Run.
+
+    The RuntimeProfile tool limit is per Run and a read-only tool shares its
+    path, so two independent Runs of one Task can each hold one in-flight read.
+    The exclusive path key still blocks them, which is what keeps a future
+    writer safe.
+    """
+
+    from wuji_core.persistence.uow import AccessContext
+
+    with tool_case(db_environment, tmp_path, audit_directory) as case:
+        second = bind_secondary_model_run(
+            case, purposes=["tool_request"], allowed_tool_refs=["fixture-reader-v1"]
+        )
+        second_access = AccessContext(second.principal, "p06-tool-ledger-read")
+
+        first = case.admission.authorize(
+            case.access, ToolCallRequest.model_validate(workspace_tool_request())
+        )
+        other = case.admission.authorize(
+            second_access,
+            ToolCallRequest.model_validate(
+                workspace_tool_request(provider_call_id="call-p06-read-b")
+            ),
+        )
+        assert first.tool_attempt_id != other.tool_attempt_id
+        assert first.resource_keys == (
+            "workspace:" + ENVIRONMENT + ":version.txt:read:"
+            + first.identity.agent_run_id,
+        )
+        assert other.resource_keys[0].endswith(
+            "version.txt:read:" + other.identity.agent_run_id
+        )
+        assert first.resource_keys != other.resource_keys
+
+        # An exclusive holder of the plain path (a writer, or any bounded
+        # operation that never opted into sharing) still blocks a reader.
+        with db_environment.migration_connection() as connection:
+            connection.execute(
+                "INSERT INTO vnext.resource_reservation(tenant_id,project_id,task_id,resource_key,agent_run_id,state,source_receipt_json) VALUES(%s,%s,%s,%s,'run-b','reserved','{\"exclusive\":true}')",
+                (*OWNER, "workspace:" + ENVIRONMENT + ":version.txt"),
+            )
+        with pytest.raises(DomainError) as refused:
+            case.admission.authorize(
+                second_access,
+                ToolCallRequest.model_validate(
+                    workspace_tool_request(
+                        provider_call_id="call-p06-read-c", path="version.txt"
+                    )
+                ),
+            )
+        assert refused.value.code == "LIMIT_BLOCKED"
 
 
 def test_explicit_tool_retry_reopens_only_from_registered_stopped_attempt(

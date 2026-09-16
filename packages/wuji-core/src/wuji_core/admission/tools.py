@@ -275,14 +275,35 @@ class ToolAdmission:
 
     def _new_attempt(self, tx, prepared, *, retry_request_id=None):
         config, run = prepared.config, prepared.run
-        active = tx.connection.execute("SELECT count(*) FROM vnext.tool_attempt WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND status IS NOT NULL AND status NOT IN ('complete','cancelled','failed')", tx.owner).fetchone()[0]
+        # The RuntimeProfile operation limit is per Run, like the model budget:
+        # two Runs of one Task are independent work and must not spend each
+        # other's slot. Cross-Run coordination belongs to the resource lock below.
+        active = tx.connection.execute("SELECT count(*) FROM vnext.tool_attempt WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND agent_run_id=%s AND status IS NOT NULL AND status NOT IN ('complete','cancelled','failed')", (*tx.owner, run["agent_run_id"])).fetchone()[0]
         if active >= config.runtime.max_inflight_tools:
             raise DomainError("LIMIT_BLOCKED", 429)
         count = tx.connection.execute("SELECT count(*) FROM vnext.tool_attempt WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND tool_call_id=%s", (*tx.owner, prepared.call["tool_call_id"])).fetchone()[0]
         if count >= config.runtime.limits.max_attempts_per_work:
             raise DomainError("LIMIT_BLOCKED", 429)
-        resource = "workspace:" + run["environment_ref"] + ":" + prepared.request.arguments["path"]
-        conflict = tx.connection.execute("SELECT 1 FROM vnext.resource_reservation WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND resource_key=%s AND state<>'released'", (*tx.owner, resource)).fetchone()
+        # SPEC: whether reads may run in parallel depends on the tool's actual
+        # behaviour. Only read-only workspace tools are admitted today, so they
+        # share the path (multiple Runs may read it); an exclusive holder of the
+        # path still blocks them, and a future writer key excludes both.
+        base = "workspace:" + run["environment_ref"] + ":" + prepared.request.arguments["path"]
+        if prepared.definition.allowed_target_kinds == ["workspace_read"]:
+            # The claim index allows one active claim per resource key, so a
+            # shared read claim is made per Run. Readers only conflict with an
+            # exclusive holder of the plain path.
+            resource = base + ":read:" + run["agent_run_id"]
+            conflict = tx.connection.execute(
+                "SELECT 1 FROM vnext.resource_reservation WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND resource_key=%s AND state<>'released'",
+                (*tx.owner, base),
+            ).fetchone()
+        else:
+            resource = base
+            conflict = tx.connection.execute(
+                "SELECT 1 FROM vnext.resource_reservation WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND state<>'released' AND (resource_key=%s OR left(resource_key,%s)=%s)",
+                (*tx.owner, base, len(base) + 6, base + ":read:"),
+            ).fetchone()
         if conflict:
             raise DomainError("LIMIT_BLOCKED", 429)
         consume_attempt(tx, model=False, maximum=config.runtime.limits.max_tool_calls)

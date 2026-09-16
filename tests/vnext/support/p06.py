@@ -600,7 +600,9 @@ def fresh_ledger(case):
     )
 
 
-def bind_secondary_model_run(case) -> IssuedRunCredential:
+def bind_secondary_model_run(
+    case, *, purposes=None, allowed_tool_refs=None
+) -> IssuedRunCredential:
     """Provision a second real P05 Run so two Runs can race one Task quota."""
 
     token = case.credential.provider.issue(
@@ -660,7 +662,8 @@ def bind_secondary_model_run(case) -> IssuedRunCredential:
         case.registry_module.bind_run_credential(
             connection,
             binding=run_binding(
-                case.registry_module, credential, identity=identity
+                case.registry_module, credential, identity=identity,
+                purposes=purposes, allowed_tool_refs=allowed_tool_refs,
             ),
         )
     return credential
@@ -982,9 +985,12 @@ def tool_case(
             upstream.close()
 
 
-def tool_headers(case, request_id: str) -> dict[str, str]:
+def tool_headers(
+    case, request_id: str, credential: IssuedRunCredential | None = None
+) -> dict[str, str]:
+    effective = credential or case.credential
     return {
-        "Authorization": "Bearer " + case.credential.token,
+        "Authorization": "Bearer " + effective.token,
         "Content-Type": "application/json",
         "X-Wuji-Request-ID": request_id,
     }
