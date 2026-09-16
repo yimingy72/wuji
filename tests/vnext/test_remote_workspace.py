@@ -317,7 +317,7 @@ def test_real_https_workspace_read_persists_p03_and_old_receipt_after_revocation
 ):
     with tool_case(db_environment, tmp_path, audit_directory) as case:
         with _remote_stack(case, tmp_path, audit_directory) as stack:
-            case.gate.executors[stack.binding.executor_ref] = stack.remote
+            case.gate.executors[(*stack.binding.owner, stack.binding.executor_ref)] = stack.remote
             response = case.client.post(
                 "/internal/v2/tool-calls",
                 json=workspace_tool_request(provider_call_id="call-c0-real-https"),
@@ -424,7 +424,7 @@ def test_ambiguous_dispatch_queries_same_attempt_once_and_not_registered_stays_u
     with tool_case(db_environment, tmp_path, audit_directory) as case:
         permit = _authorize(case, "call-c0-not-registered")
         with _remote_stack(case, tmp_path, audit_directory, kali_fault=fault) as stack:
-            case.gate.executors[stack.binding.executor_ref] = stack.remote
+            case.gate.executors[(*stack.binding.owner, stack.binding.executor_ref)] = stack.remote
             result = asyncio.run(case.gate.execute_permit(case.access, permit))
             assert result.status == "unknown"
             assert result.tool_attempt_id.root == permit.tool_attempt_id

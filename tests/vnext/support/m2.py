@@ -450,9 +450,9 @@ def m2_case(
                 ledger=ledger,
                 artifacts=scheduled.control.store,
                 evidence=evidence,
-                executors={"workspace-reader-fixture": executor},
+                executors={(*OWNER, "workspace-reader-fixture"): executor},
                 collector_accesses={
-                    "workspace-reader-fixture": access(
+                    (*OWNER, "workspace-reader-fixture"): access(
                         "collector-fixture", role="collector"
                     )
                 },

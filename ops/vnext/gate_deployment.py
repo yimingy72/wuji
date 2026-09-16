@@ -33,13 +33,16 @@ def build_gates():
     bindings, executors, collectors = [], {}, {}
     for entry in settings.executors:
         binding = ExecutorDeploymentBinding(**entry["binding"])
-        if binding.executor_ref in executors:
+        # Several Tasks may share one deployment executor ref; the owning Task
+        # is part of the key, and an exact duplicate is still refused.
+        key = (*binding.owner, binding.executor_ref)
+        if key in executors:
             raise ValueError("duplicate deployment executor")
         bindings.append(binding)
-        executors[binding.executor_ref] = RemoteWorkspaceExecutor(
+        executors[key] = RemoteWorkspaceExecutor(
             binding=binding, base_url=entry["base_url"], ca_file=settings.ca_file,
             bearer_token=lambda path=entry["gate_token_file"]: token(path))
-        collectors[binding.executor_ref] = deployment.access(entry["collector_token_file"])
+        collectors[key] = deployment.access(entry["collector_token_file"])
     if not bindings:
         raise ValueError("a real remote Kali executor is required")
     tools = ToolGate(admission, registry=deployment.registry, ledger=ledger,

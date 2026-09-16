@@ -647,7 +647,7 @@ def test_started_tool_can_settle_after_revocation_but_new_work_is_rejected(
         blocking = BlockingSettlementExecutor(
             case.tool_module, case.admission, case.workspace
         )
-        case.gate.executors["workspace-reader-fixture"] = blocking
+        case.gate.executors[(*OWNER, "workspace-reader-fixture")] = blocking
         with ThreadPoolExecutor(max_workers=1) as pool:
             future = pool.submit(
                 case.client.post,
@@ -780,7 +780,7 @@ def test_cancel_replay_delivers_same_persisted_cancel_operation(
             case.access, ToolCallRequest.model_validate(workspace_tool_request())
         )
         crasher = CancelDeliveryProbe(case.tool_module, case.admission, crash=True)
-        case.gate.executors["workspace-reader-fixture"] = crasher
+        case.gate.executors[(*OWNER, "workspace-reader-fixture")] = crasher
         with pytest.raises(SimulatedProcessExit):
             asyncio.run(
                 case.gate.cancel(
@@ -793,7 +793,7 @@ def test_cancel_replay_delivers_same_persisted_cancel_operation(
         assert crasher.cancel_calls == 1
 
         retry = CancelDeliveryProbe(case.tool_module, case.admission, crash=False)
-        case.gate.executors["workspace-reader-fixture"] = retry
+        case.gate.executors[(*OWNER, "workspace-reader-fixture")] = retry
         asyncio.run(
             case.gate.cancel(
                 case.access,

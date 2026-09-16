@@ -395,8 +395,11 @@ class ToolGate:
         with self.admission.uow.transaction(access, binding.identity.task_id) as tx:
             definition = self.registry.tool(tx, ref)
             registration = self.registry.executor(tx, definition.executor_ref)
-            executor = self.executors.get(registration.ref)
-            collector = self.collector_accesses.get(registration.ref)
+            # One deployment may serve several Tasks, and each Task keeps its
+            # own executor binding: the key is the owning Task plus the ref.
+            key = (*tx.owner, registration.ref)
+            executor = self.executors.get(key)
+            collector = self.collector_accesses.get(key)
             if executor is None or not all(callable(getattr(executor, method, None)) for method in ("dispatch", "query", "cancel")) or collector is None or collector.principal.subject != registration.collector_subject or collector.principal.tenant_id != tx.owner[0] or "collector" not in collector.principal.roles:
                 raise DomainError("CAPABILITY_UNAVAILABLE", 503)
             return registration
@@ -429,7 +432,13 @@ class ToolGate:
             return await run_in_threadpool(self.ledger.tool_call, access, permit.tool_call_id)
         registration = await run_in_threadpool(self._assembly, access, permit.tool_definition_ref)
         try:
-            receipt = await asyncio.wait_for(self.executors[registration.ref].dispatch(permit), timeout=permit.runtime.total_timeout_seconds)
+            key = (
+                permit.identity.tenant_id,
+                permit.identity.project_id,
+                permit.identity.task_id,
+                registration.ref,
+            )
+            receipt = await asyncio.wait_for(self.executors[key].dispatch(permit), timeout=permit.runtime.total_timeout_seconds)
         except (Exception, asyncio.CancelledError):
             await asyncio.shield(run_in_threadpool(self._unknown, permit))
             return await run_in_threadpool(self.ledger.tool_call, access, permit.tool_call_id)
@@ -526,7 +535,9 @@ class ToolGate:
             if attempt["status"] != "evidence_pending":
                 return
             executor = self.registry.executor(tx, permit.executor_ref)
-            collector = self.collector_accesses[executor.ref]
+            collector = self.collector_accesses[
+                (*tx.owner, executor.ref)
+            ]
             saved = strict_json_loads(attempt["receipt_json"])
             existing_capture = attempt["capture_json"]
             level = _call(tx, permit.tool_call_id)["access_level"]
@@ -574,7 +585,14 @@ class ToolGate:
             if value.status == "evidence_pending":
                 await run_in_threadpool(self._capture, permit)
             elif value.status not in {"complete", "failed", "cancelled"}:
-                executor = self.executors.get(permit.executor_ref)
+                executor = self.executors.get(
+                    (
+                        permit.identity.tenant_id,
+                        permit.identity.project_id,
+                        permit.identity.task_id,
+                        permit.executor_ref,
+                    )
+                )
                 if executor is None:
                     raise DomainError("CAPABILITY_UNAVAILABLE", 503)
                 receipt = await asyncio.wait_for(executor.query(permit), timeout=permit.runtime.idle_timeout_seconds)
@@ -606,7 +624,14 @@ class ToolGate:
         result, replay = await run_in_threadpool(register)
         if result.status == "cancel_requested":
             permit = await run_in_threadpool(self._existing_permit, access, tool_call_id)
-            receiver = self.executors.get(permit.executor_ref)
+            receiver = self.executors.get(
+                (
+                    permit.identity.tenant_id,
+                    permit.identity.project_id,
+                    permit.identity.task_id,
+                    permit.executor_ref,
+                )
+            )
             if receiver is not None:
                 try:
                     receipt = await asyncio.wait_for(receiver.cancel(permit, reason=reason), timeout=permit.runtime.idle_timeout_seconds)
