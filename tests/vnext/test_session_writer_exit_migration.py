@@ -24,13 +24,14 @@ def test_0016_upgrades_both_known_0014_shapes_without_replaying_session_ddl(
         patch.setattr(schema, "upgrade_control_api", lambda *_args: None)
         patch.setattr(schema, "upgrade_session_writer_exit", lambda *_args: None)
         patch.setattr(schema, "upgrade_pod_receivers", lambda *_args: None)
-        # Later heads (0018, 0019, 0020, 0021) must be skipped too, otherwise the
+        # Later heads (0018 onward) must be skipped too, otherwise the
         # aggregate head is applied and this check's "stopped after the session
         # head" premise for the 0016 upgrade no longer holds.
         patch.setattr(schema, "upgrade_layouts", lambda *_args: None)
         patch.setattr(schema, "upgrade_task_creation", lambda *_args: None)
         patch.setattr(schema, "upgrade_run_settlement_close", lambda *_args: None)
         patch.setattr(schema, "upgrade_environment_settlement", lambda *_args: None)
+        patch.setattr(schema, "upgrade_completion", lambda *_args: None)
         with db_environment.migration_connection() as connection:
             schema.migrate(
                 connection,
