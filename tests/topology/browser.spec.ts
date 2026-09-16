@@ -114,6 +114,64 @@ async function dragNodeBy(page: import('@playwright/test').Page, selector: strin
   await page.mouse.up();
 }
 
+test('a failed conflict reload keeps the write queue frozen until a read succeeds', async ({ page }) => {
+  await page.goto('/?theme=silver&case=layout-reload-failure');
+  await expect(page.getByRole('region', { name: '任务拓扑图' })).toBeVisible();
+  await expect(page.getByTestId('fault-server-revision')).toHaveText('4');
+  await expect(page.getByTestId('fault-write-attempts')).toHaveText('0');
+
+  // Another tab moves the server revision ahead of this page.
+  await page.getByRole('button', { name: '其他标签页保存' }).click();
+  await expect(page.getByTestId('fault-server-revision')).toHaveText('5');
+  const otherTabLayout = await page.getByTestId('fault-server-layout').textContent();
+
+  // The stale PUT is refused and the read-only recovery fails as well.
+  await dragNodeBy(page, '.react-flow__node[data-id="intent:intent-1@4"]', 60, 40);
+  await expect(page.getByTestId('fault-write-status')).toContainText('409');
+  await expect(page.getByTestId('fault-write-attempts')).toHaveText('1');
+  await expect(page.getByTestId('fault-read-status')).toContainText('503');
+
+  // The rejected edit is never requeued, and a new gesture is refused too.
+  await page.waitForTimeout(600);
+  await expect(page.getByTestId('fault-write-attempts')).toHaveText('1');
+  await dragNodeBy(page, '.react-flow__node[data-id="intent:intent-1@4"]', -40, -30);
+  await expect(page.getByTestId('fault-write-attempts')).toHaveText('1');
+  await expect(page.getByTestId('fault-server-layout')).toHaveText(otherTabLayout ?? '');
+
+  // An explicit read that still fails stays read-only.
+  const reload = page.getByRole('button', { name: '重新读取' });
+  await expect(reload).toHaveCount(1);
+  const failedReads = Number(await page.getByTestId('fault-read-attempts').textContent());
+  await reload.click();
+  await expect.poll(async () => Number(await page.getByTestId('fault-read-attempts').textContent())).toBeGreaterThan(failedReads);
+  await expect(page.getByTestId('fault-write-attempts')).toHaveText('1');
+
+  // Once the read succeeds the conflict clears and a new edit saves normally.
+  await page.getByRole('button', { name: '允许读取' }).click();
+  await reload.click();
+  await expect(page.getByTestId('fault-read-status')).toContainText('200');
+  await dragNodeBy(page, '.react-flow__node[data-id="intent:intent-1@4"]', 40, 30);
+  await expect(page.getByTestId('fault-write-status')).toContainText('200');
+  await expect(page.getByTestId('fault-write-attempts')).toHaveText('2');
+  await expect(page.getByTestId('fault-server-revision')).toHaveText('6');
+});
+
+test('a task switch while the layout conflict is unresolved writes nothing', async ({ page }) => {
+  await page.goto('/?theme=silver&case=layout-reload-failure');
+  await expect(page.getByRole('region', { name: '任务拓扑图' })).toBeVisible();
+  await page.getByRole('button', { name: '其他标签页保存' }).click();
+  await expect(page.getByTestId('fault-server-revision')).toHaveText('5');
+
+  await dragNodeBy(page, '.react-flow__node[data-id="intent:intent-1@4"]', 60, 40);
+  await expect(page.getByTestId('fault-write-attempts')).toHaveText('1');
+  await expect(page.getByTestId('fault-read-status')).toContainText('task-A');
+
+  await page.getByRole('button', { name: '切换任务' }).click();
+  await expect(page.getByTestId('fault-read-status')).toContainText('task-B');
+  await page.waitForTimeout(600);
+  await expect(page.getByTestId('fault-write-attempts')).toHaveText('1');
+});
+
 test('a stale personal layout save reports the conflict and never rewrites the newer layout', async ({ page }) => {
   await page.goto('/?theme=silver&case=layout-conflict');
   await expect(page.getByRole('region', { name: '任务拓扑图' })).toBeVisible();

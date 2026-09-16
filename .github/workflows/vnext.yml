@@ -83,3 +83,7 @@ jobs:
       - run: pnpm --filter @wuji/web build
       - name: Topology unit tests
         run: pnpm exec vitest run apps/web/src/features/topology
+      - name: Topology browser tests
+        run: |
+          pnpm exec playwright install --with-deps chromium
+          pnpm exec playwright test --config playwright.topology.config.ts

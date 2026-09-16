@@ -232,10 +232,101 @@ function LayoutConflictFixture() {
   );
 }
 
+function LayoutReloadFailureFixture() {
+  const [taskId, setTaskId] = useState<'A' | 'B'>('A');
+  const serverRef = useRef<LayoutPreference>(layoutServerSeed());
+  // The first page load reads normally; the recovery read after a conflict is
+  // the one that fails until the operator allows it again.
+  const readFailsRef = useRef(false);
+  const [server, setServer] = useState<LayoutPreference>(() => structuredClone(serverRef.current));
+  const [writeAttempts, setWriteAttempts] = useState(0);
+  const [readAttempts, setReadAttempts] = useState(0);
+  const [writeStatus, setWriteStatus] = useState('none');
+  const [readStatus, setReadStatus] = useState('none');
+
+  const readLayout: LayoutReader = useCallback(async (requestedTaskId: string) => {
+    setReadAttempts((value) => value + 1);
+    if (readFailsRef.current) {
+      setReadStatus(`503 ${requestedTaskId}`);
+      throw new LayoutRequestError(503, '布局读取暂时不可用。', 'CAPABILITY_UNAVAILABLE');
+    }
+    setReadStatus(`200 ${requestedTaskId}`);
+    return structuredClone(serverRef.current);
+  }, []);
+
+  const writeLayout: LayoutWriter = useCallback(async (requestedTaskId, viewName, patch, expectedRevision) => {
+    setWriteAttempts((value) => value + 1);
+    const current = serverRef.current;
+    if (expectedRevision !== current.layout_revision) {
+      setWriteStatus(`409 ${requestedTaskId}`);
+      throw new LayoutRequestError(409, '布局版本过期。', 'STALE_VERSION');
+    }
+    const next: LayoutPreference = {
+      schema_version: 'wuji.api.v2',
+      view_name: viewName,
+      layout_revision: String(Number(current.layout_revision) + 1),
+      selection_mode: patch.selection_mode,
+      entries: patch.entries,
+      viewport: patch.viewport,
+    } as LayoutPreference;
+    serverRef.current = next;
+    setServer(structuredClone(next));
+    setWriteStatus(`200 ${requestedTaskId}`);
+    return { view_name: viewName, layout_revision: next.layout_revision, request_id: 'fixture' };
+  }, []);
+
+  return (
+    <main style={{ minHeight: '100vh', padding: 20, background: 'var(--canvas)', color: 'var(--text)' }}>
+      <header>
+        <h1>布局重读失败</h1>
+        <button
+          type="button"
+          onClick={() => {
+            readFailsRef.current = true;
+            const current = serverRef.current;
+            const next: LayoutPreference = {
+              ...current,
+              layout_revision: String(Number(current.layout_revision) + 1),
+              entries: current.entries.map((entry) => ({ ...entry, x: entry.x + 25, y: entry.y - 15 })),
+            } as LayoutPreference;
+            serverRef.current = next;
+            setServer(structuredClone(next));
+          }}
+        >其他标签页保存</button>
+        <button type="button" onClick={() => { readFailsRef.current = false; }}>允许读取</button>
+        <button type="button" onClick={() => setTaskId((value) => (value === 'A' ? 'B' : 'A'))}>切换任务</button>
+      </header>
+      <TopologyContainer
+        key={taskId}
+        taskId={`task-${taskId}`}
+        mode="live"
+        readSnapshot={initialReader}
+        readLayout={readLayout}
+        writeLayout={writeLayout}
+      />
+      <dl aria-label="布局故障回执">
+        <dt>服务端修订</dt>
+        <dd data-testid="fault-server-revision">{server.layout_revision}</dd>
+        <dt>服务端布局</dt>
+        <dd data-testid="fault-server-layout">{JSON.stringify(server)}</dd>
+        <dt>写入次数</dt>
+        <dd data-testid="fault-write-attempts">{writeAttempts}</dd>
+        <dt>写入回执</dt>
+        <dd data-testid="fault-write-status">{writeStatus}</dd>
+        <dt>读取次数</dt>
+        <dd data-testid="fault-read-attempts">{readAttempts}</dd>
+        <dt>读取回执</dt>
+        <dd data-testid="fault-read-status">{readStatus}</dd>
+      </dl>
+    </main>
+  );
+}
+
 function BrowserFixture() {
   const fixtureCase = new URLSearchParams(window.location.search).get('case');
   if (fixtureCase === 'request-isolation') return <RequestIsolationFixture />;
   if (fixtureCase === 'layout-conflict') return <LayoutConflictFixture />;
+  if (fixtureCase === 'layout-reload-failure') return <LayoutReloadFailureFixture />;
   return <Fixture />;
 }
 
