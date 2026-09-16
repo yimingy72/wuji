@@ -145,6 +145,14 @@ def test_a_judgment_must_cite_sealed_evidence_and_then_supports_the_goal(
         assert receipt.status == "met" and receipt.applicability == "current"
         assert receipt.evidence and receipt.evidence[0]["digest"]
 
+        # The receipt is replayable: the same judgment returns the same row.
+        assert service.record(
+            ASSESSOR, TASK, criterion_id="version", revision=1,
+            judgment_id="judgment-a", status="met", method="deterministic",
+            evidence_refs=[sealed.model_dump(mode="json")],
+            definition_json='{"fixture":true}',
+        ) == receipt
+
         review = completion(case).precheck(OBSERVER, TASK)
         assert review.decision == "ready", review.reasons
         assert review.coverage.satisfied

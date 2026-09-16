@@ -9,7 +9,6 @@ AC-051, AC-053).
 """
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from hashlib import sha256
 
 from wuji_core.contracts.envelopes import BlobRef
@@ -95,6 +94,9 @@ class JudgmentService:
                 level = max(level, int(record["access_level"]))
             if level > tx.permissions["clearance"]:
                 raise DomainError("NOT_FOUND_OR_FORBIDDEN")
+        # The receipt is a pure function of the checked inputs: re-running the
+        # same judgment must replay the stored row instead of colliding on a
+        # fresh timestamp.
         receipt = JudgmentReceipt(
             judgment_id=judgment_id,
             criterion_id=criterion_id,
@@ -104,7 +106,7 @@ class JudgmentService:
             method=method,
             evidence=tuple(checked),
             access_level=level,
-            recorded_at=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+            recorded_at="",
         )
         source = canonical_json_bytes(receipt.__dict__).decode()
         with self.uow.transaction(access, task_id, capability="assess") as tx:
