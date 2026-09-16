@@ -30,7 +30,7 @@
     "text": "Read the isolated workspace version file"
   },
   "model_profile_ref": "k8s-model-v1",
-  "name": "Two Task regression B 2026-09-16",
+  "name": "Two Task regression C 2026-09-16",
   "project_id": "81e8c413-ba26-45fb-8b5a-1bc477eef99f",
   "runtime_profile_ref": "k8s-runtime-v1",
   "scenario": "web_single",

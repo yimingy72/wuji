@@ -37,7 +37,76 @@ ERROR:    Error loading ASGI app factory: ExecutorDeploymentBinding.__init__() m
 ValueError: duplicate deployment executor
 ```
 
-## 3. What is still missing (next defect, with its evidence)
+## 3. The two-Task run, and cancelling one without stopping the other (2026-09-16 07:26–07:31 UTC)
+
+Task A's attempt had already spent its window, so the run was repeated with two **fresh** Tasks:
+B `3aa77fba…` and C `6ffd59cd…`, launched back to back through the same owner command
+(`raw/launch-B.log`, `raw/launch-C.log`, both `SuccessCriteriaMet|1|`).
+
+```http
+POST /api/v2/tasks/{task_id}/commands HTTP/1.1
+Host: 127.0.0.1:18455 (kubectl -n wuji-vnext-test port-forward svc/runtime 18455:8443)
+Authorization: Bearer <operator JWT>
+Idempotency-Key: cancel-6ffd59cd-2f11-49ad-a0bc-60328fd1e538-two-task-C
+Content-Type: application/json
+
+{"command":"cancel","expected_version":"2","reason":"stage B branch 3: cancel while work is in flight","schema_version":"wuji.api.v2"}
+```
+
+```http
+HTTP/1.1 202
+{"command_id":"cancel-6ffd59cd-…-two-task-C","disposition":"accepted","resource_ref":{"entity_type":"task","id":"6ffd59cd-…","revision":"3"},"resource_version":"3","request_id":"66e61886-861b-46a0-a752-05db1315ab78","code":null}
+```
+
+Before the cancel both Task Pods were running **at the same time**:
+
+```text
+wuji-task-v-2749e0c5bdd0fb10bb8e78e3b7a0c061-a1   2/2   Running   0     12m     # Task B
+wuji-task-v-46cb40c00cc4ee69af35b1036ae21390-a1   2/2   Running   0     4m41s   # Task C
+```
+
+After it (`raw/after-cancel-pods.txt`, `raw/after-cancel-tasks.txt`, `raw/after-cancel-capacity.txt`):
+
+```text
+wuji-task-v-2749e0c5bdd0fb10bb8e78e3b7a0c061-a1   2/2   Running   0     23m     # Task B, untouched
+wuji-task-v-46cb40c00cc4ee69af35b1036ae21390-a1   (deleted)                      # Task C's Pod
+
+3aa77fba|run|running|t|            # Task B: still runnable
+6ffd59cd|cancel|quiescing|f|user_cancel
+
+3aa77fba|released|6                # Task B capacity, released exactly once
+6ffd59cd|released|6                # Task C capacity, released exactly once
+```
+
+The runtime loop kept cycling while reporting the stopped Tasks one by one, and never reported Task B:
+
+```text
+{"event": "runtime_pod_environment", "pod_name": "…b9070a1a…", "reason": "permit_revoked", "state": "stopped", "task_id": "60e7bd1b-…"}
+{"event": "runtime_pod_environment", "pod_name": "…46cb40c0…", "reason": "permit_revoked", "state": "stopped", "task_id": "6ffd59cd-…"}
+{"event": "runtime_pod_environment", "pod_name": "…98ce2d5e…", "reason": "permit_revoked", "state": "stopped", "task_id": "86a2a7f2-…"}
+```
+
+Both Tasks did their work before the cancel (`raw/two-task-work-items.txt`, `raw/two-task-runs.txt`): each shows
+`reason|done` with an accepted result written by its own Run, and `explore|failed|process_failure` settling
+through the platform's closed-operation-set basis.
+
+## 4. The attempt-window hazard behind that (still open)
+
+Task A's retry could never create a Pod:
+
+```text
+SELECT activated_at, now()-activated_at: 2026-09-16 06:09:13+00 | 00:58:32
+runtime limits max_elapsed_seconds: 1800
+```
+
+The permit's `expires_at` is `min(authorization_expires_at, activated_at + max_elapsed_seconds)`, so once a
+launch has been activated and then fails after `wire`, the attempt's 30-minute window keeps running and the retry
+is refused by an expired permit — `permit_revoked`, hence `POD_NOT_READY` forever. The definition digest and the
+persisted `task.started` event still match, so this is purely the elapsed window. A launch retry therefore needs
+to roll to a **new runtime attempt** (fresh activation and binding), which the owner command does not do yet;
+that is the next fix. It is unrelated to multi-Task hosting, and the run above avoided it by using fresh Tasks.
+
+## 5. What is still missing
 
 The two Task *Pods* never ran side by side. Task A's attempt is stuck:
 
@@ -57,7 +126,8 @@ Task B stays `pause/ready` with no receiver row, so nothing was fabricated for i
 
 ## 4. Limits
 
-- No two-Pod concurrency, no cancel of one Task while the other runs, and no new-start dispatch for a second Task
-  are demonstrated here; the unit tests cover the restriction logic, not the live pair.
+- Two-Pod concurrency and the cancel of one Task while the other keeps its Pod are demonstrated in §3. A *new
+  start* delivered to a second Task while the first is stopped is not: both fixtures finish their work within
+  seconds of the Pod becoming ready, so the restriction is covered by unit tests rather than by a live dispatch.
 - 43 vNext tests (remote workspace + run admission) plus 35 earlier ones cover the code changed here; the failing
   live attempt above is kept rather than retried away.
