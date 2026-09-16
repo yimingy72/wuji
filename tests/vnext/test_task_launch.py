@@ -585,3 +585,122 @@ def test_executor_entries_that_disagree_on_a_deployment_field_are_refused():
 
     with pytest.raises(DomainError, match="INPUT_DIGEST_CONFLICT"):
         task_launch.merge_gates_executors(executors, executor_identity("task-new"))
+
+
+def admission_limits(connection, owner, *, max_elapsed_seconds: int) -> None:
+    connection.execute(
+        "INSERT INTO vnext.admission_config(tenant_id,project_id,task_id,document_json)"
+        " VALUES(%s,%s,%s,%s)",
+        (*owner, json.dumps({"runtime": {"limits": {"max_elapsed_seconds": max_elapsed_seconds}}})),
+    )
+
+
+def test_roll_moves_an_expired_attempt_and_refuses_a_runnable_one(
+    db_environment, audit_directory
+):
+    """A failed launch cannot be retried in place; the roll is explicit."""
+
+    with creation_case(db_environment, audit_directory) as case:
+        created = create(case)
+        assert created.status_code == 201, created.text
+        task_id = created.json()["task_id"]
+        owner = (OWNER[0], OWNER[1], task_id)
+        with db_environment.migration_connection() as connection:
+            definition, _ = stored_definition(connection, task_id)
+            config = deployment_config(definition)
+            task_launch.finalise_definition(connection, owner=owner, config=config)
+            admission_limits(connection, owner, max_elapsed_seconds=1800)
+
+            with pytest.raises(DomainError) as inactive:
+                task_launch.roll_runtime_attempt(
+                    connection, owner=owner, config=config, reason="fixture"
+                )
+            assert inactive.value.code == "attempt_not_activated"
+
+            connection.execute(
+                "UPDATE vnext.task SET activated_at=now(),desired_state='run',"
+                " observed_state='running' WHERE task_id=%s",
+                (task_id,),
+            )
+            with pytest.raises(DomainError) as live:
+                task_launch.roll_runtime_attempt(
+                    connection, owner=owner, config=config, reason="fixture"
+                )
+            assert live.value.code == "current_attempt_still_running"
+
+            # The window is activated_at + the published limit; once it closes the
+            # attempt can never run again, so the roll is the only way forward.
+            connection.execute(
+                "UPDATE vnext.task SET activated_at=now()-interval '2 hours'"
+                " WHERE task_id=%s",
+                (task_id,),
+            )
+            rolled = task_launch.roll_runtime_attempt(
+                connection, owner=owner, config=config, reason="window closed"
+            )
+            assert rolled == {
+                "previous_runtime_attempt": 1,
+                "runtime_attempt": 2,
+                "reason": "window closed",
+            }
+            row = connection.execute(
+                "SELECT runtime_attempt,activated_at,desired_state,observed_state,"
+                " execution_allowed,control_version,event_seq FROM vnext.task"
+                " WHERE task_id=%s",
+                (task_id,),
+            ).fetchone()
+            assert row[0] == 2
+            assert row[1] is None
+            assert (row[2], row[3], row[4]) == ("pause", "ready", True)
+            assert int(row[5]) == 2
+            events = connection.execute(
+                "SELECT payload_json FROM vnext.outbox WHERE task_id=%s"
+                " AND kind='task.attempt_rolled'",
+                (task_id,),
+            ).fetchall()
+            assert json.loads(events[0][0]) == {
+                "previous_runtime_attempt": "1",
+                "reason": "window closed",
+                "runtime_attempt": "2",
+            }
+
+            # A rolled Task is un-started again: another roll has nothing to move.
+            with pytest.raises(DomainError) as unstarted:
+                task_launch.roll_runtime_attempt(
+                    connection, owner=owner, config=config, reason="again"
+                )
+            assert unstarted.value.code == "attempt_not_activated"
+
+            # A registered receiver of the live attempt blocks the roll, so a Pod
+            # that the runtime has not stopped is never replaced.
+            connection.execute(
+                "UPDATE vnext.task SET activated_at=now()-interval '2 hours'"
+                " WHERE task_id=%s",
+                (task_id,),
+            )
+            connection.execute(
+                """INSERT INTO vnext.task_access(tenant_id,project_id,task_id,subject) 
+                VALUES(%s,%s,%s,'receiver')""",
+                owner,
+            )
+            connection.execute(
+                """INSERT INTO vnext.scheduler_identity_template(tenant_id,project_id,
+                task_id,template_ref,issuer,audience,signing_key_ref,signing_kid,
+                encryption_key_ref,clearance,enabled)
+                VALUES(%s,%s,%s,'deployment-worker-v1','https://identity.fixture.invalid',
+                'wuji-vnext-deployment','deployment-key','kid','encryption-key',1,true)""",
+                owner,
+            )
+            connection.execute(
+                """INSERT INTO vnext.scheduler_receiver(tenant_id,project_id,task_id,
+                runtime_attempt,receiver_id,environment_ref,model_mode,receiver_subject,
+                credential_template_ref,harness_profiles_json,pod_uid,enabled)
+                VALUES(%s,%s,%s,2,'receiver-a2','environment-a2','synthetic','receiver',
+                'deployment-worker-v1','{}','pod-uid-a2',true)""",
+                owner,
+            )
+            with pytest.raises(DomainError) as registered:
+                task_launch.roll_runtime_attempt(
+                    connection, owner=owner, config=config, reason="fixture"
+                )
+            assert registered.value.code == "attempt_receiver_still_enabled"

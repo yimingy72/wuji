@@ -1147,6 +1147,90 @@ def refreshed_binding(connection, binding):
     }
 
 
+def roll_runtime_attempt(connection, *, owner, config, reason):
+    """Move one Task to its next runtime attempt; never over live work.
+
+    The attempt window is ``activated_at + max_elapsed_seconds``, so a launch
+    that failed after activation cannot be retried inside the same attempt. The
+    roll is explicit and guarded: the current attempt must already be unable to
+    run, hold no unsettled Run, no unreleased capacity and no registered
+    receiver. A healthy or in-flight attempt is refused instead of replaced.
+    """
+
+    row = connection.execute(
+        "SELECT t.runtime_attempt,t.activated_at,t.desired_state,t.observed_state,"
+        " t.execution_allowed,t.close_trigger,"
+        " (SELECT document_json FROM vnext.admission_config"
+        "  WHERE tenant_id=%s AND project_id=%s AND task_id=%s)"
+        " FROM vnext.task t WHERE t.tenant_id=%s AND t.project_id=%s AND t.task_id=%s"
+        " FOR UPDATE",
+        (*owner, *owner),
+    ).fetchone()
+    if row is None:
+        raise DomainError("INVALID_REFERENCE", 422)
+    attempt, activated_at, desired, observed, allowed, closed, admission = row
+    if closed is not None:
+        raise DomainError("task_closed", 409)
+    if activated_at is None:
+        raise DomainError("attempt_not_activated", 409)
+    if not admission:
+        raise DomainError("INVALID_REFERENCE", 422)
+    limits = strict_json_loads(admission).get("runtime", {}).get("limits", {})
+    window = limits.get("max_elapsed_seconds")
+    if type(window) is not int or window < 1:
+        raise DomainError("INVALID_REFERENCE", 422)
+    elapsed = (datetime.now(timezone.utc) - activated_at).total_seconds()
+    if desired == "run" and observed == "running" and allowed and elapsed < window:
+        raise DomainError("current_attempt_still_running", 409)
+    if connection.execute(
+        "SELECT 1 FROM vnext.agent_run WHERE tenant_id=%s AND project_id=%s"
+        " AND task_id=%s AND runtime_attempt=%s AND process_state<>'exited' LIMIT 1",
+        (*owner, attempt),
+    ).fetchone():
+        raise DomainError("attempt_has_unsettled_run", 409)
+    if connection.execute(
+        "SELECT 1 FROM vnext.capacity_reservation WHERE tenant_id=%s AND project_id=%s"
+        " AND task_id=%s AND state<>'released' LIMIT 1",
+        owner,
+    ).fetchone():
+        raise DomainError("attempt_holds_capacity", 409)
+    if connection.execute(
+        "SELECT 1 FROM vnext.scheduler_receiver WHERE tenant_id=%s AND project_id=%s"
+        " AND task_id=%s AND runtime_attempt=%s AND enabled LIMIT 1",
+        (*owner, attempt),
+    ).fetchone():
+        raise DomainError("attempt_receiver_still_enabled", 409)
+    following = int(attempt) + 1
+    event_seq = connection.execute(
+        "UPDATE vnext.task SET runtime_attempt=%s,activated_at=NULL,desired_state='pause',"
+        " observed_state='ready',execution_allowed=true,control_version=control_version+1,"
+        " event_seq=event_seq+1"
+        " WHERE tenant_id=%s AND project_id=%s AND task_id=%s RETURNING event_seq",
+        (following, *owner),
+    ).fetchone()[0]
+    connection.execute(
+        "INSERT INTO vnext.outbox(tenant_id,project_id,task_id,event_seq,kind,payload_json,access_level)"
+        " VALUES(%s,%s,%s,%s,'task.attempt_rolled',%s,0)",
+        (
+            *owner,
+            event_seq,
+            json.dumps(
+                {
+                    "previous_runtime_attempt": str(attempt),
+                    "runtime_attempt": str(following),
+                    "reason": reason,
+                },
+                sort_keys=True,
+            ),
+        ),
+    )
+    return {
+        "previous_runtime_attempt": int(attempt),
+        "runtime_attempt": following,
+        "reason": reason,
+    }
+
+
 def run_phases(config, *, task_id, phases, options):
     connection = owner_connection(config)
     binding = options.get("binding_in") or None
@@ -1159,7 +1243,15 @@ def run_phases(config, *, task_id, phases, options):
         raise DomainError("INVALID_REFERENCE", 422)
     result = {}
     try:
-        if "prepare" in phases:
+        if options.get("roll_attempt") or "roll" in phases:
+            result["roll"] = roll_runtime_attempt(
+                connection,
+                owner=(config["owner"][0], config["owner"][1], task_id),
+                config=config,
+                reason=options.get("roll_reason")
+                or "owner command: roll to the next runtime attempt",
+            )
+        if "prepare" in phases and "roll" not in phases:
             prepared = finalise_definition(
                 connection, owner=(config["owner"][0], config["owner"][1], task_id), config=config)
             ensure_operator_actor(
@@ -1186,6 +1278,8 @@ def run_phases(config, *, task_id, phases, options):
                     "gate_url": options["gate_url"],
                     "namespace": options["namespace"],
                     "evidence_ref": options["evidence_ref"],
+                    "roll_attempt": options.get("roll_attempt", False),
+                    "roll_reason": options.get("roll_reason") or None,
                 },
             )
             result["prepare"] = {
@@ -1358,7 +1452,10 @@ def main(argv=None):
     parser.add_argument("--config", default="/run/wuji/bootstrap/config.json")
     parser.add_argument("--task", required=True)
     parser.add_argument("--phase", default="all",
-                        choices=["all", "prepare", "activate", "wire", "capability"])
+                        choices=["all", "roll", "prepare", "activate", "wire", "capability"])
+    parser.add_argument("--roll-attempt", action="store_true",
+                        help="roll a Task that can no longer run into a new runtime attempt first")
+    parser.add_argument("--roll-reason", default="")
     parser.add_argument("--namespace", default="wuji-vnext-test")
     parser.add_argument("--agent-image", required=True)
     parser.add_argument("--kali-image", required=True)
@@ -1407,6 +1504,10 @@ def main(argv=None):
         ]
         if args.operator_signing_key:
             job_args += ["--operator-signing-key", args.operator_signing_key]
+        if args.roll_attempt:
+            job_args += ["--roll-attempt"]
+        if args.roll_reason:
+            job_args += ["--roll-reason", args.roll_reason]
         if args.binding_in:
             job_args += ["--binding-in", args.binding_in]
         submit_job(args=args, namespace=args.namespace, job_args=job_args,
