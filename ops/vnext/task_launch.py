@@ -31,6 +31,7 @@ from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 import json
 import re
+import shlex
 from pathlib import Path
 import time
 from urllib.parse import urlsplit
@@ -288,6 +289,67 @@ def composed_instructions(config, definition, kind):
     if len(text) > 32768:
         raise DomainError("CAPABILITY_UNAVAILABLE", 503)
     return text
+
+
+MATERIAL_PATH = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,255}$")
+
+
+def deployment_materials(config):
+    """A bounded material set the initializer writes into the Task workspace.
+
+    This is trusted deployment/scenario configuration, never Agent or model text:
+    a case publishes its closed materials here, the attempt initializer writes
+    them into the Kali workspace with owner-only mode, and the published
+    workspace tool remains the only way a Run reads them.
+    """
+
+    value = config.get("materials")
+    if value is None:
+        return ()
+    if not isinstance(value, list) or len(value) > 16:
+        raise DomainError("INVALID_SCHEMA", 422)
+    materials, seen = [], set()
+    for item in value:
+        if not isinstance(item, dict) or set(item) != {"path", "text"}:
+            raise DomainError("INVALID_SCHEMA", 422)
+        path, text = item["path"], item["text"]
+        if (
+            not isinstance(path, str)
+            or not MATERIAL_PATH.fullmatch(path)
+            or any(part in {"", ".", ".."} for part in path.split("/"))
+            or path in seen
+            or not isinstance(text, str)
+            or not 1 <= len(text.encode("utf-8")) <= 4096
+            or any(ord(character) < 9 or ord(character) == 127 for character in text)
+        ):
+            raise DomainError("INVALID_SCHEMA", 422)
+        seen.add(path)
+        materials.append({"path": path, "text": text})
+    return tuple(materials)
+
+
+def workspace_seed_command(materials):
+    """The fixed initializer command for one attempt's workspace seed.
+
+    Material text is base64-encoded and every path is shell-quoted, so a case
+    cannot smuggle a command into the initializer. Without published materials
+    the initializer keeps writing the original fixture file.
+    """
+
+    parts = ["umask 077"]
+    if not materials:
+        parts.append("printf 'wuji-vnext-fixture-v1\n' > /workspace/version.txt")
+        return "; ".join(parts)
+    for item in materials:
+        encoded = base64.b64encode(item["text"].encode("utf-8")).decode("ascii")
+        target = "/workspace/" + item["path"]
+        if "/" in item["path"]:
+            directory = "/workspace/" + item["path"].rsplit("/", 1)[0]
+            parts.append("mkdir -p " + shlex.quote(directory))
+        parts.append(
+            "printf %s " + shlex.quote(encoded) + " | base64 -d > " + shlex.quote(target)
+        )
+    return "; ".join(parts)
 
 
 def configured_seed_intent(config):
@@ -1128,7 +1190,7 @@ def _base64(value):
     return base64.b64encode(value).decode()
 
 
-def initializer_job(binding, *, namespace, image):
+def initializer_job(binding, *, namespace, image, materials=()):
     config = attempt_config(binding)
     labels = {key: value for key, value in config.identity_labels.items()
               if key != "app.kubernetes.io/managed-by"}
@@ -1153,8 +1215,7 @@ def initializer_job(binding, *, namespace, image):
                     "containers": [{
                         "name": "workspace-init",
                         "image": image,
-                        "command": ["sh", "-c",
-                                    "umask 077; printf 'wuji-vnext-fixture-v1\n' > /workspace/version.txt"],
+                        "command": ["sh", "-c", workspace_seed_command(materials)],
                         "securityContext": {"runAsUser": 10002, "runAsGroup": 10000,
                                             "runAsNonRoot": True, "allowPrivilegeEscalation": False,
                                             "readOnlyRootFilesystem": True,
@@ -1359,7 +1420,10 @@ def wire(binding, *, config, namespace, agent_auth_dir, kali_auth_dir, deploymen
     for body in objects:
         actions[body["metadata"]["name"]] = ensure_object(
             core, body["kind"], body, namespace=namespace)
-    job = initializer_job(binding, namespace=namespace, image=image)
+    job = initializer_job(
+        binding, namespace=namespace, image=image,
+        materials=deployment_materials(config),
+    )
     job_name = job["metadata"]["name"]
     try:
         batch.create_namespaced_job(namespace, job)

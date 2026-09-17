@@ -50,7 +50,7 @@
 
 ## 3. 队列（对应 P 任务）
 
-> 进度：E00 完成（本文 §1）；E01/E02 已交付 `5a94986`；E03-A 已交付 `8812239`；E03-B 已交付（见 §5）。
+> 进度：E00 完成（本文 §1）；E01/E02 已交付 `5a94986`；E03-A 已交付 `8812239`；E03-B 已交付 `0f66d08`；E06 已交付（见 §5）。
 
 1. **E01 真实任务配置与机制夹具分离（P02/P07/P11/P18）** — 模式来自可信部署配置；真实模式默认 Reason-first，不回落 `version.txt`；显式 seed 策略才产生种子读取；preflight 不触达目标/付费模型。
 2. **E02 接通完整能力链（P06/P07/P09/P10）** — 发布→Profile→Task 许可→Scheduler→Worker→Gate→Executor 同一张兼容表；Reason 无目标能力；`http_target` 进入正式调度前必须有部署发布与真实负控。
@@ -84,3 +84,10 @@
 - 正文要么**整份**进入上下文（`material: {encoding, byte_length, text}`，与按引用一致），要么在记录上显式标注固定原因：`not_sealed` / `not_text_media` / `over_inline_limit` / `unreadable` / `not_utf8` / `context_byte_limit` / `not_delivered`。**不截断、不静默丢弃、不改写原始字节**（存储字节与摘要仍由 `ArtifactStore.checked_bytes` 逐字节校验）。
 - 未配置 artifact 端口的宿主保持原行为：上下文只有精确引用，记录不出现 `material`/`material_omitted`，也不假装正文已交付。
 - 证据：`tests/vnext/test_evidence_in_context.py`（6 项：投递与逐项省略原因、预算边界不截断、无 artifact 端口时行为不变、上下文渲染、超限时改名、纯元数据模式不变）与 `tests/vnext/test_maf_child_transport.py::test_delivered_child_context_carries_the_authorized_evidence_body`（真实 M2 子进程链路上，spool 出的交付上下文确实带 P09 夹具正文）。
+
+### E06（已交付）：封闭试测夹具、独立评分与可复跑入口
+
+- `scripts/vnext/exploration_trials.py` 提供 `fixtures / preflight / case-config / run / inspect / summarize / stop`：`fixtures` 生成 CASE-A（运行时引用）、CASE-B 两个同 Goal 变体（一致/冲突）、CASE-C（信息不足）；`preflight` 只读本地材料与评分文档，检查"评分文档在材料根之外、材料字节未被改动、非答案文件不含答案、Goal 不含答案、变体标签不外泄"；`run` 委托现有 owner 命令，不新增第二套启动路径；`stop` 发真实 `cancel` 命令并回读数据库状态，不把 202 当成已停止。
+- `ops/vnext/task_launch.py` 支持部署/场景发布的有界 `materials`（≤16 项、每项 ≤4096 字节、路径受限）：attempt 初始化 Job 以 `umask 077` 写入 Kali 工作区，文本一律 base64 传输并 shell-quote，材料文本不进入命令行字面量；未发布材料时保持原 `version.txt` 夹具。
+- 证据：`tests/vnext/test_exploration_trials.py`（4 项：生成与预检、篡改材料被拒、案例运行配置只发布本案例材料、变体标签/诱饵答案不外泄）与 `tests/vnext/test_task_launch.py::test_e06_published_materials_seed_the_workspace_without_shell_interpretation`。
+- 未覆盖：真实集群上的 `run`/`stop` 尚未执行（等待新镜像滚动完成）；评分器（grading.json）需要根据真实试次记录写回，本轮只固定其输入契约。

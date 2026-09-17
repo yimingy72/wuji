@@ -1375,3 +1375,49 @@ def test_e03_the_harness_receives_the_composed_instructions(monkeypatch):
     assert captured["agent_instructions"] == instructions
     assert captured["disable_todo"] is True
     assert captured["disable_tool_auto_approval"] is True
+
+
+def test_e06_published_materials_seed_the_workspace_without_shell_interpretation():
+    """E06: a case's closed materials are written by the initializer, not the Agent."""
+
+    task_launch = _load_launch_module()
+    materials = task_launch.deployment_materials(
+        {
+            "materials": [
+                {"path": "materials/entry.json", "text": '{"pointer": "materials/a.json"}'},
+                {"path": "top.txt", "text": "line one\nline two"},
+            ]
+        }
+    )
+    assert [item["path"] for item in materials] == ["materials/entry.json", "top.txt"]
+    command = task_launch.workspace_seed_command(materials)
+    assert command.startswith("umask 077")
+    assert "mkdir -p /workspace/materials" in command
+    assert "base64 -d" in command
+    # Material text never reaches the shell as literal characters.
+    assert "pointer" not in command and "line two" not in command
+    for item in materials:
+        import base64 as _base64
+
+        encoded = _base64.b64encode(item["text"].encode("utf-8")).decode("ascii")
+        assert encoded in command
+
+    # Without published materials the original fixture file is unchanged.
+    assert "version.txt" in task_launch.workspace_seed_command(())
+
+    for broken in (
+        {"path": "../escape", "text": "x"},
+        {"path": "/absolute", "text": "x"},
+        {"path": "a", "text": ""},
+        {"path": "a", "text": "x" * 4097},
+        {"path": "a", "text": "x", "extra": "y"},
+        {"path": "a", "text": "x\x00y"},
+    ):
+        with pytest.raises(DomainError) as error:
+            task_launch.deployment_materials({"materials": [broken]})
+        assert error.value.code == "INVALID_SCHEMA"
+
+    with pytest.raises(DomainError):
+        task_launch.deployment_materials(
+            {"materials": [{"path": "a", "text": "x"}] * 17}
+        )
