@@ -230,3 +230,37 @@ def test_a_recorded_gap_review_stops_the_loop_for_the_operator():
 def test_an_unsupported_duty_is_refused(role):
     with pytest.raises(ValueError):
         peer.decision(request(role=role, records=[intent_record("Read it.")]))
+
+
+def test_a_pointer_without_a_claim_yet_is_cited_to_the_observation():
+    """Before the claim is committed the only honest basis is the observation."""
+
+    record = artifact_record(ENTRY)
+    record["display_kind"] = "artifact"
+    observation = {
+        "ref": reference("observation", "observation-1"),
+        "display_kind": "observation",
+        "record": {
+            "observation_id": "observation-1",
+            "revision": "1",
+            "artifact_refs": [{"id": "artifact-entry", "version": "1", "sha256": "a" * 64}],
+        },
+        "assessment": None,
+    }
+    document = reason_document([record, observation])
+    assert document["reason_decision"]["decision"] == "propose_intents"
+    assert document["intent_proposals"][0]["basis_refs"] == [
+        reference("observation", "observation-1")
+    ]
+
+
+def test_an_already_admitted_question_is_waited_on_instead_of_repeated():
+    entry = artifact_record(ENTRY)
+    asked = intent_record(
+        "Read workspace:materials/registry-a.json through the registered Kali"
+        " workspace tool and report the inventory service version it records."
+    )
+    document = reason_document([entry, asked])
+    decision = document["reason_decision"]
+    assert decision["decision"] == "wait"
+    assert decision["wait_refs"][0]["ref"] == asked["ref"]

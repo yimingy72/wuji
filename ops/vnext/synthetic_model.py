@@ -178,6 +178,21 @@ def claims(context):
         yield reference(record), record["record"]
 
 
+def observations(context):
+    for record in records_of(context, "observation"):
+        yield reference(record), record["record"]
+
+
+def proposed_paths(context):
+    """The workspace path each delivered question already asks for."""
+
+    result = {}
+    for ref, body in intents(context):
+        for candidate in PATH_REF.findall(body.get("question") or ""):
+            result.setdefault(candidate, ref)
+    return result
+
+
 def intents(context):
     for record in records_of(context, "intent"):
         yield reference(record), record["record"]
@@ -225,7 +240,33 @@ def reason_payload(context):
                 },
                 limitations=["a completion request, not a judgment that the Goal is met"],
             )
-        claim_refs = [claim_ref for claim_ref, _ in claims(context)]
+        if target in proposed_paths(context):
+            asked = proposed_paths(context)[target]
+            return payload(
+                reason_decision={
+                    "decision": "wait",
+                    "wait_refs": [
+                        {
+                            "ref": asked,
+                            "predicate": "work_accepted_result",
+                            "predicate_version": "1",
+                        }
+                    ],
+                    "reason": (
+                        "The question for " + target + " is already admitted; this "
+                        "Run waits for that work's own accepted result instead of "
+                        "asking the same thing twice."
+                    ),
+                },
+                limitations=["no duplicate question was proposed"],
+            )
+        # An Intent is grounded in knowledge, never in a raw artifact reference,
+        # so the basis is the newest claim or the observation it came from.
+        basis = [claim_ref for claim_ref, _ in claims(context)]
+        if not basis:
+            basis = [observation_ref for observation_ref, _ in observations(context)]
+        if not basis:
+            raise ValueError("the pointer has no claim or observation to cite")
         return payload(
             intent_proposals=[
                 {
@@ -235,7 +276,7 @@ def reason_payload(context):
                         "workspace tool and report the inventory service version it "
                         "records, citing the file it came from."
                     ),
-                    "basis_refs": claim_refs[-1:] or [ref],
+                    "basis_refs": basis[-1:],
                     "expected_output": PAYLOAD_SCHEMA,
                 }
             ],
