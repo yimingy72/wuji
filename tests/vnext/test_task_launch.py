@@ -1478,6 +1478,34 @@ def test_e01_a_stale_worker_lock_is_named_and_relock_publishes_a_new_revision(
             )
             assert again["changed"] is False and again["revision"] == "3"
 
+            # A declaration whose limits changed is published as the next
+            # revision of the same ref, and only then.
+            raised = json.loads(json.dumps(declared))
+            raised["limits"] = {**raised["limits"], "max_work_items": raised["limits"]["max_work_items"] + 4}
+            changed = task_launch.republish_runtime_profile(
+                connection,
+                owner=owner,
+                config={"admission": {"runtime": raised}},
+            )
+            assert changed["changed"] is True
+            assert changed["previous_revision"] == "3"
+            assert changed["revision"] == "4"
+            assert task_launch.republish_runtime_profile(
+                connection,
+                owner=owner,
+                config={"admission": {"runtime": raised}},
+            )["changed"] is False
+
+            # A ref the deployment never published starts at its declared revision.
+            fresh = json.loads(json.dumps(declared))
+            fresh["ref"] = "k8s-runtime-trial-v1"
+            first = task_launch.republish_runtime_profile(
+                connection,
+                owner=owner,
+                config={"admission": {"runtime": fresh}},
+            )
+            assert (first["changed"], first["previous_revision"], first["revision"]) == (True, None, "1")
+
             # The Task that froze the stale revision must be recreated: its
             # definition is immutable, so preflight keeps naming the mismatch.
             still = task_launch.preflight(

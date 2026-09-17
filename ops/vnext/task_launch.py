@@ -1909,13 +1909,14 @@ def replace_runtime_profiles(document, worker_profiles):
 
 
 def republish_runtime_profile(connection, *, owner, config):
-    """Publish the next immutable revision of this deployment's runtime profile.
+    """Publish the deployment's declared runtime profile as the next revision.
 
-    The worker lock is part of the frozen Task definition, so a rebuild that
-    changes it leaves every newly created Task unable to prepare: the published
-    runtime profile still names the old lock. This is the owner action that mints
-    the next revision from the deployment document; it reports digests only and
-    never rewrites an existing revision in place.
+    The deployment document is the source: a rebuild that changed the worker lock
+    or a deployment that raised its published limits both leave newly created
+    Tasks unable to run under an outdated row. This owner action mints the next
+    immutable revision (or the first one for a new ref) and never rewrites an
+    existing revision in place. Repeating it with an unchanged declaration
+    publishes nothing.
     """
 
     from wuji_core.admission.registry import RuntimeProfile, register_published_profile
@@ -1924,21 +1925,32 @@ def republish_runtime_profile(connection, *, owner, config):
     if not isinstance(declared, dict) or not isinstance(declared.get("ref"), str):
         raise DomainError("INVALID_REFERENCE", 422)
     latest = connection.execute(
-        "SELECT revision, lock_digest FROM vnext.published_profile"
+        "SELECT revision, lock_digest, document_json FROM vnext.published_profile"
         " WHERE tenant_id=%s AND kind='runtime' AND ref=%s ORDER BY revision DESC LIMIT 1",
         (owner[0], declared["ref"]),
     ).fetchone()
-    if latest is None:
-        raise DomainError("INVALID_REFERENCE", 422)
     shipped = shipped_worker_lock_digest()
-    if latest[1] == shipped:
+
+    def comparable(document):
+        # The revision and publish time are bookkeeping; the declared content is
+        # what decides whether this deployment has anything new to publish.
         return {
-            "ref": declared["ref"], "revision": str(latest[0]), "changed": False,
-            "lock_digest": shipped,
+            key: value
+            for key, value in document.items()
+            if key not in {"revision", "published_at"}
         }
-    # The deployment document is the source, not the stored row: a profile that
-    # an older contract published must be re-declared under today's contract
-    # instead of being copied forward with values it would now reject.
+
+    if latest is None:
+        updated = RuntimeProfile.model_validate(
+            {**declared, "lock_digest": shipped}
+        ).model_dump(mode="json")
+        register_published_profile(
+            connection, tenant_id=owner[0], kind="runtime", document=updated
+        )
+        return {
+            "ref": updated["ref"], "revision": updated["revision"], "changed": True,
+            "previous_revision": None, "lock_digest": shipped,
+        }
     updated = RuntimeProfile.model_validate(
         {
             **declared,
@@ -1946,6 +1958,11 @@ def republish_runtime_profile(connection, *, owner, config):
             "lock_digest": shipped,
         }
     ).model_dump(mode="json")
+    if comparable(strict_json_loads(latest[2])) == comparable(updated):
+        return {
+            "ref": declared["ref"], "revision": str(latest[0]), "changed": False,
+            "lock_digest": shipped,
+        }
     register_published_profile(
         connection, tenant_id=owner[0], kind="runtime", document=updated
     )
