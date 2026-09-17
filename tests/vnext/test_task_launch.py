@@ -84,6 +84,7 @@ def deployment_config(definition) -> dict:
             "audience": "wuji-vnext-deployment",
         },
         "definition": {"worker_profiles": profiles},
+        "tool": tool_document(),
         "executor": {
             "ref": "kali-workspace-v1",
             "receiver_id": "unused",
@@ -148,7 +149,7 @@ def prepared_task(case, task_id, connection):
             "task-launch",
         ),
         task=task_id,
-        definition_lines=prepared["definition"],
+        document=task_launch.initial_intent_document(config, prepared["definition"]),
         idempotency_key=f"task-launch-intent-{task_id}",
     )
     return config, owner, prepared, published, receipt
@@ -360,10 +361,11 @@ def test_published_session_bounds_follow_the_admission_limits():
 
     profiles = {
         kind: {"body": {"instructions": "read", "max_context_records": 8,
-                        "max_context_bytes": 4096, "max_output_tokens": 512}}
+                        "max_context_bytes": 4096, "max_output_tokens": 512,
+                        "tool_definition_refs": ["workspace-read-v1"]}}
         for kind in ("reason", "explore", "report")
     }
-    config = {"definition": {"worker_profiles": profiles}}
+    config = {"definition": {"worker_profiles": profiles}, "tool": tool_document()}
 
     published = task_launch.published_session_profiles(config, definition(32768, 131072))
     limits = published["explore"]["body"]["session_limits"]
@@ -970,3 +972,270 @@ def test_the_started_task_points_its_own_executor_at_its_own_kali_service():
         executor_identity("task-new"),
         base_url="https://task-kali-0123456789ab.wuji-vnext-test.svc:8444",
     ) == "unchanged"
+
+
+HTTP_TOOL_REF = "http-target-v1"
+
+
+def http_tool_document(ref=HTTP_TOOL_REF, executor_ref="kali-http-v1") -> dict:
+    return {
+        "ref": ref,
+        "revision": "1",
+        "name": "http_target_get",
+        "published_at": PUBLISHED_AT.isoformat().replace("+00:00", "Z"),
+        "input_schema": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["url", "method"],
+            "properties": {
+                "url": {"type": "string", "minLength": 1, "maxLength": 4096},
+                "method": {"type": "string", "enum": ["GET", "HEAD", "OPTIONS"]},
+            },
+        },
+        "allowed_target_kinds": ["http_target"],
+        "executor_ref": executor_ref,
+        "approval_required": False,
+    }
+
+
+def role_profiles(refs_by_kind) -> dict:
+    lock = "a" * 64
+    return {
+        kind: {
+            "body": {
+                "ref": f"harness.{kind}.deployment.v2",
+                "revision": "1",
+                "work_kind": kind,
+                "instructions": "read",
+                "lock_digest": lock,
+                "max_context_records": 8,
+                "max_context_bytes": 4096,
+                "max_output_tokens": 512,
+                "tool_definition_refs": list(refs),
+            }
+        }
+        for kind, refs in refs_by_kind.items()
+    }
+
+
+def bearer_token(exp) -> str:
+    import base64 as _base64
+
+    def part(value: dict) -> str:
+        return _base64.urlsafe_b64encode(
+            json.dumps(value, sort_keys=True).encode()
+        ).decode().rstrip("=")
+
+    return part({"alg": "RS256", "kid": "deployment-key"}) + "." + part(
+        {"sub": "receiver", "exp": exp}
+    ) + ".signature"
+
+
+def write_bearer(directory: Path, *, seconds: int) -> Path:
+    from datetime import timedelta
+
+    path = Path(directory) / "receiver.token"
+    path.write_bytes(
+        bearer_token(int((datetime.now(timezone.utc) + timedelta(seconds=seconds)).timestamp())).encode()
+    )
+    return path
+
+
+def test_e01_real_mode_is_trusted_deployment_configuration(db_environment, audit_directory):
+    """E01: the mode comes from the deployment document and freezes with the Task."""
+
+    with creation_case(db_environment, audit_directory) as case:
+        created = create(case)
+        assert created.status_code == 201, created.text
+        task_id = created.json()["task_id"]
+        owner = (OWNER[0], OWNER[1], task_id)
+
+        with db_environment.migration_connection() as connection:
+            definition, _ = stored_definition(connection, task_id)
+            register_tool_definition(connection, tenant_id=OWNER[0], definition=tool_document())
+            seed_pools(connection, definition)
+
+            real = deployment_config(definition)
+            real["evaluation_mode"] = "real_model"
+            prepared = task_launch.finalise_definition(connection, owner=owner, config=real)
+            stored, digest = stored_definition(connection, task_id)
+            assert digest == prepared["definition_digest"]
+            assert stored["evaluation_mode"] == "real_model"
+            # Real mode is Reason-first: no fixture seed is written or admitted.
+            assert "seed_intent" not in stored
+            assert task_launch.initial_intent_document(real, stored) is None
+
+            # The frozen mode is not replayed as a mechanism Task.
+            with pytest.raises(DomainError) as frozen:
+                task_launch.finalise_definition(
+                    connection, owner=owner, config=deployment_config(definition)
+                )
+            assert frozen.value.code == "INVALID_STATE"
+
+            # An unknown mode never reaches the Task definition.
+            unknown = deployment_config(definition)
+            unknown["evaluation_mode"] = "best_effort"
+            with pytest.raises(DomainError) as invalid:
+                task_launch.finalise_definition(connection, owner=owner, config=unknown)
+            assert invalid.value.code == "INVALID_STATE"
+            after, _ = stored_definition(connection, task_id)
+            assert after["evaluation_mode"] == "real_model"
+
+            # Repeating the same real prepare stays idempotent.
+            again = task_launch.finalise_definition(connection, owner=owner, config=real)
+            assert again["definition_changed"] is False
+            assert again["definition_digest"] == prepared["definition_digest"]
+
+
+def test_e01_real_mode_admits_only_an_explicitly_published_seed(
+    db_environment, audit_directory
+):
+    """E01: a real Task never falls back to ``workspace:version.txt``."""
+
+    with creation_case(db_environment, audit_directory) as case:
+        created = create(case)
+        assert created.status_code == 201, created.text
+        task_id = created.json()["task_id"]
+        owner = (OWNER[0], OWNER[1], task_id)
+
+        with db_environment.migration_connection() as connection:
+            definition, _ = stored_definition(connection, task_id)
+            register_tool_definition(connection, tenant_id=OWNER[0], definition=tool_document())
+            seed_pools(connection, definition)
+
+            config = deployment_config(definition)
+            config["evaluation_mode"] = "real_model"
+            config["seed_intent"] = {
+                "client_ref": "seed-entry",
+                "question": "Read the published entry point once and cite it.",
+            }
+            prepared = task_launch.finalise_definition(connection, owner=owner, config=config)
+            stored, _ = stored_definition(connection, task_id)
+            assert stored["seed_intent"] == {
+                "client_ref": "seed-entry",
+                "question": "Read the published entry point once and cite it.",
+                "expected_output": "wuji.agent-payload.v2",
+            }
+            document = task_launch.initial_intent_document(config, stored)
+            assert document == stored["seed_intent"]
+            assert "version.txt" not in document["question"]
+
+            # An unusable seed is refused before the definition is written.
+            broken = deployment_config(definition)
+            broken["evaluation_mode"] = "real_model"
+            broken["seed_intent"] = {"client_ref": "", "question": "x"}
+            with pytest.raises(DomainError) as invalid:
+                task_launch.finalise_definition(connection, owner=owner, config=broken)
+            assert invalid.value.code == "INVALID_SCHEMA"
+
+
+def test_e02_role_tool_refs_scope_target_tools_to_explore():
+    """E02: the published role profile and the Task allowlist both have to agree."""
+
+    task_launch = _load_launch_module()
+    definition = {"runtime_profile": {"allowed_tool_refs": [TOOL_REF, HTTP_TOOL_REF]}}
+    profiles = role_profiles(
+        {
+            "reason": [TOOL_REF, HTTP_TOOL_REF],
+            "explore": [TOOL_REF, HTTP_TOOL_REF],
+            "report": [TOOL_REF],
+        }
+    )
+    config = {
+        "evaluation_mode": "real_model",
+        "definition": {"worker_profiles": profiles},
+        "tools": [tool_document(), http_tool_document()],
+    }
+
+    assert task_launch.role_tool_refs(config, definition, "reason") == (TOOL_REF,)
+    assert task_launch.role_tool_refs(config, definition, "explore") == (
+        TOOL_REF,
+        HTTP_TOOL_REF,
+    )
+    assert task_launch.role_tool_refs(config, definition, "report") == (TOOL_REF,)
+
+    # The Task's own runtime profile is the ceiling: a deployment profile never
+    # widens a Task beyond what its creation entry allowed.
+    narrow = {"runtime_profile": {"allowed_tool_refs": [TOOL_REF]}}
+    assert task_launch.role_tool_refs(config, narrow, "explore") == (TOOL_REF,)
+
+    # Publishing a target tool is not a permission: while no role profile names
+    # it, every role stays on the workspace read it was published with.
+    unpublished = role_profiles(
+        {"reason": [TOOL_REF], "explore": [TOOL_REF], "report": [TOOL_REF]}
+    )
+    catalog = {**config, "definition": {"worker_profiles": unpublished}}
+    for kind in ("reason", "explore", "report"):
+        assert task_launch.role_tool_refs(catalog, definition, kind) == (TOOL_REF,)
+
+    # A role left with only a target tool fails instead of silently widening.
+    target_only = role_profiles(
+        {"reason": [HTTP_TOOL_REF], "explore": [TOOL_REF], "report": [TOOL_REF]}
+    )
+    with pytest.raises(DomainError) as error:
+        task_launch.role_tool_refs(
+            {**config, "definition": {"worker_profiles": target_only}},
+            definition,
+            "reason",
+        )
+    assert error.value.code == "CAPABILITY_UNAVAILABLE"
+
+
+def test_e01_preflight_reports_declared_state_without_a_target_action(
+    db_environment, audit_directory, tmp_path
+):
+    """E01: preflight is a local/platform read, so it can refuse before activation."""
+
+    with creation_case(db_environment, audit_directory) as case:
+        created = create(case)
+        assert created.status_code == 201, created.text
+        task_id = created.json()["task_id"]
+
+        with db_environment.migration_connection() as connection:
+            config, owner, prepared, published, _ = prepared_task(
+                case, task_id, connection
+            )
+        write_bearer(tmp_path, seconds=7200)
+        options = {
+            "deployment_auth_dir": str(tmp_path),
+            "base_url": "https://runtime.wuji-vnext-test.svc:8443",
+        }
+
+        with db_environment.migration_connection() as reader:
+            report = task_launch.preflight(
+                config, task_id=task_id, options=options, connection=reader
+            )
+            assert report["checks"], "preflight reported nothing"
+        assert report["evaluation_mode"] == "mechanism_synthetic"
+        assert report["blocked"] == [], report["checks"]
+        by_name = {entry["check"]: entry for entry in report["checks"]}
+        assert by_name["mode_binding"]["state"] == "ok"
+        assert by_name["tool:" + TOOL_REF]["state"] == "ok"
+        assert by_name["receiver_bearer"]["state"] == "ok"
+        assert by_name["stop_entry"]["state"] == "ok"
+
+        # An expired authorization is a real block, reported before activation.
+        with db_environment.migration_connection() as connection:
+            definition, _ = stored_definition(connection, task_id)
+        expired = json.loads(json.dumps(definition))
+        expired["task"]["authorization_expires_at"] = "2020-01-01T00:00:00Z"
+        with db_environment.migration_connection() as connection:
+            raw = canonical_json_bytes(expired).decode()
+            connection.execute(
+                "UPDATE vnext.task SET definition_json=%s, definition_digest=%s"
+                " WHERE tenant_id=%s AND project_id=%s AND task_id=%s",
+                (raw, sha256(raw.encode()).hexdigest(), OWNER[0], OWNER[1], task_id),
+            )
+        with db_environment.migration_connection() as reader:
+            blocked = task_launch.preflight(
+                config, task_id=task_id, options=options, connection=reader
+            )
+        assert "authorization_scope" in blocked["blocked"]
+
+        # A short bearer cannot authorize the declared attempt window.
+        write_bearer(tmp_path, seconds=60)
+        with db_environment.migration_connection() as reader:
+            short = task_launch.preflight(
+                config, task_id=task_id, options=options, connection=reader
+            )
+        assert "receiver_bearer" in short["blocked"]

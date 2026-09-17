@@ -381,13 +381,22 @@ class Scheduler:
                 set(config.allowed_tool_refs) & set(config.runtime.allowed_tool_refs)
             ):
                 raise ValueError("profile tool refs exceed frozen configuration")
+            # A published target tool is handed to Explore only, and only for a
+            # Task that was frozen as a real-model Task: the loopback mechanism
+            # fixture must never gain a path to a real asset, and Reason/Report
+            # keep material reads instead of target access. The tool's own
+            # admission still re-checks the Task's frozen authorization scope
+            # before any external action.
+            mode = definition.get("evaluation_mode")
             names = set()
             for ref in refs:
                 tool = self.registry.tool(tx, ref)
                 executor = self.registry.executor(tx, tool.executor_ref)
+                kinds = list(tool.allowed_target_kinds)
                 if (
                     (tool.approval_required and not session_profile)
-                    or tool.allowed_target_kinds != ["workspace_read"]
+                    or kinds not in (["workspace_read"], ["http_target"])
+                    or (kinds == ["http_target"] and (kind != "explore" or mode != "real_model"))
                     or tool.name in names
                     or ref not in executor.allowed_tool_refs
                     or executor.receiver_id != receiver["receiver_id"]

@@ -368,7 +368,7 @@ def configure(root, state, images):
     db={"host":f"postgres.{NAMESPACE}.svc","port":5432,"dbname":"wuji_vnext"}
     passwords={name:secrets.token_urlsafe(36) for name in ("wuji_migration","wuji_app","wuji_pod")}
     receiver="task-"+task+"-a1";environment="pod-environment-"+task
-    executor_ref="kali-workspace-v1";tool_ref="workspace-read-v1"
+    executor_ref="kali-workspace-v1";tool_ref="workspace-read-v1";target_tool_ref="http-target-v1"
     binding=dict(tenant_id=tenant,project_id=project,task_id=task,executor_ref=executor_ref,
         receiver_id=receiver,environment_ref=environment,collector_subject="collector",gate_subject="gate")
     lock=sha256((root/"packages/maf-worker/uv.lock").read_bytes()).hexdigest()
@@ -417,11 +417,25 @@ def configure(root, state, images):
         "task_access":{"operator":{"write":True,"control":True},"scheduler":{"admit":True},
             "pod-controller":{"control":True,"observe":True,"admit":True},"receiver":{"observe":True,"settle":True},
             "collector":{"capture":True,"settle":True},"gate":{}},
+        # The deployment publishes the compatibility table itself. Publishing a
+        # tool is not a permission: a Task only ever receives the refs that both
+        # its frozen runtime profile and its role profile name, and the Scheduler
+        # refuses a target tool for a mechanism Task or a non-Explore role.
+        "evaluation_mode":"mechanism_synthetic",
         "tool":{"ref":tool_ref,"revision":"1","published_at":published,"name":"read_workspace",
             "input_schema":{"type":"object","additionalProperties":False,"required":["path"],"properties":{"path":{"type":"string"}}},
             "executor_ref":executor_ref,"approval_required":False,"allowed_target_kinds":["workspace_read"]},
+        "tools":[{"ref":tool_ref,"revision":"1","published_at":published,"name":"read_workspace",
+            "input_schema":{"type":"object","additionalProperties":False,"required":["path"],"properties":{"path":{"type":"string"}}},
+            "executor_ref":executor_ref,"approval_required":False,"allowed_target_kinds":["workspace_read"]},
+          {"ref":target_tool_ref,"revision":"1","published_at":published,"name":"fetch_authorized_page",
+            "input_schema":{"type":"object","additionalProperties":False,"required":["url","method"],"properties":{
+              "url":{"type":"string","minLength":1,"maxLength":4096},
+              "method":{"type":"string","enum":["GET","HEAD","OPTIONS"]}}},
+            "executor_ref":executor_ref,"approval_required":False,"allowed_target_kinds":["http_target"]}],
         "executor":{"ref":executor_ref,"receiver_id":receiver,"environment_ref":environment,
-            "collector_subject":"collector","evidence_origin":"fixture_capture","capture_layer":"fixture_file_bytes","allowed_tool_refs":[tool_ref]}}
+            "collector_subject":"collector","evidence_origin":"fixture_capture","capture_layer":"fixture_file_bytes",
+            "allowed_tool_refs":[tool_ref,target_tool_ref]}}
     objects=task_storage(config)
     runtime_settings = None
     runtime_manifest = None

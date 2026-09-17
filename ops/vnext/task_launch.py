@@ -25,6 +25,7 @@ from __future__ import annotations
 import argparse
 import base64
 from contextlib import contextmanager
+from decimal import Decimal, InvalidOperation
 from functools import partial
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
@@ -32,6 +33,7 @@ import json
 import re
 from pathlib import Path
 import time
+from urllib.parse import urlsplit
 
 import httpx
 import psycopg
@@ -54,6 +56,22 @@ from wuji_maf_worker.factory import SessionHarnessProfile
 
 
 SCHEMA_VERSION = "wuji.task-launch.v1"
+
+# The evaluation mode is trusted deployment configuration. It decides whether a
+# Task may only ever use the loopback synthetic fixture, or the deployment's real
+# model gateway and published target-observation tools. It is never read from the
+# web payload, the Task goal or an Agent message, and a finalised definition
+# keeps the mode it was frozen with.
+EVALUATION_MODES = ("mechanism_synthetic", "real_model")
+
+# Role-scoped target capability: only Explore ever receives a target tool.
+# Reason reads already stored material and proposes work; Report renders.
+ROLE_TARGET_KINDS = {
+    "reason": frozenset(),
+    "explore": frozenset({"http_target"}),
+    "report": frozenset(),
+}
+WORKSPACE_KINDS = frozenset({"workspace_read"})
 
 
 def k8s_client():
@@ -91,6 +109,126 @@ def task_service_names(task_id):
     if not prefix:
         raise DomainError("INVALID_REFERENCE", 422)
     return {"agent": "task-agent-" + prefix, "kali": "task-kali-" + prefix}
+def configured_evaluation_mode(config):
+    """The one trusted source of this deployment's evaluation mode."""
+
+    mode = config.get("evaluation_mode", "mechanism_synthetic")
+    if mode not in EVALUATION_MODES:
+        raise DomainError("INVALID_STATE", 409)
+    return mode
+
+
+def binding_mode(config, binding):
+    """The mode a rendered binding was frozen with, or the deployment's now."""
+
+    mode = binding.get("evaluation_mode") or configured_evaluation_mode(config)
+    if mode not in EVALUATION_MODES:
+        raise DomainError("INVALID_STATE", 409)
+    return mode
+
+
+def deployment_tools(config):
+    """The deployment's published tool documents, as a bounded list.
+
+    ``tool`` is the single-tool deployment document older deployments ship;
+    ``tools`` publishes several at once for a Task that needs more than one
+    published capability.
+    """
+
+    value = config.get("tools")
+    if value is None:
+        single = config.get("tool")
+        value = [] if single is None else [single]
+    if not isinstance(value, list) or not 1 <= len(value) <= 16:
+        raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+    return value
+
+
+def published_tool_kinds(config):
+    """Tool ref -> published target kinds, taken from the deployment document."""
+
+    kinds = {}
+    for tool in deployment_tools(config):
+        if not isinstance(tool, dict):
+            raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+        ref = tool.get("ref")
+        target = tool.get("allowed_target_kinds")
+        if (
+            not isinstance(ref, str)
+            or not 1 <= len(ref) <= 256
+            or not isinstance(target, list)
+            or not target
+        ):
+            raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+        kinds[ref] = frozenset(target)
+    return kinds
+
+
+def role_tool_refs(config, definition, kind):
+    """Effective, role-scoped tool refs for one published Session profile.
+
+    Both published sides must agree and neither can widen the other: the
+    deployment's role profile names the refs it hands that role, and the Task's
+    frozen runtime profile names what this Task may ever use. The intersection is
+    the only effective set, and a ref whose published target kind is outside the
+    role's kinds is dropped. Reason therefore never receives a target tool even
+    if a deployment profile names one, and a profile left with nothing fails
+    before activation instead of running a weaker identity.
+    """
+
+    published = tuple(
+        deployment_profiles(config)[kind]["body"]["tool_definition_refs"]
+    )
+    allowed = tuple(definition["runtime_profile"]["allowed_tool_refs"])
+    kinds = published_tool_kinds(config)
+    permitted = ROLE_TARGET_KINDS.get(kind)
+    if permitted is None:
+        raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+    permitted = WORKSPACE_KINDS | permitted
+    refs = tuple(
+        ref
+        for ref in published
+        if ref in allowed and kinds.get(ref) is not None and kinds[ref] <= permitted
+    )
+    if not refs:
+        raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+    return refs
+
+
+def configured_seed_intent(config):
+    """An optional, explicit seed read published by the deployment.
+
+    A real Task is Reason-first: Task.start already generates the first Reason,
+    which reads the Goal, the start point and the already stored material and
+    proposes the first Intent itself. A deployment may publish exactly one
+    bounded seed instead, and only when a scenario genuinely needs a
+    deterministic starting read.
+    """
+
+    seed = config.get("seed_intent")
+    if seed is None:
+        return None
+    if not isinstance(seed, dict):
+        raise DomainError("INVALID_SCHEMA", 422)
+    question = seed.get("question")
+    client_ref = seed.get("client_ref")
+    expected = seed.get("expected_output", "wuji.agent-payload.v2")
+    if (
+        not isinstance(question, str)
+        or not 1 <= len(question) <= 2048
+        or not isinstance(client_ref, str)
+        or not 1 <= len(client_ref) <= 64
+        or not isinstance(expected, str)
+        or not 1 <= len(expected) <= 128
+    ):
+        raise DomainError("INVALID_SCHEMA", 422)
+    return {
+        "client_ref": client_ref,
+        "question": question,
+        "expected_output": expected,
+    }
+
+
 FIXED_TASK_FIELDS = (
     "namespace",
     "tmp_size_limit",
@@ -231,6 +369,10 @@ def published_session_profiles(config, definition):
     allowed = tuple(runtime["allowed_tool_refs"])
     if not allowed or len(set(allowed)) != len(allowed):
         raise ValueError("the Task runtime profile has no bounded tool set")
+    role_refs = {
+        kind: role_tool_refs(config, definition, kind)
+        for kind in deployment_profiles(config)
+    }
     # A published boundary carries the complete native message list plus its
     # operation frontier, so one Session object must at least cover the largest
     # single artifact the admission profile already allows a Run to produce.
@@ -257,7 +399,7 @@ def published_session_profiles(config, definition):
             revision="1",
             work_kind=kind,
             instructions=profile["body"]["instructions"],
-            tool_definition_refs=allowed,
+            tool_definition_refs=role_refs[kind],
             lock_digest=runtime["lock_digest"],
             max_context_records=profile["body"]["max_context_records"],
             max_context_bytes=profile["body"]["max_context_bytes"],
@@ -292,12 +434,20 @@ def finalise_definition(connection, *, owner, config):
     definition = strict_json_loads(raw)
     if sha256(raw.encode()).hexdigest() != digest:
         raise DomainError("INPUT_DIGEST_CONFLICT", 409)
+    mode = configured_evaluation_mode(config)
+    stored_mode = definition.get("evaluation_mode")
+    if stored_mode is not None and stored_mode != mode:
+        # A finalised definition is immutable: the same Task is never replayed
+        # under another mode after its profiles were published.
+        raise DomainError("INVALID_STATE", 409)
     profiles = json.loads(canonical_json_bytes(published_session_profiles(config, definition)))
     stored_profiles = definition.get("worker_profiles")
-    if definition.get("evaluation_mode") not in (None, "mechanism_synthetic"):
-        raise DomainError("INVALID_STATE", 409)
     definition["worker_profiles"] = profiles
-    definition["evaluation_mode"] = "mechanism_synthetic"
+    definition["evaluation_mode"] = mode
+    if mode == "real_model":
+        seed = configured_seed_intent(config)
+        if seed is not None:
+            definition["seed_intent"] = seed
     updated = json.loads(canonical_json_bytes(definition))
     latest = canonical_json_bytes(updated).decode()
     changed = latest != raw
@@ -500,8 +650,9 @@ def receiver_ids(task_id, attempt):
     return f"task-{task_id}-a{attempt}", f"pod-environment-{task_id}-a{attempt}"
 
 
-def admit_initial_intent(connection_factory, *, access, task, definition_lines, idempotency_key):
-    unit = UnitOfWork(connection_factory)
+def fixture_intent_document(definition_lines):
+    """The one bounded fixture read a mechanism Task starts with."""
+
     start_point = (definition_lines.get("start_points") or ["workspace:version.txt"])[0]
     if not isinstance(start_point, str) or not 1 <= len(start_point) <= 2048:
         raise DomainError("INVALID_REFERENCE", 422)
@@ -515,14 +666,42 @@ def admit_initial_intent(connection_factory, *, access, task, definition_lines, 
     )
     if len(question) > 2048:
         raise DomainError("INVALID_SCHEMA", 422)
+    return {
+        "client_ref": client_ref,
+        "question": question,
+        "expected_output": "wuji.agent-payload.v2",
+    }
+
+
+def initial_intent_document(config, definition_lines):
+    """The single starting Intent for a launched Task, or ``None``.
+
+    A mechanism Task keeps its fixture read. A real Task is Reason-first and
+    admits nothing here unless the deployment published an explicit seed: the
+    ``task.start`` trigger already generates the first Reason, and that Reason is
+    what proposes the first Intent from the Goal and already stored material. The
+    real path therefore never falls back to ``workspace:version.txt``.
+    """
+
+    mode = definition_lines.get("evaluation_mode")
+    if mode == "real_model":
+        seed = definition_lines.get("seed_intent")
+        return None if seed is None else dict(seed)
+    if mode not in (None, "mechanism_synthetic"):
+        raise DomainError("INVALID_STATE", 409)
+    return fixture_intent_document(definition_lines)
+
+
+def admit_initial_intent(connection_factory, *, access, task, document, idempotency_key):
+    unit = UnitOfWork(connection_factory)
     return ClaimService(unit).propose_intent(
         access,
         task,
         {
-            "client_ref": client_ref,
-            "question": question,
+            "client_ref": document["client_ref"],
+            "question": document["question"],
             "basis_refs": [],
-            "expected_output": "wuji.agent-payload.v2",
+            "expected_output": document["expected_output"],
         },
         idempotency_key=idempotency_key,
     )
@@ -1114,7 +1293,14 @@ def wire(binding, *, config, namespace, agent_auth_dir, kali_auth_dir, deploymen
             "receiver_subject": "receiver",
             "environment_ref": binding["environment_ref"],
             "credential_template_ref": "deployment-worker-v1",
-            "model_mode": "synthetic",
+            # The receiver registration is what the runtime reports to the
+            # platform, so it must describe the same model plane the Task was
+            # frozen with: a real Task never registers as a synthetic receiver.
+            "model_mode": (
+                "synthetic"
+                if binding_mode(config, binding) == "mechanism_synthetic"
+                else "real"
+            ),
         }
         # Several Tasks may share one runtime host: this attempt replaces only
         # its own entry, and every other Task keeps its published binding.
@@ -1260,6 +1446,11 @@ def publish_capabilities(connection, *, config, binding):
     # idempotent while the record itself never lives longer than 55 minutes.
     now = datetime.now(timezone.utc).replace(second=0, microsecond=0)
     published_at = now.replace(minute=(now.minute // 5) * 5)
+    # A mechanism Task publishes a short-lived candidate binding to its loopback
+    # fixture. A real Task publishes the reviewed combination instead: the
+    # deployment owner names the actual evidence, and nothing here invents a
+    # bypass of the reviewed-evidence requirement.
+    mode = binding_mode(config, binding)
     published = []
     for kind, profile in binding["worker_profiles"].items():
         capability_ref = f"session-capability-{binding['task_id']}-a{binding['runtime_attempt']}-{kind}"
@@ -1270,40 +1461,48 @@ def publish_capabilities(connection, *, config, binding):
         deadline = time.monotonic() + 120
         while True:
             try:
+                document = {
+                    "ref": capability_ref,
+                    "revision": "1",
+                    "published_at": published_at,
+                    "validation_status": (
+                        "mechanism_candidate" if mode == "mechanism_synthetic" else "verified"
+                    ),
+                    "profile_snapshot": profile,
+                        "profile_digest": profile["digest"],
+                    "client_snapshot": client_snapshot,
+                    "client_digest": configuration_digest(client_snapshot),
+                    "runtime_snapshot": runtime_snapshot,
+                    "runtime_digest": configuration_digest(runtime_snapshot),
+                    "framework_snapshot": dict(FRAMEWORK_SNAPSHOT),
+                    "framework_digest": configuration_digest(FRAMEWORK_SNAPSHOT),
+                    "lock_digest": admission.runtime.lock_digest,
+                    "limits": profile["body"]["session_limits"],
+                    "recovery_classes": ["settled_boundary", "approval_boundary"],
+                    "memory_mode": profile["body"]["memory_mode"],
+                    "approver_subjects": [config.get("operator_subject", "operator")],
+                    "approval_ttl_seconds": 300,
+                    "evidence_refs": [binding["evidence_ref"]],
+                }
+                if mode == "mechanism_synthetic":
+                    # Only the loopback fixture publishes a short-lived candidate
+                    # binding; a real combination names its reviewed evidence.
+                    document["candidate_binding"] = {
+                        "tenant_id": binding["tenant_id"],
+                        "project_id": binding["project_id"],
+                        "task_id": binding["task_id"],
+                        "receiver_id": binding["receiver_id"],
+                        "runtime_attempt": str(binding["runtime_attempt"]),
+                        "pod_uid": binding["pod_uid"],
+                        "model_gateway_digest": model_gateway_digest(
+                            admission.model.gateway_url
+                        ),
+                        "expires_at": published_at + timedelta(minutes=55),
+                    }
                 register_session_capability(
                     connection,
                     tenant_id=binding["tenant_id"],
-                    capability={
-                        "ref": capability_ref,
-                        "revision": "1",
-                        "published_at": published_at,
-                        "validation_status": "mechanism_candidate",
-                        "candidate_binding": {
-                            "tenant_id": binding["tenant_id"],
-                            "project_id": binding["project_id"],
-                            "task_id": binding["task_id"],
-                            "receiver_id": binding["receiver_id"],
-                            "runtime_attempt": str(binding["runtime_attempt"]),
-                            "pod_uid": binding["pod_uid"],
-                            "model_gateway_digest": model_gateway_digest(admission.model.gateway_url),
-                            "expires_at": published_at + timedelta(minutes=55),
-                        },
-                        "profile_snapshot": profile,
-                        "profile_digest": profile["digest"],
-                        "client_snapshot": client_snapshot,
-                        "client_digest": configuration_digest(client_snapshot),
-                        "runtime_snapshot": runtime_snapshot,
-                        "runtime_digest": configuration_digest(runtime_snapshot),
-                        "framework_snapshot": dict(FRAMEWORK_SNAPSHOT),
-                        "framework_digest": configuration_digest(FRAMEWORK_SNAPSHOT),
-                        "lock_digest": admission.runtime.lock_digest,
-                        "limits": profile["body"]["session_limits"],
-                        "recovery_classes": ["settled_boundary", "approval_boundary"],
-                        "memory_mode": profile["body"]["memory_mode"],
-                        "approver_subjects": [config.get("operator_subject", "operator")],
-                        "approval_ttl_seconds": 300,
-                        "evidence_refs": [binding["evidence_ref"]],
-                    },
+                    capability=document,
                 )
             except DomainError as error:
                 # CAPABILITY_UNAVAILABLE is exactly "this attempt has not
@@ -1328,6 +1527,7 @@ def binding_document(config, task_id, *, agent_image, kali_image, prepared, extr
         "project_id": owner[1],
         "task_id": task_id,
         "definition_digest": prepared["definition_digest"],
+        "evaluation_mode": definition.get("evaluation_mode"),
         "scope_digest": sha256(
             canonical_json_bytes(definition["task"]["authorization_scope"])
         ).hexdigest(),
@@ -1470,6 +1670,226 @@ def roll_runtime_attempt(connection, *, owner, config, reason):
     }
 
 
+def _loopback_url(url):
+    """True when the model endpoint is the deployment's own loopback fixture."""
+
+    from ipaddress import ip_address
+
+    target = urlsplit(url if isinstance(url, str) else "")
+    if (
+        target.scheme != "http"
+        or not target.hostname
+        or target.username
+        or target.password
+        or target.query
+        or target.fragment
+    ):
+        return False
+    if target.hostname == "localhost":
+        return True
+    try:
+        return ip_address(target.hostname).is_loopback
+    except ValueError:
+        return False
+
+
+def preflight(config, *, task_id, options, connection=None):
+    """Report what this deployment declares, without touching a target.
+
+    Nothing here reaches a target or a paid model: it reads the deployment
+    document, the Task row and the published registry, and reports what is
+    declared, what is missing and what cannot be decided locally. A real
+    network reachability check is a separate approved action, not a free dry run.
+    """
+
+    report = {
+        "schema_version": "wuji.task-preflight.v1",
+        "task_id": task_id,
+        "checks": [],
+        "blocked": [],
+        "unknown": [],
+    }
+
+    def record(name, state, detail):
+        report["checks"].append({"check": name, "state": state, "detail": detail})
+        if state == "blocked":
+            report["blocked"].append(name)
+        elif state == "unknown":
+            report["unknown"].append(name)
+
+    try:
+        mode = configured_evaluation_mode(config)
+    except DomainError:
+        record("evaluation_mode", "blocked", "the deployment declares no valid mode")
+        return report
+    report["evaluation_mode"] = mode
+    record("evaluation_mode", "ok", mode)
+
+    owned = connection is None
+    if owned:
+        connection = owner_connection(config)
+    try:
+        owner = (config["owner"][0], config["owner"][1], task_id)
+        row = connection.execute(
+            "SELECT definition_json, definition_digest, activated_at, runtime_attempt,"
+            " control_version FROM vnext.task"
+            " WHERE tenant_id=%s AND project_id=%s AND task_id=%s",
+            owner,
+        ).fetchone()
+        if row is None or not row[0]:
+            record("task_definition", "blocked", "the Task has no frozen definition")
+            return report
+        raw, digest, activated_at, attempt, version = row
+        if sha256(raw.encode()).hexdigest() != digest:
+            record("task_definition", "blocked", "definition bytes do not match the digest")
+            return report
+        definition = strict_json_loads(raw)
+        record(
+            "task_definition",
+            "ok",
+            "activation=" + ("done" if activated_at is not None else "pending")
+            + " runtime_attempt=" + str(attempt) + " control_version=" + str(version),
+        )
+
+        stored_mode = definition.get("evaluation_mode")
+        if stored_mode is not None and stored_mode != mode:
+            record(
+                "mode_binding",
+                "blocked",
+                "definition is frozen as " + str(stored_mode) + ", deployment says " + mode,
+            )
+        else:
+            record("mode_binding", "ok", stored_mode or "not finalised yet")
+
+        scope = definition["task"].get("authorization_scope") or []
+        expiry = definition["task"].get("authorization_expires_at")
+        try:
+            expires_at = datetime.fromisoformat(str(expiry).replace("Z", "+00:00"))
+        except ValueError:
+            expires_at = None
+        if not scope:
+            record("authorization_scope", "blocked", "the Task authorises no asset")
+        elif expires_at is None:
+            record("authorization_scope", "blocked", "the authorization expiry is unreadable")
+        elif expires_at <= datetime.now(timezone.utc):
+            record("authorization_scope", "blocked", "the authorization already expired")
+        else:
+            record(
+                "authorization_scope",
+                "ok",
+                str(len(scope)) + " asset(s), expires " + expires_at.isoformat(),
+            )
+
+        try:
+            amount = Decimal(str(definition["task"]["budget"]["amount"]))
+            budget_ok = amount.is_finite() and amount > 0
+        except (KeyError, TypeError, InvalidOperation):
+            budget_ok = False
+        record(
+            "budget_source",
+            "ok" if budget_ok else "blocked",
+            "declared task budget" if budget_ok else "no bounded task budget is declared",
+        )
+
+        model = definition.get("model_profile") or config.get("admission", {}).get("model", {})
+        gateway = model.get("gateway_url") if isinstance(model, dict) else None
+        loopback = _loopback_url(gateway)
+        if mode == "mechanism_synthetic" and not loopback:
+            record("model_endpoint", "blocked", "mechanism mode requires the loopback fixture")
+        elif mode == "real_model" and loopback:
+            record(
+                "model_endpoint",
+                "blocked",
+                "real mode needs a published non-loopback model gateway",
+            )
+        else:
+            record("model_endpoint", "ok", "loopback fixture" if loopback else "real gateway")
+
+        try:
+            refs = {
+                kind: role_tool_refs(config, definition, kind)
+                for kind in deployment_profiles(config)
+            }
+        except (DomainError, KeyError, TypeError, ValueError) as error:
+            record("role_profiles", "blocked", f"published profile set unusable: {error}")
+            refs = {}
+        else:
+            record(
+                "role_profiles",
+                "ok",
+                "; ".join(kind + "=" + ",".join(value) for kind, value in sorted(refs.items())),
+            )
+
+        receiver_id, environment_ref = receiver_ids(task_id, int(attempt))
+        tools = {}
+        for kind, values in sorted(refs.items()):
+            for ref in values:
+                tools.setdefault(ref, []).append(kind)
+        for ref, kinds in sorted(tools.items()):
+            published = connection.execute(
+                "SELECT revoked, document_json FROM vnext.tool_definition"
+                " WHERE tenant_id=%s AND ref=%s",
+                (owner[0], ref),
+            ).fetchone()
+            if published is None or published[0]:
+                record("tool:" + ref, "blocked", "not published for this tenant")
+                continue
+            tool = strict_json_loads(published[1])
+            registration = connection.execute(
+                "SELECT document_json FROM vnext.executor_registration"
+                " WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND ref=%s",
+                (*owner, tool["executor_ref"]),
+            ).fetchone()
+            if registration is None:
+                record("tool:" + ref, "blocked", "executor " + str(tool["executor_ref"]) + " absent")
+                continue
+            executor = strict_json_loads(registration[0])
+            mismatched = (
+                ref not in (executor.get("allowed_tool_refs") or [])
+                or executor.get("receiver_id") != receiver_id
+                or executor.get("environment_ref") != environment_ref
+            )
+            record(
+                "tool:" + ref,
+                "blocked" if mismatched else "ok",
+                "kinds=" + ",".join(tool["allowed_target_kinds"])
+                + " roles=" + ",".join(kinds)
+                + (" executor bound to another attempt" if mismatched else ""),
+            )
+
+        pools = deployment_pool_keys(connection, config)
+        record("capacity", "ok", str(len(pools)) + " pool key(s)")
+    except (DomainError, KeyError, TypeError, ValueError) as error:
+        record("platform_state", "unknown", f"{type(error).__name__}: {error}")
+    finally:
+        if owned:
+            connection.close()
+
+    bearer = Path(options["deployment_auth_dir"]) / "receiver.token"
+    if not bearer.is_file():
+        record("receiver_bearer", "blocked", "no mounted receiver bearer to inspect")
+    else:
+        try:
+            require_receiver_bearer_window(
+                bearer,
+                window_seconds=int(
+                    (definition.get("runtime_profile") or {}).get("limits", {}).get(
+                        "max_elapsed_seconds", 0
+                    )
+                ),
+            )
+        except DomainError as error:
+            record("receiver_bearer", "blocked", error.code)
+        else:
+            record("receiver_bearer", "ok", "covers the attempt window plus margin")
+
+    if options.get("base_url"):
+        record("stop_entry", "ok", "control endpoint " + str(options["base_url"]))
+    else:
+        record("stop_entry", "blocked", "no control endpoint is declared")
+    return report
+
+
 def run_phases(config, *, task_id, phases, options):
     connection = owner_connection(config)
     binding = options.get("binding_in") or None
@@ -1478,10 +1898,17 @@ def run_phases(config, *, task_id, phases, options):
         if path.exists():
             candidate = _read_json(path)
             binding = candidate if candidate.get("task_id") == task_id else None
-    if binding is None and "prepare" not in phases and set(phases) != {"intent"}:
+    if (
+        binding is None
+        and "prepare" not in phases
+        and set(phases) != {"intent"}
+        and set(phases) != {"preflight"}
+    ):
         raise DomainError("INVALID_REFERENCE", 422)
     result = {}
     try:
+        if "preflight" in phases:
+            result["preflight"] = preflight(config, task_id=task_id, options=options)
         if "intent" in phases:
             receipt = admit_followup_intent(
                 partial(application_connection, config),
@@ -1525,12 +1952,20 @@ def run_phases(config, *, task_id, phases, options):
                 config=config, definition=prepared["definition"],
                 attempt=prepared["runtime_attempt"],
                 pool_keys=deployment_pool_keys(connection, config))
-            receipt = admit_initial_intent(
-                partial(application_connection, config),
-                access=operator_access(config, signing_key_file=options.get("signing_key_file")),
-                task=task_id,
-                definition_lines=prepared["definition"],
-                idempotency_key=f"task-launch-intent-{task_id}")
+            initial = initial_intent_document(config, prepared["definition"])
+            receipt = (
+                None
+                if initial is None
+                else admit_initial_intent(
+                    partial(application_connection, config),
+                    access=operator_access(
+                        config, signing_key_file=options.get("signing_key_file")
+                    ),
+                    task=task_id,
+                    document=initial,
+                    idempotency_key=f"task-launch-intent-{task_id}",
+                )
+            )
             binding = binding_document(
                 config, task_id,
                 agent_image=options["agent_image"], kali_image=options["kali_image"],
@@ -1548,10 +1983,12 @@ def run_phases(config, *, task_id, phases, options):
                 "definition_digest": prepared["definition_digest"],
                 "receiver_id": published["receiver_id"],
                 "executor_ref": published["executor_ref"],
+                "evaluation_mode": prepared["definition"].get("evaluation_mode"),
+                "reason_first": initial is None,
                 "intent_ref": receipt.canonical_ref.model_dump(mode="json")
-                if receipt.canonical_ref is not None else None,
-                "intent_status": str(receipt.status),
-                "intent_local_ref": receipt.local_ref,
+                if receipt is not None and receipt.canonical_ref is not None else None,
+                "intent_status": None if receipt is None else str(receipt.status),
+                "intent_local_ref": None if receipt is None else receipt.local_ref,
             }
         if "activate" in phases:
             state = connection.execute(
@@ -1725,7 +2162,8 @@ def main(argv=None):
     parser.add_argument("--config", default="/run/wuji/bootstrap/config.json")
     parser.add_argument("--task", required=True)
     parser.add_argument("--phase", default="all",
-                        choices=["all", "roll", "prepare", "activate", "wire", "capability", "intent"])
+                        choices=["all", "roll", "preflight", "prepare", "activate",
+                                 "wire", "capability", "intent"])
     parser.add_argument("--roll-attempt", action="store_true",
                         help="roll a Task that can no longer run into a new runtime attempt first")
     parser.add_argument("--roll-reason", default="")
@@ -1798,7 +2236,8 @@ def main(argv=None):
     config = _read_json(args.config)
     phases = ["prepare", "activate", "wire", "capability"] if args.phase == "all" else [args.phase]
     if not args.agent_image or not args.kali_image:
-        raise SystemExit("--agent-image and --kali-image are required")
+        if args.phase != "preflight":
+            raise SystemExit("--agent-image and --kali-image are required")
     if args.binding_in:
         options_binding = _read_json(args.binding_in)
         if options_binding.get("schema_version") != SCHEMA_VERSION:

@@ -58,7 +58,10 @@ def initialize(config):
                     ("model:"+config["admission"]["model"]["ref"],"model",None),("tenant:"+tenant,"tenant",tenant)):
                 connection.execute("INSERT INTO vnext.capacity_pool(pool_key,tier,tenant_id,capacity,published_ref) VALUES(%s,%s,%s,%s,'deployment-v1') ON CONFLICT (pool_key) DO NOTHING",(key,tier,tenant_binding,capacity))
                 connection.execute("INSERT INTO vnext.task_capacity_pool(tenant_id,project_id,task_id,pool_key) VALUES(%s,%s,%s,%s) ON CONFLICT DO NOTHING",(*owner,key))
-            register_tool_definition(connection,tenant_id=tenant,definition=config["tool"])
+            # ``tools`` publishes several documents at once; ``tool`` stays the
+            # single-tool deployment document older bootstraps ship.
+            for published_tool in config.get("tools") or [config["tool"]]:
+                register_tool_definition(connection,tenant_id=tenant,definition=published_tool)
             register_executor(connection,owner=owner,executor=config["executor"])
             register_task_config(connection,owner=owner,config=config["admission"])
             identity=config["identity"]
