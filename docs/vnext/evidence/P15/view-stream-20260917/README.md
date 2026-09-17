@@ -35,8 +35,17 @@ Accept: text/event-stream
 id: bcS_Afq7Dnfl…
 event: view
 data: {"schema_version":"wuji.view-event.v2","view_id":"33c1a3bf-…","base_view_revision":"1","view_revision":"2",
-       "cursor":"bcS_Afq7Dnfl…","patches":[16 条 upsert/remove]}
+       "cursor":"bcS_Afq7Dnfl…","patches":[16 条 upsert/remove]}      ← pause，work item 变为 reconciling
+
+: keepalive （×5）
+
+id: CnxzxLOpXvbi…
+event: view
+data: {"schema_version":"wuji.view-event.v2","view_id":"33c1a3bf-…","base_view_revision":"2","view_revision":"3",
+       "cursor":"CnxzxLOpXvbi…","patches":[16 条 upsert/remove]}      ← resume，origin 回到 running
 ```
+
+同一个连接上收到两个批次（`sse-live.txt`：20 帧、2 个 `event: view`），修订连续推进 `1 → 2 → 3`。
 
 触发这次变更的是真实平台命令（`raw/pause.request.txt` / `raw/pause.response.json`）：
 
