@@ -1,0 +1,9 @@
+HTTP/1.1 404 Not Found
+date: Thu, 17 Sep 2026 04:44:33 GMT
+server: uvicorn
+content-length: 164
+content-type: application/json
+cache-control: no-store
+x-request-id: 8b976873-1826-4888-8246-1326911d28f9
+
+{"code":"NOT_FOUND_OR_FORBIDDEN","message":"The request could not be completed.","request_id":"8b976873-1826-4888-8246-1326911d28f9","retryable":false,"details":{}}

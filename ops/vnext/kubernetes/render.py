@@ -85,9 +85,11 @@ def platform(name, image, command, *, synthetic_model_image=None):
     volumes = [{"name":"config","configMap":{"name":name+"-config"}},
         {"name":"credentials","secret":{"secretName":name+"-credentials","defaultMode":288}},
         {"name":"tmp","emptyDir":{"sizeLimit":"128Mi"}}]
-    if name != "api":
-        mounts.insert(2, {"name":"artifacts","mountPath":"/var/lib/wuji/platform/artifacts"})
-        volumes.insert(2, {"name":"artifacts","persistentVolumeClaim":{"claimName":"platform-artifacts"}})
+    # Every platform role that serves or removes artifact bytes needs the same
+    # store; a role-local root would tombstone rows while the bytes survive
+    # somewhere else (or make authorized reads fail).
+    mounts.insert(2, {"name":"artifacts","mountPath":"/var/lib/wuji/platform/artifacts"})
+    volumes.insert(2, {"name":"artifacts","persistentVolumeClaim":{"claimName":"platform-artifacts"}})
     if name == "runtime":
         volumes.append({"name":"state","persistentVolumeClaim":{"claimName":"runtime-state"}})
         mounts.append({"name":"state","mountPath":"/var/lib/wuji/platform/state"})

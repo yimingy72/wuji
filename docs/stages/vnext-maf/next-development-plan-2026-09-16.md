@@ -160,7 +160,14 @@ Task A attempt 2 的第三个 Run（`9e574eb0`）从未被投递成功：receive
     BFF 6 passed、合同 check 与 web build exit 0。**同轮修复**了 P12/P16 拒绝路径在 HTTP 边界退化为 500 的
     封闭错误码问题（`3843311`，本集群镜像待重建）。见
     [证据包](../../vnext/evidence/P16/report-delivery-20260917/README.md)。
-18. **仍未完成。** P16 的保留/GC/purge 与 tombstone（AC-066/067）、审计/观测/费用分离（AC-068）、
-    HTTP 交付适配器与外部媒介投递、历史交付分页；判定自动生产来源；真正在 run 执行中投递取消、
-    写入路径语义与长会话压缩；工作台当前仍是每个 web 部署绑定一个 Task。ViewStream 的跨 BFF 重启、
-    多标签长连接与规模 p95 也未验证。
+18. **P16-B 受权 purge、tombstone 与不可用提示。已交付并实测（`8393f31` + `039a48d`）。** 迁移
+    `vnext_0027_p16_artifact_purge` 提供只读 purge 账本与 `SECURITY DEFINER` 生产者（`wuji.gc` + `wuji.purge`
+    双权限），产物触发器把存活租约作为所有 tombstone 的硬边界，显式 purge 可退役仍被冻结报告引用的内容而普通 GC 继续
+    拒绝；`wuji_core.audit.retention` 负责删除字节，读取侧新增 `unavailable_materials`/`unavailable_evidence`
+    只标记不可用、不改写摘要。真实 K8s：purge 200、重放同记录、再次 409、reader 404，报告摘要不变且出现不可用条目；
+    同轮修复 api 与 runtime/gates 共用 `platform-artifacts` 存储（原 `/tmp/artifacts` 让字节删除落空）并在共享存储上
+    验证 blob 由存在变不存在。检查：交付/保留 14 passed、相邻 102 passed、配置 2 passed、合同与 web 构建 exit 0。
+    见[证据包](../../vnext/evidence/P16/retention-purge-20260917/README.md)。
+19. **仍未完成。** P16 的审计/观测/费用分离（AC-068）、策略引擎授权、跨副本存储删除语义与外部媒介投递、
+    历史交付分页；判定自动生产来源；真正在 run 执行中投递取消、写入路径语义与长会话压缩；工作台当前仍是
+    每个 web 部署绑定一个 Task。ViewStream 的跨 BFF 重启、多标签长连接与规模 p95 也未验证。

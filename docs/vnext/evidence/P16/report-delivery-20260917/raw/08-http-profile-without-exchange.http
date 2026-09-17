@@ -1,8 +1,9 @@
-HTTP/1.1 500 Internal Server Error
-date: Thu, 17 Sep 2026 04:12:38 GMT
+HTTP/1.1 409 Conflict
+date: Thu, 17 Sep 2026 04:44:20 GMT
 server: uvicorn
-content-length: 21
-content-type: text/plain; charset=utf-8
-x-request-id: 4c7504d2-f4d8-4ac5-86e5-98ce800f6a47
+content-length: 168
+content-type: application/json
+cache-control: no-store
+x-request-id: acd67568-42d8-47ca-a491-3ecac16e2df9
 
-Internal Server Error
+{"code":"DELIVERY_EXCHANGE_REQUIRED","message":"The request could not be completed.","request_id":"acd67568-42d8-47ca-a491-3ecac16e2df9","retryable":false,"details":{}}

@@ -1,0 +1,64 @@
+任务完成
+已关闭 · 报告已冻结
+可以收尾
+刷新
+任务状态	closed	控制版本	4	收尾 epoch	da99b237-09ab-4559-bed5-a9be68e473af
+关闭原因	goal_satisfied	结果	complete
+判据	修订	必需	判定	适用性
+version	1	是	已满足	当前
+冻结报告
+有争议
+报告	report-p12-final
+正文摘要	4445bc13e4e29cf22c651cdd1fe1aeb28c1d92e2cb30e520a9d38327fcd69b85
+关闭原因	goal_satisfied
+结果	complete
+冻结时间	2026/9/17 08:59:50
+查看冻结正文
+{
+  "close_trigger": "goal_satisfied",
+  "criteria": [
+    {
+      "applicability": "current",
+      "criterion_id": "version",
+      "revision": "1",
+      "status": "met"
+    }
+  ],
+  "epoch_id": "da99b237-09ab-4559-bed5-a9be68e473af",
+  "result_outcome": "complete",
+  "runs": [
+    {
+      "agent_run_id": "2ccd9c74-f9b2-443c-8998-dd3dc3737c9f",
+      "process_state": "exited",
+      "result_state": "accepted",
+      "stop_kind": "exited"
+    },
+    {
+      "agent_run_id": "bd912879-2941-41d8-befb-6c8c6356055c",
+      "process_state": "exited",
+      "result_state": "accepted",
+      "stop_kind": "exited"
+    }
+  ],
+  "schema_version": "wuji.report.v1",
+  "task_id": "fc2ff1b0-a578-4131-9fc3-4a7a80c74442",
+  "work_items": [
+    {
+      "kind": "explore",
+      "state": "done",
+      "terminal_reason": null
+    },
+    {
+      "kind": "reason",
+      "state": "done",
+      "terminal_reason": null
+    }
+  ]
+}
+迟到反证 · assessor
+late counter-evidence about an earlier call
+证据已不可用 · 09bc68a8-030c-4c68-b6f2-8f52be48dc72@1
+原因：approved_retention_action（内容已移除，摘要保留为 465ee220dcc6d4d81eab75c576492801f872fc7c72aa75642478c3a0df1705c8）
+报告交付
+离线文档（仅冻结正文）
+生成交付记录

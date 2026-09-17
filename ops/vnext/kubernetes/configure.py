@@ -436,7 +436,6 @@ def configure(root, state, images):
         "service_token_file":"/run/wuji/credentials/service.token","ca_file":"/config/ca.crt","profiles_file":"/config/profiles.json"}
     for name,subject,dbuser in (("runtime","pod-controller","wuji_pod"),("api","operator","wuji_app"),("scheduler","scheduler","wuji_app"),("gates","gate","wuji_app")):
         settings={**base,"role":name}
-        if name=="api":settings["artifact_root"]="/tmp/artifacts"
         credentials={"service.token":tokens[subject],"database.json":canonical_json_bytes({**db,"user":dbuser,"password":passwords[dbuser]})}
         if name!="scheduler":credentials.update({"tls.crt":tls[name+".crt"],"tls.key":tls[name+".key"]})
         if name in {"runtime","scheduler"}:

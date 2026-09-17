@@ -267,6 +267,17 @@ def test_refresh_images_preserves_binding_and_aligns_template(tmp_path):
     assert build_task_pod(task_runtime)["metadata"]["annotations"]["wuji.dev/template-digest"] == task_runtime.template_digest
 
 
+def _default_artifact_root():
+    """The platform default the api inherits for its artifact store."""
+
+    spec = importlib.util.spec_from_file_location(
+        "vnext_deployment_common", ROOT / "ops/vnext/deployment_common.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.Settings.model_fields["artifact_root"].default
+
+
 def test_fresh_configuration_includes_isolated_public_api(tmp_path):
     operations_spec = importlib.util.spec_from_file_location(
         "vnext_k8s_operations_for_config", ROOT / "scripts/vnext/k8s.py"
@@ -296,7 +307,12 @@ def test_fresh_configuration_includes_isolated_public_api(tmp_path):
     )
     settings = json.loads(api_config["data"]["deployment.json"])
     assert settings["role"] == "api"
-    assert settings["artifact_root"] == "/tmp/artifacts"
+    # The api serves and purges artifact bytes, so it must mount the same store
+    # the runtime and gates use; a role-local root would tombstone rows while
+    # the bytes survive elsewhere. It inherits the shared default root instead
+    # of carrying a role-local override.
+    assert "artifact_root" not in settings
+    assert _default_artifact_root() == "/var/lib/wuji/platform/artifacts"
 
     api_secret = next(
         item for item in platform["items"]
@@ -312,10 +328,11 @@ def test_fresh_configuration_includes_isolated_public_api(tmp_path):
     )
     pod = api_deployment["spec"]["template"]["spec"]
     assert pod["automountServiceAccountToken"] is False
-    assert "artifacts" not in {item["name"] for item in pod["volumes"]}
-    assert "artifacts" not in {
-        item["name"] for item in pod["containers"][0]["volumeMounts"]
-    }
+    assert "artifacts" in {item["name"] for item in pod["volumes"]}
+    assert {
+        "name": "artifacts",
+        "mountPath": "/var/lib/wuji/platform/artifacts",
+    } in pod["containers"][0]["volumeMounts"]
     assert next(
         item for item in platform["items"]
         if item["kind"] == "Service" and item["metadata"]["name"] == "api"

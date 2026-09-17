@@ -1,0 +1,1 @@
+-r-------- 1 10001 10000 22 Sep 16 12:39 /var/lib/wuji/platform/artifacts/e6e3d837-4ee9-4e93-be61-0494a1af6aa6.blob

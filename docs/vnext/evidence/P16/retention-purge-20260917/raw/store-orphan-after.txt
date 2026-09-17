@@ -1,0 +1,2 @@
+ls: cannot access '/var/lib/wuji/platform/artifacts/303e6e70-22e2-4d19-8da5-091c31aad1f6.blob': No such file or directory
+command terminated with exit code 2

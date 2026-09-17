@@ -1,0 +1,9 @@
+HTTP/1.1 200 OK
+date: Thu, 17 Sep 2026 04:44:33 GMT
+server: uvicorn
+cache-control: no-store
+content-length: 1582
+content-type: application/json
+x-request-id: 621d9efb-8055-40fd-82ec-f5860dfb268d
+
+{"report_id":"report-p12-final","task_id":"fc2ff1b0-a578-4131-9fc3-4a7a80c74442","epoch_id":"da99b237-09ab-4559-bed5-a9be68e473af","close_trigger":"goal_satisfied","result_outcome":"complete","body":{"close_trigger":"goal_satisfied","criteria":[{"applicability":"current","criterion_id":"version","revision":"1","status":"met"}],"epoch_id":"da99b237-09ab-4559-bed5-a9be68e473af","result_outcome":"complete","runs":[{"agent_run_id":"2ccd9c74-f9b2-443c-8998-dd3dc3737c9f","process_state":"exited","result_state":"accepted","stop_kind":"exited"},{"agent_run_id":"bd912879-2941-41d8-befb-6c8c6356055c","process_state":"exited","result_state":"accepted","stop_kind":"exited"}],"schema_version":"wuji.report.v1","task_id":"fc2ff1b0-a578-4131-9fc3-4a7a80c74442","work_items":[{"kind":"explore","state":"done","terminal_reason":null},{"kind":"reason","state":"done","terminal_reason":null}]},"body_digest":"4445bc13e4e29cf22c651cdd1fe1aeb28c1d92e2cb30e520a9d38327fcd69b85","dispute_state":"disputed","amendments":[{"amendment_id":"amendment-p12-final","reason":"late counter-evidence about an earlier call","authority":"assessor","source_receipt":{"access_level":1,"amendment_id":"amendment-p12-final","authority":"assessor","evidence":[{"access_level":1,"digest":"465ee220dcc6d4d81eab75c576492801f872fc7c72aa75642478c3a0df1705c8","ref":{"id":"09bc68a8-030c-4c68-b6f2-8f52be48dc72","sha256":"465ee220dcc6d4d81eab75c576492801f872fc7c72aa75642478c3a0df1705c8","version":"1"}}],"reason":"late counter-evidence about an earlier call","report_id":"report-p12-final"}}],"unavailable_evidence":[]}

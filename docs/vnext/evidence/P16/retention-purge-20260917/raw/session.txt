@@ -1,0 +1,90 @@
+$ -H Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6ImRlcGxveW1lbnQta2V5In0.eyJpc3MiOiJodHRwczovL2lkZW50aXR5Lnd1amktdm5leHQtdGVzdC5pbnZhbGlkIiwiYXVkIjoid3VqaS12bmV4dC1kZXBsb3ltZW50Iiwic3ViIjoib3BlcmF0b3IiLCJ0ZW5hbnRfaWQiOiIxZmM2YjFmMy02ZjI0LTQ1NmItOWRjMS00ZTE0YzcxOTc2MDQiLCJyb2xlcyI6WyJvcGVyYXRvciJdLCJpYXQiOjE3ODk2MjAyNTMsIm5iZiI6MTc4OTYyMDI1MiwiZXhwIjoxNzg5NjIxMTUzLCJqdGkiOiIwMzg5ZDBhOC02YzE1LTQ1MzMtYmVmNi0yZjUyNWZkZmY2ZDUifQ.2wr1DFQbuRrXry6FFBdah_e0lP3TbB2pb_doITUPeUFHqpB1Sbd_O5qcFh0siyUo4MicD4tDXeywSquj0kl-Wr-zdN05NLS9NW2pJm7wlMtXqgWrkLLFoAOa7871NKytz_BAhhm3wCbVYebySAl1VHDm-80qtifN6PBPIqAby8tE7YX3_KADX2RJk5JAs97KQu_977X9-loLF_Dq54Tz6qPXds1z1RjtmDG6McqIE039ER8YNNqGiBCIquZNkKWcfoemaOUcyGWYZ6Js-wgQhE1odIdi9BRoYmzgS6tqV1lbfO7O7CcfJuOxHocFn8UoGYhZZd3JpdracEAQJnR5ncd1J74LfbSnXuQI0nL_4ydjtMvB2i2L5lBAztifEE0hX5z0Q80L_WcxDIpzkmWVQstC242DmEeUcgso6lfKDaqwITgthcAx8s5Buvf-ydKDDSzaX_zCaI5svJeur3K2iIPkm9Uijz-Ynxw2Zt8LGpzKmDwLIDVM2q2nndDQ-2jN https://127.0.0.1:18456/api/v2/tasks/fc2ff1b0-a578-4131-9fc3-4a7a80c74442/reports/report-p12-final
+
+HTTP/1.1 200 OK
+
+HTTP/1.1 200 OK
+date: Thu, 17 Sep 2026 04:44:33 GMT
+server: uvicorn
+cache-control: no-store
+content-length: 1582
+content-type: application/json
+x-request-id: 621d9efb-8055-40fd-82ec-f5860dfb268d
+
+{"report_id":"report-p12-final","task_id":"fc2ff1b0-a578-4131-9fc3-4a7a80c74442","epoch_id":"da99b237-09ab-4559-bed5-a9be68e473af","close_trigger":"goal_satisfied","result_outcome":"complete","body":{"close_trigger":"goal_satisfied","criteria":[{"applicability":"current","criterion_id":"version","revision":"1","status":"met"}],"epoch_id":"da99b237-09ab-4559-bed5-a9be68e473af","result_outcome":"complete","runs":[{"agent_run_id":"2ccd9c74-f9b2-443c-8998-dd3dc3737c9f","process_state":"exited","result_state":"accepted","stop_kind":"exited"},{"agent_run_id":"bd912879-2941-41d8-befb-6c8c6356055c","process_state":"exited","result_state":"accepted","stop_kind":"exited"}],"schema_version":"wuji.report.v1","task_id":"fc2ff1b0-a578-4131-9fc3-4a7a80c74442","work_items":[{"kind":"explore","state":"done","terminal_reason":null},{"kind":"reason","state":"done","terminal_reason":null}]},"body_digest":"4445bc13e4e29cf22c651cdd1fe1aeb28c1d92e2cb30e520a9d38327fcd69b85","dispute_state":"disputed","amendments":[{"amendment_id":"amendment-p12-final","reason":"late counter-evidence about an earlier call","authority":"assessor","source_receipt":{"access_level":1,"amendment_id":"amendment-p12-final","authority":"assessor","evidence":[{"access_level":1,"digest":"465ee220dcc6d4d81eab75c576492801f872fc7c72aa75642478c3a0df1705c8","ref":{"id":"09bc68a8-030c-4c68-b6f2-8f52be48dc72","sha256":"465ee220dcc6d4d81eab75c576492801f872fc7c72aa75642478c3a0df1705c8","version":"1"}}],"reason":"late counter-evidence about an earlier call","report_id":"report-p12-final"}}],"unavailable_evidence":[]}
+----
+
+$ -X POST -H Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6ImRlcGxveW1lbnQta2V5In0.eyJpc3MiOiJodHRwczovL2lkZW50aXR5Lnd1amktdm5leHQtdGVzdC5pbnZhbGlkIiwiYXVkIjoid3VqaS12bmV4dC1kZXBsb3ltZW50Iiwic3ViIjoib3BlcmF0b3IiLCJ0ZW5hbnRfaWQiOiIxZmM2YjFmMy02ZjI0LTQ1NmItOWRjMS00ZTE0YzcxOTc2MDQiLCJyb2xlcyI6WyJvcGVyYXRvciJdLCJpYXQiOjE3ODk2MjAyNTMsIm5iZiI6MTc4OTYyMDI1MiwiZXhwIjoxNzg5NjIxMTUzLCJqdGkiOiIwMzg5ZDBhOC02YzE1LTQ1MzMtYmVmNi0yZjUyNWZkZmY2ZDUifQ.2wr1DFQbuRrXry6FFBdah_e0lP3TbB2pb_doITUPeUFHqpB1Sbd_O5qcFh0siyUo4MicD4tDXeywSquj0kl-Wr-zdN05NLS9NW2pJm7wlMtXqgWrkLLFoAOa7871NKytz_BAhhm3wCbVYebySAl1VHDm-80qtifN6PBPIqAby8tE7YX3_KADX2RJk5JAs97KQu_977X9-loLF_Dq54Tz6qPXds1z1RjtmDG6McqIE039ER8YNNqGiBCIquZNkKWcfoemaOUcyGWYZ6Js-wgQhE1odIdi9BRoYmzgS6tqV1lbfO7O7CcfJuOxHocFn8UoGYhZZd3JpdracEAQJnR5ncd1J74LfbSnXuQI0nL_4ydjtMvB2i2L5lBAztifEE0hX5z0Q80L_WcxDIpzkmWVQstC242DmEeUcgso6lfKDaqwITgthcAx8s5Buvf-ydKDDSzaX_zCaI5svJeur3K2iIPkm9Uijz-Ynxw2Zt8LGpzKmDwLIDVM2q2nndDQ-2jN -H Content-Type: application/json -H Idempotency-Key: p16-purge-1 -d {"revision":"1","reason":"approved_retention_action"} https://127.0.0.1:18456/api/v2/tasks/fc2ff1b0-a578-4131-9fc3-4a7a80c74442/artifacts/09bc68a8-030c-4c68-b6f2-8f52be48dc72/purges
+
+HTTP/1.1 200 OK
+
+HTTP/1.1 200 OK
+date: Thu, 17 Sep 2026 04:44:33 GMT
+server: uvicorn
+cache-control: no-store
+content-length: 408
+content-type: application/json
+x-request-id: e2d055fd-647d-456b-ab23-5dc5aaefbf59
+
+{"purge_id":"purge:4a53fe1dc567709cf9f4eeb13fffc5a8","task_id":"fc2ff1b0-a578-4131-9fc3-4a7a80c74442","artifact_id":"09bc68a8-030c-4c68-b6f2-8f52be48dc72","artifact_revision":"1","artifact_sha256":"465ee220dcc6d4d81eab75c576492801f872fc7c72aa75642478c3a0df1705c8","reason":"approved_retention_action","authority":"operator","state":"tombstoned","body_removed":true,"created_at":"2026-09-17T04:44:33.906100Z"}
+----
+
+$ -X POST -H Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6ImRlcGxveW1lbnQta2V5In0.eyJpc3MiOiJodHRwczovL2lkZW50aXR5Lnd1amktdm5leHQtdGVzdC5pbnZhbGlkIiwiYXVkIjoid3VqaS12bmV4dC1kZXBsb3ltZW50Iiwic3ViIjoib3BlcmF0b3IiLCJ0ZW5hbnRfaWQiOiIxZmM2YjFmMy02ZjI0LTQ1NmItOWRjMS00ZTE0YzcxOTc2MDQiLCJyb2xlcyI6WyJvcGVyYXRvciJdLCJpYXQiOjE3ODk2MjAyNTMsIm5iZiI6MTc4OTYyMDI1MiwiZXhwIjoxNzg5NjIxMTUzLCJqdGkiOiIwMzg5ZDBhOC02YzE1LTQ1MzMtYmVmNi0yZjUyNWZkZmY2ZDUifQ.2wr1DFQbuRrXry6FFBdah_e0lP3TbB2pb_doITUPeUFHqpB1Sbd_O5qcFh0siyUo4MicD4tDXeywSquj0kl-Wr-zdN05NLS9NW2pJm7wlMtXqgWrkLLFoAOa7871NKytz_BAhhm3wCbVYebySAl1VHDm-80qtifN6PBPIqAby8tE7YX3_KADX2RJk5JAs97KQu_977X9-loLF_Dq54Tz6qPXds1z1RjtmDG6McqIE039ER8YNNqGiBCIquZNkKWcfoemaOUcyGWYZ6Js-wgQhE1odIdi9BRoYmzgS6tqV1lbfO7O7CcfJuOxHocFn8UoGYhZZd3JpdracEAQJnR5ncd1J74LfbSnXuQI0nL_4ydjtMvB2i2L5lBAztifEE0hX5z0Q80L_WcxDIpzkmWVQstC242DmEeUcgso6lfKDaqwITgthcAx8s5Buvf-ydKDDSzaX_zCaI5svJeur3K2iIPkm9Uijz-Ynxw2Zt8LGpzKmDwLIDVM2q2nndDQ-2jN -H Content-Type: application/json -H Idempotency-Key: p16-purge-1 -d {"revision":"1","reason":"approved_retention_action"} https://127.0.0.1:18456/api/v2/tasks/fc2ff1b0-a578-4131-9fc3-4a7a80c74442/artifacts/09bc68a8-030c-4c68-b6f2-8f52be48dc72/purges
+
+HTTP/1.1 200 OK
+
+HTTP/1.1 200 OK
+date: Thu, 17 Sep 2026 04:44:33 GMT
+server: uvicorn
+cache-control: no-store
+content-length: 408
+content-type: application/json
+x-request-id: 144b9e4f-ac32-49f0-a688-927003f3daff
+
+{"purge_id":"purge:4a53fe1dc567709cf9f4eeb13fffc5a8","task_id":"fc2ff1b0-a578-4131-9fc3-4a7a80c74442","artifact_id":"09bc68a8-030c-4c68-b6f2-8f52be48dc72","artifact_revision":"1","artifact_sha256":"465ee220dcc6d4d81eab75c576492801f872fc7c72aa75642478c3a0df1705c8","reason":"approved_retention_action","authority":"operator","state":"tombstoned","body_removed":true,"created_at":"2026-09-17T04:44:33.906100Z"}
+----
+
+$ -X POST -H Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6ImRlcGxveW1lbnQta2V5In0.eyJpc3MiOiJodHRwczovL2lkZW50aXR5Lnd1amktdm5leHQtdGVzdC5pbnZhbGlkIiwiYXVkIjoid3VqaS12bmV4dC1kZXBsb3ltZW50Iiwic3ViIjoib3BlcmF0b3IiLCJ0ZW5hbnRfaWQiOiIxZmM2YjFmMy02ZjI0LTQ1NmItOWRjMS00ZTE0YzcxOTc2MDQiLCJyb2xlcyI6WyJvcGVyYXRvciJdLCJpYXQiOjE3ODk2MjAyNTMsIm5iZiI6MTc4OTYyMDI1MiwiZXhwIjoxNzg5NjIxMTUzLCJqdGkiOiIwMzg5ZDBhOC02YzE1LTQ1MzMtYmVmNi0yZjUyNWZkZmY2ZDUifQ.2wr1DFQbuRrXry6FFBdah_e0lP3TbB2pb_doITUPeUFHqpB1Sbd_O5qcFh0siyUo4MicD4tDXeywSquj0kl-Wr-zdN05NLS9NW2pJm7wlMtXqgWrkLLFoAOa7871NKytz_BAhhm3wCbVYebySAl1VHDm-80qtifN6PBPIqAby8tE7YX3_KADX2RJk5JAs97KQu_977X9-loLF_Dq54Tz6qPXds1z1RjtmDG6McqIE039ER8YNNqGiBCIquZNkKWcfoemaOUcyGWYZ6Js-wgQhE1odIdi9BRoYmzgS6tqV1lbfO7O7CcfJuOxHocFn8UoGYhZZd3JpdracEAQJnR5ncd1J74LfbSnXuQI0nL_4ydjtMvB2i2L5lBAztifEE0hX5z0Q80L_WcxDIpzkmWVQstC242DmEeUcgso6lfKDaqwITgthcAx8s5Buvf-ydKDDSzaX_zCaI5svJeur3K2iIPkm9Uijz-Ynxw2Zt8LGpzKmDwLIDVM2q2nndDQ-2jN -H Content-Type: application/json -H Idempotency-Key: p16-purge-again -d {"revision":"1","reason":"approved_retention_action"} https://127.0.0.1:18456/api/v2/tasks/fc2ff1b0-a578-4131-9fc3-4a7a80c74442/artifacts/09bc68a8-030c-4c68-b6f2-8f52be48dc72/purges
+
+HTTP/1.1 409 Conflict
+
+HTTP/1.1 409 Conflict
+date: Thu, 17 Sep 2026 04:44:33 GMT
+server: uvicorn
+content-length: 157
+content-type: application/json
+cache-control: no-store
+x-request-id: d9dee653-c91b-47df-8bae-5464c51468df
+
+{"code":"STALE_EXECUTION","message":"The request could not be completed.","request_id":"d9dee653-c91b-47df-8bae-5464c51468df","retryable":false,"details":{}}
+----
+
+$ -X POST -H Authorization: Bearer <reader-jwt-redacted> -H Content-Type: application/json -H Idempotency-Key: p16-purge-reader -d {"revision":"1","reason":"approved_retention_action"} https://127.0.0.1:18456/api/v2/tasks/fc2ff1b0-a578-4131-9fc3-4a7a80c74442/artifacts/09bc68a8-030c-4c68-b6f2-8f52be48dc72/purges
+
+HTTP/1.1 404 Not Found
+
+HTTP/1.1 404 Not Found
+date: Thu, 17 Sep 2026 04:44:33 GMT
+server: uvicorn
+content-length: 164
+content-type: application/json
+cache-control: no-store
+x-request-id: 8b976873-1826-4888-8246-1326911d28f9
+
+{"code":"NOT_FOUND_OR_FORBIDDEN","message":"The request could not be completed.","request_id":"8b976873-1826-4888-8246-1326911d28f9","retryable":false,"details":{}}
+----
+
+$ -H Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6ImRlcGxveW1lbnQta2V5In0.eyJpc3MiOiJodHRwczovL2lkZW50aXR5Lnd1amktdm5leHQtdGVzdC5pbnZhbGlkIiwiYXVkIjoid3VqaS12bmV4dC1kZXBsb3ltZW50Iiwic3ViIjoib3BlcmF0b3IiLCJ0ZW5hbnRfaWQiOiIxZmM2YjFmMy02ZjI0LTQ1NmItOWRjMS00ZTE0YzcxOTc2MDQiLCJyb2xlcyI6WyJvcGVyYXRvciJdLCJpYXQiOjE3ODk2MjAyNTMsIm5iZiI6MTc4OTYyMDI1MiwiZXhwIjoxNzg5NjIxMTUzLCJqdGkiOiIwMzg5ZDBhOC02YzE1LTQ1MzMtYmVmNi0yZjUyNWZkZmY2ZDUifQ.2wr1DFQbuRrXry6FFBdah_e0lP3TbB2pb_doITUPeUFHqpB1Sbd_O5qcFh0siyUo4MicD4tDXeywSquj0kl-Wr-zdN05NLS9NW2pJm7wlMtXqgWrkLLFoAOa7871NKytz_BAhhm3wCbVYebySAl1VHDm-80qtifN6PBPIqAby8tE7YX3_KADX2RJk5JAs97KQu_977X9-loLF_Dq54Tz6qPXds1z1RjtmDG6McqIE039ER8YNNqGiBCIquZNkKWcfoemaOUcyGWYZ6Js-wgQhE1odIdi9BRoYmzgS6tqV1lbfO7O7CcfJuOxHocFn8UoGYhZZd3JpdracEAQJnR5ncd1J74LfbSnXuQI0nL_4ydjtMvB2i2L5lBAztifEE0hX5z0Q80L_WcxDIpzkmWVQstC242DmEeUcgso6lfKDaqwITgthcAx8s5Buvf-ydKDDSzaX_zCaI5svJeur3K2iIPkm9Uijz-Ynxw2Zt8LGpzKmDwLIDVM2q2nndDQ-2jN https://127.0.0.1:18456/api/v2/tasks/fc2ff1b0-a578-4131-9fc3-4a7a80c74442/reports/report-p12-final
+
+HTTP/1.1 200 OK
+
+HTTP/1.1 200 OK
+date: Thu, 17 Sep 2026 04:44:33 GMT
+server: uvicorn
+cache-control: no-store
+content-length: 1823
+content-type: application/json
+x-request-id: 71039a7c-ccf8-4301-b487-8a68add28a81
+
+{"report_id":"report-p12-final","task_id":"fc2ff1b0-a578-4131-9fc3-4a7a80c74442","epoch_id":"da99b237-09ab-4559-bed5-a9be68e473af","close_trigger":"goal_satisfied","result_outcome":"complete","body":{"close_trigger":"goal_satisfied","criteria":[{"applicability":"current","criterion_id":"version","revision":"1","status":"met"}],"epoch_id":"da99b237-09ab-4559-bed5-a9be68e473af","result_outcome":"complete","runs":[{"agent_run_id":"2ccd9c74-f9b2-443c-8998-dd3dc3737c9f","process_state":"exited","result_state":"accepted","stop_kind":"exited"},{"agent_run_id":"bd912879-2941-41d8-befb-6c8c6356055c","process_state":"exited","result_state":"accepted","stop_kind":"exited"}],"schema_version":"wuji.report.v1","task_id":"fc2ff1b0-a578-4131-9fc3-4a7a80c74442","work_items":[{"kind":"explore","state":"done","terminal_reason":null},{"kind":"reason","state":"done","terminal_reason":null}]},"body_digest":"4445bc13e4e29cf22c651cdd1fe1aeb28c1d92e2cb30e520a9d38327fcd69b85","dispute_state":"disputed","amendments":[{"amendment_id":"amendment-p12-final","reason":"late counter-evidence about an earlier call","authority":"assessor","source_receipt":{"access_level":1,"amendment_id":"amendment-p12-final","authority":"assessor","evidence":[{"access_level":1,"digest":"465ee220dcc6d4d81eab75c576492801f872fc7c72aa75642478c3a0df1705c8","ref":{"id":"09bc68a8-030c-4c68-b6f2-8f52be48dc72","sha256":"465ee220dcc6d4d81eab75c576492801f872fc7c72aa75642478c3a0df1705c8","version":"1"}}],"reason":"late counter-evidence about an earlier call","report_id":"report-p12-final"}}],"unavailable_evidence":[{"source_ref":"09bc68a8-030c-4c68-b6f2-8f52be48dc72@1","sha256":"465ee220dcc6d4d81eab75c576492801f872fc7c72aa75642478c3a0df1705c8","state":"tombstoned","reason":"approved_retention_action","purge_id":"purge:4a53fe1dc567709cf9f4eeb13fffc5a8"}]}
+----
+

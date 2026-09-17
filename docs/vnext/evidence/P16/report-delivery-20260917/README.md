@@ -1,6 +1,6 @@
 # P16-A · 报告交付（ReportDelivery）与交付媒介适用性
 
-**代码：** `6cfa411`（交付核心）+ `3843311`（错误码映射修复，见“已知限制”）
+**代码：** `6cfa411`（交付核心）+ `3843311`（错误码映射修复）；本包报文在 `039a48d` 集群上重采
 **迁移头：** `vnext_0026_p16_report_delivery`
 **集群：** docker-desktop / `wuji-vnext-test` / 工作台 <http://127.0.0.1:44180/>
 **验收切片：** AC-069（交付媒介适用性），并为 AC-053/AC-067 的“报告不被改写”提供相邻依据
@@ -159,7 +159,7 @@ x-request-id: 5922c441-a526-4ac6-ad53-352896aa3396
 | 请求 | 预期 | 实测 |
 | --- | --- | --- |
 | 离线 profile 却携带 `exchange` 回执 | 拒绝，不写入任何记录 | 422 `INVALID_SCHEMA` |
-| HTTP profile 但没有真实交换回执 | 拒绝，不写“已交付” | 本集群镜像 `6cfa411` 返回 500；`3843311` 修复后为 409 `DELIVERY_EXCHANGE_REQUIRED`（见已知限制 2） |
+| HTTP profile 但没有真实交换回执 | 拒绝，不写“已交付” | **409 `DELIVERY_EXCHANGE_REQUIRED`**（修复前为 500，原始报文保留在 `raw/08-before-error-code-fix.http`） |
 | 缺少 `Idempotency-Key` | 拒绝 | 422（`Idempotency-Key` 为必填 header） |
 | `reader` 身份（无 `can_control`） | 不泄露记录是否存在 | 404 `NOT_FOUND_OR_FORBIDDEN` |
 | 其他 Task 的报告路径 | 不泄露记录是否存在 | 404 `NOT_FOUND_OR_FORBIDDEN` |
@@ -331,11 +331,10 @@ GET  /tasks/083f6134-…/reports/report%3A73a83e16-…/deliveries -> 200
 
 1. **HTTP 交付适配器未实现。** `mode="http"` 只能由持有真实交换回执的调用方记录；平台自身不发外网请求。
    因此本切片实际产生的是 `offline` 交付，HTTP 交付只有拒绝路径被验证。
-2. **错误码映射修复（`3843311`）尚未在本集群生效。** 首次采集发现：公开 `ErrorResponse.code` 是一个封闭枚举，
-   服务内部码未在枚举内时会在 HTTP 边界变成 500（同一缺陷此前也潜伏在 P12 完成入口的拒绝路径上）。
-   修复提交把 7 个内部码映射为公开码并在契约中登记；本机 ASGI 用例已覆盖该路径，
-   但**本集群镜像仍是 `6cfa411`**（采集时段 PyPI 与本地代理均不可达，镜像无法重建）。
-   镜像重建后必须重跑 `work/vnext/p16/delivery-http-evidence.sh` 并更新本节与 2.6。
+2. **错误码映射修复已上线并重采。** 首次采集发现：公开 `ErrorResponse.code` 是封闭枚举，服务内部码未在枚举内时
+   会在 HTTP 边界变成 500（同一缺陷此前也潜伏在 P12 完成入口的拒绝路径上）。`3843311` 把 7 个内部码映射为
+   契约内公开码；`039a48d` 集群镜像上线后重跑 `work/vnext/p16/delivery-http-evidence.sh`，2.6 的 HTTP profile
+   反例现在是 409 `DELIVERY_EXCHANGE_REQUIRED`（修复前的 500 原文保留为 `raw/08-before-error-code-fix.http`）。
 3. **未做**：保留/GC/purge 与 tombstone（AC-066/067）、审计/观测/费用分离（AC-068）、
    交付投递到外部媒介、历史交付分页、`delivery_pending` 的产品路径（数据库守卫已覆盖，产品侧不走该状态）。
 4. 交付记录只索引 `state='sealed'` 且 `access_level <= clearance` 的产物；未密封的对象不计入证据（这正是 2.3 的 `incomplete` 原因）。

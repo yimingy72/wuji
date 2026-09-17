@@ -1,0 +1,2 @@
+artifact|tombstoned|true|303e6e70-22e2-4d19-8da5-091c31aad1f6|465ee220dcc6d4d81eab75c576492801f872fc7c72aa75642478c3a0df1705c8
+purge|purge:4a53fe1dc567709cf9f4eeb13fffc5a8|09bc68a8-030c-4c68-b6f2-8f52be48dc72|1|approved_retention_action|operator|465ee220dcc6d4d8
