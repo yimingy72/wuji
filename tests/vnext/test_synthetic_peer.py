@@ -264,3 +264,63 @@ def test_an_already_admitted_question_is_waited_on_instead_of_repeated():
     decision = document["reason_decision"]
     assert decision["decision"] == "wait"
     assert decision["wait_refs"][0]["ref"] == asked["ref"]
+
+
+RECORD_A = '{"service": "inventory", "version": "4.2.0"}'
+RECORD_B_SAME = '{"service": "inventory", "version": "4.2.0"}'
+RECORD_B_OTHER = '{"service": "inventory", "version": "4.3.1"}'
+RECORD_B_EMPTY = '{"service": "inventory"}'
+
+
+def compare_document(second_body, second_path="materials/record-b.json"):
+    """The two-record case: one record read, then the sibling read."""
+
+    first = claim_record(
+        "evidence read: materials/record-a.json; content: " + RECORD_A,
+        identifier="claim-a",
+    )
+    second = claim_record(
+        "evidence read: " + second_path + "; content: " + second_body,
+        identifier="claim-b",
+    )
+    return reason_document([first, second])
+
+
+def test_one_record_read_asks_for_its_sibling():
+    document = reason_document(
+        [
+            artifact_record(RECORD_A, identifier="artifact-a"),
+            claim_record(
+                "evidence read: materials/record-a.json; content: " + RECORD_A,
+                identifier="claim-a",
+            ),
+        ]
+    )
+    assert document["reason_decision"]["decision"] == "propose_intents"
+    proposal = document["intent_proposals"][0]
+    assert "workspace:materials/record-b.json" in proposal["question"]
+    assert proposal["basis_refs"] == [reference("claim", "claim-a")]
+
+
+def test_the_comparison_claim_states_what_the_two_bodies_actually_say():
+    agree = compare_document(RECORD_B_SAME)
+    claim = agree["claims"][0]
+    assert claim["kind"] == "derived-conclusion"
+    assert "agree" in claim["text"] and "4.2.0" in claim["text"]
+    assert claim["basis_refs"] == [
+        reference("claim", "claim-a"),
+        reference("claim", "claim-b"),
+    ]
+    assert agree["reason_decision"]["decision"] == "propose_completion"
+
+    conflict = compare_document(RECORD_B_OTHER)
+    text = conflict["claims"][0]["text"]
+    assert "disagree" in text and "4.2.0" in text and "4.3.1" in text
+
+    missing = compare_document(RECORD_B_EMPTY)
+    # One record carries no version: the peer never invents one. It says so and
+    # still asks the platform to look, instead of reporting a comparison.
+    text = missing["claims"][0]["text"]
+    assert "cannot be compared" in text and "record-b.json" in text
+    assert "agree" not in text and "4.2.0" not in text
+    assert missing["reason_decision"]["decision"] == "propose_completion"

@@ -203,6 +203,43 @@ def claim_read_path(text):
     return match.group(1) if match else None
 
 
+def claim_bodies(context):
+    """Each read claim as (ref, path, quoted body) — nothing interpreted yet."""
+
+    for ref, claim in claims(context):
+        path = claim_read_path(claim.get("text"))
+        if path is None:
+            continue
+        quoted = (claim.get("text") or "")[len("evidence read: ") + len(path) + len("; content: "):]
+        yield ref, path, quoted
+
+
+SIBLING = {"a": "b", "b": "a"}
+VERSION = re.compile(r'"version"\s*:\s*"([^"]{1,64})"')
+
+
+def sibling_path(path):
+    """The other record of a two-record fixture, or None.
+
+    This is the closed CASE-B shape the trial suite publishes (record-a /
+    record-b). The peer only renames the path it actually read; it never invents
+    a file and never sees which variant is running.
+    """
+
+    stem, dot, suffix = path.rpartition(".")
+    if not dot:
+        return None
+    head, dash, tail = stem.rpartition("-")
+    if not dash or tail not in SIBLING:
+        return None
+    return head + "-" + SIBLING[tail] + "." + suffix
+
+
+def reported_version(body):
+    match = VERSION.search(body or "")
+    return match.group(1) if match else None
+
+
 def reason_payload(context):
     """One decision, derived only from what the frozen context contains."""
 
@@ -289,6 +326,117 @@ def reason_payload(context):
                 ),
             },
             limitations=["the follow-up question came from the observed pointer"],
+        )
+    read = {path: (ref, body) for ref, path, body in claim_bodies(context)}
+    for path, (ref, body) in read.items():
+        sibling = sibling_path(path)
+        if sibling is None or sibling in read:
+            continue
+        if sibling in proposed_paths(context):
+            asked = proposed_paths(context)[sibling]
+            return payload(
+                reason_decision={
+                    "decision": "wait",
+                    "wait_refs": [
+                        {
+                            "ref": asked,
+                            "predicate": "work_accepted_result",
+                            "predicate_version": "1",
+                        }
+                    ],
+                    "reason": (
+                        "The question for " + sibling + " is already admitted; this "
+                        "Run waits for its accepted result."
+                    ),
+                },
+                limitations=["no duplicate question was proposed"],
+            )
+        return payload(
+            intent_proposals=[
+                {
+                    "client_ref": client_ref(sibling),
+                    "question": (
+                        "Read workspace:" + sibling + " through the registered Kali "
+                        "workspace tool and report the inventory service version it "
+                        "records, citing the file it came from."
+                    ),
+                    "basis_refs": [ref],
+                    "expected_output": PAYLOAD_SCHEMA,
+                }
+            ],
+            reason_decision={
+                "decision": "propose_intents",
+                "wait_refs": [],
+                "reason": (
+                    "The Goal compares two records; " + path + " is read and its "
+                    "sibling " + sibling + " is not, so the next question is to read it."
+                ),
+            },
+            limitations=["the follow-up path is the sibling of the observed one"],
+        )
+    compared = {}
+    for path, (ref, body) in read.items():
+        version = reported_version(body)
+        if version is not None:
+            compared[path] = (ref, version)
+    if len(read) >= 2 and len(compared) < 2:
+        # One record carries no version at all. The peer never invents one: it
+        # states what is missing and leaves the Goal unanswered.
+        without = sorted(path for path in read if path not in compared)
+        return payload(
+            claims=[
+                {
+                    "client_ref": "comparison-inconclusive",
+                    "kind": "derived-conclusion",
+                    "assertion_role": "explanation",
+                    "text": (
+                        "the two records cannot be compared from the delivered bytes: "
+                        + ", ".join(without) + " records no service version"
+                    ),
+                    "basis_refs": [read[p][0] for p in sorted(read)],
+                    "limitations": ["no version was observed in every record that was read"],
+                }
+            ],
+            reason_decision={
+                "decision": "propose_completion",
+                "wait_refs": [],
+                "reason": (
+                    "Every record the Goal needs was read; one of them records no "
+                    "version, so the comparison stays inconclusive instead of guessed."
+                ),
+            },
+            limitations=["an inconclusive conclusion, not a claim that the records agree"],
+        )
+    if len(compared) >= 2:
+        paths = sorted(compared)
+        versions = [compared[p][1] for p in paths]
+        verdict = (
+            "the two records agree on service version " + versions[0]
+            if len(set(versions)) == 1
+            else "the two records disagree: " + " vs ".join(
+                p + " reports " + v for p, v in zip(paths, versions)
+            )
+        )
+        return payload(
+            claims=[
+                {
+                    "client_ref": "record-comparison",
+                    "kind": "derived-conclusion",
+                    "assertion_role": "explanation",
+                    "text": verdict + " (quoted from " + ", ".join(paths) + ")",
+                    "basis_refs": [compared[p][0] for p in paths],
+                    "limitations": ["compared only the records that were actually read"],
+                }
+            ],
+            reason_decision={
+                "decision": "propose_completion",
+                "wait_refs": [],
+                "reason": (
+                    "Both records were read and their own bytes decide the comparison; "
+                    "the derived conclusion is recorded as a candidate, not a fact."
+                ),
+            },
+            limitations=["the comparison is a candidate conclusion, not a judgment"],
         )
     for ref, _ in intents(context):
         return payload(
