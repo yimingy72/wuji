@@ -1,0 +1,52 @@
+{
+  "task_ids": [
+    "083f6134-46bd-4237-9cdc-0c88a39da3d0",
+    "3aa77fba-c264-4f79-8223-a656ffd53a37",
+    "60e7bd1b-3d28-4af9-be4b-067bf0517c08",
+    "6ffd59cd-2f11-49ad-a0bc-60328fd1e538",
+    "86a2a7f2-1c60-4fc7-82d1-748a26fcd6e4",
+    "989eead2-b571-422c-b5db-f90f70472c94",
+    "abbeab81-becf-471c-a110-12ed480e93bf",
+    "dc8a9f7f-4731-41c2-93f9-2dd4cf1805d4",
+    "fc2ff1b0-a578-4131-9fc3-4a7a80c74442"
+  ],
+  "tasks": [
+    {
+      "task_id": "60e7bd1b-3d28-4af9-be4b-067bf0517c08"
+    },
+    {
+      "task_id": "86a2a7f2-1c60-4fc7-82d1-748a26fcd6e4"
+    },
+    {
+      "task_id": "3aa77fba-c264-4f79-8223-a656ffd53a37"
+    },
+    {
+      "task_id": "6ffd59cd-2f11-49ad-a0bc-60328fd1e538"
+    },
+    {
+      "task_id": "dc8a9f7f-4731-41c2-93f9-2dd4cf1805d4"
+    },
+    {
+      "task_id": "083f6134-46bd-4237-9cdc-0c88a39da3d0"
+    },
+    {
+      "task_id": "fc2ff1b0-a578-4131-9fc3-4a7a80c74442"
+    },
+    {
+      "service_names": {
+        "agent": "task-agent-abbeab81becf",
+        "kali": "task-kali-abbeab81becf"
+      },
+      "supervisor_url": "https://task-agent-abbeab81becf.wuji-vnext-test.svc:8443",
+      "task_id": "abbeab81-becf-471c-a110-12ed480e93bf"
+    },
+    {
+      "service_names": {
+        "agent": "task-agent-989eead2b571",
+        "kali": "task-kali-989eead2b571"
+      },
+      "supervisor_url": "https://task-agent-989eead2b571.wuji-vnext-test.svc:8443",
+      "task_id": "989eead2-b571-422c-b5db-f90f70472c94"
+    }
+  ]
+}

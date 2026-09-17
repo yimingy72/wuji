@@ -1,0 +1,92 @@
+{
+  "task-agent": {
+    "selector": {
+      "app.kubernetes.io/managed-by": "wuji-task-runtime-controller",
+      "wuji.dev/runtime-attempt": "1",
+      "wuji.dev/task-id": "989eead2-b571-422c-b5db-f90f70472c94",
+      "wuji.dev/tenant-id": "1fc6b1f3-6f24-456b-9dc1-4e14c7197604"
+    },
+    "targets": [
+      {
+        "pod": "wuji-task-v-8a04f602dbc190b37901ad7891943123-a1",
+        "ready": true,
+        "uid": "79a14d43-79cc-43f5-a39f-acd03a6729f8"
+      }
+    ]
+  },
+  "task-agent-989eead2b571": {
+    "selector": {
+      "app.kubernetes.io/managed-by": "wuji-task-runtime-controller",
+      "wuji.dev/runtime-attempt": "1",
+      "wuji.dev/task-id": "989eead2-b571-422c-b5db-f90f70472c94",
+      "wuji.dev/tenant-id": "1fc6b1f3-6f24-456b-9dc1-4e14c7197604"
+    },
+    "targets": [
+      {
+        "pod": "wuji-task-v-8a04f602dbc190b37901ad7891943123-a1",
+        "ready": true,
+        "uid": "79a14d43-79cc-43f5-a39f-acd03a6729f8"
+      }
+    ]
+  },
+  "task-agent-abbeab81becf": {
+    "selector": {
+      "app.kubernetes.io/managed-by": "wuji-task-runtime-controller",
+      "wuji.dev/runtime-attempt": "1",
+      "wuji.dev/task-id": "abbeab81-becf-471c-a110-12ed480e93bf",
+      "wuji.dev/tenant-id": "1fc6b1f3-6f24-456b-9dc1-4e14c7197604"
+    },
+    "targets": [
+      {
+        "pod": "wuji-task-v-1ff9a8008a9c23a6edae09e2359773e5-a1",
+        "ready": true,
+        "uid": "7d25b10c-4d11-4076-9fc2-91c26a828fa9"
+      }
+    ]
+  },
+  "task-kali": {
+    "selector": {
+      "app.kubernetes.io/managed-by": "wuji-task-runtime-controller",
+      "wuji.dev/runtime-attempt": "1",
+      "wuji.dev/task-id": "989eead2-b571-422c-b5db-f90f70472c94",
+      "wuji.dev/tenant-id": "1fc6b1f3-6f24-456b-9dc1-4e14c7197604"
+    },
+    "targets": [
+      {
+        "pod": "wuji-task-v-8a04f602dbc190b37901ad7891943123-a1",
+        "ready": true,
+        "uid": "79a14d43-79cc-43f5-a39f-acd03a6729f8"
+      }
+    ]
+  },
+  "task-kali-989eead2b571": {
+    "selector": {
+      "app.kubernetes.io/managed-by": "wuji-task-runtime-controller",
+      "wuji.dev/runtime-attempt": "1",
+      "wuji.dev/task-id": "989eead2-b571-422c-b5db-f90f70472c94",
+      "wuji.dev/tenant-id": "1fc6b1f3-6f24-456b-9dc1-4e14c7197604"
+    },
+    "targets": [
+      {
+        "pod": "wuji-task-v-8a04f602dbc190b37901ad7891943123-a1",
+        "ready": true,
+        "uid": "79a14d43-79cc-43f5-a39f-acd03a6729f8"
+      }
+    ]
+  },
+  "task-kali-abbeab81becf": {
+    "selector": {
+      "app.kubernetes.io/managed-by": "wuji-task-runtime-controller",
+      "wuji.dev/runtime-attempt": "1",
+      "wuji.dev/task-id": "abbeab81-becf-471c-a110-12ed480e93bf",
+      "wuji.dev/tenant-id": "1fc6b1f3-6f24-456b-9dc1-4e14c7197604"
+    },
+    "targets": [
+      {
+        "pod": "wuji-task-v-1ff9a8008a9c23a6edae09e2359773e5-a1",
+        "ready": true,
+        "uid": "7d25b10c-4d11-4076-9fc2-91c26a828fa9"
+      }
+    ]
+  }
+}

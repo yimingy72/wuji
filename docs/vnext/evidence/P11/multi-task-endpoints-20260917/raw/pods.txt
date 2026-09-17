@@ -1,0 +1,5 @@
+NAME                                                              READY   STATUS             RESTARTS          AGE     IP           NODE             NOMINATED NODE   READINESS GATES
+wuji-task-v-1ff9a8008a9c23a6edae09e2359773e5-a1                   2/2     Running            0                 3m22s   10.1.1.198   docker-desktop   <none>           <none>
+wuji-task-v-1ff9a8008a9c23a6edae09e2359773e5-a1-workspace-qw74h   0/1     Completed          0                 5m17s   10.1.1.194   docker-desktop   <none>           <none>
+wuji-task-v-8a04f602dbc190b37901ad7891943123-a1                   2/2     Running            0                 114s    10.1.1.203   docker-desktop   <none>           <none>
+wuji-task-v-8a04f602dbc190b37901ad7891943123-a1-workspace-dlfvs   0/1     Completed          0                 2m45s   10.1.1.200   docker-desktop   <none>           <none>

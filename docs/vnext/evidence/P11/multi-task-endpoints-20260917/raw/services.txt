@@ -1,0 +1,9 @@
+NAME                      TYPE           CLUSTER-IP       EXTERNAL-IP   PORT(S)           AGE
+c2-task-agent             ClusterIP      10.103.148.17    <none>        8443/TCP          2d17h
+c2-task-kali              ClusterIP      10.99.87.89      <none>        8444/TCP          2d17h
+task-agent                ClusterIP      10.103.225.221   <none>        8443/TCP          3d11h
+task-agent-989eead2b571   ClusterIP      10.105.203.53    <none>        8443/TCP          2m41s
+task-agent-abbeab81becf   ClusterIP      10.102.76.45     <none>        8443/TCP          4m9s
+task-kali                 ClusterIP      10.97.184.132    <none>        8444/TCP          3d11h
+task-kali-989eead2b571    ClusterIP      10.97.21.131     <none>        8444/TCP          2m41s
+task-kali-abbeab81becf    ClusterIP      10.109.184.105   <none>        8444/TCP          4m9s

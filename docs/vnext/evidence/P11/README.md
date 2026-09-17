@@ -49,3 +49,4 @@
 Still open: owner tooling that derives admission rows from deployment configuration, a runtime attempt
 that carries no worker-assignment dispatch finding, Stage B branches 2 and 3 on their own fixtures, and
 the multi-Task runtime host that would prove one Task is not stopped with another.
+- [Per-Task supervisor endpoints](multi-task-endpoints-20260917/README.md): each launched Task publishes its own `task-agent-<prefix>`/`task-kali-<prefix>` Services and supervisor origin; two Task Pods ran side by side, each Pod's own supervisor inbox held exactly its own two Run assignments, and both Tasks finished with accepted, settled results.

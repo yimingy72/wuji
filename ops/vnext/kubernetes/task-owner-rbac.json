@@ -62,12 +62,10 @@
           "resources": [
             "services"
           ],
-          "resourceNames": [
-            "task-agent",
-            "task-kali"
-          ],
           "verbs": [
             "get",
+            "list",
+            "create",
             "update",
             "patch"
           ]

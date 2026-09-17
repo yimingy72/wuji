@@ -1,0 +1,16 @@
+task|989eead2-b571-422c-b5db-f90f70472c94|running|1|2|2
+task|abbeab81-becf-471c-a110-12ed480e93bf|running|1|2|2
+work|989eead2-b571-422c-b5db-f90f70472c94|0fa4f14c-0f93-4078-8552-8fcaa32eee96|explore|done|
+work|989eead2-b571-422c-b5db-f90f70472c94|58bf1425-96f9-4c8c-8b4f-1efbd7ec65d0|reason|done|
+work|abbeab81-becf-471c-a110-12ed480e93bf|beac6f43-bc56-45b0-8f94-a224ca1af3e0|explore|done|
+work|abbeab81-becf-471c-a110-12ed480e93bf|ca1f8086-cd5f-4504-bebe-1a85918d2ce0|reason|done|
+run|989eead2-b571-422c-b5db-f90f70472c94|3342fbb4-6ca4-443c-9e3d-69d30f716653|1|task-989eead2-b571-422c-b5db-f90f70472c94-a1|exited|exited|accepted|settled
+run|989eead2-b571-422c-b5db-f90f70472c94|804197da-e295-4c7e-ab24-d70f6fa17fc8|1|task-989eead2-b571-422c-b5db-f90f70472c94-a1|exited|exited|accepted|settled
+run|abbeab81-becf-471c-a110-12ed480e93bf|0c9af8e9-0798-4bad-af55-76950b01805b|1|task-abbeab81-becf-471c-a110-12ed480e93bf-a1|exited|exited|accepted|settled
+run|abbeab81-becf-471c-a110-12ed480e93bf|c4e6f915-2f78-4883-b6c0-7c4ef45f6672|1|task-abbeab81-becf-471c-a110-12ed480e93bf-a1|exited|exited|accepted|settled
+receiver|989eead2-b571-422c-b5db-f90f70472c94|task-989eead2-b571-422c-b5db-f90f70472c94-a1|t
+receiver|abbeab81-becf-471c-a110-12ed480e93bf|task-abbeab81-becf-471c-a110-12ed480e93bf-a1|t
+dispatch|989eead2-b571-422c-b5db-f90f70472c94|4|run.dispatch_requested|2026-09-17 02:42:27.714384+00
+dispatch|989eead2-b571-422c-b5db-f90f70472c94|5|run.dispatch_requested|2026-09-17 02:42:27.897526+00
+dispatch|abbeab81-becf-471c-a110-12ed480e93bf|4|run.dispatch_requested|2026-09-17 02:41:00.029658+00
+dispatch|abbeab81-becf-471c-a110-12ed480e93bf|5|run.dispatch_requested|2026-09-17 02:41:00.351474+00
