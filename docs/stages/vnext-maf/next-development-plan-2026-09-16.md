@@ -149,6 +149,18 @@ Task A attempt 2 的第三个 Run（`9e574eb0`）从未被投递成功：receive
     真实 K8s：`curl -N` 收到 keepalive 与 16 条 patch 的批次（`pause` 命令 202 触发）；浏览器无需刷新，
     画布节点从 `origin:2abfdd57…@4` 变为 `@5`。检查：pytest 29 passed、topology vitest 29 passed、web build exit 0。
     见[证据包](../../vnext/evidence/P15/view-stream-20260917/README.md)。
-17. **仍未完成。** 报告投递（ReportDelivery）、历史报告列表、判定自动生产来源、多 Task 并发（T8）与
-    每 Task 独立 supervisor 端点、真正在 run 执行中投递取消、写入路径语义与长会话压缩仍未做；
-    工作台当前仍是每个 web 部署绑定一个 Task。ViewStream 的跨 BFF 重启、多标签长连接与规模 p95 也未验证。
+17. **P16-A 报告交付（ReportDelivery）。已交付并实测（`6cfa411`，修复 `3843311`）。** 迁移
+    `vnext_0026_p16_report_delivery` 提供只读交付账本与 `SECURITY DEFINER` 生产者（control 权限、当前 scope、
+    已关闭 Task 同一 epoch、必须引用冻结正文 digest、服务端计算摘要）；`wuji_core.audit.delivery` 按显式声明的
+    profile 核对冻结正文与已密封产物，缺失必需材料记为 `incomplete` 而不编造“不适用”；数据库拒绝
+    “缺必需材料却写 ready”、离线交付携带 HTTP 交换、http ready 无交换回执与同 key 改写。产品面有
+    `GET/POST /api/v2/tasks/{id}/reports/{rid}/deliveries`（含单条与列表）、同源 BFF 白名单与工作台“报告交付”面板。
+    真实 K8s：离线文档 profile `ready`、截图 profile `incomplete`、同 key 重放同一记录、离线带交换/缺幂等键 422、
+    `reader` 与其他 Task 404；真实浏览器从 UI 生成记录并列出 3 条。检查：交付 9 passed、P12 相邻全绿、
+    BFF 6 passed、合同 check 与 web build exit 0。**同轮修复**了 P12/P16 拒绝路径在 HTTP 边界退化为 500 的
+    封闭错误码问题（`3843311`，本集群镜像待重建）。见
+    [证据包](../../vnext/evidence/P16/report-delivery-20260917/README.md)。
+18. **仍未完成。** P16 的保留/GC/purge 与 tombstone（AC-066/067）、审计/观测/费用分离（AC-068）、
+    HTTP 交付适配器与外部媒介投递、历史交付分页；判定自动生产来源；真正在 run 执行中投递取消、
+    写入路径语义与长会话压缩；工作台当前仍是每个 web 部署绑定一个 Task。ViewStream 的跨 BFF 重启、
+    多标签长连接与规模 p95 也未验证。

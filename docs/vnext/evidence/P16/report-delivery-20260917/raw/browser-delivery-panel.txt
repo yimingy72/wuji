@@ -1,0 +1,23 @@
+任务完成
+已关闭 · 报告已冻结
+可以收尾
+刷新
+任务状态	closed	控制版本	4	收尾 epoch	73a83e16-5f3e-4f02-b509-f59df7a97962
+关闭原因	goal_satisfied	结果	complete
+判据	修订	必需	判定	适用性
+version	1	是	已满足	当前
+冻结报告
+无争议
+报告	report:73a83e16-5f3e-4f02-b509-f59df7a97962
+正文摘要	4f1b3e37ee500d2b22bc946e5af052c7975bd23728b16558a9b8dec280a6b6b1
+关闭原因	goal_satisfied
+结果	complete
+冻结时间	2026/9/17 09:21:18
+查看冻结正文
+报告交付
+离线文档（仅冻结正文）
+生成交付记录
+交付	Profile	媒介	状态	缺必需材料
+delivery:929b5ad51414c81558cf026b3969adc5	offline-document-v1	offline	材料齐全	0
+delivery:8b96ebcf68614db4ab47955676543b25	screenshot-bundle-v1	offline	缺少必需材料	1
+delivery:21563ff39ec7ab74940d15fcbecf91b1	screenshot-bundle-v1	offline	缺少必需材料	1

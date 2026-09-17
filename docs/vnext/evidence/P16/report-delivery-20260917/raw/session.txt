@@ -1,0 +1,164 @@
+$ -H Authorization: Bearer <operator-jwt-redacted> https://127.0.0.1:18456/api/v2/tasks/083f6134-46bd-4237-9cdc-0c88a39da3d0/reports/report:73a83e16-5f3e-4f02-b509-f59df7a97962
+
+HTTP/1.1 200 OK
+
+HTTP/1.1 200 OK
+date: Thu, 17 Sep 2026 04:12:36 GMT
+server: uvicorn
+cache-control: no-store
+content-length: 1049
+content-type: application/json
+x-request-id: 554154d6-9385-41d9-b140-7693076b0478
+
+{"report_id":"report:73a83e16-5f3e-4f02-b509-f59df7a97962","task_id":"083f6134-46bd-4237-9cdc-0c88a39da3d0","epoch_id":"73a83e16-5f3e-4f02-b509-f59df7a97962","close_trigger":"goal_satisfied","result_outcome":"complete","body":{"close_trigger":"goal_satisfied","criteria":[{"applicability":"current","criterion_id":"version","revision":"1","status":"met"}],"epoch_id":"73a83e16-5f3e-4f02-b509-f59df7a97962","result_outcome":"complete","runs":[{"agent_run_id":"a7fd3791-cca3-436b-8038-1227dd7e8b24","process_state":"exited","result_state":"incomplete","stop_kind":"exited"},{"agent_run_id":"c3e30b1f-9fe7-4386-856e-907034fe77ca","process_state":"exited","result_state":"accepted","stop_kind":"exited"}],"schema_version":"wuji.report.v1","task_id":"083f6134-46bd-4237-9cdc-0c88a39da3d0","work_items":[{"kind":"explore","state":"failed","terminal_reason":"process_failure"},{"kind":"reason","state":"done","terminal_reason":null}]},"body_digest":"4f1b3e37ee500d2b22bc946e5af052c7975bd23728b16558a9b8dec280a6b6b1","dispute_state":"clear","amendments":[]}
+----
+
+$ -X POST -H Authorization: Bearer <operator-jwt-redacted> -H Content-Type: application/json -H Idempotency-Key: p16-offline-document-1 -d {"profile":{"schema_version":"wuji.delivery-profile.v1","profile_id":"offline-document-v1","mode":"offline","requirements":[{"role":"report_body","media_type":"application/vnd.wuji.report+json","min_count":1,"required":true}]}} https://127.0.0.1:18456/api/v2/tasks/083f6134-46bd-4237-9cdc-0c88a39da3d0/reports/report:73a83e16-5f3e-4f02-b509-f59df7a97962/deliveries
+
+HTTP/1.1 200 OK
+
+HTTP/1.1 200 OK
+date: Thu, 17 Sep 2026 04:12:36 GMT
+server: uvicorn
+cache-control: no-store
+content-length: 2021
+content-type: application/json
+x-request-id: 1a42e6c0-9ff2-421e-a976-0ed0f7c91daf
+
+{"delivery_id":"delivery:929b5ad51414c81558cf026b3969adc5","task_id":"083f6134-46bd-4237-9cdc-0c88a39da3d0","report_id":"report:73a83e16-5f3e-4f02-b509-f59df7a97962","report_digest":"4f1b3e37ee500d2b22bc946e5af052c7975bd23728b16558a9b8dec280a6b6b1","epoch_id":"73a83e16-5f3e-4f02-b509-f59df7a97962","profile":{"schema_version":"wuji.delivery-profile.v1","profile_id":"offline-document-v1","mode":"offline","requirements":[{"role":"report_body","media_type":"application/vnd.wuji.report+json","min_count":1,"required":true}]},"profile_digest":"68f5af88d46294ee475a8312704da11eb741ea3b16699e0d80a0cb4908333c36","state":"ready","mode":"offline","missing":[],"manifest":{"schema_version":"wuji.report-delivery.v1","report_id":"report:73a83e16-5f3e-4f02-b509-f59df7a97962","report_digest":"4f1b3e37ee500d2b22bc946e5af052c7975bd23728b16558a9b8dec280a6b6b1","epoch_id":"73a83e16-5f3e-4f02-b509-f59df7a97962","profile":{"schema_version":"wuji.delivery-profile.v1","profile_id":"offline-document-v1","mode":"offline","requirements":[{"role":"report_body","media_type":"application/vnd.wuji.report+json","min_count":1,"required":true}]},"mode":"offline","state":"ready","requirements":[{"role":"report_body","media_type":"application/vnd.wuji.report+json","min_count":1,"required":true,"present_count":1,"present":[{"source":"report_commit","source_ref":"report:73a83e16-5f3e-4f02-b509-f59df7a97962","media_type":"application/vnd.wuji.report+json","sha256":"4f1b3e37ee500d2b22bc946e5af052c7975bd23728b16558a9b8dec280a6b6b1","size_bytes":701,"access_level":1}],"missing_count":0}],"materials":[{"source":"report_commit","source_ref":"report:73a83e16-5f3e-4f02-b509-f59df7a97962","media_type":"application/vnd.wuji.report+json","sha256":"4f1b3e37ee500d2b22bc946e5af052c7975bd23728b16558a9b8dec280a6b6b1","size_bytes":701,"access_level":1}],"missing":[]},"manifest_digest":"2a7922b9a546baa755c4b75644ef555b45733b8893d086e925b1cdfcce1e9fd6","exchange":null,"error_code":null,"access_level":1,"created_at":"2026-09-17T04:12:38.026573Z"}
+----
+
+$ -X POST -H Authorization: Bearer <operator-jwt-redacted> -H Content-Type: application/json -H Idempotency-Key: p16-screenshot-bundle-1 -d {"profile":{"schema_version":"wuji.delivery-profile.v1","profile_id":"screenshot-bundle-v1","mode":"offline","requirements":[{"role":"report_body","media_type":"application/vnd.wuji.report+json","min_count":1,"required":true},{"role":"screenshot","media_type":"image/*","min_count":1,"required":true}]}} https://127.0.0.1:18456/api/v2/tasks/083f6134-46bd-4237-9cdc-0c88a39da3d0/reports/report:73a83e16-5f3e-4f02-b509-f59df7a97962/deliveries
+
+HTTP/1.1 200 OK
+
+HTTP/1.1 200 OK
+date: Thu, 17 Sep 2026 04:12:38 GMT
+server: uvicorn
+cache-control: no-store
+content-length: 2527
+content-type: application/json
+x-request-id: dec78c01-d875-4582-b6b4-841b667c956b
+
+{"delivery_id":"delivery:8b96ebcf68614db4ab47955676543b25","task_id":"083f6134-46bd-4237-9cdc-0c88a39da3d0","report_id":"report:73a83e16-5f3e-4f02-b509-f59df7a97962","report_digest":"4f1b3e37ee500d2b22bc946e5af052c7975bd23728b16558a9b8dec280a6b6b1","epoch_id":"73a83e16-5f3e-4f02-b509-f59df7a97962","profile":{"schema_version":"wuji.delivery-profile.v1","profile_id":"screenshot-bundle-v1","mode":"offline","requirements":[{"role":"report_body","media_type":"application/vnd.wuji.report+json","min_count":1,"required":true},{"role":"screenshot","media_type":"image/*","min_count":1,"required":true}]},"profile_digest":"e8aff23046849054383553f7c316785edd1473aac083dcc6334cfdab47fa04b0","state":"incomplete","mode":"offline","missing":[{"role":"screenshot","media_type":"image/*","min_count":1,"present_count":0,"missing_count":1,"required":true}],"manifest":{"schema_version":"wuji.report-delivery.v1","report_id":"report:73a83e16-5f3e-4f02-b509-f59df7a97962","report_digest":"4f1b3e37ee500d2b22bc946e5af052c7975bd23728b16558a9b8dec280a6b6b1","epoch_id":"73a83e16-5f3e-4f02-b509-f59df7a97962","profile":{"schema_version":"wuji.delivery-profile.v1","profile_id":"screenshot-bundle-v1","mode":"offline","requirements":[{"role":"report_body","media_type":"application/vnd.wuji.report+json","min_count":1,"required":true},{"role":"screenshot","media_type":"image/*","min_count":1,"required":true}]},"mode":"offline","state":"incomplete","requirements":[{"role":"report_body","media_type":"application/vnd.wuji.report+json","min_count":1,"required":true,"present_count":1,"present":[{"source":"report_commit","source_ref":"report:73a83e16-5f3e-4f02-b509-f59df7a97962","media_type":"application/vnd.wuji.report+json","sha256":"4f1b3e37ee500d2b22bc946e5af052c7975bd23728b16558a9b8dec280a6b6b1","size_bytes":701,"access_level":1}],"missing_count":0},{"role":"screenshot","media_type":"image/*","min_count":1,"required":true,"present_count":0,"present":[],"missing_count":1}],"materials":[{"source":"report_commit","source_ref":"report:73a83e16-5f3e-4f02-b509-f59df7a97962","media_type":"application/vnd.wuji.report+json","sha256":"4f1b3e37ee500d2b22bc946e5af052c7975bd23728b16558a9b8dec280a6b6b1","size_bytes":701,"access_level":1}],"missing":[{"role":"screenshot","media_type":"image/*","min_count":1,"present_count":0,"missing_count":1,"required":true}]},"manifest_digest":"67ead2fa2c791e62763b4ba1e512d1a19cde70800acfc6e61ba012533d17ce9b","exchange":null,"error_code":null,"access_level":1,"created_at":"2026-09-17T04:12:38.105933Z"}
+----
+
+$ -X POST -H Authorization: Bearer <operator-jwt-redacted> -H Content-Type: application/json -H Idempotency-Key: p16-screenshot-bundle-1 -d {"profile":{"schema_version":"wuji.delivery-profile.v1","profile_id":"screenshot-bundle-v1","mode":"offline","requirements":[{"role":"report_body","media_type":"application/vnd.wuji.report+json","min_count":1,"required":true},{"role":"screenshot","media_type":"image/*","min_count":1,"required":true}]}} https://127.0.0.1:18456/api/v2/tasks/083f6134-46bd-4237-9cdc-0c88a39da3d0/reports/report:73a83e16-5f3e-4f02-b509-f59df7a97962/deliveries
+
+HTTP/1.1 200 OK
+
+HTTP/1.1 200 OK
+date: Thu, 17 Sep 2026 04:12:38 GMT
+server: uvicorn
+cache-control: no-store
+content-length: 2527
+content-type: application/json
+x-request-id: 4b5f9392-be71-454e-96d5-dd48168f61a5
+
+{"delivery_id":"delivery:8b96ebcf68614db4ab47955676543b25","task_id":"083f6134-46bd-4237-9cdc-0c88a39da3d0","report_id":"report:73a83e16-5f3e-4f02-b509-f59df7a97962","report_digest":"4f1b3e37ee500d2b22bc946e5af052c7975bd23728b16558a9b8dec280a6b6b1","epoch_id":"73a83e16-5f3e-4f02-b509-f59df7a97962","profile":{"schema_version":"wuji.delivery-profile.v1","profile_id":"screenshot-bundle-v1","mode":"offline","requirements":[{"role":"report_body","media_type":"application/vnd.wuji.report+json","min_count":1,"required":true},{"role":"screenshot","media_type":"image/*","min_count":1,"required":true}]},"profile_digest":"e8aff23046849054383553f7c316785edd1473aac083dcc6334cfdab47fa04b0","state":"incomplete","mode":"offline","missing":[{"role":"screenshot","media_type":"image/*","min_count":1,"present_count":0,"missing_count":1,"required":true}],"manifest":{"schema_version":"wuji.report-delivery.v1","report_id":"report:73a83e16-5f3e-4f02-b509-f59df7a97962","report_digest":"4f1b3e37ee500d2b22bc946e5af052c7975bd23728b16558a9b8dec280a6b6b1","epoch_id":"73a83e16-5f3e-4f02-b509-f59df7a97962","profile":{"schema_version":"wuji.delivery-profile.v1","profile_id":"screenshot-bundle-v1","mode":"offline","requirements":[{"role":"report_body","media_type":"application/vnd.wuji.report+json","min_count":1,"required":true},{"role":"screenshot","media_type":"image/*","min_count":1,"required":true}]},"mode":"offline","state":"incomplete","requirements":[{"role":"report_body","media_type":"application/vnd.wuji.report+json","min_count":1,"required":true,"present_count":1,"present":[{"source":"report_commit","source_ref":"report:73a83e16-5f3e-4f02-b509-f59df7a97962","media_type":"application/vnd.wuji.report+json","sha256":"4f1b3e37ee500d2b22bc946e5af052c7975bd23728b16558a9b8dec280a6b6b1","size_bytes":701,"access_level":1}],"missing_count":0},{"role":"screenshot","media_type":"image/*","min_count":1,"required":true,"present_count":0,"present":[],"missing_count":1}],"materials":[{"source":"report_commit","source_ref":"report:73a83e16-5f3e-4f02-b509-f59df7a97962","media_type":"application/vnd.wuji.report+json","sha256":"4f1b3e37ee500d2b22bc946e5af052c7975bd23728b16558a9b8dec280a6b6b1","size_bytes":701,"access_level":1}],"missing":[{"role":"screenshot","media_type":"image/*","min_count":1,"present_count":0,"missing_count":1,"required":true}]},"manifest_digest":"67ead2fa2c791e62763b4ba1e512d1a19cde70800acfc6e61ba012533d17ce9b","exchange":null,"error_code":null,"access_level":1,"created_at":"2026-09-17T04:12:38.105933Z"}
+----
+
+$ -H Authorization: Bearer <operator-jwt-redacted> https://127.0.0.1:18456/api/v2/tasks/083f6134-46bd-4237-9cdc-0c88a39da3d0/reports/report:73a83e16-5f3e-4f02-b509-f59df7a97962/deliveries
+
+HTTP/1.1 200 OK
+
+HTTP/1.1 200 OK
+date: Thu, 17 Sep 2026 04:12:38 GMT
+server: uvicorn
+cache-control: no-store
+content-length: 543
+content-type: application/json
+x-request-id: d0327766-4c54-46f4-87c7-55f773bcbcca
+
+[{"delivery_id":"delivery:929b5ad51414c81558cf026b3969adc5","report_id":"report:73a83e16-5f3e-4f02-b509-f59df7a97962","profile_id":"offline-document-v1","mode":"offline","state":"ready","missing_required":0,"error_code":null,"created_at":"2026-09-17T04:12:38.026573Z"},{"delivery_id":"delivery:8b96ebcf68614db4ab47955676543b25","report_id":"report:73a83e16-5f3e-4f02-b509-f59df7a97962","profile_id":"screenshot-bundle-v1","mode":"offline","state":"incomplete","missing_required":1,"error_code":null,"created_at":"2026-09-17T04:12:38.105933Z"}]
+----
+
+$ -H Authorization: Bearer <operator-jwt-redacted> https://127.0.0.1:18456/api/v2/tasks/083f6134-46bd-4237-9cdc-0c88a39da3d0/reports/report:73a83e16-5f3e-4f02-b509-f59df7a97962/deliveries/delivery:8b96ebcf68614db4ab47955676543b25
+
+HTTP/1.1 200 OK
+
+HTTP/1.1 200 OK
+date: Thu, 17 Sep 2026 04:12:38 GMT
+server: uvicorn
+cache-control: no-store
+content-length: 2527
+content-type: application/json
+x-request-id: 5922c441-a526-4ac6-ad53-352896aa3396
+
+{"delivery_id":"delivery:8b96ebcf68614db4ab47955676543b25","task_id":"083f6134-46bd-4237-9cdc-0c88a39da3d0","report_id":"report:73a83e16-5f3e-4f02-b509-f59df7a97962","report_digest":"4f1b3e37ee500d2b22bc946e5af052c7975bd23728b16558a9b8dec280a6b6b1","epoch_id":"73a83e16-5f3e-4f02-b509-f59df7a97962","profile":{"schema_version":"wuji.delivery-profile.v1","profile_id":"screenshot-bundle-v1","mode":"offline","requirements":[{"role":"report_body","media_type":"application/vnd.wuji.report+json","min_count":1,"required":true},{"role":"screenshot","media_type":"image/*","min_count":1,"required":true}]},"profile_digest":"e8aff23046849054383553f7c316785edd1473aac083dcc6334cfdab47fa04b0","state":"incomplete","mode":"offline","missing":[{"role":"screenshot","media_type":"image/*","min_count":1,"present_count":0,"missing_count":1,"required":true}],"manifest":{"schema_version":"wuji.report-delivery.v1","report_id":"report:73a83e16-5f3e-4f02-b509-f59df7a97962","report_digest":"4f1b3e37ee500d2b22bc946e5af052c7975bd23728b16558a9b8dec280a6b6b1","epoch_id":"73a83e16-5f3e-4f02-b509-f59df7a97962","profile":{"schema_version":"wuji.delivery-profile.v1","profile_id":"screenshot-bundle-v1","mode":"offline","requirements":[{"role":"report_body","media_type":"application/vnd.wuji.report+json","min_count":1,"required":true},{"role":"screenshot","media_type":"image/*","min_count":1,"required":true}]},"mode":"offline","state":"incomplete","requirements":[{"role":"report_body","media_type":"application/vnd.wuji.report+json","min_count":1,"required":true,"present_count":1,"present":[{"source":"report_commit","source_ref":"report:73a83e16-5f3e-4f02-b509-f59df7a97962","media_type":"application/vnd.wuji.report+json","sha256":"4f1b3e37ee500d2b22bc946e5af052c7975bd23728b16558a9b8dec280a6b6b1","size_bytes":701,"access_level":1}],"missing_count":0},{"role":"screenshot","media_type":"image/*","min_count":1,"required":true,"present_count":0,"present":[],"missing_count":1}],"materials":[{"source":"report_commit","source_ref":"report:73a83e16-5f3e-4f02-b509-f59df7a97962","media_type":"application/vnd.wuji.report+json","sha256":"4f1b3e37ee500d2b22bc946e5af052c7975bd23728b16558a9b8dec280a6b6b1","size_bytes":701,"access_level":1}],"missing":[{"role":"screenshot","media_type":"image/*","min_count":1,"present_count":0,"missing_count":1,"required":true}]},"manifest_digest":"67ead2fa2c791e62763b4ba1e512d1a19cde70800acfc6e61ba012533d17ce9b","exchange":null,"error_code":null,"access_level":1,"created_at":"2026-09-17T04:12:38.105933Z"}
+----
+
+$ -X POST -H Authorization: Bearer <operator-jwt-redacted> -H Content-Type: application/json -H Idempotency-Key: p16-offline-with-exchange -d {"profile":{"schema_version":"wuji.delivery-profile.v1","profile_id":"offline-document-v1","mode":"offline","requirements":[{"role":"report_body","media_type":"application/vnd.wuji.report+json","min_count":1,"required":true}]},"exchange":{"url":"https://sink.invalid/deliver","status":200}} https://127.0.0.1:18456/api/v2/tasks/083f6134-46bd-4237-9cdc-0c88a39da3d0/reports/report:73a83e16-5f3e-4f02-b509-f59df7a97962/deliveries
+
+HTTP/1.1 422 Unprocessable Content
+
+HTTP/1.1 422 Unprocessable Content
+date: Thu, 17 Sep 2026 04:12:38 GMT
+server: uvicorn
+content-length: 156
+content-type: application/json
+cache-control: no-store
+x-request-id: c6450d12-1943-44b9-8dbf-646eb883ecc2
+
+{"code":"INVALID_SCHEMA","message":"The request could not be completed.","request_id":"c6450d12-1943-44b9-8dbf-646eb883ecc2","retryable":false,"details":{}}
+----
+
+$ -X POST -H Authorization: Bearer <operator-jwt-redacted> -H Content-Type: application/json -H Idempotency-Key: p16-http-without-exchange -d {"profile":{"schema_version":"wuji.delivery-profile.v1","profile_id":"http-bundle-v1","mode":"http","requirements":[{"role":"report_body","media_type":"application/vnd.wuji.report+json","min_count":1,"required":true}]}} https://127.0.0.1:18456/api/v2/tasks/083f6134-46bd-4237-9cdc-0c88a39da3d0/reports/report:73a83e16-5f3e-4f02-b509-f59df7a97962/deliveries
+
+HTTP/1.1 500 Internal Server Error
+
+HTTP/1.1 500 Internal Server Error
+date: Thu, 17 Sep 2026 04:12:38 GMT
+server: uvicorn
+content-length: 21
+content-type: text/plain; charset=utf-8
+x-request-id: 4c7504d2-f4d8-4ac5-86e5-98ce800f6a47
+
+Internal Server Error
+----
+
+$ -X POST -H Authorization: Bearer <operator-jwt-redacted> -H Content-Type: application/json -d {"profile":{"schema_version":"wuji.delivery-profile.v1","profile_id":"offline-document-v1","mode":"offline","requirements":[{"role":"report_body","media_type":"application/vnd.wuji.report+json","min_count":1,"required":true}]}} https://127.0.0.1:18456/api/v2/tasks/083f6134-46bd-4237-9cdc-0c88a39da3d0/reports/report:73a83e16-5f3e-4f02-b509-f59df7a97962/deliveries
+
+HTTP/1.1 422 Unprocessable Content
+
+HTTP/1.1 422 Unprocessable Content
+date: Thu, 17 Sep 2026 04:12:38 GMT
+server: uvicorn
+content-length: 287
+content-type: application/json
+x-request-id: b44e76d6-ec1d-46b9-9e83-8d47ad009c26
+
+{"code":"INVALID_SCHEMA","message":"Request does not satisfy the v2 contract.","request_id":"b44e76d6-ec1d-46b9-9e83-8d47ad009c26","retryable":false,"details":{"errors":[{"type":"missing","loc":["header","<field>"],"msg":"Input does not satisfy the field contract."}],"truncated":false}}
+----
+
+$ -X POST -H Authorization: Bearer <reader-jwt-redacted> -H Content-Type: application/json -H Idempotency-Key: p16-reader-refused -d {"profile":{"schema_version":"wuji.delivery-profile.v1","profile_id":"offline-document-v1","mode":"offline","requirements":[{"role":"report_body","media_type":"application/vnd.wuji.report+json","min_count":1,"required":true}]}} https://127.0.0.1:18456/api/v2/tasks/083f6134-46bd-4237-9cdc-0c88a39da3d0/reports/report:73a83e16-5f3e-4f02-b509-f59df7a97962/deliveries
+
+HTTP/1.1 404 Not Found
+
+HTTP/1.1 404 Not Found
+date: Thu, 17 Sep 2026 04:12:38 GMT
+server: uvicorn
+content-length: 164
+content-type: application/json
+cache-control: no-store
+x-request-id: 4ad508ef-c4c6-437d-8187-12bc5d36142c
+
+{"code":"NOT_FOUND_OR_FORBIDDEN","message":"The request could not be completed.","request_id":"4ad508ef-c4c6-437d-8187-12bc5d36142c","retryable":false,"details":{}}
+----
+
+$ -H Authorization: Bearer <operator-jwt-redacted> https://127.0.0.1:18456/api/v2/tasks/2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0/reports/report:73a83e16-5f3e-4f02-b509-f59df7a97962/deliveries
+
+HTTP/1.1 404 Not Found
+
+HTTP/1.1 404 Not Found
+date: Thu, 17 Sep 2026 04:12:39 GMT
+server: uvicorn
+content-length: 164
+content-type: application/json
+cache-control: no-store
+x-request-id: 61454118-8a1b-4905-8e1f-fae20e82ec25
+
+{"code":"NOT_FOUND_OR_FORBIDDEN","message":"The request could not be completed.","request_id":"61454118-8a1b-4905-8e1f-fae20e82ec25","retryable":false,"details":{}}
+----
+
+delivery_id=delivery:8b96ebcf68614db4ab47955676543b25

@@ -1,0 +1,8 @@
+HTTP/1.1 422 Unprocessable Content
+date: Thu, 17 Sep 2026 04:12:38 GMT
+server: uvicorn
+content-length: 287
+content-type: application/json
+x-request-id: b44e76d6-ec1d-46b9-9e83-8d47ad009c26
+
+{"code":"INVALID_SCHEMA","message":"Request does not satisfy the v2 contract.","request_id":"b44e76d6-ec1d-46b9-9e83-8d47ad009c26","retryable":false,"details":{"errors":[{"type":"missing","loc":["header","<field>"],"msg":"Input does not satisfy the field contract."}],"truncated":false}}

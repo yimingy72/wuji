@@ -1,0 +1,9 @@
+HTTP/1.1 422 Unprocessable Content
+date: Thu, 17 Sep 2026 04:12:38 GMT
+server: uvicorn
+content-length: 156
+content-type: application/json
+cache-control: no-store
+x-request-id: c6450d12-1943-44b9-8dbf-646eb883ecc2
+
+{"code":"INVALID_SCHEMA","message":"The request could not be completed.","request_id":"c6450d12-1943-44b9-8dbf-646eb883ecc2","retryable":false,"details":{}}

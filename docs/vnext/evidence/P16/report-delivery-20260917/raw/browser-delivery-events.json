@@ -1,0 +1,269 @@
+{
+  "task": "083f6134-46bd-4237-9cdc-0c88a39da3d0",
+  "events": [
+    {
+      "at": "2026-09-17T04:19:32.337Z",
+      "kind": "request",
+      "method": "GET",
+      "url": "http://127.0.0.1:44180/api/v2/tasks/083f6134-46bd-4237-9cdc-0c88a39da3d0/snapshots",
+      "headers": {
+        "sec-ch-ua-platform": "\"macOS\"",
+        "referer": "http://127.0.0.1:44180/",
+        "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.8010.12 Safari/537.36",
+        "accept": "application/json",
+        "sec-ch-ua": "\"HeadlessChrome\";v=\"153\", \"Not_A Brand\";v=\"8\", \"Chromium\";v=\"153\"",
+        "sec-ch-ua-mobile": "?0"
+      },
+      "body": null
+    },
+    {
+      "at": "2026-09-17T04:19:32.339Z",
+      "kind": "request",
+      "method": "GET",
+      "url": "http://127.0.0.1:44180/api/v2/tasks/083f6134-46bd-4237-9cdc-0c88a39da3d0/topology?mode=live&node_limit=1000&edge_limit=2000",
+      "headers": {
+        "sec-ch-ua-platform": "\"macOS\"",
+        "referer": "http://127.0.0.1:44180/",
+        "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.8010.12 Safari/537.36",
+        "accept": "application/json",
+        "sec-ch-ua": "\"HeadlessChrome\";v=\"153\", \"Not_A Brand\";v=\"8\", \"Chromium\";v=\"153\"",
+        "sec-ch-ua-mobile": "?0"
+      },
+      "body": null
+    },
+    {
+      "at": "2026-09-17T04:19:32.339Z",
+      "kind": "request",
+      "method": "GET",
+      "url": "http://127.0.0.1:44180/api/v2/tasks/083f6134-46bd-4237-9cdc-0c88a39da3d0/layouts/knowledge-live",
+      "headers": {
+        "sec-ch-ua-platform": "\"macOS\"",
+        "referer": "http://127.0.0.1:44180/",
+        "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.8010.12 Safari/537.36",
+        "accept": "application/json",
+        "sec-ch-ua": "\"HeadlessChrome\";v=\"153\", \"Not_A Brand\";v=\"8\", \"Chromium\";v=\"153\"",
+        "sec-ch-ua-mobile": "?0"
+      },
+      "body": null
+    },
+    {
+      "at": "2026-09-17T04:19:32.340Z",
+      "kind": "request",
+      "method": "GET",
+      "url": "http://127.0.0.1:44180/api/v2/tasks/083f6134-46bd-4237-9cdc-0c88a39da3d0/completion",
+      "headers": {
+        "sec-ch-ua-platform": "\"macOS\"",
+        "referer": "http://127.0.0.1:44180/",
+        "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.8010.12 Safari/537.36",
+        "accept": "application/json",
+        "sec-ch-ua": "\"HeadlessChrome\";v=\"153\", \"Not_A Brand\";v=\"8\", \"Chromium\";v=\"153\"",
+        "sec-ch-ua-mobile": "?0"
+      },
+      "body": null
+    },
+    {
+      "at": "2026-09-17T04:19:33.093Z",
+      "kind": "response",
+      "method": "GET",
+      "url": "http://127.0.0.1:44180/api/v2/tasks/083f6134-46bd-4237-9cdc-0c88a39da3d0/layouts/knowledge-live",
+      "status": 200,
+      "body": "{\"schema_version\":\"wuji.api.v2\",\"view_name\":\"knowledge-live\",\"layout_revision\":\"0\",\"selection_mode\":\"follow_latest\",\"entries\":[],\"viewport\":{\"x\":0.0,\"y\":0.0,\"zoom\":0.82}}"
+    },
+    {
+      "at": "2026-09-17T04:19:33.094Z",
+      "kind": "response",
+      "method": "GET",
+      "url": "http://127.0.0.1:44180/api/v2/tasks/083f6134-46bd-4237-9cdc-0c88a39da3d0/snapshots",
+      "status": 200,
+      "body": "{\"items\":[],\"opaque_cursor\":null}"
+    },
+    {
+      "at": "2026-09-17T04:19:33.201Z",
+      "kind": "request",
+      "method": "GET",
+      "url": "http://127.0.0.1:44180/api/v2/tasks/083f6134-46bd-4237-9cdc-0c88a39da3d0/reports/report%3A73a83e16-5f3e-4f02-b509-f59df7a97962/deliveries",
+      "headers": {
+        "sec-ch-ua-platform": "\"macOS\"",
+        "referer": "http://127.0.0.1:44180/",
+        "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.8010.12 Safari/537.36",
+        "accept": "application/json",
+        "sec-ch-ua": "\"HeadlessChrome\";v=\"153\", \"Not_A Brand\";v=\"8\", \"Chromium\";v=\"153\"",
+        "sec-ch-ua-mobile": "?0"
+      },
+      "body": null
+    },
+    {
+      "at": "2026-09-17T04:19:33.201Z",
+      "kind": "response",
+      "method": "GET",
+      "url": "http://127.0.0.1:44180/api/v2/tasks/083f6134-46bd-4237-9cdc-0c88a39da3d0/completion",
+      "status": 200,
+      "body": "{\"task_id\":\"083f6134-46bd-4237-9cdc-0c88a39da3d0\",\"observed_state\":\"closed\",\"desired_state\":\"run\",\"control_version\":\"4\",\"completion_epoch_id\":\"73a83e16-5f3e-4f02-b509-f59df7a97962\",\"close_trigger\":\"goal_satisfied\",\"result_outcome\":\"complete\",\"review\":{\"decision\":\"ready\",\"reasons\":[],\"criteria\":[{\"criterion_id\":\"version\",\"revision\":\"1\",\"required\":true,\"status\":\"met\",\"applicability\":\"current\"}],\"open_work\":[],\"unsettled_runs\":[]},\"report\":{\"report_id\":\"report:73a83e16-5f3e-4f02-b509-f59df7a97962\",\"body_digest\":\"4f1b3e37ee500d2b22bc946e5af052c7975bd23728b16558a9b8dec280a6b6b1\",\"dispute_state\":\"clear\",\"close_trigger\":\"goal_satisfied\",\"result_outcome\":\"complete\",\"epoch_id\":\"73a83e16-5f3e-4f02-b509-f59df7a97962\",\"created_at\":\"2026-09-17T01:21:18.598640Z\"}}"
+    },
+    {
+      "at": "2026-09-17T04:19:33.274Z",
+      "kind": "response",
+      "method": "GET",
+      "url": "http://127.0.0.1:44180/api/v2/tasks/083f6134-46bd-4237-9cdc-0c88a39da3d0/reports/report%3A73a83e16-5f3e-4f02-b509-f59df7a97962/deliveries",
+      "status": 200,
+      "body": "[{\"delivery_id\":\"delivery:929b5ad51414c81558cf026b3969adc5\",\"report_id\":\"report:73a83e16-5f3e-4f02-b509-f59df7a97962\",\"profile_id\":\"offline-document-v1\",\"mode\":\"offline\",\"state\":\"ready\",\"missing_required\":0,\"error_code\":null,\"created_at\":\"2026-09-17T04:12:38.026573Z\"},{\"delivery_id\":\"delivery:8b96ebcf68614db4ab47955676543b25\",\"report_id\":\"report:73a83e16-5f3e-4f02-b509-f59df7a97962\",\"profile_id\":\"screenshot-bundle-v1\",\"mode\":\"offline\",\"state\":\"incomplete\",\"missing_required\":1,\"error_code\":null,\"created_at\":\"2026-09-17T04:12:38.105933Z\"}]"
+    },
+    {
+      "at": "2026-09-17T04:19:33.372Z",
+      "kind": "response",
+      "method": "GET",
+      "url": "http://127.0.0.1:44180/api/v2/tasks/083f6134-46bd-4237-9cdc-0c88a39da3d0/topology?mode=live&node_limit=1000&edge_limit=2000",
+      "status": 200,
+      "body": "{\"view_id\":\"4280e2dc-5bae-4a72-90ea-f41ff2e86945\",\"snapshot_id\":\"c1aaa112-f3fa-4acc-a81b-7d439e2d0285\",\"view_revision\":\"1\",\"query_digest\":\"de12cb7f737c068e06fc19ef2f41d757e2c20ba0fceaca58503dfb5f1aa45718\",\"access_scope_digest\":\"77d864c10cb6a645abde75f06884309bb19122acf4112180e96d2e6d253a0cf9\",\"projection_version\":\"wuji.topology.v1\",\"nodes\":[{\"id\":\"agent_run:a7fd3791-cca3-436b-8038-1227dd7e8b24@1\",\"ref\":{\"entity_type\":\"agent_run\",\"id\":\"a7fd3791-cca3-436b-8038-1227dd7e8b24\",\"revision\":\"1\"},\"display_kind\":\"agent_run\",\"label\":\"Run a7fd3791-cca3-436b-8038-1227dd7e8b24\",\"state\":\"exited\",\"allowed_actions\":[]},{\"id\":\"agent_run:c3e30b1f-9fe7-4386-856e-907034fe77ca@1\",\"ref\":{\"entity_type\":\"agent_run\",\"id\":\"c3e30b1f-9fe7-4386-856e-907034fe77ca\",\"revision\":\"1\"},\"display_kind\":\"agent_run\",\"label\":\"Run c3e30b1f-9fe7-4386-856e-907034fe77ca\",\"state\":\"exited\",\"allowed_actions\":[]},{\"id\":\"artifact:01c4708f-e6ce-49c5-a101-3b8f674b6769@1\",\"ref\":{\"entity_type\":\"artifact\",\"id\":\"01c4708f-e6ce-49c5-a101-3b8f674b6769\",\"revision\":\"1\"},\"display_kind\":\"artifact\",\"label\":\"text/event-stream · 977 B\",\"state\":\"sealed\",\"allowed_actions\":[]},{\"id\":\"artifact:2315782b-3538-426b-9758-a6c73ffae367@1\",\"ref\":{\"entity_type\":\"artifact\",\"id\":\"2315782b-3538-426b-9758-a6c73ffae367\",\"revision\":\"1\"},\"display_kind\":\"artifact\",\"label\":\"application/x-ndjson · 13321 B\",\"state\":\"sealed\",\"allowed_actions\":[]},{\"id\":\"artifact:30b6c780-2ed3-4f2b-aaec-4bdb1ee078c9@1\",\"ref\":{\"entity_type\":\"artifact\",\"id\":\"30b6c780-2ed3-4f2b-aaec-4bdb1ee078c9\",\"revision\":\"1\"},\"display_kind\":\"artifact\",\"label\":\"application/json · 22 B\",\"state\":\"sealed\",\"allowed_actions\":[]},{\"id\":\"artifact:3ecef0f4-b4e7-45fa-8759-45743bb2184a@1\",\"ref\":{\"entity_type\":\"artifact\",\"id\":\"3ecef0f4-b4e7-45fa-8759-45743bb2184a\",\"revision\":\"1\"},\"display_kind\":\"artifact\",\"label\":\"application/json · 8403 B\",\"state\":\"sealed\",\"allowed_actions\":[]},{\"id\":\"artifact:5b6ecff5-4401-4396-965c-fc065b554dee@1\",\"ref\":{\"entity_type\":\"artifact\",\"id\":\"5b6ecff5-4401-4396-965c-fc065b554dee\",\"revision\":\"1\"},\"display_kind\":\"artifact\",\"label\":\"application/octet-stream · 22 B\",\"state\":\"sealed\",\"allowed_actions\":[]},{\"id\":\"artifact:77cab958-6980-4c2a-a731-404c18de2f18@1\",\"ref\":{\"entity_type\":\"artifact\",\"id\":\"77cab958-6980-4c2a-a731-404c18de2f18\",\"revision\":\"1\"},\"display_kind\":\"artifact\",\"label\":\"application/json · 2757 B\",\"state\":\"sealed\",\"allowed_actions\":[]},{\"id\":\"artifact:9a924407-6ae5-4148-a38e-91651cce9a37@1\",\"ref\":{\"entity_type\":\"artifact\",\"id\":\"9a924407-6ae5-4148-a38e-91651cce9a37\",\"revision\":\"1\"},\"display_kind\":\"artifact\",\"label\":\"application/json · 4034 B\",\"state\":\"sealed\",\"allowed_actions\":[]},{\"id\":\"artifact:9bc1d909-75a1-4e41-8100-fe73cd788580@1\",\"ref\":{\"entity_type\":\"artifact\",\"id\":\"9bc1d909-75a1-4e41-8100-fe73cd788580\",\"revision\":\"1\"},\"display_kind\":\"artifact\",\"label\":\"application/vnd.wuji.maf-result-binding+json · 2312 B\",\"state\":\"sealed\",\"allowed_actions\":[]},{\"id\":\"artifact:a65f4ecb-87a5-4119-bee5-18e5785463b6@1\",\"ref\":{\"entity_type\":\"artifact\",\"id\":\"a65f4ecb-87a5-4119-bee5-18e5785463b6\",\"revision\":\"1\"},\"display_kind\":\"artifact\",\"label\":\"text/event-stream · 622 B\",\"state\":\"sealed\",\"allowed_actions\":[]},{\"id\":\"artifact:ec8091ec-1e5c-4274-98aa-874b7292e74f@1\",\"ref\":{\"entity_type\":\"artifact\",\"id\":\"ec8091ec-1e5c-4274-98aa-874b7292e74f\",\"revision\":\"1\"},\"display_kind\":\"artifact\",\"label\":\"application/json · 14900 B\",\"state\":\"sealed\",\"allowed_actions\":[]},{\"id\":\"artifact:faf33a37-4de1-460b-93c6-a85fb49672cb@1\",\"ref\":{\"entity_type\":\"artifact\",\"id\":\"faf33a37-4de1-460b-93c6-a85fb49672cb\",\"revision\":\"1\"},\"display_kind\":\"artifact\",\"label\":\"text/plain; charset=utf-8 · 455 B\",\"state\":\"sealed\",\"allowed_actions\":[]},{\"id\":\"artifact:fcfa5c3a-417c-4874-b3ad-445835ca6100@1\",\"ref\":{\"entity_type\":\"artifact\",\"id\":\"fcfa5c3a-417c-4874-b3ad-445835ca6100\",\"revision\":\"1\"},\"display_kind\":\"artifact\",\"label\":\"application/x-ndjson · 1937 B\",\"state\":\"sealed\",\"allowed_actions\":[]},{\"id\":\"claim:f595ff1f-4c78-4825-8eba-461e67df1158@1\",\"ref\":{\"entity_type\":\"claim\",\"id\":\"f595ff1f-4c78-4825-8eba-461e67df1158\",\"revision\":\"1\"},\"display_kind\":\"claim\",\"label\":\"The registered Kali read returned durable evidence.\",\"state\":\"unassessed\",\"allowed_actions\":[]},{\"id\":\"intent:b4e86b80-3db0-4231-888d-160f3e977d49@1\",\"ref\":{\"entity_type\":\"intent\",\"id\":\"b4e86b80-3db0-4231-888d-160f3e977d49\",\"revision\":\"1\"},\"display_kind\":\"intent\",\"label\":\"Read the fixture workspace file for Task start point https://fixture.invalid:443 once through the registered Kali workspace tool and cite the returned evidence.\",\"state\":\"admitted\",\"allowed_actions\":[]},{\"id\":\"observation:4cfa4979-ded1-4667-8783-d9efacfd96ad@1\",\"ref\":{\"entity_type\":\"observation\",\"id\":\"4cfa4979-ded1-4667-8783-d9efacfd96ad\",\"revision\":\"1\"},\"display_kind\":\"observation\",\"label\":\"Observation 383a09ae-9196-476e-b77f-30f83a0e0043\",\"state\":\"complete\",\"allowed_actions\":[]},{\"id\":\"origin:083f6134-46bd-4237-9cdc-0c88a39da3d0@4\",\"ref\":{\"entity_type\":\"origin\",\"id\":\"083f6134-46bd-4237-9cdc-0c88a39da3d0\",\"revision\":\"4\"},\"display_kind\":\"origin\",\"label\":\"P11 v2 session bound\",\"state\":\"closed\",\"allowed_actions\":[]},{\"id\":\"work_item:3b1f297b-dfe6-41a2-a7b0-cb8d37e77828@4\",\"ref\":{\"entity_type\":\"work_item\",\"id\":\"3b1f297b-dfe6-41a2-a7b0-cb8d37e77828\",\"revision\":\"4\"},\"display_kind\":\"work_item\",\"label\":\"explore · 3b1f297b-dfe6-41a2-a7b0-cb8d37e77828\",\"state\":\"failed\",\"allowed_actions\":[]},{\"id\":\"work_item:3e2163d9-d5d6-47a0-bb2d-cfb77d0941d0@5\",\"ref\":{\"entity_type\":\"work_item\",\"id\":\"3e2163d9-d5d6-47a0-bb2d-cfb77d0941d0\",\"revision\":\"5\"},\"display_kind\":\"work_item\",\"label\":\"reason · 3e2163d9-d5d6-47a0-bb2d-cfb77d0941d0\",\"state\":\"done\",\"allowed_actions\":[]}],\"edges\":[{\"id\":\"relation:2c1e3d2f58a5a4d0c4a3e89829af6c4e211649228700b0c4ea3515f516613814\",\"source\":\"agent_run:c3e30b1f-9fe7-4386-856e-907034fe77ca@1\",\"target\":\"artifact:01c4708f-e6ce-49c5-a101-3b8f674b6769@1\",\"edge_type\":\"produced\",\"label\":null},{\"id\":\"relation:1c7239f437fa2822572e4f72e3f9be7bb15e22f238d60905aff62e6526526e9e\",\"source\":\"agent_run:c3e30b1f-9fe7-4386-856e-907034fe77ca@1\",\"target\":\"artifact:2315782b-3538-426b-9758-a6c73ffae367@1\",\"edge_type\":\"produced\",\"label\":null},{\"id\":\"relation:23f8ce4ddbef280436b112e6d24b196f003d4f48cd0ff503a8eee31cef9f072c\",\"source\":\"agent_run:c3e30b1f-9fe7-4386-856e-907034fe77ca@1\",\"target\":\"artifact:30b6c780-2ed3-4f2b-aaec-4bdb1ee078c9@1\",\"edge_type\":\"produced\",\"label\":null},{\"id\":\"relation:77dacf511f3de68c3ddfd5edf8df61f7ad3e7b07a8915d3c8c34adfd85734465\",\"source\":\"agent_run:c3e30b1f-9fe7-4386-856e-907034fe77ca@1\",\"target\":\"artifact:3ecef0f4-b4e7-45fa-8759-45743bb2184a@1\",\"edge_type\":\"produced\",\"label\":null},{\"id\":\"relation:467ccb3642b66ed06177a688427cc751dd5329f815e540d655dbf75b61584401\",\"source\":\"agent_run:c3e30b1f-9fe7-4386-856e-907034fe77ca@1\",\"target\":\"artifact:77cab958-6980-4c2a-a731-404c18de2f18@1\",\"edge_type\":\"produced\",\"label\":null},{\"id\":\"relation:2e17d0217f024c3f1eb6467f2e98e7d728cd4d4d0a0f2642c62a86e24d6bce39\",\"source\":\"agent_run:c3e30b1f-9fe7-4386-856e-907034fe77ca@1\",\"target\":\"artifact:9a924407-6ae5-4148-a38e-91651cce9a37@1\",\"edge_type\":\"produced\",\"label\":null},{\"id\":\"relation:7713a3fd26a1c4d7b9647bb612ef1b470c2a1e64c9db422a1bdc31a318e2f039\",\"source\":\"agent_run:c3e30b1f-9fe7-4386-856e-907034fe77ca@1\",\"target\":\"artifact:9bc1d909-75a1-4e41-8100-fe73cd788580@1\",\"edge_type\":\"produced\",\"label\":null},{\"id\":\"relation:57697c50eeaec799accfa2f747550db5f50701dea133e5a9a8e4496830c03719\",\"source\":\"agent_run:c3e30b1f-9fe7-4386-856e-907034fe77ca@1\",\"target\":\"artifact:a65f4ecb-87a5-4119-bee5-18e5785463b6@1\",\"edge_type\":\"produced\",\"label\":null},{\"id\":\"relation:d559a1e5613bf29c13b7ad152ebb5b269aec6e271ff12dac0224b5124f8fe9f1\",\"source\":\"agent_run:c3e30b1f-9fe7-4386-856e-907034fe77ca@1\",\"target\":\"artifact:ec8091ec-1e5c-4274-98aa-874b7292e74f@1\",\"edge_type\":\"produced\",\"label\":null},{\"id\":\"relation:94b71c7a35d16bc995f6ec2cc65b026c8480abf26c6e3ec57a317e8ae3e9fc8f\",\"source\":\"agent_run:c3e30b1f-9fe7-4386-856e-907034fe77ca@1\",\"target\":\"artifact:faf33a37-4de1-460b-93c6-a85fb49672cb@1\",\"edge_type\":\"produced\",\"label\":null},{\"id\":\"relation:adcd9aed660249687204c2fba14a33d4a1f404ed5b84ec2ce3e250f3528b44a6\",\"source\":\"agent_run:a7fd3791-cca3-436b-8038-1227dd7e8b24@1\",\"target\":\"artifact:fcfa5c3a-417c-4874-b3ad-445835ca6100@1\",\"edge_type\":\"produced\",\"label\":null},{\"id\":\"relation:340760fb268ef7f386620eb590effda0ed9f14fb71611363df5832edc8ab5beb\",\"source\":\"agent_run:c3e30b1f-9fe7-4386-856e-907034fe77ca@1\",\"target\":\"claim:f595ff1f-4c78-4825-8eba-461e67df1158@1\",\"edge_type\":\"produced\",\"label\":null},{\"id\":\"relation:1081257dac747a2b52158328522c5cc311c40b0c06e3d15777635ef1a338ddf7\",\"source\":\"observation:4cfa4979-ded1-4667-8783-d9efacfd96ad@1\",\"target\":\"artifact:5b6ecff5-4401-4396-965c-fc065b554dee@1\",\"edge_type\":\"captured_artifact\",\"label\":null},{\"id\":\"relation:444768b9a8eb60e63960c643f1eaddfbc38745316e095fafadf05616f631c4cc\",\"source\":\"claim:f595ff1f-4c78-4825-8eba-461e67df1158@1\",\"target\":\"observation:4cfa4979-ded1-4667-8783-d9efacfd96ad@1\",\"edge_type\":\"cites\",\"label\":null},{\"id\":\"relation:593a904587517472c46deafe352727281a6230eac1ee69feee3186cad9d338f7\",\"source\":\"origin:083f6134-46bd-4237-9cdc-0c88a39da3d0@4\",\"target\":\"work_item:3b1f297b-dfe6-41a2-a7b0-cb8d37e77828@4\",\"edge_type\":\"contains_work\",\"label\":null},{\"id\":\"relation:86822c13ed3a25c3dff989ba07f0c4d9e342dbddf50f42ea1bbe91a31a4bf218\",\"source\":\"intent:b4e86b80-3db0-4231-888d-160f3e977d49@1\",\"target\":\"work_item:3b1f297b-dfe6-41a2-a7b0-cb8d37e77828@4\",\"edge_type\":\"scheduled_as\",\"label\":null},{\"id\":\"relation:a7a3f8fa1ca6d006d5fe1ec62b27ad43be38cde3462603f32d3bb94a722568f0\",\"source\":\"work_item:3b1f297b-dfe6-41a2-a7b0-cb8d37e77828@4\",\"target\":\"agent_run:a7fd3791-cca3-436b-8038-1227dd7e8b24@1\",\"edge_type\":\"has_run\",\"label\":null},{\"id\":\"relation:478e3037aa925fa8335821b052e5cafec633eef5047c00d2d316783b503361aa\",\"source\":\"origin:083f6134-46bd-4237-9cdc-0c88a39da3d0@4\",\"target\":\"work_item:3e2163d9-d5d6-47a0-bb2d-cfb77d0941d0@5\",\"edge_type\":\"contains_work\",\"label\":null},{\"id\":\"relation:5c4719d5e0cc56c45e735eac3b5cae8c1db00fe28c0420ebc8aab15ca3f4379e\",\"source\":\"work_item:3e2163d9-d5d6-47a0-bb2d-cfb77d0941d0@5\",\"target\":\"agent_run:c3e30b1f-9fe7-4386-856e-907034fe77ca@1\",\"edge_type\":\"has_run\",\"label\":null}],\"opaque_cursor\":\"m2PU6p0iID2CmZLCw0stImcrfa71yt2sQ1yUtXnIf3Y\",\"truncated\":false,\"continuation\":null,\"allowed_actions\":[]}"
+    },
+    {
+      "at": "2026-09-17T04:19:33.387Z",
+      "kind": "request",
+      "method": "GET",
+      "url": "http://127.0.0.1:44180/api/v2/views/4280e2dc-5bae-4a72-90ea-f41ff2e86945/events",
+      "headers": {
+        "sec-ch-ua-platform": "\"macOS\"",
+        "referer": "http://127.0.0.1:44180/",
+        "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.8010.12 Safari/537.36",
+        "accept": "text/event-stream",
+        "sec-ch-ua": "\"HeadlessChrome\";v=\"153\", \"Not_A Brand\";v=\"8\", \"Chromium\";v=\"153\"",
+        "sec-ch-ua-mobile": "?0"
+      },
+      "body": null
+    },
+    {
+      "at": "2026-09-17T04:19:35.508Z",
+      "kind": "request",
+      "method": "POST",
+      "url": "http://127.0.0.1:44180/api/v2/tasks/083f6134-46bd-4237-9cdc-0c88a39da3d0/reports/report%3A73a83e16-5f3e-4f02-b509-f59df7a97962/deliveries",
+      "headers": {
+        "sec-ch-ua-platform": "\"macOS\"",
+        "referer": "http://127.0.0.1:44180/",
+        "idempotency-key": "d0a5bcb3-7730-486d-b0de-1765b0ce5f30",
+        "sec-ch-ua": "\"HeadlessChrome\";v=\"153\", \"Not_A Brand\";v=\"8\", \"Chromium\";v=\"153\"",
+        "sec-ch-ua-mobile": "?0",
+        "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.8010.12 Safari/537.36",
+        "accept": "application/json",
+        "content-type": "application/json"
+      },
+      "body": "{\"profile\":{\"schema_version\":\"wuji.delivery-profile.v1\",\"profile_id\":\"screenshot-bundle-v1\",\"mode\":\"offline\",\"requirements\":[{\"role\":\"report_body\",\"media_type\":\"application/vnd.wuji.report+json\",\"min_count\":1,\"required\":true},{\"role\":\"screenshot\",\"media_type\":\"image/*\",\"min_count\":1,\"required\":true}]},\"exchange\":null}"
+    },
+    {
+      "at": "2026-09-17T04:19:35.568Z",
+      "kind": "request",
+      "method": "GET",
+      "url": "http://127.0.0.1:44180/api/v2/tasks/083f6134-46bd-4237-9cdc-0c88a39da3d0/reports/report%3A73a83e16-5f3e-4f02-b509-f59df7a97962/deliveries",
+      "headers": {
+        "sec-ch-ua-platform": "\"macOS\"",
+        "referer": "http://127.0.0.1:44180/",
+        "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.8010.12 Safari/537.36",
+        "accept": "application/json",
+        "sec-ch-ua": "\"HeadlessChrome\";v=\"153\", \"Not_A Brand\";v=\"8\", \"Chromium\";v=\"153\"",
+        "sec-ch-ua-mobile": "?0"
+      },
+      "body": null
+    },
+    {
+      "at": "2026-09-17T04:19:35.574Z",
+      "kind": "response",
+      "method": "POST",
+      "url": "http://127.0.0.1:44180/api/v2/tasks/083f6134-46bd-4237-9cdc-0c88a39da3d0/reports/report%3A73a83e16-5f3e-4f02-b509-f59df7a97962/deliveries",
+      "status": 200,
+      "body": "{\"delivery_id\":\"delivery:21563ff39ec7ab74940d15fcbecf91b1\",\"task_id\":\"083f6134-46bd-4237-9cdc-0c88a39da3d0\",\"report_id\":\"report:73a83e16-5f3e-4f02-b509-f59df7a97962\",\"report_digest\":\"4f1b3e37ee500d2b22bc946e5af052c7975bd23728b16558a9b8dec280a6b6b1\",\"epoch_id\":\"73a83e16-5f3e-4f02-b509-f59df7a97962\",\"profile\":{\"schema_version\":\"wuji.delivery-profile.v1\",\"profile_id\":\"screenshot-bundle-v1\",\"mode\":\"offline\",\"requirements\":[{\"role\":\"report_body\",\"media_type\":\"application/vnd.wuji.report+json\",\"min_count\":1,\"required\":true},{\"role\":\"screenshot\",\"media_type\":\"image/*\",\"min_count\":1,\"required\":true}]},\"profile_digest\":\"e8aff23046849054383553f7c316785edd1473aac083dcc6334cfdab47fa04b0\",\"state\":\"incomplete\",\"mode\":\"offline\",\"missing\":[{\"role\":\"screenshot\",\"media_type\":\"image/*\",\"min_count\":1,\"present_count\":0,\"missing_count\":1,\"required\":true}],\"manifest\":{\"schema_version\":\"wuji.report-delivery.v1\",\"report_id\":\"report:73a83e16-5f3e-4f02-b509-f59df7a97962\",\"report_digest\":\"4f1b3e37ee500d2b22bc946e5af052c7975bd23728b16558a9b8dec280a6b6b1\",\"epoch_id\":\"73a83e16-5f3e-4f02-b509-f59df7a97962\",\"profile\":{\"schema_version\":\"wuji.delivery-profile.v1\",\"profile_id\":\"screenshot-bundle-v1\",\"mode\":\"offline\",\"requirements\":[{\"role\":\"report_body\",\"media_type\":\"application/vnd.wuji.report+json\",\"min_count\":1,\"required\":true},{\"role\":\"screenshot\",\"media_type\":\"image/*\",\"min_count\":1,\"required\":true}]},\"mode\":\"offline\",\"state\":\"incomplete\",\"requirements\":[{\"role\":\"report_body\",\"media_type\":\"application/vnd.wuji.report+json\",\"min_count\":1,\"required\":true,\"present_count\":1,\"present\":[{\"source\":\"report_commit\",\"source_ref\":\"report:73a83e16-5f3e-4f02-b509-f59df7a97962\",\"media_type\":\"application/vnd.wuji.report+json\",\"sha256\":\"4f1b3e37ee500d2b22bc946e5af052c7975bd23728b16558a9b8dec280a6b6b1\",\"size_bytes\":701,\"access_level\":1}],\"missing_count\":0},{\"role\":\"screenshot\",\"media_type\":\"image/*\",\"min_count\":1,\"required\":true,\"present_count\":0,\"present\":[],\"missing_count\":1}],\"materials\":[{\"source\":\"report_commit\",\"source_ref\":\"report:73a83e16-5f3e-4f02-b509-f59df7a97962\",\"media_type\":\"application/vnd.wuji.report+json\",\"sha256\":\"4f1b3e37ee500d2b22bc946e5af052c7975bd23728b16558a9b8dec280a6b6b1\",\"size_bytes\":701,\"access_level\":1}],\"missing\":[{\"role\":\"screenshot\",\"media_type\":\"image/*\",\"min_count\":1,\"present_count\":0,\"missing_count\":1,\"required\":true}]},\"manifest_digest\":\"67ead2fa2c791e62763b4ba1e512d1a19cde70800acfc6e61ba012533d17ce9b\",\"exchange\":null,\"error_code\":null,\"access_level\":1,\"created_at\":\"2026-09-17T04:19:35.557696Z\"}"
+    },
+    {
+      "at": "2026-09-17T04:19:35.670Z",
+      "kind": "response",
+      "method": "GET",
+      "url": "http://127.0.0.1:44180/api/v2/tasks/083f6134-46bd-4237-9cdc-0c88a39da3d0/reports/report%3A73a83e16-5f3e-4f02-b509-f59df7a97962/deliveries",
+      "status": 200,
+      "body": "[{\"delivery_id\":\"delivery:929b5ad51414c81558cf026b3969adc5\",\"report_id\":\"report:73a83e16-5f3e-4f02-b509-f59df7a97962\",\"profile_id\":\"offline-document-v1\",\"mode\":\"offline\",\"state\":\"ready\",\"missing_required\":0,\"error_code\":null,\"created_at\":\"2026-09-17T04:12:38.026573Z\"},{\"delivery_id\":\"delivery:8b96ebcf68614db4ab47955676543b25\",\"report_id\":\"report:73a83e16-5f3e-4f02-b509-f59df7a97962\",\"profile_id\":\"screenshot-bundle-v1\",\"mode\":\"offline\",\"state\":\"incomplete\",\"missing_required\":1,\"error_code\":null,\"created_at\":\"2026-09-17T04:12:38.105933Z\"},{\"delivery_id\":\"delivery:21563ff39ec7ab74940d15fcbecf91b1\",\"report_id\":\"report:73a83e16-5f3e-4f02-b509-f59df7a97962\",\"profile_id\":\"screenshot-bundle-v1\",\"mode\":\"offline\",\"state\":\"incomplete\",\"missing_required\":1,\"error_code\":null,\"created_at\":\"2026-09-17T04:19:35.557696Z\"}]"
+    },
+    {
+      "at": "2026-09-17T04:19:37.290Z",
+      "kind": "request",
+      "method": "GET",
+      "url": "http://127.0.0.1:44180/api/v2/tasks/083f6134-46bd-4237-9cdc-0c88a39da3d0/completion",
+      "headers": {
+        "sec-ch-ua-platform": "\"macOS\"",
+        "referer": "http://127.0.0.1:44180/",
+        "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.8010.12 Safari/537.36",
+        "accept": "application/json",
+        "sec-ch-ua": "\"HeadlessChrome\";v=\"153\", \"Not_A Brand\";v=\"8\", \"Chromium\";v=\"153\"",
+        "sec-ch-ua-mobile": "?0"
+      },
+      "body": null
+    },
+    {
+      "at": "2026-09-17T04:19:37.422Z",
+      "kind": "request",
+      "method": "GET",
+      "url": "http://127.0.0.1:44180/api/v2/tasks/083f6134-46bd-4237-9cdc-0c88a39da3d0/reports/report%3A73a83e16-5f3e-4f02-b509-f59df7a97962/deliveries",
+      "headers": {
+        "sec-ch-ua-platform": "\"macOS\"",
+        "referer": "http://127.0.0.1:44180/",
+        "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.8010.12 Safari/537.36",
+        "accept": "application/json",
+        "sec-ch-ua": "\"HeadlessChrome\";v=\"153\", \"Not_A Brand\";v=\"8\", \"Chromium\";v=\"153\"",
+        "sec-ch-ua-mobile": "?0"
+      },
+      "body": null
+    },
+    {
+      "at": "2026-09-17T04:19:37.423Z",
+      "kind": "response",
+      "method": "GET",
+      "url": "http://127.0.0.1:44180/api/v2/tasks/083f6134-46bd-4237-9cdc-0c88a39da3d0/completion",
+      "status": 200,
+      "body": "{\"task_id\":\"083f6134-46bd-4237-9cdc-0c88a39da3d0\",\"observed_state\":\"closed\",\"desired_state\":\"run\",\"control_version\":\"4\",\"completion_epoch_id\":\"73a83e16-5f3e-4f02-b509-f59df7a97962\",\"close_trigger\":\"goal_satisfied\",\"result_outcome\":\"complete\",\"review\":{\"decision\":\"ready\",\"reasons\":[],\"criteria\":[{\"criterion_id\":\"version\",\"revision\":\"1\",\"required\":true,\"status\":\"met\",\"applicability\":\"current\"}],\"open_work\":[],\"unsettled_runs\":[]},\"report\":{\"report_id\":\"report:73a83e16-5f3e-4f02-b509-f59df7a97962\",\"body_digest\":\"4f1b3e37ee500d2b22bc946e5af052c7975bd23728b16558a9b8dec280a6b6b1\",\"dispute_state\":\"clear\",\"close_trigger\":\"goal_satisfied\",\"result_outcome\":\"complete\",\"epoch_id\":\"73a83e16-5f3e-4f02-b509-f59df7a97962\",\"created_at\":\"2026-09-17T01:21:18.598640Z\"}}"
+    }
+  ],
+  "console_messages": [
+    {
+      "at": "2026-09-17T04:19:32.137Z",
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+    }
+  ],
+  "final_state": {
+    "completion": {
+      "status": 200,
+      "report_id": "report:73a83e16-5f3e-4f02-b509-f59df7a97962"
+    },
+    "deliveries": {
+      "status": 200,
+      "body": [
+        {
+          "delivery_id": "delivery:929b5ad51414c81558cf026b3969adc5",
+          "report_id": "report:73a83e16-5f3e-4f02-b509-f59df7a97962",
+          "profile_id": "offline-document-v1",
+          "mode": "offline",
+          "state": "ready",
+          "missing_required": 0,
+          "error_code": null,
+          "created_at": "2026-09-17T04:12:38.026573Z"
+        },
+        {
+          "delivery_id": "delivery:8b96ebcf68614db4ab47955676543b25",
+          "report_id": "report:73a83e16-5f3e-4f02-b509-f59df7a97962",
+          "profile_id": "screenshot-bundle-v1",
+          "mode": "offline",
+          "state": "incomplete",
+          "missing_required": 1,
+          "error_code": null,
+          "created_at": "2026-09-17T04:12:38.105933Z"
+        },
+        {
+          "delivery_id": "delivery:21563ff39ec7ab74940d15fcbecf91b1",
+          "report_id": "report:73a83e16-5f3e-4f02-b509-f59df7a97962",
+          "profile_id": "screenshot-bundle-v1",
+          "mode": "offline",
+          "state": "incomplete",
+          "missing_required": 1,
+          "error_code": null,
+          "created_at": "2026-09-17T04:19:35.557696Z"
+        }
+      ]
+    }
+  }
+}
