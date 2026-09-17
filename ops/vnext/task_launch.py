@@ -623,6 +623,14 @@ def finalise_definition(connection, *, owner, config):
         seed = configured_seed_intent(config)
         if seed is not None:
             definition["seed_intent"] = seed
+    elif deployment_materials(config):
+        # A mechanism Task given published materials starts from the first of
+        # them, not from the version.txt fixture that does not exist here. The
+        # choice is frozen into the definition before the profiles are rendered
+        # so a second prepare renders exactly the same bytes.
+        definition["mechanism_fixture"] = {
+            "read": workspace_path(deployment_materials(config)[0]["path"])
+        }
     profiles = json.loads(canonical_json_bytes(published_session_profiles(config, definition)))
     stored_profiles = definition.get("worker_profiles")
     definition["worker_profiles"] = profiles
@@ -828,10 +836,19 @@ def receiver_ids(task_id, attempt):
     return f"task-{task_id}-a{attempt}", f"pod-environment-{task_id}-a{attempt}"
 
 
+def workspace_path(relative):
+    """The workspace reference a read tool accepts, from a bounded relative path."""
+
+    if not isinstance(relative, str) or not MATERIAL_PATH.fullmatch(relative):
+        raise DomainError("INVALID_SCHEMA", 422)
+    return "workspace:" + relative
+
+
 def fixture_intent_document(definition_lines):
     """The one bounded fixture read a mechanism Task starts with."""
 
-    start_point = (definition_lines.get("start_points") or ["workspace:version.txt"])[0]
+    fixture = (definition_lines.get("mechanism_fixture") or {}).get("read")
+    start_point = fixture or (definition_lines.get("start_points") or ["workspace:version.txt"])[0]
     if not isinstance(start_point, str) or not 1 <= len(start_point) <= 2048:
         raise DomainError("INVALID_REFERENCE", 422)
     client_ref = "".join(

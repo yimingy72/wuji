@@ -92,3 +92,31 @@ def test_variant_labels_and_decoy_answers_stay_out_of_the_materials(tmp_path):
                 if version == expected.get("answer"):
                     continue
                 assert version not in text, path
+
+
+def test_a_mechanism_case_reads_its_first_published_material(tmp_path):
+    """The fixture read follows the published materials, not a missing version.txt."""
+
+    trials = _load_trials()
+    suite = tmp_path / "suite"
+    trials.build_fixtures(suite)
+    config = trials.case_run_config(
+        suite=suite, name="A-reference",
+        deployment={"owner": ["tenant", "project"], "materials": []},
+        task_id="task-fixture",
+    )
+    materials = config["materials"]
+    assert [item["path"] for item in materials][0] == "materials/entry.json"
+
+    launcher = trials._load_launcher()
+    definition = {
+        "evaluation_mode": "mechanism_synthetic",
+        "mechanism_fixture": {"read": launcher.workspace_path(materials[0]["path"])},
+        "start_points": ["https://fixture.invalid:443"],
+    }
+    intent = launcher.initial_intent_document(config, definition)
+    assert "workspace:materials/entry.json" in intent["question"]
+    # Without the frozen fixture the older version.txt default is unchanged.
+    assert "workspace:version.txt" in launcher.initial_intent_document(
+        {"materials": []}, {"evaluation_mode": "mechanism_synthetic"}
+    )["question"]
