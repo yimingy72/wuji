@@ -249,6 +249,17 @@ class SnapshotRepository:
             i: {"process_state": s, "model_mode": m, "run_epoch": str(v)}
             for i, s, m, v in runs
         }
+        # A completion review the Reason asked for is part of the material the
+        # next Reason must be able to read: its gaps are the feedback that
+        # decides whether the loop continues, waits or blocks.
+        review = tx.connection.execute(
+            "SELECT payload_json FROM vnext.outbox WHERE tenant_id=%s AND project_id=%s"
+            " AND task_id=%s AND kind='completion.reviewed'"
+            " ORDER BY event_seq DESC LIMIT 1",
+            tx.owner,
+        ).fetchone()
+        if review is not None:
+            states["completion_review"] = strict_json_loads(review[0])
         # Freeze P04 assessment policy/outcome in the same RR manifest transaction.
         from wuji_core.blackboard.fact_view import aggregate
 

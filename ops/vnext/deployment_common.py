@@ -100,6 +100,9 @@ class Deployment:
         self.inputs = InputService(self.uow, sessions=self.sessions, registry=self.registry)
         self.approvals = ApprovalService(self.uow, sessions=self.sessions, registry=self.registry)
         self.control = ControlService(self.uow, artifacts=self.artifacts, sessions=self.sessions)
+        from wuji_core.completion.precheck import CompletionService
+
+        self.completion = CompletionService(self.uow, control=self.control)
         self.profiles = strict_json_loads(read_file(settings.profiles_file))
         if not isinstance(self.profiles, list) or not self.profiles:
             raise ValueError("fixed published harness profiles are required")

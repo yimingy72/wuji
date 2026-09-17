@@ -130,3 +130,11 @@
 - `TriggerRepository._progress` 之前只认 `evidence_ingested`，正常工具结果提交（`result_committed`）**不产生任何 material 进展**——无进展收敛会失去依据。
 - 现在被接纳的非 Reason 结果按**已接受组件的 canonical refs** 生成一条 `material` 进展行：指纹不含 ToolAttempt ID/UUID/接收时间，重放同一事件既不新增进展也不新增工作；Reason 自己的决策不计入材料。
 - 证据：`tests/vnext/test_exploration_loop.py` 3 项，其中第三项实测"新 Claim 进入下一次 Reason 的 read_set"（新 Reason Run 的 snapshot read set 含该 Claim），第二项实测材料行唯一且重放无副作用。
+
+### E05（已交付）：完成提案有真实消费者，缺口回到 Reason
+
+- 事实核对：`reason.completion_requested` 在 vNext 里**此前没有任何消费者**（唯一命中在遗留 `services/execution-control/core.py`，那条是 v1 老链路），事件只进 outbox 没人处理。
+- 现在 `Scheduler` 注入 `CompletionService`：在已持有 Task 锁、且刚消费该请求事件的同一事务里调用 `review_in_transaction`，把评审写成一份带来源与依据版本的 `completion.reviewed` 事件（review_id、decision、reasons、coverage、open_work、unsettled_runs、basis={请求事件序号, work item, processing_generation, control_version, board_revision}、review_digest）。同一请求事件重复投递不会再生成第二份评审，也**从不**由评审本身关闭 Task。
+- 缺口反馈闭环：`completion.reviewed` 在 decision 为 `wait`/`blocked` 时是"相关事件"（唤醒下一代 Reason），并且最新评审会随 `snapshot_manifest.states.completion_review` 进入下一次 Reason 的冻结输入；`ready` 不触发新一轮 Reason，等待操作者走既有 quiesce 决策。
+- 判据侧沿用既有 P12 协议（未改动）：`test_completion_protocol.py` 已覆盖"只有 current 的 met 判定支持 Goal""没有必需判据永远不算满足""判定必须引用封存证据""必需工作未完成不得提前静默""只有评估身份能写判定"，以及迟到反证标记 disputed。
+- 证据：`tests/vnext/test_exploration_loop.py::test_a_completion_request_is_answered_once_with_a_durable_review`（一次请求一份评审、basis/digest、不关闭 Task、重复事件不新增、评审进入下一次 Reason 输入）。

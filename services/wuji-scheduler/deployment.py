@@ -13,7 +13,8 @@ def build_scheduler():
         return Scheduler(deployment.uow, ownership=ownership,
             accesses=(deployment.access(),), snapshots=SnapshotRepository(deployment.uow),
             registry=deployment.registry, control=deployment.control,
-            credential_issuer=deployment.issuer())
+            credential_issuer=deployment.issuer(),
+            completion=deployment.completion)
     except BaseException:
         connection.close()
         raise

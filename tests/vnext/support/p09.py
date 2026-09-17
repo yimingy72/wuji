@@ -342,6 +342,7 @@ def scheduler_case(
     evaluation_mode: str | None = None,
     reason_retry_attempts: int = 0,
     repair_attempts: int = 1,
+    completion=None,
 ):
     keys = SchedulerKeys.generate()
     with control_case(environment, tmp_path, audit_directory) as control:
@@ -388,6 +389,7 @@ def scheduler_case(
                 registry=registry,
                 control=control.control,
                 credential_issuer=issuer,
+                completion=completion(control) if callable(completion) else completion,
             )
             try:
                 yield SimpleNamespace(

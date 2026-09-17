@@ -200,6 +200,10 @@ class TriggerRepository:
             return producer is not None and (
                 producer["agent_run_id"] is None or producer["kind"] != "reason"
             )
+        if kind == "completion.reviewed":
+            # Only a review that still has a gap asks the Reason for another
+            # look; a ready review waits for the operator's quiesce decision.
+            return payload.get("decision") in {"wait", "blocked"}
         if kind in {"work.reconciled", "work.condition_changed"}:
             work = row(
                 tx.connection.execute(

@@ -11,6 +11,7 @@ state, work or completion by hand.
 from __future__ import annotations
 
 from hashlib import sha256
+import json
 from uuid import uuid4
 
 from support.p06 import ENVIRONMENT, TASK
@@ -355,3 +356,112 @@ def test_a_new_claim_reaches_the_next_reason_read_set(
             TASK, new_credential.access, new_assignment.snapshot_id
         )
         assert claim_ref in manifest.refs, (claim_ref, manifest.refs)
+
+
+def test_a_completion_request_is_answered_once_with_a_durable_review(
+    db_environment, tmp_path, audit_directory
+):
+    """E05: the Reason asks; the platform answers with one review, never a close."""
+
+    from wuji_core.completion.precheck import CompletionService
+
+    with scheduler_case(
+        db_environment, tmp_path, audit_directory, max_work_items=8, capacity=4,
+        completion=lambda control: CompletionService(
+            control.uow, control=control.control
+        ),
+    ) as case:
+        first = case.scheduler.tick(limit=2)
+        reason = next(
+            item for item in first.assignments if item.work_kind.value == "reason"
+        )
+        credential, receipt = _submit(
+            case,
+            reason,
+            {
+                "schema_version": "wuji.agent-payload.v2",
+                "claims": [],
+                "intent_proposals": [],
+                "limitations": ["the Reason asks the platform to review completion"],
+                "reason_decision": {
+                    "decision": "propose_completion",
+                    "wait_refs": [],
+                    "reason": "The stored evidence looks sufficient to the Reason.",
+                },
+            },
+            "e05-completion-1",
+        )
+        assert receipt.status.value == "accepted", receipt.model_dump(mode="json")
+        _close_and_exit(case, reason, credential)
+
+        # The request is emitted while the decision is consumed; the next tick
+        # is what reads it and answers with the review.
+        case.scheduler.tick(limit=4)
+        case.scheduler.tick(limit=4)
+        with db_environment.migration_connection() as connection:
+            reviews = [
+                row[0] and json.loads(row[0])
+                for row in connection.execute(
+                    "SELECT payload_json FROM vnext.outbox"
+                    " WHERE task_id=%s AND kind='completion.reviewed'"
+                    " ORDER BY event_seq",
+                    (TASK,),
+                ).fetchall()
+            ]
+            request_events = connection.execute(
+                "SELECT count(*) FROM vnext.outbox"
+                " WHERE task_id=%s AND kind='reason.completion_requested'",
+                (TASK,),
+            ).fetchone()[0]
+            task_state = connection.execute(
+                "SELECT desired_state, observed_state, control_version FROM vnext.task"
+                " WHERE task_id=%s", (TASK,),
+            ).fetchone()
+        assert request_events == 1
+        assert len(reviews) == 1, reviews
+        review = reviews[0]
+        assert review["schema_version"] == "wuji.completion-review.v1"
+        # Nothing was judged, so the platform must not answer "ready".
+        assert review["decision"] in {"wait", "blocked"}, review
+        assert review["reasons"], review
+        assert review["basis"]["request_event_seq"]
+        assert review["basis"]["control_version"] == str(task_state[2])
+        assert len(review["review_digest"]) == 64
+        # The review answers a request; it never closes the Task by itself.
+        assert task_state[1] != "closed"
+
+        # Re-delivering the same request event cannot mint a second review.
+        with db_environment.migration_connection() as connection:
+            request_seq = connection.execute(
+                "SELECT max(event_seq) FROM vnext.outbox"
+                " WHERE task_id=%s AND kind='reason.completion_requested'",
+                (TASK,),
+            ).fetchone()[0]
+        with case.control.uow.transaction(SCHEDULER, TASK, capability="admit") as tx:
+            repository = TriggerRepository(artifacts=case.control.store)
+            repository.record(tx, event_seq=request_seq)
+        with db_environment.migration_connection() as connection:
+            again = connection.execute(
+                "SELECT count(*) FROM vnext.outbox"
+                " WHERE task_id=%s AND kind='completion.reviewed'",
+                (TASK,),
+            ).fetchone()[0]
+        assert again == 1
+
+        # A review with a gap is the feedback that wakes the next Reason, and it
+        # travels in that Run's frozen input rather than in a log line.
+        third = case.scheduler.tick(limit=6)
+        assert third.blocked == (), third.blocked
+        fresh = [
+            item for item in third.assignments
+            if item.work_kind.value == "reason"
+            and item.identity.agent_run_id != reason.identity.agent_run_id
+        ]
+        assert fresh, [item.work_kind.value for item in third.assignments]
+        new_credential = worker_credential(case, fresh[0])
+        manifest = case.snapshots.get(
+            TASK, new_credential.access, fresh[0].snapshot_id
+        )
+        delivered = manifest.states.get("completion_review")
+        assert delivered is not None and delivered["review_id"] == review["review_id"]
+        assert delivered["decision"] == review["decision"]

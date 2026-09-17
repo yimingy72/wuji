@@ -245,6 +245,7 @@ class Scheduler:
         control,
         credential_issuer=None,
         policy=None,
+        completion=None,
     ):
         if not isinstance(uow, UnitOfWork) or not isinstance(
             ownership, SchedulerOwnership
@@ -259,6 +260,13 @@ class Scheduler:
         self.snapshots, self.registry, self.control = snapshots, registry, control
         self.credential_issuer = credential_issuer
         self.policy = policy or SchedulerPolicy()
+        # P12's review is read inside the scheduler transaction that already holds
+        # the Task lock, so "what was verified" is exactly what gets recorded.
+        if completion is not None and not callable(
+            getattr(completion, "review_in_transaction", None)
+        ):
+            raise ValueError("a real completion review port is required")
+        self.completion = completion
         self.triggers = TriggerRepository(artifacts=control.artifacts)
         self.waiters, self.works = WaiterRepository(), WorkRepository()
         if len(
@@ -426,6 +434,8 @@ class Scheduler:
             )
         )
         for event in events:
+            if event["kind"] == "reason.completion_requested":
+                self._completion_review(tx, event)
             if event["kind"] == "input.resolved":
                 payload = strict_json_loads(event["payload_json"])
                 waiting_work = row(tx.connection.execute("SELECT * FROM vnext.work_item WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND work_item_id=%s FOR UPDATE", (*tx.owner, payload["work_item_id"])))
@@ -433,6 +443,52 @@ class Scheduler:
                     self.control._restore(tx, waiting_work)
             self.triggers.record(tx, event_seq=event["event_seq"])
         self.waiters.scan(tx)
+
+    def _completion_review(self, tx, event):
+        """Answer one ``reason.completion_requested`` with one durable review.
+
+        The Reason asked the platform to look; the platform never lets that
+        request close the Task. The review is recomputed here, inside the same
+        transaction that already holds the Task lock and consumed the request,
+        so its basis is exactly the state it read, and it is emitted once per
+        request event: a repeated delivery finds the trigger already recorded.
+        """
+
+        if self.completion is None:
+            raise DomainError("completion_review_unavailable", 503)
+        review = self.completion.review_in_transaction(tx)
+        existing = tx.connection.execute(
+            "SELECT 1 FROM vnext.outbox WHERE tenant_id=%s AND project_id=%s"
+            " AND task_id=%s AND kind='completion.reviewed'"
+            " AND payload_json::jsonb->>'request_event_seq'=%s",
+            (*tx.owner, str(event["event_seq"])),
+        ).fetchone()
+        if existing:
+            return
+        review_id = str(uuid4())
+        basis = {
+            "request_event_seq": event["event_seq"],
+            "work_item_id": strict_json_loads(event["payload_json"]).get("work_item_id"),
+            "processing_generation": strict_json_loads(event["payload_json"]).get(
+                "processing_generation"
+            ),
+            "control_version": str(tx.task["control_version"]),
+            "board_revision": str(tx.task["board_revision"]),
+        }
+        document = {
+            "schema_version": "wuji.completion-review.v1",
+            "review_id": review_id,
+            "decision": review.decision,
+            "reasons": list(review.reasons),
+            "coverage": asdict(review.coverage),
+            "open_work": list(review.open_work),
+            "unsettled_runs": list(review.unsettled_runs),
+            "basis": basis,
+        }
+        document["review_digest"] = sha256(
+            canonical_json_bytes(document)
+        ).hexdigest()
+        tx.semantic_event("completion.reviewed", document)
 
     def _prepare(self, tx, now):
         if not task_can_run(tx.task):
