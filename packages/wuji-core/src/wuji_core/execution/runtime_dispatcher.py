@@ -113,7 +113,11 @@ class RuntimeDispatcher:
         self.max_reconcile_per_cycle = max_reconcile_per_cycle
         # Fairness cursors are in-memory hints only: PostgreSQL stays the
         # authority for what is pending, and a restart simply rescans.
-        self._task_cursor = 0
+        # The two lanes carry *separate* cursors: one shared counter advanced by
+        # both a dispatch pass and a reconcile pass is how a full cycle starves
+        # the tasks it skipped (R03). Each lane resumes at the Task it did not
+        # reach, keyed by Task ID so inserts and deletions cannot shift it.
+        self._lane_cursor: dict[str, str] = {}
         self._dispatch_cursor: dict[str, str] = {}
         self._reconcile_cursor: dict[str, str] = {}
         self.failures: dict[str, str] = {}
@@ -131,15 +135,25 @@ class RuntimeDispatcher:
             raise ValueError("invalid authorized task source")
         return tasks
 
-    def _ordered_tasks(self) -> tuple[str, ...]:
-        """Round-robin start offset: no Task can own the head of every batch."""
+    def _lane_order(self, lane: str) -> tuple[str, ...]:
+        """One lane's rotating Task order, resumed at the Task it stopped on."""
 
         tasks = list(self._tasks())
         if not tasks:
             return ()
-        offset = self._task_cursor % len(tasks)
-        self._task_cursor = (self._task_cursor + 1) % len(tasks)
-        return tuple(tasks[offset:] + tasks[:offset])
+        resume = self._lane_cursor.get(lane)
+        if resume in tasks:
+            start = tasks.index(resume)
+            return tuple(tasks[start:] + tasks[:start])
+        return tuple(tasks)
+
+    def _set_lane_resume(self, lane: str, order: tuple[str, ...], stopped: int | None):
+        """Remember the first Task this lane did not get to this cycle."""
+
+        if order and stopped is not None and 0 <= stopped < len(order):
+            self._lane_cursor[lane] = order[stopped]
+        else:
+            self._lane_cursor.pop(lane, None)
 
     def _pending_for(self, task_id: str, limit: int) -> tuple[PendingDispatch, ...]:
         with self.uow.transaction(self.access, task_id, capability="observe") as tx:
@@ -268,13 +282,23 @@ class RuntimeDispatcher:
         if self._closed or type(limit) is not int or not 1 <= limit <= 256:
             raise ValueError("a live dispatcher and bounded limit are required")
         pending = []
-        for task_id in self._ordered_tasks():
+        stopped = None
+        order = self._lane_order("dispatch")
+        for index, task_id in enumerate(order):
             if not self.start_allowed(task_id) or task_id in self._ended_environments:
                 continue
             remaining = limit - len(pending)
             if not remaining:
+                stopped = index
                 break
-            pending.extend(self._pending_for(task_id, remaining))
+            try:
+                pending.extend(self._pending_for(task_id, remaining))
+            except (DomainError, OSError, TimeoutError, ValueError) as error:
+                # R02: discovery for one Task is isolated. A broken candidate in
+                # Task A must not cancel dispatch for Task B, nor skip the
+                # reconcile lane that settles existing Runs.
+                self._note_failure(task_id, error)
+        self._set_lane_resume("dispatch", order, stopped)
         return tuple(pending)
 
     def _note_failure(self, key: str, error) -> None:
@@ -359,9 +383,12 @@ class RuntimeDispatcher:
         if type(budget) is not int or not 1 <= budget <= 256:
             raise ValueError("a bounded reconcile limit is required")
         observed = []
-        for task_id in self._ordered_tasks():
+        stopped = None
+        order = self._lane_order("reconcile")
+        for index, task_id in enumerate(order):
             remaining = budget - len(observed)
             if not remaining:
+                stopped = index
                 break
             try:
                 candidates = self._reconcile_candidates(task_id, remaining)
@@ -383,6 +410,7 @@ class RuntimeDispatcher:
                     observed.append(self.reconciler.reconcile(candidate.run))
                 except (DomainError, OSError, TimeoutError, ValueError) as error:
                     self._note_failure(candidate.operation_id, error)
+        self._set_lane_resume("reconcile", order, stopped)
         return tuple(observed)
 
     def reconcile(self, run: RegisteredRun) -> ObservedExecution:

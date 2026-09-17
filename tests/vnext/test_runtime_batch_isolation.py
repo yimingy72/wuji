@@ -132,15 +132,60 @@ def test_standing_reconciliation_covers_old_runs_without_new_starts():
     assert reconciler.reconciled == ["old-run"]
 
 
-def test_task_order_rotates_so_a_stable_prefix_cannot_starve_later_tasks():
+def test_each_lane_resumes_at_the_task_it_did_not_reach():
+    """R03: dispatch and reconcile carry independent, ID-keyed cursors.
+
+    With a one-item budget the dispatch lane processes task-a and must resume at
+    task-b, while the reconcile lane still starts at its own head. A single
+    shared counter advanced by both passes is how every later Task gets starved.
+    """
+
+    from wuji_core.execution.runtime_dispatcher import PendingReconcile
+
+    pending = [record(task_id, f"op-{task_id}") for task_id in ("task-a", "task-b", "task-c")]
     scheduler = dispatcher(
         tasks=("task-a", "task-b", "task-c"),
-        outbox=FakeOutbox({}),
+        outbox=FakeOutbox({f"op-{task_id}": observed(f"run-{task_id}") for task_id in ("task-a", "task-b", "task-c")}),
         reconciler=FakeReconciler(),
+        pending=pending,
     )
-    assert scheduler._ordered_tasks() == ("task-a", "task-b", "task-c")
-    assert scheduler._ordered_tasks() == ("task-b", "task-c", "task-a")
-    assert scheduler._ordered_tasks() == ("task-c", "task-a", "task-b")
+    candidates = [
+        PendingReconcile(
+            task_id=task_id,
+            operation_id=f"start-{task_id}",
+            run=SimpleNamespace(
+                identity=SimpleNamespace(agent_run_id=f"run-{task_id}")
+            ),
+            receiver_enabled=True,
+            process_state="running",
+            work_state="leased",
+        )
+        for task_id in ("task-a", "task-b", "task-c")
+    ]
+    scheduler._reconcile_candidates = lambda task_id, limit: tuple(
+        item for item in candidates if item.task_id == task_id
+    )[:limit]
+
+    first = scheduler.pending(limit=1)
+    assert [item.task_id for item in first] == ["task-a"]
+    assert scheduler._lane_cursor["dispatch"] == "task-b"
+    assert "reconcile" not in scheduler._lane_cursor, "the lanes never share a cursor"
+
+    second = scheduler.pending(limit=1)
+    assert [item.task_id for item in second] == ["task-b"]
+    assert scheduler._lane_cursor["dispatch"] == "task-c"
+
+    reconciled = scheduler.reconcile_pending(limit=1)
+    assert [item.run.identity.agent_run_id for item in reconciled] == ["run-task-a"]
+    assert scheduler._lane_cursor["reconcile"] == "task-b"
+    assert scheduler._lane_cursor["dispatch"] == "task-c", "still untouched by reconcile"
+
+    # A Task leaving or joining the authorized set must not strand the resume
+    # point: the cursor is a Task ID, so an unknown one simply restarts at head.
+    scheduler._task_source = lambda: ("task-b", "task-c")
+    assert scheduler._lane_order("dispatch") == ("task-c", "task-b")
+    scheduler._task_source = lambda: ("task-z", "task-a")
+    assert scheduler._lane_order("dispatch") == ("task-z", "task-a")
 
 
 def test_scan_cursor_continues_inside_a_task_and_wraps():
@@ -240,3 +285,43 @@ def test_a_start_restriction_must_name_authorized_tasks_only():
     scheduler.restrict_starts(())
     assert scheduler.pending() == ()
     assert scheduler.start_allowed("task-a") is False
+
+
+def test_a_failing_candidate_discovery_does_not_stop_the_cycle():
+    """R02: one Task's discovery failure is classified, not fatal.
+
+    Before this fix the exception escaped the per-Task loop, so Task A's broken
+    candidate cancelled Task B's dispatch *and* skipped the reconcile lane that
+    settles already running operations.
+    """
+
+    from wuji_core.execution.runtime_dispatcher import PendingReconcile
+
+    pending = [record("task-b", "op-task-b")]
+    scheduler = dispatcher(
+        tasks=("task-a", "task-b"),
+        outbox=FakeOutbox({"op-task-b": observed("run-b")}),
+        reconciler=FakeReconciler(),
+        pending=pending,
+    )
+
+    def failing(task_id, limit):
+        if task_id == "task-a":
+            raise DomainError("INPUT_DIGEST_CONFLICT", 409)
+        return tuple(item for item in pending if item.task_id == task_id)[:limit]
+
+    scheduler._pending_for = failing
+    scheduler._reconcile_candidates = lambda task_id, limit: (
+        PendingReconcile(
+            task_id="task-b",
+            operation_id="start-b",
+            run=SimpleNamespace(identity=SimpleNamespace(agent_run_id="old-run")),
+            receiver_enabled=False,
+            process_state="running",
+            work_state="leased",
+        ),
+    ) if task_id == "task-b" else ()
+
+    result = scheduler.run_once(limit=4)
+    assert [item.run.identity.agent_run_id for item in result] == ["run-b", "old-run"]
+    assert scheduler.failures["task-a"] == "INPUT_DIGEST_CONFLICT"
