@@ -180,6 +180,58 @@ def rotate_service_certificates(directory, services=TASK_SERVICES, *, raw):
     return fingerprints
 
 
+TASK_CERTIFICATE_SECRETS = {
+    "agent": "-agent-auth",
+    "kali": "-kali-auth",
+}
+
+
+def task_certificate_patch(directory, secret_name):
+    """The exact secret patch that gives one Task secret the rotated certs.
+
+    A per-Task Service is reached by its own DNS name, so the template Task's
+    mounted certificate must carry the wildcard SAN. Rotation rewrites the state
+    files; without this step every newly launched Task would copy the old names
+    and the runtime's HTTPS call to the supervisor would fail with URLError.
+    """
+
+    for role, suffix in TASK_CERTIFICATE_SECRETS.items():
+        if not secret_name.endswith(suffix):
+            continue
+        certificate = directory / ("task-" + role + ".crt")
+        key = directory / ("task-" + role + ".key")
+        if not certificate.is_file() or not key.is_file():
+            raise ValueError("missing rotated " + role + " certificate material")
+        return {
+            "kind": role,
+            "patch": {
+                "data": {
+                    "tls.crt": base64.b64encode(certificate.read_bytes()).decode(),
+                    "tls.key": base64.b64encode(key.read_bytes()).decode(),
+                }
+            },
+        }
+    raise ValueError("unknown Task secret name: " + secret_name)
+
+
+def publish_task_certificates(directory, secret_names, *, raw):
+    """Push the rotated leaves into the deployment's Task template secrets."""
+
+    results = {}
+    for name in secret_names:
+        if not name or not name.strip():
+            continue
+        name = name.strip()
+        document = task_certificate_patch(directory, name)
+        patch_file = raw / (name + ".patch.json")
+        save(patch_file, json.dumps(document["patch"]).encode())
+        run(["kubectl", "--context", CONTEXT, "-n", NAMESPACE, "patch", "secret", name,
+             "--type", "merge", "--patch-file", str(patch_file)],
+            raw, "patch-secret-" + name, timeout=120)
+        results[name] = document["kind"]
+    return results
+
+
 def build_images(raw):
     images = {}
     revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
@@ -316,6 +368,8 @@ def main():
     parser.add_argument("--manifest", type=Path)
     parser.add_argument("--inventory", type=Path)
     parser.add_argument("--images", type=Path)
+    parser.add_argument("--task-secrets", default="",
+                        help="comma-separated template Task secret names to republish after rotating leaves")
     args = parser.parse_args()
     os.umask(0o077)
     state = args.state_directory.resolve()
@@ -332,8 +386,10 @@ def main():
             "namespace": NAMESPACE, "ca_sha256": sha256(ca).hexdigest()}).encode())
     elif args.command == "rotate-task-certs":
         fingerprints = rotate_service_certificates(state / "tls", raw=raw)
+        published = publish_task_certificates(
+            state / "tls", args.task_secrets.split(",") if args.task_secrets else [], raw=raw)
         print(json.dumps({"operation": args.command, "raw_directory": str(raw),
-                          "fingerprints": fingerprints}))
+                          "fingerprints": fingerprints, "task_secrets": published}))
         return
     elif args.command == "build":
         build_images(raw)

@@ -110,7 +110,7 @@
 
 1. **worker lock 变更 → 新 Task prepare 永久失败**：已加 `preflight.worker_lock` + owner `--phase relock`（本次发布 `k8s-runtime-v1` rev4）。
 2. **共享 runtime ConfigMap 混入两个 Worker lock → runtime 启动即失败**：`wire` 现在按 lock 退休旧条目（`replace_runtime_profiles`，`pruned:N`），不再让两种 lock 共存。
-3. **每 Task Service 证书缺本 Task DNS 名 → runtime 到 supervisor 的 HTTPS 投递 `URLError`**：现场把模板 Task secret 更新为带 `*.wuji-vnext-test.svc` 的证书后新建 Task 一次成功；**`rotate-task-certs` 仍不会自动更新模板 secret，这是下一项最小工作**。
+3. **每 Task Service 证书缺本 Task DNS 名 → runtime 到 supervisor 的 HTTPS 投递 `URLError`**：现场把模板 Task secret 更新为带 `*.wuji-vnext-test.svc` 的证书后新建 Task 一次成功；`rotate-task-certs` 现在可在同一命令里把重签后的叶子证书推送到模板 Task secret（`--task-secrets <name>,<name>`），见下。
 
 ### E04-A（部分交付）：结果结算后驱动下一步
 
@@ -138,3 +138,9 @@
 - 缺口反馈闭环：`completion.reviewed` 在 decision 为 `wait`/`blocked` 时是"相关事件"（唤醒下一代 Reason），并且最新评审会随 `snapshot_manifest.states.completion_review` 进入下一次 Reason 的冻结输入；`ready` 不触发新一轮 Reason，等待操作者走既有 quiesce 决策。
 - 判据侧沿用既有 P12 协议（未改动）：`test_completion_protocol.py` 已覆盖"只有 current 的 met 判定支持 Goal""没有必需判据永远不算满足""判定必须引用封存证据""必需工作未完成不得提前静默""只有评估身份能写判定"，以及迟到反证标记 disputed。
 - 证据：`tests/vnext/test_exploration_loop.py::test_a_completion_request_is_answered_once_with_a_durable_review`（一次请求一份评审、basis/digest、不关闭 Task、重复事件不新增、评审进入下一次 Reason 输入）。
+
+### 部署工具收口：证书轮换同时更新模板 Task secret
+
+- 根因：`rotate-task-certs` 只重签 `work/vnext/k8s/tls/` 里的状态文件，模板 Task 的 secret 仍是旧 SAN 证书，新建 Task 复制到旧证书后 runtime→supervisor 的 HTTPS 调用报 `URLError`，Run 永远停在 `registered`。
+- 现在 `scripts/vnext/k8s.py rotate-task-certs --task-secrets <agent-auth>,<kali-auth>` 把 `task-agent.*`/`task-kali.*` 叶子证书按后缀映射写入对应 secret（`--type merge`，只改 `tls.crt`/`tls.key`），未识别的 secret 名直接拒绝而不是静默跳过。
+- 证据：`tests/vnext/test_configure_refresh.py::test_rotating_the_task_leaves_also_republishes_the_template_secrets`。

@@ -337,3 +337,43 @@ def test_fresh_configuration_includes_isolated_public_api(tmp_path):
         item for item in platform["items"]
         if item["kind"] == "Service" and item["metadata"]["name"] == "api"
     )["spec"]["ports"] == [{"port": 8443, "targetPort": 8443, "name": "tls"}]
+
+
+def test_rotating_the_task_leaves_also_republishes_the_template_secrets(tmp_path):
+    """A rotated leaf has to reach the secret a new Task copies from."""
+
+    import importlib.util as _importlib
+
+    spec = _importlib.spec_from_file_location(
+        "vnext_k8s", ROOT / "scripts/vnext/k8s.py"
+    )
+    k8s = _importlib.module_from_spec(spec)
+    spec.loader.exec_module(k8s)
+
+    tls = tmp_path / "tls"
+    tls.mkdir()
+    (tls / "task-agent.crt").write_bytes(b"rotated agent certificate")
+    (tls / "task-agent.key").write_bytes(b"rotated agent key")
+    (tls / "task-kali.crt").write_bytes(b"rotated kali certificate")
+    (tls / "task-kali.key").write_bytes(b"rotated kali key")
+
+    agent = k8s.task_certificate_patch(tls, "wuji-task-v-abc-agent-auth")
+    assert agent["kind"] == "agent"
+    import base64 as _base64
+
+    assert _base64.b64decode(agent["patch"]["data"]["tls.crt"]) == b"rotated agent certificate"
+    assert _base64.b64decode(agent["patch"]["data"]["tls.key"]) == b"rotated agent key"
+    assert set(agent["patch"]["data"]) == {"tls.crt", "tls.key"}
+
+    kali = k8s.task_certificate_patch(tls, "wuji-task-v-abc-kali-auth")
+    assert kali["kind"] == "kali"
+    assert _base64.b64decode(kali["patch"]["data"]["tls.crt"]) == b"rotated kali certificate"
+
+    # An unrelated or missing secret is refused instead of silently ignored.
+    for bad in ("wuji-task-v-abc-runtime-auth", "wuji-task-v-abc"):
+        try:
+            k8s.task_certificate_patch(tls, bad)
+        except ValueError as error:
+            assert "unknown Task secret" in str(error)
+        else:
+            raise AssertionError("an unknown Task secret must be refused")
