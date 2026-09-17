@@ -211,10 +211,20 @@ class BrowserGateway:
             trust_env=False,
             follow_redirects=False,
         )
+        # A view stream idles between batches; it needs its own read bound and
+        # must never shorten the ordinary JSON client's timeout.
+        self.stream_client = None if client is not None else httpx.AsyncClient(
+            verify=ssl.create_default_context(cafile=settings.ca_file),
+            timeout=httpx.Timeout(connect=10.0, read=45.0, write=10.0, pool=10.0),
+            trust_env=False,
+            follow_redirects=False,
+        )
 
     async def close(self) -> None:
         if self._owned_client:
             await self.client.aclose()
+            if self.stream_client is not None:
+                await self.stream_client.aclose()
 
     def session(self, request: Request) -> dict[str, object] | None:
         return self.sessions.verify(request.cookies.get(COOKIE_NAME))
@@ -403,13 +413,10 @@ def create_gateway(settings: GatewaySettings, *, client=None) -> FastAPI:
         last_event_id = request.headers.get("last-event-id", "")
         if 0 < len(last_event_id) <= 4096:
             headers["Last-Event-ID"] = last_event_id
+        stream_client = gateway.stream_client or gateway.client
         try:
-            upstream_request = gateway.client.build_request("GET", url, headers=headers)
-            upstream = await gateway.client.send(
-                upstream_request,
-                stream=True,
-                timeout=httpx.Timeout(connect=10.0, read=45.0, write=10.0, pool=10.0),
-            )
+            upstream_request = stream_client.build_request("GET", url, headers=headers)
+            upstream = await stream_client.send(upstream_request, stream=True)
         except (httpx.HTTPError, OSError, TimeoutError):
             return _problem(503, "CAPABILITY_UNAVAILABLE", "View stream is unavailable.")
         if upstream.status_code != 200:
