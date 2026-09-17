@@ -60,7 +60,9 @@ def finish_work(case, *, state="done"):
     observe(case, "exited", process=process(exited=True))
     with case.env.migration_connection() as connection:
         connection.execute(
-            "UPDATE vnext.agent_run SET stop_kind='exited',result_state='accepted' WHERE agent_run_id='run-fixture'"
+            "UPDATE vnext.agent_run SET stop_kind='exited',result_state='accepted'"
+            " WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND agent_run_id='run-fixture'",
+            OWNER,
         )
 
 
@@ -347,6 +349,170 @@ def test_only_a_current_met_judgment_supports_the_goal(
         assert not review.coverage.satisfied
         assert reason in review.reasons
         assert review.decision in {"wait", "blocked"}
+
+
+def ready_task(case):
+    """Drive one case to an open completion epoch (quiescing)."""
+
+    prepared_run(case, state="leased")
+    finish_work(case)
+    allow_assessor(case)
+    sealed = sealed_evidence(case)
+    judgments(case).record(
+        ASSESSOR, TASK, criterion_id="version", revision=1,
+        judgment_id="judgment-a", status="met", method="deterministic",
+        evidence_refs=[sealed.model_dump(mode="json")],
+        definition_json='{"fixture":true}',
+    )
+    service = completion(case)
+    proposal = service.propose(
+        CONTROLLER, TASK, receipt_key="completion-open", deadline_seconds=600
+    )
+    service.apply(CONTROLLER, TASK, proposal.receipt_id)
+    return service, proposal
+
+
+def test_quiescing_refuses_new_work_but_still_accepts_the_open_runs_receipts(
+    db_environment, tmp_path, audit_directory
+):
+    """AC-049: freeze new actions, keep collecting receipts and settlements."""
+
+    from wuji_core.contracts.execution import can_transition_work  # noqa: F401
+    from wuji_core.execution.states import task_can_run
+
+    with control_case(db_environment, tmp_path, audit_directory) as case:
+        prepared_run(case, state="leased")
+        finish_work(case)
+        allow_assessor(case)
+        sealed = sealed_evidence(case)
+        judgments(case).record(
+            ASSESSOR, TASK, criterion_id="version", revision=1,
+            judgment_id="judgment-a", status="met", method="deterministic",
+            evidence_refs=[sealed.model_dump(mode="json")],
+            definition_json='{"fixture":true}',
+        )
+        service = completion(case)
+        proposal = service.propose(
+            CONTROLLER, TASK, receipt_key="completion-open", deadline_seconds=600
+        )
+        service.apply(CONTROLLER, TASK, proposal.receipt_id)
+        task = case.control.read_task(OBSERVER, TASK)
+        assert task["observed_state"] == "quiescing"
+
+        # New starts are refused by the platform's own predicate.
+        assert task_can_run(task) is False
+        assert not case.control.dispatchable(OBSERVER, TASK, "work-b")
+
+        # The in-flight Run's own exit observation still lands.
+        observe(case, "exited", process=process(exited=True))
+        with case.env.migration_connection() as connection:
+            run = connection.execute(
+                "SELECT process_state,stop_kind FROM vnext.agent_run"
+                " WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND agent_run_id='run-fixture'",
+                OWNER,
+            ).fetchone()
+        assert run == ("exited", "exited")
+
+        # A result submission for that same Run is still accepted while the Task
+        # is frozen: the table's own policy asks for model_output authority and
+        # scope, not for a running Task.
+        staged = case.store.stage_model_output(
+            WORKER, TASK, "run-fixture", b'{"schema_version":"wuji.agent-payload.v2"}',
+            "application/json", access_level=1,
+        )
+        case.store.seal(WORKER, TASK, staged)
+        with case.uow.transaction(WORKER, TASK, capability="model_output") as tx:
+            tx.connection.execute(
+                "INSERT INTO vnext.result_submission(tenant_id,project_id,task_id,submission_id,"
+                "agent_run_id,writer_subject,input_digest,envelope_json,status,received_receipt_json,"
+                "artifact_id,artifact_revision,access_level)"
+                " VALUES(%s,%s,%s,'submission-frozen','run-fixture','worker-fixture',%s,"
+                "'{\"fixture\":true}','received','{\"status\":\"received\"}',%s,%s,1)",
+                (*OWNER, "a" * 64, staged.id, staged.version.root),
+            )
+            tx.connection.execute(
+                "INSERT INTO vnext.result_receipt(tenant_id,project_id,task_id,submission_id,"
+                "receipt_json,access_level) VALUES(%s,%s,%s,'submission-frozen',"
+                "'{\"status\":\"accepted\"}',1)",
+                (*OWNER,),
+            )
+            # The Run's own writer still projects its accepted result while the
+            # Task is frozen.
+            state = tx.connection.execute(
+                "SELECT vnext.project_run_result(%s,%s,%s,'run-fixture','submission-frozen')",
+                OWNER,
+            ).fetchone()[0]
+        assert state == "accepted"
+        assert case.control.read_task(OBSERVER, TASK)["observed_state"] == "quiescing"
+
+
+def test_close_after_settlement_separates_trigger_from_outcome(
+    db_environment, tmp_path, audit_directory
+):
+    """AC-052: a budget-exhausted close keeps its partial result."""
+
+    with control_case(db_environment, tmp_path, audit_directory) as case:
+        service, proposal = ready_task(case)
+        observe(case, "exited", process=process(exited=True))
+        with case.env.migration_connection() as connection:
+            connection.execute(
+                "UPDATE vnext.agent_run SET stop_kind='exited'"
+                " WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND agent_run_id='run-fixture'",
+                OWNER,
+            )
+            # The Run's own operation set is a settlement prerequisite, not part
+            # of this decision: a real Run publishes it through its credential.
+            connection.execute(
+                "INSERT INTO vnext.run_operation_settlement(tenant_id,project_id,task_id,agent_run_id,"
+                "status,source_receipt_json) VALUES(%s,%s,%s,'run-fixture','settled','{\"fixture\":true}')"
+                " ON CONFLICT DO NOTHING",
+                (*OWNER,),
+            )
+
+        # Work re-derived after the freeze is unfinished; it must be cancelled
+        # under the closing trigger rather than marked done.
+        with case.env.migration_connection() as connection:
+            connection.execute(
+                "INSERT INTO vnext.work_item(tenant_id,project_id,task_id,work_item_id)"
+                " VALUES(%s,%s,%s,'work-late') ON CONFLICT DO NOTHING",
+                OWNER,
+            )
+        # A Goal-satisfied close is refused while work is open; the forced close
+        # below is the bounded path that cancels it.
+        with pytest.raises(DomainError) as premature:
+            service.close(
+                CONTROLLER, TASK, receipt_key="completion-goal", epoch_id=proposal.epoch_id,
+                close_trigger="goal_satisfied", result_outcome="complete",
+                deadline_seconds=600,
+            )
+        assert premature.value.code == "completion_precheck_incomplete"
+
+        closing = service.close(
+            CONTROLLER, TASK, receipt_key="completion-close", epoch_id=proposal.epoch_id,
+            close_trigger="budget_exhausted", result_outcome="partial", deadline_seconds=600,
+        )
+        service.apply(CONTROLLER, TASK, closing.receipt_id)
+        task = case.control.read_task(OBSERVER, TASK)
+        assert task["observed_state"] == "closed"
+        assert task["close_trigger"] == "budget_exhausted"
+        assert task["result_outcome"] == "partial"
+        assert task["execution_allowed"] is False
+
+        with case.env.migration_connection() as connection:
+            done_work = connection.execute(
+                "SELECT state FROM vnext.work_item WHERE tenant_id=%s AND project_id=%s"
+                " AND task_id=%s AND work_item_id='work-fixture'",
+                OWNER,
+            ).fetchone()
+            late_work = connection.execute(
+                "SELECT state,desired_state,terminal_reason FROM vnext.work_item"
+                " WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND work_item_id='work-late'",
+                OWNER,
+            ).fetchone()
+        # Finished work is untouched; unfinished work is cancelled, never done.
+        assert done_work == ("done",)
+        assert late_work[0] == "cancelled" and late_work[1] == "cancel"
+        assert late_work[2] == "budget_exhausted"
 
 
 def test_a_goal_without_required_criteria_is_never_satisfied(

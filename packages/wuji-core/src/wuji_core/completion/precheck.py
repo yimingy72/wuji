@@ -204,7 +204,11 @@ class CompletionService:
         trigger = CloseTrigger(close_trigger).value
         outcome = ResultOutcome(result_outcome).value
         review = self.precheck(access, task_id)
-        if not review.can_propose:
+        # A Goal-satisfied close may only follow a complete review. A *forced*
+        # close (budget, time, no progress, operator) exists precisely to end a
+        # Task whose work cannot finish: the review is recorded in the receipt
+        # and P05 cancels whatever is still open (AC-052).
+        if not review.can_propose and trigger == "goal_satisfied":
             raise DomainError("completion_precheck_incomplete", 409)
         source = canonical_json_bytes(
             {
