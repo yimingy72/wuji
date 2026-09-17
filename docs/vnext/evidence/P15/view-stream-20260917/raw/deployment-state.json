@@ -1,0 +1,46 @@
+{
+  "source_revision": "94a112211b12bf38c14ef01f5a7cc2448447e898",
+  "web_configmap_task": "2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0",
+  "deployments": {
+    "api": {
+      "generation": 43,
+      "containers": [
+        {
+          "name": "api",
+          "image": "127.0.0.1:56615/wuji-vnext-platform@sha256:f1a7029ea457aba5bdc0adfd2ae5bfae15b2515b4433f1a56c8f54a091bc98b2"
+        }
+      ],
+      "readyReplicas": 1
+    },
+    "wuji-web": {
+      "generation": 18,
+      "containers": [
+        {
+          "name": "web",
+          "image": "127.0.0.1:56615/wuji-web@sha256:aba52896846ecf76d4f3163588438071c7a43be69e494ddf1b6401b5454d7e45"
+        },
+        {
+          "name": "gateway",
+          "image": "127.0.0.1:56615/wuji-vnext-platform@sha256:f1a7029ea457aba5bdc0adfd2ae5bfae15b2515b4433f1a56c8f54a091bc98b2"
+        }
+      ],
+      "readyReplicas": 1
+    },
+    "runtime": {
+      "generation": 87,
+      "containers": [
+        {
+          "name": "runtime",
+          "image": "127.0.0.1:56615/wuji-vnext-platform@sha256:7644d50efceea09f7afd3a24fc973fb1a684aa9f9810c6f65582a3e447368dcf"
+        }
+      ],
+      "readyReplicas": 1
+    }
+  },
+  "web_pods": [
+    {
+      "name": "wuji-web-55c6bd6d79-mccxl",
+      "phase": "Running"
+    }
+  ]
+}

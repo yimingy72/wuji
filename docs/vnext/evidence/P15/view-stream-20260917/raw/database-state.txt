@@ -1,0 +1,10 @@
+task|2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0|running|run|5|11|9
+view|33c1a3bf-2278-4c53-a5f9-7bbcb5acdad2|2fa4d2b7-90b0-4aeb-81f2-ee26f36f8d53|3|t
+stream_cursors|3
+cursor_kind|projection_cursor_kind_check|CHECK ((kind = ANY (ARRAY['page'::text, 'index'::text, 'stream'::text])))
+cursor_kind|projection_cursor_view_check|CHECK (((kind = 'index'::text) OR (view_id IS NOT NULL)))
+view_check|CHECK (((view_revision >= (1)::numeric) AND (view_revision = trunc(view_revision))))
+policy|projection_insert
+policy|projection_read
+policy|projection_update
+head|vnext_0025_p15_view_stream

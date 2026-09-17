@@ -1,0 +1,36 @@
+{
+  "task": "2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0",
+  "before": [
+    "agent_run:32225e35-13f5-4827-b96c-ee202f6b43df@1",
+    "agent_run:81e6822c-bb7c-45fa-9aa1-ea59012c7879@1",
+    "intent:731ff0e5-e951-40b6-8d3b-a3113ef00b07@1",
+    "origin:2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0@4",
+    "work_item:083228de-6438-4b5e-b962-448433e04d5f@7",
+    "work_item:dd7ae78b-be5b-4b0b-89f8-0a3c49294904@5"
+  ],
+  "after": [
+    "agent_run:32225e35-13f5-4827-b96c-ee202f6b43df@1",
+    "agent_run:81e6822c-bb7c-45fa-9aa1-ea59012c7879@1",
+    "intent:731ff0e5-e951-40b6-8d3b-a3113ef00b07@1",
+    "origin:2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0@5",
+    "work_item:083228de-6438-4b5e-b962-448433e04d5f@8",
+    "work_item:dd7ae78b-be5b-4b0b-89f8-0a3c49294904@6"
+  ],
+  "resumed": 202,
+  "events": [
+    {
+      "kind": "stream-response",
+      "url": "http://127.0.0.1:44180/api/v2/views/4b42901f-1139-4aa1-9d95-4735386b78ce/events",
+      "status": 200
+    },
+    {
+      "kind": "command",
+      "command": "resume",
+      "status": 202,
+      "body": "{\"command_id\":\"p15-browser-resume-1\",\"disposition\":\"accepted\",\"resource_ref\":{\"entity_type\":\"task\",\"id\":\"2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0\",\"revision\":\"5\"},\"resource_version\":\"5\",\"request_id\":\"e0694dfa-d77d-46d2-8b54-e7e664f1a238\",\"code\":null}"
+    }
+  ],
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+  ]
+}

@@ -1,0 +1,10 @@
+
+ RUN  v5.0.0 /Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf
+
+
+ Test Files  5 passed (5)
+      Tests  29 passed (29)
+   Start at  10:15:09
+   Duration  2.22s (import 48%, transform 47%, tests 5%, worker 1%)
+
+exit=0

@@ -1,0 +1,7 @@
+POST /api/v2/tasks/2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0/commands HTTP/1.1
+Host: 127.0.0.1:18455
+Authorization: Bearer <operator>
+Content-Type: application/json
+Idempotency-Key: p15-stream-pause-1
+
+{"schema_version":"wuji.api.v2","command":"pause","expected_version":"2","reason":"P15 ViewStream proof: pause changes work item state"}

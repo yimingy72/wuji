@@ -134,5 +134,15 @@ Task A attempt 2 的第三个 Run（`9e574eb0`）从未被投递成功：receive
     `ready_work=0`。测试：`test_completion_portal.py` 6 passed（真实 PostgreSQL + 签名 HTTP）、相邻
     `test_completion_protocol.py` 16 passed；web build / contracts check exit 0。见
     [证据包](../../vnext/evidence/P12/product-entry-20260917/README.md)。
-16. **仍未完成。** 报告投递（ReportDelivery）、历史报告列表、判定自动生产来源、多 Task 并发（T8）、
-    真正在 run 执行中投递取消、写入路径语义与长会话压缩仍未做；工作台当前仍是每个 web 部署绑定一个 Task。
+16. **P15 ViewStream 与工作台实时视图。已交付并实测（`32311a4` + `94a1122`）。** 迁移
+    `vnext_0025_p15_view_stream` 允许同一投影视图推进（subject 绑定的 UPDATE 策略、`stream` 游标、
+    `vnext.task_for_view` 只按当前 tenant+subject 解析 Task）；`ProjectionRepository.stream_step` 在视图上
+    写出新 materialization 并产出最多 2000 条 node/edge patch（无变化不发空批次），
+    `GET /api/v2/views/{view_id}/events` 以 SSE 输出批次，权限撤销/过期/变更过大时发 `ViewReset`；
+    同源 BFF 只转发该 Task 拓扑刚发布过的 view id，工作台对 live 视图应用 patch，无法应用或 reset 时显式重读。
+    真实 K8s：`curl -N` 收到 keepalive 与 16 条 patch 的批次（`pause` 命令 202 触发）；浏览器无需刷新，
+    画布节点从 `origin:2abfdd57…@4` 变为 `@5`。检查：pytest 29 passed、topology vitest 29 passed、web build exit 0。
+    见[证据包](../../vnext/evidence/P15/view-stream-20260917/README.md)。
+17. **仍未完成。** 报告投递（ReportDelivery）、历史报告列表、判定自动生产来源、多 Task 并发（T8）与
+    每 Task 独立 supervisor 端点、真正在 run 执行中投递取消、写入路径语义与长会话压缩仍未做；
+    工作台当前仍是每个 web 部署绑定一个 Task。ViewStream 的跨 BFF 重启、多标签长连接与规模 p95 也未验证。
