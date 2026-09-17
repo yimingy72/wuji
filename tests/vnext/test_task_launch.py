@@ -349,12 +349,38 @@ def test_published_session_bounds_follow_the_admission_limits():
 
     def definition(single, total):
         return {
+            "evaluation_mode": "mechanism_synthetic",
+            "task": {
+                "scenario": "web_single",
+                "goal": {
+                    "text": "Read the isolated fixture.",
+                    "criteria": [
+                        {
+                            "criterion_id": "c1",
+                            "object": "fixture",
+                            "condition": "durable read evidence",
+                            "evidence_requirements": ["sealed bytes"],
+                            "allowed_methods": ["deterministic"],
+                            "responsible_party": "deployment-test",
+                        }
+                    ],
+                },
+                "authorization_scope": [
+                    {"host": "fixture.invalid", "protocol": "https", "port": 443}
+                ],
+                "authorization_expires_at": "2026-12-31T00:00:00Z",
+                "budget": {"amount": "1", "currency": "USD"},
+            },
+            "start_points": ["workspace:version.txt"],
             "runtime_profile": {
                 "ref": "k8s-runtime-v1", "revision": "1", "lock_digest": lock,
                 "allowed_tool_refs": ["workspace-read-v1"],
                 "max_pending_operations": 4,
                 "limits": {
                     "max_single_output_bytes": single, "max_total_output_bytes": total,
+                    "max_work_items": 4, "max_reason_runs": 2, "max_model_requests": 8,
+                    "max_tool_calls": 8, "max_attempts_per_work": 2,
+                    "max_elapsed_seconds": 1800,
                 },
             }
         }
@@ -510,11 +536,12 @@ def test_run_phases_prepare_hands_the_command_real_connection_factories(
         assert result["prepare"]["intent_status"] == "accepted_shared"
         assert binding["receiver_id"] == f"task-{task_id}-a1"
         assert binding["config_digest"] == result["prepare"]["definition_digest"]
-        assert set(binding["profiles"]) == {
-            "harness.reason.deployment.v2",
-            "harness.explore.deployment.v2",
-            "harness.report.deployment.v2",
-        }
+        # E03: the profile identity is Task-scoped because its body now carries
+        # this Task's own frozen context.
+        for kind in ("reason", "explore", "report"):
+            assert len(binding["profiles"]) == 3
+            refs = [ref for ref, kinds in binding["profiles"].items() if kinds == [kind]]
+            assert len(refs) == 1 and refs[0].startswith(f"harness.{kind}.task.")
         with db_environment.migration_connection() as connection:
             with connection.transaction():
                 connection.execute(
@@ -1239,3 +1266,112 @@ def test_e01_preflight_reports_declared_state_without_a_target_action(
                 config, task_id=task_id, options=options, connection=reader
             )
         assert "receiver_bearer" in short["blocked"]
+
+
+def test_e03_the_model_instructions_carry_the_frozen_task_context(
+    db_environment, audit_directory
+):
+    """E03: Goal, scope, limits and role duty reach the published profile."""
+
+    with creation_case(db_environment, audit_directory) as case:
+        created = create(case)
+        assert created.status_code == 201, created.text
+        task_id = created.json()["task_id"]
+        owner = (OWNER[0], OWNER[1], task_id)
+
+        with db_environment.migration_connection() as connection:
+            definition, _ = stored_definition(connection, task_id)
+            register_tool_definition(connection, tenant_id=OWNER[0], definition=tool_document())
+            seed_pools(connection, definition)
+            config = deployment_config(definition)
+            prepared = task_launch.finalise_definition(connection, owner=owner, config=config)
+            stored, _ = stored_definition(connection, task_id)
+
+            goal_text = stored["task"]["goal"]["text"]
+            instructions = {
+                kind: stored["worker_profiles"][kind]["body"]["instructions"]
+                for kind in ("reason", "explore", "report")
+            }
+            for kind, text in instructions.items():
+                assert goal_text in text, kind
+                assert "authorized scope: https://fixture.invalid:443" in text, kind
+                assert "amount budget: 5 USD" in text, kind
+                assert "hard limits: work items 4" in text, kind
+                assert "your duty as " + kind in text, kind
+                assert "mark anything you did not actually read as unread" in text
+            # The role duty is the only part that differs between roles.
+            assert "never perform a target action" in instructions["reason"]
+            assert "never claim a result you did not receive" in instructions["explore"]
+
+            # The same Task re-renders the same identity and body.
+            assert prepared["definition"]["worker_profiles"] == stored["worker_profiles"]
+            again = task_launch.finalise_definition(connection, owner=owner, config=config)
+            assert again["definition_changed"] is False
+            assert again["definition_digest"] == prepared["definition_digest"]
+
+            # A different Goal is a different model input under the same tools.
+            other = json.loads(json.dumps(stored))
+            other["task"]["goal"]["text"] = "Explain a different frozen goal."
+            other.pop("worker_profiles")
+            other.pop("evaluation_mode")
+            rendered = task_launch.published_session_profiles(config, other)
+            assert goal_text not in rendered["reason"]["body"]["instructions"]
+            assert "Explain a different frozen goal." in rendered["reason"]["body"]["instructions"]
+            assert rendered["reason"]["ref"] != stored["worker_profiles"]["reason"]["ref"]
+            assert rendered["reason"]["body"]["tool_definition_refs"] == (
+                stored["worker_profiles"]["reason"]["body"]["tool_definition_refs"]
+            )
+
+
+def test_e03_the_harness_receives_the_composed_instructions(monkeypatch):
+    """E03: the composed Task context is what the released Harness is built with.
+
+    ``build_agent`` passes the published profile straight into the MAF
+    Harness' ``agent_instructions``; this captures that argument without
+    contacting any model.
+    """
+
+    from wuji_maf_worker import factory as worker_factory
+
+    captured = {}
+
+    def fake_create_harness_agent(client, **kwargs):
+        captured["client"] = client
+        captured.update(kwargs)
+        return object()
+
+    monkeypatch.setattr(
+        worker_factory, "create_harness_agent", fake_create_harness_agent
+    )
+    instructions = (
+        "published role instruction\n\n"
+        "Frozen Task context (published before activation, never editable later):\n"
+        "goal: explain the frozen materials"
+    )
+    profile = HarnessProfile(
+        ref="harness.explore.task.deadbeefdeadbeef",
+        revision="1",
+        work_kind="explore",
+        instructions=instructions,
+        tool_definition_refs=(TOOL_REF,),
+        lock_digest=task_launch.shipped_worker_lock_digest(),
+        max_context_records=8,
+        max_context_bytes=4096,
+        max_output_tokens=512,
+    )
+    resolved = {
+        "limits": {
+            "max_model_requests": 2, "max_tool_calls": 2, "max_elapsed_seconds": 60,
+            "max_single_output_bytes": 4096, "max_total_output_bytes": 8192,
+        },
+        "client_model": "fixture-model",
+    }
+    agent, native = worker_factory.build_agent(
+        resolved=resolved, profile=profile, model_http=None,
+        model_gate_url="https://gates.invalid", run_credential="run-token",
+        tools=[{"name": "read_workspace"}], middleware=[], response_parser=None,
+    )
+    assert agent is not None and native is not None
+    assert captured["agent_instructions"] == instructions
+    assert captured["disable_todo"] is True
+    assert captured["disable_tool_auto_approval"] is True

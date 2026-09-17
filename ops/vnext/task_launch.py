@@ -195,6 +195,101 @@ def role_tool_refs(config, definition, kind):
     return refs
 
 
+ROLE_DUTIES = {
+    "reason": (
+        "you read the Goal, the already stored material and the results of finished "
+        "work, state what is known and unknown, and propose bounded questions for "
+        "other work. You never perform a target action, never widen the authorized "
+        "scope and never present your own text as a verified fact."
+    ),
+    "explore": (
+        "you answer one admitted question with the published tools, keep every raw "
+        "result and cite it exactly. You never claim a result you did not receive "
+        "and never act outside the authorized scope."
+    ),
+    "report": (
+        "you render the frozen evidence and judgments into the declared delivery "
+        "medium. You never add a new request, a new claim or a new judgment."
+    ),
+}
+
+
+def task_context_block(definition, kind):
+    """The bounded Task context a role has to be able to read.
+
+    Only data already frozen in the Task definition is rendered here: the Goal
+    and its criteria, the authorized scope and its expiry, the amount budget,
+    the published hard limits, the start points and the role's duty. Nothing is
+    invented from the web payload, an Agent message or a model output, and the
+    block never grants a capability the published profiles withheld.
+    """
+
+    task = definition.get("task")
+    runtime = definition.get("runtime_profile")
+    if not isinstance(task, dict) or not isinstance(task.get("goal"), dict) or not isinstance(runtime, dict):
+        raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+    goal = task["goal"]
+    limits = runtime["limits"]
+    lines = [
+        "Frozen Task context (published before activation, never editable later):",
+        "scenario: " + str(task["scenario"]),
+        "goal: " + str(goal["text"]),
+    ]
+    for criterion in goal.get("criteria") or []:
+        lines.append(
+            "criterion " + str(criterion["criterion_id"])
+            + " | object: " + str(criterion["object"])
+            + " | condition: " + str(criterion["condition"])
+            + " | evidence: " + ", ".join(map(str, criterion["evidence_requirements"]))
+            + " | allowed methods: " + ", ".join(map(str, criterion["allowed_methods"]))
+            + " | responsible: " + str(criterion["responsible_party"])
+        )
+    scope = task.get("authorization_scope") or []
+    lines.append(
+        "authorized scope: "
+        + ", ".join(
+            str(entry["protocol"]) + "://" + str(entry["host"]) + ":" + str(entry["port"])
+            for entry in scope
+        )
+    )
+    lines.append("authorization expires: " + str(task["authorization_expires_at"]))
+    budget = task["budget"]
+    lines.append("amount budget: " + str(budget["amount"]) + " " + str(budget["currency"]))
+    lines.append(
+        "hard limits: work items " + str(limits["max_work_items"])
+        + ", reason runs " + str(limits["max_reason_runs"])
+        + ", model requests " + str(limits["max_model_requests"])
+        + ", tool calls " + str(limits["max_tool_calls"])
+        + ", work attempts " + str(limits["max_attempts_per_work"])
+        + ", elapsed seconds " + str(limits["max_elapsed_seconds"])
+    )
+    lines.append(
+        "start points: " + ", ".join(map(str, definition.get("start_points") or []))
+    )
+    lines.append(
+        "evaluation mode: " + str(definition.get("evaluation_mode") or "mechanism_synthetic")
+    )
+    lines.append("your duty as " + str(kind) + ": " + ROLE_DUTIES[kind])
+    lines.append(
+        "Material rule: only the records in the delivered context and the results of "
+        "your own published tool calls are material. Cite exact references, and mark "
+        "anything you did not actually read as unread instead of summarizing it."
+    )
+    return "\n".join(lines)
+
+
+def composed_instructions(config, definition, kind):
+    """Published role instructions plus the frozen Task context, bounded."""
+
+    published = deployment_profiles(config)[kind]["body"]["instructions"]
+    if not isinstance(published, str) or not 1 <= len(published) <= 16384:
+        raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+    text = published.rstrip() + "\n\n" + task_context_block(definition, kind)
+    if len(text) > 32768:
+        raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+    return text
+
+
 def configured_seed_intent(config):
     """An optional, explicit seed read published by the deployment.
 
@@ -356,6 +451,24 @@ def shipped_worker_lock_digest():
     return sha256(path.read_bytes()).hexdigest()
 
 
+def role_profile_ref(config, definition, kind):
+    """A Task-scoped profile identity for a body that carries Task context.
+
+    Two Tasks must never share one key with different bytes, and one Task must
+    re-render the same ref on every idempotent prepare. The ref is therefore the
+    digest of exactly the body that is about to be published.
+    """
+
+    body = {
+        "instructions": composed_instructions(config, definition, kind),
+        "tool_definition_refs": list(role_tool_refs(config, definition, kind)),
+        "work_kind": kind,
+        "lock_digest": definition["runtime_profile"]["lock_digest"],
+    }
+    fingerprint = sha256(canonical_json_bytes(body)).hexdigest()[:16]
+    return f"harness.{kind}.task.{fingerprint}"
+
+
 def published_session_profiles(config, definition):
     """Fixed Session profiles derived from the deployment's published profiles."""
 
@@ -390,15 +503,15 @@ def published_session_profiles(config, definition):
     return {
         kind: SessionHarnessProfile(
             # The published Session profile is an immutable identity: its body
-            # carries the Session limits, and both the runtime host and the
-            # shared runtime ConfigMap refuse two entries that share a ref with
-            # different bytes. Raising the object/总 bound therefore publishes a
-            # new ref instead of silently rewriting the frozen v1 profile that
-            # already-activated Tasks still pin.
-            ref=f"harness.{kind}.deployment.v2",
+            # carries this Task's own frozen context and its Session limits, and
+            # both the runtime host and the shared runtime ConfigMap refuse two
+            # entries that share a ref with different bytes. A changed body
+            # therefore publishes a different ref instead of silently rewriting
+            # a profile another Task already pins.
+            ref=role_profile_ref(config, definition, kind),
             revision="1",
             work_kind=kind,
-            instructions=profile["body"]["instructions"],
+            instructions=composed_instructions(config, definition, kind),
             tool_definition_refs=role_refs[kind],
             lock_digest=runtime["lock_digest"],
             max_context_records=profile["body"]["max_context_records"],
@@ -440,14 +553,17 @@ def finalise_definition(connection, *, owner, config):
         # A finalised definition is immutable: the same Task is never replayed
         # under another mode after its profiles were published.
         raise DomainError("INVALID_STATE", 409)
-    profiles = json.loads(canonical_json_bytes(published_session_profiles(config, definition)))
-    stored_profiles = definition.get("worker_profiles")
-    definition["worker_profiles"] = profiles
+    # The rendered profile body carries this Task's own frozen context, so the
+    # mode and any published seed are part of the definition *before* the body
+    # is rendered: a second prepare has to render exactly the same bytes.
     definition["evaluation_mode"] = mode
     if mode == "real_model":
         seed = configured_seed_intent(config)
         if seed is not None:
             definition["seed_intent"] = seed
+    profiles = json.loads(canonical_json_bytes(published_session_profiles(config, definition)))
+    stored_profiles = definition.get("worker_profiles")
+    definition["worker_profiles"] = profiles
     updated = json.loads(canonical_json_bytes(definition))
     latest = canonical_json_bytes(updated).decode()
     changed = latest != raw

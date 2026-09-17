@@ -33,6 +33,8 @@
 | D21 | 2026-09-17 按用户下发的 `WUJI-EXPLORATION-9891989-20260917-R1` 执行 E00–E08 增量：保留 P00–P20 编号、现有 Fact/ClaimRevision/FactAssessment 模型与历史证据，只增必要字段。E00 基线、E01 模式分离与 E02 能力链已实施：`evaluation_mode` 是部署文档的可信配置（`mechanism_synthetic` / `real_model`），随定义冻结且不可原地改写；真实模式默认 Reason-first，不再回落 `workspace:version.txt`，只有部署显式发布 `seed_intent` 才产生一个种子 Intent；`preflight` 阶段只读部署/Task/注册表，可在激活前报出范围、预算、模型面、角色 Profile、工具/执行器、容量与 bearer 窗口，不触达目标或付费模型。证据见[执行队列](../stages/vnext-maf/next-development-plan-2026-09-17.md)与 `tests/vnext/test_task_launch.py` | 若让网页负载或模型文本决定模式，机制夹具与真实链路会互相冒充；若真实模式继续复用夹具默认起点，后续观察就不是运行时新信息 |
 | D22 | 2026-09-17 E02 能力链由同一张发布表驱动：部署文档以 `tools` 发布多个工具文档，角色 Profile 的 `tool_definition_refs` 与 Task `runtime_profile.allowed_tool_refs` 取交集才生效；`http_target` 只交给 `explore` 且只在 `real_model` Task 上生效，Reason/Report 与 mechanism Task 永远拿不到目标工具；"已发布"不等于"已许可"。真实模式的能力发布走 `verified`（引用 owner 复核的证据），机制模式继续用短时 `mechanism_candidate`；接收者 `model_mode` 随 Task 模式注册。证据见 `tests/vnext/test_capability_chain.py` | 若只在注册器放宽，Scheduler 仍会拒绝；若按工具名而不是按已发布种类放行，Reason 会直接获得目标访问，机制夹具也可能触达真实资产 |
 
+| D23 | 2026-09-17 E03-A：Session Profile 正文改为「部署角色指令 + 由 Task 定义渲染的冻结上下文」，Profile 身份改为 Task 级 `harness.<role>.task.<digest16>`。模型指令因此包含 Goal/判据/范围/预算/硬上限/起点/模式/角色职责与材料规则，并随真实 Task 变化；两个 Task 不会以同一 ref 发布不同字节，同一 Task 重复 prepare 仍逐字节幂等。证据见 `tests/vnext/test_task_launch.py` 的两个 E03 用例。残留：平台封存 Artifact 的正文尚未进入跨 Run 上下文（E03-B） | 若继续用固定部署指令，模型看不到 Goal，也分不清"读到了"和"没读到"；若共用 ref，运行时会以 INPUT_DIGEST_CONFLICT 拒绝第二个 Task 的 Profile |
+
 21 项任务及共享接口逐项检查表在本工作树的忽略台账 `.superpowers/sdd/vnext-v2/preflight.md`，任务完成以提交、具体测试和审查记录为准。源包 `ACCEPTANCE.md` / `VALIDATION_REPORT.md` 保持原始文档检查事实；实施结果另记，不覆盖原包。
 
 常规实现和修复按批准范围连续推进。必要权限、恢复或真实 MAF 核心能力不满足时，记录实际失败与合同影响，不通过削弱测试或更换框架来宣称通过。

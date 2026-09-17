@@ -50,6 +50,8 @@
 
 ## 3. 队列（对应 P 任务）
 
+> 进度：E00 完成（本文 §1）；E01/E02 已交付 `5a94986`；E03-A 已交付（见 §5）。
+
 1. **E01 真实任务配置与机制夹具分离（P02/P07/P11/P18）** — 模式来自可信部署配置；真实模式默认 Reason-first，不回落 `version.txt`；显式 seed 策略才产生种子读取；preflight 不触达目标/付费模型。
 2. **E02 接通完整能力链（P06/P07/P09/P10）** — 发布→Profile→Task 许可→Scheduler→Worker→Gate→Executor 同一张兼容表；Reason 无目标能力；`http_target` 进入正式调度前必须有部署发布与真实负控。
 3. **E03 让模型看到真实任务与材料（P07/P08/P04）** — Goal/Origin/范围/能力/限制 + 固定问题 + 证据正文 + 反证 + 已做尝试。
@@ -65,3 +67,13 @@
 2. E01 + E02 打通“真实任务配置 → 正确角色能力 → 正式 Scheduler”。
 3. E03 + E06 并行。
 4. 立即跑 M1，不等全部 UI/P20 完成。
+
+## 5. 增量进展
+
+### E03-A（已交付）：模型真正拿到冻结的 Task 上下文
+
+- 每个角色的 Session Profile 正文 = 部署发布的角色指令 + 一份由 Task 定义渲染出的**冻结 Task 上下文**：Goal 原文、每条判据（对象/条件/证据要求/允许方法/责任方）、授权范围与到期、金额预算、已发布硬上限、起点、评估模式、角色职责，以及"未实际读到的材料必须标为未读"的材料规则。
+- Profile 身份改为 Task 级 `harness.<role>.task.<digest16>`：正文不同必然 ref 不同，两个 Task 不会用同一个 key 发布不同字节；同一 Task 重复 prepare 仍然逐字节一致（幂等）。
+- 模型输入对应关系：`build_agent(agent_instructions=profile.instructions)`，已用捕获参数的方式实测；材料正文（Artifact 字节）仍按权限走工具/上下文，不在本项伪造。
+- 证据：`tests/vnext/test_task_launch.py::test_e03_the_model_instructions_carry_the_frozen_task_context`（Goal/范围/预算/上限/角色职责进入正文；Goal 变化即输入变化且 ref 变化，工具集合不变）、`::test_e03_the_harness_receives_the_composed_instructions`（Harness 收到的就是这份正文）。
+- 残留（E03-B）：平台封存的 Artifact 正文目前只能在同一 Run 的工具结果里看到，跨 Run 的 Reason 只能看到元数据；需要把受权读集中的文本证据正文有界地放进上下文，并对未放入的部分显式标注。
