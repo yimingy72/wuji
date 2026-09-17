@@ -515,11 +515,21 @@ def explore_payload(path, observation_ref, material, omitted):
 
 
 def explore_question(context):
-    for _, body in intents(context):
-        question = body.get("question")
-        if isinstance(question, str):
-            return question
-    raise ValueError("the delivered context carries no admitted question")
+    """The newest admitted question is the one this Explore Run answers.
+
+    A frozen context carries every question the Task has admitted so far, so the
+    peer must not simply take the first one: it answers the most recently
+    admitted question, which is the one the Scheduler dispatched this Run for.
+    """
+
+    candidates = [
+        (str(body.get("created_at") or ""), body.get("question"))
+        for _, body in intents(context)
+        if isinstance(body.get("question"), str)
+    ]
+    if not candidates:
+        raise ValueError("the delivered context carries no admitted question")
+    return max(candidates)[1]
 
 
 def decision(request):

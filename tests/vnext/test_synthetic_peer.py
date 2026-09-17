@@ -324,3 +324,13 @@ def test_the_comparison_claim_states_what_the_two_bodies_actually_say():
     assert "cannot be compared" in text and "record-b.json" in text
     assert "agree" not in text and "4.2.0" not in text
     assert missing["reason_decision"]["decision"] == "propose_completion"
+
+
+def test_explore_answers_the_newest_admitted_question():
+    older = intent_record("Read workspace:materials/record-a.json and cite it.", identifier="i-1")
+    older["record"]["created_at"] = "2026-09-18T00:00:00.000001Z"
+    newer = intent_record("Read workspace:materials/record-b.json and cite it.", identifier="i-2")
+    newer["record"]["created_at"] = "2026-09-18T00:00:01.000001Z"
+    step = peer.decision(request(role="explore", records=[older, newer]))
+    assert step["kind"] == "tool_call"
+    assert json.loads(step["arguments"]) == {"path": "materials/record-b.json"}
