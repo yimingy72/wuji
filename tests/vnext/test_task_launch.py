@@ -1423,6 +1423,42 @@ def test_e06_published_materials_seed_the_workspace_without_shell_interpretation
         )
 
 
+def test_a_published_session_profile_is_identified_by_its_whole_body(
+    db_environment, audit_directory
+):
+    """Two Tasks must never share one profile key with different bodies."""
+
+    with creation_case(db_environment, audit_directory) as case:
+        created = create(case)
+        assert created.status_code == 201, created.text
+        task_id = created.json()["task_id"]
+        with db_environment.migration_connection() as connection:
+            definition, _ = stored_definition(connection, task_id)
+        config = deployment_config(definition)
+        base = task_launch.published_session_profiles(config, definition)
+        assert task_launch.published_session_profiles(config, definition) == base
+
+        raised = json.loads(json.dumps(definition))
+        raised["runtime_profile"]["limits"] = {
+            **raised["runtime_profile"]["limits"],
+            "max_single_output_bytes": raised["runtime_profile"]["limits"][
+                "max_single_output_bytes"
+            ] * 2,
+        }
+        wider = task_launch.published_session_profiles(config, raised)
+        for kind, snapshot in base.items():
+            assert wider[kind]["ref"] != snapshot["ref"]
+            assert (
+                wider[kind]["body"]["session_limits"]["max_object_bytes"]
+                != snapshot["body"]["session_limits"]["max_object_bytes"]
+            )
+            # The instructions are unchanged: only the published bounds moved.
+            assert (
+                wider[kind]["body"]["instructions"]
+                == snapshot["body"]["instructions"]
+            )
+
+
 def test_e01_a_stale_worker_lock_is_named_and_relock_publishes_a_new_revision(
     db_environment, audit_directory, tmp_path
 ):

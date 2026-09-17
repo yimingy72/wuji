@@ -513,22 +513,18 @@ def shipped_worker_lock_digest():
     return sha256(path.read_bytes()).hexdigest()
 
 
-def role_profile_ref(config, definition, kind):
-    """A Task-scoped profile identity for a body that carries Task context.
+def session_profile_ref(kind, body):
+    """A Task-scoped profile identity for the exact body about to be published.
 
-    Two Tasks must never share one key with different bytes, and one Task must
-    re-render the same ref on every idempotent prepare. The ref is therefore the
-    digest of exactly the body that is about to be published.
+    The whole body decides the identity, not only its instructions: two Tasks
+    that share instructions but publish different frozen context or Session
+    limits must never share one key with different bytes, because the shared
+    runtime ConfigMap and the Task host both refuse that collision instead of
+    silently picking one. Re-rendering one Task still produces the same ref.
     """
 
-    body = {
-        "instructions": composed_instructions(config, definition, kind),
-        "tool_definition_refs": list(role_tool_refs(config, definition, kind)),
-        "work_kind": kind,
-        "lock_digest": definition["runtime_profile"]["lock_digest"],
-    }
-    fingerprint = sha256(canonical_json_bytes(body)).hexdigest()[:16]
-    return f"harness.{kind}.task.{fingerprint}"
+    digest = sha256(canonical_json_bytes(body)).hexdigest()[:16]
+    return f"harness.{kind}.task.{digest}"
 
 
 def published_session_profiles(config, definition):
@@ -562,32 +558,37 @@ def published_session_profiles(config, definition):
         max_total_bytes=min(262144, limits["max_total_output_bytes"]),
         max_pending_approvals=min(4, runtime["max_pending_operations"]),
     )
-    return {
-        kind: SessionHarnessProfile(
-            # The published Session profile is an immutable identity: its body
-            # carries this Task's own frozen context and its Session limits, and
-            # both the runtime host and the shared runtime ConfigMap refuse two
-            # entries that share a ref with different bytes. A changed body
-            # therefore publishes a different ref instead of silently rewriting
-            # a profile another Task already pins.
-            ref=role_profile_ref(config, definition, kind),
+    def body_of(kind, profile):
+        return {
+            "work_kind": kind,
+            "instructions": composed_instructions(config, definition, kind),
+            "tool_definition_refs": list(role_refs[kind]),
+            "lock_digest": runtime["lock_digest"],
+            "max_context_records": profile["body"]["max_context_records"],
+            "max_context_bytes": profile["body"]["max_context_bytes"],
+            "max_output_tokens": profile["body"]["max_output_tokens"],
+        }
+
+    published = {}
+    for kind, profile in deployment_profiles(config).items():
+        values = dict(
             revision="1",
-            work_kind=kind,
-            instructions=composed_instructions(config, definition, kind),
-            tool_definition_refs=role_refs[kind],
-            lock_digest=runtime["lock_digest"],
-            max_context_records=profile["body"]["max_context_records"],
-            max_context_bytes=profile["body"]["max_context_bytes"],
-            max_output_tokens=profile["body"]["max_output_tokens"],
+            **body_of(kind, profile),
             history_source_id="deployment",
             memory_mode="disabled",
             memory_source_id="deployment_memory",
             session_limits=session_limits,
             max_context_window_tokens=8192,
             compaction_enabled=False,
+        )
+        # The identity is derived from the body the profile will actually carry,
+        # so a changed context or a changed Session bound publishes a new key
+        # instead of colliding with another Task's entry.
+        body = SessionHarnessProfile(ref=f"harness.{kind}.candidate", **values).snapshot()["body"]
+        published[kind] = SessionHarnessProfile(
+            ref=session_profile_ref(kind, body), **values
         ).snapshot()
-        for kind, profile in deployment_profiles(config).items()
-    }
+    return published
 
 
 def finalise_definition(connection, *, owner, config):
