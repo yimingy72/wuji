@@ -42,6 +42,24 @@ jobs:
       # The repository pins its own uv and Python under work/toolchain; the
       # script fetches exactly that version instead of whatever is on PATH.
       - run: ./scripts/bootstrap-toolchain.sh
+      # The v2 contract generator (and `contracts:check:v2`) resolve the frozen
+      # work/toolchain/bin/pnpm path, which only exists once the pinned manager
+      # is provisioned here. Corepack installs exactly the version pinned by
+      # package.json / toolchain/manifest.json (10.32.1); nothing is fetched
+      # from an unlocked "latest".
+      - name: Provision the frozen pnpm entrypoint
+        env:
+          COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+        run: |
+          corepack enable --install-directory work/toolchain/bin
+          test -x work/toolchain/bin/pnpm
+          work/toolchain/bin/pnpm --version
+      # The frozen pnpm installs the workspace exactly as the lock file records
+      # it; the web job's install is not a dependency of this job.
+      - name: Install the frozen workspace dependencies
+        env:
+          COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+        run: work/toolchain/bin/pnpm install --frozen-lockfile
       - name: Write the isolated PostgreSQL fixture manifest
         run: |
           mkdir -p work/vnext
@@ -57,13 +75,32 @@ jobs:
             "network": "TCP 127.0.0.1:5432; CI-only fixture administrator"
           }
           JSON
-      - run: pnpm contracts:check:v2
+      - name: v2 contract check
+        env:
+          COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+        run: work/toolchain/bin/pnpm contracts:check:v2
+      # CI-03: the contract check must still catch a tampered generated DTO.
+      # A check that passes on anything is not a gate.
+      - name: Contract check has teeth (negative control)
+        env:
+          COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+        run: |
+          cp packages/wuji-core/src/wuji_core/contracts/generated.py /tmp/generated.py.keep
+          printf '\n# tampered by the CI negative control\n' >> packages/wuji-core/src/wuji_core/contracts/generated.py
+          if ./scripts/vnext/uv.sh run --frozen python scripts/vnext/generate_contracts.py --check; then
+            echo "::error::the contract check accepted a tampered DTO"
+            cp /tmp/generated.py.keep packages/wuji-core/src/wuji_core/contracts/generated.py
+            exit 1
+          fi
+          cp /tmp/generated.py.keep packages/wuji-core/src/wuji_core/contracts/generated.py
+          ./scripts/vnext/uv.sh run --frozen python scripts/vnext/generate_contracts.py --check
       - name: Node Supervisor suites
         run: node --test tests/task-workers/*.test.mjs
       - name: vNext Python suites (real isolated PostgreSQL per case)
-        run: pnpm test:vnext
         env:
           UV_PYTHON_DOWNLOADS: never
+          COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+        run: work/toolchain/bin/pnpm test:vnext
 
   web:
     name: web typecheck, build and topology tests
