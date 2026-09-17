@@ -21,11 +21,11 @@ LABELS = {"app.kubernetes.io/managed-by": MANAGER, "wuji.dev/environment": "loca
 STATE = ROOT / "work/vnext/k8s"
 
 
-def save(path, data):
+def save(path, data, *, replace=False):
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    if path.exists():
+    if path.exists() and not replace:
         raise FileExistsError(f"refusing to replace existing deployment material: {path.name}")
-    with path.open("xb") as stream:
+    with path.open("wb" if replace else "xb") as stream:
         os.chmod(path, 0o600)
         stream.write(data)
 
@@ -100,27 +100,84 @@ def certificates(directory):
         serialization.PrivateFormat.PKCS8, serialization.NoEncryption()))
     save(directory / "ca.crt", ca.public_bytes(serialization.Encoding.PEM))
     for service in ("runtime", "api", "gates", "postgres", "task-agent", "task-kali"):
-        leaf_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-        dns = [service, f"{service}.{NAMESPACE}", f"{service}.{NAMESPACE}.svc",
-               f"{service}.{NAMESPACE}.svc.cluster.local"]
-        leaf = (x509.CertificateBuilder().subject_name(x509.Name([
-                x509.NameAttribute(NameOID.COMMON_NAME, dns[2])]))
-            .issuer_name(ca.subject).public_key(leaf_key.public_key())
-            .serial_number(x509.random_serial_number()).not_valid_before(now - timedelta(minutes=1))
-            .not_valid_after(now + timedelta(days=7))
-            .add_extension(x509.SubjectKeyIdentifier.from_public_key(leaf_key.public_key()), critical=False)
-            .add_extension(x509.AuthorityKeyIdentifier.from_issuer_public_key(key.public_key()), critical=False)
-            .add_extension(x509.KeyUsage(digital_signature=True, key_encipherment=True,
-                key_cert_sign=False, crl_sign=False, content_commitment=False, data_encipherment=False,
-                key_agreement=False, encipher_only=None, decipher_only=None), critical=True)
-            .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
-            .add_extension(x509.SubjectAlternativeName([*[x509.DNSName(d) for d in dns],
-                x509.DNSName("localhost"), x509.IPAddress(ip_address("127.0.0.1"))]), critical=False)
-            .add_extension(x509.ExtendedKeyUsage([x509.oid.ExtendedKeyUsageOID.SERVER_AUTH]), critical=False)
-            .sign(key, hashes.SHA256()))
-        save(directory / f"{service}.key", leaf_key.private_bytes(serialization.Encoding.PEM,
-            serialization.PrivateFormat.PKCS8, serialization.NoEncryption()))
-        save(directory / f"{service}.crt", leaf.public_bytes(serialization.Encoding.PEM))
+        _write_leaf(directory, service, ca_certificate=ca, ca_key=key, now=now)
+
+
+TASK_SERVICES = ("task-agent", "task-kali")
+
+
+def service_dns(service):
+    """The SANs one published Service name must satisfy.
+
+    A Task Pod is reached through its own Service (`task-agent-<task prefix>`),
+    so the two Task services also cover one wildcard label inside the namespace.
+    """
+
+    dns = [service, f"{service}.{NAMESPACE}", f"{service}.{NAMESPACE}.svc",
+           f"{service}.{NAMESPACE}.svc.cluster.local"]
+    if service in TASK_SERVICES:
+        dns += [f"*.{NAMESPACE}.svc", f"*.{NAMESPACE}.svc.cluster.local"]
+    return dns
+
+
+def _write_leaf(directory, service, *, ca_certificate, ca_key, now):
+    from cryptography import x509
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    from cryptography.x509.oid import NameOID
+
+    leaf_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    dns = service_dns(service)
+    leaf = (x509.CertificateBuilder().subject_name(x509.Name([
+            x509.NameAttribute(NameOID.COMMON_NAME, dns[2])]))
+        .issuer_name(ca_certificate.subject).public_key(leaf_key.public_key())
+        .serial_number(x509.random_serial_number()).not_valid_before(now - timedelta(minutes=1))
+        .not_valid_after(now + timedelta(days=7))
+        .add_extension(x509.SubjectKeyIdentifier.from_public_key(leaf_key.public_key()), critical=False)
+        .add_extension(x509.AuthorityKeyIdentifier.from_issuer_public_key(ca_key.public_key()), critical=False)
+        .add_extension(x509.KeyUsage(digital_signature=True, key_encipherment=True,
+            key_cert_sign=False, crl_sign=False, content_commitment=False, data_encipherment=False,
+            key_agreement=False, encipher_only=None, decipher_only=None), critical=True)
+        .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
+        .add_extension(x509.SubjectAlternativeName([*[x509.DNSName(d) for d in dns],
+            x509.DNSName("localhost"), x509.IPAddress(ip_address("127.0.0.1"))]), critical=False)
+        .add_extension(x509.ExtendedKeyUsage([x509.oid.ExtendedKeyUsageOID.SERVER_AUTH]), critical=False)
+        .sign(ca_key, hashes.SHA256()))
+    # Rotation replaces exactly these two files on purpose; the CA stays.
+    save(directory / f"{service}.key", leaf_key.private_bytes(serialization.Encoding.PEM,
+        serialization.PrivateFormat.PKCS8, serialization.NoEncryption()), replace=True)
+    save(directory / f"{service}.crt", leaf.public_bytes(serialization.Encoding.PEM),
+         replace=True)
+
+
+def rotate_service_certificates(directory, services=TASK_SERVICES, *, raw):
+    """Re-sign only the named leaves from the existing CA.
+
+    The CA is reused on purpose: an existing deployment keeps verifying the same
+    trust root, and only the Services whose SAN set changed rotate.
+    """
+
+    from cryptography import x509
+    from cryptography.hazmat.primitives import hashes, serialization
+
+    unknown = [name for name in services if name not in TASK_SERVICES]
+    if unknown:
+        raise ValueError("only the Task Service leaves may be rotated")
+    ca_crt = directory / "ca.crt"
+    ca_key_path = directory / "ca.key"
+    if not ca_crt.exists() or not ca_key_path.exists():
+        raise ValueError("the prepared CA state is required before rotating")
+    ca_certificate = x509.load_pem_x509_certificate(ca_crt.read_bytes())
+    ca_key = serialization.load_pem_private_key(ca_key_path.read_bytes(), password=None)
+    now = datetime.now(timezone.utc)
+    fingerprints = {}
+    for service in services:
+        _write_leaf(directory, service, ca_certificate=ca_certificate, ca_key=ca_key, now=now)
+        leaf = x509.load_pem_x509_certificate((directory / f"{service}.crt").read_bytes())
+        fingerprints[service] = leaf.fingerprint(hashes.SHA256()).hex()
+    save(raw / "rotated-fingerprints.json",
+         json.dumps(fingerprints, sort_keys=True, indent=2).encode())
+    return fingerprints
 
 
 def build_images(raw):
@@ -254,7 +311,7 @@ def cleanup(inventory_path, raw):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=("prepare", "build", "publish", "deploy", "test", "status", "cleanup"))
+    parser.add_argument("command", choices=("prepare", "build", "publish", "deploy", "test", "status", "cleanup", "rotate-task-certs"))
     parser.add_argument("--state-directory", type=Path, default=STATE)
     parser.add_argument("--manifest", type=Path)
     parser.add_argument("--inventory", type=Path)
@@ -273,6 +330,11 @@ def main():
         ca = (state / "tls/ca.crt").read_bytes()
         save(raw / "public-binding.json", json.dumps({"context": CONTEXT,
             "namespace": NAMESPACE, "ca_sha256": sha256(ca).hexdigest()}).encode())
+    elif args.command == "rotate-task-certs":
+        fingerprints = rotate_service_certificates(state / "tls", raw=raw)
+        print(json.dumps({"operation": args.command, "raw_directory": str(raw),
+                          "fingerprints": fingerprints}))
+        return
     elif args.command == "build":
         build_images(raw)
     elif args.command == "publish":

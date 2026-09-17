@@ -4,7 +4,10 @@ import json
 
 from deployment_common import Deployment, load_settings, read_file, token
 from wuji_core.contracts.knowledge import KnowledgeRef
-from wuji_core.execution.dispatch_outbox import SupervisorHttpTransport
+from wuji_core.execution.dispatch_outbox import (
+    SupervisorHttpTransport,
+    TaskSupervisorTransport,
+)
 from wuji_core.execution.runtime_dispatcher import build_runtime_controller
 from wuji_core.http import JsonBoundaryLimits
 from wuji_core.projection.snapshots import ProjectionRepository
@@ -38,6 +41,43 @@ def dispatch_audit(record):
     print(json.dumps(detail, sort_keys=True), flush=True)
 
 
+def _supervisor_transport(settings, deployment):
+    """One supervisor origin per Task, with the deployment URL as fallback.
+
+    A host that serves several Tasks must not deliver one Task's Assignment to
+    another Task's Pod, so every published per-Task endpoint gets its own
+    transport and only Tasks without one fall back to the fixed URL.
+    """
+
+    authorization = lambda: token(settings.receiver_token_file)
+    common = dict(
+        authorization=authorization,
+        ssl_context=deployment.tls,
+        max_response_bytes=min(settings.max_transport_bytes, 1048576),
+        audit=dispatch_audit,
+    )
+    default = (
+        SupervisorHttpTransport(settings.supervisor_url, **common)
+        if settings.supervisor_url
+        else None
+    )
+    by_task = {}
+    pod_runtime = settings.pod_runtime or {}
+    for entry in pod_runtime.get("tasks") or []:
+        if not isinstance(entry, dict):
+            continue
+        values = entry.get("task_config")
+        task_id = values.get("task_id") if isinstance(values, dict) else None
+        url = entry.get("supervisor_url")
+        if isinstance(task_id, str) and task_id and isinstance(url, str) and url:
+            by_task[task_id] = SupervisorHttpTransport(url, **common)
+    if not by_task:
+        if default is None:
+            raise ValueError("fixed runtime receiver endpoint required")
+        return default
+    return TaskSupervisorTransport(default=default, by_task=by_task)
+
+
 def build_runtime():
     settings = load_settings("runtime")
     deployment = Deployment(settings)
@@ -45,6 +85,7 @@ def build_runtime():
                 settings.host_origin, settings.model_gate_url, settings.tool_gate_url,
                 settings.task_ids)):
         raise ValueError("fixed runtime receiver/endpoints/Task discovery required")
+    supervisor_transport = _supervisor_transport(settings, deployment)
     receiver_access = deployment.access(settings.receiver_token_file)
 
     def host_factory(access):
@@ -63,10 +104,7 @@ def build_runtime():
     controller = build_runtime_controller(deployment.uow, access=receiver_access,
         authorized_task_ids=settings.task_ids, work_kinds=settings.work_kinds,
         credentials=deployment.issuer(), registry=deployment.registry, control=deployment.control,
-        supervisor_transport=SupervisorHttpTransport(settings.supervisor_url,
-            authorization=lambda: token(settings.receiver_token_file), ssl_context=deployment.tls,
-            max_response_bytes=min(settings.max_transport_bytes, 1048576),
-            audit=dispatch_audit),
+        supervisor_transport=supervisor_transport,
         host_factory=host_factory, retained_host_factory=retained_factory,
         session_transport=settings.session_transport, context_builder=build_context,
         ledger=deployment.ledger,

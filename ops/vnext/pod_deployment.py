@@ -6,7 +6,7 @@ configuration parser stays importable (and testable) without it, and the local
 """
 
 from deployment_common import read_file, token
-from pod_task_config import start_eligible_task_ids, task_entries
+from pod_task_config import entry_service_names, start_eligible_task_ids, task_entries
 from wuji_core.execution.pod_runtime import PodReceiverRegistration, VNextPodRuntime
 from wuji_task_runtime.kubernetes_client import KubernetesPodClient
 from wuji_task_runtime.models import ContainerResources, TaskRuntimeConfig
@@ -26,6 +26,16 @@ class PodEnvironment:
         self.observations: dict[str, object] = {}
         self.failures: dict[str, str] = {}
         self.service_names = config.get("service_names", {"agent": "task-agent", "kali": "task-kali"})
+        self.entry_service_names = {}
+        for item in config.get("tasks") or []:
+            if not isinstance(item, dict):
+                continue
+            values = item.get("task_config")
+            task_id = values.get("task_id") if isinstance(values, dict) else None
+            if isinstance(task_id, str) and task_id:
+                self.entry_service_names[task_id] = entry_service_names(
+                    item, self.service_names
+                )
         self.connection = self.api = None
 
     def __enter__(self):
@@ -102,7 +112,10 @@ class PodEnvironment:
                 if observation is None or not getattr(observation, "state", None):
                     raise ValueError("Task Pod observation is empty")
                 if observation.state == "ready":
-                    for service_name in (self.service_names["agent"], self.service_names["kali"]):
+                    # Each Task may publish its own Service names; two live Task
+                    # Pods can never share one Service without cross-Task starts.
+                    names = self.entry_service_names.get(task_id, self.service_names)
+                    for service_name in (names["agent"], names["kali"]):
                         if self._endpoint_uids(runtime.config.namespace, service_name) != {observation.pod_uid}:
                             raise ValueError("Service targets do not match the observed Task Pod UID")
             except Exception as error:

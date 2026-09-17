@@ -152,7 +152,9 @@ class Reconciler:
         if actual != run:
             raise DomainError("STALE_EXECUTION", 409)
         try:
-            receipt = self.transport.query(run.start_operation_id)
+            receipt = self.transport.query(
+                run.start_operation_id, task_id=run.identity.task_id
+            )
         except ObservationUnavailable:
             return ObservedExecution(run, "unknown", None, "receiver_response_unknown")
         if receipt is None:

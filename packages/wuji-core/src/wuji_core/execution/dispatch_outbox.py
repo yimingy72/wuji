@@ -146,20 +146,78 @@ class SupervisorHttpTransport:
             )
             raise ObservationUnavailable() from None
 
-    def query(self, operation_id):
+    def query(self, operation_id, *, task_id=None):
+        """The deployment has one endpoint; a router may pass the Task it routed."""
+
+        del task_id
         return self._request("GET", operation_id)
 
-    def start(self, assignment, *, profile_id):
+    def start(self, assignment, *, profile_id, task_id=None):
+        del task_id
         assignment = WorkerAssignment.model_validate(assignment)
         return self._request("PUT", assignment.operation_id, {
             "assignment": assignment.model_dump(mode="json"), "profile_id": profile_id,
         })
 
-    def control(self, operation_id, *, control_operation_id, action, identity):
+    def control(self, operation_id, *, control_operation_id, action, identity, task_id=None):
+        del task_id
         return self._request("POST", operation_id, {
             "control_operation_id": control_operation_id, "action": action,
             "identity": identity.model_dump(mode="json"),
         }, control=True)
+
+
+class TaskSupervisorTransport:
+    """Route one Task's operations to that Task's own supervisor endpoint.
+
+    A host that serves several Tasks cannot share one Service name: every Task
+    Pod publishes its own endpoint, and delivering one Task's Assignment to
+    another Task's Pod would be a real cross-Task execution. Tasks without a
+    published endpoint still use the deployment's fixed URL, which is what a
+    single-Task deployment configures.
+    """
+
+    def __init__(self, *, default=None, by_task=None, max_tasks=64):
+        by_task = dict(by_task or {})
+        if default is None and not by_task:
+            raise ValueError("at least one supervisor endpoint is required")
+        if not 1 <= max_tasks <= 1024 or len(by_task) > max_tasks:
+            raise ValueError("bounded Task endpoint list required")
+        if any(not isinstance(key, str) or not key for key in by_task):
+            raise ValueError("each Task endpoint needs its own identifier")
+        for transport in [*by_task.values(), *([default] if default is not None else [])]:
+            if not all(
+                callable(getattr(transport, name, None))
+                for name in ("query", "start", "control")
+            ):
+                raise ValueError("a real supervisor transport is required")
+        self.default, self.by_task = default, by_task
+
+    def for_task(self, task_id):
+        transport = self.by_task.get(task_id) if isinstance(task_id, str) else None
+        if transport is None:
+            transport = self.default
+        if transport is None:
+            raise ValueError("no supervisor endpoint is published for this Task")
+        return transport
+
+    def query(self, operation_id, *, task_id=None):
+        return self.for_task(task_id).query(operation_id, task_id=task_id)
+
+    def start(self, assignment, *, profile_id, task_id=None):
+        identity = getattr(assignment, "identity", None)
+        resolved = task_id or getattr(identity, "task_id", None)
+        return self.for_task(resolved).start(
+            assignment, profile_id=profile_id, task_id=resolved
+        )
+
+    def control(self, operation_id, *, control_operation_id, action, identity, task_id=None):
+        return self.for_task(task_id).control(
+            operation_id,
+            control_operation_id=control_operation_id,
+            action=action,
+            identity=identity,
+        )
 
 
 REDELIVERY_QUIET_SECONDS = 30
@@ -345,7 +403,7 @@ class DispatchOutbox:
     def inspect(self, task_id, operation_id):
         run, _assignment, _ref = self._registered(task_id, operation_id)
         try:
-            receipt = self.transport.query(operation_id)
+            receipt = self.transport.query(operation_id, task_id=task_id)
         except ObservationUnavailable:
             return ObservedExecution(run, "unknown", None, "receiver_response_unknown")
         if receipt is None:
@@ -357,7 +415,7 @@ class DispatchOutbox:
     def deliver(self, task_id, operation_id):
         run, assignment, credential_ref = self._registered(task_id, operation_id)
         try:
-            receipt = self.transport.query(operation_id)
+            receipt = self.transport.query(operation_id, task_id=task_id)
         except ObservationUnavailable:
             return ObservedExecution(run, "unknown", None, "receiver_response_unknown")
         if receipt is not None:
@@ -380,7 +438,7 @@ class DispatchOutbox:
         if not self.journal.reserve_send(run, allow_retry=True):
             return ObservedExecution(run, "unknown", None, "previous_delivery_unresolved_no_replay")
         try:
-            receipt = self.transport.start(assignment, profile_id=profile)
+            receipt = self.transport.start(assignment, profile_id=profile, task_id=task_id)
         except ObservationUnavailable:
             # No new operation, no second PUT, even after a receiver 404.
             return self.inspect(task_id, operation_id)

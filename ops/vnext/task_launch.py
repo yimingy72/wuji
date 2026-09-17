@@ -75,6 +75,22 @@ GRANT_CATALOG = {
     "gate": ("can_read",),
 }
 SERVICE_NAMES = {"agent": "task-agent", "kali": "task-kali"}
+
+
+def task_service_names(task_id):
+    """Per-Task Service names; one Service per live Task Pod.
+
+    Two Tasks that share the fixed names would deliver one Task's Assignment to
+    the other Task's Pod, so every launched attempt publishes its own bounded
+    pair. The prefix keeps the name inside the DNS label bound.
+    """
+
+    if not isinstance(task_id, str) or not task_id:
+        raise DomainError("INVALID_REFERENCE", 422)
+    prefix = "".join(character for character in task_id.lower() if character.isalnum())[:12]
+    if not prefix:
+        raise DomainError("INVALID_REFERENCE", 422)
+    return {"agent": "task-agent-" + prefix, "kali": "task-kali-" + prefix}
 FIXED_TASK_FIELDS = (
     "namespace",
     "tmp_size_limit",
@@ -584,7 +600,7 @@ def activate(config, *, task_id, version, reason, base_url, signing_key_file=Non
     return {"request": payload, "response": response.json()}
 
 
-def merge_gates_executors(executors, expected):
+def merge_gates_executors(executors, expected, *, base_url=None):
     """Merge this Task's executor entry into the deployment's published list.
 
     One entry exists per Task. Deployment-level binding fields (for example the
@@ -616,11 +632,14 @@ def merge_gates_executors(executors, expected):
         if any(entry_binding.get(key) != value for key, value in merged_binding.items()):
             changed = True
             entry_binding.update(merged_binding)
+        if base_url is not None and entry.get("base_url") != base_url:
+            changed = True
+            entry["base_url"] = base_url
     if not replaced:
         template = executors[0]
         executors.append({
             "binding": dict(merged_binding),
-            "base_url": template.get("base_url"),
+            "base_url": base_url if base_url is not None else template.get("base_url"),
             "gate_token_file": template.get("gate_token_file"),
             "collector_token_file": template.get("collector_token_file"),
         })
@@ -915,6 +934,33 @@ def _replaceable(document):
     return document
 
 
+def ensure_task_service(core, name, selector, port, *, namespace):
+    """Create this Task's own Service, or point the existing one at its Pod."""
+
+    body = {
+        "apiVersion": "v1",
+        "kind": "Service",
+        "metadata": {
+            "name": name,
+            "namespace": namespace,
+            "labels": {"app.kubernetes.io/managed-by": "wuji-vnext-deployment",
+                       "wuji.dev/environment": "local-test"},
+        },
+        "spec": {
+            "type": "ClusterIP",
+            "selector": dict(selector),
+            "ports": [{"name": "tls", "port": port, "protocol": "TCP", "targetPort": port}],
+        },
+    }
+    try:
+        core.create_namespaced_service(namespace, body)
+        return "created"
+    except k8s_client().exceptions.ApiException as error:
+        if error.status != 409:
+            raise
+    return replace_service_selector(core, name, selector, namespace=namespace)
+
+
 def replace_service_selector(core, name, selector, *, namespace):
     client = k8s_client().ApiClient()
     service = _replaceable(
@@ -1035,9 +1081,14 @@ def wire(binding, *, config, namespace, agent_auth_dir, kali_auth_dir, deploymen
         if status.failed or time.monotonic() > deadline:
             raise DomainError("WORKSPACE_INIT_FAILED", 500)
         time.sleep(2)
+    names = task_service_names(binding["task_id"])
     for role, port in (("agent", 8443), ("kali", 8444)):
+        # The fixed pair stays for single-Task deployments; the per-Task pair is
+        # what lets two live Task Pods each answer their own deliveries.
         actions[SERVICE_NAMES[role]] = replace_service_selector(
             core, SERVICE_NAMES[role], task_config.identity_labels, namespace=namespace)
+        actions[names[role]] = ensure_task_service(
+            core, names[role], task_config.identity_labels, port, namespace=namespace)
 
     def runtime_tasks(document):
         """The Task entries this host must serve, in either published shape."""
@@ -1068,15 +1119,22 @@ def wire(binding, *, config, namespace, agent_auth_dir, kali_auth_dir, deploymen
         # Several Tasks may share one runtime host: this attempt replaces only
         # its own entry, and every other Task keeps its published binding.
         merged, replaced = [], False
+        names = task_service_names(binding["task_id"])
+        published = {
+            "task_config": expected_task,
+            "receiver": expected_receiver,
+            "service_names": names,
+            "supervisor_url": f"https://{names['agent']}.{namespace}.svc:8443",
+        }
         for entry in tasks:
             if not isinstance(entry, dict) or not isinstance(entry.get("task_config"), dict):
                 raise DomainError("INVALID_REFERENCE", 422)
             if entry["task_config"].get("task_id") == binding["task_id"]:
                 replaced = True
-                entry = {"task_config": expected_task, "receiver": expected_receiver}
+                entry = dict(published)
             merged.append(entry)
         if not replaced:
-            merged.append({"task_config": expected_task, "receiver": expected_receiver})
+            merged.append(dict(published))
         task_ids = sorted({entry["task_config"]["task_id"] for entry in merged})
         changed = (
             bool(document.get("task_ids") != task_ids)
@@ -1136,6 +1194,7 @@ def wire(binding, *, config, namespace, agent_auth_dir, kali_auth_dir, deploymen
         executors = document.get("executors")
         if not isinstance(executors, list):
             raise DomainError("INVALID_REFERENCE", 422)
+        names = task_service_names(binding["task_id"])
         return merge_gates_executors(executors, {
             "tenant_id": binding["tenant_id"],
             "project_id": binding["project_id"],
@@ -1143,7 +1202,7 @@ def wire(binding, *, config, namespace, agent_auth_dir, kali_auth_dir, deploymen
             "executor_ref": binding["executor_ref"],
             "receiver_id": binding["receiver_id"],
             "environment_ref": binding["environment_ref"],
-        })
+        }, base_url=f"https://{names['kali']}.{namespace}.svc:8444")
 
     actions["gates-config"] = patch_deployment_json(core, "gates-config", gates_update,
                                                     namespace=namespace)

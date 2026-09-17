@@ -930,3 +930,43 @@ def test_a_followup_intent_is_bounded_before_it_touches_storage():
             client_ref="---", idempotency_key="k",
         )
     assert empty_ref.value.code == "INVALID_REFERENCE"
+
+
+def test_each_task_publishes_its_own_service_pair():
+    """Two live Task Pods cannot share one Service name."""
+
+    first = task_launch.task_service_names("2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0")
+    second = task_launch.task_service_names("083f6134-46bd-4237-9cdc-0c88a39da3d0")
+
+    assert first == {"agent": "task-agent-2abfdd577a0f", "kali": "task-kali-2abfdd577a0f"}
+    assert second == {"agent": "task-agent-083f613446bd", "kali": "task-kali-083f613446bd"}
+    for name in (*first.values(), *second.values()):
+        assert len(name) <= 63
+        assert name.islower()
+        assert all(character.isalnum() or character == "-" for character in name)
+    with pytest.raises(DomainError):
+        task_launch.task_service_names("---")
+
+
+def test_the_started_task_points_its_own_executor_at_its_own_kali_service():
+    """The gates host must reach this Task's kali Pod, not the last launched one."""
+
+    executors = [{"binding": dict(EXECUTOR_TEMPLATE["binding"]), **{
+        key: value for key, value in EXECUTOR_TEMPLATE.items() if key != "binding"
+    }}]
+
+    action = task_launch.merge_gates_executors(
+        executors,
+        executor_identity("task-new"),
+        base_url="https://task-kali-0123456789ab.wuji-vnext-test.svc:8444",
+    )
+
+    assert action == "replaced"
+    assert executors[1]["base_url"] == "https://task-kali-0123456789ab.wuji-vnext-test.svc:8444"
+    # The deployment's own entry is untouched, and a repeat is idempotent.
+    assert executors[0]["base_url"] == EXECUTOR_TEMPLATE["base_url"]
+    assert task_launch.merge_gates_executors(
+        executors,
+        executor_identity("task-new"),
+        base_url="https://task-kali-0123456789ab.wuji-vnext-test.svc:8444",
+    ) == "unchanged"
