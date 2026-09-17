@@ -1374,3 +1374,12 @@ def test_delivered_child_context_carries_the_authorized_evidence_body(
         # Every other artifact says why its body is not here.
         for record in artifacts:
             assert "material" in record or "material_omitted" in record
+
+        # The frozen Task/Work/Run/assessment state is part of the same input:
+        # "what was already tried" cannot be invisible to the model.
+        states = payload["states"]
+        assert set(states) >= {"task", "work_items", "agent_runs", "claim_assessments"}
+        assert states["work_items"], states
+        assert all(
+            set(item) >= {"state", "revision"} for item in states["work_items"].values()
+        )

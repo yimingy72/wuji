@@ -216,6 +216,7 @@ def build_context_bundle(
     limits: ContextLimits,
     relations: Sequence[ContextRelation] = (),
     material=None,
+    states=None,
 ) -> ContextBundle:
     if not isinstance(limits, ContextLimits):
         raise TypeError("published ContextLimits are required")
@@ -256,6 +257,14 @@ def build_context_bundle(
         "records": [],
         "relations": relation_data,
     }
+    if states is not None:
+        # The frozen Task/Work/Run/assessment state is part of the input the model
+        # must be able to read: "what was already tried", "which claim is already
+        # a fact", and whether an earlier completion review is still open. It is
+        # the same bounded, checksummed document that the snapshot froze.
+        if not isinstance(states, dict):
+            raise ValueError("context states must be the frozen snapshot mapping")
+        content["states"] = states
     # Account for the entire envelope as well as individual UTF-8 records. A
     # limit error never returns a smaller, selectively supportive bundle.
     size = len(canonical_json_bytes(content))

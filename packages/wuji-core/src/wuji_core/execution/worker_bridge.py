@@ -548,7 +548,7 @@ class WorkerHostBridge:
                     assignment, manifest, artifact_rows, body=body,
                     limits=published_limits,
                 )
-                context_options = {}
+                context_options = {"states": manifest.states}
                 if material is not None:
                     # Only the deployment's own builder accepts inline material;
                     # a host without an artifact reader keeps the metadata-only

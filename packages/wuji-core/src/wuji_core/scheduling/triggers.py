@@ -222,8 +222,18 @@ class TriggerRepository:
         return kind in {"assessment_recorded", "assessment_invalidated"}
 
     def _progress(self, tx, event, payload):
-        # Count only actual sealed Observation inputs with content, provenance
-        # and environment. New Claim/Intent IDs do not count as new material.
+        """Record verified new material for the bounded no-progress check.
+
+        Two producers count: a sealed Observation with content, provenance and
+        environment (``evidence_ingested``), and an accepted non-Reason result
+        whose components actually became canonical knowledge. The fingerprint is
+        the accepted canonical references themselves, so replaying one result or
+        renaming a ToolAttempt never looks like new knowledge.
+        """
+
+        if event["kind"] == "result_committed":
+            self._result_material(tx, event, payload)
+            return
         if event["kind"] != "evidence_ingested":
             return
         ref = payload.get("observation_ref")
@@ -261,6 +271,43 @@ class TriggerRepository:
             return
         source["artifacts"] = artifacts
         key = "material:" + sha256(canonical_json_bytes(source)).hexdigest()
+        tx.connection.execute(
+            "INSERT INTO vnext.scheduler_progress(tenant_id,project_id,task_id,source_key,category,event_seq) VALUES(%s,%s,%s,%s,'material',%s) ON CONFLICT DO NOTHING",
+            (*tx.owner, key, event["event_seq"]),
+        )
+
+    def _result_material(self, tx, event, payload):
+        """One material row per accepted result, keyed by its canonical refs."""
+
+        result = row(
+            tx.connection.execute(
+                """SELECT w.kind,r.receipt_json FROM vnext.result_submission s
+            JOIN vnext.result_receipt r USING(tenant_id,project_id,task_id,submission_id)
+            JOIN vnext.agent_run a USING(tenant_id,project_id,task_id,agent_run_id)
+            JOIN vnext.work_item w USING(tenant_id,project_id,task_id,work_item_id)
+            WHERE s.tenant_id=%s AND s.project_id=%s AND s.task_id=%s AND s.submission_id=%s""",
+                (*tx.owner, payload.get("submission_id")),
+            )
+        )
+        if not result or result["kind"] == "reason":
+            return
+        receipt = strict_json_loads(result["receipt_json"])
+        if receipt.get("status") != "accepted":
+            return
+        canonical = sorted(
+            (
+                component["canonical_ref"]["entity_type"],
+                component["canonical_ref"]["id"],
+                str(component["canonical_ref"]["revision"]),
+            )
+            for component in receipt.get("components", [])
+            if component.get("canonical_ref") and not component.get("code")
+        )
+        if not canonical:
+            return
+        key = "material:" + sha256(
+            canonical_json_bytes({"canonical_refs": canonical})
+        ).hexdigest()
         tx.connection.execute(
             "INSERT INTO vnext.scheduler_progress(tenant_id,project_id,task_id,source_key,category,event_seq) VALUES(%s,%s,%s,%s,'material',%s) ON CONFLICT DO NOTHING",
             (*tx.owner, key, event["event_seq"]),

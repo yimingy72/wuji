@@ -239,14 +239,15 @@ def _receiver_credential(case, audit_directory: Path):
 
 
 def _context_builder(
-    *, records, read_set, snapshot_id, max_records, max_bytes, relations, material=None
+    *, records, read_set, snapshot_id, max_records, max_bytes, relations,
+    material=None, states=None
 ):
     return build_context_bundle(
         records,
         read_set,
         snapshot_id=snapshot_id,
         limits=ContextLimits(max_records=max_records, max_bytes=max_bytes),
-        material=material,
+        material=material, states=states,
         relations=tuple(
             ContextRelation(
                 source=KnowledgeRef.model_validate(item["source"]),

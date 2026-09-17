@@ -118,3 +118,15 @@
   1. Run 提交结果、关闭自己的操作集、平台观察到退出 → work 才结算为 `done`；Committer 接纳 Reason 提出的**新问题**（`accepted_shared`），Scheduler 记录 `scheduler_decision=accepted` 并把该 Intent 物化成新的 Explore work（`max_work_items` 足够时不再被上限挡住）。
   2. Explore 的候选 Claim 被接纳并持久化（`claim_revision` 行、work `done`、run `exited/accepted`）。
 - 未完成：**新 Claim 进入下一次 Reason read_set** 尚未通过；`scheduler_progress` 本轮实测没有 material 行，需要单独核对 `_progress` 的触发条件（下一项最小工作）。
+
+### E03-C（已交付）：冻结的 Task/Work/Run/评估状态进入模型输入
+
+- 集群实测发现：交付给模型的上下文只有 1 条记录（那次的 Intent），`snapshot_manifest.states`（work_items/agent_runs/claim_assessments/task）**从未进入模型输入**——模型看不到"已经做过什么"、哪条 Claim 已经是 Fact、以及 Task 的冻结状态。
+- 现在 `build_context_bundle(..., states=...)` 把这份已冻结、已校验的映射放进同一份上下文文档（仍受 `max_context_bytes` 约束），`WorkerHostBridge.resolve` 传入 `manifest.states`，runtime 的 `build_context` 转发；没有 states 的旧调用方行为不变。
+- 证据：`tests/vnext/test_maf_child_transport.py::test_delivered_child_context_carries_the_authorized_evidence_body` 断言真实子进程收到的 spool 文档里 `states.work_items`/`agent_runs`/`claim_assessments` 都在且带 state/revision。
+
+### E04-A 收口（已交付）：材料进展与下一次 read_set
+
+- `TriggerRepository._progress` 之前只认 `evidence_ingested`，正常工具结果提交（`result_committed`）**不产生任何 material 进展**——无进展收敛会失去依据。
+- 现在被接纳的非 Reason 结果按**已接受组件的 canonical refs** 生成一条 `material` 进展行：指纹不含 ToolAttempt ID/UUID/接收时间，重放同一事件既不新增进展也不新增工作；Reason 自己的决策不计入材料。
+- 证据：`tests/vnext/test_exploration_loop.py` 3 项，其中第三项实测"新 Claim 进入下一次 Reason 的 read_set"（新 Reason Run 的 snapshot read set 含该 Claim），第二项实测材料行唯一且重放无副作用。

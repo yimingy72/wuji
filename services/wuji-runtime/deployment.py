@@ -16,7 +16,7 @@ from wuji_maf_worker.context import ContextLimits, ContextRelation, build_contex
 
 
 def build_context(*, records, read_set, snapshot_id, max_records, max_bytes, relations,
-                  material=None):
+                  material=None, states=None):
     """The delivered context, including any bounded, authorized inline bodies.
 
     ``material`` is absent on a host without an artifact reader; the bundle then
@@ -25,7 +25,7 @@ def build_context(*, records, read_set, snapshot_id, max_records, max_bytes, rel
 
     return build_context_bundle(records, read_set, snapshot_id=snapshot_id,
         limits=ContextLimits(max_records=max_records, max_bytes=max_bytes),
-        material=material,
+        material=material, states=states,
         relations=tuple(ContextRelation(source=KnowledgeRef.model_validate(r["source"]),
             target=KnowledgeRef.model_validate(r["target"]), relation=r["relation"]) for r in relations))
 
