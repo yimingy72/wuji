@@ -1,0 +1,2 @@
+b2d1ecd9-cb29-44be-a086-a34b082d749c|1|admitted|Read the fixture workspace file for Task start point workspace:materials/entry.json once through the registered Kali workspace tool and cite the returned evidence.
+8e5045de-0c2d-465f-a678-beed1fdd862c|1|admitted|Read workspace:materials/registry-oct.json through the registered Kali workspace tool and report the inventory service version it records, citing the file it came from.

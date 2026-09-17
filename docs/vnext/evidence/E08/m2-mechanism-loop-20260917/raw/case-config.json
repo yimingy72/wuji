@@ -1,0 +1,1 @@
+{"case": "A-reference", "event": "trial_case_config", "materials": ["materials/entry.json", "materials/registry-nov.json", "materials/registry-oct.json"], "out": "docs/vnext/evidence/E08/m2-mechanism-loop-20260917/run-config.json"}

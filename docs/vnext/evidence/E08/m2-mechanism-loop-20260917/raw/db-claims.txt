@@ -1,0 +1,4 @@
+CAPTURE|8841f477-86ff-49f6-8289-6cc865ca454f|1|sealed|text/plain; charset=utf-8|43|
+CAPTURE|219c79d1-d169-4025-acb4-f1b0b8e97ca0|1|sealed|text/plain; charset=utf-8|70|
+CLAIM|197559d1-4a89-4488-a0ba-bc2639bcb6f2|1|observation-summary|candidate_fact|89|62ab8fa4-470a-4281-8e34-812238eb8fc4
+CLAIM|dcc86b0d-f227-44f8-92e5-2755043e1425|1|observation-summary|candidate_fact|123|e7fcbad7-8d7c-4308-b723-a5cd9674b26c

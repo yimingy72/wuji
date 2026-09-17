@@ -1,0 +1,36 @@
+{
+ "cases": {
+  "A-reference": {
+   "material_root": "docs/vnext/evidence/E08/m2-mechanism-loop-20260917/suite/A-reference/materials",
+   "materials": [
+    "materials/entry.json",
+    "materials/registry-nov.json",
+    "materials/registry-oct.json"
+   ]
+  },
+  "B-conflict": {
+   "material_root": "docs/vnext/evidence/E08/m2-mechanism-loop-20260917/suite/B-conflict/materials",
+   "materials": [
+    "materials/record-a.json",
+    "materials/record-b.json"
+   ]
+  },
+  "B-consistent": {
+   "material_root": "docs/vnext/evidence/E08/m2-mechanism-loop-20260917/suite/B-consistent/materials",
+   "materials": [
+    "materials/record-a.json",
+    "materials/record-b.json"
+   ]
+  },
+  "C-insufficient": {
+   "material_root": "docs/vnext/evidence/E08/m2-mechanism-loop-20260917/suite/C-insufficient/materials",
+   "materials": [
+    "materials/record-a.json",
+    "materials/record-b.json"
+   ]
+  }
+ },
+ "created_at": "2026-09-17T12:58:27.961545+00:00",
+ "grader_root": "docs/vnext/evidence/E08/m2-mechanism-loop-20260917/suite/grader",
+ "schema_version": "wuji.exploration-trial.v1"
+}

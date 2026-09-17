@@ -1,0 +1,22 @@
+{
+ "case": "A-reference",
+ "expected": {
+  "answer": "4.2.0",
+  "answer_files": [
+   "materials/registry-oct.json"
+  ],
+  "decoy_version": "4.3.1",
+  "kind": "runtime_reference",
+  "reference_chain": [
+   "materials/entry.json",
+   "materials/registry-oct.json"
+  ]
+ },
+ "family": "CASE-A",
+ "material_sha256": {
+  "materials/entry.json": "80dbd1ba76ff22ebfaae18e99f88e52b11c82e9d90b2245dd2445d33282bd783",
+  "materials/registry-nov.json": "b0a54387d22ce61ecd6d6d6fceb76aafa23fa716353d4cf6c721d5399147d778",
+  "materials/registry-oct.json": "8f2ef80e53b7460f82b2276f805e5c2a09611c0ad45e40ae29b0d7f1531091bf"
+ },
+ "schema_version": "wuji.exploration-trial.v1"
+}

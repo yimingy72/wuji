@@ -1,0 +1,4 @@
+evidence read: materials/entry.json; content: {"pointer": "materials/registry-oct.json"}
+
+evidence read: materials/registry-oct.json; content: {"changed": "2026-09-01", "service": "inventory", "version": "4.2.0"}
+

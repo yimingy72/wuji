@@ -1,0 +1,1 @@
+Report the inventory service version recorded in the registry file that the workspace entry document points to, and cite the file it came from.

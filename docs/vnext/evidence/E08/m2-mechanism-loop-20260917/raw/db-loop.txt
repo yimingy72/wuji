@@ -1,0 +1,45 @@
+== decisions in order (by generation)
+2|accepted||wait
+5|accepted||propose_intents
+6|accepted||wait
+8|accepted||propose_completion
+9|accepted||blocked
+
+== decisions (full)
+2|{"decision":"wait","reason":"Nothing has been observed for the given start point yet; this Run waits for the admitted question's own accepted result.","wait_refs":[{"predicate":"work_accepted_result","predicate_version":"1","ref":{"entity_type":"intent","id":"b2d1ecd9-cb29-44be-a086-a34b082d749c","revision":"1"}}]}
+5|{"decision":"propose_intents","reason":"The observed bytes point at materials/registry-oct.json; the pointer is only in that material, so the next question is bounded to it.","wait_refs":[]}
+6|{"decision":"wait","reason":"The question for materials/registry-oct.json is already admitted; this Run waits for that work's own accepted result instead of asking the same thing twice.","wait_refs":[{"predicate":"work_accepted_result","predicate_version":"1","ref":{"entity_type":"intent","id":"8e5045de-0c2d-465f-a678-beed1fdd862c","revision":"1"}}]}
+8|{"decision":"propose_completion","reason":"The pointed file materials/registry-oct.json was read and its own bytes carry the value the Goal asks for; nothing else is missing.","wait_refs":[]}
+9|{"decision":"blocked","reason":"The recorded completion review still reports open basis (criteria_unmet); this Run cannot satisfy it and an operator must decide.","wait_refs":[]}
+
+== waits
+31918b46-4060-451b-b6ee-fa64822fd627|70201175-cecc-4571-8d61-31817afbc0b7|6|ready
+9b3e5fe5-8cff-4f59-9a48-a176b2c9dc9d|4d70e53a-b9a4-4970-849e-b6ce292dca39|2|ready
+
+== scheduler state
+9|9|0|1|reason_operator_review
+
+== private artifacts inside any read set (must be 0)
+0
+
+== artifact provenance counts
+capture|2
+model_output|60
+
+== snapshot sizes (read set refs)
+0c73e44c-3d7e-40a9-9bac-0eb61812e60b|5
+4b350e43-a073-4820-b996-3ffbc19e968f|8
+8e4cfdc8-86fb-4398-86e7-68d5f859ba27|1
+a7311203-a45c-421c-b735-3bc0dbb9583a|1
+a9b1bd03-0d5b-4d08-9f64-309c3c3e51a0|8
+d2cb2775-afca-495b-aaa3-3b3025cb7780|4
+e87a2d51-a3f9-459d-94dd-7d6b98985241|7
+
+== model requests per run
+039448e7-7162-430e-89f9-f4ba5ab028d1|1|6977
+35b8aef7-3dd5-4cdb-9100-5a062556beaa|1|13412
+45527e2f-3cd5-48ed-8aef-c5d3af1d2ffb|1|10491
+4e58967c-d4e1-4121-a8a1-3ef8c04aa12e|1|3100
+62ab8fa4-470a-4281-8e34-812238eb8fc4|2|4310
+bf341664-e602-4470-81be-e94fee13bf31|1|12546
+e7fcbad7-8d7c-4308-b723-a5cd9674b26c|2|9623

@@ -1,0 +1,18 @@
+{
+ "case": "B-consistent",
+ "expected": {
+  "answer": "agree",
+  "answer_files": [
+   "materials/record-a.json",
+   "materials/record-b.json"
+  ],
+  "kind": "consistent_pair",
+  "version": "4.2.0"
+ },
+ "family": "CASE-B",
+ "material_sha256": {
+  "materials/record-a.json": "6ee8b301c5a634c23323d171f9205431956de26a73701069698bf05af799b2b5",
+  "materials/record-b.json": "6ee8b301c5a634c23323d171f9205431956de26a73701069698bf05af799b2b5"
+ },
+ "schema_version": "wuji.exploration-trial.v1"
+}

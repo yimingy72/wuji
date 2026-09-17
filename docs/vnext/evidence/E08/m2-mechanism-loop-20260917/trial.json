@@ -1,0 +1,76 @@
+{
+ "branch": "codex/vnext-maf",
+ "case": "A-reference",
+ "counts": {
+  "agent_runs": 7,
+  "captures": 2,
+  "claims": 2,
+  "completion_requests": 1,
+  "completion_reviews": 1,
+  "intents": 2,
+  "observations": 2,
+  "work_items": 7
+ },
+ "family": "CASE-A",
+ "goal": "Report the inventory service version recorded in the registry file that the workspace entry document points to, and cite the file it came from.",
+ "grader": "grading.json",
+ "images": {
+  "agent": "127.0.0.1:56615/wuji-vnext-agent@sha256:7018a81bc49d8dff15528006a796dbb82cde2a0a922ac9ed06223b70fa2207e3",
+  "kali": "127.0.0.1:56615/wuji-vnext-kali@sha256:595159aa24e586314471a44236797b6e0da60e26e523fdce24b6ca670c3abf4a",
+  "platform": "127.0.0.1:56615/wuji-vnext-platform@sha256:7c17bc8ba7cf5e36baaf4d73c8468beaa7115bb4b9334b7ce6ad968c6e509f74"
+ },
+ "loop": [
+  {
+   "decision": "wait",
+   "generation": 2,
+   "note": "nothing observed yet; waits for the admitted question's own accepted result"
+  },
+  {
+   "decision": "propose_intents",
+   "generation": 5,
+   "note": "asks for the file named only by the observed pointer"
+  },
+  {
+   "decision": "wait",
+   "generation": 6,
+   "note": "the question is already admitted; waits instead of repeating it"
+  },
+  {
+   "decision": "propose_completion",
+   "generation": 8,
+   "note": "the pointed file was read and carries the value"
+  },
+  {
+   "decision": "blocked",
+   "generation": 9,
+   "note": "the recorded review still reports an unmet criterion"
+  }
+ ],
+ "materials": [
+  "materials/entry.json",
+  "materials/registry-nov.json",
+  "materials/registry-oct.json"
+ ],
+ "mode": "mechanism_synthetic",
+ "recorded_by": "main agent, 2026-09-17",
+ "runtime_profile": {
+  "limits": {
+   "max_attempts_per_work": 2,
+   "max_elapsed_seconds": 1800,
+   "max_model_requests": 16,
+   "max_reason_runs": 6,
+   "max_single_output_bytes": 131072,
+   "max_tool_calls": 8,
+   "max_total_output_bytes": 524288,
+   "max_work_items": 8,
+   "reason_retry_attempts": 2,
+   "repair_attempts": 0
+  },
+  "ref": "k8s-runtime-trial-v1",
+  "revision": "3"
+ },
+ "schema_version": "wuji.exploration-trial.v1",
+ "source_revision": "4047e12b919811c69190f8d850b41e113f848197",
+ "task_id": "ff045b32-68f6-4faa-b74c-482af7f0c148",
+ "worktree": "work/worktrees/vnext-maf"
+}

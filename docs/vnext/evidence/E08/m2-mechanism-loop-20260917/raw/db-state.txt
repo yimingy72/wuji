@@ -1,0 +1,79 @@
+== work items
+0a7aa69e-84ff-4585-84e1-0b59e68e1154|explore|done|62ab8fa4-470a-4281-8e34-812238eb8fc4|exited|accepted|exited
+1aaddd7e-3978-4e84-bba6-206102dd876d|reason|done|039448e7-7162-430e-89f9-f4ba5ab028d1|exited|accepted|exited
+38cc1e3f-725a-43f8-b419-a33d3212ed94|explore|done|e7fcbad7-8d7c-4308-b723-a5cd9674b26c|exited|accepted|exited
+4d70e53a-b9a4-4970-849e-b6ce292dca39|reason|done|4e58967c-d4e1-4121-a8a1-3ef8c04aa12e|exited|accepted|exited
+70186155-041d-44f8-8138-a5f78d4d2785|reason|done|bf341664-e602-4470-81be-e94fee13bf31|exited|accepted|exited
+70201175-cecc-4571-8d61-31817afbc0b7|reason|done|45527e2f-3cd5-48ed-8aef-c5d3af1d2ffb|exited|accepted|exited
+82dc60be-64d1-459b-908d-978995839bf8|reason|done|35b8aef7-3dd5-4cdb-9100-5a062556beaa|exited|accepted|exited
+
+== decisions in order
+ERROR:  column "created_at" does not exist
+LINE 1: SELECT created_at,d.status,d.reason_code,(d.decision_json::j...
+               ^
+command terminated with exit code 1
+
+== outbox
+1|intent_shared|2026-09-17 13:32:50.898495+00
+2|task.started|2026-09-17 13:32:51.186288+00
+3|control.applied|2026-09-17 13:32:51.190969+00
+4|run.dispatch_requested|2026-09-17 13:33:48.966245+00
+5|run.dispatch_requested|2026-09-17 13:33:49.140345+00
+6|execution.observed|2026-09-17 13:33:51.506053+00
+7|execution.observed|2026-09-17 13:33:51.701333+00
+8|tool.dispatch_requested|2026-09-17 13:33:59.318491+00
+9|evidence_ingested|2026-09-17 13:34:00.137014+00
+10|session.published|2026-09-17 13:34:01.452917+00
+11|result_committed|2026-09-17 13:34:02.238866+00
+12|session.published|2026-09-17 13:34:03.392088+00
+13|result_committed|2026-09-17 13:34:04.123064+00
+14|execution.observed|2026-09-17 13:34:04.672907+00
+15|execution.observed|2026-09-17 13:34:05.151095+00
+16|run.dispatch_requested|2026-09-17 13:34:05.795954+00
+17|execution.observed|2026-09-17 13:34:07.955651+00
+18|session.published|2026-09-17 13:34:14.623643+00
+19|result_committed|2026-09-17 13:34:15.510386+00
+20|run.dispatch_requested|2026-09-17 13:34:16.666469+00
+21|execution.observed|2026-09-17 13:34:16.73559+00
+22|execution.observed|2026-09-17 13:34:19.444365+00
+23|tool.dispatch_requested|2026-09-17 13:34:24.926868+00
+24|evidence_ingested|2026-09-17 13:34:25.361135+00
+25|run.dispatch_requested|2026-09-17 13:34:25.684864+00
+26|session.published|2026-09-17 13:34:27.682208+00
+27|result_committed|2026-09-17 13:34:28.450687+00
+28|execution.observed|2026-09-17 13:34:28.906858+00
+29|execution.observed|2026-09-17 13:34:31.266575+00
+30|session.published|2026-09-17 13:34:35.622296+00
+31|result_committed|2026-09-17 13:34:36.428411+00
+32|execution.observed|2026-09-17 13:34:37.444802+00
+33|run.dispatch_requested|2026-09-17 13:34:37.713867+00
+34|execution.observed|2026-09-17 13:34:39.649345+00
+35|session.published|2026-09-17 13:34:47.330196+00
+36|result_committed|2026-09-17 13:34:48.132369+00
+37|reason.completion_requested|2026-09-17 13:34:48.151917+00
+38|execution.observed|2026-09-17 13:34:49.158666+00
+39|completion.reviewed|2026-09-17 13:34:49.480628+00
+40|run.dispatch_requested|2026-09-17 13:34:51.110362+00
+41|execution.observed|2026-09-17 13:34:53.522596+00
+42|session.published|2026-09-17 13:35:01.63979+00
+43|result_committed|2026-09-17 13:35:02.339967+00
+44|execution.observed|2026-09-17 13:35:03.458873+00
+
+== scheduler state
+9|9|0|1|reason_operator_review
+
+== snapshots
+8e4cfdc8-86fb-4398-86e7-68d5f859ba27|2026-09-17 13:33:48.824625+00
+a7311203-a45c-421c-b735-3bc0dbb9583a|2026-09-17 13:33:49.002624+00
+d2cb2775-afca-495b-aaa3-3b3025cb7780|2026-09-17 13:34:05.668058+00
+0c73e44c-3d7e-40a9-9bac-0eb61812e60b|2026-09-17 13:34:16.545075+00
+e87a2d51-a3f9-459d-94dd-7d6b98985241|2026-09-17 13:34:25.562267+00
+a9b1bd03-0d5b-4d08-9f64-309c3c3e51a0|2026-09-17 13:34:37.591373+00
+4b350e43-a073-4820-b996-3ffbc19e968f|2026-09-17 13:34:50.989571+00
+
+== private artifacts in any read set (must be 0)
+0
+
+== artifact provenance counts
+capture|2
+model_output|60

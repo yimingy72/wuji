@@ -150,3 +150,28 @@
 - `apps/web/src/features/topology/TopologyContainer.tsx` 新增 `LIVE_VIEW_ENABLED = false`：R04（视图 revision 与 snapshot 未原子绑定）与 R05（重连不证明从已见基线真正续传）未关闭前，SSE 订阅不建立，图/详情/引用全部来自同一份受权快照。
 - 界面显式显示"快照模式：实时订阅未启用，图为当前受权快照"，并提供"刷新快照"按钮（重新读取 `requestRevision`）；原来的实时状态文案保留在开关打开后的分支，供 X04 修好后恢复。
 - 验证：`pnpm --filter @wuji/web typecheck` 通过；本项不宣称 P15 完成，也不把实时模式标为可用。
+
+### M2（已实测）：真实观察 → 非预写 Intent → 正式执行 → 新证据改变判断
+
+- 2026-09-17 在 `wuji-vnext-test` 用镜像 `source_revision=4047e12b919811c69190f8d850b41e113f848197` 实测 CASE-A（`E06` 夹具，答案与变体标签都在 `grader/` 之外）：
+  公开入口 `POST /api/v2/tasks` 新建 Task `ff045b32-68f6-4faa-b74c-482af7f0c148` → owner 四阶段全绿 →
+  7 个 work_item 全部 `done`、7 个 AgentRun 全部 `exited/accepted`、2 个 Intent、2 条 Claim、2 条 Observation、
+  1 次 `reason.completion_requested` 与 1 份 `completion.reviewed`，最终 `blocked_reason=reason_operator_review`。
+- 五次 Reason 决定构成闭环：`wait`（尚无材料）→ `propose_intents`（问题来自只在被观察字节里出现的 `{"pointer": "materials/registry-oct.json"}`）→
+  `wait`（该问题已在执行，等待其结果而不是重复提问）→ `propose_completion`（指向的文件已读、正文带答案）→ `blocked`（评审仍缺判据，交操作者）。
+- 独立评分：`verdict=pass`（答案链 `entry.json → registry-oct.json`、答案 `4.2.0`、诱饵 `4.3.1` 未被读取）。
+- 证据包：[M2 mechanism loop](../vnext/evidence/E08/m2-mechanism-loop-20260917/README.md)（含创建报文、四阶段原文、五次决定、数据库回读、工作台截图与评分）。
+
+### M2 触发并修复的四项缺陷
+
+1. **工具结果正文不交付**：模型只拿到 receipt。新增 `/internal/v2/tool-calls/{id}/material`，在同一 Run 内把该次调用的封存文本结果交给模型（受发布输出上限约束、固定省略原因），receipt 本体不变；会话重放时只有校验正文等于封存 Artifact 才接受（`e8f15e0`）。
+2. **机制 peer 用 Artifact 做问题依据**：被 Committer 正确拒绝而耗尽该代 Reason；改为最新 Claim/退到 Observation，且已有同路径问题时改为 `wait`（`8208934`）。
+3. **Session profile 身份只哈希部分 body**：限值不同而 ref 相同 → `wire` 阶段 `INPUT_DIGEST_CONFLICT`；改为身份覆盖整个已发布 body（`fa94f4c`）。
+4. **Run 私有产物回流成黑板材料**：快照默认选入每个 sealed Artifact，上下文逐代增长，最终在会话边界以 `LIMIT_BLOCKED` 拒绝 Run。新 Run 的快照只冻结 claim/intent/observation 及其证据闭包（`4047e12`）。
+
+### 下一步（M3 之前）
+
+1. E04-B：有限去重（不同 Intent ID 的同一规范问题建立可核验重复关联）与无进展收敛（发布窗口、达到后只发一次完成/停止请求、真实 wait/blocked 不按 tick 计无进展）。
+2. E08：在同一 Goal/能力/预算下运行 CASE-B 两个变体，核对"改变的是问题与依据"；CASE-C 走 insufficient 分支。
+3. X04（R04/R05）修好后再打开实时订阅；在此之前工作台保持快照模式。
+4. 真实模型试测仍为 `blocked_configuration`（无网关/Key/额度）。

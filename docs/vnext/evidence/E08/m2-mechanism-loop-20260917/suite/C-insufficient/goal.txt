@@ -1,0 +1,1 @@
+Report whether the two inventory records in the workspace agree on the service version, and state the version.
