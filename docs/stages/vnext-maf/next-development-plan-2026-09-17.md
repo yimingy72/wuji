@@ -175,3 +175,18 @@
 2. E08：在同一 Goal/能力/预算下运行 CASE-B 两个变体，核对"改变的是问题与依据"；CASE-C 走 insufficient 分支。
 3. X04（R04/R05）修好后再打开实时订阅；在此之前工作台保持快照模式。
 4. 真实模型试测仍为 `blocked_configuration`（无网关/Key/额度）。
+
+### E04-B（已交付）：精确去重 + 有限无进展收敛
+
+- **精确去重**：工作身份不再只由 Intent ID 决定。Scheduler 重算 (冻结问句, 依据 refs, 方法/能力版本, Profile 摘要, 环境, 输出合同) 的 canonical digest，命中既有 Work 时只写一条 `intent.deduplicated`（同时点名 Intent 与既有 Work），不创建第二个 Explore；新依据或新环境得到不同 digest，仍是合法延续。
+- **有限无进展收敛**：运行时限新增可选 `max_no_progress_rounds`。一轮"已结算且没有新材料"的 Reason 只有在没有其它排队/运行中 Work、没有未满足 waiter、也没有更新输入在等时才计数；达到窗口发出一份 `reason.completion_requested`（`reason=no_progress_window`）交给 E05，并置 `blocked_reason='no_progress_window'`，在**新知识**到来前不再生成 Reason（失败重试与操作者阻断不会被新材料解除）。
+- **附带修正**：Work 通常在自己的退出观察被消费时才结算完成，此前 waiter 只在"相关事件"重扫，导致条件已满足的等待可能不醒；现在每条已记录事件都重读谓词。
+- 证据：`tests/vnext/test_exploration_loop.py` 4 项定向用例 + 集群复核（窗口=3 的 CASE-A 重跑，`no_progress_count=0`、无重复问题、循环闭合到 `reason_operator_review`）见 [E04-B 证据包](../vnext/evidence/E08/e04b-bounded-loop-20260918/README.md)。
+
+### 现在的位置（2026-09-18）
+
+M1、M2 与 E04-B 均已实测；距离"可开展 M3 限定试测"只差：
+
+1. **E08 变体对照**：同一 Goal/能力/预算下运行 CASE-B 两个变体（一致/冲突），核对"改变的是问题与依据"；CASE-C 走信息不足分支。
+2. **真实模型**：仍为 `blocked_configuration`（无网关/Key/额度）。机制模式只能证明平台路径，不能替代模型质量结论。
+3. **X04（R04/R05）**：视图 revision 与 snapshot 原子绑定、丢批次回放/reset 未做；工作台维持快照模式，修好后才能打开实时订阅。

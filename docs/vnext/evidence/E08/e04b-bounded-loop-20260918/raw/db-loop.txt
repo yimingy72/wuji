@@ -1,0 +1,94 @@
+== task
+05a6653b-4623-4801-bd9e-13d3f0064b2b|run|running|2
+
+== work items
+0d6ce69a-4732-4eff-a609-66227f71c1be|reason|done|a5ae4165-130b-4ecb-8cf9-962fa586ed38
+3c87b463-a3fd-4917-9d13-49b3143b5b90|reason|done|a6357c32-38d9-4c31-9528-df285f7bb4be
+3ffe5db8-13ce-4113-adba-314d831e90eb|reason|done|3e5a63a1-bb8d-4332-96bb-eed22a168acb
+bf9eab80-b8a2-428a-b4ca-3c3e4ec29c9b|explore|done|be3c0ddf-74b2-4900-9201-702448a64af2
+d2b3f92f-59e8-48a4-8db7-479f6994c466|explore|done|9635e605-e656-439b-9a20-9353653a4ca2
+fa7c94a1-df0b-44c4-aa72-1096b8efd779|reason|done|a9106e16-b7a2-45ed-8985-89e30648f033
+fedbcc34-e03d-4263-b3ed-b2b2540dca28|reason|done|8b1455d7-c6fe-46b1-bc17-a20a9274bbbd
+
+== decisions in order
+2|accepted||wait|{"decision":"wait","reason":"Nothing has been observed for the given start point yet; this Run waits for the admitted question's own accepted result.","wait_refs":[{"predicate":"work_accepted_result","predicate_version":"1","ref":{"entity_type":"intent","id":"a5ceb510-d091-47c0-b167-919634235d77","revision":"1"}}]}
+3|accepted||propose_intents|{"decision":"propose_intents","reason":"The observed bytes point at materials/registry-oct.json; the pointer is only in that material, so the next question is bounded to it.","wait_refs":[]}
+5|accepted||wait|{"decision":"wait","reason":"The question for materials/registry-oct.json is already admitted; this Run waits for that work's own accepted result instead of asking the same thing twice.","wait_refs":[{"predicate":"work_accepted_result","predicate_version":"1","ref":{"entity_type":"intent","id":"2d1487a7-fff5-41ae-996e-c314f2dda666","revision":"1"}}]}
+6|accepted||propose_completion|{"decision":"propose_completion","reason":"The pointed file materials/registry-oct.json was read and its own bytes carry the value the Goal asks for; nothing else is missing.","wait_refs":[]}
+9|accepted||blocked|{"decision":"blocked","reason":"The recorded completion review still reports open basis (required_work_open, runs_unsettled, criteria_unmet); this Run cannot satisfy it and an operator must decide.","wait_refs":[]}
+
+== scheduler state (window published as 3)
+9|9|0|0|reason_operator_review
+
+== dedup / no-progress events (must be empty)
+0
+
+== outbox
+1|intent_shared
+2|task.started
+3|control.applied
+4|run.dispatch_requested
+5|run.dispatch_requested
+6|execution.observed
+7|execution.observed
+8|tool.dispatch_requested
+9|evidence_ingested
+10|session.published
+11|result_committed
+12|session.published
+13|execution.observed
+14|result_committed
+15|run.dispatch_requested
+16|execution.observed
+17|execution.observed
+18|session.published
+19|result_committed
+20|execution.observed
+21|run.dispatch_requested
+22|run.dispatch_requested
+23|execution.observed
+24|execution.observed
+25|tool.dispatch_requested
+26|session.published
+27|evidence_ingested
+28|result_committed
+29|execution.observed
+30|session.published
+31|result_committed
+32|run.dispatch_requested
+33|execution.observed
+34|execution.observed
+35|session.published
+36|result_committed
+37|reason.completion_requested
+38|completion.reviewed
+39|execution.observed
+40|run.dispatch_requested
+41|execution.observed
+42|session.published
+43|result_committed
+44|execution.observed
+
+== intents
+a5ceb510-d091-47c0-b167-919634235d77|1|admitted|Read the fixture workspace file for Task start point workspace:materials/entry.json once through the registered Kali workspace tool and cite the returned evidence.
+2d1487a7-fff5-41ae-996e-c314f2dda666|1|admitted|Read workspace:materials/registry-oct.json through the registered Kali workspace tool and report the inventory service version it records, citing the file it came from.
+
+== claims and captures
+CLAIM|8856b4bd-998c-45e3-b8af-54b9dc5ac4a1|1|evidence read: materials/entry.json; content: {"pointer": "materials/registry-oct.json"}
+
+CLAIM|d49cb4ed-fd4c-4f59-8d45-0e61d3dc415f|1|evidence read: materials/registry-oct.json; content: {"changed": "2026-09-01", "service": "inventory", "version": "4.2.0"}
+
+CAPTURE|bc3fb420-1a4a-4e2c-95bc-a0cab54fee28|1|text/plain; charset=utf-8|43
+CAPTURE|fdf0c4d8-f988-4f17-bb02-25fd9e5b5752|1|text/plain; charset=utf-8|70
+
+== completion review
+{"basis":{"board_revision":"31","control_version":"2","processing_generation":"6","request_event_seq":37,"work_item_id":"3c87b463-a3fd-4917-9d13-49b3143b5b90"},"coverage":{"criteria":[{"applicability":"missing","criterion_id":"registry-version","judged":false,"required":true,"revision":null,"status":"missing"}]},"decision":"wait","open_work":["3c87b463-a3fd-4917-9d13-49b3143b5b90"],"reasons":["required_work_open","runs_unsettled","criteria_unmet"],"review_digest":"68e5f9166e1ad37a036ee62ad3de8f96bdfb31bb9f34639dd6bb44a161cc564f","review_id":"9bd3cffe-47bf-4add-9ad1-36f4b0af6189","schema_version":"wuji.completion-review.v1","unsettled_runs":["a6357c32-38d9-4c31-9528-df285f7bb4be"]}
+
+== runs
+9635e605-e656-439b-9a20-9353653a4ca2|exited|accepted|exited
+8b1455d7-c6fe-46b1-bc17-a20a9274bbbd|exited|accepted|exited
+3e5a63a1-bb8d-4332-96bb-eed22a168acb|exited|accepted|exited
+a5ae4165-130b-4ecb-8cf9-962fa586ed38|exited|accepted|exited
+a9106e16-b7a2-45ed-8985-89e30648f033|exited|accepted|exited
+be3c0ddf-74b2-4900-9201-702448a64af2|exited|accepted|exited
+a6357c32-38d9-4c31-9528-df285f7bb4be|exited|accepted|exited

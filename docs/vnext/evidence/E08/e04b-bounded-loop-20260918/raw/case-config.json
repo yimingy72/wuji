@@ -1,0 +1,1 @@
+{"case": "A-reference", "event": "trial_case_config", "materials": ["materials/entry.json", "materials/registry-nov.json", "materials/registry-oct.json"], "out": "docs/vnext/evidence/E08/e04b-bounded-loop-20260918/run-config.json"}

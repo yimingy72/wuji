@@ -1,0 +1,46 @@
+{
+ "case": "A-reference",
+ "checks": [
+  {
+   "check": "reference_chain",
+   "detail": "the bounded loop still follows the pointer chain end to end",
+   "state": "ok"
+  },
+  {
+   "check": "answer_present",
+   "detail": "the answered version appears in the claim quoted from the pointed file",
+   "state": "ok"
+  },
+  {
+   "check": "decoy_untouched",
+   "detail": "the decoy registry file was never read",
+   "state": "ok"
+  }
+ ],
+ "expected": {
+  "answer": "4.2.0",
+  "answer_files": [
+   "materials/registry-oct.json"
+  ],
+  "decoy_version": "4.3.1",
+  "kind": "runtime_reference",
+  "reference_chain": [
+   "materials/entry.json",
+   "materials/registry-oct.json"
+  ]
+ },
+ "observed": {
+  "claims": [
+   "evidence read: materials/entry.json; content: {\"pointer\": \"materials/registry-oct.json\"}",
+   "evidence read: materials/registry-oct.json; content: {\"changed\": \"2026-09-01\", \"service\": \"inventory\", \"version\": \"4.2.0\"}"
+  ],
+  "decoy_read": false,
+  "reference_chain_read": [
+   "materials/entry.json",
+   "materials/registry-oct.json"
+  ]
+ },
+ "schema_version": "wuji.exploration-trial-grading.v1",
+ "task_id": "05a6653b-4623-4801-bd9e-13d3f0064b2b",
+ "verdict": "pass"
+}

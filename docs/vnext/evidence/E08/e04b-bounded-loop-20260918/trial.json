@@ -1,0 +1,34 @@
+{
+ "case": "A-reference",
+ "grader": "grading.json",
+ "observed": {
+  "blocked_reason": "reason_operator_review",
+  "captures": 2,
+  "claims": 2,
+  "decisions": [
+   "wait",
+   "propose_intents",
+   "wait",
+   "propose_completion",
+   "blocked"
+  ],
+  "deduplicated_intents": 0,
+  "no_progress_count": 0,
+  "no_progress_requests": 0,
+  "runs_accepted": 7,
+  "work_items": 7
+ },
+ "published_window": {
+  "max_no_progress_rounds": 3,
+  "max_reason_runs": 6,
+  "reason_retry_attempts": 2
+ },
+ "purpose": "E04-B bounded convergence does not interrupt a progressing loop",
+ "runtime_profile": {
+  "ref": "k8s-runtime-trial-v1",
+  "revision": "4"
+ },
+ "schema_version": "wuji.exploration-trial.v1",
+ "source_revision": "21f1484347835111c35188e591f26df51b5ee951",
+ "task_id": "05a6653b-4623-4801-bd9e-13d3f0064b2b"
+}
