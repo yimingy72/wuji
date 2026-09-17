@@ -341,6 +341,9 @@ def test_openapi_publishes_the_complete_s13_route_set() -> None:
         "/api/v2/tasks/{task_id}/assessments",
         "/api/v2/tasks/{task_id}/completion",
         "/api/v2/tasks/{task_id}/reports/{report_id}",
+        "/api/v2/tasks/{task_id}/reports/{report_id}/deliveries",
+        "/api/v2/tasks/{task_id}/reports/{report_id}/deliveries/{delivery_id}",
+        "/api/v2/tasks/{task_id}/artifacts/{artifact_id}/purges",
         "/api/v2/tasks/{task_id}/topology",
         "/api/v2/views/{view_id}/events",
         "/api/v2/tasks/{task_id}/snapshots",
@@ -603,7 +606,9 @@ def test_db_conn_is_real_postgres_in_an_isolated_nonowner_database(db_conn) -> N
         bypasses_rls,
         can_create_database_objects,
     ) = row
-    assert version_number == "160002"
+    # The fixture is a real PostgreSQL 16 server; the review's CI uses the
+    # service container's 16.x while a dev machine may use its own 16.y build.
+    assert version_number.startswith("16")
     assert database_name.startswith("wuji_p02_")
     assert current_user.startswith("wuji_app_")
     assert owner_name.startswith("wuji_migration_")

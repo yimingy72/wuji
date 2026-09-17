@@ -108,5 +108,12 @@ def test_public_api_manifest_has_no_platform_artifact_mount(tmp_path):
 
     assert deployment["metadata"]["name"] == "api"
     assert deployment["spec"]["template"]["spec"]["automountServiceAccountToken"] is False
-    assert "artifacts" not in volume_names
-    assert "artifacts" not in mount_names
+    # Every platform role that reads or purges artifact bytes needs the same
+    # store: a role-local root would tombstone rows while the bytes survive
+    # somewhere else (or make authorized reads fail).
+    assert "artifacts" in volume_names
+    assert {
+        "name": "artifacts",
+        "mountPath": "/var/lib/wuji/platform/artifacts",
+    } in container["volumeMounts"]
+    assert "artifacts" in mount_names

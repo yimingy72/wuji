@@ -237,11 +237,14 @@ def test_the_signed_stream_route_refuses_a_foreign_view(
 def test_the_view_stream_only_exists_on_its_own_migration_head(
     db_environment, tmp_path, audit_directory
 ):
-    assert schema.HEAD == "vnext_0025_p15_view_stream"
+    # The P15 head is part of the chain, not necessarily the newest head:
+    # later migrations (P16 delivery/purge) append to it.
+    assert schema.VIEW_STREAM_HEAD == "vnext_0025_p15_view_stream"
     with projection_case(db_environment, tmp_path, audit_directory) as case:
         with case.environment.migration_connection() as connection:
             assert connection.execute(
-                "SELECT 1 FROM vnext.schema_migration WHERE head=%s", (schema.HEAD,)
+                "SELECT 1 FROM vnext.schema_migration WHERE head=%s",
+                (schema.VIEW_STREAM_HEAD,),
             ).fetchone() == (1,)
             revision = connection.execute(
                 "SELECT pg_get_constraintdef(oid) FROM pg_constraint"

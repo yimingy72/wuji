@@ -31,7 +31,11 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     steps:
+      # Upgrade tests replay real historical files with `git show <sha>`, so the
+      # job needs the pinned history rather than the default single commit.
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
         with:
           version: 10.32.1
@@ -42,18 +46,23 @@ jobs:
       # The repository pins its own uv and Python under work/toolchain; the
       # script fetches exactly that version instead of whatever is on PATH.
       - run: ./scripts/bootstrap-toolchain.sh
-      # The v2 contract generator (and `contracts:check:v2`) resolve the frozen
-      # work/toolchain/bin/pnpm path, which only exists once the pinned manager
-      # is provisioned here. Corepack installs exactly the version pinned by
-      # package.json / toolchain/manifest.json (10.32.1); nothing is fetched
-      # from an unlocked "latest".
-      - name: Provision the frozen pnpm entrypoint
+      # The frozen toolchain path is what the contract generator and the Node
+      # child tests resolve. Node comes from the pinned setup-node version (the
+      # exact one in .node-version) and pnpm from corepack's pinned manager
+      # (package.json / toolchain manifest); nothing is an unlocked "latest".
+      - name: Provision the frozen toolchain entrypoints
         env:
           COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
         run: |
+          mkdir -p work/toolchain/bin
+          for tool in node npm npx; do
+            ln -sf "$(command -v "$tool")" "work/toolchain/bin/$tool"
+          done
+          test -x work/toolchain/bin/node
+          test "$(work/toolchain/bin/node --version)" = "v$(cat .node-version)"
           corepack enable --install-directory work/toolchain/bin
           test -x work/toolchain/bin/pnpm
-          work/toolchain/bin/pnpm --version
+          test "$(work/toolchain/bin/pnpm --version)" = "10.32.1"
       # The frozen pnpm installs the workspace exactly as the lock file records
       # it; the web job's install is not a dependency of this job.
       - name: Install the frozen workspace dependencies
