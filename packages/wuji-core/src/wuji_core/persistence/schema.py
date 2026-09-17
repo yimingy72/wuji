@@ -340,9 +340,14 @@ def _artifact_update_sql(*, require_evidence=False):
         BEGIN
         IF (to_jsonb(NEW)-'state'-'body_removed') IS DISTINCT FROM (to_jsonb(OLD)-'state'-'body_removed') OR (NEW.body_removed AND NEW.state<>'tombstoned') OR (OLD.state='tombstoned' AND NOT (NEW.state='tombstoned' AND NOT OLD.body_removed AND NEW.body_removed)) OR (OLD.state='sealed' AND NEW.state<>'tombstoned') THEN
         RAISE EXCEPTION 'artifact metadata is immutable' USING ERRCODE='23514'; END IF;
-        IF NEW.state='tombstoned' AND current_setting('wuji.gc',true) IS DISTINCT FROM 'true' THEN RAISE EXCEPTION 'GC authority required' USING ERRCODE='42501'; END IF;
-        IF NEW.state='tombstoned' AND OLD.state<>'tombstoned' AND vnext.artifact_retained(OLD.tenant_id,OLD.project_id,OLD.task_id,OLD.entity_id,OLD.revision) THEN
-        RAISE EXCEPTION 'artifact is retained' USING ERRCODE='23514'; END IF; RETURN NEW; END $$"""
+        IF NEW.state='tombstoned' AND OLD.state<>'tombstoned' THEN
+        IF current_setting('wuji.gc',true) IS DISTINCT FROM 'true' THEN RAISE EXCEPTION 'GC authority required' USING ERRCODE='42501'; END IF;
+        -- A live lease is an in-flight commit: neither GC nor purge may take
+        -- bytes that another writer is still going to publish.
+        IF EXISTS(SELECT 1 FROM vnext.artifact_lease l WHERE l.tenant_id=OLD.tenant_id AND l.project_id=OLD.project_id AND l.task_id=OLD.task_id AND l.artifact_id=OLD.entity_id AND l.artifact_revision=OLD.revision AND l.expires_at>clock_timestamp()) THEN
+        RAISE EXCEPTION 'artifact is leased' USING ERRCODE='23514'; END IF;
+        IF current_setting('wuji.purge',true) IS DISTINCT FROM 'true' AND vnext.artifact_retained(OLD.tenant_id,OLD.project_id,OLD.task_id,OLD.entity_id,OLD.revision) THEN
+        RAISE EXCEPTION 'artifact is retained' USING ERRCODE='23514'; END IF; END IF; RETURN NEW; END $$"""
     if require_evidence:
         statement = statement.replace(
             "        BEGIN\n",

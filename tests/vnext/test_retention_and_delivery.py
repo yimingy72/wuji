@@ -577,29 +577,37 @@ def test_purge_leaves_an_explicit_tombstone_and_the_frozen_report_stays_honest(
         assert again.value.code == "STALE_EXECUTION"
 
 
-def test_a_retained_artifact_is_never_purged(db_environment, tmp_path, audit_directory):
-    """AC-066 boundary: a published reference protects the bytes."""
+def test_a_purge_waits_for_the_live_lease_and_retires_cited_evidence(
+    db_environment, tmp_path, audit_directory
+):
+    """AC-066/067: in-flight bytes are untouchable, cited bytes retire only by decision."""
 
     with control_case(db_environment, tmp_path, audit_directory) as case:
         ready_goal(case)
         sealed = purgeable_artifact(case)
-        allow_retention(case)
         publish_fixture(case, sealed)
+        allow_retention(case)
+        retention = RetentionService(case.uow, artifacts=case.store)
         blob = case.store.root / (str(artifact_row(case, sealed.id)[3]) + ".blob")
-        with pytest.raises(DomainError) as refused:
-            RetentionService(case.uow, artifacts=case.store).purge(
+
+        # A live lease is an in-flight commit: neither GC nor purge may take it.
+        case.store.acquire_lease(
+            WORKER, TASK, sealed, lease_owner="publisher-fixture", seconds=300
+        )
+        with pytest.raises(DomainError) as leased:
+            retention.purge(
                 OPERATOR,
                 TASK,
                 artifact_id=sealed.id,
                 revision=1,
                 reason="approved_retention_action",
-                purge_key="purge-published",
+                purge_key="purge-leased",
             )
-        assert refused.value.code == "LIMIT_BLOCKED"
-        assert refused.value.status == 409
+        assert leased.value.code == "LIMIT_BLOCKED"
+        assert leased.value.status == 409
         assert artifact_row(case, sealed.id)[:2] == ("sealed", False)
         assert purge_rows(case) == []
-        assert blob.exists(), "a retained reference keeps its bytes"
+        assert blob.exists(), "in-flight bytes stay"
 
         # Nobody may purge without both the retention and the control bit.
         with case.env.migration_connection() as connection:
@@ -609,7 +617,7 @@ def test_a_retained_artifact_is_never_purged(db_environment, tmp_path, audit_dir
                 OWNER,
             )
         with pytest.raises(DomainError) as forbidden:
-            RetentionService(case.uow, artifacts=case.store).purge(
+            retention.purge(
                 OPERATOR,
                 TASK,
                 artifact_id=sealed.id,
@@ -619,6 +627,31 @@ def test_a_retained_artifact_is_never_purged(db_environment, tmp_path, audit_dir
             )
         assert forbidden.value.code == "NOT_FOUND_OR_FORBIDDEN"
         assert purge_rows(case) == []
+        allow_retention(case)
+
+        # Once the writer stopped, an explicit purge may retire published
+        # evidence -- the citation stays, its content becomes unavailable.
+        case.store.release_lease(WORKER, TASK, sealed, lease_owner="publisher-fixture")
+        receipt = retention.purge(
+            OPERATOR,
+            TASK,
+            artifact_id=sealed.id,
+            revision=1,
+            reason="approved_retention_action",
+            purge_key="purge-published",
+        )
+        assert receipt.document["state"] == "tombstoned"
+        assert artifact_row(case, sealed.id)[:2] == ("tombstoned", True)
+        assert purge_rows(case) == [
+            ("purge-published", sealed.id, "approved_retention_action", "operator")
+        ]
+        assert not blob.exists()
+        with case.env.migration_connection() as connection:
+            assert connection.execute(
+                "SELECT count(*) FROM vnext.publication_ref WHERE tenant_id=%s"
+                " AND project_id=%s AND task_id=%s AND artifact_id=%s",
+                (*OWNER, sealed.id),
+            ).fetchone() == (1,)
 
 
 def test_garbage_collection_keeps_committed_evidence_and_collects_true_orphans(

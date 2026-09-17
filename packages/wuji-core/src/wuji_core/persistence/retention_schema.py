@@ -10,8 +10,10 @@ Two guards stay in the database:
 - the producer requires both the retention capability and the control decision
   bit (``wuji.gc`` *and* ``wuji.purge``), so neither "owns data" nor "can press
   stop" alone destroys evidence;
-- the pre-existing artifact trigger still refuses to tombstone anything that a
-  publication, lease, observation, relation, assessment or snapshot retains.
+- a live lease still blocks every tombstone, because bytes a writer is about to
+  publish must not disappear; but an *explicit* purge may retire content that a
+  publication or observation still cites -- that is exactly what the recorded
+  tombstone is for. Ordinary garbage collection keeps refusing those.
 """
 
 from psycopg import sql
@@ -107,7 +109,17 @@ _SIGNATURE = ",".join(["text"] * 5 + ["numeric", "text", "text", "integer"])
 
 
 def statements():
-    return _TABLES + _POLICIES + (_PURGE,)
+    # Imported here on purpose: ``schema`` imports this module, so the shared
+    # trigger builder can only be loaded once the migration is actually run.
+    from wuji_core.persistence.knowledge_schema import artifact_update_statement
+
+    # The trigger learns the purge distinction here and stays the single place
+    # that decides whether a tombstone is allowed.
+    return (
+        _TABLES
+        + _POLICIES
+        + (artifact_update_statement(), _PURGE)
+    )
 
 
 def upgrade(connection, application_role):

@@ -20,6 +20,23 @@ S = "tenant_id text NOT NULL,project_id text NOT NULL,task_id text NOT NULL"
 FK = f"FOREIGN KEY({O}) REFERENCES vnext.task({O})"
 
 
+def artifact_update_statement():
+    """The effective artifact UPDATE trigger: model-output *or* evidence authority.
+
+    ``_artifact_update_sql`` starts from the raw evidence variant; the knowledge
+    migration rebinds it to ``require_artifact_mutation`` so a Run writer may
+    seal its own output while a collector path still needs its bound attempt.
+    Later migrations must reuse this instead of re-installing the sub-variant.
+    """
+
+    from wuji_core.persistence.schema import _artifact_update_sql
+
+    return _artifact_update_sql(require_evidence=True).replace(
+        "vnext.require_evidence_mutation(OLD.tenant_id,OLD.project_id,OLD.task_id,OLD.tool_attempt_id)",
+        "vnext.require_artifact_mutation(OLD.tenant_id,OLD.project_id,OLD.task_id,OLD.entity_id,OLD.revision)",
+    )
+
+
 def upgrade(connection, application_role):
     statements = [
         "ALTER TABLE vnext.task_access ADD COLUMN can_model_output boolean NOT NULL DEFAULT false",
@@ -84,14 +101,7 @@ def upgrade(connection, application_role):
         IF a.agent_run_id IS NOT NULL THEN PERFORM vnext.require_model_mutation(t,p,k,a.agent_run_id,a.writer_subject);
         ELSE PERFORM vnext.require_evidence_mutation(t,p,k,a.tool_attempt_id); END IF; END $$"""
     )
-    from wuji_core.persistence.schema import _artifact_update_sql
-
-    connection.execute(
-        _artifact_update_sql(require_evidence=True).replace(
-            "vnext.require_evidence_mutation(OLD.tenant_id,OLD.project_id,OLD.task_id,OLD.tool_attempt_id)",
-            "vnext.require_artifact_mutation(OLD.tenant_id,OLD.project_id,OLD.task_id,OLD.entity_id,OLD.revision)",
-        )
-    )
+    connection.execute(artifact_update_statement())
     connection.execute(
         """CREATE OR REPLACE FUNCTION vnext.check_lease_mutation() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog AS $$ DECLARE target vnext.artifact_lease%ROWTYPE; BEGIN
         IF TG_OP='DELETE' THEN target:=OLD; ELSE target:=NEW; END IF;
