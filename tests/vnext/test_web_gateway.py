@@ -29,15 +29,46 @@ class FakeResponse:
         self.headers = headers or {"content-type": "application/json"}
 
 
+class FakeStreamResponse:
+    """The subset of an httpx streaming response the SSE relay consumes."""
+
+    def __init__(self, status_code: int, chunks, headers=None):
+        self.status_code = status_code
+        self.chunks = list(chunks)
+        self.headers = headers or {"content-type": "text/event-stream"}
+        self.closed = False
+
+    async def aread(self) -> bytes:
+        return b"".join(self.chunks)
+
+    async def aiter_raw(self):
+        for chunk in self.chunks:
+            yield chunk
+
+    async def aclose(self) -> None:
+        self.closed = True
+
+
 class FakeClient:
-    def __init__(self, response: FakeResponse):
+    def __init__(self, response: FakeResponse, *, stream_response=None):
         self.response = response
+        self.stream_response = stream_response or FakeStreamResponse(
+            200, [b"event: view\ndata: {}\n\n"]
+        )
         self.requests: list[tuple[str, dict[str, str]]] = []
         self.request_bodies: list[tuple[str, str, dict[str, str], bytes]] = []
+        self.streams: list[tuple[str, dict[str, str]]] = []
 
     async def get(self, url: str, *, headers: dict[str, str]):
         self.requests.append((url, dict(headers)))
         return self.response
+
+    def build_request(self, method: str, url: str, *, headers: dict[str, str]):
+        self.streams.append((url, dict(headers)))
+        return (method, url, dict(headers))
+
+    async def send(self, request, *, stream: bool = False, timeout=None):
+        return self.stream_response
 
     async def request(self, method: str, url: str, *, headers: dict[str, str], content: bytes):
         self.requests.append((url, dict(headers)))
@@ -229,3 +260,77 @@ def test_browser_proxy_allows_only_bounded_layout_put_and_preserves_conflict(tmp
     assert url.endswith("/api/v2/tasks/task-fixture/layouts/knowledge-live")
     assert headers["If-Match"] == "0"
     assert forwarded == body
+
+
+def _login(client):
+    return client.post(
+        "/auth/login", headers={"Origin": "http://127.0.0.1:44180"}
+    )
+
+
+def test_the_view_stream_is_allowed_only_after_its_task_published_it(tmp_path):
+    config, _public = settings(tmp_path)
+    topology = FakeResponse(
+        200,
+        json.dumps(
+            {
+                "view_id": "view-published",
+                "snapshot_id": "snapshot-1",
+                "view_revision": "1",
+            }
+        ).encode(),
+    )
+    fake = FakeClient(topology)
+    app = gateway_module.create_gateway(config, client=fake)
+
+    async def run():
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://127.0.0.1:44180"
+        ) as client:
+            await _login(client)
+            before = await client.get("/api/v2/views/view-published/events")
+            published = await client.get("/api/v2/tasks/task-fixture/topology?mode=live")
+            after = await client.get("/api/v2/views/view-published/events")
+            unknown = await client.get("/api/v2/views/view-unknown/events")
+            return before, published, after, unknown
+
+    before, published, after, unknown = asyncio.run(run())
+    # An id this adapter never published for the pinned Task is not streamable.
+    assert before.status_code == 404
+    assert published.status_code == 200
+    assert after.status_code == 200
+    assert unknown.status_code == 404
+    assert fake.streams[-1][0] == "https://api.wuji-vnext-test.svc:8443/api/v2/views/view-published/events"
+
+
+def test_the_view_stream_relays_batches_and_resumes_from_last_event_id(tmp_path):
+    config, _public = settings(tmp_path)
+    topology = FakeResponse(200, json.dumps({"view_id": "view-1"}).encode())
+    stream = FakeStreamResponse(
+        200,
+        [b"id: cursor-1\n\nevent: view\ndata: {\"view_id\":\"view-1\"}\n\n"],
+    )
+    fake = FakeClient(topology, stream_response=stream)
+    app = gateway_module.create_gateway(config, client=fake)
+
+    async def run():
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://127.0.0.1:44180"
+        ) as client:
+            await _login(client)
+            await client.get("/api/v2/tasks/task-fixture/topology?mode=live")
+            response = await client.get(
+                "/api/v2/views/view-1/events",
+                headers={"Last-Event-ID": "cursor-1", "Accept": "text/event-stream"},
+            )
+            return response
+
+    response = asyncio.run(run())
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/event-stream")
+    assert response.headers["x-accel-buffering"] == "no"
+    assert "event: view" in response.text
+    url, headers = fake.streams[-1]
+    assert url.endswith("/api/v2/views/view-1/events")
+    assert headers["Last-Event-ID"] == "cursor-1"
+    assert headers["Accept"] == "text/event-stream"

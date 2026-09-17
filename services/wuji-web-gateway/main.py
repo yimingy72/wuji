@@ -20,7 +20,7 @@ from uuid import uuid4
 
 import httpx
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 from joserfc import jwt
 from joserfc.jwk import RSAKey
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -35,6 +35,8 @@ _READ_PATH = re.compile(
     r"|reports/[^/]+|records/[^/]+/[^/]+|layouts/(?:knowledge-live|knowledge-history))$"
 )
 _COMPLETION_PATH = re.compile(r"^/api/v2/tasks/([^/]+)/completion$")
+_STREAM_PATH = re.compile(r"^/api/v2/views/([^/]+)/events$")
+_TOPOLOGY_PATH = re.compile(r"^/api/v2/tasks/([^/]+)/topology$")
 _LAYOUT_PATH = re.compile(
     r"^/api/v2/tasks/([^/]+)/layouts/(knowledge-live|knowledge-history)$"
 )
@@ -164,6 +166,33 @@ class SessionCodec:
         return payload
 
 
+class ViewLedger:
+    """Bounded in-memory record of view ids this adapter may stream."""
+
+    def __init__(self, *, maximum: int = 64, ttl_seconds: int = 3600) -> None:
+        if not 1 <= maximum <= 1024 or not 60 <= ttl_seconds <= 86400:
+            raise ValueError("view ledger bounds are invalid")
+        self._maximum, self._ttl_seconds = maximum, ttl_seconds
+        self._entries: dict[str, float] = {}
+
+    def remember(self, view_id: str) -> None:
+        now = time.monotonic()
+        self._entries = {
+            key: expiry for key, expiry in self._entries.items() if expiry > now
+        }
+        self._entries[view_id] = now + self._ttl_seconds
+        while len(self._entries) > self._maximum:
+            oldest = min(self._entries, key=self._entries.__getitem__)
+            self._entries.pop(oldest, None)
+
+    def allowed(self, view_id: str) -> bool:
+        expiry = self._entries.get(view_id)
+        if expiry is None or expiry <= time.monotonic():
+            self._entries.pop(view_id, None)
+            return False
+        return True
+
+
 class BrowserGateway:
     def __init__(self, settings: GatewaySettings, *, client=None) -> None:
         self.settings = settings
@@ -175,6 +204,7 @@ class BrowserGateway:
             _read(settings.signing_key_file, 65_536)
         )
         self._owned_client = client is None
+        self.views = ViewLedger()
         self.client = client or httpx.AsyncClient(
             verify=ssl.create_default_context(cafile=settings.ca_file),
             timeout=httpx.Timeout(10.0),
@@ -236,6 +266,30 @@ class BrowserGateway:
     def allowed_completion(self, path: str) -> bool:
         matched = _COMPLETION_PATH.fullmatch(path)
         return matched is not None and matched.group(1) == self.settings.task_id
+
+    def allowed_stream(self, path: str) -> bool:
+        """Only views this Task's own topology just published may be streamed."""
+
+        matched = _STREAM_PATH.fullmatch(path)
+        return matched is not None and self.views.allowed(matched.group(1))
+
+    def remember_topology(self, path: str, body: bytes) -> None:
+        """Remember the view id a pinned-Task topology response published.
+
+        The browser subscribes to the view it was just given; the adapter keeps
+        that one bounded mapping instead of trusting an arbitrary view id.
+        """
+
+        matched = _TOPOLOGY_PATH.fullmatch(path)
+        if matched is None or matched.group(1) != self.settings.task_id:
+            return
+        try:
+            document = strict_json_loads(body)
+        except (TypeError, ValueError):
+            return
+        view_id = document.get("view_id") if isinstance(document, dict) else None
+        if isinstance(view_id, str) and 1 <= len(view_id) <= 256:
+            self.views.remember(view_id)
 
 
 def _problem(status: int, code: str, message: str) -> JSONResponse:
@@ -331,6 +385,62 @@ def create_gateway(settings: GatewaySettings, *, client=None) -> FastAPI:
                 headers[name] = value
         return Response(content, status_code=upstream.status_code, headers=headers)
 
+    @app.get("/api/v2/views/{view_id}/events")
+    async def proxy_stream(request: Request, view_id: str) -> Response:
+        payload = gateway.session(request)
+        if payload is None:
+            return _problem(401, "UNAUTHENTICATED", "Browser session is not active.")
+        path = "/api/v2/views/" + view_id + "/events"
+        if not gateway.allowed_stream(path) or len(request.url.query) > 8192:
+            return _problem(404, "NOT_FOUND_OR_FORBIDDEN", "Resource is unavailable.")
+        url = gateway.settings.api_base_url + path
+        if request.url.query:
+            url += "?" + request.url.query
+        headers = {
+            "Authorization": "Bearer " + gateway.internal_bearer(payload),
+            "Accept": "text/event-stream",
+        }
+        last_event_id = request.headers.get("last-event-id", "")
+        if 0 < len(last_event_id) <= 4096:
+            headers["Last-Event-ID"] = last_event_id
+        try:
+            upstream_request = gateway.client.build_request("GET", url, headers=headers)
+            upstream = await gateway.client.send(
+                upstream_request,
+                stream=True,
+                timeout=httpx.Timeout(connect=10.0, read=45.0, write=10.0, pool=10.0),
+            )
+        except (httpx.HTTPError, OSError, TimeoutError):
+            return _problem(503, "CAPABILITY_UNAVAILABLE", "View stream is unavailable.")
+        if upstream.status_code != 200:
+            content = await upstream.aread()
+            await upstream.aclose()
+            return Response(
+                content,
+                status_code=upstream.status_code,
+                headers={
+                    "Cache-Control": "no-store",
+                    "Content-Type": upstream.headers.get("content-type", "application/json"),
+                },
+            )
+
+        async def relay():
+            try:
+                async for chunk in upstream.aiter_raw():
+                    yield chunk
+            finally:
+                await upstream.aclose()
+
+        return StreamingResponse(
+            relay(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-store",
+                "X-Accel-Buffering": "no",
+                "Connection": "keep-alive",
+            },
+        )
+
     @app.get("/api/v2/{rest:path}")
     async def proxy_read(request: Request, rest: str) -> Response:
         payload = gateway.session(request)
@@ -354,6 +464,8 @@ def create_gateway(settings: GatewaySettings, *, client=None) -> FastAPI:
             )
         except (httpx.HTTPError, OSError, TimeoutError):
             return _problem(503, "CAPABILITY_UNAVAILABLE", "Topology service is unavailable.")
+        if upstream.status_code == 200:
+            gateway.remember_topology(path, upstream.content)
         return upstream_response(upstream)
 
     @app.post("/api/v2/{rest:path}")

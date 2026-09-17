@@ -162,10 +162,13 @@ def test_p13_migration_installs_the_private_projection_schema(db_environment) ->
         "vnext.projection_reader(text,text,text,text,integer)",
         "vnext.projection_run_origin(text,text,text,text)",
     )
+    # P15's ViewStream advances the same view in place, so the application role
+    # now holds UPDATE on projection_view under its own policy. The other two
+    # tables stay insert-only for the application role.
     assert table_acl == [
         ("projection_cursor", True, True, True, False, False),
         ("projection_materialization", True, True, True, False, False),
-        ("projection_view", True, True, True, False, False),
+        ("projection_view", True, True, True, True, False),
     ]
     assert function_acl == [
         (

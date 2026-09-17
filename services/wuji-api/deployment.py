@@ -9,6 +9,7 @@ from wuji_core.execution.tasks import TaskService
 from wuji_core.http.completion import create_completion_router
 from wuji_core.http.layouts import create_layout_router
 from wuji_core.http.tasks import create_task_router
+from wuji_core.http.views import create_view_router
 from wuji_core.http.topology import create_topology_router
 from wuji_core.projection.layouts import LayoutRepository
 from wuji_core.projection.snapshots import ProjectionRepository
@@ -29,6 +30,7 @@ def build_api():
         token_verifier=deployment.verifier,
         routers=[
             create_topology_router(projection),
+            create_view_router(projection),
             create_layout_router(layouts),
             create_task_router(tasks),
             create_completion_router(portal),

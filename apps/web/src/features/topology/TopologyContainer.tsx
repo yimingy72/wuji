@@ -23,6 +23,11 @@ import {
   type LayoutWriter,
 } from './layoutApi';
 import { isRevisionString } from './revision';
+import {
+  applyViewPatches,
+  openViewStream,
+  type ViewStreamStatus,
+} from './stream';
 import styles from './topology.module.css';
 
 const entityTypes = new Set<NodeEntityType>([
@@ -327,6 +332,8 @@ function TopologyContainerRequest({
   const layoutConflictRef = useRef(false);
   const reloadAbortRef = useRef(new AbortController());
   const [layoutConflict, setLayoutConflict] = useState(false);
+  const [streamStatus, setStreamStatus] = useState<ViewStreamStatus>('closed');
+  const snapshotRef = useRef<TopologySnapshotInput | null>(null);
   const savingRef = useRef(false);
   const activeRef = useRef(true);
   const saveAbortRef = useRef<AbortController | null>(null);
@@ -372,6 +379,42 @@ function TopologyContainerRequest({
     });
     return () => controller.abort();
   }, [canPersistLayout, mode, onSnapshotChange, readLayout, readSnapshot, requestRevision, snapshotId, taskId, viewName]);
+
+  useEffect(() => {
+    snapshotRef.current = snapshot;
+  }, [snapshot]);
+
+  // A live view follows its own authorized change stream; anything the stream
+  // cannot describe as one bounded patch batch falls back to an explicit
+  // snapshot read instead of a partially patched graph.
+  const activeViewId = snapshot?.view_id ?? null;
+
+  useEffect(() => {
+    if (mode !== 'live' || activeViewId === null || loading) {
+      setStreamStatus('closed');
+      return undefined;
+    }
+    const viewId = activeViewId;
+    return openViewStream(viewId, {
+      onStatus: setStreamStatus,
+      onEvent: (event) => {
+        if (event.kind === 'reset') {
+          setRequestRevision((value) => value + 1);
+          return;
+        }
+        const current = snapshotRef.current;
+        if (current === null || current.view_id !== viewId) return;
+        const next = applyViewPatches(current, event.batch);
+        if (next === null) {
+          setRequestRevision((value) => value + 1);
+          return;
+        }
+        snapshotRef.current = next;
+        setSnapshot(next);
+        onSnapshotChange?.(next);
+      },
+    });
+  }, [activeViewId, loading, mode, onSnapshotChange]);
 
   const reloadLayout = useCallback(async () => {
     // Read-only recovery: take the server layout as the only truth, then allow
@@ -511,6 +554,17 @@ function TopologyContainerRequest({
           }
           onClose={() => setLayoutNotice(null)}
         />
+      )}
+      {mode === 'live' && (
+        <span className={styles.notice} role="status" data-stream-status={streamStatus}>
+          {streamStatus === 'live'
+            ? '实时视图已连接'
+            : streamStatus === 'connecting'
+              ? '正在连接实时视图…'
+              : streamStatus === 'retrying'
+                ? '实时视图重连中…'
+                : '实时视图已暂停'}
+        </span>
       )}
       {savingLayout && <span className={styles.notice} role="status">正在保存个人布局…</span>}
       {pendingLayout && !savingLayout && <span className={styles.notice} role="status">个人布局等待保存</span>}

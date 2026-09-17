@@ -43,6 +43,38 @@ def _scope(tx):
     return (*tx.owner, tx.access.principal.subject)
 
 
+MAX_STREAM_PATCHES = 2000
+
+
+def _patches(before, after, *, limit):
+    """Node/edge upserts and removals between two materializations.
+
+    ``None`` means the change is too large to describe as one bounded batch; the
+    caller must send an explicit resnapshot instead of a partial patch list.
+    """
+
+    patches = []
+    old_nodes = {node["id"]: node for node in before["nodes"]}
+    new_nodes = {node["id"]: node for node in after["nodes"]}
+    for identifier, node in new_nodes.items():
+        if old_nodes.get(identifier) != node:
+            patches.append({"op": "upsert_node", "value": node})
+    for identifier in old_nodes:
+        if identifier not in new_nodes:
+            patches.append({"op": "remove_node", "value": {"id": identifier}})
+    old_edges = {edge["id"]: edge for edge in before["edges"]}
+    new_edges = {edge["id"]: edge for edge in after["edges"]}
+    for identifier, edge in new_edges.items():
+        if old_edges.get(identifier) != edge:
+            patches.append({"op": "upsert_edge", "value": edge})
+    for identifier in old_edges:
+        if identifier not in new_edges:
+            patches.append({"op": "remove_edge", "value": {"id": identifier}})
+    if len(patches) > limit:
+        return None
+    return patches
+
+
 class ProjectionRepository:
     def __init__(self, uow, *, snapshots=None, ledger=None, ttl_seconds=3600,
                  max_records=5000, history_page_size=100):
@@ -80,16 +112,9 @@ class ProjectionRepository:
                 return self._page(tx, saved, view, {"node": 0, "edge": 0})
             return self.create_in_transaction(tx, query=query)
 
-    def create_in_transaction(self, tx, *, query=None):
-        """Write manifest, records, graph, view and first cursor in the caller's RR."""
-        query = _query(query)
-        if query.mode.value != "live" or query.snapshot_id is not None or query.cursor is not None:
-            raise DomainError("INVALID_SCHEMA", 422)
-        if tx.purpose != "snapshot" or not tx.permissions.get("can_read"):
-            raise DomainError("NOT_FOUND_OR_FORBIDDEN")
-        isolation = tx.connection.execute("SHOW transaction_isolation").fetchone()
-        if isolation != ("repeatable read",):
-            raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+    def _compose(self, tx, query):
+        """Build one materialization document for this subject without writing it."""
+
         create = getattr(self.snapshots, "create_in_transaction", None)
         if not callable(create):
             raise DomainError("CAPABILITY_UNAVAILABLE", 503)
@@ -121,25 +146,42 @@ class ProjectionRepository:
         expires = min(manifest.expires_at, now + timedelta(seconds=self.ttl_seconds))
         if expires <= now:
             raise DomainError("SNAPSHOT_EXPIRED", 410)
-        view_id = str(uuid4())
         query_body = _query_body(query)
-        saved = dict(
+        return dict(
             tenant_id=tx.owner[0], project_id=tx.owner[1], task_id=tx.owner[2],
             subject=tx.access.principal.subject, snapshot_id=manifest.snapshot_id,
-            initial_view_id=view_id, query_json=json_text(query_body), query_digest=_digest(query_body),
+            query_json=json_text(query_body), query_digest=_digest(query_body),
             access_digest=access_digest(tx), projection_version=PROJECTION_VERSION,
             materialization_json=json_text(document), created_at=now, expires_at=expires,
-            access_level=frozen.access_level,
+            access_level=frozen.access_level, document=document,
         )
+
+    def _write_materialization(self, tx, saved, *, initial_view_id, event_origin):
         tx.connection.execute(
             """INSERT INTO vnext.projection_materialization(tenant_id,project_id,task_id,subject,snapshot_id,
             initial_view_id,query_json,query_digest,access_digest,projection_version,materialization_json,
             internal_event_origin,access_level,created_at,expires_at)
             VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
-            (*_scope(tx), saved["snapshot_id"], view_id, saved["query_json"], saved["query_digest"],
+            (*_scope(tx), saved["snapshot_id"], initial_view_id, saved["query_json"], saved["query_digest"],
              saved["access_digest"], PROJECTION_VERSION, saved["materialization_json"],
-             tx.task["event_seq"], saved["access_level"], now, expires),
+             event_origin, saved["access_level"], saved["created_at"], saved["expires_at"]),
         )
+
+    def create_in_transaction(self, tx, *, query=None):
+        """Write manifest, records, graph, view and first cursor in the caller's RR."""
+        query = _query(query)
+        if query.mode.value != "live" or query.snapshot_id is not None or query.cursor is not None:
+            raise DomainError("INVALID_SCHEMA", 422)
+        if tx.purpose != "snapshot" or not tx.permissions.get("can_read"):
+            raise DomainError("NOT_FOUND_OR_FORBIDDEN")
+        isolation = tx.connection.execute("SHOW transaction_isolation").fetchone()
+        if isolation != ("repeatable read",):
+            raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+        saved = self._compose(tx, query)
+        view_id = str(uuid4())
+        saved["initial_view_id"] = view_id
+        self._write_materialization(tx, saved, initial_view_id=view_id,
+                                    event_origin=tx.task["event_seq"])
         view = self._new_view(tx, saved, query, view_id=view_id)
         return self._page(tx, saved, view, {"node": 0, "edge": 0})
 
@@ -244,6 +286,89 @@ class ProjectionRepository:
             edges=edges[start_edge:end_edge], opaque_cursor=handle, truncated=more,
             continuation=handle if more else None, allowed_actions=[],
         ))
+
+    def stream_task(self, access, view_id):
+        """Resolve the Task of one saved view for the current tenant and subject.
+
+        The frozen ``/views/{view_id}/events`` path carries no Task, so the
+        application role resolves it with a bounded function that only sees rows
+        of the acting tenant *and* subject. No view exists outside a Task.
+        """
+
+        if not isinstance(view_id, str) or not 1 <= len(view_id) <= 256:
+            raise DomainError("INVALID_SCHEMA", 422)
+        with self.uow.connection_factory() as connection:
+            with connection.transaction():
+                for key, value in (
+                    ("tenant", access.principal.tenant_id),
+                    ("subject", access.principal.subject),
+                ):
+                    connection.execute(
+                        "SELECT set_config(%s,%s,true)", ("wuji." + key, value)
+                    ).fetchone()
+                found = connection.execute(
+                    "SELECT vnext.task_for_view(%s)", (view_id,)
+                ).fetchone()
+        if found is None or found[0] is None:
+            raise DomainError("NOT_FOUND_OR_FORBIDDEN")
+        return found[0]
+
+    def stream_step(self, access, view_id, cursor=None):
+        """One bounded step of an authorized view stream, or ``None`` when idle.
+
+        The step advances the *same* view: a new materialization is written for
+        the same query, the view revision moves by one, and the returned opaque
+        cursor is the only resume handle. The view's own expiry is never
+        extended, so a long stream cannot keep an expired view alive.
+        """
+
+        task_id = self.stream_task(access, view_id)
+        with self.uow.transaction(access, task_id, capability="snapshot", repeatable_read=True) as tx:
+            view = self._view(tx, view_id)
+            saved = self._materialization(tx, view["snapshot_id"])
+            if cursor is not None:
+                position = self._cursor(tx, cursor, "stream")
+                if position["view_id"] != view["view_id"] or position["query_digest"] != view["query_digest"]:
+                    raise DomainError("NOT_FOUND_OR_FORBIDDEN")
+            origin = tx.connection.execute(
+                "SELECT event_seq FROM vnext.task WHERE tenant_id=%s AND project_id=%s AND task_id=%s",
+                tx.owner,
+            ).fetchone()[0]
+            if int(saved["internal_event_origin"]) >= int(origin):
+                return None
+            query = _query(strict_json_loads(view["query_json"]))
+            advanced = self._compose(tx, query)
+            before = strict_json_loads(saved["materialization_json"])
+            patches = _patches(before, advanced["document"], limit=MAX_STREAM_PATCHES)
+            if patches is None:
+                raise DomainError("VIEW_RESET_REQUIRED", 409)
+            if not patches:
+                # Records changed without changing the delivered graph; the view
+                # still advances so the next poll does not rebuild it forever.
+                patches = []
+            self._write_materialization(
+                tx, advanced, initial_view_id=view["view_id"], event_origin=origin
+            )
+            revision = int(view["view_revision"]) + 1
+            tx.connection.execute(
+                "UPDATE vnext.projection_view SET snapshot_id=%s,view_revision=%s"
+                " WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND subject=%s AND view_id=%s",
+                (advanced["snapshot_id"], revision, *_scope(tx), view["view_id"]),
+            )
+            handle = self._save_cursor(
+                tx, kind="stream", query_digest=view["query_digest"],
+                expires_at=view["expires_at"],
+                position={"event_seq": int(origin), "snapshot_id": advanced["snapshot_id"]},
+                view_id=view["view_id"],
+            )
+            return dict(
+                schema_version="wuji.view-event.v2",
+                view_id=view["view_id"],
+                base_view_revision=str(view["view_revision"]),
+                view_revision=str(revision),
+                cursor=handle,
+                patches=patches,
+            )
 
     def record(self, task_id, access, ref, *, snapshot_id=None):
         ref = KnowledgeRef.model_validate(ref)
