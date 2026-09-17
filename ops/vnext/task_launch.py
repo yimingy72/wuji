@@ -1883,27 +1883,34 @@ def republish_runtime_profile(connection, *, owner, config):
     never rewrites an existing revision in place.
     """
 
-    from wuji_core.admission.registry import register_published_profile
+    from wuji_core.admission.registry import RuntimeProfile, register_published_profile
 
-    document = (config.get("admission") or {}).get("runtime")
-    if not isinstance(document, dict) or not isinstance(document.get("ref"), str):
+    declared = (config.get("admission") or {}).get("runtime")
+    if not isinstance(declared, dict) or not isinstance(declared.get("ref"), str):
         raise DomainError("INVALID_REFERENCE", 422)
     latest = connection.execute(
-        "SELECT revision, document_json, lock_digest FROM vnext.published_profile"
+        "SELECT revision, lock_digest FROM vnext.published_profile"
         " WHERE tenant_id=%s AND kind='runtime' AND ref=%s ORDER BY revision DESC LIMIT 1",
-        (owner[0], document["ref"]),
+        (owner[0], declared["ref"]),
     ).fetchone()
     if latest is None:
         raise DomainError("INVALID_REFERENCE", 422)
     shipped = shipped_worker_lock_digest()
-    if latest[2] == shipped:
+    if latest[1] == shipped:
         return {
-            "ref": document["ref"], "revision": str(latest[0]), "changed": False,
+            "ref": declared["ref"], "revision": str(latest[0]), "changed": False,
             "lock_digest": shipped,
         }
-    updated = json.loads(latest[1])
-    updated["lock_digest"] = shipped
-    updated["revision"] = str(int(latest[0]) + 1)
+    # The deployment document is the source, not the stored row: a profile that
+    # an older contract published must be re-declared under today's contract
+    # instead of being copied forward with values it would now reject.
+    updated = RuntimeProfile.model_validate(
+        {
+            **declared,
+            "revision": str(int(latest[0]) + 1),
+            "lock_digest": shipped,
+        }
+    ).model_dump(mode="json")
     register_published_profile(
         connection, tenant_id=owner[0], kind="runtime", document=updated
     )

@@ -1458,10 +1458,12 @@ def test_e01_a_stale_worker_lock_is_named_and_relock_publishes_a_new_revision(
             )
             assert "worker_lock" in report["blocked"], report["checks"]
 
+            declared = runtime_profile().model_dump(mode="json")
+            declared.pop("lock_digest")
             relocked = task_launch.republish_runtime_profile(
                 connection,
                 owner=owner,
-                config={"admission": {"runtime": {"ref": "fixture-runtime-v1"}}},
+                config={"admission": {"runtime": declared}},
             )
             assert relocked["changed"] is True
             assert relocked["previous_revision"] == "2"
@@ -1472,7 +1474,7 @@ def test_e01_a_stale_worker_lock_is_named_and_relock_publishes_a_new_revision(
             again = task_launch.republish_runtime_profile(
                 connection,
                 owner=owner,
-                config={"admission": {"runtime": {"ref": "fixture-runtime-v1"}}},
+                config={"admission": {"runtime": declared}},
             )
             assert again["changed"] is False and again["revision"] == "3"
 
