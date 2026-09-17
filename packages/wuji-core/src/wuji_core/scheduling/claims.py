@@ -19,6 +19,7 @@ from wuji_core.execution.dependencies import dependencies_satisfied, intent_curr
 from wuji_core.execution.states import task_can_run
 from wuji_core.http.json_boundary import canonical_json_bytes, strict_json_loads
 from wuji_core.persistence.uow import DomainError, UnitOfWork, json_text, row
+from wuji_core.persistence.snapshots import SnapshotQuery
 from wuji_core.persistence.retained_result_schema import bind_receiver_result
 from wuji_core.scheduling.policy import (
     Candidate,
@@ -698,8 +699,20 @@ class Scheduler:
             getattr(issuer, "bind_admitted_run", None)
         ):
             raise DomainError("credential_issuer_unavailable", 503)
-        manifest = (self.snapshots._get(tx, published.history.snapshot_id) if published is not None
-                    else creator(tx, reader_clearance=receiver["worker_clearance"]))
+        manifest = (
+            self.snapshots._get(tx, published.history.snapshot_id)
+            if published is not None
+            # A Run reads the Task's knowledge — claims, questions, observations
+            # and the evidence those observations own. Sealed platform output
+            # (raw model responses, session roots, result bindings) is a Run's
+            # private working state, never board material: re-delivering it grew
+            # every later context until a real session boundary refused the Run.
+            else creator(
+                tx,
+                query=SnapshotQuery(entity_types=("claim", "intent", "observation")),
+                reader_clearance=receiver["worker_clearance"],
+            )
+        )
         if (manifest.tenant_id, manifest.project_id, manifest.task_id) != tx.owner:
             raise DomainError("INVALID_REFERENCE", 422)
         exact_key = WorkKey(

@@ -465,3 +465,67 @@ def test_a_completion_request_is_answered_once_with_a_durable_review(
         delivered = manifest.states.get("completion_review")
         assert delivered is not None and delivered["review_id"] == review["review_id"]
         assert delivered["decision"] == review["decision"]
+
+
+def test_a_sealed_model_output_never_becomes_board_material(
+    db_environment, tmp_path, audit_directory
+):
+    """A Run's own private output must not come back as the next Run's input."""
+
+    with scheduler_case(
+        db_environment, tmp_path, audit_directory, max_work_items=8, capacity=4
+    ) as case:
+        first = case.scheduler.tick(limit=2)
+        explore = explore_assignment(first)
+        payload = {
+            "schema_version": "wuji.agent-payload.v2",
+            "claims": [
+                {
+                    "client_ref": "board-scope-read",
+                    "kind": "observation-summary",
+                    "assertion_role": "candidate_fact",
+                    "text": "The registered Kali read returned durable evidence.",
+                    "basis_refs": [
+                        {
+                            "entity_type": "artifact",
+                            "id": case.artifact_ref.id,
+                            "revision": case.artifact_ref.version.root,
+                        }
+                    ],
+                    "limitations": ["one isolated fixture read"],
+                }
+            ],
+            "intent_proposals": [],
+            "limitations": ["explore produced the raw read for later reasoning"],
+        }
+        credential, receipt = _submit(case, explore, payload, "board-scope-1")
+        assert receipt.status.value == "accepted", receipt.model_dump(mode="json")
+        _close_and_exit(case, explore, credential)
+        case.scheduler.tick(limit=4)
+
+        with db_environment.migration_connection() as connection:
+            private = connection.execute(
+                "SELECT entity_id FROM vnext.artifact WHERE task_id=%s"
+                " AND agent_run_id=%s AND provenance='model_output' LIMIT 1",
+                (TASK, explore.identity.agent_run_id),
+            ).fetchone()
+            assert private is not None
+            snapshot_id = connection.execute(
+                "SELECT snapshot_id FROM vnext.snapshot_manifest WHERE task_id=%s"
+                " ORDER BY created_at DESC LIMIT 1",
+                (TASK,),
+            ).fetchone()[0]
+            refs = {
+                (row[0], row[1], str(row[2]))
+                for row in connection.execute(
+                    "SELECT entity_type,entity_id,revision FROM vnext.snapshot_ref"
+                    " WHERE task_id=%s AND snapshot_id=%s",
+                    (TASK, snapshot_id),
+                ).fetchall()
+            }
+        assert ("artifact", private[0], "1") not in refs
+        assert (
+            "artifact",
+            case.artifact_ref.id,
+            str(case.artifact_ref.version.root),
+        ) in refs
