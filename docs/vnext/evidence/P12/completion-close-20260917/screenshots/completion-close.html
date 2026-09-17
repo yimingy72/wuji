@@ -1,0 +1,29 @@
+<!doctype html><meta charset="utf-8"><style>
+body{background:#0b1020;color:#d6e2ff;font:11px/1.3 "SF Mono",Menlo,monospace;padding:16px;white-space:pre}
+h1{font:600 14px/1.3 "SF Mono",Menlo,monospace;color:#ffd479;margin:0 0 10px}
+</style><h1>P12 live close: the first Task reaching observed_state=closed</h1># $ psql (migration role)
+
+# the Task closed by this run
+observed=closed|trigger=goal_satisfied|outcome=complete|allowed=false|epoch=da99b237-09ab-4559-bed5-a9be68e473af|version=4
+
+# both completion decisions of this Task&#x27;s epoch (quiesce then close)
+p12-live-close|close|goal_satisfied|complete|epoch=da99b237
+p12-live-completion-final|quiesce|goal_satisfied|null|epoch=da99b237
+
+# work items: exploration and reason finished, nothing left open
+explore|done|-
+reason|done|-
+
+# runs: exited and settled, no unreleased reservation
+2ccd9c74|exited|exited|result=accepted|settle=settled
+bd912879|exited|exited|result=accepted|settle=settled
+
+# the Goal judgment that made the close possible
+version|rev=1|current=judgment-p12-final|met|current
+
+# $ kubectl -n wuji-vnext-test logs job/p12-close-20260917
+# the job uses the deployment&#x27;s own UnitOfWork/ControlService and the P12 service
+PRECHECK ready () [(&#x27;version&#x27;, &#x27;met&#x27;, &#x27;current&#x27;)]
+EPOCH da99b237-09ab-4559-bed5-a9be68e473af quiescing goal_satisfied
+CLOSE_DECISION p12-live-close goal_satisfied
+CLOSED closed goal_satisfied complete False 4

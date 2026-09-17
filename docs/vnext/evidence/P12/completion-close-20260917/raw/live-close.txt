@@ -1,0 +1,6 @@
+# $ kubectl -n wuji-vnext-test logs job/p12-close-20260917
+# the job uses the deployment's own UnitOfWork/ControlService and the P12 service
+PRECHECK ready () [('version', 'met', 'current')]
+EPOCH da99b237-09ab-4559-bed5-a9be68e473af quiescing goal_satisfied
+CLOSE_DECISION p12-live-close goal_satisfied
+CLOSED closed goal_satisfied complete False 4

@@ -109,3 +109,12 @@ Task A attempt 2 的第三个 Run（`9e574eb0`）从未被投递成功：receive
 - T5：真实 PostgreSQL 用例 + 真实集群上让 Task A 的孤儿 Run 收口，随后 `--roll-attempt` 成功并派发新 Run。
 
 完成后更新本文件、[验收状态](acceptance.md) 与对应证据包；未验证项保持显式未完成。
+
+12. **P12-C 冻结期结算与强制关闭。已交付并实测（`3c0b3b4`）。** 新增测试证明冻结期拒绝新动作但继续接受在飞
+    Run 的退出观测、结果提交与 accepted 投影（AC-049）；`CompletionService.close` 只在 `goal_satisfied` 时要求
+    完整评审，强制关闭（budget/time/no_progress/operator）允许有未完成工作并由 P05 取消它们，trigger 与 outcome
+    始终分离（AC-052）。真实 Task `fc2ff1b0-…` 从 `quiescing` 走到 `observed_state=closed`
+    （trigger=goal_satisfied、outcome=complete、control_version=4）。见
+    [证据包](../../vnext/evidence/P12/completion-close-20260917/README.md)。
+13. **P12-D ReportCommit 冻结与迟到反证。未开始。** 关闭目前只固化 Task 状态与两份决定，尚未冻结报告正文、
+    也未把迟到反证追加成补充/争议记录（AC-053）；关闭的产品入口（工作台/API）与报告投递同样未接线。

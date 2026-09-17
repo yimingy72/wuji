@@ -1,0 +1,19 @@
+# $ psql (migration role)
+
+# the Task closed by this run
+observed=closed|trigger=goal_satisfied|outcome=complete|allowed=false|epoch=da99b237-09ab-4559-bed5-a9be68e473af|version=4
+
+# both completion decisions of this Task's epoch (quiesce then close)
+p12-live-close|close|goal_satisfied|complete|epoch=da99b237
+p12-live-completion-final|quiesce|goal_satisfied|null|epoch=da99b237
+
+# work items: exploration and reason finished, nothing left open
+explore|done|-
+reason|done|-
+
+# runs: exited and settled, no unreleased reservation
+2ccd9c74|exited|exited|result=accepted|settle=settled
+bd912879|exited|exited|result=accepted|settle=settled
+
+# the Goal judgment that made the close possible
+version|rev=1|current=judgment-p12-final|met|current
