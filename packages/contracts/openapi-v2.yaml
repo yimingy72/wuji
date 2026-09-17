@@ -1449,6 +1449,7 @@ components:
         - DELIVERY_EXCHANGE_REQUIRED
         - DELIVERY_TOO_LARGE
         - DELIVERY_COMMIT_CORRUPT
+        - FORBIDDEN_TARGET
     KnowledgeRef:
       type: object
       additionalProperties: false

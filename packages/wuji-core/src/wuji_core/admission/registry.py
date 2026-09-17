@@ -608,8 +608,10 @@ def register_published_profile(connection, *, tenant_id, kind, document):
 def register_tool_definition(connection, *, tenant_id, definition):
     _owner_only(connection)
     definition = ToolDefinition.model_validate(definition)
-    # No HTTP executor is published in this release. A flag cannot enable it.
-    if definition.allowed_target_kinds != ["workspace_read"]:
+    # One published kind per tool: a workspace read touches the Task's own
+    # files, a target tool may only reach the exact assets the Task approved.
+    # Anything else (including a tool that claims both) is not published.
+    if definition.allowed_target_kinds not in (["workspace_read"], ["http_target"]):
         raise DomainError("CAPABILITY_UNAVAILABLE", 503)
     from wuji_core.admission.tools import validate_input_schema
     validate_input_schema(definition.input_schema)

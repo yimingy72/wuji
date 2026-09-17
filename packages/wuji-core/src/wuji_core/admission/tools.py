@@ -21,22 +21,136 @@ from wuji_core.http import strict_json_loads
 from wuji_core.http.auth import Principal
 from wuji_core.persistence.uow import AccessContext, DomainError, row, json_text
 from wuji_core.admission.registry import TaskAdmissionConfig, RuntimeProfile
+from wuji_core.admission import target_scope
 from wuji_core.admission.common import audit, consume_attempt, current_run, digest, allocate_output
 from wuji_core.admission.ledger import tool_receipt
 
 
-def validate_input_schema(schema):
-    # A deliberately finite published file-read schema, not a substitute JSON Schema engine.
-    if not isinstance(schema, dict) or schema.get("type") != "object" or schema.get("additionalProperties") is not False or schema.get("required") != ["path"] or set(schema.get("properties", {})) != {"path"} or set(schema) - {"type", "properties", "required", "additionalProperties", "description", "$schema"}:
-        raise DomainError("CAPABILITY_UNAVAILABLE", 503)
-    path = schema["properties"]["path"]
-    if not isinstance(path, dict) or path.get("type") != "string" or set(path) - {"type", "description", "minLength", "maxLength", "enum"}:
+def _string_rule(rule, allowed, *, minimum=None, maximum=None):
+    if (
+        not isinstance(rule, dict)
+        or rule.get("type") != "string"
+        or set(rule) - allowed
+    ):
         raise DomainError("CAPABILITY_UNAVAILABLE", 503)
     for key in ("minLength", "maxLength"):
-        if key in path and (type(path[key]) is not int or path[key] < 0):
+        if key in rule and (type(rule[key]) is not int or rule[key] < 0):
             raise DomainError("CAPABILITY_UNAVAILABLE", 503)
-    if "enum" in path and (not isinstance(path["enum"], list) or not path["enum"] or not all(isinstance(v, str) for v in path["enum"])):
+    if minimum is not None and rule.get("minLength", 0) < minimum:
         raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+    if maximum is not None and rule.get("maxLength", 0) > maximum:
+        raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+    if "enum" in rule and (
+        not isinstance(rule["enum"], list)
+        or not rule["enum"]
+        or not all(isinstance(value, str) for value in rule["enum"])
+    ):
+        raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+    return rule
+
+
+def validate_input_schema(schema):
+    """Two deliberately finite published schemas, not a JSON-Schema engine.
+
+    A workspace read takes exactly ``{"path"}``; a target tool takes exactly
+    ``{"url", "method"}`` with a bounded URL and a read-only method enum.
+    """
+
+    if (
+        not isinstance(schema, dict)
+        or schema.get("type") != "object"
+        or schema.get("additionalProperties") is not False
+        or set(schema)
+        - {"type", "properties", "required", "additionalProperties", "description", "$schema"}
+    ):
+        raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+    properties = schema.get("properties")
+    if not isinstance(properties, dict):
+        raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+    if schema.get("required") == ["path"] and set(properties) == {"path"}:
+        _string_rule(
+            properties["path"],
+            {"type", "description", "minLength", "maxLength", "enum"},
+        )
+        return
+    if schema.get("required") == ["url", "method"] and set(properties) == {
+        "url",
+        "method",
+    }:
+        url = _string_rule(
+            properties["url"],
+            {"type", "description", "minLength", "maxLength", "pattern"},
+            minimum=1,
+            maximum=target_scope.MAX_URL_LENGTH,
+        )
+        method = _string_rule(
+            properties["method"], {"type", "description", "enum"}
+        )
+        if (
+            url.get("maxLength", 0) > target_scope.MAX_URL_LENGTH
+            or set(method.get("enum") or ()) != set(target_scope.READ_ONLY_METHODS)
+        ):
+            raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+        return
+    raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+
+
+def tool_kind(definition):
+    """One tool serves exactly one target kind; a flag cannot widen it."""
+
+    kinds = list(getattr(definition, "allowed_target_kinds", []) or [])
+    if kinds not in (["workspace_read"], ["http_target"]):
+        raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+    return kinds[0]
+
+
+def capture_condition(kind):
+    return (
+        "registered workspace read"
+        if kind == "workspace_read"
+        else "registered http target exchange"
+    )
+
+
+def task_scope(tx):
+    """The Task's approved assets; an absent or broken scope approves nothing."""
+
+    import json as _json
+
+    raw = (tx.task or {}).get("definition_json")
+    if not isinstance(raw, str):
+        return ()
+    try:
+        document = _json.loads(raw)
+    except ValueError:
+        return ()
+    if not isinstance(document, dict):
+        return ()
+    return target_scope.approved_assets(document.get("authorization_scope"))
+
+
+def _http_arguments(definition, arguments, scope):
+    """A read-only HTTP exchange whose target the platform already approved."""
+
+    validate_input_schema(definition.input_schema)
+    if not isinstance(arguments, dict) or set(arguments) != {"url", "method"}:
+        raise DomainError("INVALID_SCHEMA", 422)
+    url, method = arguments.get("url"), arguments.get("method")
+    if not target_scope.method_allowed(method):
+        raise DomainError("INVALID_SCHEMA", 422)
+    properties = definition.input_schema.get("properties") or {}
+    rule = properties.get("url") or {}
+    if (
+        not isinstance(url, str)
+        or len(url) < rule.get("minLength", 0)
+        or len(url) > rule.get("maxLength", target_scope.MAX_URL_LENGTH)
+        or ("enum" in rule and url not in rule["enum"])
+    ):
+        raise DomainError("INVALID_SCHEMA", 422)
+    method_rule = properties.get("method") or {}
+    if "enum" in method_rule and method not in method_rule["enum"]:
+        raise DomainError("INVALID_SCHEMA", 422)
+    return target_scope.require_in_scope(scope, url)
 
 
 def _arguments(definition, arguments):
@@ -100,6 +214,7 @@ class PreparedToolCall:
     executor: object
     config: TaskAdmissionConfig
     run: dict
+    target: str | None = None
 
 
 class ToolExecutorPort(Protocol):
@@ -220,9 +335,18 @@ class ToolAdmission:
             raise DomainError("NOT_FOUND_OR_FORBIDDEN")
         definition = self.registry.tool(tx, request.tool_definition_ref)
         executor = self.registry.executor(tx, definition.executor_ref)
-        if definition.ref not in executor.allowed_tool_refs or executor.receiver_id != run["receiver_id"] or executor.environment_ref != run["environment_ref"] or definition.allowed_target_kinds != ["workspace_read"]:
+        if definition.ref not in executor.allowed_tool_refs or executor.receiver_id != run["receiver_id"] or executor.environment_ref != run["environment_ref"]:
             raise DomainError("CAPABILITY_UNAVAILABLE", 503)
-        _arguments(definition, request.arguments)
+        kind = tool_kind(definition)
+        target = None
+        if kind == "workspace_read":
+            _arguments(definition, request.arguments)
+        else:
+            # The platform, never the model or the tool, decides whether this
+            # concrete target is inside the Task's approved scope.
+            target = _http_arguments(
+                definition, request.arguments, task_scope(tx)
+            ).key
         values = (request.session_lineage, request.message_id, request.provider_call_id, request.tool_definition_ref)
         call = row(tx.connection.execute("SELECT * FROM vnext.tool_call WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND session_lineage=%s AND message_id=%s AND provider_call_id=%s AND tool_definition_version=%s", (*tx.owner, *values)))
         request_values = request.model_dump(mode="python")
@@ -249,7 +373,7 @@ class ToolAdmission:
             tx.connection.execute("INSERT INTO vnext.tool_call(tenant_id,project_id,task_id,tool_call_id,session_lineage,message_id,provider_call_id,tool_definition_version,work_item_id,input_digest,request_json,status,access_level) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", (*tx.owner, call_id, *values, work["work_item_id"], call_digest, json_text(request.model_dump(mode="python")), "pending_approval" if definition.approval_required else "admitted", tx.permissions["clearance"]))
             call = _call(tx, call_id)
             audit(tx, "tool.proposed", {"tool_call_id": call_id, "tool_definition_ref": definition.ref})
-        return PreparedToolCall(call, request, definition, executor, config, run)
+        return PreparedToolCall(call, request, definition, executor, config, run, target)
 
     def authorize_in_transaction(self, tx, prepared, *, approval_binding=None):
         if tx.purpose != "tool_request" or prepared.run["agent_run_id"] != tx.run_binding.identity.agent_run_id:
@@ -288,11 +412,20 @@ class ToolAdmission:
         # behaviour. Only read-only workspace tools are admitted today, so they
         # share the path (multiple Runs may read it); an exclusive holder of the
         # path still blocks them, and a future writer key excludes both.
-        base = "workspace:" + run["environment_ref"] + ":" + prepared.request.arguments["path"]
-        if prepared.definition.allowed_target_kinds == ["workspace_read"]:
-            # The claim index allows one active claim per resource key, so a
-            # shared read claim is made per Run. Readers only conflict with an
-            # exclusive holder of the plain path.
+        kind = tool_kind(prepared.definition)
+        if kind == "workspace_read":
+            base = (
+                "workspace:"
+                + run["environment_ref"]
+                + ":"
+                + prepared.request.arguments["path"]
+            )
+        else:
+            base = "target:" + str(prepared.target)
+        if kind in {"workspace_read", "http_target"}:
+            # Both published kinds are read-only: the claim index allows one
+            # active claim per resource key, so a shared read claim is made per
+            # Run. Readers only conflict with an exclusive holder of the base.
             resource = base + ":read:" + run["agent_run_id"]
             conflict = tx.connection.execute(
                 "SELECT 1 FROM vnext.resource_reservation WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND resource_key=%s AND state<>'released'",
@@ -556,6 +689,8 @@ class ToolGate:
             if attempt["status"] != "evidence_pending":
                 return
             executor = self.registry.executor(tx, permit.executor_ref)
+            definition = self.registry.tool(tx, permit.tool_definition_ref)
+            condition = capture_condition(tool_kind(definition))
             collector = self.collector_accesses[
                 (*tx.owner, executor.ref)
             ]
@@ -565,9 +700,9 @@ class ToolGate:
         if existing_capture:
             envelope = CaptureEnvelope.model_validate(strict_json_loads(existing_capture))
         else:
-            ref = self.artifacts.stage(collector, permit.identity.task_id, permit.tool_attempt_id, bytes(attempt["output"]), attempt["output_media_type"], completeness=attempt["output_completeness"], conditions=("registered workspace read",), access_level=level)
+            ref = self.artifacts.stage(collector, permit.identity.task_id, permit.tool_attempt_id, bytes(attempt["output"]), attempt["output_media_type"], completeness=attempt["output_completeness"], conditions=(condition,), access_level=level)
             self.artifacts.seal(collector, permit.identity.task_id, ref)
-            envelope = CaptureEnvelope.model_validate({"schema_version": "wuji.capture.v2", "capture_id": permit.tool_attempt_id, "identity": permit.identity.model_dump(mode="json"), "tool_call_id": permit.tool_call_id, "tool_attempt_id": permit.tool_attempt_id, "artifact_refs": [ref.model_dump(mode="json")], "capture_layer": executor.capture_layer, "observed_at": saved["exited_at"] or saved["started_at"], "received_at": saved["exited_at"] or saved["started_at"], "evidence_origin": executor.evidence_origin, "conditions": ["registered workspace read"], "completeness": attempt["output_completeness"]})
+            envelope = CaptureEnvelope.model_validate({"schema_version": "wuji.capture.v2", "capture_id": permit.tool_attempt_id, "identity": permit.identity.model_dump(mode="json"), "tool_call_id": permit.tool_call_id, "tool_attempt_id": permit.tool_attempt_id, "artifact_refs": [ref.model_dump(mode="json")], "capture_layer": executor.capture_layer, "observed_at": saved["exited_at"] or saved["started_at"], "received_at": saved["exited_at"] or saved["started_at"], "evidence_origin": executor.evidence_origin, "conditions": [condition], "completeness": attempt["output_completeness"]})
             # Freeze the exact ingest envelope before sending it to EvidenceService.
             with self.admission.uow.transaction(access, permit.identity.task_id, capability="tool_settle") as tx:
                 current = _attempt(tx, permit.tool_attempt_id)
@@ -702,13 +837,13 @@ class WorkspaceReadExecutor:
     def _source(self, permit, receipt_id):
         return {"tool_attempt_id": permit.tool_attempt_id, "receiver_id": self.receiver_id, "environment_ref": self.environment_ref, "arguments_digest": permit.arguments_digest, "receipt_id": receipt_id}
 
-    def _receipt(self, permit, *, status, started=None, exited=None, output=None, completeness="unknown", error=None):
+    def _receipt(self, permit, *, status, started=None, exited=None, output=None, completeness="unknown", error=None, media_type="application/octet-stream"):
         receipt_id = str(uuid4())
         source = self._source(permit, receipt_id)
         if output is not None:
             source["output_bytes"] = len(output)
             source["output_sha256"] = sha256(output).hexdigest()
-        return ToolExecutionReceipt(tool_attempt_id=permit.tool_attempt_id, receiver_id=self.receiver_id, receipt_id=receipt_id, status=status, started_at=started, exited_at=exited, source_receipt=source, output=output, media_type="application/octet-stream" if output is not None else None, completeness=completeness, error_code=error)
+        return ToolExecutionReceipt(tool_attempt_id=permit.tool_attempt_id, receiver_id=self.receiver_id, receipt_id=receipt_id, status=status, started_at=started, exited_at=exited, source_receipt=source, output=output, media_type=media_type if output is not None else None, completeness=completeness, error_code=error)
 
     def _write(self, path, receipt, *, exclusive=False):
         import base64
@@ -760,21 +895,9 @@ class WorkspaceReadExecutor:
             raise DomainError("INPUT_DIGEST_CONFLICT", 409)
         return receipt
 
-    def _dispatch(self, permit):
-        self.admission.validate_receipt_permit(permit, receiver_id=self.receiver_id)
-        path = self._path(permit)
-        prepared = self._receipt(permit, status="unknown", error="prepared_without_exit")
-        try:
-            self._write(path, prepared, exclusive=True)
-        except FileExistsError:
-            return self._query(permit)
-        try:
-            self.admission.check_execution(permit, receiver_id=self.receiver_id)
-        except DomainError:
-            result = self._receipt(permit, status="not_started", error="permission_denied")
-            self._write(path, result)
-            return result
-        started = datetime.now(timezone.utc)
+    def _operate(self, permit):
+        """One bounded operation; returns (output, completeness, error, media_type)."""
+
         descriptors = []
         data = bytearray()
         error = None
@@ -796,7 +919,10 @@ class WorkspaceReadExecutor:
                 raise ValueError("only regular workspace files are readable")
             limit = min(permit.runtime.limits.max_single_output_bytes, permit.runtime.buffer_bytes)
             while len(data) <= limit:
-                if path.with_suffix(".cancel").exists() or datetime.now(timezone.utc) >= permit.expires_at:
+                if (
+                    self._path(permit).with_suffix(".cancel").exists()
+                    or datetime.now(timezone.utc) >= permit.expires_at
+                ):
                     complete, error = False, "cancelled_or_expired"
                     break
                 part = os.read(descriptor, min(permit.runtime.chunk_bytes, limit + 1 - len(data)))
@@ -812,7 +938,25 @@ class WorkspaceReadExecutor:
             for descriptor in reversed(descriptors):
                 os.close(descriptor)
         output = bytes(data) if data or error is None else None
-        result = self._receipt(permit, status="exited", started=started, exited=datetime.now(timezone.utc), output=output, completeness="complete" if complete else "partial", error=error)
+        return output, "complete" if complete else "partial", error, "application/octet-stream"
+
+    def _dispatch(self, permit):
+        self.admission.validate_receipt_permit(permit, receiver_id=self.receiver_id)
+        path = self._path(permit)
+        prepared = self._receipt(permit, status="unknown", error="prepared_without_exit")
+        try:
+            self._write(path, prepared, exclusive=True)
+        except FileExistsError:
+            return self._query(permit)
+        try:
+            self.admission.check_execution(permit, receiver_id=self.receiver_id)
+        except DomainError:
+            result = self._receipt(permit, status="not_started", error="permission_denied")
+            self._write(path, result)
+            return result
+        started = datetime.now(timezone.utc)
+        output, completeness, error, media_type = self._operate(permit)
+        result = self._receipt(permit, status="exited", started=started, exited=datetime.now(timezone.utc), output=output, completeness=completeness, error=error, media_type=media_type)
         self._write(path, result)
         return result
 
@@ -834,3 +978,164 @@ class WorkspaceReadExecutor:
                 pass
             return self._query(permit)
         return await asyncio.to_thread(request_cancel)
+
+
+class HttpTargetExecutor(WorkspaceReadExecutor):
+    """Read-only HTTP exchange whose target the platform already approved.
+
+    The URL must match the permit's own resource key, redirects are recorded
+    instead of followed, environment proxies are ignored, and both the response
+    and the total exchange document stay inside the permit's output budget. The
+    document keeps the exact request and response so the capture layer can seal
+    raw bytes instead of a paraphrase.
+    """
+
+    MEDIA_TYPE = "application/vnd.wuji.http-exchange+json"
+    SCHEMA_VERSION = "wuji.http-exchange.v1"
+
+    def __init__(self, *, receipt_root, admission, receiver_id, environment_ref,
+                 timeout_seconds=30):
+        # No workspace root: this executor never reads the Task's files, it only
+        # reaches the exact target the permit already names.
+        if not 1 <= int(timeout_seconds) <= 300:
+            raise ValueError("a bounded target timeout is required")
+        self.receipt_root = Path(receipt_root).resolve()
+        self.receipt_root.mkdir(parents=True, exist_ok=True, mode=0o700)
+        self.admission = admission
+        self.receiver_id = receiver_id
+        self.environment_ref = environment_ref
+        self.timeout_seconds = int(timeout_seconds)
+
+    def _budget(self, permit):
+        return min(
+            permit.runtime.limits.max_single_output_bytes, permit.runtime.buffer_bytes
+        )
+
+    def _exchange(self, permit, url, method, *, body, headers, status, response_headers, truncated):
+        import base64
+
+        from wuji_core.http import canonical_json_bytes
+
+        budget = self._budget(permit)
+        document = {
+            "schema_version": self.SCHEMA_VERSION,
+            "tool_attempt_id": permit.tool_attempt_id,
+            "target": target_scope.permit_target_matches(
+                permit.resource_keys, url
+            ).key,
+            "request": {"method": method, "url": url, "headers": headers},
+            "response": {
+                "status": status,
+                "headers": response_headers,
+                "body_base64": base64.b64encode(body).decode(),
+                "body_bytes": len(body),
+                "truncated": truncated,
+            },
+        }
+        raw = canonical_json_bytes(document)
+        if len(raw) > budget:
+            document["response"]["body_base64"] = ""
+            document["response"]["truncated"] = True
+            raw = canonical_json_bytes(document)
+        return raw if len(raw) <= budget else None
+
+    def _operate(self, permit):
+        import httpx
+        from wuji_core.http import canonical_json_bytes
+
+        url = permit.arguments["url"]
+        method = permit.arguments["method"]
+        target = target_scope.permit_target_matches(permit.resource_keys, url)
+        request_headers = {"accept": "*/*", "user-agent": "wuji-target-read/1"}
+        budget = self._budget(permit)
+        body = b""
+        status = None
+        response_headers = {}
+        truncated = False
+        error = None
+        complete = True
+        try:
+            with httpx.Client(
+                follow_redirects=False,
+                trust_env=False,
+                verify=True,
+                timeout=min(self.timeout_seconds, permit.runtime.total_timeout_seconds),
+            ) as client:
+                with client.stream(method, url, headers=request_headers) as response:
+                    status = response.status_code
+                    response_headers = {
+                        key.lower(): value
+                        for key, value in response.headers.items()
+                        if key.lower() in {"content-type", "content-length", "location", "server", "date"}
+                    }
+                    for chunk in response.iter_bytes(permit.runtime.chunk_bytes):
+                        if datetime.now(timezone.utc) >= permit.expires_at:
+                            complete, error = False, "cancelled_or_expired"
+                            break
+                        if len(body) + len(chunk) > budget:
+                            body += chunk[: max(0, budget - len(body))]
+                            truncated = True
+                            complete = False
+                            error = "output_limit"
+                            break
+                        body += chunk
+        except (httpx.HTTPError, OSError, ValueError):
+            complete, error = False, "http_target_failed"
+        if status is None and error is None:
+            complete, error = False, "http_target_failed"
+        document = self._exchange(
+            permit,
+            url,
+            method,
+            body=body,
+            headers=request_headers,
+            status=status if status is not None else 0,
+            response_headers=response_headers,
+            truncated=truncated,
+        ) if target else None
+        if document is None:
+            return None, "unknown", error or "output_limit", self.MEDIA_TYPE
+        return document, "complete" if complete else "partial", error, self.MEDIA_TYPE
+
+
+class ToolExecutorRouter:
+    """One Kali receiver serving several published tool kinds.
+
+    The router only *selects* an implementation by the frozen argument contract;
+    each executor re-validates its own contract and the permit's resource key, so
+    picking the wrong branch can never widen authority.
+    """
+
+    def __init__(self, *, workspace_read=None, http_target=None):
+        implementations = [
+            item for item in (workspace_read, http_target) if item is not None
+        ]
+        if not implementations:
+            raise ValueError("at least one tool implementation is required")
+        identities = {
+            (item.receiver_id, item.environment_ref) for item in implementations
+        }
+        if len(identities) != 1:
+            raise ValueError(
+                "every tool implementation must share one receiver identity"
+            )
+        self.receiver_id, self.environment_ref = identities.pop()
+        self.workspace_read = workspace_read
+        self.http_target = http_target
+
+    def _select(self, permit):
+        keys = set(getattr(permit, "arguments", None) or {})
+        if keys == {"path"} and self.workspace_read is not None:
+            return self.workspace_read
+        if keys == {"url", "method"} and self.http_target is not None:
+            return self.http_target
+        raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+
+    async def dispatch(self, permit):
+        return await self._select(permit).dispatch(permit)
+
+    async def query(self, permit):
+        return await self._select(permit).query(permit)
+
+    async def cancel(self, permit, *, reason):
+        return await self._select(permit).cancel(permit, reason=reason)

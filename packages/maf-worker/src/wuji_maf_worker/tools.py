@@ -408,8 +408,13 @@ class GateFunctions(FunctionMiddleware):
     def registered_tools(self):
         result = []
         for definition in self.definitions.values():
-            if definition["allowed_target_kinds"] != ["workspace_read"] or (definition["approval_required"] and not self.native_approval):
-                raise ValueError("M1 only supports published fresh workspace reads")
+            if definition["allowed_target_kinds"] not in (
+                ["workspace_read"],
+                ["http_target"],
+            ) or (definition["approval_required"] and not self.native_approval):
+                raise ValueError(
+                    "only one published kind per tool is exposed to the child"
+                )
 
             async def invoke(**arguments):
                 request = self._invocation.get()
