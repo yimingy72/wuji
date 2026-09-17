@@ -45,6 +45,15 @@ def create_tool_router(gate):
         except (DomainError, ValidationError, psycopg.Error, OSError) as error:
             return error_response(request, error)
 
+    @router.get("/internal/v2/tool-calls/{tool_call_id}/material")
+    async def material(request: Request, tool_call_id: str):
+        access = AccessContext(current_principal(request), request.state.request_id)
+        try:
+            value = await run_in_threadpool(gate.result_material, access, tool_call_id)
+            return DecimalJSONResponse(value.model_dump(mode="python"))
+        except (DomainError, ValidationError, psycopg.Error, OSError, ValueError) as error:
+            return error_response(request, error)
+
     @router.post("/internal/v2/tool-calls/{tool_call_id}/cancel")
     async def cancel(request: Request, tool_call_id: str, payload: ToolCancelRequest, operation_id: Annotated[str, Header(alias="Idempotency-Key", min_length=1, max_length=256)]):
         access = AccessContext(current_principal(request), request.state.request_id)

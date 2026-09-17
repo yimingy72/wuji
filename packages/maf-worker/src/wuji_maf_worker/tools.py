@@ -441,7 +441,7 @@ class GateFunctions(FunctionMiddleware):
                 self.receipts.append(receipt)
                 if receipt.status.value != "complete" or receipt.evidence_receipt is None or receipt.evidence_receipt.status.value != "accepted" or receipt.evidence_receipt.observation_ref is None or receipt.result_ref is None:
                     raise ValueError("ToolGate did not deliver complete durable evidence")
-                return canonical_json_bytes(receipt.model_dump(mode="python")).decode()
+                return await self._delivered_content(receipt)
 
             result.append(FunctionTool(
                 name=definition["name"],
@@ -450,6 +450,37 @@ class GateFunctions(FunctionMiddleware):
                 approval_mode="always_require" if definition["approval_required"] else "never_require",
             ))
         return result
+
+    async def _delivered_content(self, receipt):
+        """What the model sees: the canonical receipt plus bounded real bytes.
+
+        The receipt itself never changes, so every durable digest stays valid.
+        The captured body is delivered beside it, exactly once, under the
+        published output bound; when the platform cannot deliver a body it says
+        which fixed reason applies instead of leaving the model to guess.
+        """
+
+        document = receipt.model_dump(mode="python")
+        material = None
+        try:
+            response = await self.client.get(
+                self.url + "/" + receipt.tool_call_id + "/material"
+            )
+            if response.status_code == 200:
+                material = strict_json_loads(response.content)
+        except Exception:
+            material = None
+        if not isinstance(material, dict) or material.get("tool_call_id") != receipt.tool_call_id:
+            document["material_omitted"] = "not_delivered"
+        elif material.get("status") == "delivered":
+            document["material"] = {
+                "encoding": material.get("encoding"),
+                "byte_length": material.get("byte_length"),
+                "text": material.get("text"),
+            }
+        else:
+            document["material_omitted"] = material.get("reason") or "not_delivered"
+        return canonical_json_bytes(document).decode()
 
     async def register_pending(self, response):
         if not self.native_approval:

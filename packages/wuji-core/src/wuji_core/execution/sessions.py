@@ -438,6 +438,51 @@ class SessionRepository:
             raise DomainError("INPUT_DIGEST_CONFLICT", 409)
         return call
 
+    # What a Run may have seen as a tool result: the canonical receipt alone, or
+    # the receipt plus the exact bytes of its own result artifact. The material
+    # is verified against the sealed artifact instead of trusted as text, so a
+    # replay cannot smuggle invented content into a session boundary.
+    OMITTED_MATERIAL_REASONS = frozenset({
+        "not_sealed", "not_text_media", "over_inline_limit", "unreadable",
+        "not_utf8", "not_delivered",
+    })
+
+    def delivered_result(self, tx, receipt, result):
+        if not isinstance(result, dict):
+            return False
+        extra = set(result) - set(receipt)
+        body = {key: value for key, value in result.items() if key not in extra}
+        if body != receipt:
+            return False
+        if not extra:
+            return True
+        if extra == {"material_omitted"}:
+            return result["material_omitted"] in self.OMITTED_MATERIAL_REASONS
+        if extra != {"material"} or self.artifacts is None:
+            return False
+        material = result["material"]
+        if (
+            not isinstance(material, dict)
+            or set(material) != {"encoding", "byte_length", "text"}
+            or material["encoding"] != "utf-8"
+            or not isinstance(material["text"], str)
+            or type(material["byte_length"]) is not int
+            or receipt.get("result_ref") is None
+        ):
+            return False
+        encoded = material["text"].encode("utf-8")
+        if len(encoded) != material["byte_length"]:
+            return False
+        try:
+            record = self.artifacts.record(tx, BlobRef.model_validate(receipt["result_ref"]))
+        except (DomainError, ValueError):
+            return False
+        return (
+            record["state"] == "sealed"
+            and record["sha256"] == sha256(encoded).hexdigest()
+            and record["size_bytes"] == len(encoded)
+        )
+
     def _tool(self, tx, history, entry, archives=()):
         value = row(tx.connection.execute(
             "SELECT a.*,c.work_item_id,c.session_lineage,c.latest_attempt_id,c.request_json,c.status AS call_status FROM vnext.tool_attempt a JOIN vnext.tool_call c USING(tenant_id,project_id,task_id,tool_call_id) WHERE a.tenant_id=%s AND a.project_id=%s AND a.task_id=%s AND a.tool_attempt_id=%s AND c.access_level<=%s",
@@ -463,7 +508,7 @@ class SessionRepository:
                         result = strict_json_loads(result)
                     except ValueError:
                         continue  # Native working-history compaction may replace it.
-                if equal(result, receipt):
+                if equal(result, receipt) or self.delivered_result(tx, receipt, result):
                     matched = True
         if not matched:
             raise DomainError("INVALID_REFERENCE", 422)

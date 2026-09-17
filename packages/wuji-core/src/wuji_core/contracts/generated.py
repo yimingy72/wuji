@@ -459,6 +459,10 @@ class BlobRef(BaseModel):
     sha256: Sha256Digest
 
 
+class ByteLength(RootModel[StrictInt]):
+    root: Annotated[StrictInt, Field(ge=0)]
+
+
 class CaptureCompleteness(StrEnum):
     complete = 'complete'
     partial = 'partial'
@@ -704,7 +708,7 @@ class CompletionReview(BaseModel):
         extra='forbid',
     )
     decision: CompletionDecision
-    reasons: Annotated[list[Reason], Field(max_length=32)]
+    reasons: Annotated[list[Reason1], Field(max_length=32)]
     criteria: Annotated[list[CriterionJudgmentView], Field(max_length=1024)]
     open_work: Annotated[list[OpenWorkItem], Field(max_length=4096)]
     unsettled_runs: Annotated[list[UnsettledRun], Field(max_length=4096)]
@@ -781,7 +785,7 @@ class CriterionJudgmentView(BaseModel):
     criterion_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
     revision: RevisionString | None
     required: StrictBool
-    status: Status3
+    status: Status4
     applicability: Applicability
 
 
@@ -1537,7 +1541,16 @@ class PurgeId(RootModel[StrictStr]):
     root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
 
 
-class Reason(RootModel[StrictStr]):
+class Reason(StrEnum):
+    not_sealed = 'not_sealed'
+    not_text_media = 'not_text_media'
+    over_inline_limit = 'over_inline_limit'
+    unreadable = 'unreadable'
+    not_utf8 = 'not_utf8'
+    not_delivered = 'not_delivered'
+
+
+class Reason1(RootModel[StrictStr]):
     root: Annotated[StrictStr, Field(max_length=128, min_length=1)]
 
 
@@ -1951,6 +1964,11 @@ class Status2(StrEnum):
 
 
 class Status3(StrEnum):
+    delivered = 'delivered'
+    omitted = 'omitted'
+
+
+class Status4(StrEnum):
     met = 'met'
     not_met = 'not_met'
     unknown = 'unknown'
@@ -2175,6 +2193,20 @@ class ToolChoice1(BaseModel):
 
 class ToolDefinitionRef(RootModel[StrictStr]):
     root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+
+
+class ToolResultMaterial(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    tool_call_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    status: Status3
+    reason: Reason | None
+    artifact_ref: BlobRef | None
+    media_type: MediaType | None
+    byte_length: ByteLength | None
+    encoding: Literal['utf-8'] | None
+    text: StrictStr | None
 
 
 class ToolSettlementReceipt(BaseModel):

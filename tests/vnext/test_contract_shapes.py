@@ -360,6 +360,7 @@ def test_openapi_publishes_the_complete_s13_route_set() -> None:
         "/internal/v2/model-attempts/{model_attempt_id}",
         "/internal/v2/tool-calls",
         "/internal/v2/tool-calls/{tool_call_id}",
+        "/internal/v2/tool-calls/{tool_call_id}/material",
         "/internal/v2/tool-calls/{tool_call_id}/cancel",
         "/internal/v2/tool-settlement",
         "/internal/v2/executor/dispatch",

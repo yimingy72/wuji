@@ -558,6 +558,61 @@ def test_approval_required_tool_does_not_create_an_execution_attempt(
         assert snapshot.output_bytes == 0
 
 
+def test_the_run_receives_the_bounded_body_of_its_own_completed_call(
+    db_environment, tmp_path, audit_directory
+):
+    """The model must see the captured bytes, and only its own completed call."""
+
+    with tool_case(db_environment, tmp_path, audit_directory) as case:
+        first = case.client.post(
+            "/internal/v2/tool-calls",
+            json=workspace_tool_request(),
+            headers=tool_headers(case, "tool-material-first"),
+        )
+        assert first.status_code == 200
+        call_id = first.json()["tool_call_id"]
+
+        material = case.client.get(
+            "/internal/v2/tool-calls/" + call_id + "/material",
+            headers=tool_headers(case, "tool-material-read"),
+        )
+        assert material.status_code == 200
+        body = material.json()
+        assert body["status"] == "delivered", body
+        assert body["reason"] is None
+        assert body["encoding"] == "utf-8"
+        assert body["byte_length"] == len(case.expected_output)
+        assert body["text"] == case.expected_output.decode()
+        assert body["media_type"] == "text/plain; charset=utf-8"
+        assert body["artifact_ref"] == first.json()["result_ref"]
+
+        # An unresolvable call is not readable at all, and a call that never
+        # completed has no body to hand over.
+        missing = case.client.get(
+            "/internal/v2/tool-calls/tool-call-absent/material",
+            headers=tool_headers(case, "tool-material-missing"),
+        )
+        assert missing.status_code == 404
+
+        rejected = case.client.post(
+            "/internal/v2/tool-calls",
+            json=workspace_tool_request(
+                provider_call_id="call-p06-read-missing", path="missing.txt"
+            ),
+            headers=tool_headers(case, "tool-material-rejected"),
+        )
+        assert rejected.status_code == 200
+        assert rejected.json()["status"] in {"failed", "unknown"}
+        omitted = case.client.get(
+            "/internal/v2/tool-calls/" + rejected.json()["tool_call_id"] + "/material",
+            headers=tool_headers(case, "tool-material-omitted"),
+        )
+        assert omitted.status_code == 200
+        assert omitted.json()["status"] == "omitted"
+        assert omitted.json()["reason"] == "not_delivered"
+        assert omitted.json()["text"] is None
+
+
 def test_tool_operation_replay_conflict_and_new_call_id_control_execution(
     db_environment, tmp_path, audit_directory
 ):

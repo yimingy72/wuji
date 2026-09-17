@@ -512,6 +512,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/internal/v2/tool-calls/{tool_call_id}/material": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** readToolResultMaterialV2 */
+        get: operations["readToolResultMaterialV2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/internal/v2/tool-settlement": {
         parameters: {
             query?: never;
@@ -1962,6 +1979,17 @@ export interface components {
             result_ref: components["schemas"]["BlobRef"] | null;
             reason_code: components["schemas"]["ErrorCode"] | null;
         };
+        ToolResultMaterial: {
+            tool_call_id: string;
+            /** @enum {string} */
+            status: "delivered" | "omitted";
+            reason: ("not_sealed" | "not_text_media" | "over_inline_limit" | "unreadable" | "not_utf8" | "not_delivered") | null;
+            artifact_ref: components["schemas"]["BlobRef"] | null;
+            media_type: string | null;
+            byte_length: number | null;
+            encoding: "utf-8" | null;
+            text: string | null;
+        };
         /** @enum {string} */
         ToolSettlementStatus: "settled" | "pending";
         ToolSettlementRequest: Record<string, never>;
@@ -3228,6 +3256,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ToolCallReceipt"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            /** @description Missing or not accessible */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidSchema"];
+            429: components["responses"]["LimitBlocked"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    readToolResultMaterialV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tool_call_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Bounded inline result material for this exact call */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ToolResultMaterial"];
                 };
             };
             401: components["responses"]["Unauthenticated"];

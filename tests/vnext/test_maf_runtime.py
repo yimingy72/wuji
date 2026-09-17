@@ -188,9 +188,20 @@ def test_actual_maf_stream_tool_evidence_claim_and_result_replay(
         observation_ref = tool_receipt.evidence_receipt.observation_ref
         assert observation_ref is not None
         assert tool_receipt.result_ref is not None
-        assert case.upstream.received_tool_receipt == tool_receipt.model_dump(
-            mode="json"
-        )
+        delivered = case.upstream.received_tool_receipt
+        assert {
+            key: value
+            for key, value in delivered.items()
+            if key not in {"material", "material_omitted"}
+        } == tool_receipt.model_dump(mode="json")
+        # The Run that produced the bytes receives them, whole and unbounded by
+        # guesswork: a replayed receipt alone would leave the model blind.
+        assert "material_omitted" not in delivered
+        assert delivered["material"] == {
+            "encoding": "utf-8",
+            "byte_length": len(case.expected_output),
+            "text": case.expected_output.decode(),
+        }
 
         artifact_ref = tool_receipt.evidence_receipt.artifact_refs[0]
         with httpx.Client(timeout=10, trust_env=False, follow_redirects=False) as client:

@@ -17,6 +17,7 @@ from wuji_core.contracts.admission import (
     ToolCallRequest, ToolCallReceipt, ToolSettlementReceipt, ToolSettlementRequest,
 )
 from wuji_core.contracts.envelopes import RunIdentity, CaptureEnvelope, BlobRef
+from wuji_core.contracts.generated import ToolResultMaterial, Reason as MaterialOmission
 from wuji_core.http import strict_json_loads
 from wuji_core.http.auth import Principal
 from wuji_core.persistence.uow import AccessContext, DomainError, row, json_text
@@ -558,6 +559,77 @@ class ToolGate:
                 raise DomainError("CAPABILITY_UNAVAILABLE", 503)
             return registration
 
+    def result_material(self, access, tool_call_id):
+        """The bounded body this exact call already captured, for its own Run.
+
+        The receipt stays canonical and unchanged: this read only re-delivers the
+        bytes the Run itself produced, under the published output bound, and it
+        names an omission reason instead of pretending a body was delivered.
+        Anything that is not this Run's own completed call is invisible here.
+        """
+
+        binding = self.registry.binding(access)
+        with self.admission.uow.transaction(access, binding.identity.task_id) as tx:
+            call = row(
+                tx.connection.execute(
+                    "SELECT c.*,a.agent_run_id AS attempt_run_id FROM vnext.tool_call c "
+                    "LEFT JOIN vnext.tool_attempt a ON (a.tenant_id,a.project_id,a.task_id,a.tool_attempt_id)="
+                    "(c.tenant_id,c.project_id,c.task_id,c.latest_attempt_id) "
+                    "WHERE c.tenant_id=%s AND c.project_id=%s AND c.task_id=%s AND c.tool_call_id=%s",
+                    (*tx.owner, tool_call_id),
+                )
+            )
+            if (
+                call is None
+                or call["work_item_id"] != binding.identity.work_item_id
+                or call["attempt_run_id"] != binding.identity.agent_run_id
+            ):
+                raise DomainError("NOT_FOUND_OR_FORBIDDEN")
+            receipt = tool_receipt(tx, call)
+            limit = self.registry.config(tx).runtime.limits.max_single_output_bytes
+
+            def omitted(reason):
+                return ToolResultMaterial.model_validate({
+                    "tool_call_id": tool_call_id, "status": "omitted", "reason": reason,
+                    "artifact_ref": None, "media_type": None, "byte_length": None,
+                    "encoding": None, "text": None,
+                })
+
+            ref = receipt.result_ref
+            if (
+                receipt.status.value != "complete"
+                or receipt.tool_attempt_id is None
+                or ref is None
+                or receipt.evidence_receipt is None
+                or receipt.evidence_receipt.status.value != "accepted"
+                or ref not in list(receipt.evidence_receipt.artifact_refs)
+            ):
+                return omitted(MaterialOmission.not_delivered)
+            try:
+                record = self.artifacts.record(tx, ref)
+            except DomainError:
+                return omitted(MaterialOmission.unreadable)
+            if record["state"] != "sealed":
+                return omitted(MaterialOmission.not_sealed)
+            if not str(record["media_type"]).startswith("text/"):
+                return omitted(MaterialOmission.not_text_media)
+            if record["size_bytes"] > limit:
+                return omitted(MaterialOmission.over_inline_limit)
+            try:
+                body = self.artifacts.checked_bytes(record)
+            except DomainError:
+                return omitted(MaterialOmission.unreadable)
+            try:
+                body.decode("utf-8")
+            except UnicodeDecodeError:
+                return omitted(MaterialOmission.not_utf8)
+            return ToolResultMaterial.model_validate({
+                "tool_call_id": tool_call_id, "status": "delivered", "reason": None,
+                "artifact_ref": ref.model_dump(mode="python"),
+                "media_type": record["media_type"], "byte_length": len(body),
+                "encoding": "utf-8", "text": body.decode("utf-8"),
+            })
+
     def close_operations(self, access, request):
         """Close the calling Run's own operation set from durable records.
 
@@ -938,7 +1010,18 @@ class WorkspaceReadExecutor:
             for descriptor in reversed(descriptors):
                 os.close(descriptor)
         output = bytes(data) if data or error is None else None
-        return output, "complete" if complete else "partial", error, "application/octet-stream"
+        # A complete read that is exactly UTF-8 text is published as text, so the
+        # Run that produced it (and later Runs whose read set includes it) can
+        # receive the body under the bound instead of an opaque octet stream.
+        media_type = "application/octet-stream"
+        if complete and output is not None:
+            try:
+                output.decode("utf-8")
+            except UnicodeDecodeError:
+                pass
+            else:
+                media_type = "text/plain; charset=utf-8"
+        return output, "complete" if complete else "partial", error, media_type
 
     def _dispatch(self, permit):
         self.admission.validate_receipt_permit(permit, receiver_id=self.receiver_id)
