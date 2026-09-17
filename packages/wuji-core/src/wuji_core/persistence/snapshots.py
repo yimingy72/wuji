@@ -15,8 +15,17 @@ from wuji_core.persistence.uow import DomainError, json_text, row
 
 @dataclass(frozen=True)
 class SnapshotQuery:
+    """Which knowledge a Run may read, plus refs the platform already promised it.
+
+    ``entity_types`` selects the board material. ``required_refs`` names exact
+    revisions that must be present whatever the type selection says — a Session
+    profile that pins fixed memory bytes promises those bytes to the Run, so the
+    frozen manifest has to carry them (and only those exact revisions).
+    """
+
     entity_types: tuple[str, ...] = ("artifact", "observation", "claim", "intent")
     max_references: int = 1000
+    required_refs: tuple[tuple[str, str, str], ...] = ()
 
     def __post_init__(self):
         if (
@@ -29,6 +38,19 @@ class SnapshotQuery:
             )
             or isinstance(self.max_references, bool)
             or not 1 <= self.max_references <= 5000
+            or len(self.required_refs) > 64
+            or len(set(self.required_refs)) != len(self.required_refs)
+            or any(
+                not isinstance(item, tuple)
+                or len(item) != 3
+                or item[0] not in {"artifact", "observation", "claim", "intent"}
+                or not isinstance(item[1], str)
+                or not 1 <= len(item[1]) <= 256
+                or not isinstance(item[2], str)
+                or not item[2].isdecimal()
+                or str(int(item[2])) != item[2]
+                for item in self.required_refs
+            )
         ):
             raise ValueError("invalid bounded snapshot query")
 
@@ -36,6 +58,7 @@ class SnapshotQuery:
         return {
             "entity_types": sorted(self.entity_types),
             "max_references": self.max_references,
+            "required_refs": [list(item) for item in sorted(self.required_refs)],
         }
 
 
@@ -143,6 +166,23 @@ class SnapshotRepository:
         ).fetchall()
         for kind, entity_id, revision, level in initial:
             refs[(kind, entity_id, str(revision))] = level
+        for kind, entity_id, revision in query.required_refs:
+            item = row(
+                tx.connection.execute(
+                    """SELECT r.access_level FROM vnext.entity_revision_registry r
+                    WHERE r.tenant_id=%s AND r.project_id=%s AND r.task_id=%s
+                    AND r.entity_type=%s AND r.entity_id=%s AND r.revision=%s
+                    AND (r.entity_type<>'artifact' OR EXISTS(SELECT 1 FROM vnext.artifact a WHERE
+                    (a.tenant_id,a.project_id,a.task_id,a.entity_id,a.revision)=
+                    (r.tenant_id,r.project_id,r.task_id,r.entity_id,r.revision) AND a.state='sealed'))""",
+                    (*tx.owner, kind, entity_id, revision),
+                )
+            )
+            # A promised revision that the deployment no longer publishes must
+            # block the Run instead of silently delivering a smaller context.
+            if item is None:
+                raise DomainError("required_snapshot_input_unavailable", 503)
+            refs[(kind, entity_id, revision)] = item["access_level"]
         # Close over fixed dependency references, not over newer revisions.
         todo = list(refs)
         relations = []

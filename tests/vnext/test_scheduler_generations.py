@@ -27,7 +27,7 @@ from wuji_core.execution.control import ExecutionObservation
 from wuji_core.contracts.execution import WorkDependency
 from wuji_core.execution.dependencies import DependencyService
 from wuji_core.http import canonical_json_bytes, strict_json_loads
-from wuji_core.persistence.snapshots import SnapshotRepository
+from wuji_core.persistence.snapshots import SnapshotQuery, SnapshotRepository
 from wuji_core.persistence.uow import DomainError, json_text
 from wuji_core.scheduling.claims import Scheduler, SchedulerOwnership, WorkRepository
 from wuji_core.scheduling.policy import (
@@ -1052,3 +1052,55 @@ def test_reason_retry_budget_leases_a_fresh_work_item_then_blocks_when_exhausted
         ]
         # The spent series cannot keep calling the model from later ticks.
         assert case.scheduler.tick(limit=4).assignments == ()
+
+
+def test_a_promised_revision_is_frozen_or_the_manifest_blocks(
+    db_environment, tmp_path, audit_directory
+) -> None:
+    """A Session profile's fixed memory bytes must reach the Run's manifest."""
+
+    with scheduler_case(db_environment, tmp_path, audit_directory) as case:
+        first = case.scheduler.tick(limit=2)
+        assert first.assignments
+        with case.control.env.migration_connection() as connection:
+            sealed = connection.execute(
+                "SELECT entity_id,revision FROM vnext.artifact"
+                " WHERE task_id=%s AND state='sealed' LIMIT 1",
+                (TASK,),
+            ).fetchone()
+        assert sealed is not None
+
+        with case.control.uow.transaction(SCHEDULER, TASK, capability="admit") as tx:
+            manifest = SnapshotRepository(case.control.uow).create_in_transaction(
+                tx,
+                query=SnapshotQuery(
+                    required_refs=(("artifact", sealed[0], str(sealed[1])),)
+                ),
+            )
+        assert ("artifact", sealed[0], str(sealed[1])) in {
+            (ref.entity_type.value, ref.id, ref.revision.root)
+            for ref in manifest.refs
+        }
+
+        with case.control.uow.transaction(SCHEDULER, TASK, capability="admit") as tx:
+            with pytest.raises(DomainError) as failure:
+                SnapshotRepository(case.control.uow).create_in_transaction(
+                    tx,
+                    query=SnapshotQuery(
+                        required_refs=(("artifact", "artifact-not-published", "1"),)
+                    ),
+                )
+        assert failure.value.code == "required_snapshot_input_unavailable"
+
+
+def test_a_snapshot_query_rejects_unbounded_promised_revisions() -> None:
+    with pytest.raises(ValueError):
+        SnapshotQuery(required_refs=(("artifact", "a", "1"), ("artifact", "a", "1")))
+    with pytest.raises(ValueError):
+        SnapshotQuery(required_refs=(("artifact", "a", "01"),))
+    with pytest.raises(ValueError):
+        SnapshotQuery(required_refs=(("target", "a", "1"),))
+    with pytest.raises(ValueError):
+        SnapshotQuery(
+            required_refs=tuple(("artifact", "a-%d" % index, "1") for index in range(65))
+        )

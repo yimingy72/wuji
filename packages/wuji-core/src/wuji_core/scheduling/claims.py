@@ -709,7 +709,17 @@ class Scheduler:
             # every later context until a real session boundary refused the Run.
             else creator(
                 tx,
-                query=SnapshotQuery(entity_types=("claim", "intent", "observation")),
+                query=SnapshotQuery(
+                    entity_types=("claim", "intent", "observation"),
+                    required_refs=tuple(
+                        (
+                            item["ref"]["entity_type"],
+                            item["ref"]["id"],
+                            str(item["ref"]["revision"]),
+                        )
+                        for item in profile["body"].get("memory_inputs", ())
+                    ),
+                ),
                 reader_clearance=receiver["worker_clearance"],
             )
         )
