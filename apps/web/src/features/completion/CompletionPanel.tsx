@@ -562,20 +562,21 @@ export function CompletionPanel({ taskId, onChanged }: CompletionPanelProps) {
 
 function completionErrorCopy(code: string): string {
   switch (code) {
-    case 'completion_precheck_incomplete':
+    case 'COMPLETION_PRECHECK_INCOMPLETE':
       return '平台审核未通过：目标判据或未完成工作仍不满足关闭条件。';
-    case 'completion_epoch_unsettled':
+    case 'COMPLETION_EPOCH_UNSETTLED':
     case 'OPERATION_UNKNOWN':
       return '仍有在飞 Run 未结算，稍后重试即可完成关闭。';
-    case 'completion_epoch_absent':
+    case 'COMPLETION_EPOCH_ABSENT':
       return '需要先开始收尾，才能完成关闭。';
-    case 'completion_not_closed':
+    case 'COMPLETION_NOT_CLOSED':
       return '任务尚未关闭，报告不能冻结。';
     case 'INPUT_DIGEST_CONFLICT':
       return '幂等键与内容不一致；请用新的操作重试。';
-    case 'delivery_exchange_required':
+    case 'DELIVERY_EXCHANGE_REQUIRED':
       return 'HTTP 交付必须引用真实交换回执；离线 profile 不记录交换。';
-    case 'delivery_too_large':
+    case 'DELIVERY_TOO_LARGE':
+    case 'LIMIT_BLOCKED':
       return '交付材料超过平台上限，请缩小 profile 要求。';
     case 'NOT_FOUND_OR_FORBIDDEN':
       return '当前身份没有该 Task 的控制权限。';

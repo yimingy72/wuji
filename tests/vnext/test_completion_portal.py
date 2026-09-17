@@ -316,6 +316,20 @@ def test_the_signed_http_routes_return_the_closed_task_and_its_report(
             assert review.json()["control_version"].isdigit()
             assert review.json()["report"] is None
 
+            # Closing before an epoch exists is a bounded refusal, not a 500:
+            # the public envelope only carries the frozen ErrorCode enum.
+            early = client.post(
+                f"/api/v2/tasks/{TASK}/completion",
+                json={
+                    "action": "close",
+                    "close_trigger": "goal_satisfied",
+                    "result_outcome": "complete",
+                },
+                headers={**headers, "Idempotency-Key": str(uuid4())},
+            )
+            assert early.status_code == 409, early.text
+            assert early.json()["code"] == "COMPLETION_EPOCH_ABSENT"
+
             opened = client.post(
                 f"/api/v2/tasks/{TASK}/completion",
                 json={

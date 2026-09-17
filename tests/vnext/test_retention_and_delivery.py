@@ -422,5 +422,19 @@ def test_the_signed_http_routes_record_list_and_read_one_delivery(
                 json={"profile": profile(body_requirement())},
                 headers=headers,
             ).status_code == 422
+
+            # A profile that asks for an HTTP delivery before any exchange
+            # happened is refused with its own bounded public code.
+            http_refused = client.post(
+                base,
+                json={
+                    "profile": profile(
+                        body_requirement(), profile_id="http-bundle-v1", mode="http"
+                    )
+                },
+                headers={**headers, "Idempotency-Key": str(uuid4())},
+            )
+            assert http_refused.status_code == 409, http_refused.text
+            assert http_refused.json()["code"] == "DELIVERY_EXCHANGE_REQUIRED"
         finally:
             client.close()

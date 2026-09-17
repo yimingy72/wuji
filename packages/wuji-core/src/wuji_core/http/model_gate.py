@@ -14,8 +14,23 @@ from wuji_core.contracts.envelopes import ErrorResponse
 from wuji_core.persistence.uow import AccessContext, DomainError
 
 
+# Governance services name their refusals for logs and tests; the public
+# envelope only ever carries the frozen ErrorCode enum, so an unmapped internal
+# code would turn an honest refusal into a 500.
+PUBLIC_CODES = {
+    "completion_precheck_incomplete": "COMPLETION_PRECHECK_INCOMPLETE",
+    "completion_epoch_absent": "COMPLETION_EPOCH_ABSENT",
+    "completion_epoch_unsettled": "COMPLETION_EPOCH_UNSETTLED",
+    "completion_not_closed": "COMPLETION_NOT_CLOSED",
+    "delivery_exchange_required": "DELIVERY_EXCHANGE_REQUIRED",
+    "delivery_too_large": "DELIVERY_TOO_LARGE",
+    "delivery_commit_corrupt": "DELIVERY_COMMIT_CORRUPT",
+}
+
+
 def error_response(request, error):
     code = error.code if isinstance(error, DomainError) else "CAPABILITY_UNAVAILABLE"
+    code = PUBLIC_CODES.get(code, code)
     status = error.status if isinstance(error, DomainError) else 503
     result = ErrorResponse.model_validate({"code": code, "message": "The request could not be completed.", "request_id": request.state.request_id, "retryable": False, "details": getattr(error, "details", {})})
     return DecimalJSONResponse(result.model_dump(mode="python"), status_code=status)

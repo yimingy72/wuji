@@ -1410,6 +1410,13 @@ components:
         - INVALID_SCHEMA_VERSION
         - LIMIT_BLOCKED
         - CAPABILITY_UNAVAILABLE
+        - COMPLETION_EPOCH_ABSENT
+        - COMPLETION_PRECHECK_INCOMPLETE
+        - COMPLETION_EPOCH_UNSETTLED
+        - COMPLETION_NOT_CLOSED
+        - DELIVERY_EXCHANGE_REQUIRED
+        - DELIVERY_TOO_LARGE
+        - DELIVERY_COMMIT_CORRUPT
     KnowledgeRef:
       type: object
       additionalProperties: false
