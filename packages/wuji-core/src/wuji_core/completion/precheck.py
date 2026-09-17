@@ -19,6 +19,7 @@ from hashlib import sha256
 from typing import Literal
 from uuid import uuid4
 
+from wuji_core.completion import platform_errors
 from wuji_core.completion.criteria import GoalCoverage, read_coverage
 from wuji_core.contracts.execution import CloseTrigger, ResultOutcome
 from wuji_core.http import canonical_json_bytes, strict_json_loads
@@ -155,19 +156,20 @@ class CompletionService:
         deadline = moment + timedelta(seconds=deadline_seconds)
         epoch_id = str(uuid4())
         with self.uow.transaction(access, task_id, capability="control") as tx:
-            receipt_id = tx.connection.execute(
-                "SELECT vnext.prepare_completion_quiesce(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
-                (
-                    *tx.owner,
-                    receipt_key,
-                    epoch_id,
-                    tx.task["control_version"],
-                    tx.task["board_revision"],
-                    deadline,
-                    trigger,
-                    source,
-                ),
-            ).fetchone()[0]
+            with platform_errors():
+                receipt_id = tx.connection.execute(
+                    "SELECT vnext.prepare_completion_quiesce(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                    (
+                        *tx.owner,
+                        receipt_key,
+                        epoch_id,
+                        tx.task["control_version"],
+                        tx.task["board_revision"],
+                        deadline,
+                        trigger,
+                        source,
+                    ),
+                ).fetchone()[0]
         return CompletionProposal(
             receipt_id=receipt_id,
             epoch_id=epoch_id,
@@ -222,20 +224,21 @@ class CompletionService:
         moment = datetime.now(timezone.utc)
         deadline = moment + timedelta(seconds=deadline_seconds)
         with self.uow.transaction(access, task_id, capability="control") as tx:
-            receipt_id = tx.connection.execute(
-                "SELECT vnext.prepare_completion_close(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
-                (
-                    *tx.owner,
-                    receipt_key,
-                    epoch_id,
-                    tx.task["control_version"],
-                    tx.task["board_revision"],
-                    deadline,
-                    trigger,
-                    outcome,
-                    source,
-                ),
-            ).fetchone()[0]
+            with platform_errors():
+                receipt_id = tx.connection.execute(
+                    "SELECT vnext.prepare_completion_close(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                    (
+                        *tx.owner,
+                        receipt_key,
+                        epoch_id,
+                        tx.task["control_version"],
+                        tx.task["board_revision"],
+                        deadline,
+                        trigger,
+                        outcome,
+                        source,
+                    ),
+                ).fetchone()[0]
         return CompletionProposal(
             receipt_id=receipt_id,
             epoch_id=epoch_id,

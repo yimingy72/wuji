@@ -22,6 +22,7 @@ from test_work_state_guards import (
 )
 from wuji_core.completion.judgments import JudgmentService
 from wuji_core.completion.precheck import CompletionService
+from wuji_core.completion.reports import ReportService
 from wuji_core.persistence.uow import DomainError
 
 CONTROLLER = access("completion-fixture", role="controller")
@@ -513,6 +514,122 @@ def test_close_after_settlement_separates_trigger_from_outcome(
         assert done_work == ("done",)
         assert late_work[0] == "cancelled" and late_work[1] == "cancel"
         assert late_work[2] == "budget_exhausted"
+
+
+def closed_task(case):
+    """A real closed Task with one settled Run, ready for a report freeze."""
+
+    service, proposal = ready_task(case)
+    observe(case, "exited", process=process(exited=True))
+    with case.env.migration_connection() as connection:
+        connection.execute(
+            "UPDATE vnext.agent_run SET stop_kind='exited'"
+            " WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND agent_run_id='run-fixture'",
+            OWNER,
+        )
+        connection.execute(
+            "INSERT INTO vnext.run_operation_settlement(tenant_id,project_id,task_id,agent_run_id,"
+            "status,source_receipt_json) VALUES(%s,%s,%s,'run-fixture','settled','{\"fixture\":true}')"
+            " ON CONFLICT DO NOTHING",
+            (*OWNER,),
+        )
+    closing = service.close(
+        CONTROLLER, TASK, receipt_key="completion-close", epoch_id=proposal.epoch_id,
+        close_trigger="goal_satisfied", result_outcome="complete", deadline_seconds=600,
+    )
+    service.apply(CONTROLLER, TASK, closing.receipt_id)
+    return service, proposal
+
+
+def test_the_report_freezes_after_close_and_never_rewrites(
+    db_environment, tmp_path, audit_directory
+):
+    """AC-053 first half: immutable bytes with a server-side digest."""
+
+    with control_case(db_environment, tmp_path, audit_directory) as case:
+        _service, proposal = closed_task(case)
+        reports = ReportService(case.uow, artifacts=case.store)
+
+        # A report can only freeze after the Task closed on that epoch.
+        with pytest.raises(DomainError) as early:
+            reports.freeze(CONTROLLER, TASK, report_key="report-a", epoch_id="epoch-other")
+        assert early.value.code == "completion_not_closed"
+
+        receipt = reports.freeze(
+            CONTROLLER, TASK, report_key="report-a", epoch_id=proposal.epoch_id
+        )
+        assert receipt.dispute_state == "clear"
+        assert receipt.close_trigger == "goal_satisfied"
+        assert receipt.result_outcome == "complete"
+        body = reports.read(CONTROLLER, TASK, "report-a")
+        from hashlib import sha256
+
+        assert sha256(body["body"].encode()).hexdigest() == body["body_digest"]
+        assert '"schema_version":"wuji.report.v1"' in body["body"]
+
+        # The same key with the same composed body replays; a different body for
+        # the same key is refused instead of rewriting the delivered report.
+        assert reports.freeze(
+            CONTROLLER, TASK, report_key="report-a", epoch_id=proposal.epoch_id
+        ).body_digest == receipt.body_digest
+        with case.env.migration_connection() as connection:
+            connection.execute(
+                "UPDATE vnext.report_commit SET body_json=%s WHERE report_id='report-a'",
+                ('{"forged":true}',),
+            )
+        with pytest.raises(DomainError) as forged:
+            reports.freeze(
+                CONTROLLER, TASK, report_key="report-a", epoch_id=proposal.epoch_id
+            )
+        assert forged.value.code == "INPUT_DIGEST_CONFLICT"
+
+
+def test_late_counter_evidence_is_appended_and_marks_the_report_disputed(
+    db_environment, tmp_path, audit_directory
+):
+    """AC-053 second half: the frozen body stands, the dispute is visible."""
+
+    with control_case(db_environment, tmp_path, audit_directory) as case:
+        _service, proposal = closed_task(case)
+        reports = ReportService(case.uow, artifacts=case.store)
+        receipt = reports.freeze(
+            CONTROLLER, TASK, report_key="report-a", epoch_id=proposal.epoch_id
+        )
+        before = reports.read(CONTROLLER, TASK, "report-a")
+        allow_assessor(case)
+        sealed = sealed_evidence(case, b'{"counter_evidence":"older call was not settled"}')
+
+        # An amendment without sealed evidence is an assertion, not evidence.
+        with pytest.raises(DomainError) as unsealed:
+            reports.amend(
+                ASSESSOR, TASK, report_key="report-a", amendment_key="amendment-a",
+                reason="late counter-evidence", evidence_refs=[],
+            )
+        assert unsealed.value.code == "INVALID_REFERENCE"
+
+        amendment = reports.amend(
+            ASSESSOR, TASK, report_key="report-a", amendment_key="amendment-a",
+            reason="late counter-evidence about an old call",
+            evidence_refs=[sealed.model_dump(mode="json")],
+        )
+        assert amendment.authority == "assessor" and amendment.evidence
+
+        after = reports.read(CONTROLLER, TASK, "report-a")
+        assert after["body"] == before["body"]
+        assert after["body_digest"] == before["body_digest"] == receipt.body_digest
+        assert after["dispute_state"] == "disputed"
+        assert [row[0] for row in after["amendments"]] == ["amendment-a"]
+
+        # The Task stays closed, no work was reopened, and nothing became ready.
+        task = case.control.read_task(OBSERVER, TASK)
+        assert task["observed_state"] == "closed"
+        with case.env.migration_connection() as connection:
+            work = connection.execute(
+                "SELECT count(*) FROM vnext.work_item WHERE tenant_id=%s AND project_id=%s"
+                " AND task_id=%s AND state='ready'",
+                OWNER,
+            ).fetchone()
+        assert work == (0,)
 
 
 def test_a_goal_without_required_criteria_is_never_satisfied(

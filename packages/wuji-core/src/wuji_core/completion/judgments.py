@@ -11,6 +11,7 @@ AC-051, AC-053).
 from dataclasses import dataclass
 from hashlib import sha256
 
+from wuji_core.completion import platform_errors
 from wuji_core.contracts.envelopes import BlobRef
 from wuji_core.http import canonical_json_bytes
 from wuji_core.persistence.uow import DomainError, row
@@ -111,21 +112,22 @@ class JudgmentService:
         source = canonical_json_bytes(receipt.__dict__).decode()
         with self.uow.transaction(access, task_id, capability="assess") as tx:
             self._authorize(tx)
-            stored = tx.connection.execute(
-                "SELECT vnext.record_criterion_judgment(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
-                (
-                    *tx.owner,
-                    criterion_id,
-                    revision,
-                    judgment_id,
-                    status,
-                    applicability,
-                    method,
-                    definition_json,
-                    source,
-                    level,
-                ),
-            ).fetchone()
+            with platform_errors():
+                stored = tx.connection.execute(
+                    "SELECT vnext.record_criterion_judgment(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                    (
+                        *tx.owner,
+                        criterion_id,
+                        revision,
+                        judgment_id,
+                        status,
+                        applicability,
+                        method,
+                        definition_json,
+                        source,
+                        level,
+                    ),
+                ).fetchone()
         if stored is None or stored[0] != judgment_id:
             raise DomainError("CAPABILITY_UNAVAILABLE", 503)
         return receipt
