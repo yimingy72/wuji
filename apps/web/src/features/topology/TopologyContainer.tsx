@@ -30,6 +30,14 @@ import {
 } from './stream';
 import styles from './topology.module.css';
 
+// R04/R05 are still open: a view revision is not yet atomically bound to its
+// snapshot, and a reconnect does not prove it resumed from the baseline the
+// client already saw. Until those close with real SSE evidence, the live
+// subscription stays off and the graph, the detail panel and every reference
+// come from one authorized snapshot with an explicit refresh. Flip this only
+// together with the X04 fixes, never on its own.
+export const LIVE_VIEW_ENABLED = false;
+
 const entityTypes = new Set<NodeEntityType>([
   'origin',
   'goal',
@@ -390,7 +398,7 @@ function TopologyContainerRequest({
   const activeViewId = snapshot?.view_id ?? null;
 
   useEffect(() => {
-    if (mode !== 'live' || activeViewId === null || loading) {
+    if (!LIVE_VIEW_ENABLED || mode !== 'live' || activeViewId === null || loading) {
       setStreamStatus('closed');
       return undefined;
     }
@@ -555,7 +563,23 @@ function TopologyContainerRequest({
           onClose={() => setLayoutNotice(null)}
         />
       )}
-      {mode === 'live' && (
+      {mode === 'live' && !LIVE_VIEW_ENABLED && (
+        <span
+          className={styles.notice}
+          role="status"
+          data-stream-status="snapshot-only"
+        >
+          快照模式：实时订阅未启用，图为当前受权快照
+          <Button
+            size="small"
+            style={{ marginLeft: 8 }}
+            onClick={() => setRequestRevision((value) => value + 1)}
+          >
+            刷新快照
+          </Button>
+        </span>
+      )}
+      {mode === 'live' && LIVE_VIEW_ENABLED && (
         <span className={styles.notice} role="status" data-stream-status={streamStatus}>
           {streamStatus === 'live'
             ? '实时视图已连接'

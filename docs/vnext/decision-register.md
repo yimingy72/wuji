@@ -44,6 +44,7 @@
 | D29 | 2026-09-17 E03-C/E04-A 收口：冻结的 `snapshot_manifest.states`（task/work_items/agent_runs/claim_assessments）作为上下文的一部分交付给模型（集群实测此前完全没有交付，模型看不到"已做过什么"）；`_progress` 除 `evidence_ingested` 外，另按被接纳结果的 canonical refs 记录一条 `material` 进展（不含 ToolAttempt/UUID/接收时间，重放不新增）；新 Claim 确认进入下一次 Reason 的 read set | 若状态不进上下文，Reason 只能凭模型记忆猜已做尝试，重复工作与错误完成都会上升；若用易变 ID 作进展指纹，重放或重投就会伪装成新知识 |
 | D30 | 2026-09-17 E05：`reason.completion_requested` 接入真实消费者——`Scheduler` 在持有 Task 锁且消费该事件的同一事务内调用 P12 `review_in_transaction`，产出唯一的 `completion.reviewed` 评审（含 basis 与 digest），重复事件不新增，评审本身不关 Task；decision 为 wait/blocked 时唤醒下一代 Reason，且最新评审随冻结 states 进入下一次 Reason 输入；Goal 判定仍只由既有 P12 规则/人审方法产生 | 若没有消费者，Reason 的完成请求会被无声忽略；若让评审直接关任务或让重复事件再出一份报告，完成语义与"证据是否真的满足判据"会脱钩 |
 | D31 | 2026-09-17 证书轮换收口：`rotate-task-certs` 增加 `--task-secrets`，把重签的 `task-agent`/`task-kali` 叶子证书按后缀写入模板 Task secret（只改 `tls.crt`/`tls.key`，未知名称直接拒绝）。M1 第一次尝试失败正是因为模板 secret 仍带旧 SAN，新 Task 复制后 runtime→supervisor 报 URLError | 只轮换状态文件而不更新运行中部署的模板 secret，会让每个新建 Task 都复制旧证书，表现为"任务启动后没有任何模型/工具动作"，而 DB 只显示 Run 停在 registered |
+| D32 | 2026-09-17 E07 快照模式：R04/R05 未关闭前 `LIVE_VIEW_ENABLED=false`，前端不建立 SSE，图和详情固定到同一受权快照并显式提供"刷新快照"；实时文案分支保留待 X04 修好后恢复。此项不冒充 P15 完成 | 在视图 revision 未与 snapshot 原子绑定、重连未证明续传的情况下开实时订阅，用户会看到与详情不一致的图，且难以判断哪一份是权威 |
 21 项任务及共享接口逐项检查表在本工作树的忽略台账 `.superpowers/sdd/vnext-v2/preflight.md`，任务完成以提交、具体测试和审查记录为准。源包 `ACCEPTANCE.md` / `VALIDATION_REPORT.md` 保持原始文档检查事实；实施结果另记，不覆盖原包。
 
 常规实现和修复按批准范围连续推进。必要权限、恢复或真实 MAF 核心能力不满足时，记录实际失败与合同影响，不通过削弱测试或更换框架来宣称通过。

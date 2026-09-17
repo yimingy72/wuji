@@ -144,3 +144,9 @@
 - 根因：`rotate-task-certs` 只重签 `work/vnext/k8s/tls/` 里的状态文件，模板 Task 的 secret 仍是旧 SAN 证书，新建 Task 复制到旧证书后 runtime→supervisor 的 HTTPS 调用报 `URLError`，Run 永远停在 `registered`。
 - 现在 `scripts/vnext/k8s.py rotate-task-certs --task-secrets <agent-auth>,<kali-auth>` 把 `task-agent.*`/`task-kali.*` 叶子证书按后缀映射写入对应 secret（`--type merge`，只改 `tls.crt`/`tls.key`），未识别的 secret 名直接拒绝而不是静默跳过。
 - 证据：`tests/vnext/test_configure_refresh.py::test_rotating_the_task_leaves_also_republishes_the_template_secrets`。
+
+### E07（快照模式已交付）：R04/R05 未关闭前不启用实时订阅
+
+- `apps/web/src/features/topology/TopologyContainer.tsx` 新增 `LIVE_VIEW_ENABLED = false`：R04（视图 revision 与 snapshot 未原子绑定）与 R05（重连不证明从已见基线真正续传）未关闭前，SSE 订阅不建立，图/详情/引用全部来自同一份受权快照。
+- 界面显式显示"快照模式：实时订阅未启用，图为当前受权快照"，并提供"刷新快照"按钮（重新读取 `requestRevision`）；原来的实时状态文案保留在开关打开后的分支，供 X04 修好后恢复。
+- 验证：`pnpm --filter @wuji/web typecheck` 通过；本项不宣称 P15 完成，也不把实时模式标为可用。
