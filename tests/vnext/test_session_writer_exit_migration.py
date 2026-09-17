@@ -34,6 +34,7 @@ def test_0016_upgrades_both_known_0014_shapes_without_replaying_session_ddl(
         patch.setattr(schema, "upgrade_completion", lambda *_args: None)
         patch.setattr(schema, "upgrade_judgments", lambda *_args: None)
         patch.setattr(schema, "upgrade_reports", lambda *_args: None)
+        patch.setattr(schema, "upgrade_view_stream", lambda *_args: None)
         with db_environment.migration_connection() as connection:
             schema.migrate(
                 connection,

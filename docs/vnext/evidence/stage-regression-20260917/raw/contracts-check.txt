@@ -1,0 +1,5 @@
+✨ openapi-typescript 7.13.0
+ ⚠  Component: "AgentPayload" is never used. at #/components/schemas/AgentPayload
+🚀 /Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/packages/contracts/openapi-v2.yaml → /Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/work/vnext/contracts-v2-t0gwutot/generated.ts [209.1ms]
+Generated Python and TypeScript v2 contracts match OpenAPI.
+exit=0

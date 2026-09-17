@@ -1,0 +1,23 @@
+
+> @wuji/web@0.5.0 build /Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/apps/web
+> tsc --noEmit && vite build
+
+vite v8.2.2 building client environment for production...
+transforming...
+✓ 3335 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                                0.43 kB │ gzip:   0.27 kB
+dist/assets/ibm-plex-mono-latin-400-normal-CvHOgSBP.woff      13.14 kB
+dist/assets/ibm-plex-mono-latin-400-normal-DMJ8VG8y.woff2     14.70 kB
+dist/assets/inter-latin-wght-normal-Dx4kXJAl.woff2            48.25 kB
+dist/assets/index-BQrS6-ra.css                                49.65 kB │ gzip:   9.15 kB
+dist/assets/index-CdAVfNg6.js                              2,159.52 kB │ gzip: 533.49 kB
+
+✓ built in 897ms
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+exit=0

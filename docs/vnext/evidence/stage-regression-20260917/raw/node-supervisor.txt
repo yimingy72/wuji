@@ -1,0 +1,31 @@
+✔ shared file handoff and path/target boundaries (1566.151917ms)
+✔ durable same-key receipt and actual cancellation (6021.409083ms)
+✔ lab observations: reflected origin, allowlist and anonymous account (2040.089583ms)
+✔ request boundary, response limits/redaction, redirect and cancellation preserve observations (2127.099333ms)
+✔ unknown retains a verified running birth when guardian challenge fails (86.198334ms)
+✔ observe persists only actual files from the fixed worker directory (436.761792ms)
+✔ a running child keeps ownership of its own result (320.298459ms)
+✔ a result persistence failure cannot report the child as exited (653.74725ms)
+✔ produced result files with a missing settlement stay unknown (541.361542ms)
+✔ produced result files with a empty settlement stay unknown (347.9345ms)
+✔ produced result files with a invalid nested result settlement stay unknown (279.692667ms)
+✔ produced result files with a result file with BlobRef settlement stay unknown (288.058334ms)
+✔ redelivery after a lost running response reuses the actual process (468.019583ms)
+✔ a crash after prepared and before spawn becomes unknown without spawning (712.01925ms)
+✔ a crash before prepared leaves no operation and redelivery spawns once (1247.175584ms)
+✔ a crash after actual spawn and before the running receipt never spawns the operation twice (736.375334ms)
+✔ a crash after the running receipt and before the response never spawns the operation twice (725.204208ms)
+✔ an assignment from an old runtime attempt is rejected before spawn (507.305958ms)
+✔ redelivery with a different assignment digest is rejected without another spawn (476.926875ms)
+✔ stop rejects stale identity and accepted control waits for actual exit (1272.097584ms)
+✔ a bare boolean permission cannot start a process (4.877916ms)
+✔ one inbox has one owner and keeps its receiver identity across reopen (6.325375ms)
+ℹ tests 22
+ℹ suites 0
+ℹ pass 22
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8406.518167
+exit=0

@@ -82,7 +82,9 @@ jobs:
       - run: pnpm --filter @wuji/web typecheck
       - run: pnpm --filter @wuji/web build
       - name: Topology unit tests
-        run: pnpm exec vitest run apps/web/src/features/topology
+        # The topology suites live under tests/topology with their own vitest
+        # config; the application sources carry no colocated test files.
+        run: pnpm exec vitest run --config tests/topology/vitest.config.ts
       - name: Topology browser tests
         run: |
           pnpm exec playwright install --with-deps chromium

@@ -239,17 +239,24 @@ def test_refresh_images_preserves_binding_and_aligns_template(tmp_path):
     assert pod["metadata"]["labels"]["wuji.dev/task-id"] == TASK
 
     deployment = json.loads((bundle / "runtime-deployment.json").read_bytes())
-    assert deployment["pod_runtime"]["task_config"]["agent_image"] == NEW_AGENT
-    assert deployment["pod_runtime"]["task_config"]["kali_image"] == NEW_KALI
-    assert configure._task_runtime_config(deployment["pod_runtime"]["task_config"]).template_digest == task_runtime.template_digest
+    # The refresh keeps the published list shape: the bootstrap Task is the only
+    # entry this command owns, and its images are the ones that changed.
+    refreshed_entry = configure._runtime_task_entry(deployment)
+    assert deployment["pod_runtime"]["tasks"] == [refreshed_entry]
+    assert refreshed_entry["task_config"]["agent_image"] == NEW_AGENT
+    assert refreshed_entry["task_config"]["kali_image"] == NEW_KALI
+    assert configure._task_runtime_config(refreshed_entry["task_config"]).template_digest == task_runtime.template_digest
     runtime_cm = json.loads((bundle / "runtime-configmap.json").read_bytes())
     cm_deployment = json.loads(runtime_cm["data"]["deployment.json"])
-    assert cm_deployment["pod_runtime"]["task_config"] == deployment["pod_runtime"]["task_config"]
+    assert configure._runtime_task_entry(cm_deployment)["task_config"] == refreshed_entry["task_config"]
     assert runtime_cm["data"]["profiles.json"] == "[]"
     assert json.loads((bundle / "runtime-deployment-manifest.json").read_bytes())["spec"]["template"]["spec"]["containers"][0]["image"] == NEW_PLATFORM
     applied = json.loads((bundle / "platform.json").read_bytes())
     applied_runtime_cm = next(item for item in applied["items"] if item["kind"] == "ConfigMap" and item["metadata"]["name"] == "runtime-config")
-    assert json.loads(applied_runtime_cm["data"]["deployment.json"])["pod_runtime"]["task_config"] == deployment["pod_runtime"]["task_config"]
+    applied_entry = configure._runtime_task_entry(
+        json.loads(applied_runtime_cm["data"]["deployment.json"])
+    )
+    assert applied_entry["task_config"] == refreshed_entry["task_config"]
     for name in ("runtime", "scheduler", "gates"):
         applied_deployment = next(item for item in applied["items"] if item["kind"] == "Deployment" and item["metadata"]["name"] == name)
         assert {container["image"] for container in applied_deployment["spec"]["template"]["spec"]["containers"]} == {NEW_PLATFORM}

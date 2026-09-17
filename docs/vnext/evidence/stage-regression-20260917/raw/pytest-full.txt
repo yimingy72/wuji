@@ -1,0 +1,152 @@
+........................................................................ [ 13%]
+........................................................................ [ 26%]
+........................................................................ [ 40%]
+......................F................................................. [ 53%]
+........................................................................ [ 67%]
+........................................................................ [ 80%]
+..........FF............................................................ [ 94%]
+...............................                                          [100%]
+=================================== FAILURES ===================================
+_____ test_actual_receipt_with_a_wrong_harness_profile_cannot_advance_p05 ______
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x128051780>
+tmp_path = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-588/test_actual_receipt_with_a_wro0')
+audit_directory = PosixPath('/private/var/folders/vr/mqgnp21s1lg8n3b5052v3ckw0000gq/T/pytest-of-yym1ng/pytest-588/test_actual_receipt_with_a_wro0')
+
+    def test_actual_receipt_with_a_wrong_harness_profile_cannot_advance_p05(
+        db_environment, tmp_path, audit_directory
+    ):
+        with m2_case(db_environment, tmp_path, audit_directory) as case:
+            case.runtime.outbox.transport = _WrongProfileReceiptTransport(
+                case.transport, case.assignment.profile_refs[1].root
+            )
+            # A rejected receipt is isolated per operation (F02): it is classified
+            # for the next cycle instead of aborting the whole batch, and the Run
+            # still must not advance.
+>           assert case.dispatcher.deliver_pending(limit=1) == ()
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/vnext/test_maf_child_transport.py:285: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+packages/wuji-core/src/wuji_core/execution/runtime_dispatcher.py:296: in deliver_pending
+    self.outbox.deliver(record.task_id, record.operation_id)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <wuji_core.execution.dispatch_outbox.DispatchOutbox object at 0x10fb2f250>
+task_id = 'task-fixture', operation_id = 'd6e263d2-6c38-43c6-8776-573206a55228'
+
+    def deliver(self, task_id, operation_id):
+        run, assignment, credential_ref = self._registered(task_id, operation_id)
+        try:
+>           receipt = self.transport.query(operation_id, task_id=task_id)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           TypeError: _WrongProfileReceiptTransport.query() got an unexpected keyword argument 'task_id'
+
+packages/wuji-core/src/wuji_core/execution/dispatch_outbox.py:418: TypeError
+_ test_0016_upgrades_both_known_0014_shapes_without_replaying_session_ddl[with_6f_trigger] _
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x10e6d83d0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x12aa37020>
+known_0014 = 'with_6f_trigger'
+
+    @pytest.mark.parametrize(
+        "known_0014",
+        ["with_6f_trigger", "without_dd400_trigger"],
+    )
+    def test_0016_upgrades_both_known_0014_shapes_without_replaying_session_ddl(
+        db_environment,
+        monkeypatch,
+        known_0014,
+    ):
+        with monkeypatch.context() as patch:
+            patch.setattr(schema, "upgrade_control_api", lambda *_args: None)
+            patch.setattr(schema, "upgrade_session_writer_exit", lambda *_args: None)
+            patch.setattr(schema, "upgrade_pod_receivers", lambda *_args: None)
+            # Later heads (0018 onward) must be skipped too, otherwise the
+            # aggregate head is applied and this check's "stopped after the session
+            # head" premise for the 0016 upgrade no longer holds.
+            patch.setattr(schema, "upgrade_layouts", lambda *_args: None)
+            patch.setattr(schema, "upgrade_task_creation", lambda *_args: None)
+            patch.setattr(schema, "upgrade_run_settlement_close", lambda *_args: None)
+            patch.setattr(schema, "upgrade_environment_settlement", lambda *_args: None)
+            patch.setattr(schema, "upgrade_completion", lambda *_args: None)
+            patch.setattr(schema, "upgrade_judgments", lambda *_args: None)
+            patch.setattr(schema, "upgrade_reports", lambda *_args: None)
+            with db_environment.migration_connection() as connection:
+                schema.migrate(
+                    connection,
+                    application_role=db_environment.application_role,
+                )
+                heads = {
+                    row[0]
+                    for row in connection.execute(
+                        "SELECT head FROM vnext.schema_migration"
+                    ).fetchall()
+                }
+                assert schema.SESSION_HEAD in heads
+                assert schema.CONTROL_API_HEAD not in heads
+                assert session_writer_exit_schema.HEAD not in heads
+>               assert schema.HEAD not in heads
+E               AssertionError: assert 'vnext_0025_p15_view_stream' not in {'vnext_0001_p03', 'vnext_0002_p03_evidence_authority', 'vnext_0003_p04_knowledge', 'vnext_0004_p04_assessment_visibility', 'vnext_0005_p04_input_freshness', 'vnext_0006_p05_control', ...}
+E                +  where 'vnext_0025_p15_view_stream' = schema.HEAD
+
+tests/vnext/test_session_writer_exit_migration.py:51: AssertionError
+_ test_0016_upgrades_both_known_0014_shapes_without_replaying_session_ddl[without_dd400_trigger] _
+
+db_environment = <support.postgres.IsolatedDatabaseEnvironment object at 0x10e687c40>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x12a0fa950>
+known_0014 = 'without_dd400_trigger'
+
+    @pytest.mark.parametrize(
+        "known_0014",
+        ["with_6f_trigger", "without_dd400_trigger"],
+    )
+    def test_0016_upgrades_both_known_0014_shapes_without_replaying_session_ddl(
+        db_environment,
+        monkeypatch,
+        known_0014,
+    ):
+        with monkeypatch.context() as patch:
+            patch.setattr(schema, "upgrade_control_api", lambda *_args: None)
+            patch.setattr(schema, "upgrade_session_writer_exit", lambda *_args: None)
+            patch.setattr(schema, "upgrade_pod_receivers", lambda *_args: None)
+            # Later heads (0018 onward) must be skipped too, otherwise the
+            # aggregate head is applied and this check's "stopped after the session
+            # head" premise for the 0016 upgrade no longer holds.
+            patch.setattr(schema, "upgrade_layouts", lambda *_args: None)
+            patch.setattr(schema, "upgrade_task_creation", lambda *_args: None)
+            patch.setattr(schema, "upgrade_run_settlement_close", lambda *_args: None)
+            patch.setattr(schema, "upgrade_environment_settlement", lambda *_args: None)
+            patch.setattr(schema, "upgrade_completion", lambda *_args: None)
+            patch.setattr(schema, "upgrade_judgments", lambda *_args: None)
+            patch.setattr(schema, "upgrade_reports", lambda *_args: None)
+            with db_environment.migration_connection() as connection:
+                schema.migrate(
+                    connection,
+                    application_role=db_environment.application_role,
+                )
+                heads = {
+                    row[0]
+                    for row in connection.execute(
+                        "SELECT head FROM vnext.schema_migration"
+                    ).fetchall()
+                }
+                assert schema.SESSION_HEAD in heads
+                assert schema.CONTROL_API_HEAD not in heads
+                assert session_writer_exit_schema.HEAD not in heads
+>               assert schema.HEAD not in heads
+E               AssertionError: assert 'vnext_0025_p15_view_stream' not in {'vnext_0001_p03', 'vnext_0002_p03_evidence_authority', 'vnext_0003_p04_knowledge', 'vnext_0004_p04_assessment_visibility', 'vnext_0005_p04_input_freshness', 'vnext_0006_p05_control', ...}
+E                +  where 'vnext_0025_p15_view_stream' = schema.HEAD
+
+tests/vnext/test_session_writer_exit_migration.py:51: AssertionError
+=============================== warnings summary ===============================
+packages/maf-worker/src/wuji_maf_worker/history.py:134
+  /Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/packages/maf-worker/src/wuji_maf_worker/history.py:134: ExperimentalWarning: [HARNESS] AgentFileStore is experimental and may change or be removed in future versions without notice.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/vnext/test_maf_child_transport.py::test_actual_receipt_with_a_wrong_harness_profile_cannot_advance_p05
+FAILED tests/vnext/test_session_writer_exit_migration.py::test_0016_upgrades_both_known_0014_shapes_without_replaying_session_ddl[with_6f_trigger]
+FAILED tests/vnext/test_session_writer_exit_migration.py::test_0016_upgrades_both_known_0014_shapes_without_replaying_session_ddl[without_dd400_trigger]
+3 failed, 532 passed, 1 warning in 888.64s (0:14:48)
+exit=1

@@ -244,11 +244,11 @@ class _WrongProfileReceiptTransport:
         self.delegate = delegate
         self.profile_id = profile_id
 
-    def query(self, operation_id):
-        return self.delegate.query(operation_id)
+    def query(self, operation_id, *, task_id=None):
+        return self.delegate.query(operation_id, task_id=task_id)
 
-    def start(self, assignment, *, profile_id):
-        receipt = self.delegate.start(assignment, profile_id=profile_id)
+    def start(self, assignment, *, profile_id, task_id=None):
+        receipt = self.delegate.start(assignment, profile_id=profile_id, task_id=task_id)
         changed = strict_json_loads(canonical_json_bytes(receipt))
         changed["profile_id"] = self.profile_id
         return changed
