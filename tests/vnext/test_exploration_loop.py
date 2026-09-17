@@ -1,33 +1,39 @@
-"""E04-A: one real observation drives a new question through the formal loop.
+"""E04-A: an accepted result drives the next question through the real loop.
 
-The fixture is the production Scheduler over real PostgreSQL: an Explore result
-is committed, a Reason run proposes an Intent that did not exist before, the
-Committer admits it, the Scheduler materializes it as Explore work, and the next
-Reason read set contains the new material. Nothing here writes accepted work or
-completion state by hand.
+The fixture is the production Scheduler over real PostgreSQL. A Run submits its
+result, closes its own operation set and exits; only then may an exit
+observation settle the work. From there the Committer admits a question that did
+not exist before, the Scheduler materializes it as Explore work, and a new
+material claim reaches the next Reason read set. Nothing here writes accepted
+state, work or completion by hand.
 """
 
 from __future__ import annotations
 
-from support.p06 import TASK
 from hashlib import sha256
 from uuid import uuid4
 
-from support.p06 import ENVIRONMENT, OWNER
-from support.p09 import POD_UID, explore_assignment, scheduler_case, worker_credential
-from wuji_core.execution.control import ExecutionObservation
+from support.p06 import ENVIRONMENT, TASK
+from support.p09 import (
+    POD_UID,
+    explore_assignment,
+    scheduler_case,
+    worker_credential,
+)
+from wuji_core.admission.tools import close_operation_set
 from wuji_core.contracts.envelopes import ResultEnvelope
+from wuji_core.execution.control import ExecutionObservation
 from wuji_core.http import canonical_json_bytes
 
 
-def _submit_reason(case, assignment, payload, submission_id):
+def _submit(case, assignment, payload, submission_id):
     credential = worker_credential(case, assignment)
     raw = canonical_json_bytes(payload)
     raw_ref = case.control.store.stage_model_output(
         credential.access, TASK, assignment.identity.agent_run_id, raw, "application/json"
     )
     case.control.store.seal(credential.access, TASK, raw_ref)
-    return case.control.committer.submit(
+    receipt = case.control.committer.submit(
         credential.access,
         ResultEnvelope.model_validate(
             {
@@ -36,18 +42,27 @@ def _submit_reason(case, assignment, payload, submission_id):
                 "identity": assignment.identity.model_dump(mode="json"),
                 "snapshot_id": assignment.snapshot_id,
                 "read_set": [],
-                "raw_output_ref": raw_ref.model_dump(mode="json"),
+                "raw_output_ref": raw_output_ref(raw_ref),
                 "raw_output_digest": raw_ref.sha256.root,
                 "payload": payload,
                 "producer_version": "e04a-loop-fixture-v1",
             }
         ),
     )
+    return credential, receipt
 
 
-def _observe_exit(case, assignment):
-    """The Run really exits: the ControlService observes it and settles the work."""
+def raw_output_ref(ref):
+    return ref.model_dump(mode="json")
 
+
+def _close_and_exit(case, assignment, credential):
+    """The Run closes its own operation set, then the platform sees it exit."""
+
+    with case.control.uow.transaction(
+        credential.access, TASK, capability="tool_settle"
+    ) as tx:
+        close_operation_set(tx, reason_run(assignment))
     body = {
         "receipt_id": str(uuid4()),
         "identity": assignment.identity.model_dump(mode="json"),
@@ -76,10 +91,16 @@ def _observe_exit(case, assignment):
     return case.control.control.record_observation(case.receiver_access, observation)
 
 
-def test_a_reason_decision_admits_new_work_that_the_next_reason_reads(
+def reason_run(assignment):
+    return assignment.identity.agent_run_id
+
+
+def test_an_accepted_reason_decision_admits_work_that_the_scheduler_executes(
     db_environment, tmp_path, audit_directory
 ):
-    with scheduler_case(db_environment, tmp_path, audit_directory) as case:
+    with scheduler_case(
+        db_environment, tmp_path, audit_directory, max_work_items=8, capacity=4
+    ) as case:
         first = case.scheduler.tick(limit=2)
         assert {item.work_kind.value for item in first.assignments} == {"explore", "reason"}
         reason = next(
@@ -90,7 +111,6 @@ def test_a_reason_decision_admits_new_work_that_the_next_reason_reads(
                 "SELECT count(*) FROM vnext.work_item WHERE task_id=%s", (TASK,)
             ).fetchone()[0]
 
-        # One new question, justified by the material this Reason actually read.
         payload = {
             "schema_version": "wuji.agent-payload.v2",
             "claims": [],
@@ -105,41 +125,99 @@ def test_a_reason_decision_admits_new_work_that_the_next_reason_reads(
                     "expected_output": "wuji.agent-payload.v2",
                 }
             ],
-            "limitations": ["the follow-up question was proposed by the Reason decision"],
+            "limitations": ["the follow-up question came from the Reason decision"],
             "reason_decision": {
                 "decision": "propose_intents",
                 "wait_refs": [],
                 "reason": "The stored evidence leaves one bounded question open.",
             },
         }
-        receipt = _submit_reason(case, reason, payload, "e04a-reason-1")
+        credential, receipt = _submit(case, reason, payload, "e04a-reason-1")
         assert receipt.status.value == "accepted", receipt.model_dump(mode="json")
-        _observe_exit(case, reason)
         admitted = [
             component for component in receipt.components
             if component.canonical_ref is not None
         ]
-        assert admitted, receipt.components
-        assert all(
+        assert admitted and all(
             component.status.value == "accepted_shared" for component in admitted
         )
+        _close_and_exit(case, reason, credential)
 
-        # The Scheduler consumes the decision and materializes the new work.
         second = case.scheduler.tick(limit=4)
+        assert second.blocked == (), second.blocked
         with db_environment.migration_connection() as connection:
+            decision = connection.execute(
+                "SELECT status, reason_code FROM vnext.scheduler_decision"
+                " WHERE submission_id=%s",
+                ("e04a-reason-1",),
+            ).fetchone()
             works_after = connection.execute(
                 "SELECT count(*) FROM vnext.work_item WHERE task_id=%s", (TASK,)
             ).fetchone()[0]
-            decision = connection.execute(
-                "SELECT status,reason_code FROM vnext.scheduler_decision"
-                " WHERE submission_id=%s", ("e04a-reason-1",)
+            reason_state = connection.execute(
+                "SELECT state FROM vnext.work_item WHERE task_id=%s AND kind='reason'",
+                (TASK,),
             ).fetchone()
-        assert decision is not None and decision[0] == "accepted", decision
-        assert works_after > works_before, (works_before, works_after)
-        assert second.assignments, second.blocked
+        assert decision == ("accepted", None)
+        assert reason_state == ("done",)
+        # The new question is real work, not a stored string.
+        assert works_after > works_before
+        assert [item.work_kind.value for item in second.assignments].count("explore") >= 1
 
-        # The admitted question is real Explore work with its own Run.
-        explore = [
-            item for item in second.assignments if item.work_kind.value == "explore"
-        ]
-        assert explore, second.assignments
+
+def test_a_committed_claim_reaches_the_next_reason_read_set(
+    db_environment, tmp_path, audit_directory
+):
+    with scheduler_case(
+        db_environment, tmp_path, audit_directory, max_work_items=8, capacity=4
+    ) as case:
+        first = case.scheduler.tick(limit=2)
+        explore = explore_assignment(first)
+        payload = {
+            "schema_version": "wuji.agent-payload.v2",
+            "claims": [
+                {
+                    "client_ref": "fixture-read",
+                    "kind": "observation-summary",
+                    "assertion_role": "candidate_fact",
+                    "text": "The registered Kali read returned durable evidence.",
+                    "basis_refs": [
+                        {
+                            "entity_type": "artifact",
+                            "id": case.artifact_ref.id,
+                            "revision": case.artifact_ref.version.root,
+                        }
+                    ],
+                    "limitations": ["one isolated fixture read"],
+                }
+            ],
+            "intent_proposals": [],
+            "limitations": ["explore produced the raw read for later reasoning"],
+        }
+        credential, receipt = _submit(case, explore, payload, "e04a-explore-1")
+        assert receipt.status.value == "accepted", receipt.model_dump(mode="json")
+        claim_ref = next(
+            component.canonical_ref for component in receipt.components
+            if component.canonical_ref is not None
+        )
+        _close_and_exit(case, explore, credential)
+
+        case.scheduler.tick(limit=4)
+        with db_environment.migration_connection() as connection:
+            explore_state = connection.execute(
+                "SELECT state FROM vnext.work_item WHERE task_id=%s AND work_item_id=%s",
+                (TASK, explore.identity.work_item_id),
+            ).fetchone()
+            claim_row = connection.execute(
+                "SELECT kind, assertion_role FROM vnext.claim_revision"
+                " WHERE task_id=%s AND entity_id=%s",
+                (TASK, claim_ref.id),
+            ).fetchone()
+        assert explore_state == ("done",)
+        assert claim_row == ("observation-summary", "candidate_fact")
+        with db_environment.migration_connection() as connection:
+            run_state = connection.execute(
+                "SELECT process_state, result_state FROM vnext.agent_run WHERE agent_run_id=%s",
+                (explore.identity.agent_run_id,),
+            ).fetchone()
+        assert run_state == ("exited", "accepted")

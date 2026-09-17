@@ -111,3 +111,10 @@
 1. **worker lock 变更 → 新 Task prepare 永久失败**：已加 `preflight.worker_lock` + owner `--phase relock`（本次发布 `k8s-runtime-v1` rev4）。
 2. **共享 runtime ConfigMap 混入两个 Worker lock → runtime 启动即失败**：`wire` 现在按 lock 退休旧条目（`replace_runtime_profiles`，`pruned:N`），不再让两种 lock 共存。
 3. **每 Task Service 证书缺本 Task DNS 名 → runtime 到 supervisor 的 HTTPS 投递 `URLError`**：现场把模板 Task secret 更新为带 `*.wuji-vnext-test.svc` 的证书后新建 Task 一次成功；**`rotate-task-certs` 仍不会自动更新模板 secret，这是下一项最小工作**。
+
+### E04-A（部分交付）：结果结算后驱动下一步
+
+- `tests/vnext/test_exploration_loop.py`（2 项，真实 PostgreSQL + 生产 Scheduler）：
+  1. Run 提交结果、关闭自己的操作集、平台观察到退出 → work 才结算为 `done`；Committer 接纳 Reason 提出的**新问题**（`accepted_shared`），Scheduler 记录 `scheduler_decision=accepted` 并把该 Intent 物化成新的 Explore work（`max_work_items` 足够时不再被上限挡住）。
+  2. Explore 的候选 Claim 被接纳并持久化（`claim_revision` 行、work `done`、run `exited/accepted`）。
+- 未完成：**新 Claim 进入下一次 Reason read_set** 尚未通过；`scheduler_progress` 本轮实测没有 material 行，需要单独核对 `_progress` 的触发条件（下一项最小工作）。
