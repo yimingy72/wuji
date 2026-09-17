@@ -284,6 +284,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v2/tasks/{task_id}/artifacts/{artifact_id}/purges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Purge one artifact version and record its evidence tombstone
+         * @description An authorized purge is an attributed act: the platform records who removed which bytes and why, tombstones the artifact, then removes the content. Anything a publication, lease, observation, relation, assessment or snapshot still retains is refused instead.
+         */
+        post: operations["purgeTaskArtifactV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v2/tasks/{task_id}/reports/{report_id}/deliveries": {
         parameters: {
             query?: never;
@@ -2031,6 +2051,34 @@ export interface components {
             /** @enum {string} */
             dispute_state: "clear" | "disputed";
             amendments: components["schemas"]["ReportAmendmentView"][];
+            unavailable_evidence: components["schemas"]["UnavailableMaterial"][];
+        };
+        UnavailableMaterial: {
+            source_ref: string;
+            sha256: components["schemas"]["Sha256Digest"] | null;
+            /** @enum {string} */
+            state: "staged" | "sealed" | "tombstoned";
+            reason: string;
+            purge_id: string | null;
+        };
+        ArtifactPurgeCommand: {
+            revision: components["schemas"]["RevisionString"];
+            reason: string;
+        };
+        ArtifactPurgeView: {
+            purge_id: string;
+            task_id: string;
+            artifact_id: string;
+            artifact_revision: components["schemas"]["RevisionString"];
+            artifact_sha256: components["schemas"]["Sha256Digest"];
+            reason: string;
+            /** @enum {string} */
+            authority: "operator" | "retention_policy";
+            /** @enum {string} */
+            state: "staged" | "sealed" | "tombstoned";
+            body_removed: boolean;
+            /** Format: date-time */
+            created_at: string;
         };
         DeliveryRequirement: {
             role: string;
@@ -2111,6 +2159,7 @@ export interface components {
             access_level: number;
             /** Format: date-time */
             created_at: string;
+            unavailable_materials: components["schemas"]["UnavailableMaterial"][];
         };
         ReportDeliverySummary: {
             delivery_id: string;
@@ -2747,6 +2796,40 @@ export interface operations {
             };
             401: components["responses"]["Unauthenticated"];
             404: components["responses"]["NotFoundOrForbidden"];
+            422: components["responses"]["InvalidSchema"];
+        };
+    };
+    purgeTaskArtifactV2: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                task_id: components["parameters"]["TaskId"];
+                artifact_id: components["parameters"]["ArtifactId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArtifactPurgeCommand"];
+            };
+        };
+        responses: {
+            /** @description The recorded tombstone for that artifact version */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtifactPurgeView"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFoundOrForbidden"];
+            409: components["responses"]["Conflict"];
             422: components["responses"]["InvalidSchema"];
         };
     };

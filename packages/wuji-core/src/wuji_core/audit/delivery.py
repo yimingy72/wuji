@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from hashlib import sha256
 import re
 
+from wuji_core.audit.retention import unavailable_materials
 from wuji_core.completion import platform_errors
 from wuji_core.http import canonical_json_bytes, strict_json_loads
 from wuji_core.persistence.uow import DomainError
@@ -437,6 +438,7 @@ class ReportDeliveryService:
         ).fetchone()
         if record is None:
             raise DomainError("NOT_FOUND_OR_FORBIDDEN")
+        manifest = strict_json_loads(record[9]) if record[9] is not None else None
         return {
             "delivery_id": record[0],
             "task_id": tx.owner[2],
@@ -448,7 +450,12 @@ class ReportDeliveryService:
             "state": record[6],
             "mode": record[7],
             "missing": strict_json_loads(record[8]) if record[8] is not None else [],
-            "manifest": strict_json_loads(record[9]) if record[9] is not None else None,
+            "manifest": manifest,
+            # The frozen manifest keeps every digest; availability is a read
+            # fact, so a purge can never rewrite what was delivered.
+            "unavailable_materials": list(
+                unavailable_materials(tx, (manifest or {}).get("materials"))
+            ),
             "manifest_digest": record[10],
             "exchange": strict_json_loads(record[11]) if record[11] is not None else None,
             "error_code": record[12],

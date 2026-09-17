@@ -9,9 +9,10 @@ touches the frozen body, never reopens the Task and never creates ready work
 
 from dataclasses import dataclass
 
+from wuji_core.audit.retention import unavailable_materials
 from wuji_core.completion import platform_errors
 from wuji_core.contracts.envelopes import BlobRef
-from wuji_core.http import canonical_json_bytes
+from wuji_core.http import canonical_json_bytes, strict_json_loads
 from wuji_core.persistence.uow import DomainError
 
 CONTROL_ROLES = frozenset({"controller", "reconciler"})
@@ -227,11 +228,27 @@ class ReportService:
             if commit is None:
                 return None
             amendments = tx.connection.execute(
-                "SELECT amendment_id,reason,authority,source_receipt_json FROM vnext.report_amendment"
+                "SELECT amendment_id,reason,authority,source_receipt_json,evidence_json"
+                " FROM vnext.report_amendment"
                 " WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND report_id=%s"
                 " ORDER BY amendment_id",
                 (*tx.owner, report_key),
             ).fetchall()
+            cited = []
+            for row in amendments:
+                evidence = strict_json_loads(row[4])
+                for item in evidence.get("evidence", []):
+                    ref = item.get("ref") if isinstance(item, dict) else None
+                    if not isinstance(ref, dict):
+                        continue
+                    cited.append(
+                        {
+                            "source": "artifact",
+                            "source_ref": f"{ref.get('id')}@{ref.get('version')}",
+                            "sha256": ref.get("sha256"),
+                        }
+                    )
+            unavailable = unavailable_materials(tx, cited)
         return {
             "body": commit[0],
             "body_digest": commit[1],
@@ -240,4 +257,5 @@ class ReportService:
             "result_outcome": commit[4],
             "epoch_id": commit[5],
             "amendments": tuple(amendments),
+            "unavailable_evidence": unavailable,
         }

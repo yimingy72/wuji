@@ -329,6 +329,30 @@ class ArchiveView(BaseModel):
     executable: Literal[False]
 
 
+class ArtifactPurgeCommand(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    revision: RevisionString
+    reason: Annotated[StrictStr, Field(max_length=2048, min_length=1)]
+
+
+class ArtifactPurgeView(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    purge_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    task_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    artifact_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    artifact_revision: RevisionString
+    artifact_sha256: Sha256Digest
+    reason: Annotated[StrictStr, Field(max_length=2048, min_length=1)]
+    authority: Authority1
+    state: State1
+    body_removed: StrictBool
+    created_at: AwareDatetime
+
+
 class ArtifactRecord(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -400,6 +424,11 @@ class AssignmentSchemaVersion(RootModel[Literal['wuji.assignment.v2']]):
 class Authority(StrEnum):
     assessor = 'assessor'
     controller = 'controller'
+
+
+class Authority1(StrEnum):
+    operator = 'operator'
+    retention_policy = 'retention_policy'
 
 
 class AuthorizationScopeEntry(BaseModel):
@@ -884,6 +913,13 @@ class ErrorCode2(StrEnum):
     INVALID_SCHEMA_VERSION = 'INVALID_SCHEMA_VERSION'
     LIMIT_BLOCKED = 'LIMIT_BLOCKED'
     CAPABILITY_UNAVAILABLE = 'CAPABILITY_UNAVAILABLE'
+    COMPLETION_EPOCH_ABSENT = 'COMPLETION_EPOCH_ABSENT'
+    COMPLETION_PRECHECK_INCOMPLETE = 'COMPLETION_PRECHECK_INCOMPLETE'
+    COMPLETION_EPOCH_UNSETTLED = 'COMPLETION_EPOCH_UNSETTLED'
+    COMPLETION_NOT_CLOSED = 'COMPLETION_NOT_CLOSED'
+    DELIVERY_EXCHANGE_REQUIRED = 'DELIVERY_EXCHANGE_REQUIRED'
+    DELIVERY_TOO_LARGE = 'DELIVERY_TOO_LARGE'
+    DELIVERY_COMMIT_CORRUPT = 'DELIVERY_COMMIT_CORRUPT'
 
 
 class ErrorCode3(RootModel[StrictStr]):
@@ -1496,6 +1532,10 @@ class Protocol(StrEnum):
     https = 'https'
 
 
+class PurgeId(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+
+
 class Reason(RootModel[StrictStr]):
     root: Annotated[StrictStr, Field(max_length=128, min_length=1)]
 
@@ -1584,7 +1624,7 @@ class ReportDeliveryManifest(BaseModel):
     epoch_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
     profile: DeliveryProfile
     mode: Mode
-    state: State1
+    state: State3
     requirements: Annotated[list[DeliveryRequirementReport], Field(max_length=32)]
     materials: Annotated[list[DeliveryMaterial], Field(max_length=501)]
     missing: Annotated[list[DeliveryMissing], Field(max_length=32)]
@@ -1605,7 +1645,7 @@ class ReportDeliverySummary(BaseModel):
     report_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
     profile_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
     mode: Mode
-    state: State2
+    state: State4
     missing_required: Annotated[StrictInt, Field(ge=0)]
     error_code: ErrorCode3 | None
     created_at: AwareDatetime
@@ -1622,7 +1662,7 @@ class ReportDeliveryView(BaseModel):
     epoch_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
     profile: DeliveryProfile
     profile_digest: Sha256Digest
-    state: State2
+    state: State4
     mode: Mode
     missing: Annotated[list[DeliveryMissing], Field(max_length=32)]
     manifest: ReportDeliveryManifest | None
@@ -1631,6 +1671,7 @@ class ReportDeliveryView(BaseModel):
     error_code: ErrorCode3 | None
     access_level: Annotated[StrictInt, Field(ge=0)]
     created_at: AwareDatetime
+    unavailable_materials: Annotated[list[UnavailableMaterial], Field(max_length=200)]
 
 
 class ReportSummary(BaseModel):
@@ -1659,6 +1700,7 @@ class ReportView(BaseModel):
     body_digest: Sha256Digest
     dispute_state: DisputeState
     amendments: Annotated[list[ReportAmendmentView], Field(max_length=4096)]
+    unavailable_evidence: Annotated[list[UnavailableMaterial], Field(max_length=200)]
 
 
 class ResourceKey(RootModel[StrictStr]):
@@ -1870,11 +1912,17 @@ class State(RootModel[StrictStr]):
 
 
 class State1(StrEnum):
+    staged = 'staged'
+    sealed = 'sealed'
+    tombstoned = 'tombstoned'
+
+
+class State3(StrEnum):
     ready = 'ready'
     incomplete = 'incomplete'
 
 
-class State2(StrEnum):
+class State4(StrEnum):
     delivery_pending = 'delivery_pending'
     ready = 'ready'
     incomplete = 'incomplete'
@@ -2195,6 +2243,17 @@ class TopologySnapshot(_JsonSchemaRuntimeValidationBase):
     truncated: StrictBool
     continuation: Continuation | None
     allowed_actions: list[AllowedAction]
+
+
+class UnavailableMaterial(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    source_ref: Annotated[StrictStr, Field(max_length=512, min_length=1)]
+    sha256: Sha256Digest | None
+    state: State1
+    reason: Annotated[StrictStr, Field(max_length=2048, min_length=1)]
+    purge_id: PurgeId | None
 
 
 class UnsettledRun(RootModel[StrictStr]):

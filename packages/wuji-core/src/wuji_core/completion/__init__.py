@@ -23,6 +23,10 @@ def platform_errors():
         raise DomainError("INPUT_DIGEST_CONFLICT", 409) from error
     except psycopg.errors.InvalidParameterValue as error:
         raise DomainError("INVALID_SCHEMA", 422) from error
+    except psycopg.errors.CheckViolation as error:
+        # A retention or immutability guard refused the mutation: that is a
+        # bounded refusal, not an outage.
+        raise DomainError("LIMIT_BLOCKED", 409) from error
     except (
         psycopg.errors.ObjectNotInPrerequisiteState,
         psycopg.errors.SerializationFailure,

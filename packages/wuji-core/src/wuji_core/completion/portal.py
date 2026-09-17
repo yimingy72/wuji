@@ -125,6 +125,16 @@ class TaskCompletionPortal:
                 }
                 for item in stored["amendments"]
             ],
+            "unavailable_evidence": [
+                {
+                    "source_ref": item["source_ref"],
+                    "sha256": item.get("sha256"),
+                    "state": item["state"],
+                    "reason": item["reason"],
+                    "purge_id": item["purge_id"],
+                }
+                for item in stored["unavailable_evidence"]
+            ],
         }
 
     # ---- the product action ---------------------------------------------

@@ -18,15 +18,18 @@ import pytest
 from support.http_capture import RecordedTestClient
 from support.p03 import access
 from test_completion_portal import portal, ready_goal
-from test_completion_protocol import WORKER
+from test_completion_protocol import ASSESSOR, WORKER
 from test_work_state_guards import OPERATOR, OWNER, TASK, control_case
 from wuji_core.audit.delivery import (
     PROFILE_SCHEMA,
     REPORT_MEDIA_TYPE,
     ReportDeliveryService,
 )
+from wuji_core.audit.retention import RetentionService
+from wuji_core.completion.reports import ReportService
 from wuji_core.http import create_app
 from wuji_core.http.delivery import create_delivery_router
+from wuji_core.http.retention import create_retention_router
 from wuji_core.persistence.uow import DomainError
 
 PNG = b"\x89PNG\r\n\x1a\nfixture-screenshot-bytes"
@@ -436,5 +439,353 @@ def test_the_signed_http_routes_record_list_and_read_one_delivery(
             )
             assert http_refused.status_code == 409, http_refused.text
             assert http_refused.json()["code"] == "DELIVERY_EXCHANGE_REQUIRED"
+        finally:
+            client.close()
+
+
+# ---- P16-B: retention, purge and the tombstone a reader can see -------------
+
+SENSITIVE = b"fixture-sensitive-bytes-must-not-survive-purge"
+SENSITIVE_TYPE = "text/x-fixture-sensitive"
+
+
+def allow_retention(case, *, subject="operator-fixture"):
+    """Grant the fixture operator the retention permission this test exercises."""
+
+    with case.env.migration_connection() as connection:
+        connection.execute(
+            "UPDATE vnext.task_access SET can_gc=true"
+            " WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND subject=%s",
+            (*OWNER, subject),
+        )
+
+
+def purgeable_artifact(case, body=SENSITIVE, media_type=SENSITIVE_TYPE):
+    """A sealed artifact of this Task that no publication or relation retains.
+
+    Sealing alone keeps the staging lease, and a live lease is a commitment:
+    the stager therefore releases it here exactly as a completed commit does.
+    """
+
+    staged = case.store.stage_model_output(
+        WORKER, TASK, "run-fixture", body, media_type, access_level=1
+    )
+    case.store.seal(WORKER, TASK, staged)
+    case.store.release_lease(WORKER, TASK, staged, lease_owner="staging")
+    return staged
+
+
+def publish_fixture(case, ref, *, publication_id="publication-fixture"):
+    """Record a real publication reference (fixture header, not a claim)."""
+
+    with case.env.migration_connection() as connection:
+        connection.execute(
+            "INSERT INTO vnext.publication(tenant_id,project_id,task_id,publication_id,kind)"
+            " VALUES(%s,%s,%s,%s,'session')",
+            (*OWNER, publication_id),
+        )
+        connection.execute(
+            "INSERT INTO vnext.publication_ref(tenant_id,project_id,task_id,publication_id,"
+            "artifact_id,artifact_revision,access_level) VALUES(%s,%s,%s,%s,%s,1,1)",
+            (*OWNER, publication_id, ref.id),
+        )
+
+
+def artifact_row(case, artifact_id):
+    with case.env.migration_connection() as connection:
+        return connection.execute(
+            "SELECT state,body_removed,access_level,storage_key,sha256 FROM vnext.artifact"
+            " WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND entity_id=%s AND revision=1",
+            (*OWNER, artifact_id),
+        ).fetchone()
+
+
+def purge_rows(case):
+    with case.env.migration_connection() as connection:
+        return connection.execute(
+            "SELECT purge_id,artifact_id,reason,authority FROM vnext.artifact_purge"
+            " WHERE tenant_id=%s AND project_id=%s AND task_id=%s ORDER BY created_at",
+            OWNER,
+        ).fetchall()
+
+
+def test_purge_leaves_an_explicit_tombstone_and_the_frozen_report_stays_honest(
+    db_environment, tmp_path, audit_directory
+):
+    """AC-067: the bytes go, the record of their absence stays."""
+
+    with control_case(db_environment, tmp_path, audit_directory) as case:
+        ready_goal(case)
+        report = closed_report(case)
+        sealed = purgeable_artifact(case)
+        ReportService(case.uow, artifacts=case.store).amend(
+            ASSESSOR,
+            TASK,
+            report_key=report["report_id"],
+            amendment_key="amendment-purge",
+            reason="late counter-evidence that must be preserved as a record",
+            evidence_refs=[sealed.model_dump(mode="json")],
+        )
+        allow_retention(case)
+        blob = case.store.root / (str(artifact_row(case, sealed.id)[3]) + ".blob")
+        assert blob.exists()
+
+        receipt = RetentionService(case.uow, artifacts=case.store).purge(
+            OPERATOR,
+            TASK,
+            artifact_id=sealed.id,
+            revision=1,
+            reason="approved_retention_action",
+            purge_key="purge-1",
+        )
+        assert receipt.document["state"] == "tombstoned"
+        assert receipt.document["body_removed"] is True
+        assert receipt.document["artifact_sha256"] == sha256(SENSITIVE).hexdigest()
+        assert receipt.document["authority"] == "operator"
+        assert not blob.exists(), "the bytes must actually be gone"
+        assert artifact_row(case, sealed.id)[:2] == ("tombstoned", True)
+        assert purge_rows(case) == [
+            ("purge-1", sealed.id, "approved_retention_action", "operator")
+        ]
+
+        # The content is unreadable, and nothing re-collected or repaired it.
+        with pytest.raises(DomainError):
+            case.store.read(WORKER, sealed.id, str(sealed.version.root))
+
+        stored = portal(case).read_report(OPERATOR, TASK, report["report_id"])
+        assert stored["body_digest"] == report["body_digest"], "正文摘要不变"
+        assert stored["unavailable_evidence"] == [
+            {
+                "source_ref": f"{sealed.id}@1",
+                "sha256": sha256(SENSITIVE).hexdigest(),
+                "state": "tombstoned",
+                "reason": "approved_retention_action",
+                "purge_id": "purge-1",
+            }
+        ]
+
+        # Purging the same version again is a bounded refusal, not a second act.
+        with pytest.raises(DomainError) as again:
+            RetentionService(case.uow, artifacts=case.store).purge(
+                OPERATOR,
+                TASK,
+                artifact_id=sealed.id,
+                revision=1,
+                reason="approved_retention_action",
+                purge_key="purge-2",
+            )
+        assert again.value.code == "STALE_EXECUTION"
+
+
+def test_a_retained_artifact_is_never_purged(db_environment, tmp_path, audit_directory):
+    """AC-066 boundary: a published reference protects the bytes."""
+
+    with control_case(db_environment, tmp_path, audit_directory) as case:
+        ready_goal(case)
+        sealed = purgeable_artifact(case)
+        allow_retention(case)
+        publish_fixture(case, sealed)
+        blob = case.store.root / (str(artifact_row(case, sealed.id)[3]) + ".blob")
+        with pytest.raises(DomainError) as refused:
+            RetentionService(case.uow, artifacts=case.store).purge(
+                OPERATOR,
+                TASK,
+                artifact_id=sealed.id,
+                revision=1,
+                reason="approved_retention_action",
+                purge_key="purge-published",
+            )
+        assert refused.value.code == "LIMIT_BLOCKED"
+        assert refused.value.status == 409
+        assert artifact_row(case, sealed.id)[:2] == ("sealed", False)
+        assert purge_rows(case) == []
+        assert blob.exists(), "a retained reference keeps its bytes"
+
+        # Nobody may purge without both the retention and the control bit.
+        with case.env.migration_connection() as connection:
+            connection.execute(
+                "UPDATE vnext.task_access SET can_gc=false"
+                " WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND subject='operator-fixture'",
+                OWNER,
+            )
+        with pytest.raises(DomainError) as forbidden:
+            RetentionService(case.uow, artifacts=case.store).purge(
+                OPERATOR,
+                TASK,
+                artifact_id=sealed.id,
+                revision=1,
+                reason="approved_retention_action",
+                purge_key="purge-without-retention",
+            )
+        assert forbidden.value.code == "NOT_FOUND_OR_FORBIDDEN"
+        assert purge_rows(case) == []
+
+
+def test_garbage_collection_keeps_committed_evidence_and_collects_true_orphans(
+    db_environment, tmp_path, audit_directory
+):
+    """AC-066: staged orphans go, published and leased objects stay."""
+
+    from datetime import datetime, timezone
+
+    with control_case(db_environment, tmp_path, audit_directory) as case:
+        ready_goal(case)
+        allow_retention(case)
+        # A staging attempt that gave up: the lease is released, nothing else
+        # references the object, so it is a true orphan.
+        orphan = case.store.stage_model_output(
+            WORKER, TASK, "run-fixture", b"orphan-bytes", "application/json",
+            access_level=1,
+        )
+        case.store.release_lease(WORKER, TASK, orphan, lease_owner="staging")
+        published = purgeable_artifact(case)
+        leased = purgeable_artifact(case, body=b"leased-bytes")
+        case.store.acquire_lease(
+            WORKER, TASK, leased, lease_owner="publisher-fixture", seconds=300
+        )
+        publish_fixture(case, published)
+        orphan_blob = case.store.root / (str(artifact_row(case, orphan.id)[3]) + ".blob")
+        published_blob = case.store.root / (str(artifact_row(case, published.id)[3]) + ".blob")
+        leased_blob = case.store.root / (str(artifact_row(case, leased.id)[3]) + ".blob")
+
+        removed = case.store.collect_garbage(
+            OPERATOR, TASK, older_than=datetime.now(timezone.utc), limit=10
+        )
+        assert removed == [orphan.id]
+        assert not orphan_blob.exists()
+        assert artifact_row(case, orphan.id)[:2] == ("tombstoned", True)
+        assert published_blob.exists() and leased_blob.exists()
+        assert artifact_row(case, published.id)[:2] == ("sealed", False)
+        assert artifact_row(case, leased.id)[:2] == ("sealed", False)
+        # A collected orphan has no purge record: it was never a decision.
+        assert purge_rows(case) == []
+
+
+def test_a_purged_material_stays_indexed_but_reads_as_unavailable(
+    db_environment, tmp_path, audit_directory
+):
+    """AC-067: the delivery keeps its digest and stops claiming the bytes."""
+
+    with control_case(db_environment, tmp_path, audit_directory) as case:
+        ready_goal(case)
+        report = closed_report(case)
+        sealed = purgeable_artifact(case)
+        allow_retention(case)
+        declared = profile(
+            body_requirement(),
+            {
+                "role": "sensitive",
+                "media_type": SENSITIVE_TYPE,
+                "min_count": 1,
+                "required": True,
+            },
+        )
+        deliveries = service(case)
+        receipt = deliveries.deliver(
+            OPERATOR, TASK, report_key=report["report_id"],
+            delivery_key="delivery-before-purge", profile=declared,
+        )
+        assert receipt.state == "ready"
+        indexed = [
+            item
+            for item in receipt.document["manifest"]["materials"]
+            if item["source"] == "artifact"
+        ]
+        assert [item["source_ref"] for item in indexed] == [f"{sealed.id}@1"]
+
+        RetentionService(case.uow, artifacts=case.store).purge(
+            OPERATOR,
+            TASK,
+            artifact_id=sealed.id,
+            revision=1,
+            reason="approved_retention_action",
+            purge_key="purge-delivery",
+        )
+        after = deliveries.read(
+            OPERATOR, TASK, report["report_id"], receipt.delivery_id
+        )
+        assert after["manifest_digest"] == receipt.document["manifest_digest"]
+        assert after["state"] == "ready", "the frozen decision is never rewritten"
+        assert after["unavailable_materials"] == [
+            {
+                "source_ref": f"{sealed.id}@1",
+                "sha256": sha256(SENSITIVE).hexdigest(),
+                "state": "tombstoned",
+                "reason": "approved_retention_action",
+                "purge_id": "purge-delivery",
+            }
+        ]
+        listed = deliveries.list(OPERATOR, TASK, report["report_id"])
+        assert listed[0]["unavailable_materials"] == after["unavailable_materials"]
+
+
+def test_the_signed_purge_route_records_a_bounded_tombstone(
+    db_environment, tmp_path, audit_directory
+):
+    """AC-067 through the product boundary: purge, replay, refuse, refuse."""
+
+    with control_case(db_environment, tmp_path, audit_directory) as case:
+        ready_goal(case)
+        sealed = purgeable_artifact(case)
+        allow_retention(case)
+        token = case.provider.issue(
+            subject="operator-fixture", tenant_id=OWNER[0], roles=["operator"]
+        )
+        client = RecordedTestClient(
+            create_app(
+                token_verifier=case.verifier,
+                routers=[
+                    create_retention_router(
+                        RetentionService(case.uow, artifacts=case.store)
+                    )
+                ],
+            ),
+            audit_path=audit_directory / "artifact-purge-http.jsonl",
+        )
+        headers = {"Authorization": "Bearer " + token}
+        path = f"/api/v2/tasks/{TASK}/artifacts/{sealed.id}/purges"
+        body = {"revision": str(sealed.version.root), "reason": "approved_retention_action"}
+        key = str(uuid4())
+        try:
+            purged = client.post(path, json=body, headers={**headers, "Idempotency-Key": key})
+            assert purged.status_code == 200, purged.text
+            document = purged.json()
+            assert document["state"] == "tombstoned"
+            assert document["body_removed"] is True
+            assert document["authority"] == "operator"
+            assert document["reason"] == "approved_retention_action"
+            assert document["artifact_revision"] == str(sealed.version.root)
+
+            replay = client.post(path, json=body, headers={**headers, "Idempotency-Key": key})
+            assert replay.status_code == 200, replay.text
+            assert replay.json()["purge_id"] == document["purge_id"]
+
+            again = client.post(
+                path,
+                json=body,
+                headers={**headers, "Idempotency-Key": str(uuid4())},
+            )
+            assert again.status_code == 409, again.text
+            assert again.json()["code"] == "STALE_EXECUTION"
+
+            assert client.post(
+                path,
+                json=body,
+                headers={**headers, "Idempotency-Key": str(uuid4())},
+            ).status_code == 409
+            assert client.post(
+                path,
+                json=body,
+                headers={
+                    "Authorization": "Bearer " + case.tokens.reader,
+                    "Idempotency-Key": str(uuid4()),
+                },
+            ).status_code == 404
+            assert client.post(path, json=body, headers=headers).status_code == 422
+            assert client.post(
+                path,
+                json={"revision": "0", "reason": "approved_retention_action"},
+                headers={**headers, "Idempotency-Key": str(uuid4())},
+            ).status_code == 422
         finally:
             client.close()

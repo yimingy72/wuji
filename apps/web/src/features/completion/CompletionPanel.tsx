@@ -458,6 +458,19 @@ export function CompletionPanel({ taskId, onChanged }: CompletionPanelProps) {
                       ))}
                     </div>
                   )}
+                  {report.unavailable_evidence.length > 0 && (
+                    <div className={styles.completionAmendments}>
+                      {report.unavailable_evidence.map((item) => (
+                        <Alert
+                          key={`unavailable-${item.source_ref}`}
+                          showIcon
+                          type="error"
+                          title={`证据已不可用 · ${item.source_ref}`}
+                          description={`原因：${item.reason}（内容已移除，摘要保留为 ${item.sha256 ?? '未知'}）`}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </>
               )}
               <div className={styles.completionDelivery}>
@@ -543,6 +556,15 @@ export function CompletionPanel({ taskId, onChanged }: CompletionPanelProps) {
                         type="warning"
                         title={`缺少必需材料 · ${item.role}`}
                         description={`需要 ${item.min_count} 份 ${item.media_type}，当前 ${item.present_count} 份。`}
+                      />
+                    ))}
+                    {delivery.unavailable_materials.map((item) => (
+                      <Alert
+                        key={`unavailable-${item.source_ref}`}
+                        showIcon
+                        type="error"
+                        title={`交付材料已不可用 · ${item.source_ref}`}
+                        description={`原因：${item.reason}；清单摘要不变，内容不可读取。`}
                       />
                     ))}
                   </>

@@ -469,6 +469,22 @@ class ArtifactStore:
                 (*tx.owner, ref.id, ref.version.root, lease_owner),
             )
 
+    def remove_bytes(self, record):
+        """Unlink the exact bytes of a tombstoned artifact; metadata is untouched.
+
+        Called after the row was already marked ``tombstoned``, so an
+        interrupted removal leaves inaccessible bytes for a retry instead of a
+        published reference whose content disappeared behind a live metadata
+        row.
+        """
+
+        self._path(record).unlink(missing_ok=True)
+        fd = os.open(self.root, os.O_RDONLY)
+        try:
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+
     def collect_garbage(self, access, task_id, *, older_than, limit=100):
         if (
             older_than.tzinfo is None
@@ -495,13 +511,8 @@ class ArtifactStore:
         # Mark first, then remove: interruption leaves an inaccessible object for retry,
         # never a published reference whose bytes were removed before a failed commit.
         for candidate in candidates:
-            self._path(candidate).unlink(missing_ok=True)
+            self.remove_bytes(candidate)
         if candidates:
-            fd = os.open(self.root, os.O_RDONLY)
-            try:
-                os.fsync(fd)
-            finally:
-                os.close(fd)
             with self.uow.transaction(access, task_id, capability="gc") as tx:
                 for candidate in candidates:
                     tx.connection.execute(

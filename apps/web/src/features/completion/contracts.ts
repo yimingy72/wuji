@@ -42,6 +42,14 @@ export interface TaskCompletionView {
   readonly report: ReportSummary | null;
 }
 
+export interface UnavailableMaterial {
+  readonly source_ref: string;
+  readonly sha256: string | null;
+  readonly state: string;
+  readonly reason: string;
+  readonly purge_id: string | null;
+}
+
 export interface ReportAmendmentView {
   readonly amendment_id: string;
   readonly reason: string;
@@ -59,6 +67,7 @@ export interface ReportView {
   readonly body_digest: string;
   readonly dispute_state: DisputeState;
   readonly amendments: readonly ReportAmendmentView[];
+  readonly unavailable_evidence: readonly UnavailableMaterial[];
 }
 
 export type DeliveryState = 'delivery_pending' | 'ready' | 'incomplete' | 'failed';
@@ -141,6 +150,7 @@ export interface ReportDeliveryView {
   readonly error_code: string | null;
   readonly access_level: number;
   readonly created_at: string;
+  readonly unavailable_materials: readonly UnavailableMaterial[];
 }
 
 export interface CompletionCommandBody {
@@ -407,6 +417,7 @@ export function parseReportDeliveryView(value: unknown): ReportDeliveryView {
     || !(value.error_code === null || isText(value.error_code))
     || typeof value.access_level !== 'number'
     || !isText(value.created_at)
+    || !Array.isArray(value.unavailable_materials)
   ) {
     throw new Error('交付响应不符合固定契约');
   }
@@ -415,6 +426,7 @@ export function parseReportDeliveryView(value: unknown): ReportDeliveryView {
     profile: parseDeliveryProfile(value.profile),
     missing: value.missing.map(parseDeliveryMissing),
     manifest: value.manifest === null ? null : parseDeliveryManifest(value.manifest),
+    unavailable_materials: value.unavailable_materials.map(parseUnavailableMaterial),
   };
 }
 
@@ -444,6 +456,20 @@ export function deliveriesRequestPath(taskId: string, reportId: string): string 
   )}/deliveries`;
 }
 
+function parseUnavailableMaterial(value: unknown): UnavailableMaterial {
+  if (
+    !isRecord(value)
+    || !isText(value.source_ref)
+    || !(value.sha256 === null || isText(value.sha256))
+    || !isText(value.state)
+    || !isText(value.reason)
+    || !(value.purge_id === null || isText(value.purge_id))
+  ) {
+    throw new Error('交付响应不符合固定契约');
+  }
+  return value as unknown as UnavailableMaterial;
+}
+
 export function parseReportView(value: unknown): ReportView {
   if (
     !isRecord(value)
@@ -456,6 +482,7 @@ export function parseReportView(value: unknown): ReportView {
     || !isText(value.body_digest)
     || !DISPUTES.includes(value.dispute_state as string)
     || !Array.isArray(value.amendments)
+    || !Array.isArray(value.unavailable_evidence)
   ) {
     throw new Error('报告响应不符合固定契约');
   }
@@ -471,5 +498,9 @@ export function parseReportView(value: unknown): ReportView {
     }
     return item as unknown as ReportAmendmentView;
   });
-  return { ...(value as unknown as ReportView), amendments };
+  return {
+    ...(value as unknown as ReportView),
+    amendments,
+    unavailable_evidence: value.unavailable_evidence.map(parseUnavailableMaterial),
+  };
 }

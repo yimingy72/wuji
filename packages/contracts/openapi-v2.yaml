@@ -408,6 +408,38 @@ paths:
         '401': {$ref: '#/components/responses/Unauthenticated'}
         '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
         '422': {$ref: '#/components/responses/InvalidSchema'}
+  /api/v2/tasks/{task_id}/artifacts/{artifact_id}/purges:
+    post:
+      operationId: purgeTaskArtifactV2
+      summary: Purge one artifact version and record its evidence tombstone
+      description: >-
+        An authorized purge is an attributed act: the platform records who
+        removed which bytes and why, tombstones the artifact, then removes the
+        content. Anything a publication, lease, observation, relation,
+        assessment or snapshot still retains is refused instead.
+      tags: [Tasks]
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+        - $ref: '#/components/parameters/ArtifactId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArtifactPurgeCommand'
+      responses:
+        '200':
+          description: The recorded tombstone for that artifact version
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArtifactPurgeView'
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
   /api/v2/tasks/{task_id}/reports/{report_id}/deliveries:
     get:
       operationId: listTaskReportDeliveriesV2
@@ -3159,7 +3191,7 @@ components:
     ReportView:
       type: object
       additionalProperties: false
-      required: [report_id, task_id, epoch_id, close_trigger, result_outcome, body, body_digest, dispute_state, amendments]
+      required: [report_id, task_id, epoch_id, close_trigger, result_outcome, body, body_digest, dispute_state, amendments, unavailable_evidence]
       properties:
         report_id: {type: string, minLength: 1, maxLength: 256}
         task_id: {type: string, minLength: 1, maxLength: 256}
@@ -3175,6 +3207,50 @@ components:
           type: array
           maxItems: 4096
           items: {$ref: '#/components/schemas/ReportAmendmentView'}
+        unavailable_evidence:
+          type: array
+          maxItems: 200
+          items: {$ref: '#/components/schemas/UnavailableMaterial'}
+    UnavailableMaterial:
+      type: object
+      additionalProperties: false
+      required: [source_ref, sha256, state, reason, purge_id]
+      properties:
+        source_ref: {type: string, minLength: 1, maxLength: 512}
+        sha256:
+          oneOf:
+            - $ref: '#/components/schemas/Sha256Digest'
+            - type: 'null'
+        state: {type: string, enum: [staged, sealed, tombstoned]}
+        reason: {type: string, minLength: 1, maxLength: 2048}
+        purge_id:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 256}
+            - type: 'null'
+    ArtifactPurgeCommand:
+      type: object
+      additionalProperties: false
+      required: [revision, reason]
+      properties:
+        revision: {$ref: '#/components/schemas/RevisionString'}
+        reason: {type: string, minLength: 1, maxLength: 2048}
+    ArtifactPurgeView:
+      type: object
+      additionalProperties: false
+      required: [purge_id, task_id, artifact_id, artifact_revision, artifact_sha256, reason, authority, state, body_removed, created_at]
+      properties:
+        purge_id: {type: string, minLength: 1, maxLength: 256}
+        task_id: {type: string, minLength: 1, maxLength: 256}
+        artifact_id: {type: string, minLength: 1, maxLength: 256}
+        artifact_revision: {$ref: '#/components/schemas/RevisionString'}
+        artifact_sha256: {$ref: '#/components/schemas/Sha256Digest'}
+        reason: {type: string, minLength: 1, maxLength: 2048}
+        authority:
+          type: string
+          enum: [operator, retention_policy]
+        state: {type: string, enum: [staged, sealed, tombstoned]}
+        body_removed: {type: boolean}
+        created_at: {type: string, format: date-time}
     DeliveryRequirement:
       type: object
       additionalProperties: false
@@ -3281,7 +3357,7 @@ components:
     ReportDeliveryView:
       type: object
       additionalProperties: false
-      required: [delivery_id, task_id, report_id, report_digest, epoch_id, profile, profile_digest, state, mode, missing, manifest, manifest_digest, exchange, error_code, access_level, created_at]
+      required: [delivery_id, task_id, report_id, report_digest, epoch_id, profile, profile_digest, state, mode, missing, manifest, manifest_digest, exchange, error_code, access_level, created_at, unavailable_materials]
       properties:
         delivery_id: {type: string, minLength: 1, maxLength: 256}
         task_id: {type: string, minLength: 1, maxLength: 256}
@@ -3318,6 +3394,10 @@ components:
             - type: 'null'
         access_level: {type: integer, minimum: 0}
         created_at: {type: string, format: date-time}
+        unavailable_materials:
+          type: array
+          maxItems: 200
+          items: {$ref: '#/components/schemas/UnavailableMaterial'}
     ReportDeliverySummary:
       type: object
       additionalProperties: false

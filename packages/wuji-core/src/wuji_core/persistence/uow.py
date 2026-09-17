@@ -117,6 +117,7 @@ class UnitOfWork:
             "model_settle",
             "tool_settle",
             "retained_result",
+            "purge",
         }:
             raise ValueError("unsupported capability")
         if (capability == "retained_result") != (retained_result is not None):
@@ -149,6 +150,7 @@ class UnitOfWork:
                     "observe": "false",
                     "admit": "false",
                     "retained_result": "false",
+                    "purge": "false",
                     "retained_run": "",
                     "retained_assignment_digest": "",
                     "token_id": access.principal.token_id,
@@ -165,6 +167,14 @@ class UnitOfWork:
                 )
                 if capability == "retained_result":
                     allowed = permission and permission["can_settle"]
+                elif capability == "purge":
+                    # A purge is an operator decision *and* a retention action;
+                    # either permission alone must not destroy evidence.
+                    allowed = (
+                        permission
+                        and permission["can_gc"]
+                        and permission["can_control"]
+                    )
                 else:
                     allowed = permission and (
                         (permission["can_capture"] or permission["can_settle"])
@@ -203,7 +213,8 @@ class UnitOfWork:
                         permission["can_write"]
                         and capability in {"write", "model_output"}
                     ).lower(),
-                    "gc": str(capability == "gc").lower(),
+                    "gc": str(capability in {"gc", "purge"}).lower(),
+                    "purge": str(capability == "purge").lower(),
                     "assess": str(
                         permission["can_assess"]
                         and "assessor" in access.principal.roles
@@ -402,6 +413,7 @@ def _require_control_actor(access, capability):
         "observe": {"controller", "reconciler"},
         "admit": {"scheduler", "controller"},
         "retained_result": {"controller", "reconciler"},
+        "purge": {"operator", "controller"},
     }
     if capability in roles and (
         "agent" in access.principal.roles
