@@ -455,6 +455,7 @@ def build_runtime_controller(
     approval_service=None,
     control_service=None,
     projection=None,
+    artifacts=None,
     json_limits: JsonBoundaryLimits = DEFAULT_JSON_LIMITS,
     max_configured_tasks: int = 10_000,
 ) -> RuntimeController:
@@ -495,6 +496,7 @@ def build_runtime_controller(
         child_config=child_config,
         spool_directory=spool_directory,
         session_resolve_encoder=session_resolve_encoder,
+        artifacts=artifacts,
     )
     routers = [create_worker_host_router(bridge)]
     if approval_service is not None:

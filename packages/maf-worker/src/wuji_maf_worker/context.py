@@ -4,8 +4,8 @@ The caller loads records through the authorized snapshot reader. This pure
 builder preserves the data it receives and refuses to silently trim evidence.
 """
 
-from collections.abc import Sequence
-from dataclasses import dataclass
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import hashlib
 
@@ -33,6 +33,57 @@ class ContextLimits:
         for value in (self.max_records, self.max_bytes):
             if isinstance(value, bool) or not isinstance(value, int) or value < 1:
                 raise ValueError("context limits must be positive integers")
+
+
+OMISSION_REASONS = frozenset(
+    {
+        "not_delivered",
+        "not_sealed",
+        "not_text_media",
+        "over_inline_limit",
+        "unreadable",
+        "not_utf8",
+        "context_byte_limit",
+    }
+)
+
+
+@dataclass(frozen=True)
+class InlineMaterial:
+    """Already authorized, already bounded text bodies for a read set.
+
+    The platform fetches the bytes; this object only carries them, together
+    with a stable reason for every artifact whose body is *not* in the context.
+    A body is never truncated: an artifact either arrives whole or is named as
+    omitted.
+    """
+
+    bodies: Mapping[tuple[str, str, str], dict]
+    reasons: Mapping[tuple[str, str, str], str] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.bodies, Mapping) or not isinstance(self.reasons, Mapping):
+            raise TypeError("inline material requires bounded mappings")
+        for key in self.bodies:
+            if (
+                not isinstance(key, tuple)
+                or len(key) != 3
+                or any(not isinstance(part, str) or not part for part in key)
+            ):
+                raise ValueError("an inline material key is an exact reference")
+        for key, reason in self.reasons.items():
+            if key not in set(self.bodies) and not isinstance(key, tuple):
+                raise ValueError("an omission names an exact reference")
+            if reason not in OMISSION_REASONS:
+                raise ValueError("an omission reason is from the fixed set")
+        if set(self.reasons) & set(self.bodies):
+            raise ValueError("one artifact is either delivered or omitted")
+
+    def get(self, key):
+        return self.bodies.get(key)
+
+    def omitted(self, key):
+        return self.reasons.get(key, "not_delivered")
 
 
 @dataclass(frozen=True)
@@ -63,7 +114,26 @@ def _key(ref: KnowledgeRef) -> tuple[str, str, str]:
     return ref.entity_type.value, ref.id, ref.revision.root
 
 
-def _normalize_record(record: RecordView, read_keys: set[tuple[str, str, str]]):
+def _material_entry(value):
+    """One bounded inline text body, exactly as the caller measured it."""
+
+    if not isinstance(value, dict):
+        raise ValueError("inline material must be a bounded text document")
+    encoding = value.get("encoding")
+    text = value.get("text")
+    length = value.get("byte_length")
+    if (
+        encoding != "utf-8"
+        or not isinstance(text, str)
+        or type(length) is not int
+        or length < 0
+        or len(text.encode("utf-8")) != length
+    ):
+        raise ValueError("inline material must be exact UTF-8 text")
+    return {"encoding": "utf-8", "byte_length": length, "text": text}
+
+
+def _normalize_record(record: RecordView, read_keys: set[tuple[str, str, str]], material=None):
     if not isinstance(record, RecordView):
         raise TypeError("an authorized RecordView is required")
     reference, payload = record.ref, record.record.root
@@ -126,6 +196,15 @@ def _normalize_record(record: RecordView, read_keys: set[tuple[str, str, str]]):
     result["display_kind"] = key[0]
     if isinstance(payload, ClaimRecord) and record.assessment is not None:
         result["display_kind"] = "fact" if record.assessment.eligible else "claim"
+    if isinstance(payload, ArtifactRecord) and material is not None:
+        # Only when the caller asked for inline bodies does the record say what
+        # is and is not in this context. An artifact whose body is absent is
+        # never silently indistinguishable from one that was delivered.
+        entry = material.get(key)
+        if entry is None:
+            result["material_omitted"] = material.omitted(key)
+        else:
+            result["material"] = _material_entry(entry)
     return result, getattr(payload, "task_id", None)
 
 
@@ -136,6 +215,7 @@ def build_context_bundle(
     snapshot_id: str,
     limits: ContextLimits,
     relations: Sequence[ContextRelation] = (),
+    material=None,
 ) -> ContextBundle:
     if not isinstance(limits, ContextLimits):
         raise TypeError("published ContextLimits are required")
@@ -185,7 +265,7 @@ def build_context_bundle(
     record_refs = []
     task_ids = set()
     for record in records:
-        normalized, task_id = _normalize_record(record, read_keys)
+        normalized, task_id = _normalize_record(record, read_keys, material)
         if task_id is not None:
             task_ids.add(task_id)
             if len(task_ids) > 1:
@@ -193,6 +273,16 @@ def build_context_bundle(
                     "a context cannot combine records from different tasks"
                 )
         encoded = canonical_json_bytes(normalized)
+        if (
+            "material" in normalized
+            and size + len(encoded) + (1 if record_refs else 0) > limits.max_bytes
+        ):
+            # The body does not fit this context. It is dropped by name, with
+            # the exact reference kept: the model must see that the material
+            # exists and was not delivered here, never a quietly smaller bundle.
+            normalized["material_omitted"] = "context_byte_limit"
+            normalized.pop("material")
+            encoded = canonical_json_bytes(normalized)
         key = _key(record.ref)
         if key in originals:
             if originals[key] != encoded:

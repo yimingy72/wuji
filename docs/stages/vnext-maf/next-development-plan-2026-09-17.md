@@ -50,7 +50,7 @@
 
 ## 3. 队列（对应 P 任务）
 
-> 进度：E00 完成（本文 §1）；E01/E02 已交付 `5a94986`；E03-A 已交付（见 §5）。
+> 进度：E00 完成（本文 §1）；E01/E02 已交付 `5a94986`；E03-A 已交付 `8812239`；E03-B 已交付（见 §5）。
 
 1. **E01 真实任务配置与机制夹具分离（P02/P07/P11/P18）** — 模式来自可信部署配置；真实模式默认 Reason-first，不回落 `version.txt`；显式 seed 策略才产生种子读取；preflight 不触达目标/付费模型。
 2. **E02 接通完整能力链（P06/P07/P09/P10）** — 发布→Profile→Task 许可→Scheduler→Worker→Gate→Executor 同一张兼容表；Reason 无目标能力；`http_target` 进入正式调度前必须有部署发布与真实负控。
@@ -77,3 +77,10 @@
 - 模型输入对应关系：`build_agent(agent_instructions=profile.instructions)`，已用捕获参数的方式实测；材料正文（Artifact 字节）仍按权限走工具/上下文，不在本项伪造。
 - 证据：`tests/vnext/test_task_launch.py::test_e03_the_model_instructions_carry_the_frozen_task_context`（Goal/范围/预算/上限/角色职责进入正文；Goal 变化即输入变化且 ref 变化，工具集合不变）、`::test_e03_the_harness_receives_the_composed_instructions`（Harness 收到的就是这份正文）。
 - 残留（E03-B）：平台封存的 Artifact 正文目前只能在同一 Run 的工具结果里看到，跨 Run 的 Reason 只能看到元数据；需要把受权读集中的文本证据正文有界地放进上下文，并对未放入的部分显式标注。
+
+### E03-B（已交付）：受权证据正文进入跨 Run 上下文
+
+- 平台在构建交付上下文时，对**已授权快照读集**中的 Artifact 做有界内联：只取 `state=sealed`、`media_type` 为 `text/*`、字节数不超过 `min(max_single_output_bytes, max_context_bytes/4)` 的正文，整组正文不超过 `max_context_bytes/2`，其余留给记录元数据。
+- 正文要么**整份**进入上下文（`material: {encoding, byte_length, text}`，与按引用一致），要么在记录上显式标注固定原因：`not_sealed` / `not_text_media` / `over_inline_limit` / `unreadable` / `not_utf8` / `context_byte_limit` / `not_delivered`。**不截断、不静默丢弃、不改写原始字节**（存储字节与摘要仍由 `ArtifactStore.checked_bytes` 逐字节校验）。
+- 未配置 artifact 端口的宿主保持原行为：上下文只有精确引用，记录不出现 `material`/`material_omitted`，也不假装正文已交付。
+- 证据：`tests/vnext/test_evidence_in_context.py`（6 项：投递与逐项省略原因、预算边界不截断、无 artifact 端口时行为不变、上下文渲染、超限时改名、纯元数据模式不变）与 `tests/vnext/test_maf_child_transport.py::test_delivered_child_context_carries_the_authorized_evidence_body`（真实 M2 子进程链路上，spool 出的交付上下文确实带 P09 夹具正文）。

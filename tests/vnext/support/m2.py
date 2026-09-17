@@ -239,13 +239,14 @@ def _receiver_credential(case, audit_directory: Path):
 
 
 def _context_builder(
-    *, records, read_set, snapshot_id, max_records, max_bytes, relations
+    *, records, read_set, snapshot_id, max_records, max_bytes, relations, material=None
 ):
     return build_context_bundle(
         records,
         read_set,
         snapshot_id=snapshot_id,
         limits=ContextLimits(max_records=max_records, max_bytes=max_bytes),
+        material=material,
         relations=tuple(
             ContextRelation(
                 source=KnowledgeRef.model_validate(item["source"]),
@@ -564,6 +565,7 @@ def m2_case(
                 session_transport=False,
                 context_builder=_context_builder,
                 ledger=scheduled.control.view,
+                artifacts=scheduled.control.store,
                 child_config={
                     "public_key_pem": scheduled.keys.public_pem.decode("utf-8"),
                     "issuer": ISSUER,

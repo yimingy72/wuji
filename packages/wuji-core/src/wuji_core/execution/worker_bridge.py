@@ -133,10 +133,67 @@ class PrivateIntake:
             os.unlink(temporary)
 
 
+def inline_material(*, artifacts, artifact_rows, references, context_bytes,
+                    max_single_output_bytes):
+    """Authorized, bounded text bodies for a read set, plus every omission.
+
+    Only a sealed text artifact inside its own inline bound is fetched, and the
+    whole set stays inside half of the published context bytes so the
+    surrounding records always fit. Nothing is truncated: a body either arrives
+    whole or the record names why it did not.
+    """
+
+    if artifacts is None or not artifact_rows or not callable(
+        getattr(artifacts, "checked_bytes", None)
+    ):
+        return None
+    from wuji_maf_worker.context import InlineMaterial
+
+    per_artifact = min(int(max_single_output_bytes), max(1, int(context_bytes) // 4))
+    total_budget = max(1, int(context_bytes) // 2)
+    bodies, reasons, total = {}, {}, 0
+    for key, value in artifact_rows.items():
+        if key not in references:
+            continue
+        if value.get("state") != "sealed":
+            reasons[key] = "not_sealed"
+            continue
+        media_type = value.get("media_type")
+        if not isinstance(media_type, str) or not media_type.startswith("text/"):
+            reasons[key] = "not_text_media"
+            continue
+        try:
+            size = int(value.get("size_bytes"))
+        except (TypeError, ValueError):
+            reasons[key] = "unreadable"
+            continue
+        if size < 0 or size > per_artifact:
+            reasons[key] = "over_inline_limit"
+            continue
+        if total + size > total_budget:
+            reasons[key] = "context_byte_limit"
+            continue
+        try:
+            raw = artifacts.checked_bytes(value)
+        except DomainError:
+            # The published row and the stored bytes disagree: the artifact is
+            # named as unreadable instead of being replaced by anything.
+            reasons[key] = "unreadable"
+            continue
+        try:
+            text = raw.decode("utf-8")
+        except UnicodeDecodeError:
+            reasons[key] = "not_utf8"
+            continue
+        bodies[key] = {"encoding": "utf-8", "byte_length": len(raw), "text": text}
+        total += len(raw)
+    return InlineMaterial(bodies=bodies, reasons=reasons)
+
+
 class WorkerHostBridge:
     def __init__(self, uow, *, registry, credentials, receiver_access, host_factory,
                  context_builder, ledger, retained_results, child_config, spool_directory,
-                 session_resolve_encoder=None):
+                 session_resolve_encoder=None, artifacts=None):
         if not all(callable(fn) for fn in (receiver_access, host_factory, context_builder)):
             raise ValueError("registered controller and context ports are required")
         if not all(callable(getattr(retained_results, name, None)) for name in (
@@ -145,11 +202,14 @@ class WorkerHostBridge:
             raise ValueError("registered retained-result service is required")
         if session_resolve_encoder is not None and not callable(session_resolve_encoder):
             raise ValueError("Session resolve encoder must be callable")
+        if artifacts is not None and not callable(getattr(artifacts, "checked_bytes", None)):
+            raise ValueError("an artifacts port must verify sealed bytes")
         self.uow, self.registry, self.credentials = uow, registry, credentials
         self.receiver_access, self.host_factory = receiver_access, host_factory
         self.context_builder, self.ledger = context_builder, ledger
         self.retained_results = retained_results
         self.session_resolve_encoder = session_resolve_encoder
+        self.artifacts = artifacts
         allowed = {"public_key_pem", "issuer", "audience", "host_origin", "model_gate_url",
                    "tool_gate_url", "wait_timeout_seconds", "transport_timeout_seconds",
                    "max_transport_bytes"}
@@ -379,11 +439,21 @@ class WorkerHostBridge:
         return host
 
     def _records(self, access, assignment, manifest):
+        """The exact read-set records plus the raw rows of its artifacts.
+
+        The artifact rows keep the published media type, state and byte count of
+        each candidate body without reading any bytes yet; the caller decides
+        which bodies may be inlined into the delivered context.
+        """
+
         snapshots = SnapshotRepository(self.uow)
         records = []
+        artifact_rows = {}
         for ref in manifest.refs:
             value = snapshots.read_ref(assignment.identity.task_id, access, manifest.snapshot_id, ref)
             kind = ref.entity_type.value
+            if kind == "artifact":
+                artifact_rows[(kind, ref.id, ref.revision.root)] = value
             if kind in {"claim", "intent"}:
                 records.append(self.ledger.read(access, assignment.identity.task_id, ref,
                                                 snapshot_id=manifest.snapshot_id))
@@ -415,7 +485,19 @@ class WorkerHostBridge:
             else:
                 raise DomainError("INVALID_REFERENCE", 422)
             records.append(wire.RecordView.model_validate({"ref": ref, "display_kind": kind, "record": payload}))
-        return records
+        return records, artifact_rows
+
+    def _inline_material(self, assignment, manifest, artifact_rows, *, body, limits):
+        references = {
+            (ref.entity_type.value, ref.id, ref.revision.root) for ref in manifest.refs
+        }
+        return inline_material(
+            artifacts=self.artifacts,
+            artifact_rows=artifact_rows,
+            references=references,
+            context_bytes=int(body["max_context_bytes"]),
+            max_single_output_bytes=int(limits["max_single_output_bytes"]),
+        )
 
     def _resolve_refused(self, step, error):
         """Emit the bounded predicate that refused one Host context build.
@@ -459,12 +541,24 @@ class WorkerHostBridge:
                 if len(manifest.refs) > min(body["max_context_records"], 5000):
                     raise DomainError("LIMIT_BLOCKED", 422)
                 step = "read_records"
-                records = self._records(access, assignment, manifest)
+                records, artifact_rows = self._records(access, assignment, manifest)
                 step = "context_build"
+                published_limits = config.runtime.limits.model_dump(mode="json")
+                material = self._inline_material(
+                    assignment, manifest, artifact_rows, body=body,
+                    limits=published_limits,
+                )
+                context_options = {}
+                if material is not None:
+                    # Only the deployment's own builder accepts inline material;
+                    # a host without an artifact reader keeps the metadata-only
+                    # context instead of pretending the bodies were delivered.
+                    context_options["material"] = material
                 context = self.context_builder(
                     records=records, read_set=manifest.refs,
                     snapshot_id=manifest.snapshot_id, max_records=body["max_context_records"],
                     max_bytes=min(body["max_context_bytes"], 16777216), relations=manifest.relations,
+                    **context_options,
                 )
                 context_wire = wire.WorkerContext.model_validate({
                     "snapshot_id": context.snapshot_id, "read_set": list(context.read_set),

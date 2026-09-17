@@ -15,9 +15,17 @@ from wuji_core.worker_host import PlatformWorkerHost
 from wuji_maf_worker.context import ContextLimits, ContextRelation, build_context_bundle
 
 
-def build_context(*, records, read_set, snapshot_id, max_records, max_bytes, relations):
+def build_context(*, records, read_set, snapshot_id, max_records, max_bytes, relations,
+                  material=None):
+    """The delivered context, including any bounded, authorized inline bodies.
+
+    ``material`` is absent on a host without an artifact reader; the bundle then
+    keeps exact references only, instead of pretending a body was delivered.
+    """
+
     return build_context_bundle(records, read_set, snapshot_id=snapshot_id,
         limits=ContextLimits(max_records=max_records, max_bytes=max_bytes),
+        material=material,
         relations=tuple(ContextRelation(source=KnowledgeRef.model_validate(r["source"]),
             target=KnowledgeRef.model_validate(r["target"]), relation=r["relation"]) for r in relations))
 
@@ -107,7 +115,7 @@ def build_runtime():
         supervisor_transport=supervisor_transport,
         host_factory=host_factory, retained_host_factory=retained_factory,
         session_transport=settings.session_transport, context_builder=build_context,
-        ledger=deployment.ledger,
+        ledger=deployment.ledger, artifacts=deployment.artifacts,
         child_config={"public_key_pem": read_file(settings.public_key_file).decode(),
             "issuer": settings.issuer, "audience": settings.audience,
             "host_origin": settings.host_origin, "model_gate_url": settings.model_gate_url,

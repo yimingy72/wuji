@@ -1328,3 +1328,49 @@ def test_the_runtime_loop_names_why_a_task_environment_is_not_ready(capsys):
             "code": "permit_expired",
         }
     ]
+
+
+def test_delivered_child_context_carries_the_authorized_evidence_body(
+    db_environment, tmp_path, audit_directory
+):
+    """E03-B: the read set's sealed text evidence reaches the child's context.
+
+    The M2 harness publishes the P09 fixture artifact (text/plain) into the read
+    set, so a real resolve has to deliver its body — not only its reference —
+    and the spooled controller context is the exact document the child received.
+    """
+
+    with m2_case(db_environment, tmp_path, audit_directory) as case:
+        deliveries = case.dispatcher.deliver_pending(limit=1)
+        assert len(deliveries) == 1
+        started = deliveries[0]
+        assert started.state == "running"
+        worker_directory = case.node.worker_directory()
+        assert _wait_for(lambda: (worker_directory / "child-entered").exists())
+        running = case.dispatcher.reconcile(started.run)
+        assert running.state == "running"
+        # The child resolves its context before it is allowed to start a model
+        # request, so a first upstream request proves the resolve was delivered.
+        assert case.upstream.first_request_started.wait(timeout=5)
+        spool = tmp_path / "m2-controller-intake"
+        assert _wait_for(lambda: any(spool.glob("*.context.json")), timeout=10)
+        case.upstream.release_first_response.set()
+        contexts = sorted(spool.glob("*.context.json"))
+
+        delivered = json.loads(contexts[0].read_text())
+        payload = json.loads(delivered["text"])
+        artifacts = [
+            record
+            for record in payload["records"]
+            if record["ref"]["entity_type"] == "artifact"
+        ]
+        assert artifacts, "the read set carried no artifact"
+        material = [record for record in artifacts if "material" in record]
+        assert material, artifacts
+        assert material[0]["material"]["text"].strip()
+        assert material[0]["material"]["byte_length"] == len(
+            material[0]["material"]["text"].encode("utf-8")
+        )
+        # Every other artifact says why its body is not here.
+        for record in artifacts:
+            assert "material" in record or "material_omitted" in record

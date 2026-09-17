@@ -35,6 +35,8 @@
 
 | D23 | 2026-09-17 E03-A：Session Profile 正文改为「部署角色指令 + 由 Task 定义渲染的冻结上下文」，Profile 身份改为 Task 级 `harness.<role>.task.<digest16>`。模型指令因此包含 Goal/判据/范围/预算/硬上限/起点/模式/角色职责与材料规则，并随真实 Task 变化；两个 Task 不会以同一 ref 发布不同字节，同一 Task 重复 prepare 仍逐字节幂等。证据见 `tests/vnext/test_task_launch.py` 的两个 E03 用例。残留：平台封存 Artifact 的正文尚未进入跨 Run 上下文（E03-B） | 若继续用固定部署指令，模型看不到 Goal，也分不清"读到了"和"没读到"；若共用 ref，运行时会以 INPUT_DIGEST_CONFLICT 拒绝第二个 Task 的 Profile |
 
+| D24 | 2026-09-17 E03-B：受权快照读集中的封存文本 Artifact 正文有界内联进交付上下文（`material`），未内联的一律带固定原因（`material_omitted`），不截断、不静默丢弃；宿主未配置 Artifact 读取端口时保持纯元数据且不标注。正文来自 `ArtifactStore.checked_bytes`（逐字节校验 size/sha256），不是模型或工具自述。证据：`tests/vnext/test_evidence_in_context.py` 6 项 + M2 真实子进程上下文断言 | 若只给元数据，后续 Reason 无法基于新证据改变判断（M2 不成立）；若整段截断或按需拼接，模型会看到不完整材料却当完整材料使用 |
+
 21 项任务及共享接口逐项检查表在本工作树的忽略台账 `.superpowers/sdd/vnext-v2/preflight.md`，任务完成以提交、具体测试和审查记录为准。源包 `ACCEPTANCE.md` / `VALIDATION_REPORT.md` 保持原始文档检查事实；实施结果另记，不覆盖原包。
 
 常规实现和修复按批准范围连续推进。必要权限、恢复或真实 MAF 核心能力不满足时，记录实际失败与合同影响，不通过削弱测试或更换框架来宣称通过。
