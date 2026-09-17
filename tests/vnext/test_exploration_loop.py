@@ -529,3 +529,398 @@ def test_a_sealed_model_output_never_becomes_board_material(
             case.artifact_ref.id,
             str(case.artifact_ref.version.root),
         ) in refs
+
+
+def test_an_identical_question_is_associated_instead_of_executed_again(
+    db_environment, tmp_path, audit_directory
+):
+    """E04-B: the same question is one Work item, with a durable association."""
+
+    question = "Read the second isolated input and cite the exact bytes it returned."
+    with scheduler_case(
+        db_environment, tmp_path, audit_directory, max_work_items=8, capacity=4
+    ) as case:
+        basis = [case.claim_ref.model_dump(mode="json")]
+        first = case.scheduler.tick(limit=2)
+        explore_one = explore_assignment(first)
+        reason_one = next(
+            item for item in first.assignments if item.work_kind.value == "reason"
+        )
+        payload = {
+            "schema_version": "wuji.agent-payload.v2",
+            "claims": [],
+            "intent_proposals": [
+                {
+                    "client_ref": "first-ask",
+                    "question": question,
+                    "basis_refs": basis,
+                    "expected_output": "wuji.agent-payload.v2",
+                }
+            ],
+            "limitations": ["one bounded follow-up question"],
+            "reason_decision": {
+                "decision": "propose_intents",
+                "wait_refs": [],
+                "reason": "the stored evidence leaves one bounded question open",
+            },
+        }
+        credential, receipt = _submit(case, reason_one, payload, "e04b-reason-1")
+        assert receipt.status.value == "accepted", receipt.model_dump(mode="json")
+        _close_and_exit(case, reason_one, credential)
+        case.scheduler.tick(limit=4)
+
+        with db_environment.migration_connection() as connection:
+            asked = connection.execute(
+                """SELECT s.work_item_id FROM vnext.scheduler_work s
+                JOIN vnext.intent_revision i ON (i.tenant_id,i.project_id,i.task_id,i.entity_id,i.revision)=
+                (s.tenant_id,s.project_id,s.task_id,s.intent_id,s.intent_revision)
+                WHERE s.task_id=%s AND i.question=%s""",
+                (TASK, question),
+            ).fetchall()
+        assert len(asked) == 1, asked
+
+        # A settled Explore result is what wakes the next Reason round.
+        credential, receipt = _submit(
+            case,
+            explore_one,
+            {
+                "schema_version": "wuji.agent-payload.v2",
+                "claims": [
+                    {
+                        "client_ref": "seed-read",
+                        "kind": "observation-summary",
+                        "assertion_role": "candidate_fact",
+                        "text": "The registered Kali read returned durable evidence.",
+                        "basis_refs": [
+                            {
+                                "entity_type": "artifact",
+                                "id": case.artifact_ref.id,
+                                "revision": case.artifact_ref.version.root,
+                            }
+                        ],
+                        "limitations": ["one isolated fixture read"],
+                    }
+                ],
+                "intent_proposals": [],
+                "limitations": ["explore produced the raw read for later reasoning"],
+            },
+            "e04b-explore-1",
+        )
+        assert receipt.status.value == "accepted", receipt.model_dump(mode="json")
+        _close_and_exit(case, explore_one, credential)
+        second = case.scheduler.tick(limit=4)
+        reason_two = next(
+            item for item in second.assignments if item.work_kind.value == "reason"
+        )
+        with db_environment.migration_connection() as connection:
+            works_before = connection.execute(
+                "SELECT count(*) FROM vnext.scheduler_work WHERE task_id=%s", (TASK,)
+            ).fetchone()[0]
+
+        again = dict(payload)
+        again["intent_proposals"] = [
+            {**payload["intent_proposals"][0], "client_ref": "second-ask"}
+        ]
+        again["limitations"] = ["the same question asked again in a later round"]
+        credential, receipt = _submit(case, reason_two, again, "e04b-reason-2")
+        assert receipt.status.value == "accepted", receipt.model_dump(mode="json")
+        _close_and_exit(case, reason_two, credential)
+        case.scheduler.tick(limit=4)
+
+        with db_environment.migration_connection() as connection:
+            works_after = connection.execute(
+                "SELECT count(*) FROM vnext.scheduler_work WHERE task_id=%s", (TASK,)
+            ).fetchone()[0]
+            events = connection.execute(
+                "SELECT payload_json FROM vnext.outbox WHERE task_id=%s"
+                " AND kind='intent.deduplicated'",
+                (TASK,),
+            ).fetchall()
+            admitted = connection.execute(
+                "SELECT count(*) FROM vnext.intent_revision WHERE task_id=%s AND question=%s",
+                (TASK, question),
+            ).fetchone()[0]
+        # Both Intent revisions were admitted; only one Work item exists, and the
+        # association names the Work the question is already being asked by.
+        assert admitted == 2, admitted
+        assert works_after == works_before, (works_before, works_after)
+        assert len(events) == 1, events
+        recorded = json.loads(events[0][0])
+        assert recorded["duplicate_of"] == asked[0][0]
+        assert recorded["problem_digest"] == json.loads(events[0][0])["problem_digest"]
+        assert len(recorded["problem_digest"]) == 64
+        assert recorded["rule"].startswith("exact-question")
+
+
+def test_a_repeated_question_with_new_basis_is_a_legitimate_continuation():
+    """E04-B: only an exact repeat is a duplicate; new evidence is new work."""
+
+    from wuji_core.scheduling.policy import problem_digest
+
+    base = {
+        "question": "Read the second isolated input and cite its bytes.",
+        "basis": (("claim", "claim-1", "1"),),
+        "method_ref": "harness.explore.v1:1",
+        "profile_digest": "d" * 64,
+        "environment_ref": "environment-1",
+        "output_contract": "wuji.agent-payload.v2",
+    }
+    assert problem_digest(**base) == problem_digest(
+        **{**base, "question": "  Read   the second isolated input and cite its bytes. "}
+    )
+    two_refs = (("claim", "claim-1", "1"), ("observation", "o-1", "1"))
+    assert problem_digest(**{**base, "basis": two_refs}) == problem_digest(
+        **{**base, "basis": tuple(reversed(two_refs))}
+    )
+    assert problem_digest(**base) != problem_digest(
+        **{**base, "basis": (("claim", "claim-2", "1"),)}
+    )
+    assert problem_digest(**base) != problem_digest(
+        **{**base, "question": "Read the third isolated input and cite its bytes."}
+    )
+
+
+def _complete_proposal():
+    """A Reason decision that asks for completion without new material."""
+
+    return {
+        "schema_version": "wuji.agent-payload.v2",
+        "claims": [],
+        "intent_proposals": [],
+        "limitations": ["nothing new was observed this round"],
+        "reason_decision": {
+            "decision": "propose_completion",
+            "wait_refs": [],
+            "reason": "the stored evidence looks sufficient from this Run",
+        },
+    }
+
+
+def _settle_seed_explore(case, assignment, submission_id):
+    """Let the fixture's own question finish so its result is real material."""
+
+    credential, receipt = _submit(
+        case,
+        assignment,
+        {
+            "schema_version": "wuji.agent-payload.v2",
+            "claims": [
+                {
+                    "client_ref": "seed-read",
+                    "kind": "observation-summary",
+                    "assertion_role": "candidate_fact",
+                    "text": "The registered Kali read returned durable evidence.",
+                    "basis_refs": [
+                        {
+                            "entity_type": "artifact",
+                            "id": case.artifact_ref.id,
+                            "revision": case.artifact_ref.version.root,
+                        }
+                    ],
+                    "limitations": ["one isolated fixture read"],
+                }
+            ],
+            "intent_proposals": [],
+            "limitations": ["explore produced the raw read for later reasoning"],
+        },
+        submission_id,
+    )
+    assert receipt.status.value == "accepted", receipt.model_dump(mode="json")
+    _close_and_exit(case, assignment, credential)
+
+
+def test_a_published_window_stops_the_loop_once_and_new_material_releases_it(
+    db_environment, tmp_path, audit_directory
+):
+    """E04-B: bounded no-progress asks a human once instead of re-asking the model."""
+
+    from wuji_core.completion.precheck import CompletionService
+
+    with scheduler_case(
+        db_environment,
+        tmp_path,
+        audit_directory,
+        max_work_items=8,
+        capacity=4,
+        max_no_progress_rounds=2,
+        max_reason_runs=8,
+        completion=lambda control: CompletionService(
+            control.uow, control=control.control
+        ),
+    ) as case:
+        first = case.scheduler.tick(limit=2)
+        reason = next(
+            item for item in first.assignments if item.work_kind.value == "reason"
+        )
+        # The first Reason waits for the seed question it already admitted.
+        waiting = {
+            "schema_version": "wuji.agent-payload.v2",
+            "claims": [],
+            "intent_proposals": [],
+            "limitations": ["waiting for the admitted question's own result"],
+            "reason_decision": {
+                "decision": "wait",
+                "wait_refs": [
+                    {
+                        "ref": case.intent_ref.model_dump(mode="json"),
+                        "predicate": "work_accepted_result",
+                        "predicate_version": "1",
+                    }
+                ],
+                "reason": "the question is already being worked on",
+            },
+        }
+        credential, receipt = _submit(case, reason, waiting, "e04b-wait-first")
+        assert receipt.status.value == "accepted", receipt.model_dump(mode="json")
+        _close_and_exit(case, reason, credential)
+        _settle_seed_explore(case, explore_assignment(first), "e04b-seed-1")
+
+        # Every later round asks for completion without producing material. The
+        # first one still sees the seed's material in its own window, so only the
+        # rounds after it count; the published window has to stop the loop.
+        rounds = 0
+        counted = []
+        for index in range(8):
+            ticked = case.scheduler.tick(limit=4)
+            reason = next(
+                (item for item in ticked.assignments if item.work_kind.value == "reason"),
+                None,
+            )
+            if reason is not None:
+                credential, receipt = _submit(
+                    case, reason, _complete_proposal(), f"e04b-noprogress-{rounds}"
+                )
+                assert receipt.status.value == "accepted", receipt.model_dump(mode="json")
+                _close_and_exit(case, reason, credential)
+                rounds += 1
+            with db_environment.migration_connection() as connection:
+                counted.append(
+                    connection.execute(
+                        "SELECT no_progress_count,blocked_reason FROM vnext.scheduler_state"
+                        " WHERE task_id=%s",
+                        (TASK,),
+                    ).fetchone()
+                )
+            if counted[-1][1] is not None:
+                break
+        assert counted[0] == (0, None), counted
+        assert counted[-1] == (2, "no_progress_window"), counted
+        with db_environment.migration_connection() as connection:
+            requests = connection.execute(
+                "SELECT payload_json FROM vnext.outbox WHERE task_id=%s"
+                " AND kind='reason.completion_requested'"
+                " AND payload_json::jsonb->>'reason'='no_progress_window'",
+                (TASK,),
+            ).fetchall()
+            reviews = connection.execute(
+                "SELECT count(*) FROM vnext.outbox WHERE task_id=%s"
+                " AND kind='completion.reviewed'",
+                (TASK,),
+            ).fetchone()[0]
+        assert len(requests) == 1, requests
+        request = json.loads(requests[0][0])
+        assert request["window"] == "2" and request["no_progress_count"] == "2"
+        assert reviews >= 1
+
+        # The same flag refuses to mint another Reason: the loop is stopped, not
+        # re-asked, even though the review woke another generation.
+        for _ in range(2):
+            stopped = case.scheduler.tick(limit=4)
+            assert not any(
+                item.work_kind.value == "reason" for item in stopped.assignments
+            ), [item.work_kind.value for item in stopped.assignments]
+        with db_environment.migration_connection() as connection:
+            reasons_before = connection.execute(
+                "SELECT count(*) FROM vnext.work_item WHERE task_id=%s AND kind='reason'",
+                (TASK,),
+            ).fetchone()[0]
+        case.scheduler.tick(limit=4)
+        with db_environment.migration_connection() as connection:
+            assert connection.execute(
+                "SELECT count(*) FROM vnext.work_item WHERE task_id=%s AND kind='reason'",
+                (TASK,),
+            ).fetchone()[0] == reasons_before
+
+        # New knowledge is the release. It resets the window and lets the Task
+        # run a Reason again; an operator or failure block would not.
+        with db_environment.migration_connection() as connection:
+            event_seq = connection.execute(
+                "SELECT max(event_seq) FROM vnext.outbox WHERE task_id=%s", (TASK,)
+            ).fetchone()[0]
+        with case.control.uow.transaction(SCHEDULER, TASK, capability="admit") as tx:
+            repository = TriggerRepository(artifacts=case.control.store)
+            repository._material(tx, key="material:e04b-release", event_seq=event_seq)
+        with db_environment.migration_connection() as connection:
+            released = connection.execute(
+                "SELECT no_progress_count,blocked_reason FROM vnext.scheduler_state"
+                " WHERE task_id=%s",
+                (TASK,),
+            ).fetchone()
+        assert released == (0, None), released
+        assert any(
+            item.work_kind.value == "reason"
+            for item in case.scheduler.tick(limit=4).assignments
+        )
+
+
+def test_a_real_wait_and_live_work_do_not_count_as_no_progress(
+    db_environment, tmp_path, audit_directory
+):
+    """E04-B: waiting for an admitted question is not a stalled Reason."""
+
+    with scheduler_case(
+        db_environment,
+        tmp_path,
+        audit_directory,
+        max_work_items=8,
+        capacity=4,
+        max_no_progress_rounds=1,
+    ) as case:
+        first = case.scheduler.tick(limit=2)
+        reason = next(
+            item for item in first.assignments if item.work_kind.value == "reason"
+        )
+        # The seed Explore is still live while the Reason registers a real wait
+        # for that admitted question's own accepted result.
+        assert any(
+            item.work_kind.value == "explore" for item in first.assignments
+        )
+        wait_payload = {
+            "schema_version": "wuji.agent-payload.v2",
+            "claims": [],
+            "intent_proposals": [],
+            "limitations": ["waiting for the admitted question's own result"],
+            "reason_decision": {
+                "decision": "wait",
+                "wait_refs": [
+                    {
+                        "ref": case.intent_ref.model_dump(mode="json"),
+                        "predicate": "work_accepted_result",
+                        "predicate_version": "1",
+                    }
+                ],
+                "reason": "the question is already being worked on",
+            },
+        }
+        credential, receipt = _submit(case, reason, wait_payload, "e04b-wait-1")
+        assert receipt.status.value == "accepted", receipt.model_dump(mode="json")
+        _close_and_exit(case, reason, credential)
+        case.scheduler.tick(limit=4)
+        with db_environment.migration_connection() as connection:
+            state = connection.execute(
+                "SELECT no_progress_count,blocked_reason FROM vnext.scheduler_state"
+                " WHERE task_id=%s",
+                (TASK,),
+            ).fetchone()
+            waiters = connection.execute(
+                "SELECT status FROM vnext.scheduler_waiter WHERE task_id=%s",
+                (TASK,),
+            ).fetchall()
+            requests = connection.execute(
+                "SELECT count(*) FROM vnext.outbox WHERE task_id=%s"
+                " AND payload_json::jsonb->>'reason'='no_progress_window'",
+                (TASK,),
+            ).fetchone()[0]
+        assert waiters and {row[0] for row in waiters} == {"waiting"}, waiters
+        assert state == (0, None), state
+        assert requests == 0

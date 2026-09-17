@@ -26,6 +26,7 @@ from wuji_core.scheduling.policy import (
     SchedulerPolicy,
     SchedulingSnapshot,
     WorkKey,
+    problem_digest,
 )
 from wuji_core.scheduling.triggers import (
     TriggerRepository,
@@ -181,6 +182,39 @@ class WorkRepository:
             ),
         )
         return work_id
+
+    def duplicate_problem(self, tx, *, digest):
+        """The existing Work item that already asks this exact question, if any.
+
+        The comparison is recomputed from what the platform stored — the frozen
+        Intent question plus the recorded method, profile, basis, environment and
+        output contract — so it can be verified from the rows alone.
+        """
+
+        for value in rows(
+            tx.connection.execute(
+                """SELECT s.work_item_id,s.key_json,i.question FROM vnext.scheduler_work s
+            JOIN vnext.intent_revision i ON (i.tenant_id,i.project_id,i.task_id,i.entity_id,i.revision)=
+            (s.tenant_id,s.project_id,s.task_id,s.intent_id,s.intent_revision)
+            WHERE s.tenant_id=%s AND s.project_id=%s AND s.task_id=%s AND s.intent_id IS NOT NULL
+            ORDER BY s.work_item_id""",
+                tx.owner,
+            )
+        ):
+            key = strict_json_loads(value["key_json"])
+            if (
+                problem_digest(
+                    question=value["question"],
+                    basis=tuple(tuple(item) for item in key["basis"]),
+                    method_ref=key["method_ref"],
+                    profile_digest=key["profile_digest"],
+                    environment_ref=key["environment_ref"],
+                    output_contract=key["output_contract"],
+                )
+                == digest
+            ):
+                return value["work_item_id"]
+        return None
 
 
 @dataclass(frozen=True)
@@ -491,6 +525,33 @@ class Scheduler:
         ).hexdigest()
         tx.semantic_event("completion.reviewed", document)
 
+    def _deduplicated(self, tx, *, intent, work_item_id, digest):
+        """Record that this Intent asks the same question as an existing Work."""
+
+        existing = tx.connection.execute(
+            """SELECT 1 FROM vnext.outbox WHERE tenant_id=%s AND project_id=%s AND task_id=%s
+            AND kind='intent.deduplicated'
+            AND payload_json::jsonb->>'problem_digest'=%s
+            AND payload_json::jsonb#>>'{intent_ref,id}'=%s
+            AND payload_json::jsonb#>>'{intent_ref,revision}'=%s LIMIT 1""",
+            (*tx.owner, digest, intent["entity_id"], str(intent["revision"])),
+        ).fetchone()
+        if existing:
+            return
+        tx.semantic_event(
+            "intent.deduplicated",
+            {
+                "intent_ref": {
+                    "entity_type": "intent",
+                    "id": intent["entity_id"],
+                    "revision": str(intent["revision"]),
+                },
+                "duplicate_of": work_item_id,
+                "problem_digest": digest,
+                "rule": "exact-question-basis-method-environment-output-v1",
+            },
+        )
+
     def _prepare(self, tx, now):
         if not task_can_run(tx.task):
             return
@@ -523,6 +584,21 @@ class Scheduler:
                     receiver["environment_ref"],
                     intent["expected_output"],
                 )
+                digest = problem_digest(
+                    question=intent["question"],
+                    basis=key.basis,
+                    method_ref=key.method_ref,
+                    profile_digest=key.profile_digest,
+                    environment_ref=key.environment_ref,
+                    output_contract=key.output_contract,
+                )
+                duplicate = self.works.duplicate_problem(tx, digest=digest)
+                if duplicate is not None:
+                    # One durable association per repeated question. The
+                    # identical question is not new work, so it neither creates
+                    # a second Explore nor wakes the Reason again.
+                    self._deduplicated(tx, intent=intent, work_item_id=duplicate, digest=digest)
+                    continue
                 self.works.register(tx, key=key, kind="explore")
         state = self.triggers.read(tx)
         if state.inflight_reason_work_id:

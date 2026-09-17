@@ -992,6 +992,7 @@ class ExecutionLimits(BaseModel):
     max_attempts_per_work: Annotated[StrictInt, Field(ge=1, le=1000)]
     repair_attempts: Annotated[StrictInt, Field(ge=0, le=1000)]
     reason_retry_attempts: Annotated[StrictInt | None, Field(ge=0, le=1000)] = None
+    max_no_progress_rounds: Annotated[StrictInt | None, Field(ge=1, le=100)] = None
 
 
 class ExecutorAttemptId(RootModel[StrictStr]):

@@ -1720,6 +1720,7 @@ components:
         max_attempts_per_work: {type: integer, minimum: 1, maximum: 1000}
         repair_attempts: {type: integer, minimum: 0, maximum: 1000}
         reason_retry_attempts: {type: integer, minimum: 0, maximum: 1000}
+        max_no_progress_rounds: {type: integer, minimum: 1, maximum: 100}
     WorkerAssignment:
       type: object
       additionalProperties: false

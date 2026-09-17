@@ -159,9 +159,13 @@ class TriggerRepository:
         )
         if accepted:
             self._progress(tx, event, payload)
-            from wuji_core.scheduling.waiters import WaiterRepository
+        # Predicates are re-read for every recorded event, not only for the ones
+        # that start a new Reason generation: a Work usually becomes `done` while
+        # its exit observation is being recorded, and a waiter whose condition
+        # just became true has to wake on that event.
+        from wuji_core.scheduling.waiters import WaiterRepository
 
-            WaiterRepository().scan(tx)
+        WaiterRepository().scan(tx)
         return generation
 
     def _event_relevant(self, tx, kind, payload):
@@ -225,6 +229,23 @@ class TriggerRepository:
             )
         return kind in {"assessment_recorded", "assessment_invalidated"}
 
+    def _material(self, tx, *, key, event_seq):
+        """Record one material row and release the no-progress window it ends."""
+
+        inserted = tx.connection.execute(
+            "INSERT INTO vnext.scheduler_progress(tenant_id,project_id,task_id,source_key,category,event_seq) VALUES(%s,%s,%s,%s,'material',%s) ON CONFLICT DO NOTHING",
+            (*tx.owner, key, event_seq),
+        ).rowcount
+        if inserted:
+            # New knowledge is the only thing that ends a no-progress window; a
+            # retry or operator block stays until a human decides.
+            tx.connection.execute(
+                """UPDATE vnext.scheduler_state SET no_progress_count=0,
+                blocked_reason=CASE WHEN blocked_reason='no_progress_window' THEN NULL ELSE blocked_reason END
+                WHERE tenant_id=%s AND project_id=%s AND task_id=%s""",
+                tx.owner,
+            )
+
     def _progress(self, tx, event, payload):
         """Record verified new material for the bounded no-progress check.
 
@@ -275,10 +296,7 @@ class TriggerRepository:
             return
         source["artifacts"] = artifacts
         key = "material:" + sha256(canonical_json_bytes(source)).hexdigest()
-        tx.connection.execute(
-            "INSERT INTO vnext.scheduler_progress(tenant_id,project_id,task_id,source_key,category,event_seq) VALUES(%s,%s,%s,%s,'material',%s) ON CONFLICT DO NOTHING",
-            (*tx.owner, key, event["event_seq"]),
-        )
+        self._material(tx, key=key, event_seq=event["event_seq"])
 
     def _result_material(self, tx, event, payload):
         """One material row per accepted result, keyed by its canonical refs."""
@@ -312,10 +330,7 @@ class TriggerRepository:
         key = "material:" + sha256(
             canonical_json_bytes({"canonical_refs": canonical})
         ).hexdigest()
-        tx.connection.execute(
-            "INSERT INTO vnext.scheduler_progress(tenant_id,project_id,task_id,source_key,category,event_seq) VALUES(%s,%s,%s,%s,'material',%s) ON CONFLICT DO NOTHING",
-            (*tx.owner, key, event["event_seq"]),
-        )
+        self._material(tx, key=key, event_seq=event["event_seq"])
 
     def begin_reason(self, tx, *, work_item_id, snapshot_id):
         state = state_row(tx)
@@ -454,17 +469,93 @@ class TriggerRepository:
             AND t.generation>%s AND t.generation<=%s LIMIT 1""",
             (*tx.owner, state["consumed_generation"], value["processing_generation"]),
         ).fetchone()
+        # A round counts as no progress only when nothing else could still bring
+        # material: no other live work, no unsatisfied waiter and no newer input
+        # already waiting for the next Reason. Waiting is not the same as being
+        # stuck, so a real wait never burns the window.
+        counted = not bool(new_material) and self._no_progress_eligible(tx, state, value)
         tx.connection.execute(
             """UPDATE vnext.scheduler_state SET consumed_generation=%s,inflight_reason_work_id=NULL,
-            failure_count=0,retry_at=NULL,no_progress_count=CASE WHEN %s THEN 0 ELSE no_progress_count+1 END
+            failure_count=0,retry_at=NULL,
+            no_progress_count=CASE WHEN %s THEN 0 WHEN %s THEN no_progress_count+1 ELSE no_progress_count END
             WHERE tenant_id=%s AND project_id=%s AND task_id=%s""",
-            (value["processing_generation"], bool(new_material), *tx.owner),
+            (
+                value["processing_generation"],
+                bool(new_material),
+                counted,
+                *tx.owner,
+            ),
         )
         tx.connection.execute(
             "UPDATE vnext.scheduler_reason_lease SET status='consumed' WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND work_item_id=%s",
             (*tx.owner, value["work_item_id"]),
         )
+        if counted:
+            self._stop_on_no_progress(tx, value=value)
         return True
+
+    def _no_progress_eligible(self, tx, state, value):
+        """Whether a settled round with no new material may count as no progress."""
+
+        live = tx.connection.execute(
+            """SELECT 1 FROM vnext.work_item w JOIN vnext.scheduler_work s
+            USING(tenant_id,project_id,task_id,work_item_id)
+            WHERE w.tenant_id=%s AND w.project_id=%s AND w.task_id=%s
+            AND w.state IN ('ready','leased','running','reconciling') AND w.work_item_id<>%s LIMIT 1""",
+            (*tx.owner, value["work_item_id"]),
+        ).fetchone()
+        if live:
+            return False
+        waiting = tx.connection.execute(
+            """SELECT 1 FROM vnext.scheduler_waiter WHERE tenant_id=%s AND project_id=%s
+            AND task_id=%s AND status='waiting' LIMIT 1""",
+            tx.owner,
+        ).fetchone()
+        if waiting:
+            return False
+        return state["trigger_generation"] <= value["processing_generation"]
+
+    def _stop_on_no_progress(self, tx, *, value):
+        """One durable completion request when the published window is reached.
+
+        The request goes to the existing completion consumer; the same state flag
+        that records it also refuses to mint another Reason for this Task, so a
+        stalled exploration asks a human exactly once instead of re-asking the
+        model. New material releases the flag.
+        """
+
+        limits = AdmissionRegistry(None).config(tx).runtime.limits
+        window = limits.max_no_progress_rounds
+        if not window:
+            return
+        count = tx.connection.execute(
+            "SELECT no_progress_count FROM vnext.scheduler_state WHERE tenant_id=%s AND project_id=%s AND task_id=%s",
+            tx.owner,
+        ).fetchone()[0]
+        if count < window:
+            return
+        already = tx.connection.execute(
+            """SELECT 1 FROM vnext.outbox WHERE tenant_id=%s AND project_id=%s AND task_id=%s
+            AND kind='reason.completion_requested'
+            AND payload_json::jsonb->>'reason'='no_progress_window' LIMIT 1""",
+            tx.owner,
+        ).fetchone()
+        if already:
+            return
+        tx.semantic_event(
+            "reason.completion_requested",
+            {
+                "work_item_id": value["work_item_id"],
+                "processing_generation": str(value["processing_generation"]),
+                "reason": "no_progress_window",
+                "no_progress_count": str(count),
+                "window": str(window),
+            },
+        )
+        tx.connection.execute(
+            "UPDATE vnext.scheduler_state SET blocked_reason='no_progress_window' WHERE tenant_id=%s AND project_id=%s AND task_id=%s",
+            tx.owner,
+        )
 
     def _apply_decision(self, tx, lease, decision, receipt):
         from wuji_core.scheduling.waiters import WaiterRepository

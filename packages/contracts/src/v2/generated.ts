@@ -1212,6 +1212,7 @@ export interface components {
             max_attempts_per_work: number;
             repair_attempts: number;
             reason_retry_attempts?: number;
+            max_no_progress_rounds?: number;
         };
         WorkerAssignment: {
             schema_version: components["schemas"]["AssignmentSchemaVersion"];

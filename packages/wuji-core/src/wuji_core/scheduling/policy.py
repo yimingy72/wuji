@@ -52,6 +52,39 @@ class WorkKey:
         return sha256(canonical_json_bytes(asdict(self))).hexdigest()
 
 
+def problem_digest(
+    *,
+    question,
+    basis,
+    method_ref,
+    profile_digest,
+    environment_ref,
+    output_contract,
+):
+    """The exact same question, basis, method, environment and output contract.
+
+    A new Intent ID, a renamed client reference, a re-ordered basis list or a
+    later timestamp never changes this digest: those are the same question asked
+    twice. A new basis reference or a different environment does change it,
+    because continuing one question under new evidence is legitimate work.
+    Wording is compared as published — only surrounding whitespace is collapsed —
+    so a reworded question is *not* claimed to be the same question.
+    """
+
+    return sha256(
+        canonical_json_bytes(
+            {
+                "question": " ".join(str(question).split()),
+                "basis": [list(item) for item in sorted(basis)],
+                "method_ref": method_ref,
+                "profile_digest": profile_digest,
+                "environment_ref": environment_ref,
+                "output_contract": output_contract,
+            }
+        )
+    ).hexdigest()
+
+
 @dataclass(frozen=True)
 class Candidate:
     tenant_id: str
