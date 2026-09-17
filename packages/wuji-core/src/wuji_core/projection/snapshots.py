@@ -342,10 +342,6 @@ class ProjectionRepository:
             patches = _patches(before, advanced["document"], limit=MAX_STREAM_PATCHES)
             if patches is None:
                 raise DomainError("VIEW_RESET_REQUIRED", 409)
-            if not patches:
-                # Records changed without changing the delivered graph; the view
-                # still advances so the next poll does not rebuild it forever.
-                patches = []
             self._write_materialization(
                 tx, advanced, initial_view_id=view["view_id"], event_origin=origin
             )
@@ -355,6 +351,11 @@ class ProjectionRepository:
                 " WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND subject=%s AND view_id=%s",
                 (advanced["snapshot_id"], revision, *_scope(tx), view["view_id"]),
             )
+            if not patches:
+                # Records moved without changing the delivered graph. The view
+                # still advanced, but a batch must carry at least one patch, so
+                # the caller sees no event for this step.
+                return None
             handle = self._save_cursor(
                 tx, kind="stream", query_digest=view["query_digest"],
                 expires_at=view["expires_at"],
