@@ -92,6 +92,8 @@
 
 - P12-C 冻结期结算与强制关闭（2026-09-17，代码 `3c0b3b4`）：测试证明 `quiescing` 期间新动作被拒（`task_can_run` 假、不可派发）而在飞 Run 的 `exited` 观测、`result_submission` 与 accepted 投影仍被接受（AC-049）；`CompletionService.close` 仅对 `goal_satisfied` 要求完整评审，强制关闭（budget/time/no_progress/operator）允许未完成工作并由 P05 取消，`close_trigger` 与 `result_outcome` 分离（AC-052）。真实 K8s：Task `fc2ff1b0-…` 由 `quiescing` 走到 `observed_state=closed`（`goal_satisfied`/`complete`/`execution_allowed=false`/control_version 4），两份 completion_decision（quiesce、close）与判定、已结算 Run 事实全部落库。测试：`test_completion_protocol.py` 14 passed、相邻 4 套件 41 passed。**未覆盖**：AC-053 ReportCommit 冻结与迟到反证追加、关闭的产品入口与报告投递、判定的自动生产来源。见[证据包](../../vnext/evidence/P12/completion-close-20260917/README.md)。
 
+- P12-D 报告冻结与迟到反证（2026-09-17，代码 `9bddbcc`，迁移头 `vnext_0024_p12_reports`）：`vnext.freeze_report_commit` 只允许在该 epoch 上已关闭的 Task 冻结报告，digest 由服务端计算，同 key 不同字节或落库正文与自身 digest 不一致都拒绝；`vnext.amend_report_commit` 追加争议记录并把 commit 标成 `disputed`，永不修改正文；`completion.reports` 由持久事实组装正文并校验反证引用的封存证据与 clearance。真实 K8s：已关闭 Task `fc2ff1b0-…` 的报告 684 字节冻结（digest `4445bc13e4e29cf2…`），追加一条引用真实封存 artifact 的迟到反证后正文与 digest 完全不变、`dispute_state=disputed`、Task 保持 `closed`、`ready_work=0`；同 key 不同字节与被篡改 digest 的行均被拒。测试：`test_completion_protocol.py` 16 passed、相邻 5 套件 68 passed。**未覆盖**：产品入口（工作台/API 触发关闭与查看报告）与 ReportDelivery、受信来源清单、判定自动生产、多 Task 并发。见[证据包](../../vnext/evidence/P12/report-freeze-20260917/README.md)。
+
 运行中仅用自建夹具；HTTP/UI成果提供完整交互及截图，离线记录按其原生媒介保留。自行检查与代理审查如实区分；不宣称第三方认证。P13 纯片由主代理委派的 SOL/xhigh 执行，不冒称主代理独立测试。记录文档的提交与被测代码提交分开。
 
 本次 P07/P14 状态更新仅修正实施状态文档的落点，复用上述已绑定代码、测试、截图与审查证据，不重跑验证。导入源包 `docs/vnext/ACCEPTANCE.md` 保持原始字节。

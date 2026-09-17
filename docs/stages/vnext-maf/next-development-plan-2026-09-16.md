@@ -118,3 +118,12 @@ Task A attempt 2 的第三个 Run（`9e574eb0`）从未被投递成功：receive
     [证据包](../../vnext/evidence/P12/completion-close-20260917/README.md)。
 13. **P12-D ReportCommit 冻结与迟到反证。未开始。** 关闭目前只固化 Task 状态与两份决定，尚未冻结报告正文、
     也未把迟到反证追加成补充/争议记录（AC-053）；关闭的产品入口（工作台/API）与报告投递同样未接线。
+
+14. **P12-D 报告冻结与迟到反证。已交付并实测（`9bddbcc`）。** 迁移 `vnext_0024_p12_reports` 提供
+    `freeze_report_commit`（仅该 epoch 已关闭的 Task、服务端 digest、同 key 不同字节或自相矛盾的行都拒绝）与
+    `amend_report_commit`（追加争议记录并标 `disputed`，永不改正文）；`completion.reports` 从持久事实组装正文并
+    校验反证引用的封存证据。真实集群：已关闭 Task 的报告 684 字节冻结（digest `4445bc13…`），追加一条引用
+    封存 artifact 的反证后正文与 digest 不变、`dispute_state=disputed`、Task 仍 `closed`、`ready_work=0`。见
+    [证据包](../../vnext/evidence/P12/report-freeze-20260917/README.md)。
+15. **P12-E 产品入口与报告投递。未开始。** 关闭/报告冻结目前只有平台侧 Job；工作台/API 触发关闭、
+    报告投递（ReportDelivery）、历史查看与"有争议"提示需要接线。判定自动生产与多 Task 并发（T8）同样未做。

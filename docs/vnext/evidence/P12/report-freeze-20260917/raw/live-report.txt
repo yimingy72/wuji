@@ -1,0 +1,11 @@
+# $ kubectl -n wuji-vnext-test logs job/p11c-migrate-0024b
+HEADS ['vnext_0023_p12_judgments', 'vnext_0024_p12_reports']
+TABLES 2
+
+# $ kubectl -n wuji-vnext-test logs job/p12-report-20260917
+# the job uses the deployment's own UnitOfWork and calls the P12 ReportService
+TASK closed goal_satisfied complete
+FREEZE report-p12-final 4445bc13e4e29cf2 clear goal_satisfied complete
+BODY_BYTES 684 digest 4445bc13e4e29cf2
+AMEND amendment-p12-final assessor ['465ee220dcc6']
+AFTER disputed body_same=True digest_same=True amendments=1 task=closed

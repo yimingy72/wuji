@@ -8,3 +8,6 @@
 - [Completion close](completion-close-20260917/README.md): AC-049 冻结期继续收回执 + AC-052 强制关闭取消未完成工作；
   真实 Task `fc2ff1b0-…` 从 `quiescing` 走到 **`observed_state=closed`**（trigger=goal_satisfied、outcome=complete、
   execution_allowed=false、control_version=4），两份决定与判定事实一并记录。
+- [Report freeze and late counter-evidence](report-freeze-20260917/README.md): `vnext_0024_p12_reports` 冻结报告
+  正文（服务端 digest）并把迟到反证追加为争议记录；真实关闭的 Task 上实测：正文与 digest 不变、dispute 变
+  `disputed`、Task 仍 `closed`、无 ready work（AC-053）。

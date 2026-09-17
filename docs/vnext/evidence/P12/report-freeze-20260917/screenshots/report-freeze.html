@@ -1,0 +1,29 @@
+<!doctype html><meta charset="utf-8"><style>
+body{background:#0b1020;color:#d6e2ff;font:11px/1.3 "SF Mono",Menlo,monospace;padding:16px;white-space:pre}
+h1{font:600 14px/1.3 "SF Mono",Menlo,monospace;color:#ffd479;margin:0 0 10px}
+</style><h1>P12 report freeze: immutable bytes, visible late counter-evidence</h1># $ psql (migration role)
+
+# the frozen report commit (body + server-side digest + dispute state)
+report-p12-final|dispute=disputed|digest=4445bc13e4e29cf2|trigger=goal_satisfied|outcome=complete|bytes=684
+
+# the frozen body itself (composed from persisted facts)
+{&quot;close_trigger&quot;:&quot;goal_satisfied&quot;,&quot;criteria&quot;:[{&quot;applicability&quot;:&quot;current&quot;,&quot;criterion_id&quot;:&quot;version&quot;,&quot;revision&quot;:&quot;1&quot;,&quot;status&quot;:&quot;met&quot;}],&quot;epoch_id&quot;:&quot;da99b237-09ab-4559-bed5-a9be68e473af&quot;,&quot;result_outcome&quot;:&quot;complete&quot;,&quot;runs&quot;:[{&quot;agent_run_id&quot;:&quot;2ccd9c74-f9b2-443c-8998-dd3dc3737c9f&quot;,&quot;process_state&quot;:&quot;exited&quot;,&quot;result_state&quot;:&quot;accepted&quot;,&quot;stop_kind&quot;:&quot;exited&quot;},{&quot;agent_run_id&quot;:&quot;bd912879-2941-41d8-befb-6c8c6356055c&quot;,&quot;process_state&quot;:&quot;exited&quot;,&quot;result_state&quot;:&quot;accepted&quot;,&quot;stop_kind&quot;:&quot;exited&quot;}],&quot;schema_version&quot;:&quot;wuji.report.v1&quot;,&quot;task_id&quot;:&quot;fc2ff1b0-a578-4131-9fc3-4a7a80c74442&quot;,&quot;work_items&quot;:[{&quot;kind&quot;:&quot;explore&quot;,&quot;state&quot;:&quot;done&quot;,&quot;terminal_reason&quot;:null},{&quot;kind&quot;:&quot;reason&quot;,&quot;state&quot;:&quot;done&quot;,&quot;terminal_reason&quot;:null}]}
+
+# the late amendment that marks the report disputed
+amendment-p12-final|report-p12-final|assessor|late counter-evidence about an earlier call
+
+# the Task is still closed and no work became ready again
+task=closed|trigger=goal_satisfied|outcome=complete
+ready_work=0
+
+# $ kubectl -n wuji-vnext-test logs job/p11c-migrate-0024b
+HEADS [&#x27;vnext_0023_p12_judgments&#x27;, &#x27;vnext_0024_p12_reports&#x27;]
+TABLES 2
+
+# $ kubectl -n wuji-vnext-test logs job/p12-report-20260917
+# the job uses the deployment&#x27;s own UnitOfWork and calls the P12 ReportService
+TASK closed goal_satisfied complete
+FREEZE report-p12-final 4445bc13e4e29cf2 clear goal_satisfied complete
+BODY_BYTES 684 digest 4445bc13e4e29cf2
+AMEND amendment-p12-final assessor [&#x27;465ee220dcc6&#x27;]
+AFTER disputed body_same=True digest_same=True amendments=1 task=closed
