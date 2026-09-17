@@ -11,3 +11,7 @@
 - [Report freeze and late counter-evidence](report-freeze-20260917/README.md): `vnext_0024_p12_reports` 冻结报告
   正文（服务端 digest）并把迟到反证追加为争议记录；真实关闭的 Task 上实测：正文与 digest 不变、dispute 变
   `disputed`、Task 仍 `closed`、无 ready work（AC-053）。
+- [Product entry: close from the workbench](product-entry-20260917/README.md): P12-E 接线产品入口——
+  `GET/POST /api/v2/tasks/{task_id}/completion` 与 `GET /api/v2/tasks/{task_id}/reports/{report_id}` 经同源 BFF 暴露，
+  工作台在真实浏览器里完成“开始收尾 → 完成关闭并冻结报告 → 查看冻结正文”，Task 走到 `closed`、
+  报告 701 字节冻结（digest `4f1b3e37…`）、幂等重放返回同一份 commit（截图 + 完整 HTTP 报文 + 数据库截面）。

@@ -1,0 +1,11 @@
+task|083f6134-46bd-4237-9cdc-0c88a39da3d0|closed|run|4|73a83e16-5f3e-4f02-b509-f59df7a97962|goal_satisfied|complete|f
+decision|close:7475a67ccf551739ea942579ca428b82c72f3861e339df0fd9df81a11ffe9ceb|close|73a83e16-5f3e-4f02-b509-f59df7a97962|3|goal_satisfied|complete
+decision|quiesce:5712b38baf3bfda4bf4641061de8f7efedb3ce535b11c16669b8e6227627cebf|quiesce|73a83e16-5f3e-4f02-b509-f59df7a97962|2|goal_satisfied|
+report|report:73a83e16-5f3e-4f02-b509-f59df7a97962|73a83e16-5f3e-4f02-b509-f59df7a97962|goal_satisfied|complete|4f1b3e37ee500d2b22bc946e5af052c7975bd23728b16558a9b8dec280a6b6b1|clear|701|1
+work|3b1f297b-dfe6-41a2-a7b0-cb8d37e77828|failed|run|process_failure
+work|3e2163d9-d5d6-47a0-bb2d-cfb77d0941d0|done|run|
+run|a7fd3791-cca3-436b-8038-1227dd7e8b24|exited|exited|incomplete|settled
+run|c3e30b1f-9fe7-4386-856e-907034fe77ca|exited|exited|accepted|settled
+judgment|judgment-p12e-portal|version|1|met|current|1
+ready_work|0
+migration_head|vnext_0024_p12_reports

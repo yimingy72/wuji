@@ -1,0 +1,26 @@
+# 浏览器本次发出的两次完成动作（原文写自 raw/browser-events.json）
+# 会话经 http://127.0.0.1:44180/ 的同源 BFF，cookie 为建立的浏览器会话。
+
+POST /api/v2/tasks/083f6134-46bd-4237-9cdc-0c88a39da3d0/completion HTTP/1.1
+Host: 127.0.0.1:44180
+Origin: http://127.0.0.1:44180
+Content-Type: application/json
+Accept: application/json
+Idempotency-Key: 6bf664b2-6360-49a9-9ccf-ad2a05bf3b2c
+
+{"action":"quiesce","close_trigger":"goal_satisfied","result_outcome":"complete","deadline_seconds":900}
+
+HTTP/1.1 202
+{"disposition":"quiescing","task_id":"083f6134-46bd-4237-9cdc-0c88a39da3d0","observed_state":"quiescing","desired_state":"run","control_version":"3","completion_epoch_id":"73a83e16-5f3e-4f02-b509-f59df7a97962","close_trigger":"goal_satisfied","result_outcome":null,"review":{"decision":"ready","reasons":[],"criteria":[{"criterion_id":"version","revision":"1","required":true,"status":"met","applicability":"current"}],"open_work":[],"unsettled_runs":[]},"report":null}
+
+POST /api/v2/tasks/083f6134-46bd-4237-9cdc-0c88a39da3d0/completion HTTP/1.1
+Host: 127.0.0.1:44180
+Origin: http://127.0.0.1:44180
+Content-Type: application/json
+Accept: application/json
+Idempotency-Key: d8ab6078-7291-4f93-b7f1-1004eadff15c
+
+{"action":"close","close_trigger":"goal_satisfied","result_outcome":"complete","deadline_seconds":900}
+
+HTTP/1.1 200
+{"disposition":"closed","task_id":"083f6134-46bd-4237-9cdc-0c88a39da3d0","observed_state":"closed","desired_state":"run","control_version":"4","completion_epoch_id":"73a83e16-5f3e-4f02-b509-f59df7a97962","close_trigger":"goal_satisfied","result_outcome":"complete","review":{"decision":"ready","reasons":[],"criteria":[{"criterion_id":"version","revision":"1","required":true,"status":"met","applicability":"current"}],"open_work":[],"unsettled_runs":[]},"report":{"report_id":"report:73a83e16-5f3e-4f02-b509-f59df7a97962","body_digest":"4f1b3e37ee500d2b22bc946e5af052c7975bd23728b16558a9b8dec280a6b6b1","dispute_state":"clear","close_trigger":"goal_satisfied","result_outcome":"complete","epoch_id":"73a83e16-5f3e-4f02-b509-f59df7a97962","created_at":"2026-09-17T01:21:18.598640Z"}}

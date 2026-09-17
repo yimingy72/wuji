@@ -94,6 +94,9 @@
 
 - P12-D 报告冻结与迟到反证（2026-09-17，代码 `9bddbcc`，迁移头 `vnext_0024_p12_reports`）：`vnext.freeze_report_commit` 只允许在该 epoch 上已关闭的 Task 冻结报告，digest 由服务端计算，同 key 不同字节或落库正文与自身 digest 不一致都拒绝；`vnext.amend_report_commit` 追加争议记录并把 commit 标成 `disputed`，永不修改正文；`completion.reports` 由持久事实组装正文并校验反证引用的封存证据与 clearance。真实 K8s：已关闭 Task `fc2ff1b0-…` 的报告 684 字节冻结（digest `4445bc13e4e29cf2…`），追加一条引用真实封存 artifact 的迟到反证后正文与 digest 完全不变、`dispute_state=disputed`、Task 保持 `closed`、`ready_work=0`；同 key 不同字节与被篡改 digest 的行均被拒。测试：`test_completion_protocol.py` 16 passed、相邻 5 套件 68 passed。**未覆盖**：产品入口（工作台/API 触发关闭与查看报告）与 ReportDelivery、受信来源清单、判定自动生产、多 Task 并发。见[证据包](../../vnext/evidence/P12/report-freeze-20260917/README.md)。
 
+- P12-E 关闭与报告的产品入口（2026-09-17，代码 `6148154`）：`GET/POST /api/v2/tasks/{task_id}/completion` 与 `GET /api/v2/tasks/{task_id}/reports/{report_id}` 组合既有平台决定（`GET` 返回审核 + 报告摘要；`POST` 的 `quiesce` 打开 epoch、`close` 消费一条平台决定并冻结报告），决策字节仍由 `prepare_completion_*` 写、P05 消费，审核与结算状态全部从数据库读；持有该 Task `can_control` 的 `operator` 可操作、agent 排除，同源 BFF 只转发固定路由。真实 K8s + 浏览器（44180）：Task `083f6134-…` 由面板 `ready` → `quiescing` → `closed`，报告 701 字节冻结（digest `4f1b3e37…`、`clear`、level=1），新 Idempotency-Key 重放返回同一份 commit，缺号报告 404，`ready_work=0`；控制台只有登录前预期 401。检查：`test_completion_portal.py` 6 passed（真实 PostgreSQL + 签名 HTTP）、`test_completion_protocol.py` 16 passed、web build 与 contracts check exit 0（22 passed 合计见证据包）。**未覆盖**：强制关闭（`operator_finish` 等）仅由真实 PostgreSQL 用例覆盖、报告投递与历史列表未实现、判定仍由平台侧断言主体写入、多 Task 并发仍待做。见[证据包](../../vnext/evidence/P12/product-entry-20260917/README.md)。
+
+
 运行中仅用自建夹具；HTTP/UI成果提供完整交互及截图，离线记录按其原生媒介保留。自行检查与代理审查如实区分；不宣称第三方认证。P13 纯片由主代理委派的 SOL/xhigh 执行，不冒称主代理独立测试。记录文档的提交与被测代码提交分开。
 
 本次 P07/P14 状态更新仅修正实施状态文档的落点，复用上述已绑定代码、测试、截图与审查证据，不重跑验证。导入源包 `docs/vnext/ACCEPTANCE.md` 保持原始字节。

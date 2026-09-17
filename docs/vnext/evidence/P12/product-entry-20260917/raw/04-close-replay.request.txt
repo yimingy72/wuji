@@ -1,0 +1,8 @@
+POST /api/v2/tasks/083f6134-46bd-4237-9cdc-0c88a39da3d0/completion HTTP/1.1
+Host: 127.0.0.1:44180
+Origin: http://127.0.0.1:44180
+Content-Type: application/json
+Accept: application/json
+Idempotency-Key: e728ac3f-784a-476b-9388-88eb1d58911d
+
+{"action":"close","close_trigger":"goal_satisfied","result_outcome":"complete","deadline_seconds":900}

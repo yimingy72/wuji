@@ -125,5 +125,14 @@ Task A attempt 2 的第三个 Run（`9e574eb0`）从未被投递成功：receive
     校验反证引用的封存证据。真实集群：已关闭 Task 的报告 684 字节冻结（digest `4445bc13…`），追加一条引用
     封存 artifact 的反证后正文与 digest 不变、`dispute_state=disputed`、Task 仍 `closed`、`ready_work=0`。见
     [证据包](../../vnext/evidence/P12/report-freeze-20260917/README.md)。
-15. **P12-E 产品入口与报告投递。未开始。** 关闭/报告冻结目前只有平台侧 Job；工作台/API 触发关闭、
-    报告投递（ReportDelivery）、历史查看与"有争议"提示需要接线。判定自动生产与多 Task 并发（T8）同样未做。
+15. **P12-E 关闭与报告的产品入口。已交付并实测（`6148154`）。** 新增
+    `GET/POST /api/v2/tasks/{task_id}/completion` 与 `GET /api/v2/tasks/{task_id}/reports/{report_id}`：
+    审核、epoch 与关闭决定仍由平台生产，调用者只表达意图（关闭原因 + 结果）且必须持有该 Task 的 `can_control`
+    （agent 一律排除）；同源 BFF 只转发这三条固定路由，工作台新增“任务完成”面板（判据表、开始收尾、
+    完成关闭并冻结报告、冻结正文与“有争议”标签）。真实浏览器在固定 Task `083f6134-…` 上完成
+    `ready → quiescing → closed`，报告 701 字节冻结（digest `4f1b3e37…`），幂等重放返回同一份 commit，
+    `ready_work=0`。测试：`test_completion_portal.py` 6 passed（真实 PostgreSQL + 签名 HTTP）、相邻
+    `test_completion_protocol.py` 16 passed；web build / contracts check exit 0。见
+    [证据包](../../vnext/evidence/P12/product-entry-20260917/README.md)。
+16. **仍未完成。** 报告投递（ReportDelivery）、历史报告列表、判定自动生产来源、多 Task 并发（T8）、
+    真正在 run 执行中投递取消、写入路径语义与长会话压缩仍未做；工作台当前仍是每个 web 部署绑定一个 Task。
