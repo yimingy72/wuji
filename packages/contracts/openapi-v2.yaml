@@ -408,6 +408,78 @@ paths:
         '401': {$ref: '#/components/responses/Unauthenticated'}
         '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
         '422': {$ref: '#/components/responses/InvalidSchema'}
+  /api/v2/tasks/{task_id}/reports/{report_id}/deliveries:
+    get:
+      operationId: listTaskReportDeliveriesV2
+      summary: List the recorded deliveries of one frozen report
+      tags: [Tasks]
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+        - $ref: '#/components/parameters/ReportId'
+      responses:
+        '200':
+          description: Delivery summaries, oldest first
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 100
+                items:
+                  $ref: '#/components/schemas/ReportDeliverySummary'
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+    post:
+      operationId: createTaskReportDeliveryV2
+      summary: Deliver a frozen report under one explicitly declared profile
+      description: >-
+        The platform indexes the frozen bytes against the profile's media
+        requirements and records ``ready`` only when every required material is
+        present; otherwise it records ``incomplete`` with the missing entries.
+        The profile is frozen with its own digest, so a later stricter profile
+        can never rewrite an earlier delivery.
+      tags: [Tasks]
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+        - $ref: '#/components/parameters/ReportId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReportDeliveryCommand'
+      responses:
+        '200':
+          description: The recorded delivery, ready or incomplete
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportDeliveryView'
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+  /api/v2/tasks/{task_id}/reports/{report_id}/deliveries/{delivery_id}:
+    get:
+      operationId: getTaskReportDeliveryV2
+      summary: Read one recorded delivery with its manifest and missing material
+      tags: [Tasks]
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+        - $ref: '#/components/parameters/ReportId'
+        - $ref: '#/components/parameters/DeliveryId'
+      responses:
+        '200':
+          description: The frozen delivery record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportDeliveryView'
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
   /internal/v2/model/chat/completions:
     post:
       operationId: createModelChatCompletionV2
@@ -871,6 +943,11 @@ components:
       schema: {type: string, minLength: 1, maxLength: 256}
     ReportId:
       name: report_id
+      in: path
+      required: true
+      schema: {type: string, minLength: 1, maxLength: 256}
+    DeliveryId:
+      name: delivery_id
       in: path
       required: true
       schema: {type: string, minLength: 1, maxLength: 256}
@@ -3091,3 +3168,166 @@ components:
           type: array
           maxItems: 4096
           items: {$ref: '#/components/schemas/ReportAmendmentView'}
+    DeliveryRequirement:
+      type: object
+      additionalProperties: false
+      required: [role, media_type, min_count, required]
+      properties:
+        role: {type: string, pattern: '^[a-z][a-z0-9_]{0,63}$'}
+        media_type: {type: string, minLength: 3, maxLength: 129}
+        min_count: {type: integer, minimum: 1, maximum: 64}
+        required: {type: boolean}
+    DeliveryProfile:
+      type: object
+      additionalProperties: false
+      required: [schema_version, profile_id, mode, requirements]
+      properties:
+        schema_version:
+          type: string
+          enum: [wuji.delivery-profile.v1]
+        profile_id: {type: string, minLength: 1, maxLength: 256}
+        mode:
+          type: string
+          enum: [offline, http]
+        requirements:
+          type: array
+          minItems: 1
+          maxItems: 32
+          items: {$ref: '#/components/schemas/DeliveryRequirement'}
+    ReportDeliveryCommand:
+      type: object
+      additionalProperties: false
+      required: [profile]
+      properties:
+        profile: {$ref: '#/components/schemas/DeliveryProfile'}
+        exchange:
+          oneOf:
+            - {type: object}
+            - type: 'null'
+    DeliveryMaterial:
+      type: object
+      additionalProperties: false
+      required: [source, source_ref, media_type, sha256, size_bytes, access_level]
+      properties:
+        source: {type: string, enum: [report_commit, artifact]}
+        source_ref: {type: string, minLength: 1, maxLength: 512}
+        media_type: {type: string, minLength: 3, maxLength: 256}
+        sha256: {$ref: '#/components/schemas/Sha256Digest'}
+        size_bytes: {type: integer, minimum: 0}
+        access_level: {type: integer, minimum: 0}
+    DeliveryRequirementReport:
+      type: object
+      additionalProperties: false
+      required: [role, media_type, min_count, required, present_count, present, missing_count]
+      properties:
+        role: {type: string, minLength: 1, maxLength: 64}
+        media_type: {type: string, minLength: 3, maxLength: 129}
+        min_count: {type: integer, minimum: 1, maximum: 64}
+        required: {type: boolean}
+        present_count: {type: integer, minimum: 0}
+        present:
+          type: array
+          maxItems: 500
+          items: {$ref: '#/components/schemas/DeliveryMaterial'}
+        missing_count: {type: integer, minimum: 0}
+    DeliveryMissing:
+      type: object
+      additionalProperties: false
+      required: [role, media_type, min_count, present_count, missing_count, required]
+      properties:
+        role: {type: string, minLength: 1, maxLength: 64}
+        media_type: {type: string, minLength: 3, maxLength: 129}
+        min_count: {type: integer, minimum: 1, maximum: 64}
+        present_count: {type: integer, minimum: 0}
+        missing_count: {type: integer, minimum: 1}
+        required: {type: boolean}
+    ReportDeliveryManifest:
+      type: object
+      additionalProperties: false
+      required: [schema_version, report_id, report_digest, epoch_id, profile, mode, state, requirements, materials, missing]
+      properties:
+        schema_version:
+          type: string
+          enum: [wuji.report-delivery.v1]
+        report_id: {type: string, minLength: 1, maxLength: 256}
+        report_digest: {$ref: '#/components/schemas/Sha256Digest'}
+        epoch_id: {type: string, minLength: 1, maxLength: 256}
+        profile: {$ref: '#/components/schemas/DeliveryProfile'}
+        mode:
+          type: string
+          enum: [offline, http]
+        state:
+          type: string
+          enum: [ready, incomplete]
+        requirements:
+          type: array
+          maxItems: 32
+          items: {$ref: '#/components/schemas/DeliveryRequirementReport'}
+        materials:
+          type: array
+          maxItems: 501
+          items: {$ref: '#/components/schemas/DeliveryMaterial'}
+        missing:
+          type: array
+          maxItems: 32
+          items: {$ref: '#/components/schemas/DeliveryMissing'}
+    ReportDeliveryView:
+      type: object
+      additionalProperties: false
+      required: [delivery_id, task_id, report_id, report_digest, epoch_id, profile, profile_digest, state, mode, missing, manifest, manifest_digest, exchange, error_code, access_level, created_at]
+      properties:
+        delivery_id: {type: string, minLength: 1, maxLength: 256}
+        task_id: {type: string, minLength: 1, maxLength: 256}
+        report_id: {type: string, minLength: 1, maxLength: 256}
+        report_digest: {$ref: '#/components/schemas/Sha256Digest'}
+        epoch_id: {type: string, minLength: 1, maxLength: 256}
+        profile: {$ref: '#/components/schemas/DeliveryProfile'}
+        profile_digest: {$ref: '#/components/schemas/Sha256Digest'}
+        state:
+          type: string
+          enum: [delivery_pending, ready, incomplete, failed]
+        mode:
+          type: string
+          enum: [offline, http]
+        missing:
+          type: array
+          maxItems: 32
+          items: {$ref: '#/components/schemas/DeliveryMissing'}
+        manifest:
+          oneOf:
+            - $ref: '#/components/schemas/ReportDeliveryManifest'
+            - type: 'null'
+        manifest_digest:
+          oneOf:
+            - $ref: '#/components/schemas/Sha256Digest'
+            - type: 'null'
+        exchange:
+          oneOf:
+            - {type: object}
+            - type: 'null'
+        error_code:
+          oneOf:
+            - {type: string, minLength: 2, maxLength: 64}
+            - type: 'null'
+        access_level: {type: integer, minimum: 0}
+        created_at: {type: string, format: date-time}
+    ReportDeliverySummary:
+      type: object
+      additionalProperties: false
+      required: [delivery_id, report_id, profile_id, mode, state, missing_required, error_code, created_at]
+      properties:
+        delivery_id: {type: string, minLength: 1, maxLength: 256}
+        report_id: {type: string, minLength: 1, maxLength: 256}
+        profile_id: {type: string, minLength: 1, maxLength: 256}
+        mode:
+          type: string
+          enum: [offline, http]
+        state:
+          type: string
+          enum: [delivery_pending, ready, incomplete, failed]
+        missing_required: {type: integer, minimum: 0}
+        error_code:
+          oneOf:
+            - {type: string, minLength: 2, maxLength: 64}
+            - type: 'null'
+        created_at: {type: string, format: date-time}

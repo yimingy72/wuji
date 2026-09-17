@@ -4,12 +4,19 @@ import { ReloadOutlined } from '@ant-design/icons';
 import { apiUrl } from '../../config';
 import {
   CLOSE_TRIGGERS,
+  DECLARED_PROFILES,
   RESULT_OUTCOMES,
   completionRequestPath,
+  deliveriesRequestPath,
+  parseReportDeliverySummaries,
+  parseReportDeliveryView,
   parseReportView,
   parseTaskCompletionView,
+  profileForDelivery,
   reportRequestPath,
   type CompletionAction,
+  type ReportDeliverySummary,
+  type ReportDeliveryView,
   type ReportView,
   type TaskCompletionView,
 } from './contracts';
@@ -36,6 +43,18 @@ const APPLICABILITY_COPY: Record<string, string> = {
   retracted: '已撤回',
   missing: '未记录',
 };
+
+const DELIVERY_STATE_COPY: Record<string, { color: string; text: string }> = {
+  delivery_pending: { color: 'gold', text: '待检查' },
+  ready: { color: 'green', text: '材料齐全' },
+  incomplete: { color: 'red', text: '缺少必需材料' },
+  failed: { color: 'default', text: '交付失败' },
+};
+
+const DELIVERY_PROFILE_OPTIONS = DECLARED_PROFILES.map((item) => ({
+  value: item.value,
+  label: item.label,
+}));
 
 const REASON_COPY: Record<string, string> = {
   criteria_invalidated: '判定已失效（过期/争议/撤回）',
@@ -103,6 +122,10 @@ export function CompletionPanel({ taskId, onChanged }: CompletionPanelProps) {
   const [notice, setNotice] = useState<string | null>(null);
   const [closeTrigger, setCloseTrigger] = useState<string>('goal_satisfied');
   const [resultOutcome, setResultOutcome] = useState<string>('complete');
+  const [profileId, setProfileId] = useState<string>(DECLARED_PROFILES[0].value);
+  const [deliveries, setDeliveries] = useState<readonly ReportDeliverySummary[]>([]);
+  const [delivery, setDelivery] = useState<ReportDeliveryView | null>(null);
+  const [deliveryBusy, setDeliveryBusy] = useState(false);
   const active = useRef<AbortController | null>(null);
 
   const load = useCallback(async () => {
@@ -129,6 +152,7 @@ export function CompletionPanel({ taskId, onChanged }: CompletionPanelProps) {
     void load();
     return () => active.current?.abort();
   }, [load]);
+
 
   const submit = async (action: CompletionAction) => {
     setBusy(true);
@@ -182,6 +206,84 @@ export function CompletionPanel({ taskId, onChanged }: CompletionPanelProps) {
       setBusy(false);
     }
   };
+
+  const refreshDeliveries = useCallback(
+    async (reportId: string) => {
+      try {
+        const response = await fetch(apiUrl(deliveriesRequestPath(taskId, reportId)), {
+          credentials: 'include',
+          headers: { Accept: 'application/json' },
+        });
+        if (!response.ok) throw new Error('交付记录读取失败');
+        setDeliveries(parseReportDeliverySummaries(await response.json()));
+      } catch {
+        setDeliveries([]);
+      }
+    },
+    [taskId],
+  );
+
+  const openDelivery = async (deliveryId: string) => {
+    if (!view?.report) return;
+    setDeliveryBusy(true);
+    setError(null);
+    try {
+      const response = await fetch(
+        apiUrl(`${deliveriesRequestPath(taskId, view.report.report_id)}/${encodeURIComponent(deliveryId)}`),
+        { credentials: 'include', headers: { Accept: 'application/json' } },
+      );
+      if (!response.ok) throw new Error('交付记录读取失败');
+      setDelivery(parseReportDeliveryView(await response.json()));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : '交付记录读取失败');
+    } finally {
+      setDeliveryBusy(false);
+    }
+  };
+
+  const deliverReport = async () => {
+    if (!view?.report) return;
+    setDeliveryBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const response = await fetch(apiUrl(deliveriesRequestPath(taskId, view.report.report_id)), {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'Idempotency-Key': newIdempotencyKey(),
+        },
+        body: JSON.stringify({ profile: profileForDelivery(profileId), exchange: null }),
+      });
+      const payload: unknown = await response.json().catch(() => null);
+      if (!response.ok) {
+        const code = (payload as { code?: string } | null)?.code ?? `HTTP_${response.status}`;
+        throw new Error(completionErrorCopy(code));
+      }
+      const next = parseReportDeliveryView(payload);
+      setDelivery(next);
+      setNotice(next.state === 'ready'
+        ? '交付记录已生成：profile 要求的材料齐全。'
+        : '交付记录已生成：缺少必需材料，记录为 incomplete。');
+      await refreshDeliveries(view.report.report_id);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : '交付记录未生成');
+    } finally {
+      setDeliveryBusy(false);
+    }
+  };
+
+  const reportId = view?.report?.report_id ?? null;
+  useEffect(() => {
+    if (reportId === null) {
+      setDeliveries([]);
+      setDelivery(null);
+      return;
+    }
+    void refreshDeliveries(reportId);
+  }, [reportId, refreshDeliveries]);
 
   if (loading && !view) {
     return (
@@ -358,6 +460,94 @@ export function CompletionPanel({ taskId, onChanged }: CompletionPanelProps) {
                   )}
                 </>
               )}
+              <div className={styles.completionDelivery}>
+                <div className={styles.completionReportHeader}>
+                  <strong>报告交付</strong>
+                  {delivery && (
+                    <Tag color={(DELIVERY_STATE_COPY[delivery.state] ?? { color: 'default' }).color}>
+                      {(DELIVERY_STATE_COPY[delivery.state] ?? { text: delivery.state }).text}
+                    </Tag>
+                  )}
+                </div>
+                <div className={styles.completionActions}>
+                  <Select
+                    aria-label="交付 profile"
+                    value={profileId}
+                    onChange={setProfileId}
+                    options={DELIVERY_PROFILE_OPTIONS}
+                  />
+                  <Button
+                    type="primary"
+                    loading={deliveryBusy}
+                    onClick={() => void deliverReport()}
+                  >生成交付记录</Button>
+                </div>
+                {deliveries.length > 0 && (
+                  <Table
+                    size="small"
+                    pagination={false}
+                    rowKey={(item) => item.delivery_id}
+                    dataSource={[...deliveries]}
+                    onRow={(item) => ({ onClick: () => void openDelivery(item.delivery_id) })}
+                    columns={[
+                      { title: '交付', dataIndex: 'delivery_id', ellipsis: true },
+                      { title: 'Profile', dataIndex: 'profile_id', ellipsis: true },
+                      { title: '媒介', dataIndex: 'mode', width: 84 },
+                      {
+                        title: '状态',
+                        dataIndex: 'state',
+                        width: 132,
+                        render: (value: string) => {
+                          const copy = DELIVERY_STATE_COPY[value] ?? { color: 'default', text: value };
+                          return <Tag color={copy.color}>{copy.text}</Tag>;
+                        },
+                      },
+                      {
+                        title: '缺必需材料',
+                        dataIndex: 'missing_required',
+                        width: 108,
+                      },
+                    ]}
+                  />
+                )}
+                {delivery && (
+                  <>
+                    <Descriptions
+                      size="small"
+                      bordered
+                      column={1}
+                      items={[
+                        { key: 'id', label: '交付', children: <code>{delivery.delivery_id}</code> },
+                        { key: 'state', label: '状态', children: <code>{delivery.state}</code> },
+                        {
+                          key: 'profile',
+                          label: 'Profile 摘要',
+                          children: <code>{delivery.profile_digest}</code>,
+                        },
+                        {
+                          key: 'manifest',
+                          label: '清单摘要',
+                          children: <code>{delivery.manifest_digest ?? '未生成'}</code>,
+                        },
+                        {
+                          key: 'exchange',
+                          label: 'HTTP 交换',
+                          children: <code>{delivery.exchange === null ? '离线交付，无交换' : '有交换回执'}</code>,
+                        },
+                      ]}
+                    />
+                    {delivery.missing.filter((item) => item.required).map((item) => (
+                      <Alert
+                        key={item.role}
+                        showIcon
+                        type="warning"
+                        title={`缺少必需材料 · ${item.role}`}
+                        description={`需要 ${item.min_count} 份 ${item.media_type}，当前 ${item.present_count} 份。`}
+                      />
+                    ))}
+                  </>
+                )}
+              </div>
             </div>
           )}
         </>
@@ -383,6 +573,10 @@ function completionErrorCopy(code: string): string {
       return '任务尚未关闭，报告不能冻结。';
     case 'INPUT_DIGEST_CONFLICT':
       return '幂等键与内容不一致；请用新的操作重试。';
+    case 'delivery_exchange_required':
+      return 'HTTP 交付必须引用真实交换回执；离线 profile 不记录交换。';
+    case 'delivery_too_large':
+      return '交付材料超过平台上限，请缩小 profile 要求。';
     case 'NOT_FOUND_OR_FORBIDDEN':
       return '当前身份没有该 Task 的控制权限。';
     default:

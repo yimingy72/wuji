@@ -32,9 +32,13 @@ COOKIE_NAME = "wuji_vnext_session"
 NO_STORE = {"Cache-Control": "no-store"}
 _READ_PATH = re.compile(
     r"^/api/v2/tasks/([^/]+)/(?:topology|snapshots|completion"
-    r"|reports/[^/]+|records/[^/]+/[^/]+|layouts/(?:knowledge-live|knowledge-history))$"
+    r"|reports/[^/]+(?:/deliveries(?:/[^/]+)?)?"
+    r"|records/[^/]+/[^/]+|layouts/(?:knowledge-live|knowledge-history))$"
 )
 _COMPLETION_PATH = re.compile(r"^/api/v2/tasks/([^/]+)/completion$")
+_DELIVERY_PATH = re.compile(
+    r"^/api/v2/tasks/([^/]+)/reports/[^/]+/deliveries$"
+)
 _STREAM_PATH = re.compile(r"^/api/v2/views/([^/]+)/events$")
 _TOPOLOGY_PATH = re.compile(r"^/api/v2/tasks/([^/]+)/topology$")
 _LAYOUT_PATH = re.compile(
@@ -277,6 +281,12 @@ class BrowserGateway:
         matched = _COMPLETION_PATH.fullmatch(path)
         return matched is not None and matched.group(1) == self.settings.task_id
 
+    def allowed_delivery(self, path: str) -> bool:
+        """Only this pinned Task's own report deliveries may be recorded."""
+
+        matched = _DELIVERY_PATH.fullmatch(path)
+        return matched is not None and matched.group(1) == self.settings.task_id
+
     def allowed_stream(self, path: str) -> bool:
         """Only views this Task's own topology just published may be streamed."""
 
@@ -481,7 +491,8 @@ def create_gateway(settings: GatewaySettings, *, client=None) -> FastAPI:
         if payload is None:
             return _problem(401, "UNAUTHENTICATED", "Browser session is not active.")
         path = "/api/v2/" + rest
-        if not gateway.allowed_completion(path) or request.url.query:
+        allowed = gateway.allowed_completion(path) or gateway.allowed_delivery(path)
+        if not allowed or request.url.query:
             return _problem(404, "NOT_FOUND_OR_FORBIDDEN", "Resource is unavailable.")
         try:
             gateway.require_origin(request)
@@ -514,7 +525,7 @@ def create_gateway(settings: GatewaySettings, *, client=None) -> FastAPI:
                 content=body,
             )
         except (httpx.HTTPError, OSError, TimeoutError):
-            return _problem(503, "CAPABILITY_UNAVAILABLE", "Completion service is unavailable.")
+            return _problem(503, "CAPABILITY_UNAVAILABLE", "Control service is unavailable.")
         return upstream_response(upstream)
 
     @app.put("/api/v2/{rest:path}")

@@ -96,10 +96,14 @@ from wuji_core.persistence.view_stream_schema import (
     HEAD as VIEW_STREAM_HEAD,
     upgrade as upgrade_view_stream,
 )
+from wuji_core.persistence.delivery_schema import (
+    HEAD as DELIVERY_HEAD,
+    upgrade as upgrade_report_delivery,
+)
 
 # The migration chain's newest head; callers assert against this instead of a
 # hard-coded historical identifier.
-HEAD = VIEW_STREAM_HEAD
+HEAD = DELIVERY_HEAD
 
 OWNER = "tenant_id,project_id,task_id"
 SCOPE_COLUMNS = (
@@ -475,6 +479,7 @@ def migrate(connection, *, application_role: str) -> None:
                 JUDGMENT_HEAD,
                 REPORT_HEAD,
                 VIEW_STREAM_HEAD,
+                DELIVERY_HEAD,
             ]
             if not heads or heads != set(chain[: len(heads)]):
                 raise ValueError("unrecognized vnext migration head")
@@ -503,6 +508,7 @@ def migrate(connection, *, application_role: str) -> None:
                 upgrade_judgments,
                 upgrade_reports,
                 upgrade_view_stream,
+                upgrade_report_delivery,
             ]
             for upgrade in upgrades[len(heads) - 1 :]:
                 upgrade(connection, application_role)
@@ -628,3 +634,4 @@ def migrate(connection, *, application_role: str) -> None:
         upgrade_judgments(connection, application_role)
         upgrade_reports(connection, application_role)
         upgrade_view_stream(connection, application_role)
+        upgrade_report_delivery(connection, application_role)

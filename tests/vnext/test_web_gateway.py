@@ -334,3 +334,75 @@ def test_the_view_stream_relays_batches_and_resumes_from_last_event_id(tmp_path)
     assert url.endswith("/api/v2/views/view-1/events")
     assert headers["Last-Event-ID"] == "cursor-1"
     assert headers["Accept"] == "text/event-stream"
+
+
+def test_browser_proxy_records_a_delivery_only_for_its_own_task(tmp_path):
+    config, _public = settings(tmp_path)
+    body = json.dumps({
+        "profile": {
+            "schema_version": "wuji.delivery-profile.v1",
+            "profile_id": "offline-document-v1",
+            "mode": "offline",
+            "requirements": [
+                {
+                    "role": "report_body",
+                    "media_type": "application/vnd.wuji.report+json",
+                    "min_count": 1,
+                    "required": True,
+                }
+            ],
+        }
+    }).encode()
+    fake = FakeClient(FakeResponse(200, b"{}"))
+    app = gateway_module.create_gateway(config, client=fake)
+
+    async def run():
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://127.0.0.1:44180"
+        ) as client:
+            await client.post("/auth/login", headers={"Origin": "http://127.0.0.1:44180"})
+            origin = {"Origin": "http://127.0.0.1:44180"}
+            foreign = await client.post(
+                "/api/v2/tasks/task-other/reports/report-1/deliveries",
+                headers={**origin, "Content-Type": "application/json",
+                         "Idempotency-Key": "delivery-key-1"},
+                content=body,
+            )
+            missing_key = await client.post(
+                "/api/v2/tasks/task-fixture/reports/report-1/deliveries",
+                headers={**origin, "Content-Type": "application/json"},
+                content=body,
+            )
+            accepted = await client.post(
+                "/api/v2/tasks/task-fixture/reports/report-1/deliveries",
+                headers={**origin, "Content-Type": "application/json",
+                         "Idempotency-Key": "delivery-key-1"},
+                content=body,
+            )
+            read = await client.get(
+                "/api/v2/tasks/task-fixture/reports/report-1/deliveries",
+                headers=origin,
+            )
+            read_one = await client.get(
+                "/api/v2/tasks/task-fixture/reports/report-1/deliveries/delivery-1",
+                headers=origin,
+            )
+            foreign_read = await client.get(
+                "/api/v2/tasks/task-other/reports/report-1/deliveries",
+                headers=origin,
+            )
+            return foreign, missing_key, accepted, read, read_one, foreign_read
+
+    foreign, missing_key, accepted, read, read_one, foreign_read = asyncio.run(run())
+    assert foreign.status_code == 404
+    assert missing_key.status_code == 422
+    assert accepted.status_code == 200
+    assert read.status_code == 200
+    assert read_one.status_code == 200
+    assert foreign_read.status_code == 404
+    assert len(fake.request_bodies) == 1
+    method, url, headers, forwarded = fake.request_bodies[0]
+    assert method == "POST"
+    assert url.endswith("/api/v2/tasks/task-fixture/reports/report-1/deliveries")
+    assert headers["Idempotency-Key"] == "delivery-key-1"
+    assert forwarded == body

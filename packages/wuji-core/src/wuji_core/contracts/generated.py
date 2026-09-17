@@ -768,6 +768,65 @@ class DeliveryId(RootModel[StrictStr]):
     root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
 
 
+class DeliveryMaterial(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    source: Source
+    source_ref: Annotated[StrictStr, Field(max_length=512, min_length=1)]
+    media_type: Annotated[StrictStr, Field(max_length=256, min_length=3)]
+    sha256: Sha256Digest
+    size_bytes: Annotated[StrictInt, Field(ge=0)]
+    access_level: Annotated[StrictInt, Field(ge=0)]
+
+
+class DeliveryMissing(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    role: Annotated[StrictStr, Field(max_length=64, min_length=1)]
+    media_type: Annotated[StrictStr, Field(max_length=129, min_length=3)]
+    min_count: Annotated[StrictInt, Field(ge=1, le=64)]
+    present_count: Annotated[StrictInt, Field(ge=0)]
+    missing_count: Annotated[StrictInt, Field(ge=1)]
+    required: StrictBool
+
+
+class DeliveryProfile(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    schema_version: Literal['wuji.delivery-profile.v1']
+    profile_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    mode: Mode
+    requirements: Annotated[
+        list[DeliveryRequirement], Field(max_length=32, min_length=1)
+    ]
+
+
+class DeliveryRequirement(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    role: Annotated[StrictStr, Field(pattern='^[a-z][a-z0-9_]{0,63}$')]
+    media_type: Annotated[StrictStr, Field(max_length=129, min_length=3)]
+    min_count: Annotated[StrictInt, Field(ge=1, le=64)]
+    required: StrictBool
+
+
+class DeliveryRequirementReport(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    role: Annotated[StrictStr, Field(max_length=64, min_length=1)]
+    media_type: Annotated[StrictStr, Field(max_length=129, min_length=3)]
+    min_count: Annotated[StrictInt, Field(ge=1, le=64)]
+    required: StrictBool
+    present_count: Annotated[StrictInt, Field(ge=0)]
+    present: Annotated[list[DeliveryMaterial], Field(max_length=500)]
+    missing_count: Annotated[StrictInt, Field(ge=0)]
+
+
 class DependencyCondition(StrEnum):
     settled = 'settled'
     accepted_result = 'accepted_result'
@@ -825,6 +884,10 @@ class ErrorCode2(StrEnum):
     INVALID_SCHEMA_VERSION = 'INVALID_SCHEMA_VERSION'
     LIMIT_BLOCKED = 'LIMIT_BLOCKED'
     CAPABILITY_UNAVAILABLE = 'CAPABILITY_UNAVAILABLE'
+
+
+class ErrorCode3(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=64, min_length=2)]
 
 
 class ErrorResponse(BaseModel):
@@ -1293,6 +1356,11 @@ class MemoryMode(StrEnum):
     pinned_context = 'pinned_context'
 
 
+class Mode(StrEnum):
+    offline = 'offline'
+    http = 'http'
+
+
 class ModelAttemptReceipt(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -1498,11 +1566,71 @@ class ReportAmendmentView(BaseModel):
     source_receipt: dict[str, Any]
 
 
+class ReportDeliveryCommand(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    profile: DeliveryProfile
+    exchange: dict[str, Any] | None = None
+
+
+class ReportDeliveryManifest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    schema_version: Literal['wuji.report-delivery.v1']
+    report_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    report_digest: Sha256Digest
+    epoch_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    profile: DeliveryProfile
+    mode: Mode
+    state: State1
+    requirements: Annotated[list[DeliveryRequirementReport], Field(max_length=32)]
+    materials: Annotated[list[DeliveryMaterial], Field(max_length=501)]
+    missing: Annotated[list[DeliveryMissing], Field(max_length=32)]
+
+
 class ReportDeliveryState(StrEnum):
     delivery_pending = 'delivery_pending'
     ready = 'ready'
     incomplete = 'incomplete'
     failed = 'failed'
+
+
+class ReportDeliverySummary(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    delivery_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    report_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    profile_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    mode: Mode
+    state: State2
+    missing_required: Annotated[StrictInt, Field(ge=0)]
+    error_code: ErrorCode3 | None
+    created_at: AwareDatetime
+
+
+class ReportDeliveryView(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    delivery_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    task_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    report_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    report_digest: Sha256Digest
+    epoch_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    profile: DeliveryProfile
+    profile_digest: Sha256Digest
+    state: State2
+    mode: Mode
+    missing: Annotated[list[DeliveryMissing], Field(max_length=32)]
+    manifest: ReportDeliveryManifest | None
+    manifest_digest: Sha256Digest | None
+    exchange: dict[str, Any] | None
+    error_code: ErrorCode3 | None
+    access_level: Annotated[StrictInt, Field(ge=0)]
+    created_at: AwareDatetime
 
 
 class ReportSummary(BaseModel):
@@ -1713,6 +1841,11 @@ class SnapshotSummary(BaseModel):
     query: ViewQuery | None = None
 
 
+class Source(StrEnum):
+    report_commit = 'report_commit'
+    artifact = 'artifact'
+
+
 class StartReceipt(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -1734,6 +1867,18 @@ class StartStatus(StrEnum):
 
 class State(RootModel[StrictStr]):
     root: Annotated[StrictStr, Field(max_length=128, min_length=1)]
+
+
+class State1(StrEnum):
+    ready = 'ready'
+    incomplete = 'incomplete'
+
+
+class State2(StrEnum):
+    delivery_pending = 'delivery_pending'
+    ready = 'ready'
+    incomplete = 'incomplete'
+    failed = 'failed'
 
 
 class Status(StrEnum):

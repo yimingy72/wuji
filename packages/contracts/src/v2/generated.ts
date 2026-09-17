@@ -284,6 +284,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v2/tasks/{task_id}/reports/{report_id}/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the recorded deliveries of one frozen report */
+        get: operations["listTaskReportDeliveriesV2"];
+        put?: never;
+        /**
+         * Deliver a frozen report under one explicitly declared profile
+         * @description The platform indexes the frozen bytes against the profile's media requirements and records ``ready`` only when every required material is present; otherwise it records ``incomplete`` with the missing entries. The profile is frozen with its own digest, so a later stricter profile can never rewrite an earlier delivery.
+         */
+        post: operations["createTaskReportDeliveryV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/tasks/{task_id}/reports/{report_id}/deliveries/{delivery_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read one recorded delivery with its manifest and missing material */
+        get: operations["getTaskReportDeliveryV2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/internal/v2/model/chat/completions": {
         parameters: {
             query?: never;
@@ -1994,6 +2032,99 @@ export interface components {
             dispute_state: "clear" | "disputed";
             amendments: components["schemas"]["ReportAmendmentView"][];
         };
+        DeliveryRequirement: {
+            role: string;
+            media_type: string;
+            min_count: number;
+            required: boolean;
+        };
+        DeliveryProfile: {
+            /** @enum {string} */
+            schema_version: "wuji.delivery-profile.v1";
+            profile_id: string;
+            /** @enum {string} */
+            mode: "offline" | "http";
+            requirements: components["schemas"]["DeliveryRequirement"][];
+        };
+        ReportDeliveryCommand: {
+            profile: components["schemas"]["DeliveryProfile"];
+            exchange?: Record<string, never> | null;
+        };
+        DeliveryMaterial: {
+            /** @enum {string} */
+            source: "report_commit" | "artifact";
+            source_ref: string;
+            media_type: string;
+            sha256: components["schemas"]["Sha256Digest"];
+            size_bytes: number;
+            access_level: number;
+        };
+        DeliveryRequirementReport: {
+            role: string;
+            media_type: string;
+            min_count: number;
+            required: boolean;
+            present_count: number;
+            present: components["schemas"]["DeliveryMaterial"][];
+            missing_count: number;
+        };
+        DeliveryMissing: {
+            role: string;
+            media_type: string;
+            min_count: number;
+            present_count: number;
+            missing_count: number;
+            required: boolean;
+        };
+        ReportDeliveryManifest: {
+            /** @enum {string} */
+            schema_version: "wuji.report-delivery.v1";
+            report_id: string;
+            report_digest: components["schemas"]["Sha256Digest"];
+            epoch_id: string;
+            profile: components["schemas"]["DeliveryProfile"];
+            /** @enum {string} */
+            mode: "offline" | "http";
+            /** @enum {string} */
+            state: "ready" | "incomplete";
+            requirements: components["schemas"]["DeliveryRequirementReport"][];
+            materials: components["schemas"]["DeliveryMaterial"][];
+            missing: components["schemas"]["DeliveryMissing"][];
+        };
+        ReportDeliveryView: {
+            delivery_id: string;
+            task_id: string;
+            report_id: string;
+            report_digest: components["schemas"]["Sha256Digest"];
+            epoch_id: string;
+            profile: components["schemas"]["DeliveryProfile"];
+            profile_digest: components["schemas"]["Sha256Digest"];
+            /** @enum {string} */
+            state: "delivery_pending" | "ready" | "incomplete" | "failed";
+            /** @enum {string} */
+            mode: "offline" | "http";
+            missing: components["schemas"]["DeliveryMissing"][];
+            manifest: components["schemas"]["ReportDeliveryManifest"] | null;
+            manifest_digest: components["schemas"]["Sha256Digest"] | null;
+            exchange: Record<string, never> | null;
+            error_code: string | null;
+            access_level: number;
+            /** Format: date-time */
+            created_at: string;
+        };
+        ReportDeliverySummary: {
+            delivery_id: string;
+            report_id: string;
+            profile_id: string;
+            /** @enum {string} */
+            mode: "offline" | "http";
+            /** @enum {string} */
+            state: "delivery_pending" | "ready" | "incomplete" | "failed";
+            missing_required: number;
+            error_code: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
     };
     responses: {
         /** @description Command accepted for authoritative processing */
@@ -2092,6 +2223,7 @@ export interface components {
         IfMatch: components["schemas"]["RevisionString"];
         TrustedRequestId: string;
         ReportId: string;
+        DeliveryId: string;
         TaskId: string;
         WorkItemId: string;
         ApprovalId: string;
@@ -2611,6 +2743,93 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReportView"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFoundOrForbidden"];
+            422: components["responses"]["InvalidSchema"];
+        };
+    };
+    listTaskReportDeliveriesV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: components["parameters"]["TaskId"];
+                report_id: components["parameters"]["ReportId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Delivery summaries, oldest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportDeliverySummary"][];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFoundOrForbidden"];
+            422: components["responses"]["InvalidSchema"];
+        };
+    };
+    createTaskReportDeliveryV2: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                task_id: components["parameters"]["TaskId"];
+                report_id: components["parameters"]["ReportId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportDeliveryCommand"];
+            };
+        };
+        responses: {
+            /** @description The recorded delivery, ready or incomplete */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportDeliveryView"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFoundOrForbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidSchema"];
+        };
+    };
+    getTaskReportDeliveryV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: components["parameters"]["TaskId"];
+                report_id: components["parameters"]["ReportId"];
+                delivery_id: components["parameters"]["DeliveryId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The frozen delivery record */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportDeliveryView"];
                 };
             };
             401: components["responses"]["Unauthenticated"];
