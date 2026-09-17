@@ -1873,6 +1873,46 @@ def _loopback_url(url):
         return False
 
 
+def republish_runtime_profile(connection, *, owner, config):
+    """Publish the next immutable revision of this deployment's runtime profile.
+
+    The worker lock is part of the frozen Task definition, so a rebuild that
+    changes it leaves every newly created Task unable to prepare: the published
+    runtime profile still names the old lock. This is the owner action that mints
+    the next revision from the deployment document; it reports digests only and
+    never rewrites an existing revision in place.
+    """
+
+    from wuji_core.admission.registry import register_published_profile
+
+    document = (config.get("admission") or {}).get("runtime")
+    if not isinstance(document, dict) or not isinstance(document.get("ref"), str):
+        raise DomainError("INVALID_REFERENCE", 422)
+    latest = connection.execute(
+        "SELECT revision, document_json, lock_digest FROM vnext.published_profile"
+        " WHERE tenant_id=%s AND kind='runtime' AND ref=%s ORDER BY revision DESC LIMIT 1",
+        (owner[0], document["ref"]),
+    ).fetchone()
+    if latest is None:
+        raise DomainError("INVALID_REFERENCE", 422)
+    shipped = shipped_worker_lock_digest()
+    if latest[2] == shipped:
+        return {
+            "ref": document["ref"], "revision": str(latest[0]), "changed": False,
+            "lock_digest": shipped,
+        }
+    updated = json.loads(latest[1])
+    updated["lock_digest"] = shipped
+    updated["revision"] = str(int(latest[0]) + 1)
+    register_published_profile(
+        connection, tenant_id=owner[0], kind="runtime", document=updated
+    )
+    return {
+        "ref": updated["ref"], "revision": updated["revision"], "changed": True,
+        "previous_revision": str(latest[0]), "lock_digest": shipped,
+    }
+
+
 def preflight(config, *, task_id, options, connection=None):
     """Report what this deployment declares, without touching a target.
 
@@ -1970,6 +2010,19 @@ def preflight(config, *, task_id, options, connection=None):
             "ok" if budget_ok else "blocked",
             "declared task budget" if budget_ok else "no bounded task budget is declared",
         )
+
+        shipped_lock = shipped_worker_lock_digest()
+        runtime_lock = (definition.get("runtime_profile") or {}).get("lock_digest")
+        if runtime_lock != shipped_lock:
+            record(
+                "worker_lock",
+                "blocked",
+                "the frozen runtime profile names lock " + str(runtime_lock)[:12]
+                + " but this build ships " + shipped_lock[:12]
+                + "; run the owner relock phase to publish the next revision",
+            )
+        else:
+            record("worker_lock", "ok", shipped_lock[:12])
 
         model = definition.get("model_profile") or config.get("admission", {}).get("model", {})
         gateway = model.get("gateway_url") if isinstance(model, dict) else None
@@ -2083,12 +2136,18 @@ def run_phases(config, *, task_id, phases, options):
         and "prepare" not in phases
         and set(phases) != {"intent"}
         and set(phases) != {"preflight"}
+        and set(phases) != {"relock"}
     ):
         raise DomainError("INVALID_REFERENCE", 422)
     result = {}
     try:
         if "preflight" in phases:
             result["preflight"] = preflight(config, task_id=task_id, options=options)
+        if "relock" in phases:
+            result["relock"] = republish_runtime_profile(
+                connection, owner=(config["owner"][0], config["owner"][1], task_id),
+                config=config,
+            )
         if "intent" in phases:
             receipt = admit_followup_intent(
                 partial(application_connection, config),
@@ -2342,8 +2401,8 @@ def main(argv=None):
     parser.add_argument("--config", default="/run/wuji/bootstrap/config.json")
     parser.add_argument("--task", required=True)
     parser.add_argument("--phase", default="all",
-                        choices=["all", "roll", "preflight", "prepare", "activate",
-                                 "wire", "capability", "intent"])
+                        choices=["all", "roll", "preflight", "relock", "prepare",
+                                 "activate", "wire", "capability", "intent"])
     parser.add_argument("--roll-attempt", action="store_true",
                         help="roll a Task that can no longer run into a new runtime attempt first")
     parser.add_argument("--roll-reason", default="")

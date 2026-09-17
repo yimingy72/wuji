@@ -1421,3 +1421,67 @@ def test_e06_published_materials_seed_the_workspace_without_shell_interpretation
         task_launch.deployment_materials(
             {"materials": [{"path": "a", "text": "x"}] * 17}
         )
+
+
+def test_e01_a_stale_worker_lock_is_named_and_relock_publishes_a_new_revision(
+    db_environment, audit_directory, tmp_path
+):
+    """E01: a rebuild that changes the worker lock is caught before activation."""
+
+    from wuji_core.admission.registry import register_published_profile
+
+    with creation_case(db_environment, audit_directory) as case:
+        with db_environment.migration_connection() as connection:
+            stale = runtime_profile().model_dump(mode="json")
+            stale["revision"] = "2"
+            stale["lock_digest"] = "c" * 64
+            register_published_profile(
+                connection, tenant_id=OWNER[0], kind="runtime", document=stale
+            )
+        created = create(case)
+        assert created.status_code == 201, created.text
+        task_id = created.json()["task_id"]
+        owner = (OWNER[0], OWNER[1], task_id)
+
+        with db_environment.migration_connection() as connection:
+            definition, _ = stored_definition(connection, task_id)
+            assert definition["runtime_profile"]["lock_digest"] == "c" * 64
+            register_tool_definition(connection, tenant_id=OWNER[0], definition=tool_document())
+            seed_pools(connection, definition)
+            config = deployment_config(definition)
+            write_bearer(tmp_path, seconds=7200)
+            report = task_launch.preflight(
+                config, task_id=task_id,
+                options={"deployment_auth_dir": str(tmp_path),
+                         "base_url": "https://runtime.invalid"},
+                connection=connection,
+            )
+            assert "worker_lock" in report["blocked"], report["checks"]
+
+            relocked = task_launch.republish_runtime_profile(
+                connection,
+                owner=owner,
+                config={"admission": {"runtime": {"ref": "fixture-runtime-v1"}}},
+            )
+            assert relocked["changed"] is True
+            assert relocked["previous_revision"] == "2"
+            assert relocked["revision"] == "3"
+            assert relocked["lock_digest"] == task_launch.shipped_worker_lock_digest()
+
+            # Repeating the owner action is idempotent and never rewrites a row.
+            again = task_launch.republish_runtime_profile(
+                connection,
+                owner=owner,
+                config={"admission": {"runtime": {"ref": "fixture-runtime-v1"}}},
+            )
+            assert again["changed"] is False and again["revision"] == "3"
+
+            # The Task that froze the stale revision must be recreated: its
+            # definition is immutable, so preflight keeps naming the mismatch.
+            still = task_launch.preflight(
+                config, task_id=task_id,
+                options={"deployment_auth_dir": str(tmp_path),
+                         "base_url": "https://runtime.invalid"},
+                connection=connection,
+            )
+            assert "worker_lock" in still["blocked"]

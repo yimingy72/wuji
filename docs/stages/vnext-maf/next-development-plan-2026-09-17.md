@@ -50,7 +50,7 @@
 
 ## 3. 队列（对应 P 任务）
 
-> 进度：E00 完成（本文 §1）；E01/E02 已交付 `5a94986`；E03-A 已交付 `8812239`；E03-B 已交付 `0f66d08`；E06 已交付（见 §5）。
+> 进度：E00 完成（本文 §1）；E01/E02 已交付 `5a94986`；E03-A 已交付 `8812239`；E03-B 已交付 `0f66d08`；E06 已交付 `83ffb65`；E01 收口项（worker lock 复锁）已交付（见 §5）。
 
 1. **E01 真实任务配置与机制夹具分离（P02/P07/P11/P18）** — 模式来自可信部署配置；真实模式默认 Reason-first，不回落 `version.txt`；显式 seed 策略才产生种子读取；preflight 不触达目标/付费模型。
 2. **E02 接通完整能力链（P06/P07/P09/P10）** — 发布→Profile→Task 许可→Scheduler→Worker→Gate→Executor 同一张兼容表；Reason 无目标能力；`http_target` 进入正式调度前必须有部署发布与真实负控。
@@ -91,3 +91,9 @@
 - `ops/vnext/task_launch.py` 支持部署/场景发布的有界 `materials`（≤16 项、每项 ≤4096 字节、路径受限）：attempt 初始化 Job 以 `umask 077` 写入 Kali 工作区，文本一律 base64 传输并 shell-quote，材料文本不进入命令行字面量；未发布材料时保持原 `version.txt` 夹具。
 - 证据：`tests/vnext/test_exploration_trials.py`（4 项：生成与预检、篡改材料被拒、案例运行配置只发布本案例材料、变体标签/诱饵答案不外泄）与 `tests/vnext/test_task_launch.py::test_e06_published_materials_seed_the_workspace_without_shell_interpretation`。
 - 未覆盖：真实集群上的 `run`/`stop` 尚未执行（等待新镜像滚动完成）；评分器（grading.json）需要根据真实试次记录写回，本轮只固定其输入契约。
+
+### E01 收口（已交付）：worker lock 变更后新 Task 无法 prepare
+
+- 真实集群实测发现：`198` 之后的提交 `62c232c` 改了 `packages/maf-worker/uv.lock`，但部署在 2026-09-15 发布的 `k8s-runtime-v1` 仍写着旧摘要 `b6d8a78d…`；`create_task` 把该旧 profile 冻结进新 Task 定义，`finalise_definition` 与 `shipped_worker_lock_digest()` 不一致，prepare 以 `INPUT_DIGEST_CONFLICT` 拒绝。这是正确的 fail-closed，但当时没有 owner 复核/修复路径。
+- 现在：`preflight` 新增 `worker_lock` 检查，直接点名"定义里的摘要 vs 本次构建实际 ship 的摘要"并给出修复动作；新增 owner 阶段 `--phase relock`，把部署文档里的运行时 profile 发布为**下一个不可变 revision**（不原地改写旧行），重复执行幂等。
+- 证据：`tests/vnext/test_task_launch.py::test_e01_a_stale_worker_lock_is_named_and_relock_publishes_a_new_revision`（stale 定义被 preflight 拦下 → relock 发布 rev3 → 再执行不重复发布 → 旧定义的 Task 仍被点名，必须重建）。

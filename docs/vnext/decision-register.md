@@ -38,6 +38,7 @@
 | D24 | 2026-09-17 E03-B：受权快照读集中的封存文本 Artifact 正文有界内联进交付上下文（`material`），未内联的一律带固定原因（`material_omitted`），不截断、不静默丢弃；宿主未配置 Artifact 读取端口时保持纯元数据且不标注。正文来自 `ArtifactStore.checked_bytes`（逐字节校验 size/sha256），不是模型或工具自述。证据：`tests/vnext/test_evidence_in_context.py` 6 项 + M2 真实子进程上下文断言 | 若只给元数据，后续 Reason 无法基于新证据改变判断（M2 不成立）；若整段截断或按需拼接，模型会看到不完整材料却当完整材料使用 |
 
 | D25 | 2026-09-17 E06：封闭试测采用“材料在 Kali 工作区、答案在 grader 目录”的分离结构，`scripts/vnext/exploration_trials.py` 只做夹具、预检、案例配置与回读，`run` 委托既有 owner 命令，`stop` 发真实 cancel 并回读 DB；材料经部署配置 `materials` 由 attempt 初始化 Job 以 base64+shlex 写入工作区（未发布时保持原夹具）。CASE-B 两个变体共享同一 Goal 与路径，只有内容不同 | 若答案或变体标签能被工作区读到，试次就没有证明力；若为主张可运行而另造启动路径，验收将不再绑定产品入口 |
+| D26 | 2026-09-17 E01 收口：worker lock 是冻结定义的一部分，重建镜像改变 `packages/maf-worker/uv.lock` 后，旧 `published_profile` 仍指向旧摘要，任何新建 Task 都会在 prepare 处 `INPUT_DIGEST_CONFLICT`。保留该 fail-closed 行为，同时补 `preflight` 的 `worker_lock` 检查与 owner 阶段 `--phase relock`（发布下一个不可变 revision、幂等、不原地改写）；已冻结旧定义的 Task 必须重建而不是改行 | 若允许 prepare 静默改写定义，permit/摘要绑定与既有运行证据会失配；若只报错无修复路径，部署每次重建都会卡住新任务 |
 21 项任务及共享接口逐项检查表在本工作树的忽略台账 `.superpowers/sdd/vnext-v2/preflight.md`，任务完成以提交、具体测试和审查记录为准。源包 `ACCEPTANCE.md` / `VALIDATION_REPORT.md` 保持原始文档检查事实；实施结果另记，不覆盖原包。
 
 常规实现和修复按批准范围连续推进。必要权限、恢复或真实 MAF 核心能力不满足时，记录实际失败与合同影响，不通过削弱测试或更换框架来宣称通过。
