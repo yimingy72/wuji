@@ -6,6 +6,7 @@ import { useAppearance } from './Appearance';
 import { apiUrl, webConfig } from './config';
 import { TopologyContainer } from './features/topology/TopologyContainer';
 import type { TopologySelection, TopologySnapshotInput } from './features/topology/contracts';
+import { CompletionPanel } from './features/completion/CompletionPanel';
 import { RecordPanel } from './features/topology/panels/RecordPanel';
 import { SnapshotSelector, type ViewChoice } from './features/topology/panels/SnapshotSelector';
 import { selectedRecordRef } from './features/topology/record';
@@ -230,6 +231,10 @@ export function VNextWorkbenchPage() {
                     ref={selectedRef}
                   />
                 </div>
+                <CompletionPanel
+                  taskId={taskId}
+                  onChanged={() => setSelection(null)}
+                />
               </>
             )}
           </section>

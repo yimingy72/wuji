@@ -26,7 +26,9 @@ from wuji_core.http import canonical_json_bytes, strict_json_loads
 from wuji_core.persistence.uow import DomainError
 
 TERMINAL_WORK = frozenset({"done", "failed", "cancelled"})
-CONTROL_ROLES = frozenset({"controller", "reconciler"})
+# An operator that already holds can_control on that exact Task may drive the
+# epoch: the decision bytes stay platform-authored and P05 still consumes them.
+CONTROL_ROLES = frozenset({"controller", "reconciler", "operator"})
 
 
 @dataclass(frozen=True)

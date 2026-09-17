@@ -339,6 +339,8 @@ def test_openapi_publishes_the_complete_s13_route_set() -> None:
         "/api/v2/work-items/{work_item_id}/commands",
         "/api/v2/approvals/{approval_id}/decisions",
         "/api/v2/tasks/{task_id}/assessments",
+        "/api/v2/tasks/{task_id}/completion",
+        "/api/v2/tasks/{task_id}/reports/{report_id}",
         "/api/v2/tasks/{task_id}/topology",
         "/api/v2/views/{view_id}/events",
         "/api/v2/tasks/{task_id}/snapshots",

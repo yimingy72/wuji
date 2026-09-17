@@ -314,18 +314,24 @@ def test_precheck_does_not_wait_for_a_settled_reason_run(
         assert task["execution_allowed"] is False
 
 
-def test_an_operator_without_the_controller_role_cannot_propose(
+def test_proposing_requires_control_over_this_exact_task(
     db_environment, tmp_path, audit_directory
 ):
+    """P12-E: the role is not enough; can_control is read from this Task."""
+
     with control_case(db_environment, tmp_path, audit_directory) as case:
         prepared_run(case, state="leased")
         finish_work(case)
         judge(case, status="met")
         service = completion(case)
         assert service.precheck(OBSERVER, TASK).decision == "ready"
+        # observer-fixture holds can_observe, never can_control, on this Task.
         with pytest.raises(DomainError) as refused:
-            service.propose(OPERATOR, TASK, receipt_key="completion-fixture")
+            service.propose(OBSERVER, TASK, receipt_key="completion-fixture")
         assert refused.value.code == "NOT_FOUND_OR_FORBIDDEN"
+        # operator-fixture does hold can_control, so the product action is allowed.
+        proposal = service.propose(OPERATOR, TASK, receipt_key="completion-fixture")
+        assert proposal.close_trigger == "goal_satisfied"
 
 
 @pytest.mark.parametrize(

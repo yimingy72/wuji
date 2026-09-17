@@ -334,6 +334,80 @@ paths:
                 $ref: '#/components/schemas/ArchiveView'
         '401': {$ref: '#/components/responses/Unauthenticated'}
         '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
+  /api/v2/tasks/{task_id}/completion:
+    get:
+      operationId: getTaskCompletionV2
+      summary: Read the platform completion review of a Task
+      description: >-
+        The review is derived from persisted judgments, work and runs. A client
+        never supplies it, and its presence never means the Goal was satisfied.
+      tags: [Tasks]
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      responses:
+        '200':
+          description: Current completion state and the frozen report, if any
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskCompletionView'
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+    post:
+      operationId: submitTaskCompletionV2
+      summary: Open a completion epoch or close the Task, then freeze its report
+      description: >-
+        ``quiesce`` stops new work in an explicit completion epoch; ``close``
+        consumes one canonical decision and freezes the delivered report. Both
+        are idempotent per Idempotency-Key and only an actor holding
+        ``can_control`` on this exact Task may submit them.
+      tags: [Tasks]
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskCompletionCommand'
+      responses:
+        '200':
+          description: The Task is closed and its report is frozen
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskCompletionOutcome'
+        '202':
+          description: The completion epoch is open and its work is settling
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskCompletionOutcome'
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+  /api/v2/tasks/{task_id}/reports/{report_id}:
+    get:
+      operationId: getTaskReportV2
+      summary: Read an immutable frozen report and its late amendments
+      tags: [Tasks]
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+        - $ref: '#/components/parameters/ReportId'
+      responses:
+        '200':
+          description: Frozen report body with digest, dispute state and amendments
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportView'
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
   /internal/v2/model/chat/completions:
     post:
       operationId: createModelChatCompletionV2
@@ -793,6 +867,11 @@ components:
     TrustedRequestId:
       name: X-Wuji-Request-ID
       in: header
+      required: true
+      schema: {type: string, minLength: 1, maxLength: 256}
+    ReportId:
+      name: report_id
+      in: path
       required: true
       schema: {type: string, minLength: 1, maxLength: 256}
     TaskId:
@@ -2851,3 +2930,164 @@ components:
 
     ToolSettlementReceipt:
       {"type": "object", "additionalProperties": false, "required": ["agent_run_id", "status", "open_operations"], "properties": {"agent_run_id": {"type": "string", "minLength": 1, "maxLength": 256}, "status": {"$ref": "#/components/schemas/ToolSettlementStatus"}, "open_operations": {"type": "integer", "minimum": 0}}}
+
+    CompletionDecision:
+      type: string
+      enum: [wait, ready, blocked]
+    CriterionJudgmentView:
+      type: object
+      additionalProperties: false
+      required: [criterion_id, revision, required, status, applicability]
+      properties:
+        criterion_id: {type: string, minLength: 1, maxLength: 256}
+        revision:
+          oneOf:
+            - $ref: '#/components/schemas/RevisionString'
+            - type: 'null'
+        required: {type: boolean}
+        status:
+          type: string
+          enum: [met, not_met, unknown, not_applicable, missing]
+        applicability:
+          type: string
+          enum: [current, stale, disputed, retracted, missing]
+    CompletionReview:
+      type: object
+      additionalProperties: false
+      required: [decision, reasons, criteria, open_work, unsettled_runs]
+      properties:
+        decision: {$ref: '#/components/schemas/CompletionDecision'}
+        reasons:
+          type: array
+          maxItems: 32
+          items: {type: string, minLength: 1, maxLength: 128}
+        criteria:
+          type: array
+          maxItems: 1024
+          items: {$ref: '#/components/schemas/CriterionJudgmentView'}
+        open_work:
+          type: array
+          maxItems: 4096
+          items: {type: string, minLength: 1, maxLength: 256}
+        unsettled_runs:
+          type: array
+          maxItems: 4096
+          items: {type: string, minLength: 1, maxLength: 256}
+    ReportSummary:
+      type: object
+      additionalProperties: false
+      required: [report_id, body_digest, dispute_state, close_trigger, result_outcome, epoch_id, created_at]
+      properties:
+        report_id: {type: string, minLength: 1, maxLength: 256}
+        body_digest: {$ref: '#/components/schemas/Sha256Digest'}
+        dispute_state:
+          type: string
+          enum: [clear, disputed]
+        close_trigger: {$ref: '#/components/schemas/CloseTrigger'}
+        result_outcome: {$ref: '#/components/schemas/ResultOutcome'}
+        epoch_id: {type: string, minLength: 1, maxLength: 256}
+        created_at: {type: string, format: date-time}
+    TaskCompletionView:
+      type: object
+      additionalProperties: false
+      required: [task_id, observed_state, desired_state, control_version, completion_epoch_id, close_trigger, result_outcome, review, report]
+      properties:
+        task_id: {type: string, minLength: 1, maxLength: 256}
+        observed_state: {$ref: '#/components/schemas/TaskObserved'}
+        desired_state: {$ref: '#/components/schemas/TaskDesired'}
+        control_version: {$ref: '#/components/schemas/RevisionString'}
+        completion_epoch_id:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 256}
+            - type: 'null'
+        close_trigger:
+          oneOf:
+            - $ref: '#/components/schemas/CloseTrigger'
+            - type: 'null'
+        result_outcome:
+          oneOf:
+            - $ref: '#/components/schemas/ResultOutcome'
+            - type: 'null'
+        review: {$ref: '#/components/schemas/CompletionReview'}
+        report:
+          oneOf:
+            - $ref: '#/components/schemas/ReportSummary'
+            - type: 'null'
+    TaskCompletionCommand:
+      type: object
+      additionalProperties: false
+      required: [action, close_trigger, result_outcome]
+      properties:
+        action:
+          type: string
+          enum: [quiesce, close]
+        close_trigger:
+          type: string
+          enum: [goal_satisfied, budget_exhausted, time_limit, no_progress, system_failure, operator_finish]
+        result_outcome:
+          type: string
+          enum: [complete, partial, inconclusive, not_assessed]
+        deadline_seconds:
+          type: integer
+          minimum: 60
+          maximum: 86400
+          default: 900
+    TaskCompletionOutcome:
+      type: object
+      additionalProperties: false
+      required: [disposition, task_id, observed_state, desired_state, control_version, completion_epoch_id, close_trigger, result_outcome, review, report]
+      properties:
+        disposition:
+          type: string
+          enum: [quiescing, closed]
+        task_id: {type: string, minLength: 1, maxLength: 256}
+        observed_state: {$ref: '#/components/schemas/TaskObserved'}
+        desired_state: {$ref: '#/components/schemas/TaskDesired'}
+        control_version: {$ref: '#/components/schemas/RevisionString'}
+        completion_epoch_id:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 256}
+            - type: 'null'
+        close_trigger:
+          oneOf:
+            - $ref: '#/components/schemas/CloseTrigger'
+            - type: 'null'
+        result_outcome:
+          oneOf:
+            - $ref: '#/components/schemas/ResultOutcome'
+            - type: 'null'
+        review: {$ref: '#/components/schemas/CompletionReview'}
+        report:
+          oneOf:
+            - $ref: '#/components/schemas/ReportSummary'
+            - type: 'null'
+    ReportAmendmentView:
+      type: object
+      additionalProperties: false
+      required: [amendment_id, reason, authority, source_receipt]
+      properties:
+        amendment_id: {type: string, minLength: 1, maxLength: 256}
+        reason: {type: string, minLength: 1, maxLength: 2048}
+        authority:
+          type: string
+          enum: [assessor, controller]
+        source_receipt: {type: object}
+    ReportView:
+      type: object
+      additionalProperties: false
+      required: [report_id, task_id, epoch_id, close_trigger, result_outcome, body, body_digest, dispute_state, amendments]
+      properties:
+        report_id: {type: string, minLength: 1, maxLength: 256}
+        task_id: {type: string, minLength: 1, maxLength: 256}
+        epoch_id: {type: string, minLength: 1, maxLength: 256}
+        close_trigger: {$ref: '#/components/schemas/CloseTrigger'}
+        result_outcome: {$ref: '#/components/schemas/ResultOutcome'}
+        body: {type: object}
+        body_digest: {$ref: '#/components/schemas/Sha256Digest'}
+        dispute_state:
+          type: string
+          enum: [clear, disputed]
+        amendments:
+          type: array
+          maxItems: 4096
+          items: {$ref: '#/components/schemas/ReportAmendmentView'}

@@ -238,6 +238,11 @@ class _JsonSchemaRuntimeValidationBase(BaseModel):
         return cls._json_schema_unique_items_equal(left, right) or cls._json_schema_unique_items_equal(right, left)
 
 
+class Action(StrEnum):
+    quiesce = 'quiesce'
+    close = 'close'
+
+
 class AgentPayload(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -277,6 +282,14 @@ class AllowedTargetKind(StrEnum):
 
 class ApiSchemaVersion(RootModel[Literal['wuji.api.v2']]):
     root: Literal['wuji.api.v2']
+
+
+class Applicability(StrEnum):
+    current = 'current'
+    stale = 'stale'
+    disputed = 'disputed'
+    retracted = 'retracted'
+    missing = 'missing'
 
 
 class ApplicabilityState(StrEnum):
@@ -382,6 +395,11 @@ class AssessmentReceipt(BaseModel):
 
 class AssignmentSchemaVersion(RootModel[Literal['wuji.assignment.v2']]):
     root: Literal['wuji.assignment.v2']
+
+
+class Authority(StrEnum):
+    assessor = 'assessor'
+    controller = 'controller'
 
 
 class AuthorizationScopeEntry(BaseModel):
@@ -594,6 +612,15 @@ class CloseTrigger(StrEnum):
     operator_finish = 'operator_finish'
 
 
+class CloseTrigger1(StrEnum):
+    goal_satisfied = 'goal_satisfied'
+    budget_exhausted = 'budget_exhausted'
+    time_limit = 'time_limit'
+    no_progress = 'no_progress'
+    system_failure = 'system_failure'
+    operator_finish = 'operator_finish'
+
+
 class CommandDisposition(StrEnum):
     accepted = 'accepted'
     rejected = 'rejected'
@@ -631,6 +658,27 @@ class Completeness(StrEnum):
     complete = 'complete'
     partial = 'partial'
     unknown = 'unknown'
+
+
+class CompletionDecision(StrEnum):
+    wait = 'wait'
+    ready = 'ready'
+    blocked = 'blocked'
+
+
+class CompletionEpochId(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+
+
+class CompletionReview(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    decision: CompletionDecision
+    reasons: Annotated[list[Reason], Field(max_length=32)]
+    criteria: Annotated[list[CriterionJudgmentView], Field(max_length=1024)]
+    open_work: Annotated[list[OpenWorkItem], Field(max_length=4096)]
+    unsettled_runs: Annotated[list[UnsettledRun], Field(max_length=4096)]
 
 
 class ComponentReceipt(BaseModel):
@@ -697,6 +745,17 @@ class ControlStatus(StrEnum):
     already_recorded = 'already_recorded'
 
 
+class CriterionJudgmentView(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    criterion_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    revision: RevisionString | None
+    required: StrictBool
+    status: Status3
+    applicability: Applicability
+
+
 class Cursor(RootModel[StrictStr]):
     root: Annotated[StrictStr, Field(max_length=4096, min_length=1)]
 
@@ -730,6 +789,16 @@ class DispatchStatus(StrEnum):
     prepared = 'prepared'
     duplicate = 'duplicate'
     rejected = 'rejected'
+
+
+class Disposition(StrEnum):
+    quiescing = 'quiescing'
+    closed = 'closed'
+
+
+class DisputeState(StrEnum):
+    clear = 'clear'
+    disputed = 'disputed'
 
 
 class ErrorCode(RootModel[StrictStr]):
@@ -1309,6 +1378,10 @@ class OpaqueCursor(RootModel[StrictStr]):
     root: Annotated[StrictStr, Field(max_length=4096, min_length=1)]
 
 
+class OpenWorkItem(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+
+
 class OutputBase64(RootModel[StrictStr]):
     root: Annotated[
         StrictStr,
@@ -1353,6 +1426,10 @@ class ProposalReference(RootModel[KnowledgeRef | ProposalLocalRef]):
 class Protocol(StrEnum):
     http = 'http'
     https = 'https'
+
+
+class Reason(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=128, min_length=1)]
 
 
 class ReasonDecision(StrEnum):
@@ -1411,11 +1488,49 @@ class RecoveryClass(StrEnum):
     non_resumable = 'non_resumable'
 
 
+class ReportAmendmentView(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    amendment_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    reason: Annotated[StrictStr, Field(max_length=2048, min_length=1)]
+    authority: Authority
+    source_receipt: dict[str, Any]
+
+
 class ReportDeliveryState(StrEnum):
     delivery_pending = 'delivery_pending'
     ready = 'ready'
     incomplete = 'incomplete'
     failed = 'failed'
+
+
+class ReportSummary(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    report_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    body_digest: Sha256Digest
+    dispute_state: DisputeState
+    close_trigger: CloseTrigger
+    result_outcome: ResultOutcome
+    epoch_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    created_at: AwareDatetime
+
+
+class ReportView(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    report_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    task_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    epoch_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    close_trigger: CloseTrigger
+    result_outcome: ResultOutcome
+    body: dict[str, Any]
+    body_digest: Sha256Digest
+    dispute_state: DisputeState
+    amendments: Annotated[list[ReportAmendmentView], Field(max_length=4096)]
 
 
 class ResourceKey(RootModel[StrictStr]):
@@ -1641,6 +1756,14 @@ class Status2(StrEnum):
     failed = 'failed'
 
 
+class Status3(StrEnum):
+    met = 'met'
+    not_met = 'not_met'
+    unknown = 'unknown'
+    not_applicable = 'not_applicable'
+    missing = 'missing'
+
+
 class StreamOptions(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -1679,6 +1802,47 @@ class TaskCommandName(StrEnum):
     resume = 'resume'
     cancel = 'cancel'
     finish = 'finish'
+
+
+class TaskCompletionCommand(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    action: Action
+    close_trigger: CloseTrigger1
+    result_outcome: ResultOutcome
+    deadline_seconds: Annotated[StrictInt | None, Field(ge=60, le=86400)] = 900
+
+
+class TaskCompletionOutcome(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    disposition: Disposition
+    task_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    observed_state: TaskObserved
+    desired_state: TaskDesired
+    control_version: RevisionString
+    completion_epoch_id: CompletionEpochId | None
+    close_trigger: CloseTrigger | None
+    result_outcome: ResultOutcome | None
+    review: CompletionReview
+    report: ReportSummary | None
+
+
+class TaskCompletionView(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    task_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    observed_state: TaskObserved
+    desired_state: TaskDesired
+    control_version: RevisionString
+    completion_epoch_id: CompletionEpochId | None
+    close_trigger: CloseTrigger | None
+    result_outcome: ResultOutcome | None
+    review: CompletionReview
+    report: ReportSummary | None
 
 
 class TaskCreate(BaseModel):
@@ -1886,6 +2050,10 @@ class TopologySnapshot(_JsonSchemaRuntimeValidationBase):
     truncated: StrictBool
     continuation: Continuation | None
     allowed_actions: list[AllowedAction]
+
+
+class UnsettledRun(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
 
 
 class UpstreamStatus(RootModel[StrictInt]):

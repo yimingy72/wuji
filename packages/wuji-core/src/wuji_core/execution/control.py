@@ -858,7 +858,7 @@ class ControlService:
     def apply_completion(self, access, task_id, receipt_id):
         """Consume a P12-owned canonical decision, not a caller's close/Goal assertion."""
         if (
-            "controller" not in access.principal.roles
+            not {"controller", "operator"}.intersection(access.principal.roles)
             or "agent" in access.principal.roles
         ):
             raise DomainError("NOT_FOUND_OR_FORBIDDEN")

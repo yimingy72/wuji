@@ -31,8 +31,10 @@ from wuji_core.http import canonical_json_bytes, strict_json_loads
 COOKIE_NAME = "wuji_vnext_session"
 NO_STORE = {"Cache-Control": "no-store"}
 _READ_PATH = re.compile(
-    r"^/api/v2/tasks/([^/]+)/(?:topology|snapshots|records/[^/]+/[^/]+|layouts/(?:knowledge-live|knowledge-history))$"
+    r"^/api/v2/tasks/([^/]+)/(?:topology|snapshots|completion"
+    r"|reports/[^/]+|records/[^/]+/[^/]+|layouts/(?:knowledge-live|knowledge-history))$"
 )
+_COMPLETION_PATH = re.compile(r"^/api/v2/tasks/([^/]+)/completion$")
 _LAYOUT_PATH = re.compile(
     r"^/api/v2/tasks/([^/]+)/layouts/(knowledge-live|knowledge-history)$"
 )
@@ -231,6 +233,10 @@ class BrowserGateway:
         matched = _LAYOUT_PATH.fullmatch(path)
         return matched is not None and matched.group(1) == self.settings.task_id
 
+    def allowed_completion(self, path: str) -> bool:
+        matched = _COMPLETION_PATH.fullmatch(path)
+        return matched is not None and matched.group(1) == self.settings.task_id
+
 
 def _problem(status: int, code: str, message: str) -> JSONResponse:
     return JSONResponse(
@@ -348,6 +354,48 @@ def create_gateway(settings: GatewaySettings, *, client=None) -> FastAPI:
             )
         except (httpx.HTTPError, OSError, TimeoutError):
             return _problem(503, "CAPABILITY_UNAVAILABLE", "Topology service is unavailable.")
+        return upstream_response(upstream)
+
+    @app.post("/api/v2/{rest:path}")
+    async def proxy_completion(request: Request, rest: str) -> Response:
+        payload = gateway.session(request)
+        if payload is None:
+            return _problem(401, "UNAUTHENTICATED", "Browser session is not active.")
+        path = "/api/v2/" + rest
+        if not gateway.allowed_completion(path) or request.url.query:
+            return _problem(404, "NOT_FOUND_OR_FORBIDDEN", "Resource is unavailable.")
+        try:
+            gateway.require_origin(request)
+        except PermissionError:
+            return _problem(403, "FORBIDDEN", "Browser origin is not allowed.")
+        content_type = request.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+        if content_type != "application/json":
+            return _problem(422, "INVALID_SCHEMA", "Completion commands require JSON.")
+        idempotency_key = request.headers.get("idempotency-key", "")
+        if not 1 <= len(idempotency_key) <= 200:
+            return _problem(422, "INVALID_SCHEMA", "Idempotency-Key is required.")
+        body = await request.body()
+        if not body or len(body) > min(_MAX_LAYOUT_BODY_BYTES, gateway.settings.max_response_bytes):
+            return _problem(422, "INVALID_SCHEMA", "Completion request exceeds its bound.")
+        try:
+            strict_json_loads(body)
+        except (TypeError, ValueError):
+            return _problem(422, "INVALID_SCHEMA", "Completion request is not strict JSON.")
+        url = gateway.settings.api_base_url + path
+        try:
+            upstream = await gateway.client.request(
+                "POST",
+                url,
+                headers={
+                    "Authorization": "Bearer " + gateway.internal_bearer(payload),
+                    "Accept": "application/json",
+                    "Content-Type": "application/json",
+                    "Idempotency-Key": idempotency_key,
+                },
+                content=body,
+            )
+        except (httpx.HTTPError, OSError, TimeoutError):
+            return _problem(503, "CAPABILITY_UNAVAILABLE", "Completion service is unavailable.")
         return upstream_response(upstream)
 
     @app.put("/api/v2/{rest:path}")

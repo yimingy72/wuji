@@ -243,6 +243,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v2/tasks/{task_id}/completion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the platform completion review of a Task
+         * @description The review is derived from persisted judgments, work and runs. A client never supplies it, and its presence never means the Goal was satisfied.
+         */
+        get: operations["getTaskCompletionV2"];
+        put?: never;
+        /**
+         * Open a completion epoch or close the Task, then freeze its report
+         * @description ``quiesce`` stops new work in an explicit completion epoch; ``close`` consumes one canonical decision and freezes the delivered report. Both are idempotent per Idempotency-Key and only an actor holding ``can_control`` on this exact Task may submit them.
+         */
+        post: operations["submitTaskCompletionV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/tasks/{task_id}/reports/{report_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read an immutable frozen report and its late amendments */
+        get: operations["getTaskReportV2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/internal/v2/model/chat/completions": {
         parameters: {
             query?: never;
@@ -1871,6 +1912,88 @@ export interface components {
             status: components["schemas"]["ToolSettlementStatus"];
             open_operations: number;
         };
+        /** @enum {string} */
+        CompletionDecision: "wait" | "ready" | "blocked";
+        CriterionJudgmentView: {
+            criterion_id: string;
+            revision: components["schemas"]["RevisionString"] | null;
+            required: boolean;
+            /** @enum {string} */
+            status: "met" | "not_met" | "unknown" | "not_applicable" | "missing";
+            /** @enum {string} */
+            applicability: "current" | "stale" | "disputed" | "retracted" | "missing";
+        };
+        CompletionReview: {
+            decision: components["schemas"]["CompletionDecision"];
+            reasons: string[];
+            criteria: components["schemas"]["CriterionJudgmentView"][];
+            open_work: string[];
+            unsettled_runs: string[];
+        };
+        ReportSummary: {
+            report_id: string;
+            body_digest: components["schemas"]["Sha256Digest"];
+            /** @enum {string} */
+            dispute_state: "clear" | "disputed";
+            close_trigger: components["schemas"]["CloseTrigger"];
+            result_outcome: components["schemas"]["ResultOutcome"];
+            epoch_id: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        TaskCompletionView: {
+            task_id: string;
+            observed_state: components["schemas"]["TaskObserved"];
+            desired_state: components["schemas"]["TaskDesired"];
+            control_version: components["schemas"]["RevisionString"];
+            completion_epoch_id: string | null;
+            close_trigger: components["schemas"]["CloseTrigger"] | null;
+            result_outcome: components["schemas"]["ResultOutcome"] | null;
+            review: components["schemas"]["CompletionReview"];
+            report: components["schemas"]["ReportSummary"] | null;
+        };
+        TaskCompletionCommand: {
+            /** @enum {string} */
+            action: "quiesce" | "close";
+            /** @enum {string} */
+            close_trigger: "goal_satisfied" | "budget_exhausted" | "time_limit" | "no_progress" | "system_failure" | "operator_finish";
+            /** @enum {string} */
+            result_outcome: "complete" | "partial" | "inconclusive" | "not_assessed";
+            /** @default 900 */
+            deadline_seconds: number;
+        };
+        TaskCompletionOutcome: {
+            /** @enum {string} */
+            disposition: "quiescing" | "closed";
+            task_id: string;
+            observed_state: components["schemas"]["TaskObserved"];
+            desired_state: components["schemas"]["TaskDesired"];
+            control_version: components["schemas"]["RevisionString"];
+            completion_epoch_id: string | null;
+            close_trigger: components["schemas"]["CloseTrigger"] | null;
+            result_outcome: components["schemas"]["ResultOutcome"] | null;
+            review: components["schemas"]["CompletionReview"];
+            report: components["schemas"]["ReportSummary"] | null;
+        };
+        ReportAmendmentView: {
+            amendment_id: string;
+            reason: string;
+            /** @enum {string} */
+            authority: "assessor" | "controller";
+            source_receipt: Record<string, never>;
+        };
+        ReportView: {
+            report_id: string;
+            task_id: string;
+            epoch_id: string;
+            close_trigger: components["schemas"]["CloseTrigger"];
+            result_outcome: components["schemas"]["ResultOutcome"];
+            body: Record<string, never>;
+            body_digest: components["schemas"]["Sha256Digest"];
+            /** @enum {string} */
+            dispute_state: "clear" | "disputed";
+            amendments: components["schemas"]["ReportAmendmentView"][];
+        };
     };
     responses: {
         /** @description Command accepted for authoritative processing */
@@ -1968,6 +2091,7 @@ export interface components {
         IdempotencyKey: string;
         IfMatch: components["schemas"]["RevisionString"];
         TrustedRequestId: string;
+        ReportId: string;
         TaskId: string;
         WorkItemId: string;
         ApprovalId: string;
@@ -2399,6 +2523,99 @@ export interface operations {
             };
             401: components["responses"]["Unauthenticated"];
             404: components["responses"]["NotFoundOrForbidden"];
+        };
+    };
+    getTaskCompletionV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: components["parameters"]["TaskId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current completion state and the frozen report, if any */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskCompletionView"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFoundOrForbidden"];
+            422: components["responses"]["InvalidSchema"];
+        };
+    };
+    submitTaskCompletionV2: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                task_id: components["parameters"]["TaskId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskCompletionCommand"];
+            };
+        };
+        responses: {
+            /** @description The Task is closed and its report is frozen */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskCompletionOutcome"];
+                };
+            };
+            /** @description The completion epoch is open and its work is settling */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskCompletionOutcome"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFoundOrForbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidSchema"];
+        };
+    };
+    getTaskReportV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: components["parameters"]["TaskId"];
+                report_id: components["parameters"]["ReportId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Frozen report body with digest, dispute state and amendments */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportView"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFoundOrForbidden"];
+            422: components["responses"]["InvalidSchema"];
         };
     };
     createModelChatCompletionV2: {

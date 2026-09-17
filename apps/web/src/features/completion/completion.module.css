@@ -1,0 +1,105 @@
+.completionPanel {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface);
+}
+
+.completionPanel > header {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.completionPanel > header > div { min-width: 0; }
+
+.completionPanel header strong { display: block; font-size: 12px; }
+
+.completionPanel header span {
+  display: block;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.completionHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.completionStatus {
+  min-height: 180px;
+  display: grid;
+  place-items: center;
+}
+
+.completionSummary {
+  border-bottom: 1px solid var(--line);
+}
+
+.completionSummary :global(.ant-descriptions-item-label) {
+  width: 108px;
+  color: var(--muted);
+  font: 10px/1.5 var(--mono);
+}
+
+.completionSummary :global(.ant-descriptions-item-content) {
+  overflow-wrap: anywhere;
+  font-size: 11px;
+}
+
+.completionReasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 14px 0;
+}
+
+.completionCriteria {
+  padding: 0 14px;
+}
+
+.completionActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.completionActions :global(.ant-select) { min-width: 168px; }
+
+.completionReport {
+  padding: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.completionReportHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.completionReportBody {
+  max-height: 420px;
+  margin: 12px 0 0;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font: 10px/1.55 var(--mono);
+}
+
+.completionAmendments {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}

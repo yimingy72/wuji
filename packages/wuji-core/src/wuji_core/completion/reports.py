@@ -15,6 +15,9 @@ from wuji_core.http import canonical_json_bytes
 from wuji_core.persistence.uow import DomainError
 
 CONTROL_ROLES = frozenset({"controller", "reconciler"})
+# Freezing the delivered report is the product step of closing a Task, so the
+# same operator that may close may freeze. Amending a frozen report does not.
+FREEZE_ROLES = frozenset({"controller", "reconciler", "operator"})
 REPORT_SCHEMA = "wuji.report.v1"
 
 
@@ -104,7 +107,7 @@ class ReportService:
         """Compose and freeze the delivered report; only after the close."""
 
         if (
-            not CONTROL_ROLES.intersection(access.principal.roles)
+            not FREEZE_ROLES.intersection(access.principal.roles)
             or "agent" in access.principal.roles
         ):
             raise DomainError("NOT_FOUND_OR_FORBIDDEN")
