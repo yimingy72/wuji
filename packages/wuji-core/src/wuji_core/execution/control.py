@@ -855,8 +855,14 @@ class ControlService:
                 )
             return work
 
-    def apply_completion(self, access, task_id, receipt_id):
-        """Consume a P12-owned canonical decision, not a caller's close/Goal assertion."""
+    def apply_completion(self, access, task_id, receipt_id, *, basis_check=None):
+        """Consume a P12-owned canonical decision, not a caller's close/Goal assertion.
+
+        ``basis_check`` is the one thing this state machine cannot judge by itself:
+        the completion service recomputes the persisted review inside this same
+        control transaction, so a decision whose evidence moved is refused here
+        instead of being applied under stale assumptions.
+        """
         if (
             not {"controller", "operator"}.intersection(access.principal.roles)
             or "agent" in access.principal.roles
@@ -888,6 +894,8 @@ class ControlService:
                 or task["observed_state"] == "closed"
             ):
                 raise DomainError("STALE_VERSION", 409)
+            if basis_check is not None:
+                basis_check(tx, decision)
             action, epoch = decision["action"], decision["epoch_id"]
             if action == "quiesce":
                 if (

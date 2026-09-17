@@ -83,24 +83,30 @@ class CompletionService:
         self.uow = uow
         self.control = control
 
-    def precheck(self, access, task_id) -> CompletionReview:
-        with self.uow.transaction(access, task_id, capability="read") as tx:
-            definition = strict_json_loads(tx.task["definition_json"])
-            coverage = read_coverage(tx, definition)
-            rows = tx.connection.execute(
-                "SELECT work_item_id,state FROM vnext.work_item"
-                " WHERE tenant_id=%s AND project_id=%s AND task_id=%s",
-                tx.owner,
-            ).fetchall()
-            open_work = tuple(
-                sorted(row[0] for row in rows if row[1] not in TERMINAL_WORK)
-            )
-            unsettled = tx.connection.execute(
-                "SELECT agent_run_id FROM vnext.agent_run WHERE tenant_id=%s"
-                " AND project_id=%s AND task_id=%s AND process_state<>'exited'"
-                " ORDER BY agent_run_id",
-                tx.owner,
-            ).fetchall()
+    def review_in_transaction(self, tx) -> CompletionReview:
+        """Read one review from the caller's transaction, never a new one.
+
+        Completion commands must run this *after* they hold the Task write lock:
+        only then does "what I verified" equal "what I am about to freeze". A
+        read-only preview uses it too, but a preview never authorizes a command.
+        """
+
+        definition = strict_json_loads(tx.task["definition_json"])
+        coverage = read_coverage(tx, definition)
+        rows = tx.connection.execute(
+            "SELECT work_item_id,state FROM vnext.work_item"
+            " WHERE tenant_id=%s AND project_id=%s AND task_id=%s",
+            tx.owner,
+        ).fetchall()
+        open_work = tuple(
+            sorted(row[0] for row in rows if row[1] not in TERMINAL_WORK)
+        )
+        unsettled = tx.connection.execute(
+            "SELECT agent_run_id FROM vnext.agent_run WHERE tenant_id=%s"
+            " AND project_id=%s AND task_id=%s AND process_state<>'exited'"
+            " ORDER BY agent_run_id",
+            tx.owner,
+        ).fetchall()
         unsettled_runs = tuple(row[0] for row in unsettled)
 
         reasons = []
@@ -129,6 +135,12 @@ class CompletionService:
             unsettled_runs=unsettled_runs,
         )
 
+    def precheck(self, access, task_id) -> CompletionReview:
+        """Read-only preview: it shows, it never authorizes."""
+
+        with self.uow.transaction(access, task_id, capability="read") as tx:
+            return self.review_in_transaction(tx)
+
     def propose(
         self,
         access,
@@ -137,6 +149,7 @@ class CompletionService:
         receipt_key,
         close_trigger=None,
         deadline_seconds=900,
+        expected_review_digest=None,
     ) -> CompletionProposal:
         """Write the canonical quiescing decision; never close anything here."""
 
@@ -150,21 +163,25 @@ class CompletionService:
         if type(deadline_seconds) is not int or not 60 <= deadline_seconds <= 86400:
             raise ValueError("a bounded quiescing deadline is required")
         trigger = CloseTrigger(close_trigger or "goal_satisfied").value
-        review = self.precheck(access, task_id)
-        if not review.can_propose:
-            raise DomainError("completion_precheck_incomplete", 409)
-        source = canonical_json_bytes(review.receipt()).decode()
         moment = datetime.now(timezone.utc)
         deadline = moment + timedelta(seconds=deadline_seconds)
-        epoch_id = str(uuid4())
+        # The review is recomputed *inside* the control transaction. That lock is
+        # the serialization boundary every writer of work, judgment or run state
+        # already takes, so a preview that went stale in between cannot be bound
+        # to the newer version (R01).
         with self.uow.transaction(access, task_id, capability="control") as tx:
+            review = self.review_in_transaction(tx)
+            self._require_expected_basis(review, expected_review_digest)
+            if not review.can_propose:
+                raise DomainError("completion_precheck_incomplete", 409)
+            source = canonical_json_bytes(review.receipt()).decode()
             with platform_errors():
                 receipt_id = tx.connection.execute(
                     "SELECT vnext.prepare_completion_quiesce(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                     (
                         *tx.owner,
                         receipt_key,
-                        epoch_id,
+                        str(uuid4()),
                         tx.task["control_version"],
                         tx.task["board_revision"],
                         deadline,
@@ -172,11 +189,12 @@ class CompletionService:
                         source,
                     ),
                 ).fetchone()[0]
+            stored = self._stored_decision(tx, receipt_id)
         return CompletionProposal(
             receipt_id=receipt_id,
-            epoch_id=epoch_id,
-            deadline=deadline,
-            close_trigger=trigger,
+            epoch_id=stored["epoch_id"],
+            deadline=stored["deadline"],
+            close_trigger=stored["close_trigger"],
         )
 
     def close(
@@ -189,6 +207,7 @@ class CompletionService:
         close_trigger,
         result_outcome,
         deadline_seconds=900,
+        expected_review_digest=None,
     ) -> CompletionProposal:
         """Write the closing decision of the Task's own completion epoch.
 
@@ -207,25 +226,26 @@ class CompletionService:
             raise ValueError("a bounded closing deadline is required")
         trigger = CloseTrigger(close_trigger).value
         outcome = ResultOutcome(result_outcome).value
-        review = self.precheck(access, task_id)
-        # A Goal-satisfied close may only follow a complete review. A *forced*
-        # close (budget, time, no progress, operator) exists precisely to end a
-        # Task whose work cannot finish: the review is recorded in the receipt
-        # and P05 cancels whatever is still open (AC-052).
-        if not review.can_propose and trigger == "goal_satisfied":
-            raise DomainError("completion_precheck_incomplete", 409)
-        source = canonical_json_bytes(
-            {
-                "decision": "close",
-                "review": review.receipt(),
-                "close_trigger": trigger,
-                "result_outcome": outcome,
-                "epoch_id": epoch_id,
-            }
-        ).decode()
         moment = datetime.now(timezone.utc)
         deadline = moment + timedelta(seconds=deadline_seconds)
         with self.uow.transaction(access, task_id, capability="control") as tx:
+            review = self.review_in_transaction(tx)
+            self._require_expected_basis(review, expected_review_digest)
+            # A Goal-satisfied close may only follow a complete review. A *forced*
+            # close (budget, time, no progress, operator) exists precisely to end
+            # a Task whose work cannot finish: the review is recorded in the
+            # receipt and P05 cancels whatever is still open (AC-052).
+            if not review.can_propose and trigger == "goal_satisfied":
+                raise DomainError("completion_precheck_incomplete", 409)
+            source = canonical_json_bytes(
+                {
+                    "decision": "close",
+                    "review": review.receipt(),
+                    "close_trigger": trigger,
+                    "result_outcome": outcome,
+                    "epoch_id": epoch_id,
+                }
+            ).decode()
             with platform_errors():
                 receipt_id = tx.connection.execute(
                     "SELECT vnext.prepare_completion_close(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
@@ -241,17 +261,56 @@ class CompletionService:
                         source,
                     ),
                 ).fetchone()[0]
+            stored = self._stored_decision(tx, receipt_id)
         return CompletionProposal(
             receipt_id=receipt_id,
-            epoch_id=epoch_id,
-            deadline=deadline,
-            close_trigger=trigger,
+            epoch_id=stored["epoch_id"],
+            deadline=stored["deadline"],
+            close_trigger=stored["close_trigger"],
         )
 
     def apply(self, access, task_id, receipt_id):
-        """Consume the proposal through the existing P05 state machine."""
+        """Consume the proposal, but only while its original basis still holds.
 
-        return self.control.apply_completion(access, task_id, receipt_id)
+        P05 owns the state change; this service adds the one check P05 cannot
+        make: the persisted review is recomputed inside the same control
+        transaction, so a decision whose evidence moved is refused instead of
+        being re-wrapped in the newer values.
+        """
+
+        return self.control.apply_completion(
+            access, task_id, receipt_id, basis_check=self.basis_check
+        )
+
+    def basis_check(self, tx, decision):
+        """Recompute the review under the write lock and compare exact bytes."""
+
+        source = strict_json_loads(decision["source_receipt_json"])
+        recorded = source.get("review") if decision["action"] == "close" else source
+        if not isinstance(recorded, dict):
+            raise DomainError("STALE_VERSION", 409)
+        current = self.review_in_transaction(tx).receipt()
+        if canonical_json_bytes(recorded) != canonical_json_bytes(current):
+            raise DomainError("STALE_VERSION", 409)
+
+    @staticmethod
+    def _require_expected_basis(review, expected_review_digest):
+        if expected_review_digest is None:
+            return
+        current = sha256(canonical_json_bytes(review.receipt())).hexdigest()
+        if current != expected_review_digest:
+            raise DomainError("STALE_VERSION", 409)
+
+    @staticmethod
+    def _stored_decision(tx, receipt_id):
+        stored = tx.connection.execute(
+            "SELECT epoch_id,deadline,close_trigger FROM vnext.completion_decision"
+            " WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND receipt_id=%s",
+            (*tx.owner, receipt_id),
+        ).fetchone()
+        if stored is None:
+            raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+        return {"epoch_id": stored[0], "deadline": stored[1], "close_trigger": stored[2]}
 
     @staticmethod
     def receipt_digest(review: CompletionReview) -> str:

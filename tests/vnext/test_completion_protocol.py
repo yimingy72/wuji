@@ -664,3 +664,123 @@ def test_a_goal_without_required_criteria_is_never_satisfied(
         assert review.coverage.satisfied is False
         assert "criteria_unmet" in review.reasons
         assert review.decision == "wait"
+
+
+def test_open_work_committed_while_the_command_waits_is_never_frozen(
+    db_environment, tmp_path, audit_directory
+):
+    """R01/CMP-01: the command re-verifies under the Task lock it needs.
+
+    A second real connection inserts one required Work item without committing;
+    that insert holds the parent Task row, so the completion command blocks
+    before it can write. The insert commits first, the command then proceeds --
+    and may only freeze the state it saw *after* taking the lock, which lists
+    the new work. Reading the review before the lock (the pre-fix ordering)
+    would freeze the stale one instead.
+    """
+
+    import threading
+    import time
+
+    with control_case(db_environment, tmp_path, audit_directory) as case:
+        prepared_run(case, state="leased")
+        finish_work(case)
+        allow_assessor(case)
+        judge(case, status="met")
+        service = completion(case)
+        assert service.precheck(OBSERVER, TASK).decision == "ready"
+
+        outcomes = {}
+
+        def command():
+            try:
+                outcomes["proposal"] = service.propose(
+                    CONTROLLER, TASK, receipt_key="completion-race", deadline_seconds=600
+                )
+            except DomainError as error:
+                outcomes["error"] = error
+
+        with case.env.migration_connection() as writer:
+            writer.execute("BEGIN")
+            writer.execute(
+                "INSERT INTO vnext.work_item(tenant_id,project_id,task_id,work_item_id)"
+                " VALUES(%s,%s,%s,'work-late')",
+                OWNER,
+            )
+            thread = threading.Thread(target=command)
+            thread.start()
+            time.sleep(0.5)
+            assert thread.is_alive(), "the command must be waiting on the locked Task row"
+            writer.execute("COMMIT")
+            thread.join(timeout=20)
+        assert not thread.is_alive()
+
+        assert "proposal" not in outcomes, outcomes
+        assert outcomes["error"].code == "completion_precheck_incomplete"
+        task = case.control.read_task(OBSERVER, TASK)
+        assert task["completion_epoch_id"] is None
+        assert task["observed_state"] == "running"
+        with case.env.migration_connection() as connection:
+            assert connection.execute(
+                "SELECT count(*) FROM vnext.completion_decision WHERE tenant_id=%s"
+                " AND project_id=%s AND task_id=%s",
+                OWNER,
+            ).fetchone() == (0,)
+
+
+def test_a_judgment_change_without_a_board_event_refuses_a_delayed_close(
+    db_environment, tmp_path, audit_directory
+):
+    """R01/CMP-04: the stored basis, not just a version counter, is rechecked.
+
+    A judgment change that emits no semantic event leaves control_version and
+    board_revision untouched. The closing command must still notice that the
+    review it recorded is no longer true, and the Task must stay open.
+    """
+
+    with control_case(db_environment, tmp_path, audit_directory) as case:
+        prepared_run(case, state="leased")
+        finish_work(case)
+        allow_assessor(case)
+        judge(case, status="met")
+        service = completion(case)
+
+        opened = service.propose(
+            CONTROLLER, TASK, receipt_key="completion-quiesce", deadline_seconds=600
+        )
+        service.apply(CONTROLLER, TASK, opened.receipt_id)
+        closing = service.close(
+            CONTROLLER,
+            TASK,
+            receipt_key="completion-close",
+            epoch_id=opened.epoch_id,
+            close_trigger="goal_satisfied",
+            result_outcome="complete",
+            deadline_seconds=600,
+        )
+        with case.env.migration_connection() as connection:
+            before = connection.execute(
+                "SELECT control_version,board_revision FROM vnext.task WHERE tenant_id=%s"
+                " AND project_id=%s AND task_id=%s",
+                OWNER,
+            ).fetchone()
+            # A real judgment change with no semantic event: the version
+            # counters do not move, only the review's actual basis.
+            connection.execute(
+                "UPDATE vnext.criterion_judgment SET status='not_met'"
+                " WHERE tenant_id=%s AND project_id=%s AND task_id=%s",
+                OWNER,
+            )
+            after = connection.execute(
+                "SELECT control_version,board_revision FROM vnext.task WHERE tenant_id=%s"
+                " AND project_id=%s AND task_id=%s",
+                OWNER,
+            ).fetchone()
+        assert before == after, "this fixture must not move the version counters"
+
+        with pytest.raises(DomainError) as refused:
+            service.apply(CONTROLLER, TASK, closing.receipt_id)
+        assert refused.value.code == "STALE_VERSION"
+        task = case.control.read_task(OBSERVER, TASK)
+        assert task["observed_state"] == "quiescing"
+        assert task["result_outcome"] is None
