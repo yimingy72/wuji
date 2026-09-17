@@ -1487,3 +1487,38 @@ def test_e01_a_stale_worker_lock_is_named_and_relock_publishes_a_new_revision(
                 connection=connection,
             )
             assert "worker_lock" in still["blocked"]
+
+
+def test_the_shared_runtime_host_never_serves_two_worker_locks():
+    """A host serves one lock: other-lock profiles are retired, not merged."""
+
+    task_launch = _load_launch_module()
+
+    def profile(ref, lock):
+        return {"ref": ref, "revision": "1", "body": {"lock_digest": lock}}
+
+    document = [profile("old-a", "a" * 64), profile("old-b", "a" * 64)]
+    current = {
+        kind: profile(f"harness.{kind}.task.x", "b" * 64)
+        for kind in ("reason", "explore", "report")
+    }
+    action = task_launch.replace_runtime_profiles(document, current)
+    assert action == "replaced"
+    assert {item["ref"] for item in document} == {
+        "harness.reason.task.x", "harness.explore.task.x", "harness.report.task.x",
+    }
+
+    # Nothing to add and nothing to retire is reported as unchanged.
+    assert task_launch.replace_runtime_profiles(document, current) == "unchanged"
+
+    # Retiring an old-lock entry alone is reported, and it is the only change.
+    document.append(profile("old-c", "a" * 64))
+    assert task_launch.replace_runtime_profiles(document, current) == "pruned:1"
+    assert all(item["ref"] != "old-c" for item in document)
+
+    # Same key, different bytes is a real conflict, never a silent replacement.
+    conflicting = dict(current)
+    conflicting["explore"] = profile("harness.explore.task.x", "c" * 64)
+    with pytest.raises(DomainError) as error:
+        task_launch.replace_runtime_profiles(document, conflicting)
+    assert error.value.code == "INPUT_DIGEST_CONFLICT"

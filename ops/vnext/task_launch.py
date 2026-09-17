@@ -1524,34 +1524,7 @@ def wire(binding, *, config, namespace, agent_auth_dir, kali_auth_dir, deploymen
                                                       namespace=namespace)
 
     def runtime_profiles_update(document):
-        if not isinstance(document, list) or not document:
-            raise DomainError("INVALID_REFERENCE", 422)
-        expected = [
-            snapshot for _kind, snapshot in sorted(binding["worker_profiles"].items())
-        ]
-        # Profiles are keyed by (ref, revision) and shared by the Tasks served
-        # here. An identical key with different bytes is a real conflict: it must
-        # be refused rather than silently replacing another Task's profile.
-        merged = list(document)
-        positions = {
-            (item.get("ref"), item.get("revision")): index
-            for index, item in enumerate(document)
-            if isinstance(item, dict)
-        }
-        changed = False
-        for snapshot in expected:
-            key = (snapshot.get("ref"), snapshot.get("revision"))
-            if key not in positions:
-                merged.append(snapshot)
-                positions[key] = len(merged) - 1
-                changed = True
-                continue
-            if merged[positions[key]] != snapshot:
-                raise DomainError("INPUT_DIGEST_CONFLICT", 409)
-        if not changed:
-            return "unchanged"
-        document[:] = merged
-        return "replaced"
+        return replace_runtime_profiles(document, binding["worker_profiles"])
 
     actions["runtime-profiles"] = patch_config_data_json(
         core, "runtime-config", "profiles.json", runtime_profiles_update, namespace=namespace)
@@ -1871,6 +1844,51 @@ def _loopback_url(url):
         return ip_address(target.hostname).is_loopback
     except ValueError:
         return False
+
+
+def replace_runtime_profiles(document, worker_profiles):
+    """Merge this Task's profiles into a shared host and retire other locks.
+
+    A runtime host serves exactly one Worker lock: the agent image ships one
+    lock, so a profile naming any other lock can never execute here. Those
+    entries are retired by ref instead of being merged forever, because a merged
+    set with two locks stops the runtime from starting at all. Profiles of the
+    same lock are keyed by (ref, revision): an identical key with different bytes
+    is a real conflict and is refused rather than silently replaced.
+    """
+
+    if not isinstance(document, list) or not document:
+        raise DomainError("INVALID_REFERENCE", 422)
+    expected = [snapshot for _kind, snapshot in sorted(worker_profiles.items())]
+    shipped = expected[0]["body"]["lock_digest"]
+    if any(item["body"]["lock_digest"] != shipped for item in expected):
+        raise DomainError("INPUT_DIGEST_CONFLICT", 409)
+    merged = [
+        item for item in document
+        if isinstance(item, dict)
+        and (item.get("body") or {}).get("lock_digest") == shipped
+    ]
+    pruned = len(document) - len(merged)
+    positions = {
+        (item.get("ref"), item.get("revision")): index
+        for index, item in enumerate(merged)
+    }
+    changed = False
+    for snapshot in expected:
+        key = (snapshot.get("ref"), snapshot.get("revision"))
+        if key not in positions:
+            merged.append(snapshot)
+            positions[key] = len(merged) - 1
+            changed = True
+            continue
+        if merged[positions[key]] != snapshot:
+            raise DomainError("INPUT_DIGEST_CONFLICT", 409)
+    if not changed and not pruned:
+        return "unchanged"
+    document[:] = merged
+    if changed:
+        return "replaced"
+    return "pruned:" + str(pruned)
 
 
 def republish_runtime_profile(connection, *, owner, config):

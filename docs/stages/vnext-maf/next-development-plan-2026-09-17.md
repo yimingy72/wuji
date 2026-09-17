@@ -50,7 +50,7 @@
 
 ## 3. 队列（对应 P 任务）
 
-> 进度：E00 完成（本文 §1）；E01/E02 已交付 `5a94986`；E03-A 已交付 `8812239`；E03-B 已交付 `0f66d08`；E06 已交付 `83ffb65`；E01 收口项（worker lock 复锁）已交付（见 §5）。
+> 进度：E00 完成（本文 §1）；E01/E02 已交付 `5a94986`；E03-A 已交付 `8812239`；E03-B 已交付 `0f66d08`；E06 已交付 `83ffb65`；E01 收口项（worker lock 复锁）已交付 `36f8771`；**M1 已在本地集群实跑通过**（见 §5）。
 
 1. **E01 真实任务配置与机制夹具分离（P02/P07/P11/P18）** — 模式来自可信部署配置；真实模式默认 Reason-first，不回落 `version.txt`；显式 seed 策略才产生种子读取；preflight 不触达目标/付费模型。
 2. **E02 接通完整能力链（P06/P07/P09/P10）** — 发布→Profile→Task 许可→Scheduler→Worker→Gate→Executor 同一张兼容表；Reason 无目标能力；`http_target` 进入正式调度前必须有部署发布与真实负控。
@@ -97,3 +97,17 @@
 - 真实集群实测发现：`198` 之后的提交 `62c232c` 改了 `packages/maf-worker/uv.lock`，但部署在 2026-09-15 发布的 `k8s-runtime-v1` 仍写着旧摘要 `b6d8a78d…`；`create_task` 把该旧 profile 冻结进新 Task 定义，`finalise_definition` 与 `shipped_worker_lock_digest()` 不一致，prepare 以 `INPUT_DIGEST_CONFLICT` 拒绝。这是正确的 fail-closed，但当时没有 owner 复核/修复路径。
 - 现在：`preflight` 新增 `worker_lock` 检查，直接点名"定义里的摘要 vs 本次构建实际 ship 的摘要"并给出修复动作；新增 owner 阶段 `--phase relock`，把部署文档里的运行时 profile 发布为**下一个不可变 revision**（不原地改写旧行），重复执行幂等。
 - 证据：`tests/vnext/test_task_launch.py::test_e01_a_stale_worker_lock_is_named_and_relock_publishes_a_new_revision`（stale 定义被 preflight 拦下 → relock 发布 rev3 → 再执行不重复发布 → 旧定义的 Task 仍被点名，必须重建）。
+
+### M1（已实测）：正式入口 → 真实 MAF/工具 → 独立证据
+
+- 2026-09-17 在 `wuji-vnext-test` 用镜像 `source_revision=36f8771` 实测：`POST /api/v2/tasks` 新建 Task `45d4ee2f…` →
+  owner 命令四阶段（prepare/activate/wire/capability）全绿 → Task Pod `pod_uid=835445c0…` ready →
+  `reason`/`explore` 两个 work item 均 `done`，两个 Run `exited/accepted`，8 份 sealed artifact（含工作区读取捕获与 MAF SDK 归档）、2 条候选 Claim 被接纳。
+- 发布的三份 Session Profile 正文已包含该 Task 的 Goal/判据/授权范围/预算/硬上限/角色职责（E03-A 在集群内生效）。
+- 证据包：[M1 mechanism loop](../vnext/evidence/E08/m1-mechanism-loop-20260917/README.md)（含创建请求/响应、四阶段结果、数据库回读、截图与原始日志）。
+
+### M1 暴露并已修复的部署缺陷
+
+1. **worker lock 变更 → 新 Task prepare 永久失败**：已加 `preflight.worker_lock` + owner `--phase relock`（本次发布 `k8s-runtime-v1` rev4）。
+2. **共享 runtime ConfigMap 混入两个 Worker lock → runtime 启动即失败**：`wire` 现在按 lock 退休旧条目（`replace_runtime_profiles`，`pruned:N`），不再让两种 lock 共存。
+3. **每 Task Service 证书缺本 Task DNS 名 → runtime 到 supervisor 的 HTTPS 投递 `URLError`**：现场把模板 Task secret 更新为带 `*.wuji-vnext-test.svc` 的证书后新建 Task 一次成功；**`rotate-task-certs` 仍不会自动更新模板 secret，这是下一项最小工作**。

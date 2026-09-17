@@ -1,0 +1,2 @@
+a974e173-9813-45bd-9518-f9d5570ef1e3|1|observation-summary|candidate_fact|The registered Kali read returned durable evidence.
+2fb05814-0d96-4294-939b-362655405e56|1|observation-summary|candidate_fact|The registered Kali read returned durable evidence.

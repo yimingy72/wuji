@@ -1,0 +1,9 @@
+control.applied|1
+evidence_ingested|2
+execution.observed|4
+intent_shared|1
+result_committed|2
+run.dispatch_requested|2
+session.published|2
+task.started|1
+tool.dispatch_requested|2
