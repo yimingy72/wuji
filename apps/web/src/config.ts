@@ -40,10 +40,7 @@ export const webConfig: WebRuntimeConfig = {
 export const hasApiConfiguration = webConfig.apiBaseUrl.length > 0;
 export const hasAuthConfiguration = webConfig.authEntrypoint.length > 0;
 export const isVNextReadonlyConfigured = webConfig.mode === 'vnext-readonly'
-  && hasAuthConfiguration
-  && webConfig.tenantId.length > 0
-  && webConfig.projectId.length > 0
-  && webConfig.taskId.length > 0;
+  && hasAuthConfiguration;
 export const isWebIntegrationConfigured = !isVNextReadonlyConfigured
   && hasApiConfiguration
   && hasAuthConfiguration;

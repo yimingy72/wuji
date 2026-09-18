@@ -1,125 +1,90 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { LoginOutlined, LogoutOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
-import { Alert, Button, Descriptions, Select, Spin, Tag } from 'antd';
+import { Alert, Button, Input, Select, Spin } from 'antd';
 import { palettes, type PaletteId } from '@wuji/theme';
 import { useAppearance } from './Appearance';
-import { apiUrl, webConfig } from './config';
-import { TopologyContainer } from './features/topology/TopologyContainer';
-import type { TopologySelection, TopologySnapshotInput } from './features/topology/contracts';
-import { CompletionPanel } from './features/completion/CompletionPanel';
-import { RecordPanel } from './features/topology/panels/RecordPanel';
-import { SnapshotSelector, type ViewChoice } from './features/topology/panels/SnapshotSelector';
-import { selectedRecordRef } from './features/topology/record';
+import { webConfig } from './config';
+import {
+  beginLocalWorkbenchSession,
+  endWorkbenchSession,
+  readWorkbenchSession,
+  type WorkbenchSession,
+} from './v2WorkbenchApi';
+import { FirstUseWorkbench } from './features/first-use/FirstUseWorkbench';
 import styles from './workbench.module.css';
-
-interface BrowserSession {
-  readonly authenticated: true;
-  readonly display_name: string;
-  readonly tenant_id: string;
-  readonly project_id: string;
-  readonly task_id: string;
-  readonly expires_at: string;
-}
 
 type SessionState =
   | { readonly status: 'checking' }
   | { readonly status: 'signed-out' }
-  | { readonly status: 'authenticated'; readonly session: BrowserSession }
+  | { readonly status: 'authenticated'; readonly session: WorkbenchSession }
   | { readonly status: 'error'; readonly message: string };
-
-function isBrowserSession(value: unknown): value is BrowserSession {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
-  const record = value as Record<string, unknown>;
-  return Object.keys(record).length === 6
-    && record.authenticated === true
-    && ['display_name', 'tenant_id', 'project_id', 'task_id', 'expires_at']
-      .every((key) => typeof record[key] === 'string' && record[key] !== '');
-}
-
-async function readSession(signal?: AbortSignal): Promise<BrowserSession | null> {
-  const response = await fetch(apiUrl('/auth/session'), {
-    credentials: 'include',
-    headers: { Accept: 'application/json' },
-    signal,
-  });
-  if (response.status === 401) return null;
-  if (!response.ok) throw new Error('身份服务暂时不可用');
-  const value: unknown = await response.json();
-  if (!isBrowserSession(value)) throw new Error('身份响应无法确认');
-  return value;
-}
-
-async function beginLocalSession(): Promise<BrowserSession> {
-  const response = await fetch(apiUrl(webConfig.authEntrypoint), {
-    method: 'POST',
-    credentials: 'include',
-    headers: { Accept: 'application/json' },
-  });
-  if (!response.ok) throw new Error('本地测试身份建立失败');
-  const value: unknown = await response.json();
-  if (!isBrowserSession(value)) throw new Error('身份响应无法确认');
-  return value;
-}
-
-async function endLocalSession(): Promise<void> {
-  const response = await fetch(apiUrl('/auth/logout'), {
-    method: 'POST',
-    credentials: 'include',
-    headers: { Accept: 'application/json' },
-  });
-  if (!response.ok && response.status !== 401) throw new Error('退出请求未完成');
-}
 
 export function VNextWorkbenchPage() {
   const { paletteId, choosePalette } = useAppearance();
   const [state, setState] = useState<SessionState>({ status: 'checking' });
   const [busy, setBusy] = useState(false);
-  const [snapshot, setSnapshot] = useState<TopologySnapshotInput | null>(null);
-  const [selection, setSelection] = useState<TopologySelection | null>(null);
-  const [viewChoice, setViewChoice] = useState<ViewChoice>({ mode: 'live', snapshotId: null });
+  const [accessCode, setAccessCode] = useState('');
+
+  const checkSession = useCallback((signal?: AbortSignal) => readWorkbenchSession(signal ?? new AbortController().signal), []);
 
   useEffect(() => {
     const controller = new AbortController();
-    void readSession(controller.signal).then((session) => {
-      if (!controller.signal.aborted) {
-        setState(session ? { status: 'authenticated', session } : { status: 'signed-out' });
-      }
+    void checkSession(controller.signal).then((session) => {
+      if (!controller.signal.aborted) setState(session ? { status: 'authenticated', session } : { status: 'signed-out' });
     }).catch((error: unknown) => {
-      if (!controller.signal.aborted) {
-        setState({ status: 'error', message: error instanceof Error ? error.message : '身份读取失败' });
-      }
+      if (!controller.signal.aborted) setState({ status: 'error', message: error instanceof Error ? error.message : '身份读取失败' });
     });
     return () => controller.abort();
-  }, []);
+  }, [checkSession]);
 
   const login = async () => {
     setBusy(true);
     try {
-      setState({ status: 'authenticated', session: await beginLocalSession() });
+      if (!webConfig.authEntrypoint) throw new Error('本地身份入口未配置');
+      if (!accessCode) throw new Error('请输入本地访问码');
+      const session = await beginLocalWorkbenchSession(webConfig.authEntrypoint, accessCode, new AbortController().signal);
+      setState({ status: 'authenticated', session });
     } catch (error) {
       setState({ status: 'error', message: error instanceof Error ? error.message : '身份建立失败' });
     } finally {
+      setAccessCode('');
       setBusy(false);
     }
   };
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
+    const session = state.status === 'authenticated' ? state.session : null;
     setBusy(true);
     try {
-      await endLocalSession();
+      await endWorkbenchSession('/auth/logout', session?.csrf_token, new AbortController().signal);
+      try { sessionStorage.removeItem('wuji.first-use.v2.create-key'); } catch { /* storage is non-authoritative */ }
+      setAccessCode('');
       setState({ status: 'signed-out' });
     } catch (error) {
       setState({ status: 'error', message: error instanceof Error ? error.message : '退出失败' });
     } finally {
       setBusy(false);
     }
-  };
+  }, [state]);
+
+  const onSessionExpired = useCallback(() => {
+    try { sessionStorage.removeItem('wuji.first-use.v2.create-key'); } catch { /* storage is non-authoritative */ }
+    setAccessCode('');
+    setState({ status: 'signed-out' });
+  }, []);
 
   const session = state.status === 'authenticated' ? state.session : null;
-  const taskId = session?.task_id ?? webConfig.taskId;
-  const selectedRef = useMemo(
-    () => selectedRecordRef(snapshot, selection),
-    [selection, snapshot],
+  const loginPrompt = (
+    <div>
+      <Input.Password
+        aria-label="本地访问码"
+        autoComplete="off"
+        value={accessCode}
+        onChange={(event) => setAccessCode(event.target.value)}
+        placeholder="输入本机受限入口访问码"
+      />
+      <Button type="primary" icon={<LoginOutlined />} loading={busy} disabled={!accessCode} onClick={() => void login()} style={{ marginTop: 12 }}>建立会话</Button>
+    </div>
   );
 
   return (
@@ -132,8 +97,8 @@ export function VNextWorkbenchPage() {
       <div className={styles.workspace}>
         <header className={styles.topbar}>
           <div>
-            <span className={styles.eyebrow}>WUJI VNEXT</span>
-            <strong>受权拓扑工作台</strong>
+            <span className={styles.eyebrow}>WUJI FIRST-USE</span>
+            <strong>受权真实工作台</strong>
           </div>
           <div className={styles.headerRight}>
             <Select<PaletteId>
@@ -144,105 +109,16 @@ export function VNextWorkbenchPage() {
               options={palettes.map((palette) => ({ value: palette.id, label: palette.name }))}
               onChange={choosePalette}
             />
-            {session && (
-              <Button
-                type="text"
-                icon={<LogoutOutlined />}
-                loading={busy}
-                onClick={() => void logout()}
-              >退出</Button>
-            )}
+            {session && <Button type="text" icon={<LogoutOutlined />} loading={busy} onClick={() => void logout()}>退出</Button>}
           </div>
         </header>
         <main id="main-content" tabIndex={-1} className={styles.main}>
-          <section className={styles.readonlyWorkbench} aria-labelledby="vnext-workbench-title">
-            <header className={styles.readonlyHeading}>
-              <div>
-                <span className={styles.eyebrow}>LOCAL KUBERNETES · CONTROLLED VIEW</span>
-                <h1 id="vnext-workbench-title">任务拓扑</h1>
-                <p>浏览器会话经服务器映射为短寿命内部身份，当前入口开放受权读取与个人布局保存。</p>
-              </div>
-              <Tag color={session ? 'green' : 'gold'}>{session ? '身份已建立' : '等待身份'}</Tag>
-            </header>
-
-            {state.status === 'checking' && (
-              <div className={styles.centerStatus}><Spin description="正在核对浏览器会话" /></div>
-            )}
-            {state.status === 'signed-out' && (
-              <Alert
-                showIcon
-                type="info"
-                title="进入本地测试工作台"
-                description="此入口只映射当前隔离 Kubernetes Task，不会把内部 bearer 写入浏览器。"
-                action={(
-                  <Button
-                    type="primary"
-                    icon={<LoginOutlined />}
-                    loading={busy}
-                    onClick={() => void login()}
-                  >建立会话</Button>
-                )}
-              />
-            )}
-            {state.status === 'error' && (
-              <Alert
-                showIcon
-                type="error"
-                title="身份入口暂时不可用"
-                description={state.message}
-                action={<Button onClick={() => void login()} loading={busy}>重试</Button>}
-              />
-            )}
-            {session && (
-              <>
-                <Descriptions
-                  className={styles.readonlyIdentity}
-                  size="small"
-                  bordered
-                  column={{ xs: 1, sm: 1, md: 2 }}
-                  items={[
-                    { key: 'identity', label: '身份', children: session.display_name },
-                    { key: 'expires', label: '会话到期', children: new Date(session.expires_at).toLocaleString('zh-CN') },
-                    { key: 'project', label: 'Project', children: <code>{session.project_id}</code> },
-                    { key: 'task', label: 'Task', children: <code>{session.task_id}</code> },
-                  ]}
-                />
-                <SnapshotSelector
-                  taskId={taskId}
-                  value={viewChoice}
-                  onChange={(next) => {
-                    setSelection(null);
-                    setSnapshot(null);
-                    setViewChoice(next);
-                  }}
-                />
-                <div className={styles.readonlyTopologyGrid}>
-                  <TopologyContainer
-                    taskId={taskId}
-                    mode={viewChoice.mode}
-                    snapshotId={viewChoice.snapshotId}
-                    selection={selection}
-                    onSelect={setSelection}
-                    onSnapshotChange={setSnapshot}
-                  />
-                  <RecordPanel
-                    taskId={taskId}
-                    snapshotId={snapshot?.snapshot_id ?? null}
-                    ref={selectedRef}
-                  />
-                </div>
-                <CompletionPanel
-                  taskId={taskId}
-                  onChanged={() => setSelection(null)}
-                />
-              </>
-            )}
-          </section>
+          {state.status === 'checking' && <div className={styles.centerStatus} role="status"><Spin description="正在核对受信浏览器会话" /></div>}
+          {state.status === 'signed-out' && <section className={styles.readonlyWorkbench} aria-labelledby="first-use-login-title"><Alert showIcon type="info" title="进入本地受权工作台" description={<div><p>身份来自服务端的 local_single_operator 会话；浏览器字段不能改变主体、Project 或 Task 权限。</p>{loginPrompt}</div>} /><h1 id="first-use-login-title">等待身份</h1></section>}
+          {state.status === 'error' && <section className={styles.readonlyWorkbench}><Alert showIcon type="error" title="身份入口暂时不可用" description={<div><p>{state.message}</p>{loginPrompt}</div>} /></section>}
+          {session && <FirstUseWorkbench session={session} onSessionExpired={onSessionExpired} onLogout={logout} />}
         </main>
-        <footer className={styles.statusbar}>
-          <span>工作区 <strong>VNEXT</strong></span>
-          <span>K8S API <span aria-hidden="true">/</span> PERSONAL LAYOUT</span>
-        </footer>
+        <footer className={styles.statusbar}><span>工作区 <strong>FIRST-USE</strong></span><span>SERVER SESSION <span aria-hidden="true">/</span> TASK CONTROL</span></footer>
       </div>
     </div>
   );

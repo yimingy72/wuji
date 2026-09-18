@@ -172,6 +172,131 @@ test('a task switch while the layout conflict is unresolved writes nothing', asy
   await expect(page.getByTestId('fault-write-attempts')).toHaveText('1');
 });
 
+test('first-use workbench creates a ready task and starts only after an explicit command', async ({ page }) => {
+  let started = false;
+  const startKeys: string[] = [];
+  const task = (running: boolean) => ({
+    task_id: 'task-first-use',
+    tenant_id: 'tenant-first-use',
+    project_id: 'project-first-use',
+    version: running ? '2' : '1',
+    name: '首用安全入口',
+    scenario: 'web_single',
+    desired_state: running ? 'run' : 'pause',
+    observed_state: running ? 'running' : 'ready',
+    goal_revision: '1',
+    execution_epoch: running ? '1' : '0',
+    activated_at: running ? '2099-01-01T00:00:00.000Z' : null,
+    close_trigger: null,
+    result_outcome: null,
+    allowed_actions: running ? ['pause', 'cancel'] : ['start', 'cancel'],
+  });
+  const readiness = {
+    task_id: 'task-first-use',
+    definition_digest: 'sha256:definition-first-use',
+    observed_at: '2099-01-01T00:00:00.000Z',
+    can_request_start: true,
+    checks: [
+      { id: 'identity', layer: 'identity', status: 'pass', reason_code: 'identity_valid', observed_at: '2099-01-01T00:00:00.000Z', evidence_ref: null, remediation_owner: 'application', message: 'local_single_operator 已核验' },
+      { id: 'target', layer: 'target', status: 'unknown', reason_code: 'not_measured', observed_at: '2099-01-01T00:00:00.000Z', evidence_ref: null, remediation_owner: 'application', message: '尚未进行网络实测' },
+    ],
+  };
+  const launch = () => ({
+    operation_id: started ? 'operation-first-use' : null,
+    command_id: started ? 'command-start-first-use' : null,
+    task_id: 'task-first-use',
+    definition_digest: 'sha256:definition-first-use',
+    profile_digest: started ? 'sha256:profile-first-use' : null,
+    runtime_attempt: started ? '1' : null,
+    execution_epoch: started ? '1' : null,
+    phase: started ? 'ready' : 'not_requested',
+    phase_status: started ? 'succeeded' : 'not_requested',
+    reason_code: null,
+    allowed_actions: started ? ['pause', 'cancel'] : ['start', 'cancel'],
+    observed_at: '2099-01-01T00:00:00.000Z',
+  });
+  await page.route('**/api/v2/**', async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    if (request.method() === 'GET' && url.pathname === '/api/v2/tasks' && url.searchParams.get('project_id') === 'project-first-use') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: started ? [task(true)] : [], next_cursor: null }) });
+      return;
+    }
+    if (request.method() === 'GET' && url.pathname === '/api/v2/projects/project-first-use/task-options') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ project_id: 'project-first-use', model_profiles: [{ ref: 'profile/deepseek', name: 'DeepSeek observe', revision: '7', digest: 'sha256:model', capabilities: ['chat_completions', 'non_thinking', 'max_calls:12'], real_model_allowed: true }], runtime_profiles: [{ ref: 'runtime/fixture', name: 'Fixture first-use', revision: '4', digest: 'sha256:runtime', capabilities: ['http_target', 'max_calls:12'], real_model_allowed: true }], missing: [] }) });
+      return;
+    }
+    if (request.method() === 'POST' && url.pathname === '/api/v2/tasks') {
+      expect(request.headers()['idempotency-key']).toBeTruthy();
+      console.log(`[A4-HTTP] POST /api/v2/tasks Idempotency-Key=${request.headers()['idempotency-key']}`);
+      const body = JSON.parse(request.postData() ?? '{}') as { entry_points?: string[]; budget?: { amount?: string } };
+      expect(body.entry_points).toEqual(['https://approved.example.test/safe?view=summary']);
+      expect(body.budget?.amount).toBe('1');
+      await route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify(task(false)) });
+      return;
+    }
+    if (request.method() === 'POST' && url.pathname === '/api/v2/tasks/task-first-use/commands') {
+      startKeys.push(request.headers()['idempotency-key'] ?? '');
+      console.log(`[A4-HTTP] POST /api/v2/tasks/task-first-use/commands Idempotency-Key=${request.headers()['idempotency-key']}`);
+      expect(JSON.parse(request.postData() ?? '{}')).toMatchObject({ command: 'start', expected_version: '1' });
+      started = true;
+      await route.fulfill({ status: 202, contentType: 'application/json', body: JSON.stringify({ command_id: 'command-start-first-use', disposition: 'accepted', resource_ref: { entity_type: 'task', id: 'task-first-use', revision: '2' }, resource_version: '2', request_id: 'request-start-first-use', code: null }) });
+      return;
+    }
+    if (request.method() === 'GET' && url.pathname === '/api/v2/tasks/task-first-use') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(task(started)) });
+      return;
+    }
+    if (request.method() === 'GET' && url.pathname === '/api/v2/tasks/task-first-use/readiness') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(readiness) });
+      return;
+    }
+    if (request.method() === 'GET' && url.pathname === '/api/v2/tasks/task-first-use/launch') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(launch()) });
+      return;
+    }
+    if (request.method() === 'GET' && url.pathname === '/api/v2/tasks/task-first-use/topology') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ view_id: 'view-first-use', snapshot_id: 'snapshot-first-use', view_revision: '1', query_digest: 'sha256:query', access_scope_digest: 'sha256:scope', projection_version: 'v1', nodes: [{ id: 'origin:origin-first@1', ref: { entity_type: 'origin', id: 'origin-first', revision: '1' }, display_kind: 'origin', label: '已授权入口', state: 'ready', allowed_actions: [] }], edges: [], opaque_cursor: 'cursor-first-use', truncated: false, continuation: null, allowed_actions: [] }) });
+      return;
+    }
+    if (request.method() === 'GET' && url.pathname === '/api/v2/tasks/task-first-use/layouts/knowledge-live') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ schema_version: 'wuji.api.v2', view_name: 'knowledge-live', layout_revision: '1', selection_mode: 'follow_latest', entries: [], viewport: { x: 0, y: 0, zoom: 1 } }) });
+      return;
+    }
+    if (request.method() === 'GET' && url.pathname === '/api/v2/tasks/task-first-use/snapshots') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [], opaque_cursor: null }) });
+      return;
+    }
+    if (request.method() === 'GET' && url.pathname === '/api/v2/tasks/task-first-use/completion') {
+      await route.fulfill({ status: 404, body: '' });
+      return;
+    }
+    await route.fallback();
+  });
+
+  await page.goto('/?case=first-use&theme=silver');
+  await expect(page.getByTestId('task-list')).toBeVisible();
+  await page.getByTestId('new-task').click();
+  await expect(page.getByTestId('task-create-form')).toBeVisible();
+  await page.getByLabel('任务名称').fill('首用安全入口');
+  await page.getByLabel('完整入口 URL').fill('https://approved.example.test/safe?view=summary');
+  await page.getByLabel('任务目标').fill('仅验证获准入口并保留正文证据');
+  await page.getByLabel('完成条件').fill('保存实际 HTTP 状态\n保留未执行原因');
+  await page.getByLabel('授权截止时间').fill('2099-01-01T00:00');
+  await page.getByLabel('Task 金额预算').fill('1');
+  await page.getByLabel(/拥有目标访问授权/).check();
+  await page.getByLabel(/允许本 Task/).check();
+  await page.getByTestId('task-create-submit').click();
+  await expect(page.getByTestId('task-status')).toContainText('已创建未启动');
+  await expect(page.getByTestId('task-start')).toBeVisible();
+  await expect.poll(() => startKeys.length).toBe(0);
+  await page.getByTestId('task-start').click();
+  await expect.poll(() => startKeys.length).toBe(1);
+  await expect(page.getByTestId('task-status')).toContainText('运行中');
+  await expect(page.getByTestId('launch-status')).toContainText('ready');
+  await page.screenshot({ path: 'tests/topology/screenshots/first-use-workbench.png', fullPage: true });
+});
+
 test('a stale personal layout save reports the conflict and never rewrites the newer layout', async ({ page }) => {
   await page.goto('/?theme=silver&case=layout-conflict');
   await expect(page.getByRole('region', { name: '任务拓扑图' })).toBeVisible();

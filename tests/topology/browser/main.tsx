@@ -2,6 +2,7 @@ import { StrictMode, useCallback, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { AppearanceProvider } from '../../../apps/web/src/Appearance';
+import { FirstUseWorkbench } from '../../../apps/web/src/features/first-use/FirstUseWorkbench';
 import {
   TopologyContainer,
   type TopologySnapshotReader,
@@ -324,6 +325,22 @@ function LayoutReloadFailureFixture() {
 
 function BrowserFixture() {
   const fixtureCase = new URLSearchParams(window.location.search).get('case');
+  if (fixtureCase === 'first-use') {
+    return (
+      <FirstUseWorkbench
+        session={{
+          authenticated: true,
+          identity_mode: 'local_single_operator',
+          project_id: 'project-first-use',
+          display_name: '本地单操作者',
+          task_id: null,
+          expires_at: '2099-01-01T00:00:00.000Z',
+        }}
+        onSessionExpired={() => undefined}
+        onLogout={async () => undefined}
+      />
+    );
+  }
   if (fixtureCase === 'request-isolation') return <RequestIsolationFixture />;
   if (fixtureCase === 'layout-conflict') return <LayoutConflictFixture />;
   if (fixtureCase === 'layout-reload-failure') return <LayoutReloadFailureFixture />;
