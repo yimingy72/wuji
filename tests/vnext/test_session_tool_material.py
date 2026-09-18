@@ -122,57 +122,43 @@ class V2Store(Store):
         return self.raw
 
 
-def test_v2_material_recovery_checks_source_binding_representation_digest_and_utf8_length():
-    raw = b'{"schema_version":"wuji.http-exchange.v1"}'
-    ref = {
-        "id": "artifact-v2",
-        "version": "1",
-        "sha256": sha256(raw).hexdigest(),
-    }
+def test_v2_material_recovery_rejects_forged_text_even_with_a_recomputed_digest():
+    import base64
+    import json
+    from wuji_core.admission.model_material import render_http_exchange_v2
+
+    raw = json.dumps({
+        "schema_version": "wuji.http-exchange.v1", "tool_attempt_id": "attempt-fixture",
+        "target": "http://fixture.invalid",
+        "request": {"method": "GET", "url": "http://fixture.invalid", "headers": {}},
+        "response": {"status": 200, "headers": {"content-type": "text/plain; charset=utf-8"},
+                     "body_base64": base64.b64encode("唯一正文标记".encode()).decode(),
+                     "body_bytes": len("唯一正文标记".encode()), "truncated": False},
+    }).encode()
+    ref = {"id": "artifact-v2", "version": "1", "sha256": sha256(raw).hexdigest()}
     receipt = copy.deepcopy(RECEIPT)
     receipt["result_ref"] = ref
     receipt["evidence_receipt"]["artifact_refs"] = [ref]
-    rendered = "response.body:\n唯一正文标记\n"
-    packet = {
-        "schema_version": "wuji.model-material.v2",
-        "tool_call_id": receipt["tool_call_id"],
-        "status": "delivered",
-        "source": {
-            "artifact_ref": ref,
-            "artifact_sha256": ref["sha256"],
-            "media_type": "application/vnd.wuji.http-exchange+json",
-            "completeness": "partial",
-        },
-        "representation": {
-            "renderer_version": "wuji-http-renderer.v2",
-            "media_type": "text/plain; charset=utf-8",
-            "encoding": "utf-8",
-            "text": rendered,
-            "byte_length": len(rendered.encode()),
-            "representation_sha256": sha256(rendered.encode()).hexdigest(),
-            "truncated": False,
-            "redaction_applied": False,
-        },
-        "omission_reason": None,
-    }
-    record = {
-        "state": "sealed",
-        "sha256": ref["sha256"],
-        "size_bytes": len(raw),
-    }
+    record = {"state": "sealed", "sha256": ref["sha256"], "size_bytes": len(raw),
+              "media_type": "application/vnd.wuji.http-exchange+json", "completeness": "complete"}
+    packet = render_http_exchange_v2(
+        receipt["tool_call_id"], artifact_ref=ref, artifact_record=record, raw=raw,
+    ).model_dump(mode="json")
+    assert "唯一正文标记" in packet["representation"]["text"]
     repo = SessionRepository(None, artifacts=V2Store(record, raw), registry=None)
     assert repo.delivered_result(None, receipt, {**receipt, "material": packet}) is True
 
     tampered = copy.deepcopy(packet)
-    tampered["representation"]["text"] = "forged"
+    forged = "forged evidence"
+    tampered["representation"].update(
+        text=forged, byte_length=len(forged.encode()),
+        representation_sha256=sha256(forged.encode()).hexdigest(),
+    )
     assert repo.delivered_result(None, receipt, {**receipt, "material": tampered}) is False
 
     omitted = {
-        "schema_version": "wuji.model-material.v2",
-        "tool_call_id": receipt["tool_call_id"],
-        "status": "omitted",
-        "source": None,
-        "representation": None,
+        "schema_version": "wuji.model-material.v2", "tool_call_id": receipt["tool_call_id"],
+        "status": "omitted", "source": None, "representation": None,
         "omission_reason": "source_unavailable",
     }
     assert repo.delivered_result(None, receipt, {**receipt, "material": omitted}) is True

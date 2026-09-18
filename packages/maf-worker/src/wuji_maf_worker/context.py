@@ -65,8 +65,8 @@ class InlineMaterial:
 
     The platform fetches the bytes; this object only carries them, together
     with a stable reason for every artifact whose body is *not* in the context.
-    A body is never truncated: an artifact either arrives whole or is named as
-    omitted.
+    Legacy text bodies arrive whole or are omitted. Versioned HTTP material
+    retains the source completeness and the representation's truncation flag.
     """
 
     bodies: Mapping[tuple[str, str, str], dict]

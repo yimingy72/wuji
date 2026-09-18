@@ -1,6 +1,6 @@
 """Fixed M1 profiles and the released MAF harness factory; no application loop."""
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from hashlib import sha256
 from importlib.metadata import version
 from pathlib import Path
@@ -27,12 +27,14 @@ class HarnessProfile:
     max_context_records: int
     max_context_bytes: int
     max_output_tokens: int
+    material_representation: str | None = field(default=None, kw_only=True)
 
     def __post_init__(self):
         if (
             not 1 <= len(self.ref) <= 256
             or not re.fullmatch(r"[1-9][0-9]*", self.revision)
             or self.work_kind not in {"reason", "explore", "report"}
+            or self.material_representation not in {None, "wuji.model-material.v2"}
             or not 1 <= len(self.instructions) <= 32768
             or not self.tool_definition_refs
             or len(set(self.tool_definition_refs)) != len(self.tool_definition_refs)
@@ -46,6 +48,8 @@ class HarnessProfile:
 
     def snapshot(self):
         body = asdict(self)
+        if self.material_representation is None:
+            body.pop("material_representation")
         body["tool_definition_refs"] = list(self.tool_definition_refs)
         body["capabilities"] = {
             key: False for key in (
@@ -125,6 +129,8 @@ class SessionHarnessProfile(HarnessProfile):
 
     def snapshot(self):
         body = {name: getattr(self, name) for name in HarnessProfile.__dataclass_fields__}
+        if self.material_representation is None:
+            body.pop("material_representation")
         body["tool_definition_refs"] = list(self.tool_definition_refs)
         body.update({
             "schema_version": self.schema_version,

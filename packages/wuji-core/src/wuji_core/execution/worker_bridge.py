@@ -138,13 +138,14 @@ class PrivateIntake:
 
 
 def inline_material(*, artifacts, artifact_rows, references, context_bytes,
-                    max_single_output_bytes):
+                    max_single_output_bytes, material_representation="v1"):
     """Authorized, bounded text bodies for a read set, plus every omission.
 
     Only a sealed text artifact inside its own inline bound is fetched, and the
     whole set stays inside half of the published context bytes so the
-    surrounding records always fit. Nothing is truncated: a body either arrives
-    whole or the record names why it did not.
+    surrounding records always fit. Legacy text bodies arrive whole or name an
+    omission. Only explicitly published v2 profiles render HTTP source bodies,
+    with source completeness and representation truncation recorded separately.
     """
 
     if artifacts is None or not artifact_rows or not callable(
@@ -153,10 +154,13 @@ def inline_material(*, artifacts, artifact_rows, references, context_bytes,
         return None
     from wuji_maf_worker.context import InlineMaterial
 
-    per_artifact = min(
-        int(max_single_output_bytes), max(1, int(context_bytes) // 4), 32 * 1024
-    )
-    total_budget = min(64 * 1024, max(1, int(context_bytes) // 2))
+    per_artifact = min(int(max_single_output_bytes), max(1, int(context_bytes) // 4))
+    total_budget = max(1, int(context_bytes) // 2)
+    if material_representation == "wuji.model-material.v2":
+        per_artifact = min(per_artifact, 32 * 1024)
+        total_budget = min(total_budget, 64 * 1024)
+    elif material_representation != "v1":
+        raise ValueError("unsupported published material representation")
     bodies, reasons, total = {}, {}, 0
     for key, value in artifact_rows.items():
         if key not in references:
@@ -165,7 +169,7 @@ def inline_material(*, artifacts, artifact_rows, references, context_bytes,
             reasons[key] = "not_sealed"
             continue
         media_type = value.get("media_type")
-        if media_type == HTTP_EXCHANGE_MEDIA_TYPE:
+        if media_type == HTTP_EXCHANGE_MEDIA_TYPE and material_representation == "wuji.model-material.v2":
             try:
                 from wuji_core.contracts.envelopes import BlobRef
 
@@ -564,6 +568,7 @@ class WorkerHostBridge:
             references=references,
             context_bytes=int(body["max_context_bytes"]),
             max_single_output_bytes=int(limits["max_single_output_bytes"]),
+            material_representation=body.get("material_representation", "v1"),
         )
 
     def _resolve_refused(self, step, error):

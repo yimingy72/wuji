@@ -218,9 +218,71 @@ def test_reason_context_reuses_the_exact_http_artifact_reference():
         references={key},
         context_bytes=64 * 1024,
         max_single_output_bytes=64 * 1024,
+        material_representation="wuji.model-material.v2",
     )
     assert store.reads == 1
     packet = material.bodies[key]
     assert packet["source"]["artifact_ref"]["id"] == ref.id
     assert packet["source"]["completeness"] == "partial"
     assert "reason-read-set-marker" in packet["representation"]["text"]
+
+    legacy = inline_material(
+        artifacts=store, artifact_rows={key: {**record, "tool_call_id": CALL_ID}},
+        references={key}, context_bytes=64 * 1024, max_single_output_bytes=64 * 1024,
+    )
+    assert store.reads == 1
+    assert key not in legacy.bodies
+    assert legacy.reasons[key] == "not_text_media"
+
+
+def test_published_material_version_roundtrips_without_changing_legacy_profile_bytes():
+    from dataclasses import replace
+    from wuji_core.contracts.sessions import SessionLimits
+    from wuji_maf_worker.factory import HarnessProfile, SessionHarnessProfile, parse_profile
+
+    common = dict(
+        ref="harness.fixture", revision="1", work_kind="explore", instructions="Read evidence.",
+        tool_definition_refs=("fixture-reader",), lock_digest="a" * 64,
+        max_context_records=32, max_context_bytes=65_536, max_output_tokens=512,
+    )
+    profiles = [
+        HarnessProfile(**common),
+        SessionHarnessProfile(**common, history_source_id="history", memory_source_id="memory",
+            memory_mode="disabled", session_limits=SessionLimits(
+                max_objects=32, max_reference_depth=8, max_object_bytes=65_536,
+                max_total_bytes=262_144, max_messages=128, max_pending_approvals=4,
+            ), max_context_window_tokens=8192, compaction_enabled=False),
+    ]
+    for profile in profiles:
+        old = profile.snapshot()
+        assert "material_representation" not in old["body"]
+        assert parse_profile(old).snapshot() == old
+        current = replace(profile, material_representation="wuji.model-material.v2")
+        assert parse_profile(current.snapshot()) == current
+        assert current.snapshot()["digest"] != old["digest"]
+
+
+def test_redirect_credentials_and_body_secrets_are_redacted_without_changing_source():
+    document = json.loads(exchange(b'password=fixture-secret api_key=fixture-api-key'))
+    document["response"]["headers"]["location"] = "https://fixture-user:fixture-password@example.invalid/path?token=fixture"
+    raw = json.dumps(document).encode()
+    ref, record = artifact(raw)
+    packet = render_http_exchange_v2(CALL_ID, artifact_ref=ref, artifact_record=record, raw=raw)
+    assert packet.representation.redaction_applied
+    assert "https://example.invalid/path" in packet.representation.text
+    assert all(secret not in packet.representation.text for secret in (
+        "fixture-user", "fixture-password", "fixture-secret", "fixture-api-key", "token=fixture",
+    ))
+    assert packet.source.artifact_sha256 == sha256(raw).hexdigest()
+
+
+def test_capture_truncation_conflict_and_duplicate_container_fields_are_not_delivered():
+    raw = exchange(b"partial text", truncated=True)
+    ref, record = artifact(raw, completeness="complete")
+    packet = render_http_exchange_v2(CALL_ID, artifact_ref=ref, artifact_record=record, raw=raw)
+    assert packet.status.value == "omitted"
+    assert packet.omission_reason.value == "capture_truncated"
+    raw = raw.replace(b'"status":200', b'"status":404,"status":200')
+    ref, record = artifact(raw, completeness="partial")
+    packet = render_http_exchange_v2(CALL_ID, artifact_ref=ref, artifact_record=record, raw=raw)
+    assert packet.status.value == "omitted"

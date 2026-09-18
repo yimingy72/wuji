@@ -5,7 +5,7 @@ from hashlib import sha256
 from uuid import uuid4
 
 from wuji_core.admission.common import current_run, digest
-from wuji_core.admission.model_material import validate_model_material_v2
+from wuji_core.admission.model_material import render_http_exchange_v2, validate_model_material_v2
 from wuji_core.contracts.envelopes import BlobRef, WorkerAssignment
 from wuji_core.contracts.execution import SessionManifest
 from wuji_core.contracts.knowledge import KnowledgeRef
@@ -491,7 +491,17 @@ class SessionRepository:
                 if record["state"] != "sealed":
                     return False
                 try:
-                    self.artifacts.checked_bytes(record)
+                    raw = self.artifacts.checked_bytes(record)
+                    representation = packet.representation
+                    limit = representation.byte_length if representation.truncated else 32 * 1024
+                    if limit < 1:
+                        return False
+                    rendered = render_http_exchange_v2(
+                        packet.tool_call_id, artifact_ref=source_ref,
+                        artifact_record=record, raw=raw, max_representation_bytes=limit,
+                    )
+                    if rendered != packet:
+                        return False
                 except DomainError:
                     return False
             return True

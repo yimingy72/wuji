@@ -11,6 +11,8 @@ from wuji_core.execution.tasks import TaskService
 from wuji_core.http.completion import create_completion_router
 from wuji_core.http.delivery import create_delivery_router
 from wuji_core.http.evidence import create_artifact_router
+from wuji_core.evidence.material import ArtifactMaterialService
+from wuji_core.http.material import create_material_router
 from wuji_core.http.retention import create_retention_router
 from wuji_core.http.layouts import create_layout_router
 from wuji_core.http.tasks import create_task_router
@@ -44,6 +46,7 @@ def build_api():
             create_delivery_router(deliveries),
             create_retention_router(retention),
             create_artifact_router(deployment.artifacts),
+            create_material_router(ArtifactMaterialService(deployment.artifacts)),
         ],
         json_limits=JsonBoundaryLimits(max_body_bytes=settings.max_transport_bytes),
     )

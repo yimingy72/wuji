@@ -57,6 +57,19 @@ _TEXT_MEDIA = re.compile(
     re.IGNORECASE,
 )
 _CHARSET = re.compile(r"(?:^|;)\s*charset\s*=\s*(?:\"([^\"]+)\"|([^;\s]+))", re.I)
+_BODY_CREDENTIALS = (
+    re.compile(r"(?i)(\bbearer\s+)[A-Za-z0-9._~+/-]+=*"),
+    re.compile(r'''(?ix)(["']?(?:password|passwd|api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|secret)["']?\s*[:=]\s*["']?)[^\s"'&,;<>}]+'''),
+)
+_PROVIDER_KEY = re.compile(r"\bsk-[A-Za-z0-9_-]{20,}\b")
+
+
+def _redact_body(text):
+    original = text
+    for pattern in _BODY_CREDENTIALS:
+        text = pattern.sub(lambda match: match.group(1) + "[REDACTED]", text)
+    text = _PROVIDER_KEY.sub("[REDACTED]", text)
+    return text, text != original
 
 
 def _reason(value: str | MaterialOmissionReason) -> MaterialOmissionReason:
@@ -160,11 +173,19 @@ def _safe_location(value: str) -> tuple[str, bool]:
 
     try:
         parsed = urlsplit(value)
+        port = parsed.port
     except ValueError:
         return "[redacted]", True
-    if not parsed.query and not parsed.fragment:
+    if parsed.scheme not in {"", "http", "https"}:
+        return "[redacted]", True
+    credentials = parsed.username is not None or parsed.password is not None
+    if not parsed.query and not parsed.fragment and not credentials:
         return value, False
-    return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, "", "")), True
+    host = parsed.hostname or ""
+    if ":" in host:
+        host = "[" + host + "]"
+    netloc = host + (":" + str(port) if port is not None else "")
+    return urlunsplit((parsed.scheme, netloc, parsed.path, "", "")), True
 
 
 def _headers(value: object) -> tuple[dict[str, str], bool, str | None]:
@@ -184,6 +205,8 @@ def _headers(value: object) -> tuple[dict[str, str], bool, str | None]:
         ):
             return {}, False, "unsupported_schema"
         normalized = key.lower()
+        if normalized in displayed:
+            return {}, False, "unsupported_schema"
         if normalized in _SENSITIVE_HEADERS or normalized not in _DISPLAY_HEADERS:
             redacted = True
             continue
@@ -197,11 +220,11 @@ def _headers(value: object) -> tuple[dict[str, str], bool, str | None]:
 def _document(raw: bytes) -> tuple[dict, ModelMaterialSource | None, str | None]:
     """Validate the sealed exchange shape without performing any I/O."""
 
-    import json
+    from wuji_core.http import strict_json_loads
 
     try:
-        value = json.loads(raw)
-    except (UnicodeDecodeError, json.JSONDecodeError):
+        value = strict_json_loads(raw)
+    except (UnicodeDecodeError, ValueError, RecursionError):
         return {}, None, "invalid_encoding"
     if not isinstance(value, dict):
         return {}, None, "unsupported_schema"
@@ -294,6 +317,8 @@ def render_http_exchange_v2(
     if error:
         return omitted_model_material(tool_call_id, error, source=source)
     response = document["response"]
+    if response["truncated"] and artifact_record.get("completeness") == "complete":
+        return omitted_model_material(tool_call_id, "capture_truncated", source=source)
     body_base64 = response["body_base64"]
     if len(body_base64) > ((max_decoded_body_bytes + 2) // 3) * 4 + 4:
         return omitted_model_material(tool_call_id, "representation_limit", source=source)
@@ -321,6 +346,7 @@ def render_http_exchange_v2(
         text = body.decode(charset)
     except (UnicodeDecodeError, LookupError):
         return omitted_model_material(tool_call_id, "invalid_encoding", source=source)
+    text, body_redacted = _redact_body(text)
 
     lines = [
         f"schema_version: {HTTP_EXCHANGE_SCHEMA}",
@@ -340,7 +366,7 @@ def render_http_exchange_v2(
             "byte_length": len(encoded),
             "representation_sha256": sha256(encoded).hexdigest(),
             "truncated": truncated,
-            "redaction_applied": document["redaction_applied"],
+            "redaction_applied": document["redaction_applied"] or body_redacted,
         }
     )
     return ModelMaterialV2.model_validate(

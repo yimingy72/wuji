@@ -567,6 +567,7 @@ def published_session_profiles(config, definition):
             "max_context_records": profile["body"]["max_context_records"],
             "max_context_bytes": profile["body"]["max_context_bytes"],
             "max_output_tokens": profile["body"]["max_output_tokens"],
+            "material_representation": config.get("material_representation"),
         }
 
     published = {}
