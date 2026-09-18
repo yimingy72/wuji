@@ -127,8 +127,10 @@ def test_f2_settlement_after_exit_restores_published_pending_input(
             after_reconcile=reconciled,
             after_refresh=after,
         )
-        assert before["state"] == "reconciling"
-        assert before["blocked_reason"] == "operations_unsettled"
+        # A complete exited receipt now runs the platform P06 settlement path
+        # before this replay helper is called.
+        assert before["state"] == "waiting_input"
+        assert before["blocked_reason"] is None
         assert reconciled["state"] == after["state"] == "waiting_input"
         assert after["blocked_reason"] is None
         assert after["input_status"] == "pending"
@@ -159,7 +161,9 @@ def test_f2_hold_keeps_published_wait_suspended_until_explicit_resume(
             after_settlement_held=held,
             after_explicit_resume=resumed,
         )
-        assert before["state"] == "reconciling"
+        # The observed exit settles the closed operation set before the helper
+        # replays the same settlement; the user hold remains authoritative.
+        assert before["state"] == "suspended"
         assert held["state"] == "suspended" and held["desired_state"] == "hold"
         assert held["suspension_causes"] == [
             {"cause_kind": "user_hold", "cause_ref": "work-fixture"}

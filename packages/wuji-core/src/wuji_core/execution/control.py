@@ -784,7 +784,7 @@ class ControlService:
             )
             CapacityService.observe(tx, run)
             if (
-                stopped
+                observation.kind in {"exited", "not_started"}
                 and work["current_run_id"] == run["agent_run_id"]
                 and operation_axes_closed(tx, run["agent_run_id"])
             ):

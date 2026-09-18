@@ -248,13 +248,32 @@ def resumable_session(monkeypatch, c):
 
 
 def settled(c):
+    expected = {
+        "source": "P06 metadata fixture",
+        "operation_ids": ["attempt-fixture"],
+        "status": "settled",
+    }
     with c.env.migration_connection() as m:
+        existing = m.execute(
+            "SELECT status,source_receipt_json FROM vnext.run_operation_settlement "
+            "WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND agent_run_id='run-fixture'",
+            OWNER,
+        ).fetchone()
+        if existing is not None:
+            source = json.loads(existing[1])
+            # The observed-exit producer may have already closed this Run. A
+            # fixture helper must reuse that receipt, but reject a same-key
+            # settlement owned by an unrelated producer or with another state.
+            assert existing[0] == "settled"
+            assert source.get("producer") == "p06"
+            assert source.get("basis") in {
+                "observed_exit_recomputed",
+                "run_closed_operation_set",
+            }
+            return
         m.execute(
             "INSERT INTO vnext.run_operation_settlement(tenant_id,project_id,task_id,agent_run_id,status,source_receipt_json) VALUES(%s,%s,%s,'run-fixture','settled',%s)",
-            (
-                *OWNER,
-                '{"source":"P06 metadata fixture","operation_ids":["attempt-fixture"],"status":"settled"}',
-            ),
+            (*OWNER, json.dumps(expected, separators=(",", ":"))),
         )
 
 
