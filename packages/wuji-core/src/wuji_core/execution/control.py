@@ -273,6 +273,88 @@ class ControlService:
         with self.uow.transaction(access, task_id) as tx:
             return tx.task
 
+    def activate_task(
+        self,
+        access,
+        task_id,
+        *,
+        operation_id,
+        expected_version,
+        reason,
+    ):
+        """Atomically perform the launcher's internal ``start`` transition.
+
+        This is intentionally a domain method, not an HTTP re-entry.  The
+        public launch command's stable operation id is written to the normal
+        control receipt in the same transaction as the state transition, so a
+        worker crash can replay the exact activation without creating a second
+        execution epoch.
+        """
+
+        if not isinstance(operation_id, str) or not 1 <= len(operation_id) <= 256:
+            raise DomainError("INVALID_SCHEMA", 422)
+        try:
+            command = TaskCommand.model_validate(
+                {
+                    "schema_version": "wuji.api.v2",
+                    "command": "start",
+                    "expected_version": str(expected_version),
+                    "reason": reason,
+                }
+            )
+        except ValidationError as error:
+            raise DomainError("INVALID_SCHEMA", 422) from error
+        digest = sha256(
+            canonical_json_bytes(
+                {
+                    "task_id": task_id,
+                    "work_item_id": None,
+                    "command": command.model_dump(mode="python"),
+                }
+            )
+        ).hexdigest()
+        with self.uow.transaction(access, task_id, capability="control") as tx:
+            old = row(
+                tx.connection.execute(
+                    "SELECT * FROM vnext.control_receipt WHERE tenant_id=%s AND task_id=%s AND operation_kind='task_command' AND operation_id=%s",
+                    (tx.owner[0], task_id, operation_id),
+                )
+            )
+            if old:
+                if old["input_digest"] != digest:
+                    raise DomainError("INPUT_DIGEST_CONFLICT", 409)
+                return tx.task
+            if str(tx.task["control_version"]) != str(expected_version):
+                raise DomainError("STALE_VERSION", 409)
+            if tx.task["activated_at"] is not None:
+                # No receipt plus an already activated Task means the previous
+                # external outcome is not attributable to this operation.
+                raise DomainError("OPERATION_UNKNOWN", 409)
+            self._task_command(tx, "start", reason)
+            receipt = CommandReceipt.model_validate(
+                {
+                    "command_id": operation_id,
+                    "disposition": "accepted",
+                    "resource_ref": {
+                        "entity_type": "task",
+                        "id": task_id,
+                        "revision": str(tx.task["control_version"]),
+                    },
+                    "resource_version": str(tx.task["control_version"]),
+                    "request_id": access.request_id,
+                }
+            )
+            tx.connection.execute(
+                "INSERT INTO vnext.control_receipt(tenant_id,project_id,task_id,operation_kind,operation_id,input_digest,receipt_json) VALUES(%s,%s,%s,'task_command',%s,%s,%s)",
+                (
+                    *tx.owner,
+                    operation_id,
+                    digest,
+                    json_text(receipt.model_dump(mode="python")),
+                ),
+            )
+            return tx.task
+
     def read_work(self, access, task_id, work_id):
         with self.uow.transaction(access, task_id) as tx:
             value = _work(tx, work_id, lock=False)

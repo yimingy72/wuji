@@ -17,11 +17,12 @@ from wuji_core.admission.registry import (
     RuntimeProfile,
     register_published_profile,
 )
-from wuji_core.contracts.execution import ExecutionLimits
+from wuji_core.contracts.execution import ExecutionLimits, TaskCreate
 from wuji_core.execution.tasks import TaskService
 from wuji_core.http import create_app
 from wuji_core.http.auth import TokenVerifier
 from wuji_core.http.tasks import create_task_router
+from wuji_core.persistence.uow import DomainError
 
 
 OWNER = ("tenant-fixture", "project-fixture", "task-fixture")
@@ -162,6 +163,23 @@ def create(case, *, body=None, token=None, key="create-fixture-1"):
     if key is not None:
         headers["Idempotency-Key"] = key
     return case.client.post(BASE, headers=headers, json=body or payload())
+
+
+def test_explicit_entry_points_preserve_path_query_and_match_scope():
+    task = TaskCreate.model_validate(
+        payload(entry_points=["https://fixture.invalid/read?format=plain"])
+    )
+    assert TaskService.start_points(task) == [
+        "https://fixture.invalid/read?format=plain"
+    ]
+
+    with pytest.raises(DomainError) as mismatch:
+        TaskService.start_points(
+            TaskCreate.model_validate(
+                payload(entry_points=["https://other.invalid/read"])
+            )
+        )
+    assert mismatch.value.code == "INVALID_REFERENCE"
 
 
 def test_task_creation_persists_a_non_running_task_with_only_creator_access(

@@ -32,10 +32,11 @@ def task_for_work(uow, access, work_item_id):
 
 
 class ControlAPI:
-    def __init__(self, control_service):
+    def __init__(self, control_service, *, launch_service=None):
         if not isinstance(control_service, ControlService):
             raise ValueError("a real ControlService is required")
         self.control = control_service
+        self.launch = launch_service
 
     @staticmethod
     def _key(idempotency_key):
@@ -51,6 +52,17 @@ class ControlAPI:
             raise TypeError("the authenticated AccessContext is required")
         if not isinstance(task_id, str) or not 1 <= len(task_id) <= 256:
             raise DomainError("INVALID_SCHEMA", 422)
+        if (
+            self.launch is not None
+            and command.command.value == "start"
+            and work_id is None
+        ):
+            return self.launch.accept_start(
+                access,
+                task_id,
+                TaskCommand.model_validate(command),
+                idempotency_key=self._key(idempotency_key),
+            )
         return self.control.apply(
             ControlCommandContext(
                 access=access,
