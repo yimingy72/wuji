@@ -15,6 +15,7 @@ from wuji_core.http import canonical_json_bytes, strict_json_loads
 from wuji_core.persistence.uow import DomainError, row, json_text
 from wuji_core.admission.registry import TaskAdmissionConfig
 from wuji_core.admission.common import audit, consume_attempt, current_run, digest
+from wuji_core.admission.usage import UsageAccumulator, UsageSchemaError, usage_from_completion
 
 
 class AdmissionError(DomainError):
@@ -132,6 +133,7 @@ class HttpxModelTransport:
 class _SSEObserver:
     def __init__(self, maximum):
         self.buffer, self.maximum, self.done = bytearray(), maximum, False
+        self.usage = UsageAccumulator()
 
     def feed(self, data):
         self.buffer.extend(data)
@@ -157,6 +159,10 @@ class _SSEObserver:
                 value = strict_json_loads(payload)
                 if not isinstance(value, dict) or "error" in value or value.get("object") != "chat.completion.chunk":
                     raise DomainError("INVALID_SCHEMA", 422)
+                try:
+                    self.usage.observe(value)
+                except UsageSchemaError as exc:
+                    raise DomainError("INVALID_SCHEMA", 422) from exc
 
 
 class _ModelStream:
@@ -167,6 +173,8 @@ class _ModelStream:
         self.finished = False
         self.seen = 0
         self.closed = False
+        self.usage: dict[str, int] | None = None
+        self.usage_source: str | None = None
         self.started = asyncio.get_running_loop().time()
 
     async def open(self):
@@ -227,7 +235,16 @@ class _ModelStream:
                 await asyncio.wait_for(self.context.__aexit__(None, None, None), timeout=self.permit.config.runtime.idle_timeout_seconds)
             except BaseException:
                 ended = False
-        await run_in_threadpool(self.gate.ledger.settle_local, self.access, self.permit, response_state="complete" if self.finished else "partial" if self.seen else "unknown", local_ended=ended, reason="transport_closed" if ended else "transport_close_unknown")
+        await run_in_threadpool(
+            self.gate.ledger.settle_local,
+            self.access,
+            self.permit,
+            response_state="complete" if self.finished else "partial" if self.seen else "unknown",
+            local_ended=ended,
+            reason="transport_closed" if ended else "transport_close_unknown",
+            usage=self.usage,
+            usage_source=self.usage_source,
+        )
 
 
 class _FinalizingStreamResponse(StreamingResponse):
@@ -300,6 +317,7 @@ class ModelGate:
                         if observer.done and not observer.buffer.strip():
                             break
                     stream.finished = observer.done and not observer.buffer.strip()
+                    stream.usage, stream.usage_source = observer.usage.snapshot()
                 except (Exception, asyncio.CancelledError):
                     # Never turn a midstream error into a made-up native message.
                     return
@@ -314,6 +332,10 @@ class ModelGate:
                 data.extend(chunk)
             parsed = strict_json_loads(data)
             ChatCompletionResponse.model_validate(parsed)
+            try:
+                stream.usage, stream.usage_source = usage_from_completion(parsed)
+            except UsageSchemaError as exc:
+                raise DomainError("INVALID_SCHEMA", 422) from exc
             stream.finished = True
             await run_in_threadpool(self.ledger.forwarded, access, permit, len(data))
             return Response(bytes(data), media_type="application/json", headers=headers)

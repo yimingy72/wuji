@@ -1,0 +1,55 @@
+# Runnable LiteLLM Proxy configuration for the fixed Wuji DeepSeek route.
+# The A6 fake-provider probe is mechanism_synthetic/DG0 only; it is not a
+# DeepSeek real_model_pass and does not prove native tool-calling behavior.
+# The file contains no credential value. Mount the provider secret as the
+# environment variable DEEPSEEK_API_KEY from SecretRef
+# `deepseek-provider-api-key` inside the trusted gateway only.
+model_list:
+  - model_name: wuji-deepseek-observe-v1
+    litellm_params:
+      model: deepseek/deepseek-flash
+      api_base: https://api.deepseek.com
+      api_key: os.environ/DEEPSEEK_API_KEY
+      timeout: 30
+      max_retries: 0
+    model_info:
+      mode: chat
+      # Conservative peak planning tuple, USD per token. Source and both
+      # peak/off-peak tiers: DEEPSEEK_PRICE_SNAPSHOT.20260918.yaml.
+      # Gateway usage/spend receipts remain authoritative for final billing.
+      input_cost_per_token: 0.0000003
+      cache_read_input_token_cost: 0.000000006
+      cache_creation_input_token_cost: 0.0000003
+      output_cost_per_token: 0.0000012
+      max_tokens: 4096
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL
+  store_model_in_db: true
+  background_health_checks: false
+  disable_spend_logs: false
+  store_prompts_in_spend_logs: false
+  disable_budget_reservation: false
+  fail_closed_budget_enforcement: true
+
+litellm_settings:
+  # LiteLLM public CustomLogger hook. It maps only this alias from
+  # max_completion_tokens to max_tokens and forces thinking disabled.
+  callbacks:
+    - ops.vnext.litellm_hooks.proxy_handler_instance
+  telemetry: false
+  num_retries: 0
+  cache: false
+  success_callback: []
+  failure_callback: []
+
+router_settings:
+  num_retries: 0
+  fallbacks: []
+  context_window_fallbacks: []
+  content_policy_fallbacks: []
+
+# Persistent Task budget is a LiteLLM virtual key, not a model-list field.
+# A0 must create/reconcile one key per Task with max_budget: 1.00 USD and no
+# automatic key regeneration; all Runs for that Task share that key.

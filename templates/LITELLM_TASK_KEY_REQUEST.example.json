@@ -1,0 +1,12 @@
+{
+  "models": ["wuji-deepseek-observe-v1"],
+  "max_budget": 1.0,
+  "budget_duration": null,
+  "metadata": {
+    "wuji_budget_scope": "task",
+    "wuji_task_budget_usd": "1.00",
+    "wuji_route_alias": "wuji-deepseek-observe-v1",
+    "wuji_persistent": true,
+    "wuji_approved_test_amount": "unlimited"
+  }
+}

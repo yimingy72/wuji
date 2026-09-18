@@ -1,0 +1,44 @@
+# Public price snapshot; this is metadata for an approved route, not a
+# credential and not a second billing engine.
+schema_version: wuji.provider-price-snapshot.v1
+provider: deepseek
+provider_model: deepseek-flash
+provider_model_identity: DeepSeek-V4.1-Flash
+currency: USD
+source_url: https://api-docs.deepseek.com/quick_start/pricing/
+observed_at: 2026-09-18
+observed_timezone: Asia/Shanghai
+schedule:
+  timezone: Asia/Shanghai
+  peak_weekdays: [monday, tuesday, wednesday, thursday, friday]
+  peak_windows:
+    - "09:00-12:00"
+    - "14:00-18:00"
+  note: "All other times are off-peak."
+prices_usd_per_million_tokens:
+  off_peak:
+    cache_hit: "0.003"
+    cache_miss: "0.15"
+    output: "0.6"
+  peak:
+    cache_hit: "0.006"
+    cache_miss: "0.30"
+    output: "1.20"
+accounting:
+  evidence_mode: mechanism_synthetic
+  upstream: local fake provider only; no DeepSeek inference
+  approved_test_amount: unlimited
+  task_budget_required: true
+  conservative_litellm_publish_tier: peak
+  conservative_tier_note: >-
+    If the locked LiteLLM release accepts only one static price tuple, publish
+    the peak tuple for preflight/budget accounting. It is a conservative
+    planning value, not the provider's final bill; gateway usage/spend receipts
+    remain authoritative when available.
+  no_fx_conversion: true
+  engineering_first_run:
+    max_attempts: 12
+    max_concurrency: 1
+    max_output_tokens: 4096
+    max_target_reads: 4
+    max_duration_minutes: 10

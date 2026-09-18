@@ -1,0 +1,46 @@
+{
+  "schema_version": "wuji.deepseek.profile-snapshot.v1",
+  "profile_ref": "wuji-deepseek-observe-v1",
+  "provider": "deepseek",
+  "provider_model": "deepseek-flash",
+  "provider_model_identity": "DeepSeek-V4.1-Flash",
+  "protocol": "chat_completions",
+  "thinking": {"type": "disabled"},
+  "gateway_image": {
+    "version": "1.100.0",
+    "digest": "sha256:c8756e7b9a61fe45df2ccb5b781d388c3b2f3a21ef9e4956630caef20f9f03aa"
+  },
+  "provider_hook": {
+    "module": "ops.vnext.litellm_hooks",
+    "instance": "proxy_handler_instance",
+    "version": "wuji-deepseek-params-v1",
+    "sha256": "1a7719b93ca192950267dfe21706bdcf051f8a8de53e39ddc5b2066670600f14"
+  },
+  "route_alias": "wuji-deepseek-observe-v1",
+  "secret_ref": "deepseek-provider-api-key",
+  "price_snapshot": "DEEPSEEK_PRICE_SNAPSHOT.20260918.yaml",
+  "task_budget": {
+    "required": true,
+    "engineering_first_run_usd": "1.00",
+    "approval_amount": "unlimited",
+    "shared_by_all_runs": true
+  },
+  "compatibility_evidence": {
+    "proxy_probe": "scripts/vnext/probe_deepseek_litellm_proxy.py",
+    "evaluation_mode": "mechanism_synthetic",
+    "upstream": "local fake provider; no DeepSeek inference or target data",
+    "dg0_protocol_status": "pass",
+    "dg2_real_model_status": "not_run",
+    "last_observed_status": "pass",
+    "thinking_shape": "{type: disabled}",
+    "provider_token_field": "max_tokens",
+    "usage": "stream terminal content chunk or compatibility usage-only chunk"
+  },
+  "limits": {
+    "max_attempts": 12,
+    "max_concurrency": 1,
+    "max_output_tokens": 4096,
+    "max_target_reads": 4,
+    "max_duration_minutes": 10
+  }
+}

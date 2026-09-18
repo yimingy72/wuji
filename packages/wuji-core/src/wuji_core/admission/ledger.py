@@ -136,13 +136,31 @@ class AdmissionLedger:
             tx.connection.execute("UPDATE vnext.model_call SET forwarded_bytes=forwarded_bytes+%s WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND model_attempt_id=%s", (size, *tx.owner, permit.model_attempt_id))
             tx.connection.execute("UPDATE vnext.admission_counter SET forwarded_bytes=forwarded_bytes+%s WHERE tenant_id=%s AND project_id=%s AND task_id=%s", (size, *tx.owner))
 
-    def settle_local(self, access, permit, *, response_state, local_ended, reason):
+    def settle_local(
+        self,
+        access,
+        permit,
+        *,
+        response_state,
+        local_ended,
+        reason,
+        usage=None,
+        usage_source=None,
+    ):
         # This port is invoked by the Gate's actual transport finalizer, never an HTTP DTO.
         with self.uow.transaction(access, permit.identity.task_id, capability="model_settle") as tx:
             record = self._permit_row(tx, permit)
             if record["local_state"] == "ended":
                 return model_receipt(record)
-            settlement = {"source": "gate_transport_finalizer", "reason": reason, "model_attempt_id": permit.model_attempt_id, "local_ended": local_ended}
+            settlement = {
+                "source": "gate_transport_finalizer",
+                "reason": reason,
+                "model_attempt_id": permit.model_attempt_id,
+                "local_ended": local_ended,
+                "usage": usage,
+                "usage_state": "reported" if usage is not None else "unknown",
+                "usage_source": usage_source,
+            }
             tx.connection.execute("UPDATE vnext.model_call SET local_state=%s,inflight=%s,response_state=%s,response_available=%s,settlement_json=%s,send_state=CASE WHEN send_state='sending' THEN 'unknown' ELSE send_state END WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND model_attempt_id=%s", ("ended" if local_ended else "unknown", not local_ended, response_state, response_state == "complete" and record["upstream_status"] == 200, json_text(settlement), *tx.owner, permit.model_attempt_id))
             audit(tx, "model.local_settlement", {"model_attempt_id": permit.model_attempt_id, "response_state": response_state, "local_state": "ended" if local_ended else "unknown"})
             return model_receipt(self.model_row(tx, permit.model_attempt_id))

@@ -400,6 +400,11 @@ class NativeSseModel:
                 "choices": [
                     {"index": 0, "delta": {}, "finish_reason": "tool_calls"}
                 ],
+                "usage": {
+                    "prompt_tokens": 19,
+                    "completion_tokens": 7,
+                    "total_tokens": 26,
+                },
             },
         )
 
@@ -444,6 +449,11 @@ class NativeSseModel:
                 "created": 2,
                 "model": "fixture-upstream-model",
                 "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+                "usage": {
+                    "prompt_tokens": 31,
+                    "completion_tokens": 13,
+                    "total_tokens": 44,
+                },
             },
         )
 
@@ -480,6 +490,11 @@ class NativeSseModel:
                 "created": 2,
                 "model": "fixture-upstream-model",
                 "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+                "usage": {
+                    "prompt_tokens": 17,
+                    "completion_tokens": 5,
+                    "total_tokens": 22,
+                },
             },
         )
 

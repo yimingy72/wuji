@@ -141,6 +141,20 @@ def test_actual_maf_stream_tool_evidence_claim_and_result_replay(
             and "max_tokens" not in request
             for request in upstream_requests
         )
+        with case.environment.migration_connection() as connection:
+            settlements = [
+                strict_json_loads(value[0])
+                for value in connection.execute(
+                    "SELECT settlement_json FROM vnext.model_call WHERE task_id=%s ORDER BY created_at",
+                    ("task-fixture",),
+                ).fetchall()
+            ]
+        assert [item["usage"] for item in settlements] == [
+            {"prompt_tokens": 19, "completion_tokens": 7, "total_tokens": 26},
+            {"prompt_tokens": 31, "completion_tokens": 13, "total_tokens": 44},
+        ]
+        assert all(item["usage_state"] == "reported" for item in settlements)
+        assert all(item["usage_source"] == "terminal_content_chunk" for item in settlements)
         advertised = upstream_requests[0]["tools"]
         assert len(advertised) == 1
         assert advertised[0]["type"] == "function"

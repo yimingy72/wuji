@@ -1,0 +1,36 @@
+# DeepSeek non-thinking route fragment for the already approved LiteLLM image.
+# This is not a complete gateway config and must be merged by the gateway
+# owner.  The provider secret is a SecretRef only; never replace it with a
+# key value in this file.
+model_list:
+  - model_name: wuji-deepseek-observe-v1
+    litellm_params:
+      model: deepseek/deepseek-flash
+      api_base: https://api.deepseek.com
+      api_key: os.environ/DEEPSEEK_API_KEY
+      timeout: 30
+      max_retries: 0
+    model_info:
+      mode: chat
+      # Conservative peak tier from DEEPSEEK_PRICE_SNAPSHOT.20260918.yaml.
+      # These are planning prices for LiteLLM's single static tuple, not the
+      # provider's final bill; gateway usage/spend receipts remain authoritative.
+      input_cost_per_token: 0.0000003
+      cache_read_input_token_cost: 0.000000006
+      cache_creation_input_token_cost: 0.0000003
+      output_cost_per_token: 0.0000012
+
+# The public LiteLLM CustomLogger hook in
+# `ops.vnext.litellm_hooks.proxy_handler_instance` emits this request contract.
+# The real Proxy→fake-provider probe observes it on the locked 1.100.0 package:
+#   thinking: {type: disabled}
+#   max_tokens: <MAF max_completion_tokens>
+#   stream: true
+#   stream_options: {include_usage: true}
+#   parallel_tool_calls: false
+# The stable SecretRef name for deployment wiring is
+# `deepseek-provider-api-key`; it is not resolved in this template.  The
+# current test authorization is unlimited at the approval layer, while every
+# Task still requires a finite USD budget selected by A0. The official USD
+# source and both peak/off-peak tiers are recorded in
+# `DEEPSEEK_PRICE_SNAPSHOT.20260918.yaml`.
