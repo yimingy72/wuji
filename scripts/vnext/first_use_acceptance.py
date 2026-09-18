@@ -1,458 +1,444 @@
 #!/usr/bin/env python3
-"""Drive and independently check the first-use HTTP read chain.
+"""One public BFF control action per invocation; this is NOT an E2E verdict.
 
-This is an acceptance *driver*, not another report generator. It talks to a
-local BFF through the public create/command/read routes, records complete
-redacted request/response exchanges, and checks the read-chain references that
-must connect a Task, Run, ToolCall, Artifact, model material and read-set.
-
-The driver is deliberately bounded and local-only by default. It never reads
-provider credentials, never prints bearer/cookie values, never contacts a
-target on its own, and never injects the independent F1/F2 answer file. A
-fixture URL is used only for optional request-counter observations.
+Cookie login is local_single_operator only. All mutations send the exact
+Origin. Start never automatically pauses/cancels: A0 can collect model/tool
+evidence before invoking the next control action. The journal is flushed
+before each request and after each response, including failed/unknown calls.
+Only the BFF Cookie is saved in an explicit restricted session file; no
+credential enters the HTTP journal. Read-chain checking is a separate offline
+consistency check of exported raw captures, not proof of their provenance.
 """
-
 from __future__ import annotations
 
 import argparse
+import base64
+from contextlib import closing
+from hashlib import sha256
 import json
 import os
 from pathlib import Path
 import re
 import sys
 import time
-from typing import Any, Iterable
-import uuid
-from urllib.error import HTTPError, URLError
-from urllib.parse import quote, urlsplit, urlunsplit
-from urllib.request import Request, urlopen
+from urllib.parse import urlsplit
+from uuid import uuid4
 
+import httpx
 
-SCHEMA_VERSION = "wuji.first-use.acceptance-driver.v1"
-MAX_BODY_BYTES = 1_048_576
-DEFAULT_TIMEOUT_SECONDS = 10.0
-POLL_INTERVAL_SECONDS = 0.25
-POLL_LIMIT = 40
-
-PUBLIC_ROUTE_PATTERNS = (
-    re.compile(r"^/api/v2/tasks$"),
-    re.compile(r"^/api/v2/tasks/[^/]+$"),
-    re.compile(r"^/api/v2/tasks/[^/]+/commands$"),
-    re.compile(r"^/api/v2/tasks/[^/]+/(?:readiness|launch)$"),
-)
-SENSITIVE_HEADERS = {"authorization", "cookie", "set-cookie", "proxy-authorization"}
-SECRET_VALUE_PATTERNS = (
-    re.compile(r"(?i)(bearer\s+)[^\s,;]+"),
-    re.compile(r"(?i)(api[_-]?key\s*[:=]\s*)[^\s,;]+"),
-    re.compile(r"(?i)(secret\s*[:=]\s*)[^\s,;]+"),
-)
-HEX64 = re.compile(r"^[0-9a-f]{64}$")
+SCHEMA_VERSION = "wuji.first-use.control-driver.v2"
+MAX_BYTES = 2 * 1024 * 1024
+ID = re.compile(r"^[A-Za-z0-9_.:-]{1,256}$")
+SHA = re.compile(r"^[0-9a-f]{64}$")
+SECRET_NAMES = {"authorization", "proxy-authorization", "cookie", "set-cookie",
+                "api_key", "api-key", "apikey", "token", "access_token",
+                "refresh_token", "secret", "password", "x-api-key", "x-wuji-local-bootstrap"}
 
 
 class DriverError(RuntimeError):
-    """An observed request or evidence contract failure."""
+    pass
 
 
 class DriverBlocked(DriverError):
-    """The configured public chain is not available or evidence is missing."""
+    pass
 
 
-def _json_bytes(value: Any) -> bytes:
-    return json.dumps(value, ensure_ascii=False, sort_keys=True).encode("utf-8")
+def encoded(value):
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, allow_nan=False).encode("utf-8")
 
 
-def _redact_text(value: str) -> str:
-    redacted = value
-    for pattern in SECRET_VALUE_PATTERNS:
-        redacted = pattern.sub(r"\1[REDACTED]", redacted)
-    return redacted
+def strict_json(raw):
+    def pairs(items):
+        result = {}
+        for key, value in items:
+            if key in result:
+                raise ValueError("duplicate JSON key")
+            result[key] = value
+        return result
+    return json.loads(raw, object_pairs_hook=pairs,
+                      parse_constant=lambda _: (_ for _ in ()).throw(ValueError("nonfinite JSON")))
 
 
-def redact_headers(headers: Iterable[tuple[str, str]]) -> list[list[str]]:
-    """Return headers safe for a public evidence package."""
-
-    return [
-        [name, "[REDACTED]" if name.lower() in SENSITIVE_HEADERS else value]
-        for name, value in headers
-    ]
-
-
-def _safe_body(raw: bytes) -> tuple[str, bool]:
-    truncated = len(raw) > MAX_BODY_BYTES
-    bounded = raw[:MAX_BODY_BYTES]
-    text = _redact_text(bounded.decode("utf-8", "replace"))
-    if truncated:
-        text += "\n[TRUNCATED_BY_ACCEPTANCE_DRIVER]"
-    return text, truncated
-
-
-def _local_base_url(value: str) -> str:
-    parsed = urlsplit(value)
-    if parsed.scheme != "http" or parsed.hostname not in {"127.0.0.1", "localhost", "::1"}:
-        raise DriverBlocked(
-            "first-use driver is local-only; use a localhost BFF endpoint and let A0 coordinate shared deployments"
-        )
-    if parsed.username or parsed.password or parsed.query or parsed.fragment:
-        raise DriverError("base URL cannot contain credentials, query, or fragment")
-    return urlunsplit((parsed.scheme, parsed.netloc, parsed.path.rstrip("/"), "", ""))
-
-
-def _allowed_path(path: str) -> bool:
-    return any(pattern.fullmatch(path) for pattern in PUBLIC_ROUTE_PATTERNS)
-
-
-def _task_id(payload: dict[str, Any]) -> str:
-    for key in ("task_id", "id"):
-        value = payload.get(key)
-        if isinstance(value, str) and value:
-            return value
-    raise DriverError("create response did not expose task_id")
-
-
-def _revision(payload: dict[str, Any]) -> str:
-    value = payload.get("version", payload.get("resource_version"))
-    if isinstance(value, (str, int)) and str(value):
-        return str(value)
-    raise DriverError("task/command response did not expose a version")
-
-
-def command_payload(command: str, expected_version: str, reason: str) -> dict[str, str]:
-    if command not in {"start", "pause", "cancel"}:
-        raise ValueError(f"unsupported first-use command: {command}")
-    return {
-        "schema_version": "wuji.api.v2",
-        "command": command,
-        "expected_version": str(expected_version),
-        "reason": reason,
-    }
-
-
-def _read_json_file(path: Path) -> dict[str, Any]:
-    try:
-        value = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise DriverError(f"cannot read JSON input {path}: {exc}") from exc
+def read_object(path):
+    with Path(path).open("rb") as stream:
+        raw = stream.read(MAX_BYTES + 1)
+    if len(raw) > MAX_BYTES:
+        raise DriverError("input exceeds capture bound")
+    value = strict_json(raw)
     if not isinstance(value, dict):
-        raise DriverError(f"JSON input must be an object: {path}")
+        raise DriverError("input must be an object")
     return value
+
+
+def write_object(path, value):
+    """Atomic local output (0600); callers separate sessions from public evidence."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(path.name + ".tmp")
+    with temporary.open("w", encoding="utf-8") as stream:
+        temporary.chmod(0o600)
+        stream.write(encoded(value).decode() + "\n")
+    temporary.replace(path)
+
+
+def redact(value):
+    if isinstance(value, dict):
+        return {key: "[REDACTED]" if key.lower() in SECRET_NAMES else redact(item)
+                for key, item in value.items()}
+    if isinstance(value, list):
+        return [redact(item) for item in value]
+    if isinstance(value, str):
+        return re.sub(r"(?i)Bearer\s+[^\s\";,]+", "Bearer [REDACTED]", value)
+    return value
+
+
+def headers_public(headers):
+    return [[key, "[REDACTED]" if key.lower() in SECRET_NAMES else value]
+            for key, value in headers.multi_items()]
+
+
+def local_origin(value):
+    parsed = urlsplit(value)
+    if (parsed.scheme not in {"http", "https"}
+            or parsed.hostname not in {"127.0.0.1", "localhost", "::1"}
+            or parsed.username or parsed.password or parsed.path not in {"", "/"}
+            or parsed.query or parsed.fragment):
+        raise DriverBlocked("use an exact localhost BFF origin")
+    return value.rstrip("/")
+
+
+def safe_id(value):
+    if not isinstance(value, str) or not ID.fullmatch(value):
+        raise DriverError("invalid task identity")
+    return value
+
+
+def allowed_route(method, path):
+    if (method, path) in {("POST", "/auth/login"), ("GET", "/auth/session"),
+                          ("POST", "/auth/logout"), ("POST", "/api/v2/tasks")}:
+        return True
+    match = re.fullmatch(r"/api/v2/tasks/([A-Za-z0-9_.:-]{1,256})(/[^/?]+)?", path)
+    return bool(match and ((method == "GET" and match[2] in {None, "/readiness", "/launch"})
+                          or (method == "POST" and match[2] == "/commands")))
 
 
 class LocalBFFClient:
-    """Small public-route client with a complete redacted exchange ledger."""
+    def __init__(self, base_url, journal, persist, *, timeout=10):
+        self.base_url = local_origin(base_url)
+        self.journal, self.persist = journal, persist
+        self.client = httpx.Client(base_url=self.base_url, timeout=timeout,
+                                   trust_env=False, follow_redirects=False)
 
-    def __init__(self, base_url: str, *, auth_value: str | None, timeout: float) -> None:
-        self.base_url = _local_base_url(base_url)
-        self.auth_value = auth_value
-        self.timeout = timeout
-        self.exchanges: list[dict[str, Any]] = []
+    def close(self):
+        self.client.close()
 
-    def request(
-        self,
-        *,
-        method: str,
-        path: str,
-        body: dict[str, Any] | None = None,
-        idempotency_key: str | None = None,
-    ) -> tuple[int, dict[str, Any] | None, dict[str, Any]]:
-        if not _allowed_path(path):
-            raise DriverError(f"path is outside the first-use public allowlist: {path}")
-        url = self.base_url + path
-        headers: list[tuple[str, str]] = [("Accept", "application/json")]
+    def request(self, method, path, *, body=None, key=None, bootstrap=None):
+        if not allowed_route(method, path):
+            raise DriverError("route is outside the public control allowlist")
+        headers = {"Accept": "application/json"}
+        if method == "POST":
+            headers["Origin"] = self.base_url
         if body is not None:
-            headers.append(("Content-Type", "application/json"))
-        if idempotency_key:
-            headers.append(("Idempotency-Key", idempotency_key))
-        if self.auth_value:
-            headers.append(("Authorization", self.auth_value))
-        request_body = _json_bytes(body) if body is not None else b""
-        request = Request(
-            url,
-            data=request_body or None,
-            headers=dict(headers),
-            method=method,
-        )
-        status: int
-        response_headers: list[tuple[str, str]] = []
-        response_body = b""
-        error: str | None = None
+            headers["Content-Type"] = "application/json"
+        if key:
+            headers["Idempotency-Key"] = key
+        if bootstrap is not None:
+            if (method, path) != ("POST", "/auth/login"):
+                raise DriverError("bootstrap credential only belongs to login")
+            headers["x-wuji-local-bootstrap"] = bootstrap
+        request = self.client.build_request(method, path, headers=headers,
+                                            content=encoded(body) if body is not None else b"")
+        entry = {"method": method, "url": str(request.url), "request_headers": headers_public(request.headers),
+                 "request_body": encoded(redact(body)).decode() if body is not None else "",
+                 "response_status": None, "response_headers": [], "response_body": None,
+                 "outcome": "request_pending", "complete": False}
+        self.journal["exchanges"].append(entry)
+        self.persist()
         try:
-            with urlopen(request, timeout=self.timeout) as response:
-                status = response.status
-                response_headers = list(response.headers.items())
-                response_body = response.read(MAX_BODY_BYTES + 1)
-        except HTTPError as exc:
-            status = exc.code
-            response_headers = list(exc.headers.items())
-            response_body = exc.read(MAX_BODY_BYTES + 1)
-            error = f"HTTPError:{exc.code}"
-        except URLError as exc:
-            raise DriverBlocked(f"BFF unavailable at {self.base_url}: {exc.reason}") from exc
+            with closing(self.client.send(request, stream=True)) as response:
+                entry.update(response_status=response.status_code,
+                             response_headers=headers_public(response.headers))
+                chunks, size = [], 0
+                for chunk in response.iter_bytes():
+                    remaining = max(0, MAX_BYTES - size)
+                    size += len(chunk)
+                    chunks.append(chunk[:remaining])
+                    entry["response_body"] = redact(b"".join(chunks).decode("utf-8", errors="replace"))
+                    if size > MAX_BYTES:
+                        raise DriverError("response exceeds capture bound; evidence incomplete")
+                raw = b"".join(chunks)
+                # Public BFF contract is JSON; malformed bytes are retained in
+                # the bounded ledger for diagnosis, never parsed as success.
+                entry["response_body"] = redact(raw.decode("utf-8", errors="replace"))
+                entry["complete"] = True
+                entry["outcome"] = "http_response"
+                if 300 <= response.status_code < 400:
+                    raise DriverError("redirect refused; no follow-up request sent")
+                document = strict_json(raw) if raw else {}
+                if redact(document) != document:
+                    entry["response_body"] = encoded(redact(document)).decode()
+                    entry["body_redacted"] = True
+                if not 200 <= response.status_code < 300:
+                    raise DriverError(f"HTTP {response.status_code}")
+                if not isinstance(document, dict):
+                    raise DriverError("response is not a JSON object")
+                return document
+        except httpx.HTTPError as error:
+            entry["outcome"] = "transport_unknown"
+            entry["error_class"] = type(error).__name__
+            raise DriverBlocked("response unknown; reconcile this operation before another mutation") from None
+        finally:
+            self.persist()
 
-        request_text, request_truncated = _safe_body(request_body)
-        response_text, response_truncated = _safe_body(response_body)
-        parsed: dict[str, Any] | None = None
-        if response_body:
-            try:
-                decoded = json.loads(response_body[:MAX_BODY_BYTES])
-            except (UnicodeDecodeError, json.JSONDecodeError):
-                decoded = None
-            if isinstance(decoded, dict):
-                parsed = decoded
-        exchange = {
-            "method": method,
-            "url": url,
-            "request_headers": redact_headers(headers),
-            "request_body": request_text,
-            "request_truncated": request_truncated,
-            "response_status": status,
-            "response_headers": redact_headers(response_headers),
-            "response_body": response_text,
-            "response_truncated": response_truncated,
-        }
-        if error:
-            exchange["error"] = error
-        self.exchanges.append(exchange)
-        return status, parsed, exchange
-
-
-def _is_accepted(status: int) -> bool:
-    return 200 <= status < 300
-
-
-def _poll_task(client: LocalBFFClient, task_id: str, *, target: set[str]) -> dict[str, Any]:
-    last: dict[str, Any] | None = None
-    for _ in range(POLL_LIMIT):
-        status, body, _ = client.request(method="GET", path=f"/api/v2/tasks/{quote(task_id, safe='')}")
-        if _is_accepted(status) and body:
-            last = body
-            if body.get("observed_state") in target or body.get("desired_state") in target:
-                return body
-        time.sleep(POLL_INTERVAL_SECONDS)
-    if last is not None:
-        observed = last.get("observed_state", last.get("desired_state"))
-        raise DriverError(
-            f"task {task_id} did not reach one of {sorted(target)}; last observed state={observed!r}"
-        )
-    raise DriverBlocked(f"task read did not return an object for {task_id}")
-
-
-def _command(
-    client: LocalBFFClient,
-    *,
-    task_id: str,
-    command: str,
-    task: dict[str, Any],
-    reason: str,
-) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
-    status, body, exchange = client.request(
-        method="POST",
-        path=f"/api/v2/tasks/{quote(task_id, safe='')}/commands",
-        body=command_payload(command, _revision(task), reason),
-        idempotency_key=f"first-use-{command}-{task_id}",
-    )
-    if not _is_accepted(status):
-        raise DriverError(f"{command} was not accepted: HTTP {status}")
-    return body, exchange
-
-
-def run_first_use(args: argparse.Namespace) -> dict[str, Any]:
-    auth_value = None
-    if args.auth_env:
-        auth_value = os.environ.get(args.auth_env)
-        if auth_value and not auth_value.lower().startswith(("bearer ", "session ")):
-            raise DriverError(f"{args.auth_env} must contain a bearer/session value; value is never printed")
-    client = LocalBFFClient(args.base_url, auth_value=auth_value, timeout=args.timeout)
-    create_payload = _read_json_file(Path(args.create_payload))
-    task_refs: dict[str, Any] = {}
-
-    create_key = "first-use-create-" + uuid.uuid4().hex
-    status, created, _ = client.request(
-        method="POST", path="/api/v2/tasks", body=create_payload, idempotency_key=create_key
-    )
-    if status != 201 or not created:
-        raise DriverError(f"create did not return HTTP 201 TaskView: HTTP {status}")
-    task_id = _task_id(created)
-    task_refs["task_id"] = task_id
-    task_refs["create_response"] = created
-
-    status, before_start, _ = client.request(method="GET", path=f"/api/v2/tasks/{quote(task_id, safe='')}")
-    if not _is_accepted(status) or not before_start:
-        raise DriverError(f"created task could not be read back: HTTP {status}")
-    task_refs["before_start"] = before_start
-
-    status, readiness, _ = client.request(
-        method="GET", path=f"/api/v2/tasks/{quote(task_id, safe='')}/readiness"
-    )
-    if not _is_accepted(status) or not readiness:
-        raise DriverError(f"readiness did not return a report: HTTP {status}")
-    task_refs["readiness_before_start"] = readiness
-
-    if before_start.get("observed_state") not in {"ready", "paused"}:
-        raise DriverError("create response is already active; driver refuses implicit start")
-
-    start_receipt, _ = _command(
-        client, task_id=task_id, command="start", task=before_start, reason="A8 first-use start"
-    )
-    task_refs["start_command"] = start_receipt
-    running = _poll_task(client, task_id, target={"running"})
-    task_refs["after_start"] = running
-
-    status, launch, _ = client.request(method="GET", path=f"/api/v2/tasks/{quote(task_id, safe='')}/launch")
-    if not _is_accepted(status) or not launch:
-        raise DriverError(f"launch read did not return a launch view: HTTP {status}")
-    task_refs["launch"] = launch
-
-    status, readiness_after_start, _ = client.request(
-        method="GET", path=f"/api/v2/tasks/{quote(task_id, safe='')}/readiness"
-    )
-    if not _is_accepted(status) or not readiness_after_start:
-        raise DriverError(f"post-start readiness read failed: HTTP {status}")
-    task_refs["readiness_after_start"] = readiness_after_start
-
-    pause_receipt, _ = _command(
-        client, task_id=task_id, command="pause", task=running, reason="A8 first-use pause"
-    )
-    task_refs["pause_command"] = pause_receipt
-    paused = _poll_task(client, task_id, target={"paused", "quiescing", "reconciling"})
-    task_refs["after_pause"] = paused
-
-    cancel_receipt, _ = _command(
-        client, task_id=task_id, command="cancel", task=paused, reason="A8 first-use cancel"
-    )
-    task_refs["cancel_command"] = cancel_receipt
-    stopped = _poll_task(client, task_id, target={"closed", "paused", "reconciling"})
-    task_refs["after_cancel"] = stopped
-
-    evidence = {
-        "schema_version": SCHEMA_VERSION,
-        "document_status": "observed_http_chain",
-        "evaluation_mode": args.evaluation_mode,
-        "candidate_sha": args.candidate_sha,
-        "base_url": client.base_url,
-        "create_idempotency_key": create_key,
-        "task_refs": task_refs,
-        "exchanges": client.exchanges,
-        "read_chain": None,
-        "read_chain_validation": None,
-    }
-    read_chain = _read_json_file(Path(args.read_chain))
-    evidence["read_chain"] = read_chain
-    evidence["read_chain_validation"] = validate_read_chain(read_chain)
-    if not evidence["read_chain_validation"]["valid"]:
-        raise DriverError("read-chain references are incomplete or inconsistent")
-    return evidence
-
-
-def _one_string(value: Any, name: str) -> str:
-    if not isinstance(value, str) or not value:
-        raise ValueError(f"{name} must be a non-empty string")
-    return value
-
-
-def validate_read_chain(value: dict[str, Any]) -> dict[str, Any]:
-    """Validate the evidence contract without asserting a model conclusion."""
-
-    errors: list[str] = []
-    task_id = value.get("task_id")
-    run_id = value.get("run_id")
-    tool_call_id = value.get("tool_call_id")
-    artifact_ref = value.get("artifact_ref")
-    read_set = value.get("read_set")
-    model_attempt_ids = value.get("model_attempt_ids")
-    material = value.get("material")
-
-    for item, name in ((task_id, "task_id"), (run_id, "run_id"), (tool_call_id, "tool_call_id")):
-        try:
-            _one_string(item, name)
-        except ValueError as exc:
-            errors.append(str(exc))
-    if not isinstance(artifact_ref, dict) or not artifact_ref.get("id"):
-        errors.append("artifact_ref.id must identify the sealed source artifact")
-    elif not isinstance(artifact_ref.get("revision", "1"), (str, int)):
-        errors.append("artifact_ref.revision must be a revision value")
-    if not isinstance(read_set, list) or not read_set:
-        errors.append("read_set must contain the exact material read reference")
-    else:
-        encoded_read_set = json.dumps(read_set, ensure_ascii=False, sort_keys=True)
-        if str(tool_call_id) not in encoded_read_set and str(artifact_ref.get("id")) not in encoded_read_set:
-            errors.append("read_set does not reference the observed ToolCall or source Artifact")
-    if not isinstance(model_attempt_ids, list) or not model_attempt_ids or not all(
-        isinstance(item, str) and item for item in model_attempt_ids
-    ):
-        errors.append("model_attempt_ids must list the actual model attempts")
-    if not isinstance(material, dict):
-        errors.append("material must contain the delivered/omitted model-material view")
-    else:
-        if material.get("status") != "delivered":
-            errors.append("material.status must be delivered for a content-delivery claim")
-        source = material.get("source")
-        representation = material.get("representation")
-        if not isinstance(source, dict):
-            errors.append("material.source is missing")
+    def login(self, *, session_file, bootstrap=None):
+        if session_file.exists():
+            if session_file.is_symlink() or session_file.stat().st_mode & 0o077:
+                raise DriverError("session file must be a restricted regular file (0600)")
+            session_cookie = read_object(session_file)
+            if session_cookie.get("base_url") != self.base_url:
+                raise DriverError("session cookie belongs to another BFF origin")
+            token = session_cookie.get("cookie")
+            if not isinstance(token, str) or not 1 <= len(token) <= 4096 or any(ord(c) < 33 or ord(c) > 126 for c in token):
+                raise DriverError("invalid session cookie")
+            self.client.cookies.set("wuji_vnext_session", token)
         else:
-            if not HEX64.fullmatch(str(source.get("artifact_sha256", ""))):
-                errors.append("material.source.artifact_sha256 must be a SHA-256")
-            if source.get("artifact_ref") != artifact_ref:
-                errors.append("material.source.artifact_ref does not equal artifact_ref")
-        if not isinstance(representation, dict):
-            errors.append("material.representation is missing")
+            if not bootstrap:
+                raise DriverBlocked("A0 must supply a restricted BFF session file or one-time local bootstrap input")
+            self.request("POST", "/auth/login", bootstrap=bootstrap)
+            token = self.client.cookies.get("wuji_vnext_session")
+            if not token:
+                raise DriverError("login did not set the BFF session cookie")
+            write_object(session_file, {"base_url": self.base_url, "cookie": token})
+        session = self.request("GET", "/auth/session")
+        if session.get("authenticated") is not True:
+            raise DriverBlocked("BFF session is not authenticated")
+        if session.get("mode") != "local_single_operator":
+            raise DriverBlocked("BFF did not identify local_single_operator mode")
+        return session
+
+
+def _poll_task(client, task_id, *, target, count=40, interval=0.25):
+    """Only observed_state satisfies a wait. Reconciling never means stopped."""
+    last = None
+    for index in range(count):
+        last = client.request("GET", f"/api/v2/tasks/{safe_id(task_id)}")
+        if last.get("task_id") != task_id:
+            raise DriverError("task read returned a different identity")
+        client.journal["last_task"] = last
+        client.persist()
+        if last.get("observed_state") in target:
+            return last
+        if index + 1 < count:
+            time.sleep(interval)
+    raise DriverBlocked(f"observation pending: {last.get('observed_state') if last else 'absent'}")
+
+
+def command_payload(command, expected_version, reason):
+    if command not in {"start", "pause", "cancel"} or not re.fullmatch(r"[1-9][0-9]*", str(expected_version)):
+        raise DriverError("invalid command/version")
+    return {"schema_version": "wuji.api.v2", "command": command,
+            "expected_version": str(expected_version), "reason": reason}
+
+
+def control(args):
+    origin = local_origin(args.base_url)
+    state = read_object(args.state) if args.state.exists() else {"base_url": origin, "operations": {}}
+    if state.get("base_url") != origin:
+        raise DriverError("state belongs to another BFF")
+    journal = {"schema_version": SCHEMA_VERSION, "scope": "http_control_only",
+               "candidate_sha": args.candidate_sha, "action": args.action,
+               "status": "in_progress", "exchanges": [],
+               "e2e_status": "not_run", "process_stop": "not_verified",
+               "operations_settled": "not_verified", "billing": "not_verified"}
+    def persist():
+        write_object(args.output, redact(journal))
+    persist()
+    client = LocalBFFClient(origin, journal, persist, timeout=args.timeout)
+    try:
+        bootstrap = os.environ.get(args.bootstrap_env) if args.bootstrap_env else None
+        session = client.login(session_file=args.session_file, bootstrap=bootstrap)
+        journal["identity_mode"] = session["mode"]
+        if args.action == "create":
+            if state.get("task_id"):
+                raise DriverError("journal already owns a task; use read or a new state file")
+            if args.create_payload is None:
+                raise DriverError("create requires --create-payload")
+            body, path = read_object(args.create_payload), "/api/v2/tasks"
         else:
-            if not HEX64.fullmatch(str(representation.get("representation_sha256", ""))):
-                errors.append("material.representation.representation_sha256 must be a SHA-256")
-            text = representation.get("text")
-            if not isinstance(text, str) or not text:
-                errors.append("material.representation.text must preserve delivered content")
-            if representation.get("encoding") != "utf-8":
-                errors.append("material.representation.encoding must be utf-8")
-    return {"valid": not errors, "errors": errors}
+            task_id = safe_id(state.get("task_id"))
+            task = client.request("GET", f"/api/v2/tasks/{task_id}")
+            if task.get("task_id") != task_id:
+                raise DriverError("read returned another Task")
+            journal["last_task"] = task
+            if args.action == "read":
+                for leaf in ("readiness", "launch"):
+                    journal[leaf] = client.request("GET", f"/api/v2/tasks/{task_id}/{leaf}")
+                journal["status"] = "observed"
+                return 0
+            body = command_payload(args.action, task.get("version"), "A8 explicit HTTP control check")
+            path = f"/api/v2/tasks/{task_id}/commands"
+        previous = state["operations"].get(args.action)
+        if previous:
+            # No automatic retry, no regenerated key after lost responses.
+            raise DriverBlocked("operation already recorded; inspect its original key and receipt")
+        operation = {"key": "first-use-" + uuid4().hex, "body": body, "path": path, "status": "pending"}
+        state["operations"][args.action] = operation
+        if redact(body) != body:
+            raise DriverError("create/control body contains a credential-shaped field")
+        write_object(args.state, state)
+        reply = client.request("POST", path, body=body, key=operation["key"])
+        operation.update(status="accepted", receipt=reply)
+        if args.action == "create":
+            state["task_id"] = safe_id(reply.get("task_id"))
+        write_object(args.state, redact(state))
+        journal["task_id"] = state["task_id"]
+        journal["receipt"] = reply
+        target = {"create": {"ready"}, "start": {"running"}, "pause": {"paused"}, "cancel": {"closed"}}[args.action]
+        journal["last_task"] = _poll_task(client, state["task_id"], target=target,
+                                         count=args.poll_count, interval=args.poll_interval)
+        for leaf in ("readiness", "launch"):
+            journal[leaf] = client.request("GET", f"/api/v2/tasks/{state['task_id']}/{leaf}")
+        journal["status"] = "observed"
+        return 0
+    except DriverBlocked as error:
+        journal.update(status="blocked", error=str(error))
+        return 2
+    except (DriverError, ValueError, OSError) as error:
+        journal.update(status="failed", error_class=type(error).__name__, error=str(error))
+        return 1
+    finally:
+        client.close()
+        persist()
 
 
-def _write_json(path: Path, value: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(value, ensure_ascii=False, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+def validate_read_chain(value, *, expected_task_id, expected_candidate_sha):
+    """Check an exported *raw capture* chain, without trusting supplied hashes.
+
+Required: source_bytes_base64; BlobRef(id/version/sha256); exact read_set;
+tool_receipt; material v2; two ordered model HTTP captures including their raw
+request/response bodies. Captures are exported by A0 on the trusted boundary;
+local consistency alone cannot authenticate the exporter or prove E2E.
+"""
+    errors = []
+    def check(condition, message):
+        if not condition:
+            errors.append(message)
+    try:
+        check(value["task_id"] == expected_task_id, "wrong Task")
+        check(value["candidate_sha"] == expected_candidate_sha, "wrong candidate")
+        for identity_name in ("run_id", "tool_call_id", "native_tool_call_id"):
+            check(isinstance(value[identity_name], str) and bool(value[identity_name]), "missing " + identity_name)
+        ref = value["artifact_ref"]
+        check(isinstance(ref, dict) and set(ref) == {"id", "version", "sha256"}, "invalid BlobRef")
+        if errors:
+            return {"valid": False, "errors": errors, "scope": "offline_capture_consistency"}
+        check(isinstance(ref["id"], str) and bool(ref["id"]), "missing artifact id")
+        check(isinstance(ref["version"], str) and bool(re.fullmatch(r"[1-9][0-9]*", ref["version"])), "invalid version")
+        check(isinstance(ref["sha256"], str) and bool(SHA.fullmatch(ref["sha256"])), "invalid source hash")
+        source = base64.b64decode(value["source_bytes_base64"], validate=True)
+        check(len(source) <= MAX_BYTES and sha256(source).hexdigest() == ref["sha256"], "source bytes/hash mismatch")
+        exact = {"entity_type": "artifact", "id": ref["id"], "revision": ref["version"]}
+        check(isinstance(value["read_set"], list) and exact in value["read_set"], "exact source revision absent from read_set")
+        material, receipt = value["material"], value["tool_receipt"]
+        check(receipt["result_ref"] == ref and receipt["status"] == "complete", "receipt source/status mismatch")
+        check(receipt["tool_call_id"] == value["tool_call_id"], "receipt ToolCall mismatch")
+        check(material["tool_call_id"] == receipt["tool_call_id"], "material ToolCall mismatch")
+        check(material["schema_version"] == "wuji.model-material.v2" and material["status"] == "delivered", "not delivered v2")
+        check(material["source"]["artifact_ref"] == ref and material["source"]["artifact_sha256"] == ref["sha256"], "material source binding mismatch")
+        rep = material["representation"]
+        raw_text = rep["text"].encode("utf-8")
+        check(rep["encoding"] == "utf-8" and type(rep["byte_length"]) is int and len(raw_text) == rep["byte_length"], "representation byte length/encoding mismatch")
+        check(sha256(raw_text).hexdigest() == rep["representation_sha256"], "representation hash mismatch")
+        check(len(raw_text) <= 32768 and len(raw_text) > 0, "representation size invalid")
+        captures = value["model_captures"]
+        check(isinstance(captures, list) and len(captures) == 2, "need two ordered raw model captures")
+        first, second = captures
+        for capture in captures:
+            check(capture["task_id"] == expected_task_id and capture["run_id"] == value["run_id"], "capture identity mismatch")
+            check(capture["request"]["method"] == "POST" and capture["response"]["status"] == 200, "incomplete model HTTP exchange")
+            check(isinstance(capture["model_attempt_id"], str) and bool(capture["model_attempt_id"]), "missing model attempt")
+            check(bool(capture["response"]["body"]), "missing model response body")
+        check(first["model_attempt_id"] != second["model_attempt_id"], "model attempts not distinct")
+        requests = [strict_json(c["request"]["body"]) for c in captures]
+        # F1 marker is generated at the HTTP source, never in the first prompt.
+        marker = value["marker"]
+        check(isinstance(marker, str) and len(marker) >= 16 and marker.encode() in source, "marker absent from source")
+        check(marker not in json.dumps(requests[0], ensure_ascii=False), "marker was preloaded")
+        native_call = value["native_tool_call_id"]
+        check(native_call in native_call_ids(first["response"]["body"]), "first model did not issue the tool call")
+        check(marker in rep["text"], "marker absent from representation")
+        delivered = []
+        for message in requests[1]["messages"]:
+            if message.get("role") == "tool" and message.get("tool_call_id") == native_call:
+                delivered.append(strict_json(message["content"]))
+        check(len(delivered) == 1, "second raw request lacks a unique matching tool message")
+        if delivered:
+            check(delivered[0] == {**receipt, "material": material}, "second model received different content/references")
+    except (KeyError, TypeError, ValueError, AttributeError, UnicodeError, RecursionError) as error:
+        errors.append("malformed capture: " + type(error).__name__)
+    return {"valid": not errors, "errors": errors, "scope": "offline_capture_consistency"}
 
 
-def main(argv: list[str] | None = None) -> int:
+def native_call_ids(body):
+    """Read complete JSON or Chat Completions SSE, retaining fragmented IDs."""
+    if not body.lstrip().startswith("data:"):
+        response = strict_json(body)
+        return [call["id"] for call in response["choices"][0]["message"].get("tool_calls", [])]
+    fragments = {}
+    for line in body.splitlines():
+        if not line.startswith("data:") or line[5:].strip() == "[DONE]":
+            continue
+        chunk = strict_json(line[5:].strip())
+        for choice in chunk.get("choices", []):
+            for call in choice.get("delta", {}).get("tool_calls", []):
+                index = (choice["index"], call["index"])
+                fragments[index] = fragments.get(index, "") + call.get("id", "")
+    return list(fragments.values())
+
+
+def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    subparsers = parser.add_subparsers(dest="command", required=True)
-
-    run = subparsers.add_parser("run", help="run the public local BFF first-use chain")
+    commands = parser.add_subparsers(dest="command", required=True)
+    run = commands.add_parser("control", help="one explicit HTTP control action; no E2E verdict")
+    run.add_argument("--action", choices=("create", "read", "start", "pause", "cancel"), required=True)
     run.add_argument("--base-url", required=True)
-    run.add_argument("--create-payload", required=True, type=Path)
-    run.add_argument("--read-chain", required=True, type=Path)
-    run.add_argument("--auth-env", help="environment variable containing a bearer/session value")
-    run.add_argument("--candidate-sha", default=None)
-    run.add_argument("--evaluation-mode", choices=("mechanism_synthetic", "real_model"), default="mechanism_synthetic")
-    run.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT_SECONDS)
-    run.add_argument("--output", required=True, type=Path)
-
-    check = subparsers.add_parser("validate-read-chain", help="validate an actual read-chain evidence object")
-    check.add_argument("--input", required=True, type=Path)
-
+    run.add_argument("--create-payload", type=Path)
+    run.add_argument("--state", type=Path, required=True)
+    run.add_argument("--output", type=Path, required=True)
+    run.add_argument("--session-file", type=Path, required=True, help="restricted 0600 BFF Cookie file, never Git/public evidence")
+    run.add_argument("--bootstrap-env", help="A0-supplied one-time local login credential; never a provider key")
+    run.add_argument("--candidate-sha", required=True)
+    run.add_argument("--timeout", type=float, default=10)
+    run.add_argument("--poll-count", type=int, default=40)
+    run.add_argument("--poll-interval", type=float, default=0.25)
+    verify = commands.add_parser("validate-read-chain")
+    verify.add_argument("--input", type=Path, required=True)
+    verify.add_argument("--task-id", required=True)
+    verify.add_argument("--candidate-sha", required=True)
     args = parser.parse_args(argv)
     try:
-        if args.command == "run":
-            evidence = run_first_use(args)
-            _write_json(args.output, evidence)
-            print(json.dumps({
-                "schema_version": SCHEMA_VERSION,
-                "status": "observed",
-                "task_id": evidence["task_refs"]["task_id"],
-                "exchange_count": len(evidence["exchanges"]),
-                "read_chain": evidence["read_chain_validation"],
-                "output": str(args.output),
-            }, ensure_ascii=False, sort_keys=True))
-            return 0
-        value = _read_json_file(args.input)
-        result = validate_read_chain(value)
-        print(json.dumps(result, ensure_ascii=False, sort_keys=True))
+        if not re.fullmatch(r"[0-9a-f]{40}", args.candidate_sha):
+            raise DriverError("full candidate SHA required")
+        if args.command == "control":
+            if not 1 <= args.poll_count <= 120 or not 0 <= args.poll_interval <= 2 or not 0 < args.timeout <= 30:
+                raise DriverError("invalid polling/request bound")
+            paths = [args.state.resolve(), args.output.resolve(), args.session_file.resolve()]
+            if args.create_payload:
+                paths.append(args.create_payload.resolve())
+            if len(paths) != len(set(paths)) or args.output.exists():
+                raise DriverError("use distinct state/session/input paths and a fresh evidence output")
+            if args.session_file.resolve().is_relative_to(Path(__file__).resolve().parents[2]):
+                raise DriverError("keep the restricted session file outside the repository")
+            code = control(args)
+            print(json.dumps({"exit_code": code, "scope": "http_control_only", "evidence": str(args.output)}))
+            return code
+        result = validate_read_chain(read_object(args.input), expected_task_id=args.task_id,
+                                     expected_candidate_sha=args.candidate_sha)
+        print(json.dumps(result))
         return 0 if result["valid"] else 1
-    except DriverBlocked as exc:
-        print(f"BLOCKED: {exc}", file=sys.stderr)
-        return 2
-    except (DriverError, OSError, ValueError) as exc:
-        print(f"FAILED: {exc}", file=sys.stderr)
-        return 1
+    except (DriverError, OSError, ValueError) as error:
+        print(type(error).__name__ + ": " + str(error), file=sys.stderr)
+        return 2 if isinstance(error, DriverBlocked) else 1
 
 
 if __name__ == "__main__":
