@@ -422,3 +422,63 @@ def test_two_start_keys_have_one_durable_launch_operation(
                 "SELECT count(*) FROM vnext.task_launch WHERE task_id=%s",
                 (task_id,),
             ).fetchone() == (1,)
+
+
+def test_api12_unknown_launch_rejects_start_and_bare_resume_without_new_operation(
+    db_environment, audit_directory
+):
+    with first_use_case(db_environment, audit_directory) as case:
+        created = create_task(case, payload(), key="launch-api12-create")
+        task_id = created["task_id"]
+        _start(case, task_id, key="launch-api12-start")
+        before = case.client.get(
+            f"/api/v2/tasks/{task_id}/launch", headers=bearer(case)
+        )
+        assert before.status_code == 200, before.text
+        original = before.json()
+
+        with db_environment.migration_connection() as connection:
+            connection.execute(
+                """UPDATE vnext.task_launch
+                SET phase_status='reconciling',reason_code='operation_unknown',
+                    lease_owner=NULL,lease_token=NULL,lease_expires_at=NULL
+                WHERE task_id=%s""",
+                (task_id,),
+            )
+
+        current = task_view(case, task_id)
+        start_again = task_command(
+            case,
+            task_id,
+            "start",
+            current["version"],
+            key="launch-api12-start-again",
+            reason="attempt recovery by starting again",
+        )
+        resume = task_command(
+            case,
+            task_id,
+            "resume",
+            current["version"],
+            key="launch-api12-resume",
+            reason="attempt bare resume recovery",
+        )
+        assert start_again.status_code == 409, start_again.text
+        assert resume.status_code == 409, resume.text
+
+        after = case.client.get(
+            f"/api/v2/tasks/{task_id}/launch", headers=bearer(case)
+        )
+        assert after.status_code == 200, after.text
+        assert after.json()["operation_id"] == original["operation_id"]
+        assert after.json()["phase_status"] == "reconciling"
+        assert after.json()["runtime_attempt"] == original["runtime_attempt"]
+        assert after.json()["execution_epoch"] == original["execution_epoch"]
+        assert set(task_view(case, task_id)["allowed_actions"]).isdisjoint(
+            {"start", "resume"}
+        )
+        with db_environment.migration_connection() as connection:
+            assert connection.execute(
+                "SELECT count(*) FROM vnext.task_launch WHERE task_id=%s",
+                (task_id,),
+            ).fetchone() == (1,)
