@@ -5,6 +5,17 @@
 -- progress ledger, not a second Task state machine: ControlService remains
 -- the authority for activation/pause/cancel state.
 
+CREATE TABLE vnext.task_launch_worker (
+  tenant_id text NOT NULL,
+  project_id text NOT NULL,
+  subject text NOT NULL CHECK(length(subject) BETWEEN 1 AND 256),
+  clearance integer NOT NULL DEFAULT 1 CHECK(clearance >= 0),
+  enabled boolean NOT NULL DEFAULT true,
+  PRIMARY KEY(tenant_id,project_id,subject),
+  FOREIGN KEY(tenant_id,project_id) REFERENCES vnext.project(tenant_id,project_id)
+);
+REVOKE ALL ON vnext.task_launch_worker FROM PUBLIC;
+
 CREATE TABLE vnext.task_launch (
   tenant_id text NOT NULL,
   project_id text NOT NULL,
@@ -75,6 +86,10 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $$
     'close_trigger', taskrow.close_trigger,
     'result_outcome', taskrow.result_outcome,
     'allowed_actions', CASE
+      WHEN NOT EXISTS(SELECT 1 FROM vnext.task_access a
+        WHERE (a.tenant_id,a.project_id,a.task_id)=(taskrow.tenant_id,taskrow.project_id,taskrow.task_id)
+          AND a.subject=current_setting('wuji.subject',true) AND a.can_read AND a.can_control)
+        THEN '[]'::jsonb
       WHEN taskrow.observed_state='closed' OR taskrow.desired_state IN ('cancel','finish') THEN '[]'::jsonb
       WHEN taskrow.activated_at IS NULL THEN jsonb_build_array('start','cancel')
       WHEN taskrow.desired_state='run' THEN jsonb_build_array('pause','cancel','finish')
@@ -103,7 +118,8 @@ BEGIN
   ), page AS (SELECT * FROM visible WHERE n<=limit_count)
   SELECT jsonb_build_object(
     'items', COALESCE((SELECT jsonb_agg(vnext._task_view_json(page.taskrow) ORDER BY (page.taskrow).task_id) FROM page),'[]'::jsonb),
-    'next_cursor', (SELECT (taskrow).task_id FROM visible WHERE n=limit_count+1 LIMIT 1)
+    'next_cursor', CASE WHEN EXISTS(SELECT 1 FROM visible WHERE n=limit_count+1)
+      THEN (SELECT (taskrow).task_id FROM page ORDER BY n DESC LIMIT 1) ELSE NULL END
   ) INTO result;
   RETURN result::text;
 END $$;
@@ -184,7 +200,15 @@ BEGIN
     jsonb_build_object('id','target','layer','target','status','unknown','reason_code','target_not_probed','observed_at',at,'evidence_ref',NULL,'remediation_owner','user','message','Target reachability is not probed by readiness.'),
     jsonb_build_object('id','material','layer','material','status','not_applicable','reason_code','material_not_required','observed_at',at,'evidence_ref',NULL,'remediation_owner','application','message','No material probe is performed by readiness.')
   );
-  result:=jsonb_build_object('task_id',t.task_id,'definition_digest',t.definition_digest,'observed_at',at,'can_request_start',model_ok AND runtime_ok AND t.definition_digest IS NOT NULL AND t.observed_state='ready' AND t.desired_state='pause','checks',checks);
+  checks:=checks||jsonb_build_array(jsonb_build_object(
+    'id','scope','layer','target','status',CASE WHEN (definition->'task'->>'authorization_expires_at')::timestamptz>at THEN 'pass' ELSE 'fail' END,
+    'reason_code',CASE WHEN (definition->'task'->>'authorization_expires_at')::timestamptz>at THEN 'scope_current' ELSE 'scope_expired' END,
+    'observed_at',at,'evidence_ref',NULL,'remediation_owner','user','message','Authorization deadline only; target connectivity remains untested.'));
+  result:=jsonb_build_object('task_id',t.task_id,'definition_digest',t.definition_digest,'observed_at',at,'can_request_start',
+    model_ok AND runtime_ok AND t.definition_digest IS NOT NULL AND t.observed_state='ready' AND t.desired_state='pause'
+    AND (definition->'task'->>'authorization_expires_at')::timestamptz>at
+    AND EXISTS(SELECT 1 FROM vnext.task_access a WHERE (a.tenant_id,a.project_id,a.task_id)=(t.tenant_id,t.project_id,t.task_id) AND a.subject=subject_value AND a.can_control),
+    'checks',checks);
   RETURN result::text;
 END $$;
 
@@ -212,8 +236,8 @@ BEGIN
   IF EXISTS (SELECT 1 FROM vnext.task_launch active WHERE (active.tenant_id,active.project_id,active.task_id)=(tenant_value,project_key,task_key) AND active.phase_status IN ('pending','running','reconciling','blocked','failed')) THEN
     RAISE EXCEPTION 'another launch is active' USING ERRCODE='55000';
   END IF;
-  INSERT INTO vnext.task_launch(tenant_id,project_id,task_id,operation_id,command_id,input_digest,definition_digest,profile_digest,expected_control_version,phase,phase_status,request_json,receipt_json)
-    VALUES(tenant_value,project_key,task_key,operation_key,operation_key,input_digest_value,definition_digest_value,profile_digest_value,expected_version::numeric,'prepare','pending',request_doc::text,receipt_doc::text);
+  INSERT INTO vnext.task_launch(tenant_id,project_id,task_id,operation_id,command_id,input_digest,definition_digest,profile_digest,expected_control_version,runtime_attempt,execution_epoch,phase,phase_status,request_json,receipt_json)
+    VALUES(tenant_value,project_key,task_key,operation_key,operation_key,input_digest_value,definition_digest_value,profile_digest_value,expected_version::numeric,t.runtime_attempt,t.execution_epoch,'prepare','pending',request_doc::text,receipt_doc::text);
   RETURN receipt_doc::text;
 END $$;
 
@@ -226,12 +250,16 @@ BEGIN
     RAISE EXCEPTION 'invalid launch lease' USING ERRCODE='22023';
   END IF;
   SELECT launch.* INTO l FROM vnext.task_launch launch
-    JOIN vnext.task_access a USING(tenant_id,project_id,task_id)
-    WHERE launch.tenant_id=current_setting('wuji.tenant',true) AND a.subject=subject_key AND a.can_read AND a.can_control
+    JOIN vnext.task_launch_worker a USING(tenant_id,project_id)
+    WHERE launch.tenant_id=current_setting('wuji.tenant',true) AND a.subject=subject_key AND a.enabled
       AND launch.phase_status IN ('pending','running','reconciling')
       AND (launch.lease_expires_at IS NULL OR launch.lease_expires_at<=clock_timestamp() OR launch.lease_owner=worker_key)
     ORDER BY launch.created_at,launch.operation_id LIMIT 1 FOR UPDATE SKIP LOCKED;
   IF NOT FOUND THEN RETURN NULL; END IF;
+  INSERT INTO vnext.task_access(tenant_id,project_id,task_id,subject,can_read,can_control,can_admit,clearance)
+    SELECT l.tenant_id,l.project_id,l.task_id,a.subject,true,true,true,a.clearance
+    FROM vnext.task_launch_worker a WHERE (a.tenant_id,a.project_id,a.subject)=(l.tenant_id,l.project_id,subject_key) AND a.enabled
+    ON CONFLICT(tenant_id,project_id,task_id,subject) DO NOTHING;
   UPDATE vnext.task_launch SET lease_owner=worker_key,lease_token=token,lease_expires_at=clock_timestamp()+make_interval(secs=>lease_seconds),revision=revision+1,updated_at=clock_timestamp()
     WHERE (tenant_id,project_id,task_id,operation_id)=(l.tenant_id,l.project_id,l.task_id,l.operation_id);
   SELECT jsonb_build_object(
@@ -249,7 +277,8 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$
 BEGIN
   IF lease_seconds NOT BETWEEN 1 AND 300 THEN RETURN false; END IF;
   UPDATE vnext.task_launch SET lease_expires_at=clock_timestamp()+make_interval(secs=>lease_seconds),updated_at=clock_timestamp(),revision=revision+1
-    WHERE tenant_id=current_setting('wuji.tenant',true) AND operation_id=operation_key AND lease_token=token_key AND lease_expires_at>clock_timestamp();
+    WHERE tenant_id=current_setting('wuji.tenant',true) AND operation_id=operation_key AND lease_token=token_key AND lease_expires_at>clock_timestamp()
+      AND EXISTS(SELECT 1 FROM vnext.task_launch_worker w WHERE (w.tenant_id,w.project_id)=(task_launch.tenant_id,task_launch.project_id) AND w.subject=current_setting('wuji.subject',true) AND w.enabled);
   RETURN FOUND;
 END $$;
 
@@ -258,13 +287,23 @@ RETURNS text
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$
 DECLARE l vnext.task_launch; step jsonb; next_phase text; next_status text; result jsonb; lease_seconds integer:=COALESCE((patch->>'lease_seconds')::integer,30);
 BEGIN
-  SELECT * INTO l FROM vnext.task_launch WHERE tenant_id=current_setting('wuji.tenant',true) AND operation_id=operation_key AND lease_token=token_key AND lease_expires_at>clock_timestamp() FOR UPDATE;
+  SELECT * INTO l FROM vnext.task_launch WHERE tenant_id=current_setting('wuji.tenant',true) AND operation_id=operation_key AND lease_token=token_key AND lease_expires_at>clock_timestamp()
+    AND EXISTS(SELECT 1 FROM vnext.task_launch_worker w WHERE (w.tenant_id,w.project_id)=(task_launch.tenant_id,task_launch.project_id) AND w.subject=current_setting('wuji.subject',true) AND w.enabled) FOR UPDATE;
   IF NOT FOUND THEN RETURN NULL; END IF;
+  IF phase_key IS DISTINCT FROM l.phase OR jsonb_typeof(patch)<>'object' OR octet_length(patch::text)>65536 THEN
+    RAISE EXCEPTION 'invalid launch phase update' USING ERRCODE='22023';
+  END IF;
   step:=COALESCE(l.steps_json::jsonb->phase_key,'{}'::jsonb)||patch||jsonb_build_object('phase_status',status_key,'external_ref',COALESCE(patch->>'external_ref',operation_key));
   next_phase:=COALESCE(patch->>'next_phase',phase_key);
   next_status:=CASE WHEN status_key='succeeded' AND next_phase='ready' THEN 'succeeded' WHEN status_key='succeeded' THEN 'pending' ELSE status_key END;
-  UPDATE vnext.task_launch SET phase=next_phase,phase_status=next_status,reason_code=NULLIF(patch->>'reason_code',''),allowed_actions_json=COALESCE((patch->'allowed_actions')::text,allowed_actions_json),steps_json=(l.steps_json::jsonb||jsonb_build_object(phase_key,step))::text,
-    runtime_attempt=COALESCE(NULLIF(patch->>'runtime_attempt','')::numeric,runtime_attempt),execution_epoch=COALESCE(NULLIF(patch->>'execution_epoch','')::numeric,execution_epoch),lease_expires_at=CASE WHEN status_key='running' THEN clock_timestamp()+make_interval(secs=>lease_seconds) ELSE NULL END,lease_owner=CASE WHEN status_key='running' THEN lease_owner ELSE NULL END,lease_token=CASE WHEN status_key='running' THEN lease_token ELSE NULL END,revision=revision+1,updated_at=clock_timestamp()
+  IF patch->>'definition_digest' IS NOT NULL AND patch->>'definition_digest'<>l.definition_digest THEN
+    IF phase_key<>'prepare' OR status_key<>'succeeded' OR NOT EXISTS(
+      SELECT 1 FROM vnext.task t WHERE (t.tenant_id,t.project_id,t.task_id)=(l.tenant_id,l.project_id,l.task_id)
+        AND t.definition_digest=patch->>'definition_digest' AND t.activated_at IS NULL
+    ) THEN RAISE EXCEPTION 'invalid prepared definition' USING ERRCODE='42501'; END IF;
+  END IF;
+  UPDATE vnext.task_launch SET phase=next_phase,phase_status=next_status,definition_digest=COALESCE(patch->>'definition_digest',definition_digest),reason_code=NULLIF(patch->>'reason_code',''),allowed_actions_json=COALESCE((patch->'allowed_actions')::text,allowed_actions_json),steps_json=(l.steps_json::jsonb||jsonb_build_object(phase_key,step))::text,
+    runtime_attempt=COALESCE(NULLIF(patch->>'runtime_attempt','')::numeric,runtime_attempt),execution_epoch=COALESCE(NULLIF(patch->>'execution_epoch','')::numeric,execution_epoch),lease_expires_at=CASE WHEN (status_key='running' OR (status_key='succeeded' AND next_phase<>'ready')) THEN clock_timestamp()+make_interval(secs=>lease_seconds) ELSE NULL END,lease_owner=CASE WHEN (status_key='running' OR (status_key='succeeded' AND next_phase<>'ready')) THEN lease_owner ELSE NULL END,lease_token=CASE WHEN (status_key='running' OR (status_key='succeeded' AND next_phase<>'ready')) THEN lease_token ELSE NULL END,revision=revision+1,updated_at=clock_timestamp()
     WHERE (tenant_id,project_id,task_id,operation_id)=(l.tenant_id,l.project_id,l.task_id,l.operation_id)
     RETURNING * INTO l;
   SELECT jsonb_build_object('operation_id',l.operation_id,'command_id',l.command_id,'task_id',l.task_id,'definition_digest',l.definition_digest,'profile_digest',l.profile_digest,'expected_control_version',l.expected_control_version::text,'runtime_attempt',l.runtime_attempt::text,'execution_epoch',l.execution_epoch::text,'phase',l.phase,'phase_status',l.phase_status,'reason_code',l.reason_code,'allowed_actions',l.allowed_actions_json::jsonb,'steps',l.steps_json::jsonb,'lease_token',COALESCE(l.lease_token,token_key),'observed_at',l.updated_at) INTO result;

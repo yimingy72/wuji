@@ -49,6 +49,7 @@ class TaskService:
 
         explicit = getattr(payload, "entry_points", None)
         if explicit is not None:
+            explicit = [getattr(value, "root", value) for value in explicit]
             if (
                 not isinstance(explicit, list)
                 or not 1 <= len(explicit) <= 16
@@ -149,7 +150,10 @@ class TaskService:
         if not isinstance(access, AccessContext):
             raise TypeError("the authenticated AccessContext is required")
         with self.uow.transaction(access, task_id) as tx:
-            return self._view(tx.task)
+            view = self._view(tx.task)
+            if not tx.permissions["can_control"]:
+                view.allowed_actions = []
+            return view
 
     @staticmethod
     def _session_settings(access):

@@ -315,8 +315,6 @@ class LaunchService:
             raise DomainError("INVALID_SCHEMA", 422)
         task = self.control.read_task(access, task_id)
         expected = command.expected_version.root
-        if str(task["control_version"]) != expected:
-            raise DomainError("STALE_VERSION", 409)
         raw_definition = task.get("definition_json")
         definition = strict_json_loads(raw_definition)
         definition_digest = task.get("definition_digest")
@@ -339,7 +337,9 @@ class LaunchService:
             "definition_digest": definition_digest,
             "profile_digest": profile_digest,
         }
-        input_digest = _digest(request)
+        # Derived configuration can be finalized after admission. Replay is
+        # keyed to the original public command, not to the later live digest.
+        input_digest = _digest({"task_id": task_id, "command": command.model_dump(mode="json")})
         receipt = CommandReceipt.model_validate(
             {
                 "command_id": idempotency_key,
@@ -486,7 +486,7 @@ class LaunchWorker:
             "finish",
         }:
             return "cancelled", "task_cancelled"
-        if phase in {"prepare", "activate"} and str(task["control_version"]) != str(
+        if phase == "prepare" and str(task["control_version"]) != str(
             job["expected_control_version"]
         ):
             return "blocked", "start_version_changed"
@@ -758,6 +758,7 @@ class LaunchWorker:
                     external_ref=external_ref,
                     summary=response.get("summary") or {},
                     runtime_uid=_runtime_uid(response),
+                    definition_digest=response.get("definition_digest") if phase == "prepare" else job["definition_digest"],
                     runtime_attempt=response.get("runtime_attempt")
                     or job.get("runtime_attempt"),
                     execution_epoch=response.get("execution_epoch")
