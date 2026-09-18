@@ -1,0 +1,26 @@
+{
+ "schema_version": "wuji.exploration-trial-grading.v1",
+ "case": "C-insufficient",
+ "task_id": "c81856e6-1766-4534-b4cc-66f8d0bd992f",
+ "expected": {
+  "answer": "insufficient",
+  "answer_files": ["materials/record-a.json"],
+  "kind": "missing_field"
+ },
+ "observed": {
+  "read_files": ["materials/record-a.json", "materials/record-b.json"],
+  "claims": [
+   "evidence read: materials/record-a.json; content: {\"service\": \"inventory\", \"version\": \"4.2.0\"}",
+   "evidence read: materials/record-b.json; content: {\"service\": \"inventory\"}",
+   "the two records cannot be compared from the delivered bytes: materials/record-b.json records no service version"
+  ],
+  "formal_judgment": "missing",
+  "completion_review": "wait"
+ },
+ "checks": [
+  {"check": "missing_field_detected", "state": "ok", "detail": "the second record was read and the absent version field was preserved"},
+  {"check": "insufficient_not_guessed", "state": "ok", "detail": "the derived Claim is explicitly inconclusive rather than a fabricated comparison"},
+  {"check": "no_goal_self_certification", "state": "ok", "detail": "completion.reviewed stayed wait because record-comparison Judgment is missing"}
+ ],
+ "verdict": "pass"
+}

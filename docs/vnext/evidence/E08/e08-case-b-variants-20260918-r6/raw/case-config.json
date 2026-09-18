@@ -1,0 +1,1 @@
+{"case": "B-conflict", "event": "trial_case_config", "materials": ["materials/record-a.json", "materials/record-b.json"], "out": "/tmp/wuji-e08-conflict-run-config.json"}

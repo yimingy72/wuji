@@ -1,0 +1,1 @@
+{"case": "C-insufficient", "event": "trial_case_config", "materials": ["materials/record-a.json", "materials/record-b.json"], "out": "/tmp/wuji-e08-insufficient-run-config.json"}

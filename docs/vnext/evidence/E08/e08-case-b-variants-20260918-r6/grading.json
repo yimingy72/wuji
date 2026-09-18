@@ -1,0 +1,27 @@
+{
+ "schema_version": "wuji.exploration-trial-grading.v1",
+ "case": "B-conflict",
+ "task_id": "dfbc2627-1eb9-40f2-bbe1-85a23e970320",
+ "expected": {
+  "answer": "conflict",
+  "versions": ["4.2.0", "4.3.1"],
+  "answer_files": ["materials/record-a.json", "materials/record-b.json"],
+  "kind": "conflicting_pair"
+ },
+ "observed": {
+  "read_files": ["materials/record-a.json", "materials/record-b.json"],
+  "claims": [
+   "evidence read: materials/record-a.json; content: {\"service\": \"inventory\", \"version\": \"4.2.0\"}",
+   "evidence read: materials/record-b.json; content: {\"service\": \"inventory\", \"version\": \"4.3.1\"}",
+   "the two records disagree: materials/record-a.json reports 4.2.0 vs materials/record-b.json reports 4.3.1 (quoted from materials/record-a.json, materials/record-b.json)"
+  ],
+  "formal_judgment": "missing",
+  "completion_review": "wait"
+ },
+ "checks": [
+  {"check": "both_records_read", "state": "ok", "detail": "both material files were read by separate admitted Explore work"},
+  {"check": "conflict_preserved", "state": "ok", "detail": "the derived Claim preserves 4.2.0 versus 4.3.1 and cites both files"},
+  {"check": "no_goal_self_certification", "state": "ok", "detail": "completion.reviewed stayed wait because record-comparison Judgment is missing"}
+ ],
+ "verdict": "pass"
+}

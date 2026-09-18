@@ -1,0 +1,31 @@
+cancel|quiescing|user_cancel|
+0972f8f6-661c-42fe-b738-4e846645a1f8|exited|accepted|exited
+110090b0-4288-4d5b-b2b6-73818ffcca1d|exited|accepted|exited
+117b594c-6c79-443b-9bc7-f06f5a425be4|exited|accepted|exited
+371520a5-a900-4a73-8c50-aa95f04a53ac|exited|accepted|exited
+4e07c8e6-c464-4023-b599-cc55f0c36698|exited|accepted|exited
+ad031f45-0f2d-4922-b11e-3d1f7327d676|exited|accepted|exited
+e1a28740-0737-43d8-bed3-67edd951f4b6|exited|accepted|exited
+37465461-69d8-4cfe-8fd8-4aaba4ea7e6f|1|evidence read: materials/record-b.json; content: {"service": "inventory", "version": "4.2.0"}
+
+667e054c-56ab-463a-ae88-b54ba22b5f25|1|the two records agree on service version 4.2.0 (quoted from materials/record-a.json, materials/record-b.json)
+d562befc-fb05-41e6-b1d8-3389d9a38a0f|1|evidence read: materials/record-a.json; content: {"service": "inventory", "version": "4.2.0"}
+
+control.applied|{"code":null,"command_id":"task-launch-start-5b612f6b-39b3-4a69-a0ab-c3a81723cafc-a1","disposition":"accepted","request_id":"c1f97d4f-87ce-4172-ab2d-348793356231","resource_ref":{"entity_type":"task","id":"5b612f6b-39b3-4a69-a0ab-c3a81723cafc","revision":"2"},"resource_version":"2"}
+execution.observed|{"agent_run_id":"e1a28740-0737-43d8-bed3-67edd951f4b6","kind":"started","receipt_id":"4125210ecaca74898bd0e04ea31ef03bf46a41d8fa49385cee19fbc9707257af"}
+execution.observed|{"agent_run_id":"e1a28740-0737-43d8-bed3-67edd951f4b6","kind":"exited","receipt_id":"cf53ae4246ec1126a3b7111e3e4c02c43ad6548ce91dc920d86498ab54f2c5d7"}
+execution.observed|{"agent_run_id":"110090b0-4288-4d5b-b2b6-73818ffcca1d","kind":"started","receipt_id":"58af98cf68100f17809248c29e1182aae5d4c7cd6a0c36c8a25a5da2f771ca62"}
+execution.observed|{"agent_run_id":"110090b0-4288-4d5b-b2b6-73818ffcca1d","kind":"exited","receipt_id":"95b682e949a6a4659589f51d74d89deb308a721d4997837cda3e97bae9bd174b"}
+execution.observed|{"agent_run_id":"117b594c-6c79-443b-9bc7-f06f5a425be4","kind":"started","receipt_id":"61d90b2b8ec62dfb4b6c2d50816b65e3fc666753e7315c67a2fa4368ae1b0f54"}
+execution.observed|{"agent_run_id":"117b594c-6c79-443b-9bc7-f06f5a425be4","kind":"exited","receipt_id":"9e2f7b33cdcbf3f8f5bcadc8724ce14a6687a765e34cd87830c0481232732e02"}
+execution.observed|{"agent_run_id":"0972f8f6-661c-42fe-b738-4e846645a1f8","kind":"started","receipt_id":"c1be3c5ae8efa9fe358d84669cc54b8c1d3d2ad097d9b95a08f3c1884ccad25b"}
+execution.observed|{"agent_run_id":"371520a5-a900-4a73-8c50-aa95f04a53ac","kind":"started","receipt_id":"6c31479ec3e82ea7c206035416f7c2603ce4ce56c6b5f1fd49f0129bceae92df"}
+execution.observed|{"agent_run_id":"0972f8f6-661c-42fe-b738-4e846645a1f8","kind":"exited","receipt_id":"2d9d6c70922e657e5e369491d91946222455534551e309894015cf82311e6c6d"}
+execution.observed|{"agent_run_id":"371520a5-a900-4a73-8c50-aa95f04a53ac","kind":"exited","receipt_id":"29295b6a92bc3e4b402172f613ad1e439b57bfdd0caadae94d463ab877dacb39"}
+execution.observed|{"agent_run_id":"ad031f45-0f2d-4922-b11e-3d1f7327d676","kind":"started","receipt_id":"61f5e68107cbea646192abffdbdd8cccf46c8068db7d66948263cf917fb73a1c"}
+reason.completion_requested|{"processing_generation":"8","work_item_id":"2077b66d-5167-446c-9de0-a340ec88a107"}
+completion.reviewed|{"basis":{"board_revision":"31","control_version":"2","processing_generation":"8","request_event_seq":37,"work_item_id":"2077b66d-5167-446c-9de0-a340ec88a107"},"coverage":{"criteria":[{"applicability":"missing","criterion_id":"record-comparison","judged":false,"required":true,"revision":null,"status":"missing"}]},"decision":"wait","open_work":["2077b66d-5167-446c-9de0-a340ec88a107"],"reasons":["required_work_open","runs_unsettled","criteria_unmet
+execution.observed|{"agent_run_id":"ad031f45-0f2d-4922-b11e-3d1f7327d676","kind":"exited","receipt_id":"0c922f03f15d33e513dbe60288991e3e79f273e0142f6600b27f86eb7fdc2c9e"}
+execution.observed|{"agent_run_id":"4e07c8e6-c464-4023-b599-cc55f0c36698","kind":"started","receipt_id":"93f379f59d14e12335841c905131377e8b020dc5f746124fa04226977bf3e25d"}
+execution.observed|{"agent_run_id":"4e07c8e6-c464-4023-b599-cc55f0c36698","kind":"exited","receipt_id":"bcbe8beecf113eaf203614500c93227eac49510a4fbc448b6bb40eb2945dac21"}
+control.applied|{"code":null,"command_id":"e08-r5-cancel-20260918","disposition":"accepted","request_id":"7cfd0a42-1f7d-4e86-9c80-cff9d62b520d","resource_ref":{"entity_type":"task","id":"5b612f6b-39b3-4a69-a0ab-c3a81723cafc","revision":"3"},"resource_version":"3"}

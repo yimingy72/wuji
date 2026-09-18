@@ -1,0 +1,34 @@
+             work_item_id             |  kind   | state |             agent_run_id             | process_state | result_state 
+--------------------------------------+---------+-------+--------------------------------------+---------------+--------------
+ a331fe8f-f240-40fa-bb57-a5204010edf1 | explore | done  | 82a1748e-bb01-4b31-bc52-55cc24f40cd2 | exited        | accepted
+ d4e0bf27-8e99-4f48-80ef-df67cb09e9b4 | explore | done  | 91e18c9d-915f-4720-8c27-36639a254327 | exited        | accepted
+ 1242aa30-be67-432c-8ab9-fb42da992775 | reason  | done  | cbf40542-5530-4a1e-85dd-f15453b2eef9 | exited        | accepted
+ 2f08198e-292d-41a2-b78a-3c5253e298b8 | reason  | done  | 2e1cca9c-ae40-4edd-84af-49b89fc05d22 | exited        | accepted
+ a2597bce-2dd7-4f10-affe-6e21a9ad0134 | reason  | done  | 6af73188-9271-4640-9d0c-e514c485c064 | exited        | accepted
+ a8e16a6b-f948-4596-9b21-e9524db85274 | reason  | done  | 53109682-9a07-445c-80f9-328f5dc09a5a | exited        | accepted
+ abd830bd-d9c2-4c5c-9b35-19ecd194e231 | reason  | done  | 275fe0e9-6bf9-449e-b6bc-5ab33e46102f | exited        | accepted
+(7 rows)
+
+              entity_id               |                                                                                question                                                                                
+--------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ 4f0b5ba1-5362-4028-af3d-0cf77f14b6b2 | Read workspace:materials/record-b.json through the registered Kali workspace tool and report the inventory service version it records, citing the file it came from.
+ f6eb8145-cd0d-4193-82d2-70c0bf6ae86e | Read the fixture workspace file for Task start point workspace:materials/record-a.json once through the registered Kali workspace tool and cite the returned evidence.
+(2 rows)
+
+              entity_id               |                                                                                  text                                                                                   
+--------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ 0ac45019-5f28-465c-921b-a1aeffbcde3c | evidence read: materials/record-a.json; content: {"service": "inventory", "version": "4.2.0"}                                                                          +
+                                      | 
+ 951bd1ee-cf6c-4482-a9bb-755d390b60d3 | evidence read: materials/record-b.json; content: {"service": "inventory", "version": "4.3.1"}                                                                          +
+                                      | 
+ 99835736-ca6b-40f2-b7f5-f98ad187ef0b | the two records disagree: materials/record-a.json reports 4.2.0 vs materials/record-b.json reports 4.3.1 (quoted from materials/record-a.json, materials/record-b.json)
+(3 rows)
+
+            kind             |                                                                                                                                                                                                                                                                                           payload_json                                                                                                                                                                                                                                                                                           
+-----------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ control.applied             | {"code":null,"command_id":"task-launch-start-dfbc2627-1eb9-40f2-bbe1-85a23e970320-a1","disposition":"accepted","request_id":"52c66ef6-75b4-4bcc-a325-5b05897222c9","resource_ref":{"entity_type":"task","id":"dfbc2627-1eb9-40f2-bbe1-85a23e970320","revision":"2"},"resource_version":"2"}
+ reason.completion_requested | {"processing_generation":"8","work_item_id":"a2597bce-2dd7-4f10-affe-6e21a9ad0134"}
+ completion.reviewed         | {"basis":{"board_revision":"32","control_version":"2","processing_generation":"8","request_event_seq":38,"work_item_id":"a2597bce-2dd7-4f10-affe-6e21a9ad0134"},"coverage":{"criteria":[{"applicability":"missing","criterion_id":"record-comparison","judged":false,"required":true,"revision":null,"status":"missing"}]},"decision":"wait","open_work":[],"reasons":["criteria_unmet"],"review_digest":"2d183f41eb5ec38f4f45c753459eb58875649b299ac27a592342787d72aabbeb","review_id":"82859202-dfc5-49cf-a4b2-0e47e510838f","schema_version":"wuji.completion-review.v1","unsettled_runs":[]}
+ control.applied             | {"code":null,"command_id":"e08-r6-conflict-cancel-20260918","disposition":"accepted","request_id":"95e042fa-e63e-4841-84be-044f8ac03006","resource_ref":{"entity_type":"task","id":"dfbc2627-1eb9-40f2-bbe1-85a23e970320","revision":"3"},"resource_version":"3"}
+(4 rows)
+

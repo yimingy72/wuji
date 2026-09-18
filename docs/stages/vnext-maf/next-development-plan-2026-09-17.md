@@ -185,8 +185,15 @@
 
 ### 现在的位置（2026-09-18）
 
-M1、M2 与 E04-B 均已实测；距离"可开展 M3 限定试测"只差：
+M1、M2、E04-B 与 E08 机制变体均已实测。E08 在修复后的部署配置下完成了同一 Goal/能力/预算的 CASE-B 一致变体（r5）、CASE-B 冲突变体（r6）和 CASE-C 信息不足变体（r7）：
 
-1. **E08 变体对照**：同一 Goal/能力/预算下运行 CASE-B 两个变体（一致/冲突），核对"改变的是问题与依据"；CASE-C 走信息不足分支。
-2. **真实模型**：仍为 `blocked_configuration`（无网关/Key/额度）。机制模式只能证明平台路径，不能替代模型质量结论。
+- CASE-B 冲突实际读取两份材料并接纳 `4.2.0`、`4.3.1` 及其差异比较 Claim；独立评分 `pass`。
+- CASE-C 实际读取两份材料并接纳“record-b 缺少版本、无法比较”的保守 Claim；独立评分 `pass`。
+- 两个变体均由正式 `completion.reviewed` 保持 `wait`（`record-comparison` Judgment 缺失），随后经 Runtime 控制入口 `202 Accepted` 进入 `cancel/quiescing`；没有把模型候选结论自报为正式 Goal Judgment。
+- 证据包：[CASE-B 一致 r5](../../vnext/evidence/E08/e08-case-b-variants-20260918-r5/README.md)、[CASE-B 冲突 r6](../../vnext/evidence/E08/e08-case-b-variants-20260918-r6/README.md)、[CASE-C 信息不足 r7](../../vnext/evidence/E08/e08-case-b-variants-20260918-r7/README.md)。
+
+因此 M3 的机制变体对照已完成，但整体产品仍未完成：
+
+1. **P12 正式 Judgment/Report/可信关闭**仍需独立评估身份产生正式判定；本轮只证明缺判定时安全等待。
+2. **真实模型**仍为 `blocked_configuration`（无网关/Key/额度）。机制模式只能证明平台路径，不能替代模型质量结论。
 3. **X04（R04/R05）**：视图 revision 与 snapshot 原子绑定、丢批次回放/reset 未做；工作台维持快照模式，修好后才能打开实时订阅。

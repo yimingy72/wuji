@@ -1,0 +1,14 @@
+POST /api/v2/tasks/c81856e6-1766-4534-b4cc-66f8d0bd992f/commands HTTP/1.1
+Host: 127.0.0.1:18457
+Authorization: Bearer <redacted operator RS256 bearer>
+Content-Type: application/json
+Idempotency-Key: e08-r7-insufficient-cancel-20260918
+
+{
+  "schema_version": "wuji.api.v2",
+  "command": "cancel",
+  "expected_version": "2",
+  "reason": "E08 CASE-C insufficient comparison complete; formal Judgment intentionally absent"
+}
+
+HTTP response headers/body are in cancel.response.headers and cancel.response.json.

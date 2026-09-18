@@ -1,0 +1,323 @@
+{
+  "admission": {
+    "allowed_tool_refs": [
+      "workspace-read-v1"
+    ],
+    "model": {
+      "capability_ref": "synthetic-chat-completions-v1",
+      "client_model": "synthetic-model",
+      "gateway_url": "http://127.0.0.1:8081/v1/chat/completions",
+      "max_retries": 0,
+      "protocol": "chat_completions",
+      "published_at": "2026-09-15T01:12:08.197269Z",
+      "ref": "synthetic-model-v1",
+      "revision": "1",
+      "task_key_ref": "model-key",
+      "upstream_model": "synthetic-model"
+    },
+    "runtime": {
+      "allowed_tool_refs": [
+        "workspace-read-v1"
+      ],
+      "buffer_bytes": 4096,
+      "chunk_bytes": 512,
+      "idle_timeout_seconds": 15.0,
+      "limits": {
+        "max_attempts_per_work": 2,
+        "max_elapsed_seconds": 1800,
+        "max_model_requests": 8,
+        "max_reason_runs": 2,
+        "max_single_output_bytes": 32768,
+        "max_tool_calls": 8,
+        "max_total_output_bytes": 131072,
+        "max_work_items": 4,
+        "repair_attempts": 0
+      },
+      "lock_digest": "6cf936d2efcdf7cdd4cba7d7758c73ca37879c7e89b38da0318c81ea6375df01",
+      "max_inflight_model_requests": 1,
+      "max_inflight_tools": 1,
+      "max_pending_operations": 4,
+      "published_at": "2026-09-15T01:12:08.197269Z",
+      "ref": "k8s-runtime-trial-v1",
+      "revision": "4",
+      "total_timeout_seconds": 60.0
+    }
+  },
+  "capacity": 1,
+  "database": {
+    "dbname": "wuji_vnext_ui_20260915",
+    "host": "postgres.wuji-vnext-test.svc",
+    "port": 5432,
+    "user": "bootstrap"
+  },
+  "definition": {
+    "evaluation_mode": "mechanism_synthetic",
+    "lock_digest": "b6d8a78d63a9f14877c0314e6907614287e73c9627d7b558a58c111185397242",
+    "model_profile": {
+      "capability_ref": "synthetic-chat-completions-v1",
+      "client_model": "synthetic-model",
+      "gateway_url": "http://127.0.0.1:8081/v1/chat/completions",
+      "max_retries": 0,
+      "protocol": "chat_completions",
+      "published_at": "2026-09-15T01:12:08.197269Z",
+      "ref": "synthetic-model-v1",
+      "revision": "1",
+      "task_key_ref": "model-key",
+      "upstream_model": "synthetic-model"
+    },
+    "runtime_profile": {
+      "allowed_tool_refs": [
+        "workspace-read-v1"
+      ],
+      "buffer_bytes": 4096,
+      "chunk_bytes": 512,
+      "idle_timeout_seconds": 15.0,
+      "limits": {
+        "max_attempts_per_work": 2,
+        "max_elapsed_seconds": 1800,
+        "max_model_requests": 8,
+        "max_reason_runs": 2,
+        "max_single_output_bytes": 32768,
+        "max_tool_calls": 8,
+        "max_total_output_bytes": 131072,
+        "max_work_items": 4,
+        "repair_attempts": 0
+      },
+      "lock_digest": "6cf936d2efcdf7cdd4cba7d7758c73ca37879c7e89b38da0318c81ea6375df01",
+      "max_inflight_model_requests": 1,
+      "max_inflight_tools": 1,
+      "max_pending_operations": 4,
+      "published_at": "2026-09-15T01:12:08.197269Z",
+      "ref": "k8s-runtime-trial-v1",
+      "revision": "4",
+      "total_timeout_seconds": 60.0
+    },
+    "start_points": [
+      "workspace:version.txt"
+    ],
+    "task": {
+      "authorization_expires_at": "2026-09-15T05:12:08.197269Z",
+      "authorization_scope": [
+        {
+          "host": "fixture.invalid",
+          "port": 443,
+          "protocol": "https"
+        }
+      ],
+      "budget": {
+        "amount": "1",
+        "currency": "USD"
+      },
+      "goal": {
+        "criteria": [
+          {
+            "allowed_methods": [
+              "deterministic"
+            ],
+            "condition": "durable read evidence",
+            "criterion_id": "version-read",
+            "evidence_requirements": [
+              "sealed bytes"
+            ],
+            "object": "isolated Kali fixture file",
+            "required": true,
+            "responsible_party": "deployment-test"
+          }
+        ],
+        "text": "Read the isolated namespace's version.txt without external target traffic."
+      },
+      "model_profile_ref": "synthetic-model-v1",
+      "name": "C2 isolated Kali workspace read",
+      "project_id": "81e8c413-ba26-45fb-8b5a-1bc477eef99f",
+      "runtime_profile_ref": "k8s-runtime-v1",
+      "scenario": "web_single",
+      "schema_version": "wuji.api.v2"
+    },
+    "worker_profiles": {
+      "explore": {
+        "body": {
+          "capabilities": {
+            "auto_approval": false,
+            "background_agents": false,
+            "compaction": false,
+            "file_access": false,
+            "file_memory": false,
+            "mcp": false,
+            "mode": false,
+            "outer_loop": false,
+            "restoration": false,
+            "shell": false,
+            "skills": false,
+            "todo": false,
+            "web_search": false
+          },
+          "instructions": "Read version.txt once using the registered workspace tool and cite the returned evidence.",
+          "lock_digest": "b6d8a78d63a9f14877c0314e6907614287e73c9627d7b558a58c111185397242",
+          "max_context_bytes": 65536,
+          "max_context_records": 128,
+          "max_output_tokens": 2048,
+          "ref": "harness.explore.c2.v1",
+          "revision": "1",
+          "tool_definition_refs": [
+            "workspace-read-v1"
+          ],
+          "work_kind": "explore"
+        },
+        "digest": "7e239d93138cc45b915799e76d379aa5d762a4d0b298e0dc41cb132a5e7ff970",
+        "ref": "harness.explore.c2.v1",
+        "revision": "1"
+      },
+      "reason": {
+        "body": {
+          "capabilities": {
+            "auto_approval": false,
+            "background_agents": false,
+            "compaction": false,
+            "file_access": false,
+            "file_memory": false,
+            "mcp": false,
+            "mode": false,
+            "outer_loop": false,
+            "restoration": false,
+            "shell": false,
+            "skills": false,
+            "todo": false,
+            "web_search": false
+          },
+          "instructions": "Read version.txt once using the registered workspace tool and cite the returned evidence.",
+          "lock_digest": "b6d8a78d63a9f14877c0314e6907614287e73c9627d7b558a58c111185397242",
+          "max_context_bytes": 65536,
+          "max_context_records": 128,
+          "max_output_tokens": 2048,
+          "ref": "harness.reason.c2.v1",
+          "revision": "1",
+          "tool_definition_refs": [
+            "workspace-read-v1"
+          ],
+          "work_kind": "reason"
+        },
+        "digest": "415fd6141633e7ba60ba0cffba87bf891481d56d98f4fb86e2c7b2f171c41a07",
+        "ref": "harness.reason.c2.v1",
+        "revision": "1"
+      },
+      "report": {
+        "body": {
+          "capabilities": {
+            "auto_approval": false,
+            "background_agents": false,
+            "compaction": false,
+            "file_access": false,
+            "file_memory": false,
+            "mcp": false,
+            "mode": false,
+            "outer_loop": false,
+            "restoration": false,
+            "shell": false,
+            "skills": false,
+            "todo": false,
+            "web_search": false
+          },
+          "instructions": "Read version.txt once using the registered workspace tool and cite the returned evidence.",
+          "lock_digest": "b6d8a78d63a9f14877c0314e6907614287e73c9627d7b558a58c111185397242",
+          "max_context_bytes": 65536,
+          "max_context_records": 128,
+          "max_output_tokens": 2048,
+          "ref": "harness.report.c2.v1",
+          "revision": "1",
+          "tool_definition_refs": [
+            "workspace-read-v1"
+          ],
+          "work_kind": "report"
+        },
+        "digest": "f307aa437542c7d38ff78e4cd3de855da7bdc19cd1a87d323a57a4c90c6bf0af",
+        "ref": "harness.report.c2.v1",
+        "revision": "1"
+      }
+    }
+  },
+  "executor": {
+    "allowed_tool_refs": [
+      "workspace-read-v1"
+    ],
+    "capture_layer": "fixture_file_bytes",
+    "collector_subject": "collector",
+    "environment_ref": "pod-environment-a41a59ed-29e1-4801-b68b-dfea395eae30",
+    "evidence_origin": "fixture_capture",
+    "receiver_id": "task-a41a59ed-29e1-4801-b68b-dfea395eae30-a1",
+    "ref": "kali-workspace-v1"
+  },
+  "identity": {
+    "audience": "wuji-vnext-deployment",
+    "issuer": "https://identity.wuji-vnext-test.invalid"
+  },
+  "materials": [
+    {
+      "path": "materials/record-a.json",
+      "text": "{\"service\": \"inventory\", \"version\": \"4.2.0\"}\n"
+    },
+    {
+      "path": "materials/record-b.json",
+      "text": "{\"service\": \"inventory\"}\n"
+    }
+  ],
+  "operator_subject": "operator",
+  "owner": [
+    "1fc6b1f3-6f24-456b-9dc1-4e14c7197604",
+    "81e8c413-ba26-45fb-8b5a-1bc477eef99f",
+    "a41a59ed-29e1-4801-b68b-dfea395eae30"
+  ],
+  "pod_controller_subject": "pod-controller",
+  "task_access": {
+    "collector": {
+      "capture": true,
+      "settle": true
+    },
+    "gate": {},
+    "operator": {
+      "control": true,
+      "write": true
+    },
+    "pod-controller": {
+      "admit": true,
+      "control": true,
+      "observe": true
+    },
+    "receiver": {
+      "observe": true,
+      "settle": true
+    },
+    "scheduler": {
+      "admit": true
+    }
+  },
+  "tool": {
+    "allowed_target_kinds": [
+      "workspace_read"
+    ],
+    "approval_required": false,
+    "executor_ref": "kali-workspace-v1",
+    "input_schema": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "type": "object"
+    },
+    "name": "read_workspace",
+    "published_at": "2026-09-15T01:12:08.197269Z",
+    "ref": "workspace-read-v1",
+    "revision": "1"
+  },
+  "trial": {
+    "case": "C-insufficient",
+    "family": "CASE-C",
+    "goal": "Report whether the two inventory records in the workspace agree on the service version, and state the version.",
+    "schema_version": "wuji.exploration-trial.v1",
+    "task_id": "c81856e6-1766-4534-b4cc-66f8d0bd992f"
+  }
+}

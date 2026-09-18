@@ -1,0 +1,38 @@
+{
+  "schema_version": "wuji.api.v2",
+  "project_id": "81e8c413-ba26-45fb-8b5a-1bc477eef99f",
+  "name": "E08 record comparison r5",
+  "scenario": "web_single",
+  "goal": {
+    "text": "Report whether the two inventory records in the workspace agree on the service version, and state the version.",
+    "criteria": [
+      {
+        "criterion_id": "record-comparison",
+        "object": "the two inventory records in the workspace",
+        "condition": "the agreed or differing service versions are reported together with the records they came from",
+        "evidence_requirements": [
+          "sealed bytes of both records"
+        ],
+        "allowed_methods": [
+          "deterministic"
+        ],
+        "required": true,
+        "responsible_party": "deployment-test"
+      }
+    ]
+  },
+  "authorization_scope": [
+    {
+      "host": "fixture.invalid",
+      "port": 443,
+      "protocol": "https"
+    }
+  ],
+  "authorization_expires_at": "2026-12-31T00:00:00Z",
+  "model_profile_ref": "k8s-model-v1",
+  "runtime_profile_ref": "k8s-runtime-trial-v1",
+  "budget": {
+    "amount": "5",
+    "currency": "USD"
+  }
+}
