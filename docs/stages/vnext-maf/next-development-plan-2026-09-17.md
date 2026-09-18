@@ -15,10 +15,10 @@
 | R01 完成审核版本竞态 | 已修复 `c35153f`（Task 写锁内重算并持久化真实依据） | 提交 + P10-M2 定向复审 |
 | R02 候选发现不隔离 | 已修复 `4ea77c0`（逐 Task 隔离，坏候选不再取消其他派发） | 同上 |
 | R03 共用游标饥饿 | 已修复 `4ea77c0`（派发/核对各自独立、按 Task ID 续扫） | 同上 |
-| R04 视图/详情 snapshot 错配 | **未修复**（X04 未动） | `packages/wuji-core/src/wuji_core/projection/snapshots.py` 只返回单个 snapshot；前端仍独立刷新详情 |
-| R05 SSE cursor 未真正恢复基线 | **未修复**（X04 未动） | `apps/web/src/features/topology/stream.ts` 仍以浏览器本地游标重连 |
+| R04 视图/详情 snapshot 错配 | **已修复代码切片，浏览器证据待补** | `20175ca` 的 v3 ViewEventBatch 携带新 `snapshot_id`，前端应用 patch 时同步更新快照身份 |
+| R05 SSE cursor 未真正恢复基线 | **已修复代码切片，浏览器证据待补** | `20175ca` 绑定 cursor 到 `view_revision+snapshot_id`；旧 cursor 得到 `VIEW_RESET_REQUIRED`，不再静默续传 |
 | R06 CI 未实际执行 | 已修复 `f4e46f2` + `9891989`；run [35195579930](https://github.com/yimingy72/wuji/actions/runs/35195579930) 两 job 全绿（后端 562 passed） | GitHub Actions |
-| X04（R04+R05） | 未开始；按执行单由 E07 快照模式先行，未修复前关闭不可靠 live 订阅 | 本文件 §3 |
+| X04（R04+R05） | 代码切片已完成；K8s SSE/浏览器重连与 reset 证据待补 | `tests/vnext/test_view_stream.py` 7 passed、`tests/topology/view-stream.test.ts` 4 passed、合同生成与 Web typecheck 通过 |
 | 已授权操作 | 本地提交、推送 origin、本地 docker-desktop 集群 `wuji-vnext-test` 部署与只读验证 | 历史会话授权，继续沿用 |
 | 未授权操作 | 付费真实模型调用（无网关/Key/额度）、真实靶场目标访问、生产切换、数据删除 | 缺配置，按 `blocked_configuration` 记录 |
 | 当前可用 Profile | `harness.{reason,explore,report}.deployment.v2`，全部由部署 `bootstrap-config.json` 的 `definition.worker_profiles` 派生；三者的 `tool_definition_refs` 均为 `workspace-read-v1` | 集群 Task 定义回读 |
@@ -196,4 +196,4 @@ M1、M2、E04-B 与 E08 机制变体均已实测。E08 在修复后的部署配�
 
 1. **P12 正式 Judgment/Report/可信关闭**仍需独立评估身份产生正式判定；本轮只证明缺判定时安全等待。
 2. **真实模型**仍为 `blocked_configuration`（无网关/Key/额度）。机制模式只能证明平台路径，不能替代模型质量结论。
-3. **X04（R04/R05）**：视图 revision 与 snapshot 原子绑定、丢批次回放/reset 未做；工作台维持快照模式，修好后才能打开实时订阅。
+3. **X04（R04/R05）**：后端/前端合同与 stale-cursor reset 代码切片已完成；仍需在 K8s 上补 SSE 重连、丢批次 reset 和浏览器截图/HTTP 证据，完成后才能打开实时订阅。
