@@ -463,6 +463,10 @@ class ByteLength(RootModel[StrictInt]):
     root: Annotated[StrictInt, Field(ge=0)]
 
 
+class Capability(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=128, min_length=1)]
+
+
 class CaptureCompleteness(StrEnum):
     complete = 'complete'
     partial = 'partial'
@@ -660,6 +664,10 @@ class CommandDisposition(StrEnum):
     already_recorded = 'already_recorded'
 
 
+class CommandId(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+
+
 class CommandReceipt(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -785,7 +793,7 @@ class CriterionJudgmentView(BaseModel):
     criterion_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
     revision: RevisionString | None
     required: StrictBool
-    status: Status5
+    status: Status6
     applicability: Applicability
 
 
@@ -969,6 +977,10 @@ class EvidenceReceiptStatus(StrEnum):
     accepted = 'accepted'
     rejected = 'rejected'
     historical_only = 'historical_only'
+
+
+class EvidenceRef(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
 
 
 class EvidenceRequirement(RootModel[StrictStr]):
@@ -1312,6 +1324,38 @@ class Label(RootModel[StrictStr]):
     root: Annotated[StrictStr, Field(max_length=8192, min_length=1)]
 
 
+class LaunchView(_JsonSchemaRuntimeValidationBase):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    __json_schema_unique_items__: ClassVar[tuple[tuple[object, ...], ...]] = (
+        (('allowed_actions',),),
+    )
+
+    operation_id: OperationId | None
+    command_id: CommandId | None
+    task_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    definition_digest: Annotated[StrictStr, Field(pattern='^[a-f0-9]{64}$')]
+    profile_digest: ProfileDigest | None
+    runtime_attempt: RevisionString | None
+    execution_epoch: RevisionString | None
+    phase: Phase
+    phase_status: PhaseStatus
+    reason_code: ReasonCode | None
+    allowed_actions: list[TaskCommandName]
+    observed_at: AwareDatetime
+
+
+class Layer(StrEnum):
+    identity = 'identity'
+    profile = 'profile'
+    budget = 'budget'
+    model = 'model'
+    runtime = 'runtime'
+    target = 'target'
+    material = 'material'
+
+
 class LayoutAnchor(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -1475,7 +1519,7 @@ class ModelMaterialV2(BaseModel):
     )
     schema_version: Literal['wuji.model-material.v2']
     tool_call_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
-    status: Status3
+    status: Status4
     source: ModelMaterialSource | None
     representation: ModelMaterialRepresentation | None
     omission_reason: MaterialOmissionReason | None
@@ -1497,6 +1541,10 @@ class MoneyBudget(BaseModel):
 
 class Name(RootModel[StrictStr]):
     root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+
+
+class NextCursor(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=4096, min_length=1)]
 
 
 class NodeEntityType(StrEnum):
@@ -1546,6 +1594,10 @@ class OpenWorkItem(RootModel[StrictStr]):
     root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
 
 
+class OperationId(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+
+
 class OutputBase64(RootModel[StrictStr]):
     root: Annotated[
         StrictStr,
@@ -1561,6 +1613,26 @@ class PendingOperationRef(RootModel[StrictStr]):
     root: Annotated[StrictStr, Field(max_length=1024, min_length=1)]
 
 
+class Phase(StrEnum):
+    not_requested = 'not_requested'
+    prepare = 'prepare'
+    activate = 'activate'
+    wire = 'wire'
+    capability = 'capability'
+    ready = 'ready'
+
+
+class PhaseStatus(StrEnum):
+    not_requested = 'not_requested'
+    pending = 'pending'
+    running = 'running'
+    reconciling = 'reconciling'
+    blocked = 'blocked'
+    succeeded = 'succeeded'
+    cancelled = 'cancelled'
+    failed = 'failed'
+
+
 class ProcessIdentity(RootModel[StrictStr]):
     root: Annotated[StrictStr, Field(min_length=1)]
 
@@ -1570,6 +1642,10 @@ class ProducerKind(StrEnum):
     human = 'human'
     extractor = 'extractor'
     import_ = 'import'
+
+
+class ProfileDigest(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(pattern='^[a-f0-9]{64}$')]
 
 
 class ProfileRef(RootModel[StrictStr]):
@@ -1596,6 +1672,31 @@ class PurgeId(RootModel[StrictStr]):
     root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
 
 
+class ReadinessCheck(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    id: Annotated[StrictStr, Field(max_length=128, min_length=1)]
+    layer: Layer
+    status: Status2
+    reason_code: Annotated[StrictStr, Field(pattern='^[a-z][a-z0-9_]{0,127}$')]
+    observed_at: AwareDatetime
+    evidence_ref: EvidenceRef | None = None
+    remediation_owner: RemediationOwner
+    message: Annotated[StrictStr, Field(max_length=1024, min_length=1)]
+
+
+class ReadinessReport(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    task_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    definition_digest: Annotated[StrictStr, Field(pattern='^[a-f0-9]{64}$')]
+    observed_at: AwareDatetime
+    can_request_start: StrictBool
+    checks: Annotated[list[ReadinessCheck], Field(max_length=64)]
+
+
 class Reason(StrEnum):
     not_sealed = 'not_sealed'
     not_text_media = 'not_text_media'
@@ -1607,6 +1708,10 @@ class Reason(StrEnum):
 
 class Reason1(RootModel[StrictStr]):
     root: Annotated[StrictStr, Field(max_length=128, min_length=1)]
+
+
+class ReasonCode(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(pattern='^[a-z][a-z0-9_]{0,127}$')]
 
 
 class ReasonDecision(StrEnum):
@@ -1663,6 +1768,13 @@ class RecoveryClass(StrEnum):
     settled_boundary = 'settled_boundary'
     approval_boundary = 'approval_boundary'
     non_resumable = 'non_resumable'
+
+
+class RemediationOwner(StrEnum):
+    user = 'user'
+    application = 'application'
+    gateway = 'gateway'
+    infrastructure = 'infrastructure'
 
 
 class ReportAmendmentView(BaseModel):
@@ -2006,6 +2118,13 @@ class Status(StrEnum):
 
 
 class Status2(StrEnum):
+    pass_ = 'pass'
+    fail = 'fail'
+    unknown = 'unknown'
+    not_applicable = 'not_applicable'
+
+
+class Status3(StrEnum):
     pending_approval = 'pending_approval'
     admitted = 'admitted'
     dispatched = 'dispatched'
@@ -2018,12 +2137,12 @@ class Status2(StrEnum):
     failed = 'failed'
 
 
-class Status3(StrEnum):
+class Status4(StrEnum):
     delivered = 'delivered'
     omitted = 'omitted'
 
 
-class Status5(StrEnum):
+class Status6(StrEnum):
     met = 'met'
     not_met = 'not_met'
     unknown = 'unknown'
@@ -2149,6 +2268,14 @@ class TaskDesired(StrEnum):
     finish = 'finish'
 
 
+class TaskList(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    items: Annotated[list[TaskView], Field(max_length=100)]
+    next_cursor: NextCursor | None
+
+
 class TaskObserved(StrEnum):
     ready = 'ready'
     running = 'running'
@@ -2156,6 +2283,32 @@ class TaskObserved(StrEnum):
     paused = 'paused'
     reconciling = 'reconciling'
     closed = 'closed'
+
+
+class TaskOptions(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    project_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    model_profiles: Annotated[list[TaskProfileOption], Field(max_length=256)]
+    runtime_profiles: Annotated[list[TaskProfileOption], Field(max_length=256)]
+    missing: Annotated[list[ReadinessCheck], Field(max_length=64)]
+
+
+class TaskProfileOption(_JsonSchemaRuntimeValidationBase):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    __json_schema_unique_items__: ClassVar[tuple[tuple[object, ...], ...]] = (
+        (('capabilities',),),
+    )
+
+    ref: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    name: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    revision: RevisionString
+    digest: Annotated[StrictStr, Field(pattern='^[a-f0-9]{64}$')]
+    capabilities: Annotated[list[Capability], Field(max_length=128)]
+    real_model_allowed: StrictBool
 
 
 class TaskView(_JsonSchemaRuntimeValidationBase):
@@ -2217,7 +2370,7 @@ class ToolCallReceipt(BaseModel):
     tool_call_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
     operation_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
     tool_attempt_id: ToolAttemptId | None
-    status: Status2
+    status: Status3
     evidence_receipt: EvidenceReceipt | None
     result_ref: BlobRef | None
     reason_code: ErrorCode2 | None
@@ -2267,7 +2420,7 @@ class ToolResultMaterial(BaseModel):
         extra='forbid',
     )
     tool_call_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
-    status: Status3
+    status: Status4
     reason: Reason | None
     artifact_ref: BlobRef | None
     media_type: MediaType | None

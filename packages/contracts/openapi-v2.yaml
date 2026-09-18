@@ -24,6 +24,23 @@ tags:
     description: Trusted worker, supervisor, evidence, result, and model boundaries.
 paths:
   /api/v2/tasks:
+    get:
+      operationId: listTasksV2
+      summary: List currently authorized tasks in a project
+      tags: [Tasks]
+      parameters:
+        - {name: project_id, in: query, required: true, schema: {type: string, minLength: 1, maxLength: 256}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 20}}
+        - {name: cursor, in: query, schema: {type: string, minLength: 1, maxLength: 4096}}
+      responses:
+        '200':
+          description: Authorized task page with no hidden count
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/TaskList'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
     post:
       operationId: createTaskV2
       summary: Create a non-running vNext task
@@ -46,6 +63,66 @@ paths:
         '401': {$ref: '#/components/responses/Unauthenticated'}
         '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/InvalidSchema'}
+  /api/v2/projects/{project_id}/task-options:
+    get:
+      operationId: getTaskOptionsV2
+      summary: Read published options for an authorized creator
+      tags: [Tasks]
+      parameters:
+        - {name: project_id, in: path, required: true, schema: {type: string, minLength: 1, maxLength: 256}}
+      responses:
+        '200':
+          description: Redacted published options without credentials
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/TaskOptions'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
+  /api/v2/tasks/{task_id}:
+    get:
+      operationId: getTaskV2
+      summary: Read the current authorized task state
+      tags: [Tasks]
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      responses:
+        '200':
+          description: Current task state; accepted commands do not prove process exit
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/TaskView'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
+  /api/v2/tasks/{task_id}/readiness:
+    get:
+      operationId: getTaskReadinessV2
+      summary: Read static readiness without contacting a target or model
+      tags: [Tasks]
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      responses:
+        '200':
+          description: Configuration facts and explicit unknown checks
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReadinessReport'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
+  /api/v2/tasks/{task_id}/launch:
+    get:
+      operationId: getTaskLaunchV2
+      summary: Read durable progress of the explicit start command
+      tags: [Tasks]
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      responses:
+        '200':
+          description: Launch progress or explicit not-requested state
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/LaunchView'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
   /api/v2/tasks/{task_id}/commands:
     post:
       operationId: commandTaskV2
@@ -2317,6 +2394,97 @@ components:
           type: array
           uniqueItems: true
           items: {$ref: '#/components/schemas/TaskCommandName'}
+    TaskList:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor]
+      properties:
+        items: {type: array, maxItems: 100, items: {$ref: '#/components/schemas/TaskView'}}
+        next_cursor:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 4096}
+            - {type: 'null'}
+    TaskProfileOption:
+      type: object
+      additionalProperties: false
+      required: [ref, name, revision, digest, capabilities, real_model_allowed]
+      properties:
+        ref: {type: string, minLength: 1, maxLength: 256}
+        name: {type: string, minLength: 1, maxLength: 256}
+        revision: {$ref: '#/components/schemas/RevisionString'}
+        digest: {type: string, pattern: '^[a-f0-9]{64}$'}
+        capabilities: {type: array, maxItems: 128, uniqueItems: true, items: {type: string, minLength: 1, maxLength: 128}}
+        real_model_allowed: {type: boolean}
+    ReadinessCheck:
+      type: object
+      additionalProperties: false
+      required: [id, layer, status, reason_code, observed_at, remediation_owner, message]
+      properties:
+        id: {type: string, minLength: 1, maxLength: 128}
+        layer: {type: string, enum: [identity, profile, budget, model, runtime, target, material]}
+        status: {type: string, enum: [pass, fail, unknown, not_applicable]}
+        reason_code: {type: string, pattern: '^[a-z][a-z0-9_]{0,127}$'}
+        observed_at: {type: string, format: date-time}
+        evidence_ref:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 256}
+            - {type: 'null'}
+        remediation_owner: {type: string, enum: [user, application, gateway, infrastructure]}
+        message: {type: string, minLength: 1, maxLength: 1024}
+    TaskOptions:
+      type: object
+      additionalProperties: false
+      required: [project_id, model_profiles, runtime_profiles, missing]
+      properties:
+        project_id: {type: string, minLength: 1, maxLength: 256}
+        model_profiles: {type: array, maxItems: 256, items: {$ref: '#/components/schemas/TaskProfileOption'}}
+        runtime_profiles: {type: array, maxItems: 256, items: {$ref: '#/components/schemas/TaskProfileOption'}}
+        missing: {type: array, maxItems: 64, items: {$ref: '#/components/schemas/ReadinessCheck'}}
+    ReadinessReport:
+      type: object
+      additionalProperties: false
+      required: [task_id, definition_digest, observed_at, can_request_start, checks]
+      properties:
+        task_id: {type: string, minLength: 1, maxLength: 256}
+        definition_digest: {type: string, pattern: '^[a-f0-9]{64}$'}
+        observed_at: {type: string, format: date-time}
+        can_request_start: {type: boolean}
+        checks: {type: array, maxItems: 64, items: {$ref: '#/components/schemas/ReadinessCheck'}}
+    LaunchView:
+      type: object
+      additionalProperties: false
+      required: [operation_id, command_id, task_id, definition_digest, profile_digest, runtime_attempt, execution_epoch, phase, phase_status, reason_code, allowed_actions, observed_at]
+      properties:
+        operation_id:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 256}
+            - {type: 'null'}
+        command_id:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 256}
+            - {type: 'null'}
+        task_id: {type: string, minLength: 1, maxLength: 256}
+        definition_digest: {type: string, pattern: '^[a-f0-9]{64}$'}
+        profile_digest:
+          oneOf:
+            - {type: string, pattern: '^[a-f0-9]{64}$'}
+            - {type: 'null'}
+        runtime_attempt:
+          oneOf:
+            - {$ref: '#/components/schemas/RevisionString'}
+            - {type: 'null'}
+        execution_epoch:
+          oneOf:
+            - {$ref: '#/components/schemas/RevisionString'}
+            - {type: 'null'}
+        phase: {type: string, enum: [not_requested, prepare, activate, wire, capability, ready]}
+        phase_status: {type: string, enum: [not_requested, pending, running, reconciling, blocked, succeeded, cancelled, failed]}
+        reason_code:
+          oneOf:
+            - {type: string, pattern: '^[a-z][a-z0-9_]{0,127}$'}
+            - {type: 'null'}
+        allowed_actions: {type: array, uniqueItems: true, items: {$ref: '#/components/schemas/TaskCommandName'}}
+        observed_at: {type: string, format: date-time}
     TaskCommand:
       type: object
       additionalProperties: false

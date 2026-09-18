@@ -11,10 +11,79 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** List currently authorized tasks in a project */
+        get: operations["listTasksV2"];
         put?: never;
         /** Create a non-running vNext task */
         post: operations["createTaskV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/projects/{project_id}/task-options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read published options for an authorized creator */
+        get: operations["getTaskOptionsV2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/tasks/{task_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read the current authorized task state */
+        get: operations["getTaskV2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/tasks/{task_id}/readiness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read static readiness without contacting a target or model */
+        get: operations["getTaskReadinessV2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/tasks/{task_id}/launch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read durable progress of the explicit start command */
+        get: operations["getTaskLaunchV2"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1551,6 +1620,63 @@ export interface components {
             result_outcome?: components["schemas"]["ResultOutcome"] | null;
             allowed_actions: components["schemas"]["TaskCommandName"][];
         };
+        TaskList: {
+            items: components["schemas"]["TaskView"][];
+            next_cursor: string | null;
+        };
+        TaskProfileOption: {
+            ref: string;
+            name: string;
+            revision: components["schemas"]["RevisionString"];
+            digest: string;
+            capabilities: string[];
+            real_model_allowed: boolean;
+        };
+        ReadinessCheck: {
+            id: string;
+            /** @enum {string} */
+            layer: "identity" | "profile" | "budget" | "model" | "runtime" | "target" | "material";
+            /** @enum {string} */
+            status: "pass" | "fail" | "unknown" | "not_applicable";
+            reason_code: string;
+            /** Format: date-time */
+            observed_at: string;
+            evidence_ref?: string | null;
+            /** @enum {string} */
+            remediation_owner: "user" | "application" | "gateway" | "infrastructure";
+            message: string;
+        };
+        TaskOptions: {
+            project_id: string;
+            model_profiles: components["schemas"]["TaskProfileOption"][];
+            runtime_profiles: components["schemas"]["TaskProfileOption"][];
+            missing: components["schemas"]["ReadinessCheck"][];
+        };
+        ReadinessReport: {
+            task_id: string;
+            definition_digest: string;
+            /** Format: date-time */
+            observed_at: string;
+            can_request_start: boolean;
+            checks: components["schemas"]["ReadinessCheck"][];
+        };
+        LaunchView: {
+            operation_id: string | null;
+            command_id: string | null;
+            task_id: string;
+            definition_digest: string;
+            profile_digest: string | null;
+            runtime_attempt: components["schemas"]["RevisionString"] | null;
+            execution_epoch: components["schemas"]["RevisionString"] | null;
+            /** @enum {string} */
+            phase: "not_requested" | "prepare" | "activate" | "wire" | "capability" | "ready";
+            /** @enum {string} */
+            phase_status: "not_requested" | "pending" | "running" | "reconciling" | "blocked" | "succeeded" | "cancelled" | "failed";
+            reason_code: string | null;
+            allowed_actions: components["schemas"]["TaskCommandName"][];
+            /** Format: date-time */
+            observed_at: string;
+        };
         TaskCommand: {
             schema_version: components["schemas"]["ApiSchemaVersion"];
             command: components["schemas"]["TaskCommandName"];
@@ -2361,6 +2487,33 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    listTasksV2: {
+        parameters: {
+            query: {
+                project_id: string;
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Authorized task page with no hidden count */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFoundOrForbidden"];
+            422: components["responses"]["InvalidSchema"];
+        };
+    };
     createTaskV2: {
         parameters: {
             query?: never;
@@ -2388,6 +2541,102 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["InvalidSchema"];
+        };
+    };
+    getTaskOptionsV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Redacted published options without credentials */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskOptions"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFoundOrForbidden"];
+        };
+    };
+    getTaskV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: components["parameters"]["TaskId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current task state; accepted commands do not prove process exit */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskView"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFoundOrForbidden"];
+        };
+    };
+    getTaskReadinessV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: components["parameters"]["TaskId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Configuration facts and explicit unknown checks */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadinessReport"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFoundOrForbidden"];
+        };
+    };
+    getTaskLaunchV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: components["parameters"]["TaskId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Launch progress or explicit not-requested state */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LaunchView"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFoundOrForbidden"];
         };
     };
     commandTaskV2: {
