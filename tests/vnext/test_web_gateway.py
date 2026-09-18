@@ -27,6 +27,13 @@ class FakeResponse:
         self.status_code = status_code
         self.content = content
         self.headers = headers or {"content-type": "application/json"}
+        self.closed = False
+
+    async def aiter_raw(self):
+        yield self.content
+
+    async def aclose(self) -> None:
+        self.closed = True
 
 
 class FakeStreamResponse:
@@ -63,12 +70,25 @@ class FakeClient:
         self.requests.append((url, dict(headers)))
         return self.response
 
-    def build_request(self, method: str, url: str, *, headers: dict[str, str]):
+    def build_request(
+        self,
+        method: str,
+        url: str,
+        *,
+        headers: dict[str, str],
+        content: bytes | None = None,
+    ):
         self.streams.append((url, dict(headers)))
-        return (method, url, dict(headers))
+        return (method, url, dict(headers), content)
 
     async def send(self, request, *, stream: bool = False, timeout=None):
-        return self.stream_response
+        method, url, headers, content = request
+        if "/api/v2/views/" in url and url.endswith("/events"):
+            return self.stream_response
+        self.requests.append((url, dict(headers)))
+        if method != "GET":
+            self.request_bodies.append((method, url, dict(headers), content or b""))
+        return self.response
 
     async def request(self, method: str, url: str, *, headers: dict[str, str], content: bytes):
         self.requests.append((url, dict(headers)))
@@ -89,17 +109,21 @@ def settings(tmp_path: Path):
     )
     signing = tmp_path / "identity.key"
     session = tmp_path / "session.key"
+    access = tmp_path / "local-access.token"
     ca = tmp_path / "ca.crt"
     signing.write_bytes(private)
     session.write_bytes(b"s" * 32)
+    access.write_bytes(b"b" * 32)
     ca.write_text("unused with injected client")
     return gateway_module.GatewaySettings.model_validate(
         {
-            "schema_version": "wuji.web-gateway.v1",
+            "schema_version": "wuji.web-gateway.v2",
+            "mode": "local_single_operator",
             "api_base_url": "https://api.wuji-vnext-test.svc:8443",
             "ca_file": str(ca),
             "signing_key_file": str(signing),
             "session_key_file": str(session),
+            "local_access_token_file": str(access),
             "issuer": "https://identity.wuji-vnext-test.invalid",
             "audience": "wuji-vnext-deployment",
             "subject": "operator",
@@ -129,7 +153,11 @@ def test_browser_login_uses_an_httponly_same_site_cookie(tmp_path):
                 "/auth/login", headers={"Origin": "http://not-the-workbench.invalid"}
             )
             login = await client.post(
-                "/auth/login", headers={"Origin": "http://127.0.0.1:44180"}
+                "/auth/login",
+                headers={
+                    "Origin": "http://127.0.0.1:44180",
+                    gateway_module.LOCAL_ACCESS_HEADER: "b" * 32,
+                },
             )
             current = await client.get("/auth/session")
             logout = await client.post(
@@ -147,10 +175,12 @@ def test_browser_login_uses_an_httponly_same_site_cookie(tmp_path):
     assert "Authorization" not in login.text
     assert current.json() == {
         "authenticated": True,
+        "mode": "local_single_operator",
+        "subject": "operator",
         "display_name": "Local test operator",
         "tenant_id": "tenant-fixture",
         "project_id": "project-fixture",
-        "task_id": "task-fixture",
+        "initial_task_id": "task-fixture",
         "expires_at": current.json()["expires_at"],
     }
     assert logout.status_code == 204
@@ -174,9 +204,7 @@ def test_browser_proxy_mints_short_lived_internal_identity(tmp_path):
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app), base_url="http://127.0.0.1:44180"
         ) as client:
-            await client.post(
-                "/auth/login", headers={"Origin": "http://127.0.0.1:44180"}
-            )
+            await _login(client)
             response = await client.get(
                 "/api/v2/tasks/task-fixture/topology?mode=live"
             )
@@ -188,8 +216,8 @@ def test_browser_proxy_mints_short_lived_internal_identity(tmp_path):
     response, wrong_task = asyncio.run(run())
     assert response.status_code == 200
     assert response.content == body
-    assert wrong_task.status_code == 404
-    assert len(fake.requests) == 1
+    assert wrong_task.status_code == 200
+    assert len(fake.requests) == 2
     url, headers = fake.requests[0]
     assert url.endswith("/api/v2/tasks/task-fixture/topology?mode=live")
     scheme, bearer = headers["Authorization"].split(" ", 1)
@@ -223,7 +251,7 @@ def test_browser_proxy_allows_only_bounded_layout_put_and_preserves_conflict(tmp
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app), base_url="http://127.0.0.1:44180"
         ) as client:
-            await client.post("/auth/login", headers={"Origin": "http://127.0.0.1:44180"})
+            await _login(client)
             missing_origin = await client.put(
                 "/api/v2/tasks/task-fixture/layouts/knowledge-live",
                 headers={"Content-Type": "application/json", "If-Match": "0"},
@@ -252,7 +280,7 @@ def test_browser_proxy_allows_only_bounded_layout_put_and_preserves_conflict(tmp
     missing_origin, conflict, forbidden = asyncio.run(run())
     assert missing_origin.status_code == 403
     assert conflict.status_code == 409
-    assert conflict.content == error
+    assert conflict.json() == json.loads(error)
     assert forbidden.status_code == 404
     assert len(fake.request_bodies) == 1
     method, url, headers, forwarded = fake.request_bodies[0]
@@ -264,7 +292,11 @@ def test_browser_proxy_allows_only_bounded_layout_put_and_preserves_conflict(tmp
 
 def _login(client):
     return client.post(
-        "/auth/login", headers={"Origin": "http://127.0.0.1:44180"}
+        "/auth/login",
+        headers={
+            "Origin": "http://127.0.0.1:44180",
+            gateway_module.LOCAL_ACCESS_HEADER: "b" * 32,
+        },
     )
 
 
@@ -360,7 +392,7 @@ def test_browser_proxy_records_a_delivery_only_for_its_own_task(tmp_path):
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app), base_url="http://127.0.0.1:44180"
         ) as client:
-            await client.post("/auth/login", headers={"Origin": "http://127.0.0.1:44180"})
+            await _login(client)
             origin = {"Origin": "http://127.0.0.1:44180"}
             foreign = await client.post(
                 "/api/v2/tasks/task-other/reports/report-1/deliveries",
@@ -394,15 +426,18 @@ def test_browser_proxy_records_a_delivery_only_for_its_own_task(tmp_path):
             return foreign, missing_key, accepted, read, read_one, foreign_read
 
     foreign, missing_key, accepted, read, read_one, foreign_read = asyncio.run(run())
-    assert foreign.status_code == 404
+    assert foreign.status_code == 200
     assert missing_key.status_code == 422
     assert accepted.status_code == 200
     assert read.status_code == 200
     assert read_one.status_code == 200
-    assert foreign_read.status_code == 404
-    assert len(fake.request_bodies) == 1
+    assert foreign_read.status_code == 200
+    assert len(fake.request_bodies) == 2
     method, url, headers, forwarded = fake.request_bodies[0]
     assert method == "POST"
-    assert url.endswith("/api/v2/tasks/task-fixture/reports/report-1/deliveries")
+    assert url.endswith("/api/v2/tasks/task-other/reports/report-1/deliveries")
     assert headers["Idempotency-Key"] == "delivery-key-1"
     assert forwarded == body
+    assert fake.request_bodies[1][1].endswith(
+        "/api/v2/tasks/task-fixture/reports/report-1/deliveries"
+    )
