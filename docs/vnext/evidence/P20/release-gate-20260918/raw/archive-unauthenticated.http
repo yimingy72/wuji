@@ -1,0 +1,11 @@
+GET /api/v2/archives/archive-fixture HTTP/1.1
+Host: testserver
+Accept: application/json
+Connection: keep-alive
+
+HTTP/1.1 401 Unauthorized
+content-type: application/json
+content-length: 155
+x-request-id: 5277d2f3-b9ab-4d13-a99d-3da23b72fa06
+
+{"code":"UNAUTHENTICATED","message":"A valid bearer token is required.","request_id":"5277d2f3-b9ab-4d13-a99d-3da23b72fa06","retryable":false,"details":{}}
