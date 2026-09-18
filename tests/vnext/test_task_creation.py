@@ -7,8 +7,9 @@ from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 import json
 from pathlib import Path
-import pytest
 from types import SimpleNamespace
+
+import pytest
 
 from support.http_capture import RecordedTestClient
 from support import identity_provider
