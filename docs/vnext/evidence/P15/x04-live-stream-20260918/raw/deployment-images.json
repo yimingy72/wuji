@@ -1,0 +1,26 @@
+{
+  "items": [
+    {
+      "name": "api",
+      "containers": [
+        {
+          "name": "api",
+          "image": "127.0.0.1:56615/wuji-vnext-platform@sha256:58a4a979b670dcb416bc33d23a7956fa691a42c98594c26c1fa0c1e4b793659d"
+        }
+      ]
+    },
+    {
+      "name": "wuji-web",
+      "containers": [
+        {
+          "name": "web",
+          "image": "127.0.0.1:56615/wuji-web@sha256:e8fbdb7bec3e813556363f7feb76576027b0803abc4e6ff2727ed7ab838cbe6b"
+        },
+        {
+          "name": "gateway",
+          "image": "127.0.0.1:56615/wuji-vnext-platform@sha256:58a4a979b670dcb416bc33d23a7956fa691a42c98594c26c1fa0c1e4b793659d"
+        }
+      ]
+    }
+  ]
+}

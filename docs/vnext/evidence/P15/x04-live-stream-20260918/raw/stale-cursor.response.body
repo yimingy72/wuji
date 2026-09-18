@@ -1,0 +1,3 @@
+event: reset
+data: {"schema_version":"wuji.view-reset.v2","view_id":"548583f3-a877-4ed4-8462-8065797e2dea","reason":"change_too_large","action":"resnapshot"}
+

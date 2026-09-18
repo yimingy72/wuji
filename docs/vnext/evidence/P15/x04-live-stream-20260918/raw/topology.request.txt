@@ -1,0 +1,5 @@
+GET /api/v2/tasks/2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0/topology?mode=live&node_limit=300&edge_limit=600 HTTP/1.1
+Host: 127.0.0.1:18456
+Authorization: Bearer <redacted operator RS256 bearer>
+Accept: application/json
+

@@ -1,0 +1,9 @@
+POST /api/v2/tasks/2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0/commands HTTP/1.1
+Host: 127.0.0.1:18457
+Authorization: Bearer <redacted operator RS256 bearer>
+Content-Type: application/json
+Idempotency-Key: x04-pause-20260918
+
+{"schema_version":"wuji.api.v2","command":"pause","expected_version":"5","reason":"X04 live stream snapshot binding probe"}
+
+HTTP response headers/body are in pause.response.headers and pause.response.json.

@@ -1,0 +1,44 @@
+: keepalive
+
+id: C9jF3FtzloJYUNMyi6qMhRvSs5deiCTM86vy1d1Zymw
+event: view
+data: {"schema_version":"wuji.view-event.v3","view_id":"548583f3-a877-4ed4-8462-8065797e2dea","snapshot_id":"7a475b32-0afc-4652-979f-a1f031a10a18","base_view_revision":"1","view_revision":"2","cursor":"C9jF3FtzloJYUNMyi6qMhRvSs5deiCTM86vy1d1Zymw","patches":[{"op":"upsert_node","value":{"id":"origin:2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0@7","ref":{"entity_type":"origin","id":"2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0","revision":"7"},"display_kind":"origin","label":"P11-C K8s creation probe","state":"reconciling","allowed_actions":[]}},{"op":"upsert_node","value":{"id":"work_item:083228de-6438-4b5e-b962-448433e04d5f@9","ref":{"entity_type":"work_item","id":"083228de-6438-4b5e-b962-448433e04d5f","revision":"9"},"display_kind":"work_item","label":"explore · 083228de-6438-4b5e-b962-448433e04d5f","state":"reconciling","allowed_actions":[]}},{"op":"upsert_node","value":{"id":"work_item:dd7ae78b-be5b-4b0b-89f8-0a3c49294904@7","ref":{"entity_type":"work_item","id":"dd7ae78b-be5b-4b0b-89f8-0a3c49294904","revision":"7"},"display_kind":"work_item","label":"reason · dd7ae78b-be5b-4b0b-89f8-0a3c49294904","state":"reconciling","allowed_actions":[]}},{"op":"remove_node","value":{"id":"origin:2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0@5"}},{"op":"remove_node","value":{"id":"work_item:083228de-6438-4b5e-b962-448433e04d5f@8"}},{"op":"remove_node","value":{"id":"work_item:dd7ae78b-be5b-4b0b-89f8-0a3c49294904@6"}},{"op":"upsert_edge","value":{"id":"relation:5742cef4b48db61ea6b8b1fe3e15b6f7ca34e595121c33d7d3a2af0c5ccea72e","source":"intent:731ff0e5-e951-40b6-8d3b-a3113ef00b07@1","target":"work_item:083228de-6438-4b5e-b962-448433e04d5f@9","edge_type":"scheduled_as","label":null}},{"op":"upsert_edge","value":{"id":"relation:d2251817cb19f90492a2ceafa331439d7a88afc575b176a3b147168374e9dcd2","source":"work_item:083228de-6438-4b5e-b962-448433e04d5f@9","target":"agent_run:81e6822c-bb7c-45fa-9aa1-ea59012c7879@1","edge_type":"has_run","label":null}},{"op":"upsert_edge","value":{"id":"relation:e55e6dc2bd420223423e5849ba0b58e0f3d19a9365c5fdff2a9c68230eb4d4a5","source":"origin:2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0@7","target":"work_item:083228de-6438-4b5e-b962-448433e04d5f@9","edge_type":"contains_work","label":null}},{"op":"upsert_edge","value":{"id":"relation:140c53c36da6c8d3b6fdfd50919643d7e199bcb4357ebe2d1acfa722c236ae9a","source":"origin:2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0@7","target":"work_item:dd7ae78b-be5b-4b0b-89f8-0a3c49294904@7","edge_type":"contains_work","label":null}},{"op":"upsert_edge","value":{"id":"relation:8bf01c0693ecb6c93450f295be099b2bc1e806d37177017b1be6469c3bc1b062","source":"work_item:dd7ae78b-be5b-4b0b-89f8-0a3c49294904@7","target":"agent_run:32225e35-13f5-4827-b96c-ee202f6b43df@1","edge_type":"has_run","label":null}},{"op":"remove_edge","value":{"id":"relation:19250042c0c7bc6feeef2cb3816c4bdb5efbbf3e21479c9d78fc1ddebe4aca2c"}},{"op":"remove_edge","value":{"id":"relation:223dcd55cefc8ee1185a68d379976b84c2b90aa58c9068eaba674c7e7d2a442d"}},{"op":"remove_edge","value":{"id":"relation:d7e98d4e62240bb3f4c42aebc74157a0c1184aeb8c1a49a2077f9aa968ce7a39"}},{"op":"remove_edge","value":{"id":"relation:40e26bdb8c6ca0f465292c566661d1b9ef493dab84a42affb20736f1d122446c"}},{"op":"remove_edge","value":{"id":"relation:e16ac7d377e2774dfe9a5906a32b526147123fc9da1bdb8cdac90de83e640f55"}}]}
+
+: keepalive
+
+: keepalive
+
+: keepalive
+
+id: dHfzU3JL0-0x81uYMCw6w75cLHtllLYs56WHiafh48M
+event: view
+data: {"schema_version":"wuji.view-event.v3","view_id":"548583f3-a877-4ed4-8462-8065797e2dea","snapshot_id":"6ce9d7f6-374c-476d-859b-05cd7b278caa","base_view_revision":"2","view_revision":"3","cursor":"dHfzU3JL0-0x81uYMCw6w75cLHtllLYs56WHiafh48M","patches":[{"op":"upsert_node","value":{"id":"origin:2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0@8","ref":{"entity_type":"origin","id":"2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0","revision":"8"},"display_kind":"origin","label":"P11-C K8s creation probe","state":"running","allowed_actions":[]}},{"op":"upsert_node","value":{"id":"work_item:083228de-6438-4b5e-b962-448433e04d5f@10","ref":{"entity_type":"work_item","id":"083228de-6438-4b5e-b962-448433e04d5f","revision":"10"},"display_kind":"work_item","label":"explore · 083228de-6438-4b5e-b962-448433e04d5f","state":"reconciling","allowed_actions":[]}},{"op":"upsert_node","value":{"id":"work_item:dd7ae78b-be5b-4b0b-89f8-0a3c49294904@8","ref":{"entity_type":"work_item","id":"dd7ae78b-be5b-4b0b-89f8-0a3c49294904","revision":"8"},"display_kind":"work_item","label":"reason · dd7ae78b-be5b-4b0b-89f8-0a3c49294904","state":"reconciling","allowed_actions":[]}},{"op":"remove_node","value":{"id":"origin:2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0@7"}},{"op":"remove_node","value":{"id":"work_item:083228de-6438-4b5e-b962-448433e04d5f@9"}},{"op":"remove_node","value":{"id":"work_item:dd7ae78b-be5b-4b0b-89f8-0a3c49294904@7"}},{"op":"upsert_edge","value":{"id":"relation:053b0c757bf72cea481192d6e374b5a927a342f0755ce20a0b5564f0c97850f2","source":"work_item:083228de-6438-4b5e-b962-448433e04d5f@10","target":"agent_run:81e6822c-bb7c-45fa-9aa1-ea59012c7879@1","edge_type":"has_run","label":null}},{"op":"upsert_edge","value":{"id":"relation:7d5074ee38a6fc27480813a40141bf3d34d19d2bdf58adb30aeeef19ed8dbd14","source":"intent:731ff0e5-e951-40b6-8d3b-a3113ef00b07@1","target":"work_item:083228de-6438-4b5e-b962-448433e04d5f@10","edge_type":"scheduled_as","label":null}},{"op":"upsert_edge","value":{"id":"relation:cd1c15ec4ba29b9ff11902da7b3581e569be2685d329a96681c129ee07ba4064","source":"origin:2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0@8","target":"work_item:083228de-6438-4b5e-b962-448433e04d5f@10","edge_type":"contains_work","label":null}},{"op":"upsert_edge","value":{"id":"relation:ac45aaf488bb33e9b40e20a62b7b1892c9bfc2e3aff9cfff4369845b009497e4","source":"work_item:dd7ae78b-be5b-4b0b-89f8-0a3c49294904@8","target":"agent_run:32225e35-13f5-4827-b96c-ee202f6b43df@1","edge_type":"has_run","label":null}},{"op":"upsert_edge","value":{"id":"relation:d1b0647f32c62aaad9c0105767d52cb83f0cb3441762a6e50f860e2ea5fe6763","source":"origin:2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0@8","target":"work_item:dd7ae78b-be5b-4b0b-89f8-0a3c49294904@8","edge_type":"contains_work","label":null}},{"op":"remove_edge","value":{"id":"relation:5742cef4b48db61ea6b8b1fe3e15b6f7ca34e595121c33d7d3a2af0c5ccea72e"}},{"op":"remove_edge","value":{"id":"relation:d2251817cb19f90492a2ceafa331439d7a88afc575b176a3b147168374e9dcd2"}},{"op":"remove_edge","value":{"id":"relation:e55e6dc2bd420223423e5849ba0b58e0f3d19a9365c5fdff2a9c68230eb4d4a5"}},{"op":"remove_edge","value":{"id":"relation:140c53c36da6c8d3b6fdfd50919643d7e199bcb4357ebe2d1acfa722c236ae9a"}},{"op":"remove_edge","value":{"id":"relation:8bf01c0693ecb6c93450f295be099b2bc1e806d37177017b1be6469c3bc1b062"}}]}
+
+: keepalive
+
+: keepalive
+
+: keepalive
+
+: keepalive
+
+: keepalive
+
+: keepalive
+
+: keepalive
+
+: keepalive
+
+: keepalive
+
+: keepalive
+
+: keepalive
+
+: keepalive
+
+: keepalive
+
+: keepalive
+

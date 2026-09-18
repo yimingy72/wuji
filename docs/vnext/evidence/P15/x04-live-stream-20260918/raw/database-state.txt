@@ -1,0 +1,21 @@
+               task_id                | desired_state | observed_state | control_version | event_seq 
+--------------------------------------+---------------+----------------+-----------------+-----------
+ 2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0 | pause         | reconciling    |              10 |        14
+(1 row)
+
+               view_id                |             snapshot_id              | view_revision 
+--------------------------------------+--------------------------------------+---------------
+ 548583f3-a877-4ed4-8462-8065797e2dea | 19940a25-4ba2-4995-8cd9-fa943fafa0b0 |             4
+(1 row)
+
+  kind  | count 
+--------+-------
+ page   |     1
+ stream |     3
+(2 rows)
+
+                  head                  
+----------------------------------------
+ vnext_0028_p06_platform_run_settlement
+(1 row)
+

@@ -1,0 +1,5 @@
+GET /api/v2/views/548583f3-a877-4ed4-8462-8065797e2dea/events?cursor=C9jF3FtzloJYUNMyi6qMhRvSs5deiCTM86vy1d1Zymw HTTP/1.1
+Host: 127.0.0.1:18456
+Authorization: Bearer <redacted operator RS256 bearer>
+Accept: text/event-stream
+

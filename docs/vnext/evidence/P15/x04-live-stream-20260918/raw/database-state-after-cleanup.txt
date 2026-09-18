@@ -1,0 +1,5 @@
+               task_id                | desired_state | observed_state | control_version | event_seq 
+--------------------------------------+---------------+----------------+-----------------+-----------
+ 2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0 | run           | running        |              11 |        15
+(1 row)
+

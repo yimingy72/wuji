@@ -1,0 +1,6 @@
+Browser: http://127.0.0.1:44180/
+Session: established, Task=2abfdd57-7a0f-4cba-8ce4-2a57f751d0b0
+Initial AX state: “实时视图已连接”; snapshot c6b851b1-f43f-479b-9538-3f523ab6b8e0, view revision 1.
+After external pause command x04-pause2-20260918, without browser reload:
+“实时视图已连接”; snapshot af392534-46bd-4662-ae31-8634f65cf992, view revision 2;
+origin/work items advanced to @10/@11 and remained visible in the same workbench.
