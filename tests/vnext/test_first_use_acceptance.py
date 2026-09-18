@@ -47,8 +47,8 @@ def bff_peer(*, cancel_state="closed", start_state="running", fault=None):
                     return self.reply(200, {"choices": [{"message": {"role": "assistant", "content": "received"}}]})
                 return self.reply(200, {"choices": [{"message": {"role": "assistant", "tool_calls": [{"id": "native-1", "type": "function", "function": {"name": "read", "arguments": "{}"}}]}}]})
             if self.path == "/auth/login":
-                if self.headers.get("x-wuji-local-bootstrap") != "synthetic-bootstrap-only":
-                    return self.reply(401, {"error": "bootstrap"})
+                if self.headers.get("X-Wuji-Local-Access") != "synthetic-access-only":
+                    return self.reply(401, {"error": "local_access"})
                 return self.reply(200, {"authenticated": True}, cookie=True)
             if self.headers.get("Cookie") != "wuji_vnext_session=synthetic-test-session":
                 return self.reply(401, {"error": "cookie"})
@@ -103,13 +103,13 @@ def arguments(tmp_path, origin, action):
     driver.write_object(payload, {"name": "no marker or answer in Goal"})
     return argparse.Namespace(base_url=origin, action=action, create_payload=payload,
                               state=tmp_path / "state.json", output=tmp_path / f"{action}.json",
-                              session_file=tmp_path / "session-private.json", bootstrap_env="A8_SYNTHETIC_BOOTSTRAP",
+                              session_file=tmp_path / "session-private.json", access_env="A8_SYNTHETIC_ACCESS", relogin=False,
                               candidate_sha=SHA, timeout=1, poll_count=2, poll_interval=0)
 
 
 @pytest.fixture(autouse=True)
 def local_credential(monkeypatch):
-    monkeypatch.setenv("A8_SYNTHETIC_BOOTSTRAP", "synthetic-bootstrap-only")
+    monkeypatch.setenv("A8_SYNTHETIC_ACCESS", "synthetic-access-only")
 
 
 def test_cookie_origin_and_explicit_create_start_pause_cancel(tmp_path):
@@ -128,7 +128,7 @@ def test_cookie_origin_and_explicit_create_start_pause_cancel(tmp_path):
         assert all(r["origin"] == origin for r in requests if r["method"] == "POST")
         public = (tmp_path / "cancel.json").read_text()
         assert "synthetic-test-session" not in public
-        assert "synthetic-bootstrap-only" not in public
+        assert "synthetic-access-only" not in public
         assert len([r for r in requests if r["path"] == "/auth/login"]) == 1
         assert "[REDACTED]" in public
 

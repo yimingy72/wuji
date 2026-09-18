@@ -32,7 +32,7 @@ ID = re.compile(r"^[A-Za-z0-9_.:-]{1,256}$")
 SHA = re.compile(r"^[0-9a-f]{64}$")
 SECRET_NAMES = {"authorization", "proxy-authorization", "cookie", "set-cookie",
                 "api_key", "api-key", "apikey", "token", "access_token",
-                "refresh_token", "secret", "password", "x-api-key", "x-wuji-local-bootstrap"}
+                "refresh_token", "secret", "password", "x-api-key", "x-wuji-local-access"}
 
 
 class DriverError(RuntimeError):
@@ -132,7 +132,7 @@ class LocalBFFClient:
     def close(self):
         self.client.close()
 
-    def request(self, method, path, *, body=None, key=None, bootstrap=None):
+    def request(self, method, path, *, body=None, key=None, local_access=None):
         if not allowed_route(method, path):
             raise DriverError("route is outside the public control allowlist")
         headers = {"Accept": "application/json"}
@@ -142,10 +142,10 @@ class LocalBFFClient:
             headers["Content-Type"] = "application/json"
         if key:
             headers["Idempotency-Key"] = key
-        if bootstrap is not None:
+        if local_access is not None:
             if (method, path) != ("POST", "/auth/login"):
-                raise DriverError("bootstrap credential only belongs to login")
-            headers["x-wuji-local-bootstrap"] = bootstrap
+                raise DriverError("local access credential only belongs to login")
+            headers["X-Wuji-Local-Access"] = local_access
         request = self.client.build_request(method, path, headers=headers,
                                             content=encoded(body) if body is not None else b"")
         entry = {"method": method, "url": str(request.url), "request_headers": headers_public(request.headers),
@@ -190,8 +190,11 @@ class LocalBFFClient:
         finally:
             self.persist()
 
-    def login(self, *, session_file, bootstrap=None):
-        if session_file.exists():
+    def login(self, *, session_file, local_access=None, relogin=False):
+        # Avoid two same-name cookies with different domain scopes when a
+        # client reloads its saved session and then explicitly logs in again.
+        self.client.cookies.clear()
+        if session_file.exists() and not relogin:
             if session_file.is_symlink() or session_file.stat().st_mode & 0o077:
                 raise DriverError("session file must be a restricted regular file (0600)")
             session_cookie = read_object(session_file)
@@ -202,9 +205,9 @@ class LocalBFFClient:
                 raise DriverError("invalid session cookie")
             self.client.cookies.set("wuji_vnext_session", token)
         else:
-            if not bootstrap:
-                raise DriverBlocked("A0 must supply a restricted BFF session file or one-time local bootstrap input")
-            self.request("POST", "/auth/login", bootstrap=bootstrap)
+            if not local_access:
+                raise DriverBlocked("A0 must supply a restricted BFF session file or local access input")
+            self.request("POST", "/auth/login", local_access=local_access)
             token = self.client.cookies.get("wuji_vnext_session")
             if not token:
                 raise DriverError("login did not set the BFF session cookie")
@@ -255,8 +258,8 @@ def control(args):
     persist()
     client = LocalBFFClient(origin, journal, persist, timeout=args.timeout)
     try:
-        bootstrap = os.environ.get(args.bootstrap_env) if args.bootstrap_env else None
-        session = client.login(session_file=args.session_file, bootstrap=bootstrap)
+        local_access = os.environ.get(args.access_env) if args.access_env else None
+        session = client.login(session_file=args.session_file, local_access=local_access, relogin=args.relogin)
         journal["identity_mode"] = session["mode"]
         if args.action == "create":
             if state.get("task_id"):
@@ -406,7 +409,8 @@ def main(argv=None):
     run.add_argument("--state", type=Path, required=True)
     run.add_argument("--output", type=Path, required=True)
     run.add_argument("--session-file", type=Path, required=True, help="restricted 0600 BFF Cookie file, never Git/public evidence")
-    run.add_argument("--bootstrap-env", help="A0-supplied one-time local login credential; never a provider key")
+    run.add_argument("--access-env", help="A0-supplied local BFF login credential; never a provider key")
+    run.add_argument("--relogin", action="store_true", help="explicitly replace the session; revokes the previous single-operator session")
     run.add_argument("--candidate-sha", required=True)
     run.add_argument("--timeout", type=float, default=10)
     run.add_argument("--poll-count", type=int, default=40)
