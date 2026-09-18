@@ -1277,7 +1277,7 @@ components:
       enum: [wuji.agent-payload.v2]
     ViewEventSchemaVersion:
       type: string
-      enum: [wuji.view-event.v2]
+      enum: [wuji.view-event.v3]
     ViewResetSchemaVersion:
       type: string
       enum: [wuji.view-reset.v2]
@@ -2646,10 +2646,11 @@ components:
     ViewEventBatch:
       type: object
       additionalProperties: false
-      required: [schema_version, view_id, base_view_revision, view_revision, cursor, patches]
+      required: [schema_version, view_id, snapshot_id, base_view_revision, view_revision, cursor, patches]
       properties:
         schema_version: {$ref: '#/components/schemas/ViewEventSchemaVersion'}
         view_id: {type: string, minLength: 1, maxLength: 256}
+        snapshot_id: {type: string, minLength: 1, maxLength: 256}
         base_view_revision: {$ref: '#/components/schemas/RevisionString'}
         view_revision: {$ref: '#/components/schemas/RevisionString'}
         cursor: {type: string, minLength: 1, maxLength: 4096}

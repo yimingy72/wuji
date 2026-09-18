@@ -327,9 +327,19 @@ class ProjectionRepository:
             view = self._view(tx, view_id)
             saved = self._materialization(tx, view["snapshot_id"])
             if cursor is not None:
-                position = self._cursor(tx, cursor, "stream")
-                if position["view_id"] != view["view_id"] or position["query_digest"] != view["query_digest"]:
+                saved_cursor = self._cursor(tx, cursor, "stream")
+                if saved_cursor["view_id"] != view["view_id"] or saved_cursor["query_digest"] != view["query_digest"]:
                     raise DomainError("NOT_FOUND_OR_FORBIDDEN")
+                # A cursor is a proof of the exact view state the client has
+                # consumed. Once another consumer advances the same view, an
+                # older cursor cannot safely resume by diffing from the new
+                # server state; force a resnapshot instead of skipping a batch.
+                position = strict_json_loads(saved_cursor["position_json"])
+                if (
+                    position.get("view_revision") != str(view["view_revision"])
+                    or position.get("snapshot_id") != view["snapshot_id"]
+                ):
+                    raise DomainError("VIEW_RESET_REQUIRED", 409)
             origin = tx.connection.execute(
                 "SELECT event_seq FROM vnext.task WHERE tenant_id=%s AND project_id=%s AND task_id=%s",
                 tx.owner,
@@ -359,12 +369,17 @@ class ProjectionRepository:
             handle = self._save_cursor(
                 tx, kind="stream", query_digest=view["query_digest"],
                 expires_at=view["expires_at"],
-                position={"event_seq": int(origin), "snapshot_id": advanced["snapshot_id"]},
+                position={
+                    "event_seq": int(origin),
+                    "snapshot_id": advanced["snapshot_id"],
+                    "view_revision": str(revision),
+                },
                 view_id=view["view_id"],
             )
             return dict(
-                schema_version="wuji.view-event.v2",
+                schema_version="wuji.view-event.v3",
                 view_id=view["view_id"],
+                snapshot_id=advanced["snapshot_id"],
                 base_view_revision=str(view["view_revision"]),
                 view_revision=str(revision),
                 cursor=handle,

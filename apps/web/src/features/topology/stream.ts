@@ -9,8 +9,9 @@ export interface ViewPatch {
 }
 
 export interface ViewEventBatch {
-  readonly schema_version: 'wuji.view-event.v2';
+  readonly schema_version: 'wuji.view-event.v3';
   readonly view_id: string;
+  readonly snapshot_id: string;
   readonly base_view_revision: string;
   readonly view_revision: string;
   readonly cursor: string;
@@ -59,8 +60,10 @@ export function parseViewStreamEvent(
   if (name !== 'view') return null;
   if (
     !isRecord(data)
-    || data.schema_version !== 'wuji.view-event.v2'
+    || data.schema_version !== 'wuji.view-event.v3'
     || data.view_id !== expectedViewId
+    || typeof data.snapshot_id !== 'string'
+    || data.snapshot_id.length === 0
     || !isRevision(data.base_view_revision)
     || !isRevision(data.view_revision)
     || typeof data.cursor !== 'string'
@@ -80,8 +83,9 @@ export function parseViewStreamEvent(
   return {
     kind: 'view',
     batch: {
-      schema_version: 'wuji.view-event.v2',
+      schema_version: 'wuji.view-event.v3',
       view_id: data.view_id as string,
+      snapshot_id: data.snapshot_id as string,
       base_view_revision: data.base_view_revision as string,
       view_revision: data.view_revision as string,
       cursor: data.cursor,
@@ -101,7 +105,11 @@ export function applyViewPatches(
   snapshot: TopologySnapshotInput,
   batch: ViewEventBatch,
 ): TopologySnapshotInput | null {
-  if (batch.view_id !== snapshot.view_id || batch.base_view_revision !== snapshot.view_revision) {
+  if (
+    batch.view_id !== snapshot.view_id
+    || batch.base_view_revision !== snapshot.view_revision
+    || batch.snapshot_id.length === 0
+  ) {
     return null;
   }
   const nodes = new Map(snapshot.nodes.map((node) => [node.id, node]));
@@ -139,6 +147,7 @@ export function applyViewPatches(
   if (nodes.size > MAX_NODES || edges.size > MAX_EDGES) return null;
   return {
     ...snapshot,
+    snapshot_id: batch.snapshot_id,
     view_revision: batch.view_revision,
     nodes: [...nodes.values()],
     edges: [...edges.values()],

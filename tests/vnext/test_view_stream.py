@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from types import SimpleNamespace
 
 import httpx
 import pytest
@@ -50,8 +51,9 @@ def test_the_stream_starts_idle_and_then_advances_the_same_view(
         revise_claim(case, claim, text="revised after the snapshot")
         batch = _step(case, view["view_id"])
         assert batch is not None
-        assert batch["schema_version"] == "wuji.view-event.v2"
+        assert batch["schema_version"] == "wuji.view-event.v3"
         assert batch["view_id"] == view["view_id"]
+        assert batch["snapshot_id"] != view["snapshot_id"]
         assert batch["base_view_revision"] == "1"
         assert batch["view_revision"] == "2"
         assert batch["cursor"] and len(batch["cursor"]) >= 32
@@ -64,6 +66,31 @@ def test_the_stream_starts_idle_and_then_advances_the_same_view(
         # The cursor resumes the same view and stays idle until the next change.
         assert _step(case, view["view_id"], batch["cursor"]) is None
         assert _step(case, view["view_id"], batch["cursor"]) is None
+
+
+def test_a_cursor_from_an_older_view_revision_requires_a_resnapshot(
+    db_environment, tmp_path, audit_directory
+):
+    with projection_case(db_environment, tmp_path, audit_directory) as case:
+        claim = supported_claim(case)
+        view = _view(case)
+
+        first_ref = revise_claim(case, claim, text="first stream change")
+        first = _step(case, view["view_id"])
+        assert first is not None
+
+        # Another consumer advances the same saved view. The old cursor now
+        # names a state the server no longer holds as its current baseline.
+        second_claim = SimpleNamespace(body=claim.body, ref=first_ref)
+        second_ref = revise_claim(case, second_claim, text="second stream change")
+        second = _step(case, view["view_id"], first["cursor"])
+        assert second is not None
+
+        third_claim = SimpleNamespace(body=claim.body, ref=second_ref)
+        revise_claim(case, third_claim, text="third stream change")
+        with pytest.raises(DomainError) as stale:
+            _step(case, view["view_id"], first["cursor"])
+        assert stale.value.code == "VIEW_RESET_REQUIRED"
 
 
 def test_a_view_only_advances_for_its_own_subject_and_cursor(

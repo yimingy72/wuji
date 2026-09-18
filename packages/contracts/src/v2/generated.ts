@@ -964,7 +964,7 @@ export interface components {
         /** @enum {string} */
         AgentPayloadSchemaVersion: "wuji.agent-payload.v2";
         /** @enum {string} */
-        ViewEventSchemaVersion: "wuji.view-event.v2";
+        ViewEventSchemaVersion: "wuji.view-event.v3";
         /** @enum {string} */
         ViewResetSchemaVersion: "wuji.view-reset.v2";
         /** @enum {string} */
@@ -1727,6 +1727,7 @@ export interface components {
         ViewEventBatch: {
             schema_version: components["schemas"]["ViewEventSchemaVersion"];
             view_id: string;
+            snapshot_id: string;
             base_view_revision: components["schemas"]["RevisionString"];
             view_revision: components["schemas"]["RevisionString"];
             cursor: string;

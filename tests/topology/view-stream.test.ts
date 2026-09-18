@@ -34,8 +34,9 @@ const snapshot = {
 } as unknown as TopologySnapshotInput;
 
 const batch = {
-  schema_version: 'wuji.view-event.v2',
+  schema_version: 'wuji.view-event.v3',
   view_id: 'view-1',
+  snapshot_id: 'snapshot-2',
   base_view_revision: '1',
   view_revision: '2',
   cursor: 'c'.repeat(43),
@@ -86,6 +87,7 @@ describe('view stream boundary', () => {
     const next = applyViewPatches(snapshot, batch);
     expect(next).not.toBeNull();
     expect(next?.view_revision).toBe('2');
+    expect(next?.snapshot_id).toBe('snapshot-2');
     expect(next?.nodes.map((node) => node.id)).toEqual(['claim:c1@2']);
     expect(next?.edges).toEqual([]);
     // The page cursor belongs to the old snapshot and is not reused.

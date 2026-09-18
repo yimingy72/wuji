@@ -2304,14 +2304,15 @@ class ViewEventBatch(BaseModel):
     )
     schema_version: ViewEventSchemaVersion
     view_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    snapshot_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
     base_view_revision: RevisionString
     view_revision: RevisionString
     cursor: Annotated[StrictStr, Field(max_length=4096, min_length=1)]
     patches: Annotated[list[ViewPatch], Field(max_length=2000, min_length=1)]
 
 
-class ViewEventSchemaVersion(RootModel[Literal['wuji.view-event.v2']]):
-    root: Literal['wuji.view-event.v2']
+class ViewEventSchemaVersion(RootModel[Literal['wuji.view-event.v3']]):
+    root: Literal['wuji.view-event.v3']
 
 
 class ViewMode(StrEnum):
