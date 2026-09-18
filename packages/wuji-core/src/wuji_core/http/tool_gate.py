@@ -46,11 +46,17 @@ def create_tool_router(gate):
             return error_response(request, error)
 
     @router.get("/internal/v2/tool-calls/{tool_call_id}/material")
-    async def material(request: Request, tool_call_id: str):
+    async def material(request: Request, tool_call_id: str, representation: str | None = None):
         access = AccessContext(current_principal(request), request.state.request_id)
         try:
-            value = await run_in_threadpool(gate.result_material, access, tool_call_id)
-            return DecimalJSONResponse(value.model_dump(mode="python"))
+            value = await run_in_threadpool(
+                gate.result_material,
+                access,
+                tool_call_id,
+                representation=representation,
+            )
+            payload = value.model_dump(mode="python") if hasattr(value, "model_dump") else value
+            return DecimalJSONResponse(payload)
         except (DomainError, ValidationError, psycopg.Error, OSError, ValueError) as error:
             return error_response(request, error)
 

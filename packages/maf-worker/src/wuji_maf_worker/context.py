@@ -18,6 +18,7 @@ from wuji_core.contracts.knowledge import (
 )
 from wuji_core.contracts.views import RecordView
 from wuji_core.http.json_boundary import canonical_json_bytes
+from wuji_core.admission.model_material import validate_model_material_v2
 
 
 class ContextLimitExceeded(ValueError):
@@ -44,6 +45,16 @@ OMISSION_REASONS = frozenset(
         "unreadable",
         "not_utf8",
         "context_byte_limit",
+        "source_unavailable",
+        "source_not_sealed",
+        "source_digest_mismatch",
+        "unsupported_media",
+        "unsupported_schema",
+        "unsupported_charset",
+        "invalid_encoding",
+        "capture_truncated",
+        "representation_limit",
+        "delivery_error",
     }
 )
 
@@ -76,6 +87,13 @@ class InlineMaterial:
                 raise ValueError("an omission names an exact reference")
             if reason not in OMISSION_REASONS:
                 raise ValueError("an omission reason is from the fixed set")
+        for value in self.bodies.values():
+            if isinstance(value, dict) and value.get("schema_version") == "wuji.model-material.v2":
+                packet = validate_model_material_v2(
+                    value, tool_call_id=value.get("tool_call_id", "")
+                )
+                if packet is None or packet.status.value != "delivered":
+                    raise ValueError("inline v2 material must be a delivered packet")
         if set(self.reasons) & set(self.bodies):
             raise ValueError("one artifact is either delivered or omitted")
 
@@ -119,6 +137,13 @@ def _material_entry(value):
 
     if not isinstance(value, dict):
         raise ValueError("inline material must be a bounded text document")
+    if value.get("schema_version") == "wuji.model-material.v2":
+        packet = validate_model_material_v2(
+            value, tool_call_id=value.get("tool_call_id", "")
+        )
+        if packet is None or packet.status.value != "delivered":
+            raise ValueError("inline v2 material failed its digest/shape checks")
+        return packet.model_dump(mode="json")
     encoding = value.get("encoding")
     text = value.get("text")
     length = value.get("byte_length")

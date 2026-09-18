@@ -16,6 +16,10 @@ import tempfile
 from threading import RLock
 
 from wuji_core.admission.common import current_run
+from wuji_core.admission.model_material import (
+    HTTP_EXCHANGE_MEDIA_TYPE,
+    render_http_exchange_v2,
+)
 from wuji_core.contracts import generated as wire
 from wuji_core.contracts.envelopes import WorkerAssignment
 from wuji_core.execution.control import ExecutionObservation
@@ -149,8 +153,10 @@ def inline_material(*, artifacts, artifact_rows, references, context_bytes,
         return None
     from wuji_maf_worker.context import InlineMaterial
 
-    per_artifact = min(int(max_single_output_bytes), max(1, int(context_bytes) // 4))
-    total_budget = max(1, int(context_bytes) // 2)
+    per_artifact = min(
+        int(max_single_output_bytes), max(1, int(context_bytes) // 4), 32 * 1024
+    )
+    total_budget = min(64 * 1024, max(1, int(context_bytes) // 2))
     bodies, reasons, total = {}, {}, 0
     for key, value in artifact_rows.items():
         if key not in references:
@@ -159,6 +165,50 @@ def inline_material(*, artifacts, artifact_rows, references, context_bytes,
             reasons[key] = "not_sealed"
             continue
         media_type = value.get("media_type")
+        if media_type == HTTP_EXCHANGE_MEDIA_TYPE:
+            try:
+                from wuji_core.contracts.envelopes import BlobRef
+
+                tool_call_id = value.get("tool_call_id")
+                if not isinstance(tool_call_id, str) or not tool_call_id:
+                    reasons[key] = "delivery_error"
+                    continue
+                if (
+                    type(value.get("size_bytes")) is not int
+                    or value["size_bytes"] > min(1 * 1024 * 1024, int(max_single_output_bytes))
+                ):
+                    reasons[key] = "representation_limit"
+                    continue
+                ref = BlobRef.model_validate(
+                    {
+                        "id": key[1],
+                        "version": key[2],
+                        "sha256": value["sha256"],
+                    }
+                )
+                raw = artifacts.checked_bytes(value)
+                packet = render_http_exchange_v2(
+                    tool_call_id,
+                    artifact_ref=ref,
+                    artifact_record=value,
+                    raw=raw,
+                    max_source_bytes=min(1 * 1024 * 1024, int(max_single_output_bytes)),
+                    max_representation_bytes=per_artifact,
+                )
+            except (DomainError, KeyError, TypeError, ValueError):
+                reasons[key] = "source_unavailable"
+                continue
+            if packet.status.value != "delivered" or packet.representation is None:
+                reasons[key] = packet.omission_reason.value if packet.omission_reason else "delivery_error"
+                continue
+            entry = packet.model_dump(mode="json")
+            entry_size = len(canonical_json_bytes(entry))
+            if total + entry_size > total_budget:
+                reasons[key] = "context_byte_limit"
+                continue
+            bodies[key] = entry
+            total += entry_size
+            continue
         if not isinstance(media_type, str) or not media_type.startswith("text/"):
             reasons[key] = "not_text_media"
             continue
@@ -453,6 +503,23 @@ class WorkerHostBridge:
             value = snapshots.read_ref(assignment.identity.task_id, access, manifest.snapshot_id, ref)
             kind = ref.entity_type.value
             if kind == "artifact":
+                # HTTP exchange artifacts retain their exact ToolCall binding
+                # through the captured ToolAttempt.  A Reason context must not
+                # invent a call id from content or a hash.
+                value = dict(value)
+                attempt_id = value.get("tool_attempt_id")
+                if attempt_id:
+                    with self.uow.transaction(
+                        access, assignment.identity.task_id, capability="model_request"
+                    ) as tx:
+                        linked = tx.connection.execute(
+                            "SELECT tool_call_id FROM vnext.tool_attempt "
+                            "WHERE tenant_id=%s AND project_id=%s AND task_id=%s "
+                            "AND tool_attempt_id=%s",
+                            (*tx.owner, attempt_id),
+                        ).fetchone()
+                    if linked is not None:
+                        value["tool_call_id"] = linked[0]
                 artifact_rows[(kind, ref.id, ref.revision.root)] = value
             if kind in {"claim", "intent"}:
                 records.append(self.ledger.read(access, assignment.identity.task_id, ref,

@@ -5,6 +5,7 @@ from hashlib import sha256
 from uuid import uuid4
 
 from wuji_core.admission.common import current_run, digest
+from wuji_core.admission.model_material import validate_model_material_v2
 from wuji_core.contracts.envelopes import BlobRef, WorkerAssignment
 from wuji_core.contracts.execution import SessionManifest
 from wuji_core.contracts.knowledge import KnowledgeRef
@@ -449,7 +450,10 @@ class SessionRepository:
     # replay cannot smuggle invented content into a session boundary.
     OMITTED_MATERIAL_REASONS = frozenset({
         "not_sealed", "not_text_media", "over_inline_limit", "unreadable",
-        "not_utf8", "not_delivered",
+        "not_utf8", "not_delivered", "source_unavailable", "source_not_sealed",
+        "source_digest_mismatch", "unsupported_media", "unsupported_schema",
+        "unsupported_charset", "invalid_encoding", "capture_truncated",
+        "representation_limit", "delivery_error",
     })
 
     def delivered_result(self, tx, receipt, result):
@@ -466,6 +470,31 @@ class SessionRepository:
         if extra != {"material"} or self.artifacts is None:
             return False
         material = result["material"]
+        if isinstance(material, dict) and material.get("schema_version") == "wuji.model-material.v2":
+            packet = validate_model_material_v2(
+                material,
+                tool_call_id=receipt.get("tool_call_id", ""),
+                result_ref=receipt.get("result_ref"),
+            )
+            if packet is None or packet.source is None:
+                # A delivered packet always names the exact source artifact;
+                # omitted packets may intentionally hide it after revocation.
+                return packet is not None and packet.status.value == "omitted"
+            try:
+                source_ref = BlobRef.model_validate(packet.source.artifact_ref)
+                record = self.artifacts.record(tx, source_ref)
+            except (DomainError, ValueError):
+                return False
+            if record["sha256"] != packet.source.artifact_sha256:
+                return False
+            if packet.status.value == "delivered":
+                if record["state"] != "sealed":
+                    return False
+                try:
+                    self.artifacts.checked_bytes(record)
+                except DomainError:
+                    return False
+            return True
         if (
             not isinstance(material, dict)
             or set(material) != {"encoding", "byte_length", "text"}

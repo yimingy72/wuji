@@ -18,6 +18,11 @@ from wuji_core.contracts.admission import (
 )
 from wuji_core.contracts.envelopes import RunIdentity, CaptureEnvelope, BlobRef
 from wuji_core.contracts.generated import ToolResultMaterial, Reason as MaterialOmission
+from wuji_core.admission.model_material import (
+    MODEL_MATERIAL_SCHEMA,
+    omitted_model_material,
+    render_http_exchange_v2,
+)
 from wuji_core.http import strict_json_loads
 from wuji_core.http.auth import Principal
 from wuji_core.persistence.uow import AccessContext, DomainError, row, json_text
@@ -578,7 +583,7 @@ class ToolGate:
                 raise DomainError("CAPABILITY_UNAVAILABLE", 503)
             return registration
 
-    def result_material(self, access, tool_call_id):
+    def result_material(self, access, tool_call_id, *, representation=None):
         """The bounded body this exact call already captured, for its own Run.
 
         The receipt stays canonical and unchanged: this read only re-delivers the
@@ -587,6 +592,8 @@ class ToolGate:
         Anything that is not this Run's own completed call is invisible here.
         """
 
+        if representation not in (None, MODEL_MATERIAL_SCHEMA):
+            raise DomainError("INVALID_SCHEMA", 422)
         binding = self.registry.binding(access)
         with self.admission.uow.transaction(access, binding.identity.task_id) as tx:
             call = row(
@@ -608,6 +615,8 @@ class ToolGate:
             limit = self.registry.config(tx).runtime.limits.max_single_output_bytes
 
             def omitted(reason):
+                if representation == MODEL_MATERIAL_SCHEMA:
+                    return omitted_model_material(tool_call_id, reason)
                 return ToolResultMaterial.model_validate({
                     "tool_call_id": tool_call_id, "status": "omitted", "reason": reason,
                     "artifact_ref": None, "media_type": None, "byte_length": None,
@@ -629,7 +638,39 @@ class ToolGate:
             except DomainError:
                 return omitted(MaterialOmission.unreadable)
             if record["state"] != "sealed":
+                if representation == MODEL_MATERIAL_SCHEMA:
+                    return render_http_exchange_v2(
+                        tool_call_id,
+                        artifact_ref=ref,
+                        artifact_record=record,
+                        raw=None,
+                        max_source_bytes=min(1 << 20, int(limit)),
+                        max_representation_bytes=min(32 * 1024, int(limit)),
+                    )
                 return omitted(MaterialOmission.not_sealed)
+            if representation == MODEL_MATERIAL_SCHEMA:
+                source_limit = min(1 << 20, int(limit))
+                if type(record.get("size_bytes")) is not int or record["size_bytes"] > source_limit:
+                    return render_http_exchange_v2(
+                        tool_call_id,
+                        artifact_ref=ref,
+                        artifact_record=record,
+                        raw=None,
+                        max_source_bytes=source_limit,
+                        max_representation_bytes=min(32 * 1024, int(limit)),
+                    )
+                try:
+                    body = self.artifacts.checked_bytes(record)
+                except DomainError:
+                    return omitted_model_material(tool_call_id, "source_unavailable")
+                return render_http_exchange_v2(
+                    tool_call_id,
+                    artifact_ref=ref,
+                    artifact_record=record,
+                    raw=body,
+                    max_source_bytes=min(1 << 20, int(limit)),
+                    max_representation_bytes=min(32 * 1024, int(limit)),
+                )
             if not str(record["media_type"]).startswith("text/"):
                 return omitted(MaterialOmission.not_text_media)
             if record["size_bytes"] > limit:

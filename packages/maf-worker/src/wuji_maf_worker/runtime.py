@@ -316,6 +316,12 @@ class MafRuntime:
                 definitions=resolved["tools"], identity=identity,
                 lineage=resolved["session_lineage"], client=tool_http, url=self._tool_url,
                 native_approval=session_profile,
+                # Older frozen profiles omit this optional field and retain
+                # the v1 material contract.  New profiles publish v2
+                # explicitly; the Worker never upgrades a Session implicitly.
+                material_representation=resolved["profile"]["body"].get(
+                    "material_representation", "v1"
+                ),
             )
             self.tool_receipts = functions.receipts
             agent, native = build_agent(

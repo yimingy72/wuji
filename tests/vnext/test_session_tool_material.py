@@ -7,6 +7,7 @@ never smuggle invented evidence into a session that later Runs will trust.
 """
 
 from hashlib import sha256
+import copy
 
 from wuji_core.execution.sessions import SessionRepository
 
@@ -110,3 +111,68 @@ def test_any_other_added_field_is_refused():
             summary="trust me",
         ),
     ) is False
+
+
+class V2Store(Store):
+    def __init__(self, record, raw):
+        super().__init__(record)
+        self.raw = raw
+
+    def checked_bytes(self, record):
+        return self.raw
+
+
+def test_v2_material_recovery_checks_source_binding_representation_digest_and_utf8_length():
+    raw = b'{"schema_version":"wuji.http-exchange.v1"}'
+    ref = {
+        "id": "artifact-v2",
+        "version": "1",
+        "sha256": sha256(raw).hexdigest(),
+    }
+    receipt = copy.deepcopy(RECEIPT)
+    receipt["result_ref"] = ref
+    receipt["evidence_receipt"]["artifact_refs"] = [ref]
+    rendered = "response.body:\n唯一正文标记\n"
+    packet = {
+        "schema_version": "wuji.model-material.v2",
+        "tool_call_id": receipt["tool_call_id"],
+        "status": "delivered",
+        "source": {
+            "artifact_ref": ref,
+            "artifact_sha256": ref["sha256"],
+            "media_type": "application/vnd.wuji.http-exchange+json",
+            "completeness": "partial",
+        },
+        "representation": {
+            "renderer_version": "wuji-http-renderer.v2",
+            "media_type": "text/plain; charset=utf-8",
+            "encoding": "utf-8",
+            "text": rendered,
+            "byte_length": len(rendered.encode()),
+            "representation_sha256": sha256(rendered.encode()).hexdigest(),
+            "truncated": False,
+            "redaction_applied": False,
+        },
+        "omission_reason": None,
+    }
+    record = {
+        "state": "sealed",
+        "sha256": ref["sha256"],
+        "size_bytes": len(raw),
+    }
+    repo = SessionRepository(None, artifacts=V2Store(record, raw), registry=None)
+    assert repo.delivered_result(None, receipt, {**receipt, "material": packet}) is True
+
+    tampered = copy.deepcopy(packet)
+    tampered["representation"]["text"] = "forged"
+    assert repo.delivered_result(None, receipt, {**receipt, "material": tampered}) is False
+
+    omitted = {
+        "schema_version": "wuji.model-material.v2",
+        "tool_call_id": receipt["tool_call_id"],
+        "status": "omitted",
+        "source": None,
+        "representation": None,
+        "omission_reason": "source_unavailable",
+    }
+    assert repo.delivered_result(None, receipt, {**receipt, "material": omitted}) is True

@@ -2,6 +2,7 @@
 
 from contextvars import ContextVar
 from hashlib import sha256
+from urllib.parse import quote
 from uuid import uuid4
 
 from agent_framework import Content, FunctionMiddleware, FunctionTool, MiddlewareFailure
@@ -10,6 +11,11 @@ from wuji_maf_worker.remote_host import error_code_from_bytes
 
 from wuji_core.contracts.admission import ToolCallRequest, ToolCallReceipt
 from wuji_core.http import canonical_json_bytes, strict_json_loads
+from wuji_core.admission.model_material import (
+    MODEL_MATERIAL_SCHEMA,
+    omitted_model_material,
+    validate_model_material_v2,
+)
 
 
 def _difference_paths(left, right, path="$", *, limit=16):
@@ -378,9 +384,13 @@ def _refusal_failure(refusal):
 
 
 class GateFunctions(FunctionMiddleware):
-    def __init__(self, *, definitions, identity, lineage, client, url, native_approval=False):
+    def __init__(self, *, definitions, identity, lineage, client, url,
+                 native_approval=False, material_representation="v1"):
         self.definitions = {d["name"]: d for d in definitions}
         self.identity, self.lineage, self.client, self.url = identity, lineage, client, url
+        if material_representation not in {"v1", MODEL_MATERIAL_SCHEMA}:
+            raise ValueError("unsupported published material representation")
+        self.material_representation = material_representation
         self.receipts = []
         self.native_approval = native_approval
         self.pending_receipts = []
@@ -461,10 +471,29 @@ class GateFunctions(FunctionMiddleware):
         """
 
         document = receipt.model_dump(mode="python")
+        if self.material_representation == MODEL_MATERIAL_SCHEMA:
+            try:
+                response = await self.client.get(
+                    self.url + "/" + quote(receipt.tool_call_id, safe="") + "/material",
+                    params={"representation": MODEL_MATERIAL_SCHEMA},
+                )
+                material = None
+                if response.status_code == 200:
+                    material = validate_model_material_v2(
+                        strict_json_loads(response.content),
+                        tool_call_id=receipt.tool_call_id,
+                        result_ref=receipt.result_ref,
+                    )
+                if material is None:
+                    material = omitted_model_material(receipt.tool_call_id, "delivery_error")
+            except Exception:
+                material = omitted_model_material(receipt.tool_call_id, "delivery_error")
+            document["material"] = material.model_dump(mode="python")
+            return canonical_json_bytes(document).decode()
         material = None
         try:
             response = await self.client.get(
-                self.url + "/" + receipt.tool_call_id + "/material"
+                self.url + "/" + quote(receipt.tool_call_id, safe="") + "/material"
             )
             if response.status_code == 200:
                 material = strict_json_loads(response.content)
