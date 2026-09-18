@@ -671,7 +671,7 @@ paths:
   /internal/v2/tool-calls/{tool_call_id}/cancel:
     {"post": {"operationId": "cancelToolCallV2", "summary": "cancelToolCallV2", "tags": ["Internal"], "responses": {"200": {"description": "Current authorized receipt", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ToolCallReceipt"}}}}, "401": {"$ref": "#/components/responses/Unauthenticated"}, "404": {"description": "Missing or not accessible"}, "409": {"$ref": "#/components/responses/Conflict"}, "422": {"$ref": "#/components/responses/InvalidSchema"}, "429": {"$ref": "#/components/responses/LimitBlocked"}, "503": {"$ref": "#/components/responses/Unavailable"}}, "parameters": [{"name": "tool_call_id", "in": "path", "required": true, "schema": {"type": "string", "minLength": 1, "maxLength": 256}}, {"$ref": "#/components/parameters/IdempotencyKey"}], "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ToolCancelRequest"}}}}}}
   /internal/v2/tool-calls/{tool_call_id}/material:
-    {"get": {"operationId": "readToolResultMaterialV2", "summary": "readToolResultMaterialV2", "tags": ["Internal"], "responses": {"200": {"description": "Bounded inline result material for this exact call", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ToolResultMaterial"}}}}, "401": {"$ref": "#/components/responses/Unauthenticated"}, "404": {"description": "Missing or not accessible"}, "409": {"$ref": "#/components/responses/Conflict"}, "422": {"$ref": "#/components/responses/InvalidSchema"}, "429": {"$ref": "#/components/responses/LimitBlocked"}, "503": {"$ref": "#/components/responses/Unavailable"}}, "parameters": [{"name": "tool_call_id", "in": "path", "required": true, "schema": {"type": "string", "minLength": 1, "maxLength": 256}}]}}
+    {"get":{"operationId":"readToolResultMaterialV2","summary":"readToolResultMaterialV2","tags":["Internal"],"responses":{"200":{"description":"Bounded inline result material for this exact call","content":{"application/json":{"schema":{"oneOf":[{"$ref":"#/components/schemas/ToolResultMaterial"},{"$ref":"#/components/schemas/ModelMaterialV2"}]}}}},"401":{"$ref":"#/components/responses/Unauthenticated"},"404":{"description":"Missing or not accessible"},"409":{"$ref":"#/components/responses/Conflict"},"422":{"$ref":"#/components/responses/InvalidSchema"},"429":{"$ref":"#/components/responses/LimitBlocked"},"503":{"$ref":"#/components/responses/Unavailable"}},"parameters":[{"name":"tool_call_id","in":"path","required":true,"schema":{"type":"string","minLength":1,"maxLength":256}},{"name":"representation","in":"query","required":false,"schema":{"type":"string","enum":["wuji.model-material.v2"]},"description":"Omission preserves the original v1 text-only response."}]}}
   /internal/v2/tool-settlement:
     post:
       operationId: closeToolSettlementV2
@@ -2275,6 +2275,13 @@ components:
           maxItems: 1024
           items: {$ref: '#/components/schemas/AuthorizationScopeEntry'}
         authorization_expires_at: {type: string, format: date-time}
+        entry_points:
+          type: array
+          minItems: 1
+          maxItems: 16
+          uniqueItems: true
+          description: Explicit URLs preserving path and non-sensitive query; each origin must be authorized by the confirmed scope.
+          items: {type: string, minLength: 1, maxLength: 2048}
         model_profile_ref: {type: string, minLength: 1, maxLength: 256}
         runtime_profile_ref: {type: string, minLength: 1, maxLength: 256}
         budget: {$ref: '#/components/schemas/MoneyBudget'}
@@ -3045,6 +3052,52 @@ components:
 
     ToolResultMaterial:
       {"type": "object", "additionalProperties": false, "required": ["tool_call_id", "status", "reason", "artifact_ref", "media_type", "byte_length", "encoding", "text"], "properties": {"tool_call_id": {"type": "string", "minLength": 1, "maxLength": 256}, "status": {"type": "string", "enum": ["delivered", "omitted"]}, "reason": {"oneOf": [{"type": "string", "enum": ["not_sealed", "not_text_media", "over_inline_limit", "unreadable", "not_utf8", "not_delivered"]}, {"type": "null"}]}, "artifact_ref": {"oneOf": [{"$ref": "#/components/schemas/BlobRef"}, {"type": "null"}]}, "media_type": {"oneOf": [{"type": "string", "minLength": 1, "maxLength": 256}, {"type": "null"}]}, "byte_length": {"oneOf": [{"type": "integer", "minimum": 0}, {"type": "null"}]}, "encoding": {"oneOf": [{"type": "string", "enum": ["utf-8"]}, {"type": "null"}]}, "text": {"oneOf": [{"type": "string"}, {"type": "null"}]}}}
+    ModelMaterialSource:
+      type: object
+      additionalProperties: false
+      required: [artifact_ref, artifact_sha256, media_type, completeness]
+      properties:
+        artifact_ref: {$ref: '#/components/schemas/BlobRef'}
+        artifact_sha256: {type: string, pattern: '^[a-f0-9]{64}$'}
+        media_type: {type: string, minLength: 1, maxLength: 256}
+        completeness: {$ref: '#/components/schemas/CaptureCompleteness'}
+    ModelMaterialRepresentation:
+      type: object
+      additionalProperties: false
+      required: [renderer_version, media_type, encoding, text, byte_length, representation_sha256, truncated, redaction_applied]
+      properties:
+        renderer_version: {type: string, enum: [wuji-http-renderer.v2]}
+        media_type: {type: string, enum: ['text/plain; charset=utf-8']}
+        encoding: {type: string, enum: [utf-8]}
+        text: {type: string, maxLength: 32768}
+        byte_length: {type: integer, minimum: 0, maximum: 32768}
+        representation_sha256: {type: string, pattern: '^[a-f0-9]{64}$'}
+        truncated: {type: boolean}
+        redaction_applied: {type: boolean}
+    MaterialOmissionReason:
+      type: string
+      enum: [not_delivered, source_unavailable, source_not_sealed, source_digest_mismatch, unsupported_media, unsupported_schema, unsupported_charset, invalid_encoding, capture_truncated, representation_limit, delivery_error]
+    ModelMaterialV2:
+      description: Explicit v2 representation. Consumers validate source and representation digests separately. Undeliverable or unauthorized source metadata is null.
+      type: object
+      additionalProperties: false
+      required: [schema_version, tool_call_id, status, source, representation, omission_reason]
+      properties:
+        schema_version: {type: string, enum: [wuji.model-material.v2]}
+        tool_call_id: {type: string, minLength: 1, maxLength: 256}
+        status: {type: string, enum: [delivered, omitted]}
+        source:
+          oneOf:
+            - $ref: '#/components/schemas/ModelMaterialSource'
+            - type: 'null'
+        representation:
+          oneOf:
+            - $ref: '#/components/schemas/ModelMaterialRepresentation'
+            - type: 'null'
+        omission_reason:
+          oneOf:
+            - $ref: '#/components/schemas/MaterialOmissionReason'
+            - type: 'null'
     ToolSettlementStatus:
       {"type": "string", "enum": ["settled", "pending"]}
 

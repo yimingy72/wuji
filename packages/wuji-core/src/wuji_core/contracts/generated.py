@@ -785,7 +785,7 @@ class CriterionJudgmentView(BaseModel):
     criterion_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
     revision: RevisionString | None
     required: StrictBool
-    status: Status4
+    status: Status5
     applicability: Applicability
 
 
@@ -891,6 +891,10 @@ class Disposition(StrEnum):
 class DisputeState(StrEnum):
     clear = 'clear'
     disputed = 'disputed'
+
+
+class EntryPoint(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=2048, min_length=1)]
 
 
 class ErrorCode(RootModel[StrictStr]):
@@ -1389,6 +1393,20 @@ class LogicalRequestId(RootModel[StrictStr]):
     root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
 
 
+class MaterialOmissionReason(StrEnum):
+    not_delivered = 'not_delivered'
+    source_unavailable = 'source_unavailable'
+    source_not_sealed = 'source_not_sealed'
+    source_digest_mismatch = 'source_digest_mismatch'
+    unsupported_media = 'unsupported_media'
+    unsupported_schema = 'unsupported_schema'
+    unsupported_charset = 'unsupported_charset'
+    invalid_encoding = 'invalid_encoding'
+    capture_truncated = 'capture_truncated'
+    representation_limit = 'representation_limit'
+    delivery_error = 'delivery_error'
+
+
 class MediaType(RootModel[StrictStr]):
     root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
 
@@ -1425,6 +1443,42 @@ class ModelAttemptReceipt(BaseModel):
     retained_bytes: RevisionString
     forwarded_bytes: RevisionString
     output_bytes: RevisionString
+
+
+class ModelMaterialRepresentation(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    renderer_version: Literal['wuji-http-renderer.v2']
+    media_type: Literal['text/plain; charset=utf-8']
+    encoding: Literal['utf-8']
+    text: Annotated[StrictStr, Field(max_length=32768)]
+    byte_length: Annotated[StrictInt, Field(ge=0, le=32768)]
+    representation_sha256: Annotated[StrictStr, Field(pattern='^[a-f0-9]{64}$')]
+    truncated: StrictBool
+    redaction_applied: StrictBool
+
+
+class ModelMaterialSource(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    artifact_ref: BlobRef
+    artifact_sha256: Annotated[StrictStr, Field(pattern='^[a-f0-9]{64}$')]
+    media_type: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    completeness: CaptureCompleteness
+
+
+class ModelMaterialV2(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    schema_version: Literal['wuji.model-material.v2']
+    tool_call_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    status: Status3
+    source: ModelMaterialSource | None
+    representation: ModelMaterialRepresentation | None
+    omission_reason: MaterialOmissionReason | None
 
 
 class ModelMode(StrEnum):
@@ -1969,7 +2023,7 @@ class Status3(StrEnum):
     omitted = 'omitted'
 
 
-class Status4(StrEnum):
+class Status5(StrEnum):
     met = 'met'
     not_met = 'not_met'
     unknown = 'unknown'
@@ -2058,10 +2112,14 @@ class TaskCompletionView(BaseModel):
     report: ReportSummary | None
 
 
-class TaskCreate(BaseModel):
+class TaskCreate(_JsonSchemaRuntimeValidationBase):
     model_config = ConfigDict(
         extra='forbid',
     )
+    __json_schema_unique_items__: ClassVar[tuple[tuple[object, ...], ...]] = (
+        (('entry_points',),),
+    )
+
     schema_version: ApiSchemaVersion
     project_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
     name: Annotated[StrictStr, Field(max_length=256, min_length=1)]
@@ -2071,6 +2129,14 @@ class TaskCreate(BaseModel):
         list[AuthorizationScopeEntry], Field(max_length=1024, min_length=1)
     ]
     authorization_expires_at: AwareDatetime
+    entry_points: Annotated[
+        list[EntryPoint] | None,
+        Field(
+            description='Explicit URLs preserving path and non-sensitive query; each origin must be authorized by the confirmed scope.',
+            max_length=16,
+            min_length=1,
+        ),
+    ] = None
     model_profile_ref: Annotated[StrictStr, Field(max_length=256, min_length=1)]
     runtime_profile_ref: Annotated[StrictStr, Field(max_length=256, min_length=1)]
     budget: MoneyBudget

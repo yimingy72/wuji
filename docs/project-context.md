@@ -1,5 +1,7 @@
 # Wuji 项目背景与有效文档索引
 
+2026-09-18 当前执行：[首个用户流程](stages/first-use/spec.md)已由用户明确批准实施，基线 `codex/vnext-maf@b1ba8ec`；按 A1–A8 完成工作台创建/显式启动、HTTP 正文、DeepSeek 和停止核对。共享接口与改动归属见[本批合同映射](vnext/first-use/contract-map.md)，实际结果见[本批验收](stages/first-use/acceptance.md)。用户已选 `deepseek-flash` 并提供凭据；真实金额/数据与现场许可需复用并核实。子代理采用用户最新指定的 Luna/xhigh，覆盖下文历史模型分工。
+
 2026-09-13 当前实施：用户批准按完整 [vNext v2 Spec](vnext/SPEC.md) / [Plan](vnext/PLAN.md)进入重构。执行工作树为 `work/worktrees/vnext-maf`，分支 `codex/vnext-maf`，起点 `1d73a767599732d9a53f81ad2cc553f4bf11d84e`。见[阶段入口](stages/vnext-maf/spec.md)、[实施决定](vnext/decision-register.md)与[验收状态](stages/vnext-maf/acceptance.md)。下文 Cairn/Pi 为旧实现及历史来源，不再约束新核心；新链路不允许运行旧内核。主目录上一轮草案未提交变更保留。
 
 2026-09-13 D11 已按主代理裁定登记用户交付补充：[M0–M5 里程碑、操作前沿和六类合同交接](vnext/delivery-milestones.md)只组织现有 P/AC 的交付顺序，不替换 Spec/Plan/Acceptance；[原字节参考副本](vnext/references/WUJI_DEVELOPMENT_DIRECTION_AND_DELIVERY_ADDENDUM.md)仅为 review reference。报告中的 P06 `21` 项/`f32678d` 是历史截面；D11 登记时工作树实际 HEAD 为 `5c0778d19921216187cad6c7075c4e48d81ebb4e`，其中 `78095e6` 及其 35 项聚焦检查/审查证据更新，P06 最终消费者和公开交接仍按 M0 收尾，最终状态只由对应阶段验收记录确认。

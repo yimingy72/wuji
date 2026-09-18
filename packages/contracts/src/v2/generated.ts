@@ -1529,6 +1529,8 @@ export interface components {
             authorization_scope: components["schemas"]["AuthorizationScopeEntry"][];
             /** Format: date-time */
             authorization_expires_at: string;
+            /** @description Explicit URLs preserving path and non-sensitive query; each origin must be authorized by the confirmed scope. */
+            entry_points?: string[];
             model_profile_ref: string;
             runtime_profile_ref: string;
             budget: components["schemas"]["MoneyBudget"];
@@ -1991,6 +1993,38 @@ export interface components {
             byte_length: number | null;
             encoding: "utf-8" | null;
             text: string | null;
+        };
+        ModelMaterialSource: {
+            artifact_ref: components["schemas"]["BlobRef"];
+            artifact_sha256: string;
+            media_type: string;
+            completeness: components["schemas"]["CaptureCompleteness"];
+        };
+        ModelMaterialRepresentation: {
+            /** @enum {string} */
+            renderer_version: "wuji-http-renderer.v2";
+            /** @enum {string} */
+            media_type: "text/plain; charset=utf-8";
+            /** @enum {string} */
+            encoding: "utf-8";
+            text: string;
+            byte_length: number;
+            representation_sha256: string;
+            truncated: boolean;
+            redaction_applied: boolean;
+        };
+        /** @enum {string} */
+        MaterialOmissionReason: "not_delivered" | "source_unavailable" | "source_not_sealed" | "source_digest_mismatch" | "unsupported_media" | "unsupported_schema" | "unsupported_charset" | "invalid_encoding" | "capture_truncated" | "representation_limit" | "delivery_error";
+        /** @description Explicit v2 representation. Consumers validate source and representation digests separately. Undeliverable or unauthorized source metadata is null. */
+        ModelMaterialV2: {
+            /** @enum {string} */
+            schema_version: "wuji.model-material.v2";
+            tool_call_id: string;
+            /** @enum {string} */
+            status: "delivered" | "omitted";
+            source: components["schemas"]["ModelMaterialSource"] | null;
+            representation: components["schemas"]["ModelMaterialRepresentation"] | null;
+            omission_reason: components["schemas"]["MaterialOmissionReason"] | null;
         };
         /** @enum {string} */
         ToolSettlementStatus: "settled" | "pending";
@@ -3276,7 +3310,10 @@ export interface operations {
     };
     readToolResultMaterialV2: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Omission preserves the original v1 text-only response. */
+                representation?: "wuji.model-material.v2";
+            };
             header?: never;
             path: {
                 tool_call_id: string;
@@ -3291,7 +3328,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ToolResultMaterial"];
+                    "application/json": components["schemas"]["ToolResultMaterial"] | components["schemas"]["ModelMaterialV2"];
                 };
             };
             401: components["responses"]["Unauthenticated"];
