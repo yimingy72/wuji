@@ -63,15 +63,27 @@ def create_evidence_router(service):
             # A commit failure is not permission to replay an external tool operation.
             return _error(request, "CAPABILITY_UNAVAILABLE", 503)
 
+    router.include_router(create_artifact_router(service.artifacts))
+    return router
+
+
+def create_artifact_router(artifacts, *, max_content_bytes=1_048_576):
+    """Public byte reads without mounting the privileged capture producer."""
+    if type(max_content_bytes) is not int or not 1 <= max_content_bytes <= 8_388_608:
+        raise ValueError("a bounded artifact response is required")
+    router = VNextAPIRouter()
+
     @router.get("/api/v2/artifacts/{artifact_id}/content")
     def content(
         request: Request,
         artifact_id: str,
-        version: Annotated[str, Query(pattern=r"^(0|[1-9][0-9]*)$")],
+        version: Annotated[str, Query(pattern=r"^(0|[1-9][0-9]*)$", max_length=128)],
     ):
         access = AccessContext(current_principal(request), request.state.request_id)
         try:
-            data, digest = service.artifacts.read(access, artifact_id, version)
+            data, digest = artifacts.read(
+                access, artifact_id, version, max_bytes=max_content_bytes
+            )
             return StreamingResponse(
                 iter((data,)),
                 media_type="application/octet-stream",

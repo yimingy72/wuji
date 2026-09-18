@@ -550,7 +550,9 @@ class ArtifactStore:
                 )
         return ref
 
-    def read(self, access, artifact_id, version):
+    def read(self, access, artifact_id, version, *, max_bytes=None):
+        if max_bytes is not None and (type(max_bytes) is not int or max_bytes < 1):
+            raise ValueError("max_bytes must be a positive integer")
         located = self.uow.locate_artifact(access, artifact_id, version)
         if located is None:
             raise DomainError("NOT_FOUND_OR_FORBIDDEN")
@@ -562,6 +564,8 @@ class ArtifactStore:
                 record = self.record(tx, ref)
                 if record["state"] != "sealed":
                     raise DomainError("INVALID_REFERENCE", 422)
+                if max_bytes is not None and record["size_bytes"] > max_bytes:
+                    raise DomainError("NOT_FOUND_OR_FORBIDDEN")
                 data = self.checked_bytes(record)
             except DomainError as error:
                 raise DomainError("NOT_FOUND_OR_FORBIDDEN") from error
