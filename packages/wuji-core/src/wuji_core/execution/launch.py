@@ -313,7 +313,8 @@ class LaunchService:
             raise DomainError("INVALID_SCHEMA", 422)
         if not isinstance(idempotency_key, str) or not 1 <= len(idempotency_key) <= 256:
             raise DomainError("INVALID_SCHEMA", 422)
-        task = self.control.read_task(access, task_id)
+        with self.uow.transaction(access, task_id, capability="control") as tx:
+            task = dict(tx.task)
         expected = command.expected_version.root
         raw_definition = task.get("definition_json")
         definition = strict_json_loads(raw_definition)

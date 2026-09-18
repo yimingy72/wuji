@@ -8,6 +8,10 @@ from wuji_core.completion.precheck import CompletionService
 from wuji_core.completion.reports import ReportService
 from wuji_core.http import JsonBoundaryLimits, create_app
 from wuji_core.execution.tasks import TaskService
+from wuji_core.execution.launch import LaunchService
+from wuji_core.execution.control_api import ControlAPI
+from wuji_core.http.commands import create_command_router
+from wuji_core.http.launch import create_launch_router
 from wuji_core.http.completion import create_completion_router
 from wuji_core.http.delivery import create_delivery_router
 from wuji_core.http.evidence import create_artifact_router
@@ -28,6 +32,7 @@ def build_api():
     projection = ProjectionRepository(deployment.uow, ledger=deployment.ledger)
     layouts = LayoutRepository(deployment.uow)
     tasks = TaskService(deployment.uow)
+    launch = LaunchService(deployment.uow, control=deployment.control)
     completion = CompletionService(deployment.uow, control=deployment.control)
     reports = ReportService(deployment.uow, artifacts=deployment.artifacts)
     portal = TaskCompletionPortal(
@@ -42,6 +47,8 @@ def build_api():
             create_view_router(projection),
             create_layout_router(layouts),
             create_task_router(tasks),
+            create_launch_router(launch),
+            create_command_router(ControlAPI(deployment.control, launch_service=launch)),
             create_completion_router(portal),
             create_delivery_router(deliveries),
             create_retention_router(retention),

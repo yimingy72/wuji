@@ -52,10 +52,10 @@ class ControlAPI:
             raise TypeError("the authenticated AccessContext is required")
         if not isinstance(task_id, str) or not 1 <= len(task_id) <= 256:
             raise DomainError("INVALID_SCHEMA", 422)
+        command = TaskCommand.model_validate(command)
         if (
             self.launch is not None
             and command.command.value == "start"
-            and work_id is None
         ):
             return self.launch.accept_start(
                 access,
