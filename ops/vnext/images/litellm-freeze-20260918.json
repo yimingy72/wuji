@@ -1,0 +1,44 @@
+{
+  "schema_version": "wuji.litellm.image-freeze.v1",
+  "image_tag": "wuji-first-use-litellm:20260918",
+  "base": {
+    "reference": "127.0.0.1:56615/wuji-vnext-platform@sha256:58a4a979b670dcb416bc33d23a7956fa691a42c98594c26c1fa0c1e4b793659d",
+    "image_id": "sha256:d1f70dbf481fa9c4049fdc1ceae051796fa4094505ff23acfbd5032215d939bb",
+    "architecture": "arm64",
+    "python": "3.13.15"
+  },
+  "vendor_package": {
+    "distribution": "litellm[proxy]",
+    "version": "1.100.0",
+    "install_target": "/opt/litellm/.venv",
+    "source": "official PyPI distribution",
+    "project_lock_changed": false
+  },
+  "built_image": {
+    "local_tag": "wuji-first-use-litellm:20260918",
+    "image_id": "sha256:8121963eea79dcd55f44be1e1826d52a687c64025d1e323e442c1138a9490321",
+    "local_registry_reference": "127.0.0.1:56615/wuji-first-use-litellm@sha256:ff399bcda3d2b0ed0afd1f57ffd3af82ce45645775506507c553c8ed93fd206d",
+    "build_status": "built_and_pushed_local_registry",
+    "entrypoint": "/opt/litellm/.venv/bin/litellm",
+    "runtime_smoke": "litellm --help exit 0"
+  },
+  "hook": {
+    "module": "ops.vnext.litellm_hooks",
+    "instance": "proxy_handler_instance",
+    "version": "wuji-deepseek-params-v1",
+    "sha256": "1a7719b93ca192950267dfe21706bdcf051f8a8de53e39ddc5b2066670600f14"
+  },
+  "fixed_digest_pull": {
+    "reference": "ghcr.io/berriai/litellm@sha256:c8756e7b9a61fe45df2ccb5b781d388c3b2f3a21ef9e4956630caef20f9f03aa",
+    "status": "blocked",
+    "first_observed_error": "unexpected EOF",
+    "bounded_retry_attempt": "terminated with exit 130 after no progress; no image was present"
+  },
+  "runtime_boundary": {
+    "starts_only": "LiteLLM Proxy",
+    "wuji_maf_venv_used": false,
+    "real_provider_called": false,
+    "secret_ref": "deepseek-provider-api-key",
+    "persistent_task_budget_required": true
+  }
+}

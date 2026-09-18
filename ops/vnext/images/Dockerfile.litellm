@@ -1,0 +1,26 @@
+# Standalone local LiteLLM image for the first-use fallback.
+# The base is an already-present immutable local platform image; this image
+# does not inherit or start the Wuji runtime entrypoint.
+FROM 127.0.0.1:56615/wuji-vnext-platform@sha256:58a4a979b670dcb416bc33d23a7956fa691a42c98594c26c1fa0c1e4b793659d
+
+USER root
+WORKDIR /opt/litellm
+
+RUN python -m venv --copies /opt/litellm/.venv \
+    && /opt/litellm/.venv/bin/python -m pip install --no-cache-dir 'litellm[proxy]==1.100.0'
+
+COPY ops/vnext/litellm_hooks.py /opt/litellm/ops/vnext/litellm_hooks.py
+COPY templates/LITELLM_GATEWAY_DEEPSEEK.example.yaml /opt/litellm/config.yaml
+
+RUN chown -R 10001:10000 /opt/litellm
+
+ENV PATH=/opt/litellm/.venv/bin:$PATH \
+    PYTHONPATH=/opt/litellm \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+USER 10001:10000
+
+# Only LiteLLM is launched. SecretRef/DB env vars are supplied at runtime by
+# the gateway owner; no provider key is baked into this image.
+ENTRYPOINT ["/opt/litellm/.venv/bin/litellm", "--config", "/opt/litellm/config.yaml", "--host", "0.0.0.0", "--port", "4000", "--num_workers", "1"]
