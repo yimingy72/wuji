@@ -1,10 +1,13 @@
 """Server-owned immutable byte objects; no caller paths, URLs or fetch capability."""
 
 import base64
+from dataclasses import dataclass
 from datetime import datetime, timezone
 import hashlib
 import os
 from pathlib import Path
+from threading import RLock
+from typing import Protocol
 from uuid import uuid4
 
 from wuji_core.contracts.envelopes import BlobRef
@@ -93,14 +96,166 @@ def run_disposition(tx, run):
     raise DomainError("STALE_EXECUTION", 403)
 
 
-class ArtifactStore:
-    def __init__(self, uow, root: Path, *, max_bytes=8 * 1024 * 1024):
-        self.uow, self.root, self.max_bytes = uow, Path(root).resolve(), max_bytes
+class ArtifactStorageBackend(Protocol):
+    """The byte-store boundary used by :class:`ArtifactStore`.
+
+    Metadata and authority remain in PostgreSQL.  A backend only owns the
+    immutable byte identified by ``storage_key`` and has an explicit, retryable
+    delete result.  In particular, a successful metadata tombstone never
+    depends on a backend pretending that an already absent object was a new
+    deletion.
+    """
+
+    def put(self, storage_key, data: bytes) -> None: ...
+
+    def read(self, storage_key, max_bytes: int) -> bytes: ...
+
+    def delete(self, storage_key): ...
+
+
+def _storage_key(value) -> str:
+    """Return a database-generated key without allowing a caller path."""
+
+    key = str(value)
+    if (
+        not key
+        or len(key) > 256
+        or "\x00" in key
+        or "/" in key
+        or "\\" in key
+        or key in {".", ".."}
+    ):
+        raise ValueError("storage keys are bounded opaque identifiers")
+    return key
+
+
+@dataclass(frozen=True)
+class StorageDeleteResult:
+    """The observable semantics of a byte deletion.
+
+    ``removed`` means this call removed bytes.  ``already_absent`` means the
+    desired end state was already true, which is safe for a retry but is not a
+    fresh deletion.  Both backends deliberately expose the same result.
+    """
+
+    storage_key: str
+    removed: bool
+    already_absent: bool
+
+    @property
+    def deleted(self) -> bool:
+        return self.removed or self.already_absent
+
+
+class FileSystemArtifactBackend:
+    """Durable local/PVC semantics: exclusive put, bounded read, fsynced unlink."""
+
+    def __init__(self, root: Path):
+        self.root = Path(root).resolve()
         self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
+
+    def path(self, storage_key):
+        return self.root / (_storage_key(storage_key) + ".blob")
+
+    def _sync_directory(self):
+        fd = os.open(self.root, os.O_RDONLY)
+        try:
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+
+    def put(self, storage_key, data: bytes) -> None:
+        if not isinstance(data, bytes):
+            raise TypeError("artifact bytes are required")
+        path = self.path(storage_key)
+        with path.open("xb") as stream:
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+        path.chmod(0o400)
+        self._sync_directory()
+
+    def read(self, storage_key, max_bytes: int) -> bytes:
+        with self.path(storage_key).open("rb") as stream:
+            return stream.read(max_bytes + 1)
+
+    def delete(self, storage_key) -> StorageDeleteResult:
+        key = _storage_key(storage_key)
+        try:
+            self.path(key).unlink()
+        except FileNotFoundError:
+            return StorageDeleteResult(key, removed=False, already_absent=True)
+        self._sync_directory()
+        return StorageDeleteResult(key, removed=True, already_absent=False)
+
+
+class InMemoryArtifactBackend:
+    """Deterministic test backend with the same immutable/idempotent contract."""
+
+    def __init__(self):
+        self._objects = {}
+        self._lock = RLock()
+
+    def put(self, storage_key, data: bytes) -> None:
+        if not isinstance(data, bytes):
+            raise TypeError("artifact bytes are required")
+        key = _storage_key(storage_key)
+        with self._lock:
+            if key in self._objects:
+                raise FileExistsError(key)
+            self._objects[key] = bytes(data)
+
+    def read(self, storage_key, max_bytes: int) -> bytes:
+        key = _storage_key(storage_key)
+        with self._lock:
+            if key not in self._objects:
+                raise FileNotFoundError(key)
+            return self._objects[key][: max_bytes + 1]
+
+    def delete(self, storage_key) -> StorageDeleteResult:
+        key = _storage_key(storage_key)
+        with self._lock:
+            if self._objects.pop(key, None) is None:
+                return StorageDeleteResult(key, removed=False, already_absent=True)
+        return StorageDeleteResult(key, removed=True, already_absent=False)
+
+    def contains(self, storage_key) -> bool:
+        with self._lock:
+            return _storage_key(storage_key) in self._objects
+
+
+# Short aliases make the storage boundary easy to discover without changing
+# the more descriptive names used in the implementation and tests.
+FileArtifactBackend = FileSystemArtifactBackend
+MemoryArtifactBackend = InMemoryArtifactBackend
+
+
+class ArtifactStore:
+    def __init__(
+        self,
+        uow,
+        root: Path | None = None,
+        *,
+        backend: ArtifactStorageBackend | None = None,
+        max_bytes=8 * 1024 * 1024,
+    ):
+        if backend is not None and root is not None:
+            raise ValueError("choose a root or an artifact backend, not both")
+        if backend is None:
+            if root is None:
+                raise ValueError("a root or an artifact backend is required")
+            backend = FileSystemArtifactBackend(root)
+        self.uow, self.backend, self.max_bytes = uow, backend, max_bytes
+        # Existing callers use ``root`` to inspect the durable fixture.  It is
+        # intentionally None for non-filesystem stores.
+        self.root = getattr(backend, "root", None)
 
     def _path(self, record):
         # storage_key is a database UUID generated by stage, never an external path.
-        return self.root / (str(record["storage_key"]) + ".blob")
+        path = getattr(self.backend, "path", None)
+        if not callable(path):
+            raise TypeError("the configured artifact backend has no filesystem path")
+        return path(record["storage_key"])
 
     def stage(
         self,
@@ -187,17 +342,7 @@ class ArtifactStore:
             record = self.record(tx, ref, lock=True)
             if record["state"] != "staged":
                 raise DomainError("INVALID_REFERENCE", 422)
-            path = self._path(record)
-            with path.open("xb") as stream:
-                stream.write(data)
-                stream.flush()
-                os.fsync(stream.fileno())
-            path.chmod(0o400)
-            fd = os.open(self.root, os.O_RDONLY)
-            try:
-                os.fsync(fd)
-            finally:
-                os.close(fd)
+            self.backend.put(record["storage_key"], data)
         return ref
 
     def stage_model_output(
@@ -321,16 +466,7 @@ class ArtifactStore:
         with self._output_transaction(access, task_id, retained) as tx:
             self._bound_output(tx, agent_run_id, retained)
             record = self.record(tx, ref, lock=True)
-            with self._path(record).open("xb") as stream:
-                stream.write(data)
-                stream.flush()
-                os.fsync(stream.fileno())
-            self._path(record).chmod(0o400)
-            fd = os.open(self.root, os.O_RDONLY)
-            try:
-                os.fsync(fd)
-            finally:
-                os.close(fd)
+            self.backend.put(record["storage_key"], data)
         return ref
 
     def _mutation_capability(self, access, task_id, ref):
@@ -370,9 +506,8 @@ class ArtifactStore:
 
     def checked_bytes(self, record):
         try:
-            with self._path(record).open("rb") as stream:
-                data = stream.read(self.max_bytes + 1)
-        except OSError as error:
+            data = self.backend.read(record["storage_key"], self.max_bytes)
+        except (OSError, KeyError) as error:
             raise DomainError("INVALID_REFERENCE", 422) from error
         if (
             len(data) > self.max_bytes
@@ -478,20 +613,34 @@ class ArtifactStore:
         row.
         """
 
-        self._path(record).unlink(missing_ok=True)
-        fd = os.open(self.root, os.O_RDONLY)
-        try:
-            os.fsync(fd)
-        finally:
-            os.close(fd)
+        return self.backend.delete(record["storage_key"])
 
-    def collect_garbage(self, access, task_id, *, older_than, limit=100):
+    def collect_garbage(
+        self,
+        access,
+        task_id,
+        *,
+        older_than,
+        limit=100,
+        retention_policy=None,
+        policy=None,
+    ):
+        if retention_policy is not None and policy is not None:
+            raise ValueError("choose retention_policy or policy, not both")
+        retention_policy = retention_policy if retention_policy is not None else policy
         if (
             older_than.tzinfo is None
             or older_than > datetime.now(timezone.utc)
             or not 1 <= limit <= 1000
         ):
             raise DomainError("INVALID_SCHEMA", 422)
+        if retention_policy is not None and not callable(
+            getattr(retention_policy, "allow_gc", None)
+        ):
+            from wuji_core.audit.retention import RetentionPolicyEngine
+
+            retention_policy = RetentionPolicyEngine(retention_policy)
+        now = datetime.now(timezone.utc)
         candidates = []
         with self.uow.transaction(access, task_id, capability="gc") as tx:
             cursor = tx.connection.execute(
@@ -502,6 +651,19 @@ class ArtifactStore:
             )
             columns = [c.name for c in cursor.description]
             candidates = [dict(zip(columns, values)) for values in cursor.fetchall()]
+            if retention_policy is not None:
+                candidates = [
+                    candidate
+                    for candidate in candidates
+                    if retention_policy.allow_gc(
+                        {
+                            **candidate,
+                            "live_lease": False,
+                            "referenced": False,
+                        },
+                        now=now,
+                    ).allowed
+                ]
             for candidate in candidates:
                 if candidate["state"] != "tombstoned":
                     tx.connection.execute(

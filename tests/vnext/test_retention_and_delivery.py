@@ -8,6 +8,7 @@ database refuse a ``ready`` delivery that still misses required material.
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 import json
 from uuid import uuid4
@@ -25,8 +26,16 @@ from wuji_core.audit.delivery import (
     REPORT_MEDIA_TYPE,
     ReportDeliveryService,
 )
-from wuji_core.audit.retention import RetentionService
+from wuji_core.audit.retention import (
+    DataRetentionProfile,
+    RetentionPolicyEngine,
+    RetentionService,
+)
 from wuji_core.completion.reports import ReportService
+from wuji_core.evidence.artifacts import (
+    FileSystemArtifactBackend,
+    InMemoryArtifactBackend,
+)
 from wuji_core.http import create_app
 from wuji_core.http.delivery import create_delivery_router
 from wuji_core.http.retention import create_retention_router
@@ -822,3 +831,99 @@ def test_the_signed_purge_route_records_a_bounded_tombstone(
             ).status_code == 422
         finally:
             client.close()
+
+
+def test_retention_policy_engine_requires_explicit_approval_and_keeps_hard_guards():
+    """P16: policy decisions are pure, bounded, and cannot override a lease."""
+
+    now = datetime(2026, 9, 18, tzinfo=timezone.utc)
+    old = now - timedelta(seconds=61)
+    profile = DataRetentionProfile(
+        profile_id="fixture-retention-v1",
+        approved=True,
+        gc_after_seconds=60,
+        allow_policy_purge=True,
+        purge_reasons=frozenset({"approved_retention_action"}),
+    )
+    policy = RetentionPolicyEngine(profile)
+
+    orphan = {
+        "state": "sealed",
+        "body_removed": False,
+        "created_at": old,
+        "live_lease": False,
+        "referenced": False,
+    }
+    assert policy.allow_gc(orphan, now=now).reason == "gc_eligible"
+    assert policy.authorize_purge(
+        {**orphan, "referenced": True}, reason="approved_retention_action"
+    ).authority == "retention_policy"
+    assert policy.allow_gc({**orphan, "referenced": True}, now=now).reason == (
+        "published_reference"
+    )
+    with pytest.raises(DomainError) as leased:
+        policy.authorize_purge(
+            {**orphan, "live_lease": True}, reason="approved_retention_action"
+        )
+    assert leased.value.code == "LIMIT_BLOCKED"
+
+    unapproved = RetentionPolicyEngine(
+        DataRetentionProfile(profile_id="fixture-unapproved", gc_after_seconds=60)
+    )
+    assert unapproved.allow_gc(orphan, now=now).reason == "policy_not_approved"
+    with pytest.raises(DomainError) as denied:
+        unapproved.authorize_purge(orphan, reason="approved_retention_action")
+    assert denied.value.code == "LIMIT_BLOCKED"
+
+
+def test_file_and_memory_artifact_backends_have_the_same_idempotent_delete_semantics(
+    tmp_path,
+):
+    """P16: durable and fixture stores expose explicit delete outcomes."""
+
+    backends = (
+        FileSystemArtifactBackend(tmp_path / "filesystem"),
+        InMemoryArtifactBackend(),
+    )
+    for backend in backends:
+        backend.put("fixture-key", b"fixture-bytes")
+        assert backend.read("fixture-key", 1024) == b"fixture-bytes"
+        first = backend.delete("fixture-key")
+        retry = backend.delete("fixture-key")
+        assert (first.removed, first.already_absent, first.deleted) == (True, False, True)
+        assert (retry.removed, retry.already_absent, retry.deleted) == (False, True, True)
+        with pytest.raises(FileNotFoundError):
+            backend.read("fixture-key", 1024)
+
+
+def test_an_approved_policy_purge_is_recorded_as_policy_authority(
+    db_environment, tmp_path, audit_directory
+):
+    """The policy engine's authority survives the scoped SQL producer."""
+
+    with control_case(db_environment, tmp_path, audit_directory) as case:
+        ready_goal(case)
+        sealed = purgeable_artifact(case)
+        allow_retention(case)
+        policy = RetentionPolicyEngine(
+            DataRetentionProfile(
+                profile_id="fixture-retention-v1",
+                approved=True,
+                allow_policy_purge=True,
+                purge_reasons=frozenset({"approved_retention_action"}),
+            )
+        )
+        receipt = RetentionService(
+            case.uow, artifacts=case.store, policy=policy
+        ).purge(
+            OPERATOR,
+            TASK,
+            artifact_id=sealed.id,
+            revision=1,
+            reason="approved_retention_action",
+            purge_key="purge-policy-authority",
+        )
+        assert receipt.document["authority"] == "retention_policy"
+        assert purge_rows(case) == [
+            ("purge-policy-authority", sealed.id, "approved_retention_action", "retention_policy")
+        ]
