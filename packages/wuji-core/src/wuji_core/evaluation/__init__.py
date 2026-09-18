@@ -4,6 +4,7 @@ from wuji_core.evaluation.accounting import (
     AccountingError,
     BudgetReport,
     cost_by_role,
+    evaluate_comparison,
     evaluate_run,
     total_cost,
 )
@@ -12,6 +13,7 @@ __all__ = [
     "AccountingError",
     "BudgetReport",
     "cost_by_role",
+    "evaluate_comparison",
     "evaluate_run",
     "total_cost",
 ]
