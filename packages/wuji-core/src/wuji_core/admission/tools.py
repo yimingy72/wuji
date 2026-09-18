@@ -263,12 +263,31 @@ def _open_operations(tx, run_id):
     return counts
 
 
-def _settlement(tx, run_id):
+def operation_axes_closed(tx, run_id):
+    """Whether every durable operation axis of one Run is provably closed."""
+
+    return sum(_open_operations(tx, run_id).values()) == 0
+
+
+def settle_operation_set(tx, run_id, *, basis="durable_tool_attempt_receipts"):
+    """Recompute one Run's operation settlement from durable platform records.
+
+    The Run states it will start no further operation, and the platform derives
+    the status here. Another producer's unresolved fact is never erased; a row
+    this function already owns is refreshed in place.
+    """
+
     unsettled = tx.connection.execute("SELECT 1 FROM vnext.tool_attempt WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND agent_run_id=%s AND status IS NOT NULL AND status NOT IN ('complete','cancelled','failed') LIMIT 1", (*tx.owner, run_id)).fetchone()
     old = row(tx.connection.execute("SELECT * FROM vnext.run_operation_settlement WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND agent_run_id=%s", (*tx.owner, run_id)))
     if old and old["status"] != "settled" and strict_json_loads(old["source_receipt_json"]).get("producer") != "p06":
-        return  # Another producer's unresolved operation must not be erased.
-    tx.connection.execute("INSERT INTO vnext.run_operation_settlement(tenant_id,project_id,task_id,agent_run_id,status,source_receipt_json) VALUES(%s,%s,%s,%s,%s,%s) ON CONFLICT(tenant_id,project_id,task_id,agent_run_id) DO UPDATE SET status=EXCLUDED.status,source_receipt_json=EXCLUDED.source_receipt_json", (*tx.owner, run_id, "pending" if unsettled else "settled", json_text({"producer": "p06", "basis": "durable_tool_attempt_receipts"})))
+        return old["status"]  # Another producer's unresolved operation must not be erased.
+    status = "pending" if unsettled else "settled"
+    tx.connection.execute("INSERT INTO vnext.run_operation_settlement(tenant_id,project_id,task_id,agent_run_id,status,source_receipt_json) VALUES(%s,%s,%s,%s,%s,%s) ON CONFLICT(tenant_id,project_id,task_id,agent_run_id) DO UPDATE SET status=EXCLUDED.status,source_receipt_json=EXCLUDED.source_receipt_json", (*tx.owner, run_id, status, json_text({"producer": "p06", "basis": basis})))
+    return status
+
+
+def _settlement(tx, run_id):
+    return settle_operation_set(tx, run_id)
 
 
 def close_operation_set(tx, run_id):

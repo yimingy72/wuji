@@ -38,6 +38,10 @@ from wuji_core.execution.states import (
     can_settle_done,
 )
 from wuji_core.execution.capacity import CapacityService, operations_settled
+from wuji_core.admission.tools import (
+    operation_axes_closed,
+    settle_operation_set,
+)
 from wuji_core.execution.dependencies import dependencies_satisfied, result_accepted
 from wuji_core.execution.dependencies import intent_current, intent_record
 from wuji_core.blackboard.result_state import mark_missing_output
@@ -779,6 +783,20 @@ class ControlService:
                 if r["agent_run_id"] == run["agent_run_id"]
             )
             CapacityService.observe(tx, run)
+            if (
+                stopped
+                and work["current_run_id"] == run["agent_run_id"]
+                and operation_axes_closed(tx, run["agent_run_id"])
+            ):
+                # A Run that died before publishing its own settlement (the M2
+                # and E08 trials both lost one to a transport failure) would pin
+                # its Work at operations_unsettled or OPERATION_UNKNOWN forever.
+                # The process is observed exited and every durable axis is
+                # closed, so the platform publishes the settlement the Run
+                # itself could no longer write.
+                settle_operation_set(
+                    tx, run["agent_run_id"], basis="observed_exit_recomputed"
+                )
             if work["current_run_id"] == run["agent_run_id"]:
                 if state == "running" and work["state"] == "leased":
                     if (

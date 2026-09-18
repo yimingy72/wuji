@@ -371,7 +371,7 @@ def test_task_pause_preserves_hold_and_fresh_unstarted_work(
         assert not c.control.dispatchable(OPERATOR, TASK, "work-fixture")
 
 
-def test_accepted_result_keeps_capacity_until_stored_exit(
+def test_platform_recomputes_settlement_after_observed_exit(
     db_environment, tmp_path, audit_directory
 ):
     with control_case(db_environment, tmp_path, audit_directory) as c:
@@ -389,14 +389,13 @@ def test_accepted_result_keeps_capacity_until_stored_exit(
                 == 1
             )
         observe(c, "exited", process=process(exited=True))
-        assert (
-            c.control.read_work(OPERATOR, TASK, "work-fixture")["state"]
-            == "reconciling"
-        )  # missing P06 settlement
-        settled(c)
-        c.control.reconcile(OBSERVER, TASK, "work-fixture")
         assert c.control.read_work(OPERATOR, TASK, "work-fixture")["state"] == "done"
         with c.uow.transaction(OPERATOR, TASK) as tx:
+            settlement = tx.connection.execute(
+                "SELECT status,source_receipt_json FROM vnext.run_operation_settlement WHERE agent_run_id='run-fixture'"
+            ).fetchone()
+            assert settlement[0] == "settled"
+            assert json.loads(settlement[1])["basis"] == "observed_exit_recomputed"
             assert (
                 tx.connection.execute(
                     "SELECT used FROM vnext.capacity_pool WHERE pool_key='platform'"
@@ -432,7 +431,6 @@ def test_hold_revokes_only_one_work_and_unknown_keeps_reservation(
                 == 1
             )
         observe(c, "exited", process=process(exited=True))
-        settled(c)
         c.control.reconcile(OBSERVER, TASK, "work-fixture")
         assert (
             c.control.read_work(OPERATOR, TASK, "work-fixture")["state"] == "suspended"
@@ -644,13 +642,21 @@ def test_missing_session_pins_and_unsettled_operations_block_resume(
         prepared_run(c)
         observe(c, "started", process=process())
         seed_session(c, pending=False, published=False)
+        with c.env.migration_connection() as m:
+            m.execute(
+                "UPDATE vnext.tool_attempt SET status='pending' WHERE agent_run_id='run-fixture'"
+            )
         command(c, "hold", work="work-fixture")
         observe(c, "exited", process=process(exited=True))
-        # Local exit releases capacity, but hold cannot settle while tool outcomes are unknown.
+        # Local exit releases capacity, but hold cannot settle while a tool outcome is open.
         assert (
             c.control.read_work(OPERATOR, TASK, "work-fixture")["state"]
             == "reconciling"
         )
+        with c.env.migration_connection() as m:
+            m.execute(
+                "UPDATE vnext.tool_attempt SET status='complete' WHERE agent_run_id='run-fixture'"
+            )
         settled(c)
         c.control.reconcile(OBSERVER, TASK, "work-fixture")
         command(c, "resume", work="work-fixture")
@@ -1239,6 +1245,10 @@ def test_unknown_external_operation_keeps_task_reconciling_after_local_exit(
     with control_case(db_environment, tmp_path, audit_directory) as c:
         prepared_run(c)
         observe(c, "started", process=process())
+        with c.env.migration_connection() as m:
+            m.execute(
+                "UPDATE vnext.tool_attempt SET status='unknown' WHERE agent_run_id='run-fixture'"
+            )
         observe(c, "exited", process=process(exited=True))
         command(c, "pause")
         assert c.control.read_task(OPERATOR, TASK)["observed_state"] == "reconciling"
