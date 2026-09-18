@@ -180,8 +180,8 @@ def test_create_idempotent_replay_after_task_revoke_is_hidden(
         created = create_task(case, body, key="revoked-create")
         with db_environment.migration_connection() as connection:
             connection.execute(
-                "UPDATE vnext.task_access SET can_read=false,can_control=false WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND subject=%s",
-                (*OWNER, "control-fixture"),
+                "UPDATE vnext.task_access SET can_read=false,can_control=false WHERE tenant_id=%s AND project_id=%s AND subject=%s",
+                (OWNER[0], OWNER[1], "control-fixture"),
             )
         replay = case.client.post(
             "/api/v2/tasks",

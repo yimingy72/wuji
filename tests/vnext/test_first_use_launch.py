@@ -104,7 +104,7 @@ def _register_worker(connection, *, subject="launch-worker"):
     )
 
 
-def _start(case, *, task_id, key="launch-start"):
+def _start(case, task_id, *, key="launch-start"):
     view = task_view(case, task_id)
     response = task_command(
         case,
