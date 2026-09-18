@@ -395,6 +395,25 @@ paths:
               schema: {type: string, format: binary}
         '401': {$ref: '#/components/responses/Unauthenticated'}
         '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
+  /api/v2/tasks/{task_id}/artifacts/{artifact_id}/material:
+    get:
+      operationId: getArtifactMaterialV2
+      summary: Read a safe bounded representation of authorized captured bytes
+      tags: [Knowledge]
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+        - $ref: '#/components/parameters/ArtifactId'
+        - $ref: '#/components/parameters/ArtifactVersionQuery'
+      responses:
+        '200':
+          description: Non-executable material with exact source and representation digests
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ModelMaterialV2'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+        '503': {$ref: '#/components/responses/Unavailable'}
   /api/v2/archives/{archive_id}:
     get:
       operationId: getArchiveV2

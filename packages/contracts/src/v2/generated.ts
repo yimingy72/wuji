@@ -295,6 +295,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v2/tasks/{task_id}/artifacts/{artifact_id}/material": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read a safe bounded representation of authorized captured bytes */
+        get: operations["getArtifactMaterialV2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v2/archives/{archive_id}": {
         parameters: {
             query?: never;
@@ -2993,6 +3010,35 @@ export interface operations {
             };
             401: components["responses"]["Unauthenticated"];
             404: components["responses"]["NotFoundOrForbidden"];
+        };
+    };
+    getArtifactMaterialV2: {
+        parameters: {
+            query: {
+                version: components["parameters"]["ArtifactVersionQuery"];
+            };
+            header?: never;
+            path: {
+                task_id: components["parameters"]["TaskId"];
+                artifact_id: components["parameters"]["ArtifactId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Non-executable material with exact source and representation digests */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelMaterialV2"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFoundOrForbidden"];
+            422: components["responses"]["InvalidSchema"];
+            503: components["responses"]["Unavailable"];
         };
     };
     getArchiveV2: {
