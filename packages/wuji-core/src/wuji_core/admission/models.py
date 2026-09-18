@@ -173,7 +173,15 @@ class _ModelStream:
         runtime = self.permit.config.runtime
         try:
             await run_in_threadpool(self.gate.admission.begin_send, self.access, self.permit)
-            key = await run_in_threadpool(self.gate.key_resolver.resolve, self.permit.config.model.task_key_ref)
+            task_resolver = getattr(self.gate.key_resolver, "resolve_for_task", None)
+            if callable(task_resolver):
+                key = await run_in_threadpool(
+                    task_resolver, self.permit.config.model.task_key_ref,
+                    tenant_id=self.permit.identity.tenant_id,
+                    task_id=self.permit.identity.task_id,
+                )
+            else:
+                key = await run_in_threadpool(self.gate.key_resolver.resolve, self.permit.config.model.task_key_ref)
             if not isinstance(key, str) or not key or "\r" in key or "\n" in key:
                 raise DomainError("CAPABILITY_UNAVAILABLE", 503)
             self.context = self.gate.transport.open(url=self.permit.config.model.gateway_url, headers={"Authorization": "Bearer " + key, "Content-Type": "application/json", "Accept": "text/event-stream" if strict_json_loads(self.permit.request_body)["stream"] else "application/json", "X-Wuji-Model-Attempt-ID": self.permit.model_attempt_id}, body=self.permit.request_body, timeout=runtime.idle_timeout_seconds)

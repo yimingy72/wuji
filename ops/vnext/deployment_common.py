@@ -39,6 +39,8 @@ class Settings(BaseModel):
     spool_directory: str = "/var/lib/wuji/platform/intake"
     profiles_file: str
     secret_refs: dict[str, str] = Field(default_factory=dict)
+    task_model_key_ref: str | None = None
+    task_model_keys_directory: str | None = None
     task_ids: list[str] = Field(default_factory=list, max_length=10000)
     work_kinds: list[str] = Field(default_factory=lambda: ["explore"])
     supervisor_url: str | None = None

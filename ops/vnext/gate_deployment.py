@@ -23,6 +23,20 @@ class KeyResolver:
     def resolve(self, secret_ref):
         return self.deployment.secret(secret_ref).decode().strip()
 
+    def resolve_for_task(self, secret_ref, *, tenant_id, task_id):
+        settings = self.deployment.settings
+        if settings.task_model_key_ref is None:
+            return self.resolve(secret_ref)
+        if secret_ref != settings.task_model_key_ref:
+            raise ValueError("unregistered Task model key reference")
+        from pathlib import Path
+        from task_model_keys import task_key_filename
+
+        directory = settings.task_model_keys_directory
+        if not isinstance(directory, str) or not Path(directory).is_absolute():
+            raise ValueError("an absolute Task key mount is required")
+        return token(str(Path(directory) / task_key_filename(tenant_id, task_id)))
+
 
 def build_gates():
     deployment = Deployment(load_settings("gates"))
