@@ -1,0 +1,14 @@
+<!doctype html><meta charset="utf-8"><title>A8 recorded evidence</title>
+<style>body{font:16px system-ui;margin:30px;max-width:1120px;color:#182434}pre{background:#eef2f6;padding:14px;white-space:pre-wrap;font:14px monospace}h2{margin-top:25px}</style>
+<h1>A8 · Recorded verification output · 2026-09-18</h1>
+<p>Actual observation files below. This is evidence inspection, not the Wuji product UI or an E2E verdict.</p>
+<section id="results">Loading saved observation files…</section>
+<script>
+Promise.all(['run-history.json','material-observed.json','material-de958b1-observed.json','bff-access-protocol.json'].map(async name=>[name,await (await fetch(name)).json()])).then(items=>{
+const root=document.getElementById('results');root.textContent='';
+for(const [name,data] of items){const title=document.createElement('h2');title.textContent=name;root.append(title);const output=document.createElement('pre');
+const value=data.runs?data.runs.map(x=>({observed:x.observed,exit_code:x.exit_code})):data.observations?{reviewed_sha:data.reviewed_sha,violation_count:data.violation_count,checks:data.observations.map(x=>({id:x.id,violation_observed:x.violation_observed}))}:{scope:data.scope,source_sha256:data.gateway_source_sha256,status:data.status,exchanges:data.exchanges.map(x=>({method:x.method,url:x.url,status:x.response_status}))};
+output.textContent=JSON.stringify(value,null,2);root.append(output);}
+document.documentElement.dataset.loaded='true';
+});
+</script>

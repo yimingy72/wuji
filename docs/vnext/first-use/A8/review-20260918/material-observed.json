@@ -1,0 +1,139 @@
+{
+  "reviewed_sha": "25c5df3bbfdfc81c0d76c52686c62894a3f03bc8",
+  "method": "fixed_source_pure_renderer_probe",
+  "observations": [
+    {
+      "id": "A8-MAT-LOCATION",
+      "expected": "userinfo absent from model material",
+      "violation_observed": true,
+      "input": {
+        "schema_version": "wuji.http-exchange.v1",
+        "tool_attempt_id": "attempt-a8",
+        "target": "http://fixture.invalid:80",
+        "request": {
+          "method": "GET",
+          "url": "http://fixture.invalid/",
+          "headers": {}
+        },
+        "response": {
+          "status": 302,
+          "headers": {
+            "content-type": "text/plain; charset=utf-8",
+            "location": "https://synthetic-user:synthetic-password@example.invalid/redirect"
+          },
+          "body_base64": "aGFybWxlc3MgZml4dHVyZQ==",
+          "body_bytes": 16,
+          "truncated": false
+        }
+      },
+      "actual": {
+        "schema_version": "wuji.model-material.v2",
+        "tool_call_id": "call-a8",
+        "status": "delivered",
+        "source": {
+          "artifact_ref": {
+            "id": "artifact-a8",
+            "version": "1",
+            "sha256": "96abdf186e024aa3f6d66fcca37be8b6d62661cd58eb718a67c8c055109b9308"
+          },
+          "artifact_sha256": "96abdf186e024aa3f6d66fcca37be8b6d62661cd58eb718a67c8c055109b9308",
+          "media_type": "application/vnd.wuji.http-exchange+json",
+          "completeness": "complete"
+        },
+        "representation": {
+          "renderer_version": "wuji-http-renderer.v2",
+          "media_type": "text/plain; charset=utf-8",
+          "encoding": "utf-8",
+          "text": "schema_version: wuji.http-exchange.v1\nresponse.status: 302\nresponse.headers:\ncontent-type: text/plain; charset=utf-8\nlocation: https://synthetic-user:synthetic-password@example.invalid/redirect\nresponse.body:\nharmless fixture",
+          "byte_length": 225,
+          "representation_sha256": "1c0dd68e190f749d6bd3ec9aba0d3f118dae96c2cb756b281112b4ecb8bfa7bc",
+          "truncated": false,
+          "redaction_applied": false
+        },
+        "omission_reason": null
+      }
+    },
+    {
+      "id": "A8-MAT-TRUNCATION",
+      "expected": "capture truncation remains visible or packet omitted",
+      "violation_observed": true,
+      "input": {
+        "schema_version": "wuji.http-exchange.v1",
+        "tool_attempt_id": "attempt-a8",
+        "target": "http://fixture.invalid:80",
+        "request": {
+          "method": "GET",
+          "url": "http://fixture.invalid/",
+          "headers": {}
+        },
+        "response": {
+          "status": 200,
+          "headers": {
+            "content-type": "text/plain; charset=utf-8"
+          },
+          "body_base64": "aGFybWxlc3MgZml4dHVyZQ==",
+          "body_bytes": 16,
+          "truncated": true
+        }
+      },
+      "actual": {
+        "schema_version": "wuji.model-material.v2",
+        "tool_call_id": "call-a8",
+        "status": "delivered",
+        "source": {
+          "artifact_ref": {
+            "id": "artifact-a8",
+            "version": "1",
+            "sha256": "e13ce3524cfd8d96a9ab75b2d32c27335580c94758638e004c3df45b78b628af"
+          },
+          "artifact_sha256": "e13ce3524cfd8d96a9ab75b2d32c27335580c94758638e004c3df45b78b628af",
+          "media_type": "application/vnd.wuji.http-exchange+json",
+          "completeness": "complete"
+        },
+        "representation": {
+          "renderer_version": "wuji-http-renderer.v2",
+          "media_type": "text/plain; charset=utf-8",
+          "encoding": "utf-8",
+          "text": "schema_version: wuji.http-exchange.v1\nresponse.status: 200\nresponse.headers:\ncontent-type: text/plain; charset=utf-8\nresponse.body:\nharmless fixture",
+          "byte_length": 148,
+          "representation_sha256": "e3051b2ecef59265a845fd348227a063ae7ea3cd347d0200166fa597a177b8f6",
+          "truncated": false,
+          "redaction_applied": false
+        },
+        "omission_reason": null
+      }
+    },
+    {
+      "id": "A8-MAT-PARTIAL",
+      "expected": "an honestly partial source retains partial metadata",
+      "violation_observed": false,
+      "actual": {
+        "schema_version": "wuji.model-material.v2",
+        "tool_call_id": "call-a8",
+        "status": "delivered",
+        "source": {
+          "artifact_ref": {
+            "id": "artifact-a8",
+            "version": "1",
+            "sha256": "e13ce3524cfd8d96a9ab75b2d32c27335580c94758638e004c3df45b78b628af"
+          },
+          "artifact_sha256": "e13ce3524cfd8d96a9ab75b2d32c27335580c94758638e004c3df45b78b628af",
+          "media_type": "application/vnd.wuji.http-exchange+json",
+          "completeness": "partial"
+        },
+        "representation": {
+          "renderer_version": "wuji-http-renderer.v2",
+          "media_type": "text/plain; charset=utf-8",
+          "encoding": "utf-8",
+          "text": "schema_version: wuji.http-exchange.v1\nresponse.status: 200\nresponse.headers:\ncontent-type: text/plain; charset=utf-8\nresponse.body:\nharmless fixture",
+          "byte_length": 148,
+          "representation_sha256": "e3051b2ecef59265a845fd348227a063ae7ea3cd347d0200166fa597a177b8f6",
+          "truncated": false,
+          "redaction_applied": false
+        },
+        "omission_reason": null
+      }
+    }
+  ],
+  "violation_count": 2
+}

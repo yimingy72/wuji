@@ -1,0 +1,24 @@
+{
+  "scope": "A8 directed driver and independent review only; not E2E",
+  "tested_worktree_head": "835ee42620f1c89b06c08399907e3d5db523da3a",
+  "tested_code_was_uncommitted": true,
+  "first_code_committed_as": "1ddf90b658e7eeed9969209712b6b6aa24f39ad4",
+  "final_protocol_code_committed_as": "f3230c34cccc58199656de66dee564847ddf5178",
+  "python": "/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/packages/maf-worker/.venv/bin/python",
+  "PYTHONPATH": "packages/wuji-core/src:packages/maf-worker/src:packages/task-runtime/src:tests/vnext",
+  "runs": [
+    {"command": "python -m pytest tests/vnext/test_first_use_acceptance.py tests/first_use -q", "observed": "32 passed in 25.01s", "exit_code": 0},
+    {"command": "python -m pytest tests/vnext/test_first_use_acceptance.py -q -k a1_frozen", "attempt": 1, "observed": "2 failed, 2 passed, 25 deselected in 4.86s", "exit_code": 1, "cause": "A8 P03 seed had started ToolAttempt and unknown output expectation, not A1 production regression"},
+    {"command": "python -m pytest tests/vnext/test_first_use_acceptance.py -q -k a1_frozen", "attempt": 2, "observed": "4 passed, 25 deselected in 5.23s", "exit_code": 0},
+    {"command": "python tests/first_use/review_material.py --output docs/vnext/first-use/A8/review-20260918/material-observed.json", "reviewed_sha": "25c5df3bbfdfc81c0d76c52686c62894a3f03bc8", "observed": "violation_count=2", "exit_code": 1},
+    {"command": "python tests/first_use/review_material.py --commit de958b1 --output docs/vnext/first-use/A8/review-20260918/material-de958b1-observed.json", "reviewed_sha": "de958b1319c81e3f252d69de4fc16e6cbba2fc29", "observed": "violation_count=0", "exit_code": 0},
+    {"command": "python tests/first_use/bff_protocol_probe.py --gateway-source /Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/first-use-a3/services/wuji-web-gateway/main.py --output docs/vnext/first-use/A8/review-20260918/bff-protocol.json", "attempt": 1, "observed": "HTTP 422 at create: test probe supplied only name", "exit_code": 1},
+    {"command": "python tests/first_use/bff_protocol_probe.py --gateway-source /Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/first-use-a3/services/wuji-web-gateway/main.py --output docs/vnext/first-use/A8/review-20260918/bff-protocol.json", "attempt": 2, "observed": "11 exchanges, actual A3 BFF ASGI with synthetic downstream; superseded login protocol", "exit_code": 0},
+    {"command": "python -m pytest tests/vnext/test_first_use_acceptance.py tests/first_use -q -k 'not a1_frozen'", "observed": "28 passed, 4 deselected in 17.97s", "exit_code": 0, "scope": "final reusable-access protocol; PG code unchanged"},
+    {"command": "python tests/first_use/bff_protocol_probe.py --gateway-source /Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/first-use-a3/services/wuji-web-gateway/main.py --output docs/vnext/first-use/A8/review-20260918/bff-access-protocol.json", "observed": "CookieConflict caused by A8 client loading same-name cookies with two domain scopes", "exit_code": 1},
+    {"command": "python tests/first_use/bff_protocol_probe.py --gateway-source services/wuji-web-gateway/main.py --gateway-commit 1d46893163a54e5acd6a50f1f430c828fd777aa8 --output docs/vnext/first-use/A8/review-20260918/bff-access-protocol.json", "observed": "14 exchanges, relogin revoked old Cookie, logout revoked current Cookie", "exit_code": 0}
+  ],
+  "DG1": "not_run",
+  "DG2": "not_run",
+  "DG3": "not_run"
+}
