@@ -135,3 +135,40 @@ def test_same_task_next_attempt_requires_same_definition_and_contiguous_attempt(
     with pytest.raises(adapter.LaunchAdapterError) as error:
         adapter.merge_runtime_document(document, skipped)
     assert error.value.code == "INPUT_DIGEST_CONFLICT"
+
+
+def test_a2_launch_worker_input_contract_uses_revision_strings_and_phase_observe():
+    store, _ = make_store()
+    profiles = [{"ref": "harness.explore.task.b", "revision": "1", "body": {"lock_digest": LOCK}}]
+    profile_digest = hashlib.sha256(canonical(profiles)).hexdigest()
+    binding = {
+        "runtime_entry": task_entry("task-b"), "gate_entry": gate_entry("task-b"),
+        "profiles": profiles, "profile_digest": profile_digest,
+    }
+    launch = adapter.DeploymentLaunchAdapter(
+        {"namespace": "wuji-vnext-test"},
+        {"store": store, "binding_loader": lambda request: binding},
+    )
+    prepare = launch.prepare({
+        "task_id": "task-b", "operation_id": "op-b", "definition_digest": DIGEST,
+        "profile_digest": DIGEST, "attempt": None,
+    })
+    assert prepare["status"] == "ready"
+    wire = launch.wire({
+        "task_id": "task-b", "operation_id": "op-b", "definition_digest": DIGEST,
+        "profile_digest": profile_digest, "attempt": "1", "epoch": "2",
+    })
+    assert wire["status"] == "ready"
+    observed = launch.observe({
+        "task_id": "task-b", "operation_id": "op-b", "definition_digest": DIGEST,
+        "profile_digest": profile_digest, "attempt": None, "epoch": "2",
+        "phase": "prepare", "external_ref": prepare["external_ref"],
+    })
+    assert observed["status"] == "pending"
+    capability = launch.capability({
+        "task_id": "task-b", "operation_id": "op-b", "definition_digest": DIGEST,
+        "profile_digest": profile_digest, "attempt": "1", "epoch": "2",
+        "observed_runtime_uid": "pod-fixture-uid",
+    })
+    assert capability["status"] == "ready"
+    assert capability["external_ref"] == "op-b"

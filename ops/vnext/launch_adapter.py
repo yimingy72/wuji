@@ -26,6 +26,7 @@ from typing import Any, Callable, Mapping, Protocol
 SCHEMA_VERSION = "wuji.runtime-launch-adapter.v1"
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
 _IDENTITY = re.compile(r"^[^\x00-\x20\x7f]{1,256}$")
+_REVISION = re.compile(r"^[1-9][0-9]{0,30}$")
 _ALLOWED_INPUT = frozenset({
     "task_id", "operation_id", "definition_digest", "profile_digest",
     "attempt", "epoch", "phase", "external_ref", "observed_runtime_uid",
@@ -53,11 +54,19 @@ class LaunchInput:
     operation_id: str
     definition_digest: str
     profile_digest: str | None = None
-    attempt: int = 0
-    epoch: int | None = None
+    attempt: str | None = None
+    epoch: str | None = None
     phase: str | None = None
     external_ref: str | None = None
     observed_runtime_uid: str | None = None
+
+    @property
+    def attempt_int(self) -> int | None:
+        return None if self.attempt is None else int(self.attempt)
+
+    @property
+    def epoch_int(self) -> int | None:
+        return None if self.epoch is None else int(self.epoch)
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, Any], *, phase: str) -> "LaunchInput":
@@ -66,13 +75,17 @@ class LaunchInput:
         keys = set(value)
         if keys & _FORBIDDEN_INPUT or not keys <= _ALLOWED_INPUT:
             raise LaunchAdapterError("INVALID_SCHEMA", 422)
-        if value.get("phase") not in (None, phase):
+        declared_phase = value.get("phase")
+        if phase == "observe":
+            if declared_phase not in (None, "prepare", "wire", "capability", "observe"):
+                raise LaunchAdapterError("INVALID_SCHEMA", 422)
+        elif declared_phase not in (None, phase):
             raise LaunchAdapterError("INVALID_SCHEMA", 422)
-        required = {"task_id", "operation_id", "definition_digest", "attempt"}
+        required = {"task_id", "operation_id", "definition_digest"}
+        if phase != "prepare":
+            required.add("attempt")
         if phase in {"wire", "observe", "capability"}:
             required |= {"profile_digest", "epoch"}
-        if phase in {"observe", "capability"}:
-            required.add("external_ref")
         if phase == "capability":
             required.add("observed_runtime_uid")
         if not required <= keys:
@@ -86,11 +99,18 @@ class LaunchInput:
                 continue
             if not isinstance(item, str) or not _DIGEST.fullmatch(item):
                 raise LaunchAdapterError("INVALID_SCHEMA", 422)
-        if type(value.get("attempt")) is not int or value["attempt"] < 1:
-            raise LaunchAdapterError("INVALID_SCHEMA", 422)
-        if value.get("epoch") is not None and (
-            type(value["epoch"]) is not int or value["epoch"] < 1
-        ):
+        raw_attempt = value.get("attempt")
+        if raw_attempt is None and phase == "prepare":
+            attempt = None
+        elif raw_attempt is None and phase == "observe" and declared_phase == "prepare":
+            attempt = None
+        else:
+            attempt = str(raw_attempt) if type(raw_attempt) is int else raw_attempt
+            if not isinstance(attempt, str) or not _REVISION.fullmatch(attempt):
+                raise LaunchAdapterError("INVALID_SCHEMA", 422)
+        raw_epoch = value.get("epoch")
+        epoch = None if raw_epoch is None else str(raw_epoch) if type(raw_epoch) is int else raw_epoch
+        if epoch is not None and (not isinstance(epoch, str) or not _REVISION.fullmatch(epoch)):
             raise LaunchAdapterError("INVALID_SCHEMA", 422)
         for key in ("external_ref", "observed_runtime_uid"):
             item = value.get(key)
@@ -99,8 +119,9 @@ class LaunchInput:
         return cls(
             task_id=value["task_id"], operation_id=value["operation_id"],
             definition_digest=value["definition_digest"],
-            profile_digest=value.get("profile_digest"), attempt=value["attempt"],
-            epoch=value.get("epoch"), phase=phase, external_ref=value.get("external_ref"),
+            profile_digest=value.get("profile_digest"), attempt=attempt,
+            epoch=epoch, phase=declared_phase or phase,
+            external_ref=value.get("external_ref") or value["operation_id"],
             observed_runtime_uid=value.get("observed_runtime_uid"),
         )
 
@@ -165,6 +186,16 @@ def _json(data: Any, *, code: str = "RUNTIME_CONFIG_UNAVAILABLE") -> Any:
 
 def _canonical(value: Any) -> bytes:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+
+
+def task_profile_digest(definition: Mapping[str, Any]) -> str:
+    """Match LaunchService's model/runtime/lock profile digest."""
+
+    return sha256(_canonical({
+        "model_profile": definition.get("model_profile"),
+        "runtime_profile": definition.get("runtime_profile"),
+        "lock_digest": definition.get("lock_digest"),
+    })).hexdigest()
 
 
 def _replaceable(value: dict) -> dict:
@@ -366,7 +397,8 @@ class RuntimeLaunchAdapter:
 
     def prepare(self, input: Mapping[str, Any]) -> dict:
         request = LaunchInput.from_mapping(input, phase="prepare")
-        return {"external_ref": request.external_ref_for("prepare"), "summary": "deployment binding accepted"}
+        return {"status": "ready", "external_ref": request.external_ref_for("prepare"),
+                "summary": "deployment binding accepted"}
 
     def wire(self, input: Mapping[str, Any]) -> dict:
         request = LaunchInput.from_mapping(input, phase="wire")
@@ -385,7 +417,8 @@ class RuntimeLaunchAdapter:
             raise LaunchAdapterError("INPUT_DIGEST_CONFLICT", 409)
         if not isinstance(request.profile_digest, str) or not _DIGEST.fullmatch(request.profile_digest):
             raise LaunchAdapterError("INVALID_SCHEMA", 422)
-        if sha256(_canonical(profiles)).hexdigest() != request.profile_digest:
+        worker_profiles_digest = binding.get("worker_profiles_digest")
+        if worker_profiles_digest is not None and sha256(_canonical(profiles)).hexdigest() != worker_profiles_digest:
             raise LaunchAdapterError("INPUT_DIGEST_CONFLICT", 409)
         runtime = self.store.read(self.runtime_configmap)
         gates = self.store.read(self.gates_configmap)
@@ -407,6 +440,7 @@ class RuntimeLaunchAdapter:
         self.store.replace(self.gates_configmap, gates)
         return {
             "external_ref": request.external_ref_for("wire"),
+            "status": "ready",
             "summary": f"runtime={runtime_action};profiles={profile_action};gates={gate_action}",
             "runtime_configmap": self.runtime_configmap,
             "gates_configmap": self.gates_configmap,
@@ -419,9 +453,9 @@ class RuntimeLaunchAdapter:
         runtime_doc = _json(runtime["data"].get("deployment.json"))
         task = next((item for item in ((runtime_doc.get("pod_runtime") or {}).get("tasks") or [])
                      if isinstance(item, dict) and _task_id(item) == request.task_id), None)
-        if task is None or _attempt(task) != request.attempt or _digest(task) != request.definition_digest:
+        if task is None or (request.attempt_int is not None and _attempt(task) != request.attempt_int) or _digest(task) != request.definition_digest:
             raise LaunchAdapterError("STALE_EXECUTION", 409)
-        return {"status": "configured", "external_ref": request.external_ref,
+        return {"status": "pending", "external_ref": request.external_ref,
                 "summary": "Task binding is present in the trusted runtime ConfigMap"}
 
     def capability(self, input: Mapping[str, Any]) -> dict:
@@ -432,9 +466,10 @@ class RuntimeLaunchAdapter:
         runtime_doc = _json(runtime["data"].get("deployment.json"))
         task = next((item for item in ((runtime_doc.get("pod_runtime") or {}).get("tasks") or [])
                      if isinstance(item, dict) and _task_id(item) == request.task_id), None)
-        if task is None or _attempt(task) != request.attempt or _digest(task) != request.definition_digest:
+        if task is None or (request.attempt_int is not None and _attempt(task) != request.attempt_int) or _digest(task) != request.definition_digest:
             raise LaunchAdapterError("STALE_EXECUTION", 409)
         return {"external_ref": request.external_ref,
+                "status": "ready",
                 "summary": "capability may bind only the caller-observed runtime UID",
                 "observed_runtime_uid": request.observed_runtime_uid}
 
@@ -516,11 +551,11 @@ class ProductionLaunchProvisioner:
         )
         if binding["definition_digest"] != request.definition_digest:
             raise LaunchAdapterError("INPUT_DIGEST_CONFLICT", 409)
-        if binding["runtime_attempt"] != request.attempt:
+        if request.attempt_int is not None and binding["runtime_attempt"] != request.attempt_int:
             raise LaunchAdapterError("STALE_EXECUTION", 409)
-        if request.epoch is not None and binding["execution_epoch"] != request.epoch:
+        if request.epoch_int is not None and binding["execution_epoch"] != request.epoch_int:
             raise LaunchAdapterError("STALE_EXECUTION", 409)
-        actual_profile_digest = sha256(_canonical(binding["worker_profiles"])).hexdigest()
+        actual_profile_digest = task_profile_digest(prepared["definition"])
         if request.profile_digest is not None and request.profile_digest != actual_profile_digest:
             raise LaunchAdapterError("INPUT_DIGEST_CONFLICT", 409)
         if pod_uid is not None:
@@ -581,9 +616,12 @@ class ProductionLaunchProvisioner:
             connection.close()
         result = {
             "external_ref": request.external_ref_for("prepare"),
+            "status": "ready",
             "phase_status": "succeeded",
             "definition_digest": prepared["definition_digest"],
-            "profile_digest": sha256(_canonical(binding["worker_profiles"])).hexdigest(),
+            "prepared_definition_digest": prepared["definition_digest"],
+            "profile_digest": task_profile_digest(prepared["definition"]),
+            "prepared_profile_digest": task_profile_digest(prepared["definition"]),
             "runtime_attempt": prepared["runtime_attempt"],
             "execution_epoch": prepared["execution_epoch"],
             "reason_first": initial is None,
@@ -723,6 +761,7 @@ class ProductionLaunchProvisioner:
         observation = self._pod_observation(runtime_config)
         return {
             "external_ref": request.external_ref_for("wire"),
+            "status": "ready" if observation["status"] == "ready" else "pending" if observation["status"] == "pending" else "unknown",
             "phase_status": observation["status"], "actions": {**actions, "configmaps": config_actions},
             "pod_uid": observation["pod_uid"], "rolled_deployments": [],
         }
@@ -731,11 +770,42 @@ class ProductionLaunchProvisioner:
         task_launch = self._task_launch()
         connection = task_launch.owner_connection(self.config)
         try:
+            if request.phase == "prepare":
+                prepared = self._row(connection, request.task_id)
+                admission = connection.execute(
+                    "SELECT 1 FROM vnext.admission_config WHERE tenant_id=%s AND project_id=%s AND task_id=%s",
+                    self._owner(request.task_id),
+                ).fetchone()
+                executor = connection.execute(
+                    "SELECT 1 FROM vnext.executor_registration WHERE tenant_id=%s AND project_id=%s AND task_id=%s",
+                    self._owner(request.task_id),
+                ).fetchone()
+                current_profile = task_profile_digest(prepared["definition"])
+                if (
+                    prepared["definition_digest"] != request.definition_digest
+                    or current_profile != request.profile_digest
+                    or admission is None or executor is None
+                ):
+                    return {
+                        "status": "unknown", "phase_status": "reconciling",
+                        "external_ref": request.external_ref,
+                        "reason_code": "prepared_digest_not_recorded",
+                        "prepared_definition_digest": prepared["definition_digest"],
+                        "prepared_profile_digest": current_profile,
+                    }
+                return {
+                    "status": "ready", "phase_status": "succeeded",
+                    "external_ref": request.external_ref,
+                    "prepared_definition_digest": prepared["definition_digest"],
+                    "prepared_profile_digest": current_profile,
+                }
             binding = self._binding(request, connection)
             state = self._pod_observation(task_launch.attempt_config(binding), request.observed_runtime_uid)
         finally:
             connection.close()
-        return {"external_ref": request.external_ref, "phase_status": state["status"], "pod_uid": state["pod_uid"]}
+        status = "ready" if state["status"] == "ready" else "pending" if state["status"] == "pending" else "unknown"
+        return {"external_ref": request.external_ref, "status": status,
+                "phase_status": state["status"], "pod_uid": state["pod_uid"]}
 
     def capability(self, request):
         task_launch = self._task_launch()
@@ -744,11 +814,12 @@ class ProductionLaunchProvisioner:
             binding = self._binding(request, connection, pod_uid=request.observed_runtime_uid)
             state = self._pod_observation(task_launch.attempt_config(binding), request.observed_runtime_uid)
             if state["status"] != "ready":
-                return {"external_ref": request.external_ref, "phase_status": state["status"], "pod_uid": state["pod_uid"]}
+                return {"external_ref": request.external_ref, "status": "pending" if state["status"] == "pending" else "unknown",
+                        "phase_status": state["status"], "pod_uid": state["pod_uid"]}
             result = task_launch.publish_capabilities(connection, config=self.config, binding=binding)
         finally:
             connection.close()
-        return {"external_ref": request.external_ref, "phase_status": "succeeded",
+        return {"external_ref": request.external_ref, "status": "ready", "phase_status": "succeeded",
                 "pod_uid": request.observed_runtime_uid, **result}
 
 
