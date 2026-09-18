@@ -299,6 +299,8 @@ class SessionRepository:
             item.get("path") for item in configured if isinstance(item, dict)
         }:
             raise DomainError("INVALID_REFERENCE", 422)
+        if memory.state_refs:
+            raise DomainError("CAPABILITY_UNAVAILABLE", 503)
         rendered_files = []
         for item in sorted(configured, key=lambda value: value["path"]):
             try:
@@ -306,7 +308,10 @@ class SessionRepository:
                 file = files[item["path"]]
             except (KeyError, TypeError, ValueError) as error:
                 raise DomainError("INVALID_REFERENCE", 422) from error
-            if source_ref.entity_type.value != "artifact" or file.ref is None:
+            if (
+                source_ref.entity_type.value != "artifact"
+                or file.ref is None
+            ):
                 raise DomainError("INVALID_REFERENCE", 422)
             source = row(tx.connection.execute(
                 """SELECT artifact.* FROM vnext.snapshot_ref snapshot

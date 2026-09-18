@@ -232,10 +232,17 @@ class InputService:
         if tx.run_binding is None or tx.run_binding.identity != assignment.identity:
             raise DomainError("STALE_EXECUTION", 409)
         current_run(tx, self.registry.config(tx))
-        value = row(tx.connection.execute("SELECT d.*,i.status AS input_status,i.work_item_id FROM vnext.input_delivery d JOIN vnext.input_request i USING(tenant_id,project_id,task_id,input_request_id) WHERE d.tenant_id=%s AND d.project_id=%s AND d.task_id=%s AND d.delivery_id=%s AND d.access_level<=%s", (*tx.owner, delivery_id, tx.permissions["clearance"])))
+        value = row(tx.connection.execute("SELECT d.*,i.status AS input_status,i.work_item_id,i.session_id AS input_session_id,i.session_revision AS input_session_revision FROM vnext.input_delivery d JOIN vnext.input_request i USING(tenant_id,project_id,task_id,input_request_id) WHERE d.tenant_id=%s AND d.project_id=%s AND d.task_id=%s AND d.delivery_id=%s AND d.access_level<=%s", (*tx.owner, delivery_id, tx.permissions["clearance"])))
+        work = work_row(tx, assignment.identity.work_item_id)
         if (value is None or value["work_item_id"] != assignment.identity.work_item_id or value["input_status"] != "resolved"
                 or assignment.session_manifest_ref is None or assignment.session_manifest_ref.root != value["manifest_ref"]):
             raise DomainError("INVALID_REFERENCE", 422)
+        if (
+            work["input_request_id"] != value["input_request_id"]
+            or work["session_id"] != value["input_session_id"]
+            or str(work["session_revision"]) != str(value["input_session_revision"])
+        ):
+            raise DomainError("STALE_EXECUTION", 409)
         holder = tx.connection.execute("SELECT 1 FROM vnext.session_holder WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND agent_run_id=%s AND manifest_ref=%s AND session_lineage=%s", (*tx.owner, assignment.identity.agent_run_id, value["manifest_ref"], tx.run_binding.session_lineage)).fetchone()
         if holder is None:
             raise DomainError("STALE_EXECUTION", 409)

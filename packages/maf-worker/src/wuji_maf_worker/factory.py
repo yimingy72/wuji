@@ -201,6 +201,15 @@ def build_agent(*, resolved, profile, model_http, model_gate_url, run_credential
             or profile.session_limits.max_total_bytes > limits["max_total_output_bytes"]
         ):
             raise ValueError("providers do not match the fixed Session combination")
+        if profile.memory_mode == "pinned_context":
+            store = getattr(memory_provider, "store", None)
+            snapshot_files = getattr(store, "snapshot_files", None)
+            if not callable(snapshot_files):
+                raise ValueError("fixed memory provider lacks an immutable file snapshot")
+            expected_paths = {item["path"] for item in profile.memory_inputs}
+            actual_paths = set(snapshot_files())
+            if actual_paths != expected_paths:
+                raise ValueError("fixed memory files do not match the published Session Profile")
         session_options = {"history_provider": history, "context_providers": []}
         if memory_provider is not None:
             if memory_provider.source_id != profile.memory_source_id:

@@ -172,12 +172,18 @@ class ApprovalService:
             raise DomainError("NOT_FOUND_OR_FORBIDDEN")
         value = self._row(tx, binding.approval_ref, lock=True)
         if value["decision_status"] == "consumed":
-            if value["consumed_attempt_id"] != permit.tool_attempt_id:
+            if (
+                value["consumed_attempt_id"] != permit.tool_attempt_id
+                or binding.decision_version != str(value["version"])
+                or value["decision"] != "approve"
+            ):
                 raise DomainError("INPUT_DIGEST_CONFLICT", 409)
             return binding.model_copy(update={"tool_attempt_id": permit.tool_attempt_id, "replay": True})
         attempt = tx.connection.execute("SELECT 1 FROM vnext.tool_attempt WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND tool_attempt_id=%s AND tool_call_id=%s AND agent_run_id=%s AND status='admitted'", (*tx.owner, permit.tool_attempt_id, binding.tool_call_id, tx.run_binding.identity.agent_run_id)).fetchone()
         if not attempt or permit.identity != tx.run_binding.identity:
             raise DomainError("INVALID_REFERENCE", 422)
+        if binding.decision_version != str(value["version"]):
+            raise DomainError("STALE_VERSION", 409)
         updated = tx.connection.execute("UPDATE vnext.approval_request SET decision_status='consumed',consumed_attempt_id=%s,consumed_by_run=%s WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND approval_ref=%s AND version=%s AND decision_status='decided' AND decision='approve' RETURNING approval_ref", (permit.tool_attempt_id, permit.identity.agent_run_id, *tx.owner, binding.approval_ref, binding.decision_version)).fetchone()
         if not updated:
             raise DomainError("STALE_VERSION", 409)

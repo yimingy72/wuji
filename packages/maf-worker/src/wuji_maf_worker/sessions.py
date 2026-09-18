@@ -238,6 +238,14 @@ class NativeSessionAdapter:
         if memory is not None:
             if not isinstance(memory, VersionedMemoryStore):
                 raise TypeError("memory must be a bounded publication-owned AgentFileStore")
+            configured = tuple(
+                self.compatibility.profile_snapshot["body"].get("memory_inputs", ())
+            )
+            configured_paths = {
+                item["path"] for item in configured if isinstance(item, dict)
+            }
+            if set(memory.snapshot_files()) != configured_paths:
+                raise ValueError("memory files do not match the fixed Session Profile")
             for path, data in memory.snapshot_files().items():
                 key = "memory-" + sha256(path.encode("utf-8")).hexdigest()
                 files.append(MemoryFile(path=path, object_key=key))
@@ -285,6 +293,14 @@ class NativeSessionAdapter:
         expected_memory = self.compatibility.profile_snapshot["body"]["memory_mode"] != "disabled"
         if published.memory.enabled != expected_memory:
             raise ValueError("published memory differs from the fixed Session Profile")
+        if published.memory.state_refs:
+            raise ValueError("published memory contains unsupported mutable provider state")
+        configured = tuple(
+            self.compatibility.profile_snapshot["body"].get("memory_inputs", ())
+        )
+        expected_paths = {item["path"] for item in configured if isinstance(item, dict)}
+        if {file.path for file in published.memory.files} != expected_paths:
+            raise ValueError("published memory files do not match the fixed Session Profile")
         refs = (manifest.history_root, manifest.provider_state_ref, manifest.memory_manifest_ref)
         for root, ref in zip(roots, refs, strict=True):
             body = canonical_json_bytes(root.model_dump(mode="python"))

@@ -305,7 +305,21 @@ BEGIN
     AND receiver.enabled AND source_acl.can_read
     AND source_acl.clearance>=stage.graph_access_level
     AND NOT credential.revoked AND NOT writer.revoked
-    AND (credential.document_json::jsonb->>'expires_at')::timestamptz>clock_timestamp();
+    AND (credential.document_json::jsonb->>'expires_at')::timestamptz>clock_timestamp()
+    -- A stage is publishable only while the same commit lease still pins all
+    -- three roots.  Once that lease expires, GC may retire the abandoned
+    -- objects and an old half-publish must fail closed rather than revive a
+    -- partially collected graph.
+    AND (SELECT count(*) FROM vnext.artifact_lease lease
+         WHERE lease.tenant_id=stage.tenant_id
+           AND lease.project_id=stage.project_id
+           AND lease.task_id=stage.task_id
+           AND lease.lease_owner=stage.stage_id
+           AND lease.expires_at>clock_timestamp()
+           AND (lease.artifact_id,lease.artifact_revision) IN
+             ((stage.history_id,stage.history_revision),
+              (stage.provider_id,stage.provider_revision),
+              (stage.memory_id,stage.memory_revision)))=3;
   IF NOT FOUND THEN RAISE EXCEPTION 'current source Session stage required' USING ERRCODE='42501'; END IF;
 END $$;
 
