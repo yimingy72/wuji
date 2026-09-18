@@ -30,13 +30,10 @@ import {
 } from './stream';
 import styles from './topology.module.css';
 
-// R04/R05 are still open: a view revision is not yet atomically bound to its
-// snapshot, and a reconnect does not prove it resumed from the baseline the
-// client already saw. Until those close with real SSE evidence, the live
-// subscription stays off and the graph, the detail panel and every reference
-// come from one authorized snapshot with an explicit refresh. Flip this only
-// together with the X04 fixes, never on its own.
-export const LIVE_VIEW_ENABLED = false;
+// X04 binds each emitted revision to its new snapshot and rejects stale
+// cursors with an explicit reset. The live subscription is enabled only after
+// those guards are in the same release.
+export const LIVE_VIEW_ENABLED = true;
 
 const entityTypes = new Set<NodeEntityType>([
   'origin',
