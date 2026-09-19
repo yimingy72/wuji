@@ -87,6 +87,7 @@ def test_overlay_dockerfile_and_build_command_cannot_install_or_pull():
     assert "RUN " not in dockerfile
     assert "ADD " not in dockerfile
     assert dockerfile.count("COPY ") == len(module.EXPECTED_IMAGE_SOURCE_DELTA)
+    assert dockerfile.count("COPY --chmod=644 ") == len(module.EXPECTED_IMAGE_SOURCE_DELTA)
 
     command = module.docker_build_command(
         dockerfile=Path("Dockerfile.overlay"),

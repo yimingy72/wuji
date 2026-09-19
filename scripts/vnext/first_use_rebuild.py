@@ -383,7 +383,12 @@ def overlay_dockerfile(target: str, base_tag: str, overlays: Sequence[Mapping[st
         destination = str(item["destination"])
         if source not in EXPECTED_IMAGE_SOURCE_DELTA or not destination.startswith("/opt/wuji/"):
             raise RebuildError(f"unreviewed COPY instruction for {target}: {source}")
-        lines.append("COPY " + json.dumps([source, destination], separators=(",", ":")))
+        mode = str(item["git_mode"])
+        if mode not in {"100644", "100755"}:
+            raise RebuildError(f"unreviewed file mode: {source}")
+        # Archive extraction runs under a private umask. Image source files
+        # must instead keep their tracked readable mode for the non-root UID.
+        lines.append("COPY --chmod=" + mode[-3:] + " " + json.dumps([source, destination], separators=(",", ":")))
     return "\n".join(lines) + "\n"
 
 
