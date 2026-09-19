@@ -22,6 +22,8 @@
 
 各角色在 `codex/first-use-aN` 独立工作树实现。用户指定子代理 `gpt-5.6-luna/xhigh`；并发上限六个，A3/A4 排队，不伪报启动。A8 不写生产实现，在固定集成版本独立复核。DG0代码、DG1机制、DG2真实模型、DG3现场分别报告。
 
+2026-09-19 用户更新：后续子代理改用 `gpt-5.6-sol/xhigh`。以上 Luna 记录保留其实际执行历史，不改写已完成测试的执行者。
+
 用户已选择 DeepSeek 并提供凭据；记录与任务只保存 SecretRef，不再索要 Key。优先复用有效预算、数据许可与隔离部署批准。尚未找到的额度/现场信息保持缺项；自建无害开发验证持续进行。
 
 后续实施收口（2026-09-19）：用户已明确无限额试测授权、采用官方价格和自建单实例；详见 [授权记录](authorization.md)。新 `TaskCreate.external_analysis_approved` 保存创建者的外发确认，缺失不许可真实外部模型；旧客户端未提供的可选字段不改变其创建重放摘要。发布目录的 `real_model_allowed` 是 owner 管理的数据库元数据，不插入旧 ModelProfile/Session 字节。首次启动由独立 `wuji-launch` 服务消费，HTTP 服务不持部署 owner 凭据；项目级 `task_launch_worker` 注册是后台服务权限来源。Task 未激活且无 Run 时可在容量尚未发布前取消，实际激活/执行仍要求完整容量。

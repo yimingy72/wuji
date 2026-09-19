@@ -326,8 +326,8 @@ class _FixtureHTTPServer(ThreadingHTTPServer):
     daemon_threads = True
     allow_reuse_address = True
 
-    def __init__(self, state: FixtureState) -> None:
-        super().__init__(("127.0.0.1", 0), _FixtureHandler)
+    def __init__(self, state: FixtureState, address=("127.0.0.1", 0)) -> None:
+        super().__init__(address, _FixtureHandler)
         self.state = state
 
     def record(
@@ -399,3 +399,17 @@ class FixtureServer:
             "outbound_network": False,
             "target_persistence": False,
         }
+
+
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description="Serve the isolated, non-persistent first-use fixture")
+    parser.add_argument("--host", choices=["127.0.0.1", "0.0.0.0"], default="127.0.0.1")
+    parser.add_argument("--port", type=int, default=8080)
+    args = parser.parse_args()
+    if not 1024 <= args.port <= 65535:
+        parser.error("an unprivileged port is required")
+    with _FixtureHTTPServer(FixtureState(), (args.host, args.port)) as server:
+        print(json.dumps({"event": "first_use_fixture_listening", "host": args.host, "port": args.port,
+                          "schema_version": SCHEMA_VERSION}), flush=True)
+        server.serve_forever()

@@ -726,6 +726,20 @@ def deployment_pool_keys(connection, config):
 
     if not isinstance(config.get("owner"), list) or len(config["owner"]) != 3:
         raise ValueError("the deployment template Task is required")
+    explicit = config.get("capacity_pool_keys")
+    if explicit is not None:
+        if (not isinstance(explicit, list) or not 1 <= len(explicit) <= 16
+                or any(not isinstance(key, str) or not 1 <= len(key) <= 256 for key in explicit)
+                or len(set(explicit)) != len(explicit)):
+            raise ValueError("a bounded published capacity set is required")
+        pools = [connection.execute(
+            "SELECT tier,tenant_id FROM vnext.capacity_pool WHERE pool_key=%s", (key,)
+        ).fetchone() for key in explicit]
+        if (any(pool is None for pool in pools)
+                or any(pool[0] == "tenant" and pool[1] != config["owner"][0] for pool in pools)
+                or not {"global", "tenant", "model"} <= {pool[0] for pool in pools}):
+            raise ValueError("the published capacity set is unavailable")
+        return tuple(sorted(explicit))
     rows = connection.execute(
         "SELECT pool_key FROM vnext.task_capacity_pool"
         " WHERE tenant_id=%s AND project_id=%s AND task_id=%s ORDER BY pool_key",

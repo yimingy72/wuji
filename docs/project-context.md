@@ -1,5 +1,7 @@
 # Wuji 项目背景与有效文档索引
 
+2026-09-19 当前补充：用户指定后续子代理使用 `gpt-5.6-sol/xhigh`，已启动的历史 Luna 验收保留其执行者与原结果。首用真实模型金额及自建单实例的最新批准见[授权记录](vnext/first-use/authorization.md)；不是凭据/供应商未定。完整 Python 初次独立运行与接缝失败见[A8 固定候选证据](vnext/first-use/A8/final-candidate/README.md)，当前仍在定向修复/部署准备，未宣称 DG1–DG3 通过。
+
 2026-09-18 当前执行：[首个用户流程](stages/first-use/spec.md)已由用户明确批准实施，基线 `codex/vnext-maf@b1ba8ec`；按 A1–A8 完成工作台创建/显式启动、HTTP 正文、DeepSeek 和停止核对。共享接口与改动归属见[本批合同映射](vnext/first-use/contract-map.md)，实际结果见[本批验收](stages/first-use/acceptance.md)。用户已选 `deepseek-flash` 并提供凭据；真实金额/数据与现场许可需复用并核实。子代理采用用户最新指定的 Luna/xhigh，覆盖下文历史模型分工。
 
 2026-09-13 当前实施：用户批准按完整 [vNext v2 Spec](vnext/SPEC.md) / [Plan](vnext/PLAN.md)进入重构。执行工作树为 `work/worktrees/vnext-maf`，分支 `codex/vnext-maf`，起点 `1d73a767599732d9a53f81ad2cc553f4bf11d84e`。见[阶段入口](stages/vnext-maf/spec.md)、[实施决定](vnext/decision-register.md)与[验收状态](stages/vnext-maf/acceptance.md)。下文 Cairn/Pi 为旧实现及历史来源，不再约束新核心；新链路不允许运行旧内核。主目录上一轮草案未提交变更保留。
