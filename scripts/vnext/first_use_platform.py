@@ -46,8 +46,8 @@ CORE_CONTAINERS = {
     "gates": ("gates", "synthetic-model"),
 }
 REUSABLE_WEB_REVISION = "5cdbd170939f1d2e410868ab591381331f5cdba9"
-# Exact same 5cdbd17 application assets; one permission-only nginx.conf layer.
-REUSABLE_WEB_DIGEST = "sha256:146ee5883b5fa44280ea8c52b9ee6a52c9fe3ede927ecb59129a56e326367356"
+# Same 5cdbd17 compiled assets; reviewed nginx Host/port and permission overlay.
+REUSABLE_WEB_DIGEST = "sha256:e84b4f467ea1ce5f12c1f761e0662844fe6b8e2021be8ec98f3b25242cd02925"
 WEB_SOURCE_PATHS = ("apps/web", "packages/contracts")
 
 
