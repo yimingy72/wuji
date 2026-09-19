@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900">
+  <rect width="1440" height="900" fill="#08111f"/>
+  <rect x="48" y="42" width="1344" height="816" rx="18" fill="#0d1b2f" stroke="#26476f" stroke-width="2"/>
+  <circle cx="82" cy="76" r="8" fill="#ff6b6b"/>
+  <circle cx="108" cy="76" r="8" fill="#ffd166"/>
+  <circle cx="134" cy="76" r="8" fill="#5ee9a8"/>
+  <text x="176" y="84" fill="#93c5fd" font-family="Menlo,Consolas,monospace" font-size="22">A8 directed recheck · 2026-09-19 · ef8d462 / production f957a46</text>
+  <line x1="48" y1="108" x2="1392" y2="108" stroke="#26476f" stroke-width="2"/>
+  <g font-family="Menlo,Consolas,monospace" font-size="23">
+    <text x="82" y="160" fill="#7dd3fc">$ pytest tests/vnext/test_contract_shapes.py -q</text>
+    <text x="82" y="202" fill="#c7f9df">...........................................................              [100%]</text>
+    <text x="82" y="244" fill="#5ee9a8">59 passed in 2.02s · exit 0</text>
+    <text x="82" y="318" fill="#7dd3fc">$ pytest tests/first_use/test_candidate_seams.py -q</text>
+    <text x="82" y="360" fill="#c7f9df">.....                                                                    [100%]</text>
+    <text x="82" y="402" fill="#5ee9a8">5 passed in 3.00s · exit 0</text>
+    <text x="82" y="482" fill="#bfdbfe">Assertions observed:</text>
+    <text x="108" y="526" fill="#dbeafe">• TaskBudgetUnknown is LaunchUnknown; reason=gateway_budget_unknown</text>
+    <text x="108" y="570" fill="#dbeafe">• same key: GET → POST (response lost) → GET; no second POST</text>
+    <text x="108" y="614" fill="#dbeafe">• wire: runtime-config + profiles + gates-config + 2 Services → ready</text>
+    <text x="108" y="658" fill="#dbeafe">• cancelled prepare: allow_repair=true; write_producer_calls=[]</text>
+  </g>
+  <rect x="78" y="712" width="1284" height="102" rx="10" fill="#2a210d" stroke="#b7860b"/>
+  <text x="102" y="752" fill="#fde68a" font-family="Menlo,Consolas,monospace" font-size="20">BOUNDARY: real isolated PostgreSQL + Task API/LaunchWorker for budget recovery;</text>
+  <text x="102" y="786" fill="#fde68a" font-family="Menlo,Consolas,monospace" font-size="20">synthetic budget transport. Wire/cancel use recording DB/K8s boundaries. No real K8s/provider/target.</text>
+</svg>

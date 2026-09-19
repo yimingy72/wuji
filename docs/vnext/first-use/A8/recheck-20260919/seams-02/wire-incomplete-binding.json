@@ -1,0 +1,17 @@
+{
+  "candidate_sha": "ef8d4624c80a4a6ba763654b1feab3ee0bb7f7e4",
+  "observed": {
+    "status": "unknown",
+    "phase_status": "reconciling",
+    "external_ref": "wire-a8",
+    "reason_code": "wire_incomplete"
+  },
+  "configmap_reads": [
+    "runtime-config",
+    "gates-config"
+  ],
+  "service_reads": [],
+  "configmap_replacements": [],
+  "gate_has_task_binding": false,
+  "mode": "production_observe_recording_db_k8s_boundaries"
+}

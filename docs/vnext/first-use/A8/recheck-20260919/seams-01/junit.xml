@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="2" skipped="0" tests="5" time="3.549" timestamp="2026-09-19T18:25:34.015342+08:00" hostname="MacBook-Pro-4.local"><testcase classname="tests.first_use.test_candidate_seams" name="test_lost_budget_response_remains_reconcilable_in_real_launch_worker" time="1.659" /><testcase classname="tests.first_use.test_candidate_seams" name="test_production_prepare_maps_unknown_budget_to_launch_unknown" time="0.030" /><testcase classname="tests.first_use.test_candidate_seams" name="test_wire_observation_does_not_accept_pod_without_gate_binding" time="1.034"><failure message="AssertionError: assert [] == ['runtime-con...gates-config']&#10;  &#10;  Right contains 2 more items, first extra item: 'runtime-config'&#10;  Use -v to get more diff">tests/first_use/test_candidate_seams.py:290: in test_wire_observation_does_not_accept_pod_without_gate_binding
+    assert store.reads == ["runtime-config", "gates-config"]
+E   AssertionError: assert [] == ['runtime-con...gates-config']
+E
+E     Right contains 2 more items, first extra item: 'runtime-config'
+E     Use -v to get more diff</failure></testcase><testcase classname="tests.first_use.test_candidate_seams" name="test_active_wire_repair_completes_configmaps_profiles_services_and_continues" time="0.009"><failure message="KeyError: 'namespace'">tests/first_use/test_candidate_seams.py:304: in test_active_wire_repair_completes_configmaps_profiles_services_and_continues
+    repaired = provisioner.observe(repairing)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ops/vnext/launch_adapter.py:896: in observe
+    repaired = self.wire(request)
+               ^^^^^^^^^^^^^^^^^^
+ops/vnext/launch_adapter.py:820: in wire
+    config_actions = self._update_configmaps(request, binding)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ops/vnext/launch_adapter.py:737: in _update_configmaps
+    "task_config": task_launch.runtime_config_document(binding),
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ops/vnext/task_launch.py:1044: in runtime_config_document
+    "namespace": binding["namespace"],
+                 ^^^^^^^^^^^^^^^^^^^^
+E   KeyError: 'namespace'</failure></testcase><testcase classname="tests.first_use.test_candidate_seams" name="test_cancelled_prepare_observation_does_not_invoke_prepare_again" time="0.027" /></testsuite></testsuites>

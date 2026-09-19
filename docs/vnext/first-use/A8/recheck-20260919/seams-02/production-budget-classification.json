@@ -1,0 +1,7 @@
+{
+  "candidate_sha": "ef8d4624c80a4a6ba763654b1feab3ee0bb7f7e4",
+  "exception_type": "TaskBudgetUnknown",
+  "implements_launch_unknown": true,
+  "reason_code": "gateway_budget_unknown",
+  "mode": "production_prepare_recording_prerequisites"
+}

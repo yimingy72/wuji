@@ -1,0 +1,59 @@
+{
+  "candidate_sha": "ef8d4624c80a4a6ba763654b1feab3ee0bb7f7e4",
+  "repair_result": {
+    "external_ref": "wuji:wire:bed544d3dddce80bd0ac7551e9eb3f8f",
+    "status": "ready",
+    "phase_status": "ready",
+    "actions": {
+      "resources": "unchanged",
+      "configmaps": {
+        "runtime": "replaced",
+        "profiles": "replaced",
+        "gates": "replaced"
+      }
+    },
+    "pod_uid": "pod-a8",
+    "rolled_deployments": []
+  },
+  "readonly_observation": {
+    "external_ref": "wire-repair-a8",
+    "status": "ready",
+    "phase_status": "ready",
+    "pod_uid": "pod-a8"
+  },
+  "configmap_reads": [
+    "runtime-config",
+    "gates-config",
+    "runtime-config",
+    "gates-config",
+    "runtime-config",
+    "gates-config"
+  ],
+  "configmap_replacements": [
+    "runtime-config",
+    "gates-config"
+  ],
+  "service_reads": [
+    {
+      "name": "task-agent-taska8",
+      "namespace": "wuji-vnext-test"
+    },
+    {
+      "name": "task-kali-taska8",
+      "namespace": "wuji-vnext-test"
+    }
+  ],
+  "runtime_task_ids": [
+    "baseline-task",
+    "task-a8"
+  ],
+  "gate_task_ids": [
+    "baseline-task",
+    "task-a8"
+  ],
+  "profile_refs": [
+    "harness.baseline",
+    "harness.reason.task.a8"
+  ],
+  "mode": "production_observe_recording_db_k8s_boundaries"
+}

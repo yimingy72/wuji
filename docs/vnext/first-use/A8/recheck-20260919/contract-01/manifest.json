@@ -1,0 +1,9 @@
+{
+  "candidate_sha": "ef8d4624c80a4a6ba763654b1feab3ee0bb7f7e4",
+  "production_candidate_sha": "f957a46dbafb6d842212aaeeed69085d03445e70",
+  "scope": "tests/vnext/test_contract_shapes.py full file",
+  "command": "PYTHONPATH=packages/wuji-core/src:packages/maf-worker/src:packages/task-runtime/src:tests/vnext PYTHONDONTWRITEBYTECODE=1 /Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/packages/maf-worker/.venv/bin/python -m pytest tests/vnext/test_contract_shapes.py -q --tb=short -ra --junitxml=docs/vnext/first-use/A8/recheck-20260919/contract-01/junit.xml",
+  "exit_code": 0,
+  "result": "59 passed in 2.02s",
+  "record_type": "directed_contract_recheck_not_full_suite"
+}

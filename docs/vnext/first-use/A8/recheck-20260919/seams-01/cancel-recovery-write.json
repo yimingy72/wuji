@@ -1,0 +1,16 @@
+{
+  "candidate_sha": "ef8d4624c80a4a6ba763654b1feab3ee0bb7f7e4",
+  "observed": {
+    "status": "unknown",
+    "phase_status": "reconciling",
+    "external_ref": "prepare-a8",
+    "reason_code": "prepare_incomplete_readonly"
+  },
+  "write_producer_calls": [],
+  "known_task_state": {
+    "desired_state": "cancel",
+    "observed_state": "quiescing"
+  },
+  "repair_requested": true,
+  "mode": "production_observe_recording_db_boundary"
+}
