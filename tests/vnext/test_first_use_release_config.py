@@ -12,6 +12,8 @@ sys.path.insert(0, str(ROOT / "ops/vnext"))
 import first_use_catalog as catalog
 import task_launch
 from wuji_core.admission.registry import ModelProfile, RuntimeProfile, ToolDefinition
+from wuji_core.admission.tools import validate_input_schema
+from wuji_core.persistence.uow import DomainError
 
 spec = importlib.util.spec_from_file_location("first_use_manifests", ROOT / "ops/vnext/kubernetes/first_use.py")
 manifests = importlib.util.module_from_spec(spec)
@@ -43,10 +45,20 @@ def test_catalog_keeps_immutable_limits_without_old_fixture_answers(mode):
     assert runtime.limits.max_elapsed_seconds == 600
     for tool in config["tools"]:
         ToolDefinition.model_validate(tool)
+        validate_input_schema(tool["input_schema"])
     assert config["tools"][1]["input_schema"]["properties"]["method"]["enum"] == ["GET", "HEAD"]
     for kind in ("reason", "report"):
         assert config["definition"]["worker_profiles"][kind]["body"]["tool_definition_refs"] == [catalog.WORKSPACE_REF]
     assert ("mechanism_http_origins" in config) == (mode == "mechanism_synthetic")
+
+
+@pytest.mark.parametrize("methods", [[], ["POST"], ["GET", "POST"]])
+def test_catalog_http_method_schema_cannot_expand_read_only_methods(methods):
+    config = catalog.owner_template(source(), mode="mechanism_synthetic", lock_digest="a" * 64)
+    schema = config["tools"][1]["input_schema"]
+    schema["properties"]["method"]["enum"] = methods
+    with pytest.raises(DomainError):
+        validate_input_schema(schema)
 
 
 def test_launcher_separates_owner_management_and_provider_secrets():

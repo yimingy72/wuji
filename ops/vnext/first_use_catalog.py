@@ -7,6 +7,7 @@ from copy import deepcopy
 from hashlib import sha256
 import json
 import os
+import re
 from pathlib import Path
 
 from wuji_core.admission.registry import register_published_profile, register_tool_definition
@@ -141,5 +142,9 @@ if __name__ == "__main__":
         config = strict_json_loads(Path(os.environ["WUJI_FIRST_USE_OWNER_CONFIG"]).read_bytes())
         print(json.dumps(publish(config), sort_keys=True))
     except Exception as error:
-        print(json.dumps({"event": "first_use_catalog_failed", "error": type(error).__name__}))
+        detail = {"event": "first_use_catalog_failed", "error": type(error).__name__}
+        code = getattr(error, "code", None)
+        if isinstance(code, str) and re.fullmatch(r"[A-Z_]{1,80}", code):
+            detail["code"] = code
+        print(json.dumps(detail))
         raise SystemExit(1) from None

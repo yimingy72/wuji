@@ -98,7 +98,8 @@ def validate_input_schema(schema):
         )
         if (
             url.get("maxLength", 0) > target_scope.MAX_URL_LENGTH
-            or set(method.get("enum") or ()) != set(target_scope.READ_ONLY_METHODS)
+            or not method.get("enum")
+            or not set(method["enum"]).issubset(target_scope.READ_ONLY_METHODS)
         ):
             raise DomainError("CAPABILITY_UNAVAILABLE", 503)
         return
