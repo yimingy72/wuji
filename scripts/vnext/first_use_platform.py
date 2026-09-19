@@ -368,6 +368,26 @@ def _model_gateway_expectation():
     return MODEL_NAMESPACE, "first-use-litellm", images
 
 
+def version_web_configmaps(documents):
+    """Keep legacy unlabelled config objects untouched during the release."""
+    names = {"wuji-web-config": "first-use-web-config-v2",
+             "wuji-web-gateway-config": "first-use-web-gateway-config-v2"}
+    seen = set()
+    for document in documents:
+        if document["kind"] == "ConfigMap" and document["metadata"]["name"] in names:
+            old = document["metadata"]["name"]
+            seen.add(old)
+            document["metadata"]["name"] = names[old]
+        if document["kind"] == "Deployment":
+            for volume in document["spec"]["template"]["spec"].get("volumes", []):
+                reference = volume.get("configMap", {})
+                if reference.get("name") in names:
+                    reference["name"] = names[reference["name"]]
+    if seen != set(names):
+        raise ReleaseError("web_config_renderer_changed")
+    return documents
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=["catalog", "rollout"])
@@ -436,6 +456,7 @@ def main():
             gateway_api_base_url="https://api.wuji-vnext-test.svc:8443", identity_issuer=source["identity"]["issuer"],
             identity_audience=source["identity"]["audience"], tenant_id=source["owner"][0], project_id=source["owner"][1],
             display_name="本地测试操作者", allowed_origins=("http://localhost:44180", "http://127.0.0.1:44180"))
+        web_documents = version_web_configmaps(web_documents)
         documents = [*rbac, *web_documents, *launch, *fixture]
         preflight = _preflight_rollout(
             job_name=job_name, platform_image=images["platform"], documents=documents

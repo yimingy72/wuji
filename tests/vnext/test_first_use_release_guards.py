@@ -200,3 +200,20 @@ def test_reviewed_old_web_is_reusable_but_digest_or_source_mismatch_is_rejected(
         )
     with pytest.raises(release.ReleaseError, match="web_source_revision_mismatch"):
         release.validate_web_source(WEB_IMAGE, "e" * 40, BASELINE)
+
+
+def test_new_web_config_names_preserve_unlabelled_legacy_objects():
+    documents = [
+        {"kind": "ConfigMap", "metadata": {"name": "wuji-web-config"}},
+        {"kind": "ConfigMap", "metadata": {"name": "wuji-web-gateway-config"}},
+        {"kind": "Deployment", "spec": {"template": {"spec": {"volumes": [
+            {"configMap": {"name": "wuji-web-config"}},
+            {"configMap": {"name": "wuji-web-gateway-config"}},
+            {"configMap": {"name": "api-config"}},
+        ]}}}},
+    ]
+    actual = release.version_web_configmaps(documents)
+    assert [item["metadata"]["name"] for item in actual[:2]] == [
+        "first-use-web-config-v2", "first-use-web-gateway-config-v2"]
+    assert [v["configMap"]["name"] for v in actual[2]["spec"]["template"]["spec"]["volumes"]] == [
+        "first-use-web-config-v2", "first-use-web-gateway-config-v2", "api-config"]
