@@ -19,7 +19,7 @@ HTTP_REF = "first-use-http-read-v1"
 WORKSPACE_REF = "first-use-workspace-read-v1"
 EXECUTOR_REF = "first-use-kali-v1"
 FIXTURE_ORIGIN = "http://first-use-fixture.wuji-vnext-test.svc:8080"
-GATEWAY_ORIGIN = "https://first-use-litellm.wuji-vnext-test.svc:4000"
+GATEWAY_ORIGIN = "https://first-use-litellm.wuji-first-use-model.svc:4000"
 
 
 def owner_template(source, *, mode, lock_digest):

@@ -31,8 +31,9 @@ def rbac_manifests():
     rules = {
         "first-use-launch": [
             {"apiGroups": [""], "resources": ["pods"], "verbs": ["get", "list"]},
-            {"apiGroups": [""], "resources": ["configmaps", "secrets", "persistentvolumeclaims", "services"],
+            {"apiGroups": [""], "resources": ["configmaps", "persistentvolumeclaims", "services"],
              "verbs": ["get", "list", "create", "update", "patch"]},
+            {"apiGroups": [""], "resources": ["secrets"], "verbs": ["get", "create", "patch"]},
             {"apiGroups": ["batch"], "resources": ["jobs"], "verbs": ["get", "list", "create"]},
             {"apiGroups": ["batch"], "resources": ["jobs/status"], "verbs": ["get"]},
         ],
@@ -68,7 +69,7 @@ def launch_manifests(*, images, mode, source_revision, evidence_ref, public_data
         "gate_url": "https://gates.wuji-vnext-test.svc:8443", "evidence_ref": evidence_ref,
     }
     if mode == "real_model":
-        settings.update(gateway_url="https://first-use-litellm.wuji-vnext-test.svc:4000",
+        settings.update(gateway_url="https://first-use-litellm.wuji-first-use-model.svc:4000",
                         gateway_management_key_file="/run/wuji/gateway/master.key",
                         gateway_ca_file="/config/ca.crt")
     config = {"apiVersion": "v1", "kind": "ConfigMap", "metadata": metadata("first-use-launch-config"),

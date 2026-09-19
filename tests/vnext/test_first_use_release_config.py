@@ -54,7 +54,8 @@ def test_launcher_separates_owner_management_and_provider_secrets():
     config, deployment = manifests.launch_manifests(images=images, mode="real_model", source_revision="c" * 40,
         evidence_ref="tests/protocol-actual", public_data={"ca.crt": "test-ca", "identity.pub": "test-public"})
     settings = json.loads(config["data"]["launch.json"])
-    assert settings["gateway_url"].startswith("https://")
+    assert settings["gateway_url"] == "https://first-use-litellm.wuji-first-use-model.svc:4000"
+    assert catalog.GATEWAY_ORIGIN == settings["gateway_url"]
     pod = deployment["spec"]["template"]["spec"]
     assert pod["serviceAccountName"] == "first-use-launch"
     management = next(volume["secret"] for volume in pod["volumes"] if volume["name"] == "gateway")
@@ -63,6 +64,8 @@ def test_launcher_separates_owner_management_and_provider_secrets():
     grants = [item for item in manifests.rbac_manifests() if item["kind"] == "Role"]
     launch = next(item for item in grants if item["metadata"]["name"] == "first-use-launch")
     assert all("deployments" not in item["resources"] for item in launch["rules"])
+    assert all("list" not in item["verbs"] and "update" not in item["verbs"]
+               for item in launch["rules"] if "secrets" in item["resources"])
     gate = next(item for item in grants if item["metadata"]["name"] == "first-use-gates")
     assert gate["rules"] == [{"apiGroups": [""], "resources": ["secrets"], "resourceNames": ["task-model-keys"], "verbs": ["get"]}]
 
