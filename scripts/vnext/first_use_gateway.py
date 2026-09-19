@@ -32,7 +32,7 @@ OWNER = "first-use-gateway-v1"
 NAME = "first-use-litellm"
 CONFIG_NAME = NAME + "-config"
 PRIVATE_SECRET = NAME + "-private"
-TLS_SECRET = NAME + "-tls"
+TLS_SECRET = NAME + "-tls-v2"
 PROVIDER_SECRET = "deepseek-provider-first-use"
 PROVIDER_KEY = "DEEPSEEK_API_KEY"
 
@@ -43,13 +43,12 @@ DATABASE_NAME = "wuji_first_use_litellm_20260919"
 DATABASE_HOST = f"postgres.{NAMESPACE}.svc"
 GATEWAY_HOST = f"{NAME}.{NAMESPACE}.svc"
 IMAGE = (
-    "127.0.0.1:56615/wuji-first-use-litellm@"
-    "sha256:ff399bcda3d2b0ed0afd1f57ffd3af82ce45645775506507c553c8ed93fd206d"
+    "127.0.0.1:55529/wuji-first-use-litellm@"
+    "sha256:f6bd15c3e189ae2f4c8215f0233770e76c3cf1f94b3a3582877add2dde18ff24"
 )
-# The original fixed image lacks the persistent Prisma client. Its replacement
-# has been built locally, but registry publication failed when the host filled.
-# Replace IMAGE with its verified RepoDigest before enabling this operator CLI.
-PERSISTENCE_IMAGE_READY = False
+# Published and image-ID checked after the approved Docker cache recovery.
+# Registry publication is not evidence of database or provider acceptance.
+PERSISTENCE_IMAGE_READY = True
 CONFIG_TEMPLATE = ROOT / "templates" / "LITELLM_GATEWAY_DEEPSEEK.example.yaml"
 LAST_APPLIED = "kubectl.kubernetes.io/last-applied-configuration"
 
@@ -129,11 +128,15 @@ def render_manifests(config_text: str | None = None) -> list[dict[str, Any]]:
                 },
             },
             {
-                "name": "DATABASE_URL",
+                "name": "WUJI_LITELLM_DATABASE_URL",
                 "valueFrom": {
                     "secretKeyRef": {"name": PRIVATE_SECRET, "key": "database.url"}
                 },
             },
+            # Prisma uses sslcert for the trust root; libpq's sslrootcert is
+            # ignored by its connector. Keep the immutable stored credential
+            # bytes and strict verification, adding only the connector option.
+            {"name": "DATABASE_URL", "value": "$(WUJI_LITELLM_DATABASE_URL)&sslcert=/run/wuji/tls/ca.crt"},
             {"name": "TMPDIR", "value": "/tmp"},
             {"name": "LITELLM_TELEMETRY", "value": "False"},
             {"name": "DO_NOT_TRACK", "value": "1"},
@@ -175,7 +178,9 @@ def render_manifests(config_text: str | None = None) -> list[dict[str, Any]]:
         },
         "resources": {
             "requests": {"cpu": "100m", "memory": "512Mi"},
-            "limits": {"cpu": "2", "memory": "2Gi"},
+            # Proxy startup was OOMKilled at 2 GiB in the first actual run;
+            # keep a bounded ceiling without changing TLS/DB enforcement.
+            "limits": {"cpu": "2", "memory": "4Gi"},
         },
     }
     config = {
@@ -413,6 +418,8 @@ def sign_gateway_leaf(ca_directory: Path) -> tuple[bytes, bytes, bytes]:
         .serial_number(x509.random_serial_number())
         .not_valid_before(now - timedelta(minutes=1))
         .not_valid_after(expires)
+        .add_extension(x509.SubjectKeyIdentifier.from_public_key(leaf_key.public_key()), critical=False)
+        .add_extension(x509.AuthorityKeyIdentifier.from_issuer_public_key(ca.public_key()), critical=False)
         .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
         .add_extension(x509.SubjectAlternativeName([x509.DNSName(name) for name in dns_names]), critical=False)
         .add_extension(x509.ExtendedKeyUsage([ExtendedKeyUsageOID.SERVER_AUTH]), critical=False)

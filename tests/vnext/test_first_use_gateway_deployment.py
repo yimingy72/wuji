@@ -167,10 +167,13 @@ def test_manifest_is_reproducible_tls_only_and_provider_isolated():
         "name": gateway.PRIVATE_SECRET,
         "key": "master.key",
     }
-    assert env["DATABASE_URL"]["valueFrom"]["secretKeyRef"] == {
+    assert env["WUJI_LITELLM_DATABASE_URL"]["valueFrom"]["secretKeyRef"] == {
         "name": gateway.PRIVATE_SECRET,
         "key": "database.url",
     }
+    assert env["DATABASE_URL"]["value"] == "$(WUJI_LITELLM_DATABASE_URL)&sslcert=/run/wuji/tls/ca.crt"
+    names = [item["name"] for item in container["env"]]
+    assert names.index("WUJI_LITELLM_DATABASE_URL") < names.index("DATABASE_URL")
     assert not any(item.get("value") == "database.password" for item in container["env"])
     mounted_secrets = {
         item["secret"]["secretName"]
@@ -255,6 +258,8 @@ def test_reconcile_creates_stable_secrets_database_and_tls_without_rotating_ca(t
 
     tls = client.objects[("Secret", gateway.TLS_SECRET)]
     leaf = x509.load_pem_x509_certificate(base64.b64decode(tls["data"]["tls.crt"]))
+    assert leaf.extensions.get_extension_for_class(x509.SubjectKeyIdentifier).value.digest
+    assert leaf.extensions.get_extension_for_class(x509.AuthorityKeyIdentifier).value.key_identifier
     sans = leaf.extensions.get_extension_for_class(x509.SubjectAlternativeName).value
     assert gateway.GATEWAY_HOST in sans.get_values_for_type(x509.DNSName)
     assert {

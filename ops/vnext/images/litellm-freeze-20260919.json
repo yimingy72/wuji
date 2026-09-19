@@ -2,7 +2,7 @@
   "schema_version": "wuji.litellm.image-freeze.v1",
   "local_tag": "wuji-first-use-litellm:1.100.0-prisma",
   "image_id": "sha256:3eaab6bceb366c951c67632ab727d13d926442bf83596d2149ceda680db74ad9",
-  "status": "built_locally_registry_publication_failed",
+  "status": "deployed_readiness_pass_with_prisma_compatibility_error",
   "replaces_for_persistent_db": "litellm-freeze-20260918.json",
   "vendor_packages": {"litellm": "1.100.0", "litellm-proxy-extras": "0.4.91", "prisma": "0.15.0"},
   "prisma_cli": "5.17.0",
@@ -18,14 +18,31 @@
     "prisma_version_command": "exit_0",
     "database_connected": false
   },
-  "publication": {
+  "previous_publication_failure": {
     "destination": "127.0.0.1:56615/wuji-first-use-litellm:1.100.0-prisma",
     "exit_code": 1,
     "last_error": "received unexpected HTTP status: 500 Internal Server Error",
     "concurrent_host_error": "No space left on device",
     "repo_digest": null
   },
-  "deployed": false,
+  "publication": {
+    "destination": "127.0.0.1:55529/wuji-first-use-litellm:1.100.0-prisma",
+    "exit_code": 0,
+    "repo_digest": "127.0.0.1:55529/wuji-first-use-litellm@sha256:f6bd15c3e189ae2f4c8215f0233770e76c3cf1f94b3a3582877add2dde18ff24",
+    "image_id_verified": true,
+    "note": "Docker restart changed the VM-loopback ephemeral registry port; reuse of the prior port returned connection refused before retagging. No image rebuild."
+  },
+  "deployed": true,
+  "runtime_observations": {
+    "initial_2Gi_limit": "OOMKilled",
+    "current_memory_limit": "4Gi",
+    "migration": "applied_after_adding_Prisma_sslcert_parameter; sslmode=require and sslaccept=strict retained",
+    "tls": "initial_leaf_missing_AKI; replacement_first-use-litellm-tls-v2_has_SKI_AKI; old_immutable_secret_retained",
+    "strict_https_readiness": {"observed_at": "2026-09-19T13:14:34Z", "status": 200, "body": {"status": "healthy", "db": "connected"}},
+    "startup_warning": "Prisma object has no attribute _Prisma__engine",
+    "upstream_issue": "https://github.com/BerriAI/litellm/issues/39114",
+    "task_budget_acceptance": "not_run; readiness is not budget proof"
+  },
   "real_provider_calls": 0,
   "task_budget_tested": false
 }

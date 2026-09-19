@@ -13,7 +13,7 @@
 ## 当前不可使用边界
 
 - 本文没有可点击的真实工作台地址、Task、Run 或现场回执；不要使用固定历史 Task 代替新建。
-- 用户已批准 DeepSeek deepseek-flash、金额无上限及官方价，并指定自建HTTP实例8.146.204.146；A0负责配置与现场实测。DG2仍需实际SecretRef、usage和费用链记录；A8不读取provider Key。
+- 用户已批准 DeepSeek deepseek-flash、金额无上限及官方价；2026-09-19将自建HTTP实例替换为 `http://39.102.208.182`（旧地址不再使用），A0负责配置与现场实测。DG2仍需实际SecretRef、usage和费用链记录；A8不读取provider Key。
 - F1/F2 是 `mechanism_synthetic` 机制夹具，不能证明真实模型自主效果，也不能证明现场目标可达。
 - 登录/浏览器操作、超出已发布只读工具的能力、目标网络扩散和破坏性动作不属于本轮首用范围。
 
