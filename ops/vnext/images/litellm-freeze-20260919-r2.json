@@ -1,0 +1,25 @@
+{
+  "schema_version": "wuji.litellm.image-freeze.v1",
+  "local_tag": "wuji-first-use-litellm:1.100.0-prisma011",
+  "image_id": "sha256:a74c00ff2e265b3d73e49216a08b078127d38b57f66fa1a74c33dc0ad6cfb4bb",
+  "repo_digest": "127.0.0.1:55529/wuji-first-use-litellm@sha256:11c59c67f03f4012d9000d210147ace1e0058144962d2301db916517c4494c1d",
+  "replaces": "litellm-freeze-20260919.json",
+  "build_recipe": "Dockerfile.litellm-prisma-compat",
+  "vendor_packages": {"litellm": "1.100.0", "litellm-proxy-extras": "0.4.91", "prisma": "0.11.0"},
+  "prisma_cli": "5.4.2",
+  "prisma_engine": "ac9d7041ed77bcc8a8dbd2ab6616b39013829574",
+  "upstream_compatibility_issue": "https://github.com/BerriAI/litellm/issues/39114",
+  "sdk_private_patch": false,
+  "schema_modified": false,
+  "build_exit_code": 0,
+  "publish_exit_code": 0,
+  "deployed": true,
+  "operator_exit_code": 0,
+  "task_budget_tested": false,
+  "real_provider_calls": 0,
+  "failed_builds": [
+    "initial downgrade retained generated 0.15 types; SortMode import failed",
+    "official prisma_cleanup fixed stale generated types; old fixed binary-cache reused 5.17 and engine version check rejected it"
+  ],
+  "recovery": "official prisma_cleanup plus new version-specific cache; engine version check retained; 0.11 client generated from unchanged extras schema"
+}

@@ -325,3 +325,33 @@ def test_database_password_is_stdin_only_and_subprocess_errors_are_sanitized():
     assert "unsafe" not in str(caught.value)
     assert "POSTGRES_PASSWORD" in " ".join(command)
     assert "DATABASE_URL" not in " ".join(command)
+
+
+def test_reused_tls_rejects_expiry_and_mismatched_private_key(tmp_path, monkeypatch):
+    directory = tmp_path / "ca"
+    _ca(directory)
+    cert, key, ca = gateway.sign_gateway_leaf(directory)
+    resource = gateway._tls_secret(cert, key, ca)
+    gateway.validate_existing_tls(resource, directory)
+    _, another_key, _ = gateway.sign_gateway_leaf(directory)
+    wrong_key = copy.deepcopy(resource)
+    wrong_key["data"]["tls.key"] = base64.b64encode(another_key).decode()
+    with pytest.raises(gateway.DeploymentError):
+        gateway.validate_existing_tls(wrong_key, directory)
+
+    class FutureDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime.now(tz) + timedelta(days=8)
+
+    monkeypatch.setattr(gateway, "datetime", FutureDatetime)
+    with pytest.raises(gateway.DeploymentError):
+        gateway.validate_existing_tls(resource, directory)
+
+
+def test_database_replay_accepts_only_unmarked_database_with_exact_owned_role():
+    sql = gateway.database_sql("A" * 48).decode()
+    assert "database_owner IS DISTINCT FROM 'wuji_first_use_litellm'" in sql
+    assert "database_marker IS NOT NULL AND database_marker IS DISTINCT FROM 'first-use-gateway-v1'" in sql
+    assert "role_marker IS DISTINCT FROM 'first-use-gateway-v1'" in sql
+    assert sql.index("role_marker IS DISTINCT") < sql.index("COMMENT ON DATABASE")

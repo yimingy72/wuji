@@ -44,7 +44,7 @@ DATABASE_HOST = f"postgres.{NAMESPACE}.svc"
 GATEWAY_HOST = f"{NAME}.{NAMESPACE}.svc"
 IMAGE = (
     "127.0.0.1:55529/wuji-first-use-litellm@"
-    "sha256:f6bd15c3e189ae2f4c8215f0233770e76c3cf1f94b3a3582877add2dde18ff24"
+    "sha256:11c59c67f03f4012d9000d210147ace1e0058144962d2301db916517c4494c1d"
 )
 # Published and image-ID checked after the approved Docker cache recovery.
 # Registry publication is not evidence of database or provider acceptance.
@@ -307,7 +307,7 @@ BEGIN
     FROM pg_database WHERE datname = '{DATABASE_NAME}';
   IF FOUND AND (
     database_owner IS DISTINCT FROM '{DATABASE_ROLE}' OR
-    database_marker IS DISTINCT FROM '{marker}'
+    (database_marker IS NOT NULL AND database_marker IS DISTINCT FROM '{marker}')
   ) THEN
     RAISE EXCEPTION 'first-use LiteLLM database ownership conflict';
   END IF;
@@ -315,6 +315,8 @@ END
 $wuji$;
 SELECT format('CREATE DATABASE %I OWNER %I', '{DATABASE_NAME}', '{DATABASE_ROLE}')
   WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = '{DATABASE_NAME}')\\gexec
+-- A lost response between CREATE DATABASE and COMMENT is recoverable only
+-- for this exact database and the already owner/privilege-checked role above.
 COMMENT ON DATABASE {DATABASE_NAME} IS '{marker}';
 REVOKE ALL ON DATABASE {DATABASE_NAME} FROM PUBLIC;
 GRANT CONNECT, TEMPORARY ON DATABASE {DATABASE_NAME} TO {DATABASE_ROLE};
@@ -452,7 +454,7 @@ def sign_gateway_leaf(ca_directory: Path) -> tuple[bytes, bytes, bytes]:
 
 def validate_existing_tls(resource: dict[str, Any], ca_directory: Path) -> None:
     from cryptography import x509
-    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives import hashes, serialization
     from cryptography.hazmat.primitives.asymmetric import padding, rsa
     from cryptography.x509.oid import ExtendedKeyUsageOID
 
@@ -462,6 +464,13 @@ def validate_existing_tls(resource: dict[str, Any], ca_directory: Path) -> None:
         expected_ca = x509.load_pem_x509_certificate((ca_directory / "ca.crt").read_bytes())
         mounted_ca = x509.load_pem_x509_certificate(_decode_secret(resource["data"], "ca.crt"))
         leaf = x509.load_pem_x509_certificate(_decode_secret(resource["data"], "tls.crt"))
+        leaf_key = serialization.load_pem_private_key(_decode_secret(resource["data"], "tls.key"), password=None)
+        now = datetime.now(timezone.utc)
+        if not (expected_ca.not_valid_before_utc <= now < expected_ca.not_valid_after_utc
+                and leaf.not_valid_before_utc <= now < leaf.not_valid_after_utc - timedelta(minutes=5)):
+            raise ValueError
+        if leaf.public_key().public_bytes(serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo) != leaf_key.public_key().public_bytes(serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo):
+            raise ValueError
         sans = set(leaf.extensions.get_extension_for_class(x509.SubjectAlternativeName).value.get_values_for_type(x509.DNSName))
         usages = leaf.extensions.get_extension_for_class(x509.ExtendedKeyUsage).value
         if expected_ca.fingerprint(hashes.SHA256()) != mounted_ca.fingerprint(hashes.SHA256()):

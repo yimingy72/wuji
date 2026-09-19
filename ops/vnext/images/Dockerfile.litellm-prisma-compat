@@ -1,0 +1,15 @@
+# Exact recovery layer over the published candidate, not a vendor source patch.
+# LiteLLM 1.100.0's engine adapter is incompatible with Prisma Python >=0.13.
+# https://github.com/BerriAI/litellm/issues/39114
+FROM 127.0.0.1:55529/wuji-first-use-litellm@sha256:f6bd15c3e189ae2f4c8215f0233770e76c3cf1f94b3a3582877add2dde18ff24
+USER root
+# Cache paths are version-specific: the original directory contains CLI 5.17,
+# while the 0.11 generator requires its own 5.4.2 engine. Do not bypass checks.
+ENV PRISMA_BINARY_CACHE_DIR=/opt/litellm/prisma011-cache
+RUN /opt/litellm/.venv/bin/python -m prisma_cleanup \
+    && /opt/litellm/.venv/bin/python -m pip install --no-cache-dir 'prisma==0.11.0' \
+    && /opt/litellm/.venv/bin/prisma generate \
+       --schema /opt/litellm/.venv/lib/python3.13/site-packages/litellm_proxy_extras/schema.prisma \
+    && /opt/litellm/.venv/bin/python -c "from prisma import Prisma; from importlib.metadata import version; assert version('prisma') == '0.11.0'; assert version('litellm') == '1.100.0'" \
+    && chmod -R a+rX /opt/litellm/prisma011-cache /opt/litellm/.venv/lib/python3.13/site-packages/prisma
+USER 10001:10000
