@@ -1,0 +1,5 @@
+# Reuse the exact reviewed Web assets; fix only a build-context permission.
+FROM 127.0.0.1:55529/wuji-web@sha256:87a388ba3c673a003514273dacd3b55f4e1fc6a5873794560b55a769c2df4f7c
+USER root
+RUN chmod 0644 /etc/nginx/nginx.conf
+USER 101:101

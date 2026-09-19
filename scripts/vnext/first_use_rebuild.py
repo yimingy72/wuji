@@ -75,6 +75,8 @@ EXPECTED_IMAGE_SOURCE_DELTA = frozenset(
 ALLOWED_NON_IMAGE_FILES = frozenset(
     {
         "AGENTS.md",
+        "apps/web/Dockerfile",
+        "ops/vnext/images/Dockerfile.web-permissions",
         "ops/vnext/first_use_catalog.py",
         "ops/vnext/images/Dockerfile.litellm",
         "ops/vnext/images/Dockerfile.litellm-prisma-compat",

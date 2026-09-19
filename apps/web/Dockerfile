@@ -13,7 +13,7 @@ COPY packages/theme packages/theme
 RUN pnpm --filter @wuji/web build
 
 FROM nginxinc/nginx-unprivileged:1.29.1-alpine@sha256:27985295bdb22a1ef8f712863210bd5877c0f3006494a593e86b3fe0fa55467e
-COPY apps/web/nginx.conf /etc/nginx/nginx.conf
+COPY --chmod=0644 apps/web/nginx.conf /etc/nginx/nginx.conf
 COPY --from=build /opt/wuji/apps/web/dist /usr/share/nginx/html
 USER 101:101
 EXPOSE 8080
