@@ -74,6 +74,7 @@ EXPECTED_IMAGE_SOURCE_DELTA = frozenset(
 # proof as non-embedded changes rather than being described as ignored.
 ALLOWED_NON_IMAGE_FILES = frozenset(
     {
+        "AGENTS.md",
         "ops/vnext/first_use_catalog.py",
         "ops/vnext/images/Dockerfile.litellm",
         "ops/vnext/images/Dockerfile.litellm-prisma-compat",
