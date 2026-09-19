@@ -30,7 +30,8 @@ class TrustedConfigFile:
 
     def read_json(self):
         try:
-            raw = self.path.read_bytes()
+            with self.path.open("rb") as stream:
+                raw = stream.read(self.max_bytes + 1)
         except OSError as error:
             raise DomainError("RUNTIME_CONFIG_UNAVAILABLE", 503) from error
         if not 0 < len(raw) <= self.max_bytes:
@@ -140,7 +141,7 @@ class PodEnvironment:
             old_values, old_receiver = self._entries[task_id]
             current = self.runtimes[task_id].config
             new_values = self._normalise(values)
-            if current.runtime_attempt == new_values["runtime_attempt"] and current.config_digest == new_values["config_digest"] and old_receiver == receiver:
+            if old_values == new_values and old_receiver == receiver and self.entry_service_names[task_id] == entry_service_names(item, self.service_names):
                 continue
             if (
                 new_values.get("runtime_attempt") != current.runtime_attempt + 1
@@ -154,7 +155,9 @@ class PodEnvironment:
                 raise DomainError("ACTIVE_TASK_ATTEMPT", 409)
             old_runtime = self.runtimes.pop(task_id)
             old_runtime.__exit__(None, None, None)
-            self.connections.pop(task_id, None)
+            old_connection = self.connections.pop(task_id, None)
+            if old_connection is not None:
+                old_connection.close()
             self._entries.pop(task_id, None)
             self._add_entry(task_id, values, receiver, item)
         self.config = config
@@ -196,7 +199,9 @@ class PodEnvironment:
         self._pods = KubernetesPodClient(client.CoreV1Api(self.api))
         try:
             for task_id, values, receiver in task_entries(self.config):
-                self._add_entry(task_id, values, receiver, {"task_config": values, "receiver": receiver})
+                entry = next((item for item in self.config.get("tasks", [])
+                              if item.get("task_config", {}).get("task_id") == task_id), self.config)
+                self._add_entry(task_id, values, receiver, entry)
         except BaseException:
             self.__exit__(None, None, None)
             raise
@@ -268,6 +273,8 @@ class PodEnvironment:
                     error = error or failure
         finally:
             self.runtimes = {}
+            for connection in self.connections.values():
+                connection.close()
             self.connections = {}
             self.connection = None
             if self.api is not None:

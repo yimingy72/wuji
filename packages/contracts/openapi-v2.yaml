@@ -2378,6 +2378,9 @@ components:
           uniqueItems: true
           description: Explicit URLs preserving path and non-sensitive query; each origin must be authorized by the confirmed scope.
           items: {type: string, minLength: 1, maxLength: 2048}
+        external_analysis_approved:
+          type: boolean
+          description: Creator confirmation that the authorized task material may be sent to the selected external model. Missing approval never permits external analysis.
         model_profile_ref: {type: string, minLength: 1, maxLength: 256}
         runtime_profile_ref: {type: string, minLength: 1, maxLength: 256}
         budget: {$ref: '#/components/schemas/MoneyBudget'}

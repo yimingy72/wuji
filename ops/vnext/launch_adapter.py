@@ -331,9 +331,17 @@ def merge_gate_document(document: dict, entry: Mapping[str, Any]) -> str:
         if _canonical(old) != _canonical(entry):
             # A Gate ref is immutable for the current attempt.  A new attempt
             # uses a new receiver/environment binding and is explicitly allowed.
-            old_attempt = old_binding.get("runtime_attempt")
-            new_attempt = binding.get("runtime_attempt")
-            if type(old_attempt) is not int or type(new_attempt) is not int or new_attempt != old_attempt + 1:
+            def attempt_of(value):
+                prefix = "task-" + value["task_id"] + "-a"
+                receiver = value.get("receiver_id", "")
+                suffix = receiver.removeprefix(prefix)
+                if receiver.startswith(prefix) and re.fullmatch(r"[1-9][0-9]*", suffix):
+                    number = int(suffix)
+                    if value.get("environment_ref") == f"pod-environment-{value['task_id']}-a{number}":
+                        return number
+                return None
+            old_attempt, new_attempt = attempt_of(old_binding), attempt_of(binding)
+            if old_attempt is None or new_attempt != old_attempt + 1:
                 raise LaunchAdapterError("INPUT_DIGEST_CONFLICT", 409)
             merged.append(dict(entry))
             changed = True
@@ -342,6 +350,8 @@ def merge_gate_document(document: dict, entry: Mapping[str, Any]) -> str:
     if not found:
         merged.append(dict(entry))
         changed = True
+    if len(merged) > 256:
+        raise LaunchAdapterError("LIMIT_BLOCKED", 429)
     if len({tuple((item.get("binding") or {}).get(key) for key in owner_keys) for item in merged}) != len(merged):
         raise LaunchAdapterError("INPUT_DIGEST_CONFLICT", 409)
     document["executors"] = merged
@@ -547,6 +557,7 @@ class ProductionLaunchProvisioner:
                 "gate_url": self.options["gate_url"],
                 "namespace": self.options["namespace"],
                 "evidence_ref": self.options["evidence_ref"],
+                "pod_deadline_seconds": prepared["definition"]["runtime_profile"]["limits"]["max_elapsed_seconds"],
             },
         )
         if binding["definition_digest"] != request.definition_digest:
@@ -568,6 +579,25 @@ class ProductionLaunchProvisioner:
         connection = task_launch.owner_connection(self.config)
         budget_metadata = None
         try:
+            selected = self._row(connection, request.task_id)["definition"]
+            if (task_launch.configured_evaluation_mode(self.config) == "real_model"
+                    and selected["task"].get("external_analysis_approved") is not True):
+                raise LaunchAdapterError("CAPABILITY_UNAVAILABLE", 503)
+            template = self.config["definition"]
+            for kind in ("model", "runtime"):
+                field = kind + "_profile"
+                if _canonical(selected[field]) != _canonical(template[field]):
+                    raise LaunchAdapterError("CAPABILITY_UNAVAILABLE", 503)
+                if task_launch.configured_evaluation_mode(self.config) == "real_model":
+                    published = connection.execute(
+                        "SELECT real_model_allowed FROM vnext.published_profile "
+                        "WHERE tenant_id=%s AND kind=%s AND ref=%s AND revision=%s AND NOT revoked",
+                        (owner[0], kind, selected[field]["ref"], selected[field]["revision"]),
+                    ).fetchone()
+                    if not published or published[0] is not True:
+                        raise LaunchAdapterError("CAPABILITY_UNAVAILABLE", 503)
+            if task_launch.configured_evaluation_mode(self.config) == "real_model" and self.options.get("task_budget") is None:
+                raise LaunchAdapterError("CAPABILITY_UNAVAILABLE", 503)
             prepared = task_launch.finalise_definition(connection, owner=owner, config=self.config)
             task_launch.ensure_operator_actor(
                 connection, owner=owner,
@@ -610,6 +640,7 @@ class ProductionLaunchProvisioner:
                     "gate_url": self.options["gate_url"],
                     "namespace": self.options["namespace"],
                     "evidence_ref": self.options["evidence_ref"],
+                    "pod_deadline_seconds": prepared["definition"]["runtime_profile"]["limits"]["max_elapsed_seconds"],
                 },
             )
         finally:
@@ -709,7 +740,8 @@ class ProductionLaunchProvisioner:
                 "tenant_id": binding["tenant_id"], "project_id": binding["project_id"],
                 "task_id": binding["task_id"], "executor_ref": binding["executor_ref"],
                 "receiver_id": binding["receiver_id"], "environment_ref": binding["environment_ref"],
-                "runtime_attempt": binding["runtime_attempt"],
+                "collector_subject": self.config["executor"]["collector_subject"],
+                "gate_subject": "gate",
             },
             "base_url": f"https://{names['kali']}.{self.options['namespace']}.svc:8444",
             "gate_token_file": "/run/wuji/credentials/service.token",
@@ -772,6 +804,20 @@ class ProductionLaunchProvisioner:
         try:
             if request.phase == "prepare":
                 prepared = self._row(connection, request.task_id)
+                # create_task's original five-field jsonb body remains fixed.
+                # Finalization adds trusted runtime fields and changes encoding;
+                # reconstructing the DB-native original binds a lost response
+                # to the same accepted input, without inventing a new launch.
+                original_digest = connection.execute(
+                    "SELECT encode(sha256(convert_to(jsonb_build_object("
+                    "'task',definition_json::jsonb->'task',"
+                    "'start_points',definition_json::jsonb->'start_points',"
+                    "'model_profile',definition_json::jsonb->'model_profile',"
+                    "'runtime_profile',definition_json::jsonb->'runtime_profile',"
+                    "'lock_digest',definition_json::jsonb->'lock_digest')::text,'UTF8')),'hex') "
+                    "FROM vnext.task WHERE tenant_id=%s AND project_id=%s AND task_id=%s",
+                    self._owner(request.task_id),
+                ).fetchone()[0]
                 admission = connection.execute(
                     "SELECT 1 FROM vnext.admission_config WHERE tenant_id=%s AND project_id=%s AND task_id=%s",
                     self._owner(request.task_id),
@@ -782,9 +828,8 @@ class ProductionLaunchProvisioner:
                 ).fetchone()
                 current_profile = task_profile_digest(prepared["definition"])
                 if (
-                    prepared["definition_digest"] != request.definition_digest
+                    request.definition_digest not in {prepared["definition_digest"], original_digest}
                     or current_profile != request.profile_digest
-                    or admission is None or executor is None
                 ):
                     return {
                         "status": "unknown", "phase_status": "reconciling",
@@ -793,14 +838,26 @@ class ProductionLaunchProvisioner:
                         "prepared_definition_digest": prepared["definition_digest"],
                         "prepared_profile_digest": current_profile,
                     }
+                if admission is None or executor is None:
+                    # Every prepare producer has a stable Task/ref/key. There
+                    # is no model/target request in this reconciliation path.
+                    return self.prepare(request)
                 return {
                     "status": "ready", "phase_status": "succeeded",
                     "external_ref": request.external_ref,
                     "prepared_definition_digest": prepared["definition_digest"],
                     "prepared_profile_digest": current_profile,
+                    "definition_digest": prepared["definition_digest"],
+                    "runtime_attempt": prepared["runtime_attempt"],
+                    "execution_epoch": prepared["execution_epoch"],
                 }
             binding = self._binding(request, connection)
             state = self._pod_observation(task_launch.attempt_config(binding), request.observed_runtime_uid)
+            if request.phase == "capability" and state["status"] == "ready":
+                if request.observed_runtime_uid is None:
+                    raise LaunchAdapterError("STALE_EXECUTION", 409)
+                binding["pod_uid"] = state["pod_uid"]
+                task_launch.publish_capabilities(connection, config=self.config, binding=binding)
         finally:
             connection.close()
         status = "ready" if state["status"] == "ready" else "pending" if state["status"] == "pending" else "unknown"

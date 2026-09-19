@@ -236,7 +236,7 @@ class UnitOfWork:
                 if capability in {"control", "observe", "admit"} or request_purpose:
                     from wuji_core.execution.capacity import prelock_pools
 
-                    pools = prelock_pools(connection, owner)
+                    pools = prelock_pools(connection, owner, allow_unprepared=capability == "control")
                 # Capacity prelocks, when needed, already precede Task. Resources follow it.
                 lock = " FOR UPDATE" if capability not in {"read", "layout"} else ""
                 task = row(
@@ -248,6 +248,14 @@ class UnitOfWork:
                 )
                 if task is None:
                     raise DomainError("NOT_FOUND_OR_FORBIDDEN")
+                if capability == "control" and not {"global", "tenant"} <= {pool["tier"] for pool in pools}:
+                    # A never-started Task must remain cancellable even before
+                    # prepare publishes its pools. No executing Task or Run may
+                    # use this narrow control-only exception.
+                    if task["activated_at"] is not None or connection.execute(
+                        "SELECT 1 FROM vnext.agent_run WHERE tenant_id=%s AND project_id=%s AND task_id=%s LIMIT 1", owner,
+                    ).fetchone() is not None:
+                        raise DomainError("CAPABILITY_UNAVAILABLE", 503)
                 retained_binding = None
                 if capability in {"control", "observe", "admit", "retained_result"} or request_purpose:
                     current = row(

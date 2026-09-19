@@ -242,8 +242,12 @@ def test_launch_prepares_a_created_task_before_activation(db_environment, audit_
 
 
 def test_launch_binds_admission_executor_intent_and_capability(
-    db_environment, audit_directory
+    db_environment, audit_directory, monkeypatch
 ):
+    from itertools import count
+    from types import SimpleNamespace
+    clock = count(0, 121)
+    monkeypatch.setattr(task_launch, "time", SimpleNamespace(monotonic=lambda: next(clock), sleep=lambda _: None))
     with creation_case(db_environment, audit_directory) as case:
         created = create(case)
         assert created.status_code == 201, created.text

@@ -153,6 +153,15 @@ class TaskService:
             view = self._view(tx.task)
             if not tx.permissions["can_control"]:
                 view.allowed_actions = []
+            else:
+                progress = strict_json_loads(tx.connection.execute(
+                    "SELECT vnext.read_task_launch(%s)", (task_id,),
+                ).fetchone()[0])
+                if progress["operation_id"] is not None:
+                    # A durable launch is already authoritative. Its unknown
+                    # state cannot be bypassed by another start or a bare resume.
+                    view.allowed_actions = [action for action in view.allowed_actions
+                                            if action.value not in {"start", "resume"}]
             return view
 
     @staticmethod
@@ -232,6 +241,12 @@ class TaskService:
             raise DomainError("INVALID_SCHEMA", 422)
         self._budget(task)
         points = self.start_points(task)
+        document = task.model_dump(mode="json")
+        # Optional first-use fields must not change an older client's replay
+        # digest when that client never supplied them.
+        for optional in ("entry_points", "external_analysis_approved"):
+            if document.get(optional) is None:
+                document.pop(optional, None)
         key = self._key(idempotency_key)
         new_task = str(uuid4())
         settings = (
@@ -250,7 +265,7 @@ class TaskService:
                         "SELECT vnext.create_task(%s,%s,%s,%s,%s)",
                         (
                             task.project_id,
-                            json_text(task.model_dump(mode="json")),
+                            json_text(document),
                             json_text(points),
                             key,
                             new_task,

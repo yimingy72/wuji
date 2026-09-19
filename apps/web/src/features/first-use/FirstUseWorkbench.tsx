@@ -53,7 +53,7 @@ import styles from './firstUseWorkbench.module.css';
 const CREATE_KEY = 'wuji.first-use.v2.create-key';
 
 const scenarioLabels: Readonly<Record<TaskCreate['scenario'], string>> = {
-  web_single: 'Web 单点（本批首用）',
+  web_single: 'Web 单点',
   ctf: 'CTF（当前未发布）',
   comprehensive: '综合渗透（当前未发布）',
   adversary_emulation: '攻防演练（当前未发布）',
@@ -100,8 +100,8 @@ function initialDraft(options: TaskOptions | null): CreateDraft {
     goal: '',
     criteria: '',
     expiresAt: '',
-    modelRef: options?.model_profiles[0]?.ref ?? '',
-    runtimeRef: options?.runtime_profiles[0]?.ref ?? '',
+    modelRef: options?.model_profiles.find((item) => item.real_model_allowed)?.ref ?? '',
+    runtimeRef: options?.runtime_profiles.find((item) => item.real_model_allowed)?.ref ?? '',
     budget: '',
     targetConfirmed: false,
     materialConfirmed: false,
@@ -158,18 +158,21 @@ function createBody(draft: CreateDraft, projectId: string, entry: ParsedEntry, c
     authorization_scope: [{ host: entry.host, protocol: entry.protocol, port: entry.port }],
     authorization_expires_at: toDateTime(draft.expiresAt) ?? new Date(0).toISOString(),
     entry_points: [entry.url],
+    external_analysis_approved: draft.materialConfirmed,
     model_profile_ref: draft.modelRef,
     runtime_profile_ref: draft.runtimeRef,
     budget: { amount: draft.budget, currency: 'USD' },
   };
 }
 
-function createSignature(body: TaskCreate): string {
-  return JSON.stringify(body);
+async function createSignature(body: TaskCreate): Promise<string> {
+  const bytes = new TextEncoder().encode(JSON.stringify(body));
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return [...new Uint8Array(digest)].map((value) => value.toString(16).padStart(2, '0')).join('');
 }
 
-function createKeyFor(body: TaskCreate, projectId: string): string {
-  const signature = createSignature(body);
+async function createKeyFor(body: TaskCreate, projectId: string): Promise<string> {
+  const signature = await createSignature(body);
   try {
     const stored = sessionStorage.getItem(CREATE_KEY);
     if (stored) {
@@ -180,7 +183,7 @@ function createKeyFor(body: TaskCreate, projectId: string): string {
     sessionStorage.setItem(CREATE_KEY, JSON.stringify({ project_id: projectId, signature, key }));
     return key;
   } catch {
-    return crypto.randomUUID();
+    throw new Error('无法保存创建请求标识，请检查浏览器存储设置后重试。');
   }
 }
 
@@ -505,8 +508,8 @@ function TaskCreatePanel({ session, options, optionsError, onCreated, onClose, o
     if (!body) return;
     setBusy(true);
     setError(null);
-    const key = createKeyFor(body, session.project_id);
     try {
+      const key = await createKeyFor(body, session.project_id);
       const created = await createTask(body, key, session.csrf_token, new AbortController().signal);
       clearCreateKey();
       onCreated(created);
@@ -548,15 +551,15 @@ function TaskCreatePanel({ session, options, optionsError, onCreated, onClose, o
             </div>
           </div>
           <div className={styles.formSection}>
-            <h2>已发布模型与运行 Profile</h2>
+            <h2>模型与运行配置</h2>
             <div className={styles.formGrid}>
               <label>模型方案<Select aria-label="模型方案" value={draft.modelRef || undefined} options={options?.model_profiles.map((item) => ({ value: item.ref, label: `${item.name} · ${item.revision}${item.real_model_allowed ? ' · DeepSeek／真实模型' : ''}` }))} onChange={(value) => patch('modelRef', value)} placeholder="选择已发布模型" /></label>
               <label>运行配置<Select aria-label="运行配置" value={draft.runtimeRef || undefined} options={options?.runtime_profiles.map((item) => ({ value: item.ref, label: `${item.name} · ${item.revision}` }))} onChange={(value) => patch('runtimeRef', value)} placeholder="选择已发布运行配置" /></label>
             </div>
-            {selectedModel && <div className={styles.profileCard}><strong>{selectedModel.name} · {selectedModel.revision}</strong><code>{selectedModel.ref} · digest {selectedModel.digest}</code><div className={styles.profileCapabilities}>{selectedModel.capabilities.map((capability) => <span key={capability}>{capability}</span>)}</div><span>non-thinking 能力由发布 Profile 固定；浏览器不接收或提交 Provider Key。</span></div>}
-            {selectedRuntime && <div className={styles.profileCard}><strong>{selectedRuntime.name} · {selectedRuntime.revision}</strong><code>{selectedRuntime.ref} · digest {selectedRuntime.digest}</code><div className={styles.profileCapabilities}>{selectedRuntime.capabilities.map((capability) => <span key={capability}>{capability}</span>)}</div><span>首轮硬限制由发布 Profile 决定；预算填写为合法 Decimal USD。</span></div>}
-            <label>Task 金额预算（USD Decimal）<Input aria-label="Task 金额预算" data-testid="task-budget" inputMode="decimal" value={draft.budget} onChange={(event) => patch('budget', event.target.value)} placeholder="1.00" /></label>
-            <p className={styles.formHint}>本轮 fixture 发布上限为 1 USD 与不超过 12 次调用；这里不显示、不接收任何模型 Key。</p>
+            {selectedModel && <div className={styles.profileCard}><strong>{selectedModel.name} · {selectedModel.revision}</strong><code>{selectedModel.ref} · digest {selectedModel.digest}</code><div className={styles.profileCapabilities}>{selectedModel.capabilities.map((capability) => <span key={capability}>{capability}</span>)}</div><span>执行将使用所选模型配置的固定版本。</span></div>}
+            {selectedRuntime && <div className={styles.profileCard}><strong>{selectedRuntime.name} · {selectedRuntime.revision}</strong><code>{selectedRuntime.ref} · digest {selectedRuntime.digest}</code><div className={styles.profileCapabilities}>{selectedRuntime.capabilities.map((capability) => <span key={capability}>{capability}</span>)}</div><span>运行上限由所选配置版本确定。</span></div>}
+            <label>任务预算（USD）<Input aria-label="Task 金额预算" data-testid="task-budget" inputMode="decimal" value={draft.budget} onChange={(event) => patch('budget', event.target.value)} placeholder="1.00" /></label>
+            <p className={styles.formHint}>任务内的所有分析调用共用这笔预算。</p>
           </div>
           <div className={styles.modalFooter}><Button onClick={onClose}>取消</Button><Button type="primary" loading={busy} disabled={!ready} data-testid="task-create-submit" onClick={() => void submit()}>创建待启动 Task</Button></div>
         </div>

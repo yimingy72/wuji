@@ -12,6 +12,7 @@ from wuji_core.http import DecimalJSONResponse, VNextAPIRouter
 from wuji_core.http.auth import current_principal
 from wuji_core.http.model_gate import error_response
 from wuji_core.persistence.uow import AccessContext, DomainError
+from wuji_core.projection.records import public_value
 
 
 IdempotencyKey = Annotated[
@@ -35,7 +36,7 @@ def create_task_router(tasks):
             view = tasks.create(access, payload, idempotency_key=idempotency_key)
             checked = TaskView.model_validate(view.model_dump(mode="python"))
             return DecimalJSONResponse(
-                checked.model_dump(mode="python"), status_code=201
+                public_value(checked), status_code=201
             )
         except (
             DomainError,
@@ -59,7 +60,7 @@ def create_task_router(tasks):
             result = tasks.list(
                 access, project_id=project_id, limit=limit, cursor=cursor
             )
-            return DecimalJSONResponse(result.model_dump(mode="python"), status_code=200)
+            return DecimalJSONResponse(public_value(result), status_code=200)
         except (
             DomainError,
             ValidationError,
@@ -75,7 +76,7 @@ def create_task_router(tasks):
         access = AccessContext(current_principal(request), request.state.request_id)
         try:
             return DecimalJSONResponse(
-                tasks.options(access, project_id).model_dump(mode="python"),
+                public_value(tasks.options(access, project_id)),
                 status_code=200,
             )
         except (
@@ -93,7 +94,7 @@ def create_task_router(tasks):
         access = AccessContext(current_principal(request), request.state.request_id)
         try:
             view = tasks.get(access, task_id)
-            return DecimalJSONResponse(view.model_dump(mode="python"), status_code=200)
+            return DecimalJSONResponse(public_value(view), status_code=200)
         except (
             DomainError,
             ValidationError,
@@ -109,7 +110,7 @@ def create_task_router(tasks):
         access = AccessContext(current_principal(request), request.state.request_id)
         try:
             return DecimalJSONResponse(
-                tasks.readiness(access, task_id).model_dump(mode="python"),
+                public_value(tasks.readiness(access, task_id)),
                 status_code=200,
             )
         except (

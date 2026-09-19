@@ -1,6 +1,7 @@
 """Production Runtime/Host composition from explicit mounted deployment files."""
 
 import json
+from hashlib import sha256
 
 from deployment_common import Deployment, load_settings, read_file, token
 from wuji_core.contracts.knowledge import KnowledgeRef
@@ -13,6 +14,8 @@ from wuji_core.http import JsonBoundaryLimits
 from wuji_core.projection.snapshots import ProjectionRepository
 from wuji_core.worker_host import PlatformWorkerHost
 from wuji_maf_worker.context import ContextLimits, ContextRelation, build_context_bundle
+from wuji_core.http import canonical_json_bytes, strict_json_loads
+from wuji_maf_worker.factory import parse_profile
 
 
 def build_context(*, records, read_set, snapshot_id, max_records, max_bytes, relations,
@@ -82,8 +85,66 @@ def _supervisor_transport(settings, deployment):
     if not by_task:
         if default is None:
             raise ValueError("fixed runtime receiver endpoint required")
-        return default
+        return TaskSupervisorTransport(default=default)
     return TaskSupervisorTransport(default=default, by_task=by_task)
+
+
+class RuntimeConfiguration:
+    """Read only trusted mounted files; preserve every published old binding."""
+
+    def __init__(self, deployment, transport):
+        self.deployment, self.transport = deployment, transport
+        self.task_ids = tuple(deployment.settings.task_ids)
+        self.accepted_digest = None
+        self.environment = None
+
+    def refresh(self):
+        latest = load_settings("runtime")
+        old = self.deployment.settings
+        dynamic = {"task_ids", "pod_runtime"}
+        if latest.model_dump(exclude=dynamic) != old.model_dump(exclude=dynamic):
+            raise ValueError("refresh may only update trusted Task bindings")
+        if not set(self.task_ids) <= set(latest.task_ids):
+            raise ValueError("refresh cannot remove known Tasks")
+        entries = (latest.pod_runtime or {}).get("tasks", [])
+        if entries and (len({entry["task_config"]["task_id"] for entry in entries}) != len(entries)
+                        or set(latest.task_ids) != {entry["task_config"]["task_id"] for entry in entries}):
+            raise ValueError("Task discovery does not match published runtime bindings")
+        profiles = strict_json_loads(read_file(latest.profiles_file))
+        if not isinstance(profiles, list) or not profiles or len(profiles) > 4096:
+            raise ValueError("bounded published profile list required")
+        digest = sha256(canonical_json_bytes([latest.model_dump(), profiles])).hexdigest()
+        if digest == self.accepted_digest:
+            return
+        current = {profile["ref"]: profile for profile in self.deployment.profiles}
+        refreshed = {}
+        for profile in profiles:
+            parsed = parse_profile(profile)
+            if parsed.lock_digest != self.deployment.lock_digest or parsed.ref in refreshed:
+                raise ValueError("profile lock/ref conflict")
+            if parsed.ref in current and current[parsed.ref] != profile:
+                raise ValueError("published profile bytes changed")
+            refreshed[parsed.ref] = profile
+        if not set(current) <= set(refreshed):
+            raise ValueError("published profiles cannot be removed")
+        candidate = _supervisor_transport(latest, self.deployment)
+        for task_id, previous in self.transport.by_task.items():
+            replacement = candidate.by_task.get(task_id)
+            # Compare the published input URLs; transport internals remain private.
+            old_entries = (old.pod_runtime or {}).get("tasks", [])
+            new_entries = (latest.pod_runtime or {}).get("tasks", [])
+            def endpoint(entries):
+                return next((entry.get("supervisor_url") for entry in entries
+                             if entry.get("task_config", {}).get("task_id") == task_id), None)
+            if replacement is None or endpoint(old_entries) != endpoint(new_entries):
+                raise ValueError("existing Task endpoint changed")
+        if self.environment is not None:
+            self.environment.refresh(latest.pod_runtime)
+        self.transport.replace_routes(candidate.by_task)
+        self.deployment.profiles = profiles
+        self.deployment.settings = latest
+        self.task_ids = tuple(latest.task_ids)
+        self.accepted_digest = digest
 
 
 def build_runtime():
@@ -94,6 +155,7 @@ def build_runtime():
                 settings.task_ids)):
         raise ValueError("fixed runtime receiver/endpoints/Task discovery required")
     supervisor_transport = _supervisor_transport(settings, deployment)
+    configuration = RuntimeConfiguration(deployment, supervisor_transport)
     receiver_access = deployment.access(settings.receiver_token_file)
 
     def host_factory(access):
@@ -110,7 +172,7 @@ def build_runtime():
             retained_result=binding)
 
     controller = build_runtime_controller(deployment.uow, access=receiver_access,
-        authorized_task_ids=settings.task_ids, work_kinds=settings.work_kinds,
+        authorized_task_ids=lambda: configuration.task_ids, work_kinds=settings.work_kinds,
         credentials=deployment.issuer(), registry=deployment.registry, control=deployment.control,
         supervisor_transport=supervisor_transport,
         host_factory=host_factory, retained_host_factory=retained_factory,
@@ -129,4 +191,6 @@ def build_runtime():
     if settings.pod_runtime is not None:
         from pod_deployment import PodEnvironment
         controller.pod_environment = PodEnvironment(deployment, settings.pod_runtime)
+        configuration.environment = controller.pod_environment
+        controller.configuration_refresh = configuration.refresh
     return controller

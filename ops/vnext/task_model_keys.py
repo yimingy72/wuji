@@ -87,6 +87,30 @@ class KubernetesTaskKeyStore:
         raise TaskBudgetUnavailable("task_key_write_conflict")
 
 
+class ReadOnlyKubernetesTaskKeys:
+    """Gate-only GET access avoids asynchronous Secret-volume projection lag."""
+
+    def __init__(self, core):
+        self.core = core
+
+    def resolve(self, tenant_id, task_id):
+        try:
+            document = self.core.read_namespaced_secret(
+                "task-model-keys", "wuji-vnext-test", _request_timeout=(5, 5),
+            )
+            if (document.metadata.labels or {}).get("wuji.dev/credential-owner") != "first-use-launch-v1":
+                raise ValueError
+            encoded = (document.data or {})[task_key_filename(tenant_id, task_id)]
+            if not isinstance(encoded, str) or len(encoded) > 1024:
+                raise ValueError
+            key = base64.b64decode(encoded, validate=True).decode("ascii")
+            if not re.fullmatch(r"sk-[A-Za-z0-9_-]{32,256}", key):
+                raise ValueError
+            return key
+        except Exception:
+            raise TaskBudgetUnavailable("task_key_unavailable") from None
+
+
 class NativeTaskBudget:
     def __init__(self, store, client: httpx.Client):
         self.store, self.client = store, client

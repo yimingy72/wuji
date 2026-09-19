@@ -2256,6 +2256,12 @@ class TaskCreate(_JsonSchemaRuntimeValidationBase):
             min_length=1,
         ),
     ] = None
+    external_analysis_approved: Annotated[
+        StrictBool | None,
+        Field(
+            description='Creator confirmation that the authorized task material may be sent to the selected external model. Missing approval never permits external analysis.'
+        ),
+    ] = None
     model_profile_ref: Annotated[StrictStr, Field(max_length=256, min_length=1)]
     runtime_profile_ref: Annotated[StrictStr, Field(max_length=256, min_length=1)]
     budget: MoneyBudget

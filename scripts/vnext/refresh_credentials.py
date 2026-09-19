@@ -162,9 +162,9 @@ def guard_live_attempts(counts, *, allow=False):
     }
 
 
-def _kubectl(args, *, context, namespace, check=True):
+def _kubectl(args, *, context, namespace, check=True, input_text=None):
     command = ["kubectl", "--context", context, "--namespace", namespace, *args]
-    result = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, check=False)
+    result = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, check=False, input=input_text)
     if check and result.returncode:
         raise RuntimeError("kubectl %s failed" % (args[0] if args else "?"))
     return result.stdout
@@ -224,13 +224,13 @@ def live_counts(context, namespace, identity, *, timeout=30):
         [
             "kubectl", "--context", context, "--namespace", namespace,
             "exec", "-i", pod, "--",
-            "env", "PGPASSWORD=" + identity["migration_password"],
-            "psql", "-U", "wuji_migration", "-d", identity["database"]["dbname"],
-            "-tAc", LIVE_WINDOW_SQL,
+            "sh", "-c", 'IFS= read -r PGPASSWORD\nexport PGPASSWORD\nexec psql -U wuji_migration -d "$1" -tAc "$2"',
+            "sh", identity["database"]["dbname"], LIVE_WINDOW_SQL,
         ],
         cwd=ROOT,
         capture_output=True,
         text=True,
+        input=identity["migration_password"] + "\n",
         check=False,
         timeout=timeout,
     )
@@ -247,9 +247,10 @@ def patch_secrets(material, *, context, namespace):
     for secret, fields in sorted(material.items()):
         document = json.dumps({"data": fields})
         _kubectl(
-            ["patch", "secret", secret, "--type", "merge", "-p", document],
+            ["patch", "secret", secret, "--type", "merge", "--patch-file", "/dev/stdin"],
             context=context,
             namespace=namespace,
+            input_text=document,
         )
         patched.append(secret)
     return patched

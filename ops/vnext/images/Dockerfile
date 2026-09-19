@@ -33,12 +33,14 @@ FROM base AS platform
 COPY ops/vnext/pyproject.toml ops/vnext/uv.lock /opt/wuji/ops/vnext/
 RUN uv sync --project /opt/wuji/ops/vnext --frozen --no-dev --python /usr/local/bin/python
 COPY services/wuji-runtime /opt/wuji/services/wuji-runtime
+COPY services/wuji-launch /opt/wuji/services/wuji-launch
 COPY services/wuji-api /opt/wuji/services/wuji-api
 COPY services/wuji-web-gateway /opt/wuji/services/wuji-web-gateway
 COPY services/wuji-scheduler /opt/wuji/services/wuji-scheduler
 COPY ops/vnext/deployment_common.py /opt/wuji/ops/vnext/deployment_common.py
 COPY ops/vnext/gate_deployment.py ops/vnext/kali_deployment.py ops/vnext/pod_deployment.py /opt/wuji/ops/vnext/
 COPY ops/vnext/pod_task_config.py /opt/wuji/ops/vnext/pod_task_config.py
+COPY ops/vnext/launch_adapter.py ops/vnext/task_model_keys.py /opt/wuji/ops/vnext/
 COPY ops/vnext/bootstrap.py ops/vnext/synthetic_model.py ops/vnext/task_launch.py /opt/wuji/ops/vnext/
 COPY ops/vnext/kubernetes/task-owner-rbac.json /opt/wuji/ops/vnext/kubernetes/task-owner-rbac.json
 COPY services/wuji-kali-executor /opt/wuji/services/wuji-kali-executor

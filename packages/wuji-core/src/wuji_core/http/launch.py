@@ -10,6 +10,7 @@ from wuji_core.http import DecimalJSONResponse, VNextAPIRouter
 from wuji_core.http.auth import current_principal
 from wuji_core.http.model_gate import error_response
 from wuji_core.persistence.uow import AccessContext, DomainError
+from wuji_core.projection.records import public_value
 
 
 def create_launch_router(launch_service):
@@ -22,7 +23,7 @@ def create_launch_router(launch_service):
         access = AccessContext(current_principal(request), request.state.request_id)
         try:
             view = LaunchView.model_validate(launch_service.read_launch(access, task_id))
-            return DecimalJSONResponse(view.model_dump(mode="python"), status_code=200)
+            return DecimalJSONResponse(public_value(view), status_code=200)
         except (
             DomainError,
             ValidationError,

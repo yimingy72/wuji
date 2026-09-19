@@ -5,6 +5,9 @@
 -- progress ledger, not a second Task state machine: ControlService remains
 -- the authority for activation/pause/cancel state.
 
+-- Deployment-owned catalog metadata is separate from frozen model wire bytes.
+ALTER TABLE vnext.published_profile ADD real_model_allowed boolean NOT NULL DEFAULT false;
+
 CREATE TABLE vnext.task_launch_worker (
   tenant_id text NOT NULL,
   project_id text NOT NULL,
@@ -91,8 +94,11 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $$
           AND a.subject=current_setting('wuji.subject',true) AND a.can_read AND a.can_control)
         THEN '[]'::jsonb
       WHEN taskrow.observed_state='closed' OR taskrow.desired_state IN ('cancel','finish') THEN '[]'::jsonb
-      WHEN taskrow.activated_at IS NULL THEN jsonb_build_array('start','cancel')
+      WHEN taskrow.activated_at IS NULL AND NOT EXISTS(SELECT 1 FROM vnext.task_launch l
+        WHERE (l.tenant_id,l.project_id,l.task_id)=(taskrow.tenant_id,taskrow.project_id,taskrow.task_id)) THEN jsonb_build_array('start','cancel')
+      WHEN taskrow.activated_at IS NULL THEN jsonb_build_array('cancel')
       WHEN taskrow.desired_state='run' THEN jsonb_build_array('pause','cancel','finish')
+      WHEN EXISTS(SELECT 1 FROM vnext.task_launch l WHERE (l.tenant_id,l.project_id,l.task_id)=(taskrow.tenant_id,taskrow.project_id,taskrow.task_id)) THEN jsonb_build_array('cancel')
       ELSE jsonb_build_array('resume','cancel')
     END
   )
@@ -113,6 +119,8 @@ BEGIN
     SELECT t AS taskrow, row_number() OVER (ORDER BY t.task_id) AS n
     FROM vnext.task t JOIN vnext.task_access a USING(tenant_id,project_id,task_id)
     WHERE t.tenant_id=tenant_value AND t.project_id=project_key AND a.subject=subject_value AND a.can_read
+      AND NULLIF(t.definition_json::jsonb->'task'->>'name','') IS NOT NULL
+      AND t.definition_json::jsonb->'task'->>'scenario' IN ('ctf','web_single','comprehensive','adversary_emulation','code_audit')
       AND (cursor_key IS NULL OR t.task_id>cursor_key)
     ORDER BY t.task_id LIMIT limit_count+1
   ), page AS (SELECT * FROM visible WHERE n<=limit_count)
@@ -163,7 +171,7 @@ BEGIN
       'digest',encode(sha256(convert_to(p.document_json,'UTF8')),'hex'),
       'capabilities',CASE WHEN jsonb_typeof(p.document_json::jsonb->'capabilities')='array' THEN p.document_json::jsonb->'capabilities'
         WHEN p.document_json::jsonb->>'protocol' IS NOT NULL THEN jsonb_build_array(p.document_json::jsonb->>'protocol') ELSE '[]'::jsonb END,
-      'real_model_allowed',CASE WHEN jsonb_typeof(p.document_json::jsonb->'real_model_allowed')='boolean' THEN (p.document_json::jsonb->>'real_model_allowed')::boolean ELSE false END
+      'real_model_allowed',p.real_model_allowed
     ) ORDER BY p.ref,p.revision DESC),'[]'::jsonb)
     INTO model_list FROM vnext.published_profile p WHERE p.tenant_id=tenant_value AND p.kind='model' AND NOT p.revoked;
   SELECT COALESCE(jsonb_agg(jsonb_build_object(
@@ -171,7 +179,7 @@ BEGIN
       'digest',encode(sha256(convert_to(p.document_json,'UTF8')),'hex'),
       'capabilities',CASE WHEN jsonb_typeof(p.document_json::jsonb->'capabilities')='array' THEN p.document_json::jsonb->'capabilities'
         WHEN jsonb_typeof(p.document_json::jsonb->'allowed_tool_refs')='array' THEN p.document_json::jsonb->'allowed_tool_refs' ELSE '[]'::jsonb END,
-      'real_model_allowed',CASE WHEN jsonb_typeof(p.document_json::jsonb->'real_model_allowed')='boolean' THEN (p.document_json::jsonb->>'real_model_allowed')::boolean ELSE false END
+      'real_model_allowed',p.real_model_allowed
     ) ORDER BY p.ref,p.revision DESC),'[]'::jsonb)
     INTO runtime_list FROM vnext.published_profile p WHERE p.tenant_id=tenant_value AND p.kind='runtime' AND NOT p.revoked;
   IF jsonb_array_length(model_list)=0 THEN missing:=missing||jsonb_build_array(jsonb_build_object('id','model_profile','layer','profile','status','fail','reason_code','model_profile_unavailable','observed_at',clock_timestamp(),'evidence_ref',NULL,'remediation_owner','application','message','No published model profile is available.')); END IF;
@@ -183,12 +191,14 @@ END $$;
 CREATE OR REPLACE FUNCTION vnext.task_readiness(task_key text)
 RETURNS text
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$
-DECLARE tenant_value text:=current_setting('wuji.tenant',true); subject_value text:=current_setting('wuji.subject',true); t vnext.task; definition jsonb; model_ok boolean; runtime_ok boolean; checks jsonb; result jsonb; at timestamptz:=clock_timestamp();
+DECLARE tenant_value text:=current_setting('wuji.tenant',true); subject_value text:=current_setting('wuji.subject',true); t vnext.task; definition jsonb; model_ok boolean; runtime_ok boolean; checks jsonb; result jsonb; at timestamptz:=clock_timestamp(); needs_external boolean; external_allowed boolean;
 BEGIN
   SELECT taskrow.* INTO t FROM vnext.task taskrow JOIN vnext.task_access a USING(tenant_id,project_id,task_id)
     WHERE taskrow.tenant_id=tenant_value AND taskrow.task_id=task_key AND a.subject=subject_value AND a.can_read LIMIT 1;
   IF NOT FOUND THEN RAISE EXCEPTION 'task not found' USING ERRCODE='42501'; END IF;
   definition:=t.definition_json::jsonb;
+  needs_external:=EXISTS(SELECT 1 FROM vnext.published_profile p WHERE p.tenant_id=t.tenant_id AND p.kind='model' AND p.ref=definition->'task'->>'model_profile_ref' AND p.real_model_allowed AND NOT p.revoked);
+  external_allowed:=COALESCE((definition->'task'->>'external_analysis_approved')::boolean,false);
   model_ok:=EXISTS(SELECT 1 FROM vnext.published_profile p WHERE p.tenant_id=t.tenant_id AND p.kind='model' AND p.ref=definition->'task'->>'model_profile_ref' AND NOT p.revoked);
   runtime_ok:=EXISTS(SELECT 1 FROM vnext.published_profile p WHERE p.tenant_id=t.tenant_id AND p.kind='runtime' AND p.ref=definition->'task'->>'runtime_profile_ref' AND NOT p.revoked AND p.lock_digest=definition->>'lock_digest');
   checks:=jsonb_build_array(
@@ -204,9 +214,14 @@ BEGIN
     'id','scope','layer','target','status',CASE WHEN (definition->'task'->>'authorization_expires_at')::timestamptz>at THEN 'pass' ELSE 'fail' END,
     'reason_code',CASE WHEN (definition->'task'->>'authorization_expires_at')::timestamptz>at THEN 'scope_current' ELSE 'scope_expired' END,
     'observed_at',at,'evidence_ref',NULL,'remediation_owner','user','message','Authorization deadline only; target connectivity remains untested.'));
+  checks:=checks||jsonb_build_array(jsonb_build_object('id','external_analysis','layer','material',
+    'status',CASE WHEN NOT needs_external THEN 'not_applicable' WHEN external_allowed THEN 'pass' ELSE 'fail' END,
+    'reason_code',CASE WHEN NOT needs_external THEN 'external_analysis_not_required' WHEN external_allowed THEN 'external_analysis_approved' ELSE 'external_analysis_not_approved' END,
+    'observed_at',at,'evidence_ref',NULL,'remediation_owner','user','message','External analysis uses the creator confirmation frozen in this Task.'));
   result:=jsonb_build_object('task_id',t.task_id,'definition_digest',t.definition_digest,'observed_at',at,'can_request_start',
     model_ok AND runtime_ok AND t.definition_digest IS NOT NULL AND t.observed_state='ready' AND t.desired_state='pause'
     AND (definition->'task'->>'authorization_expires_at')::timestamptz>at
+    AND (NOT needs_external OR external_allowed)
     AND EXISTS(SELECT 1 FROM vnext.task_access a WHERE (a.tenant_id,a.project_id,a.task_id)=(t.tenant_id,t.project_id,t.task_id) AND a.subject=subject_value AND a.can_control),
     'checks',checks);
   RETURN result::text;

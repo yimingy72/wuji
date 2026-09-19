@@ -17,6 +17,23 @@ refresh = importlib_util.module_from_spec(SPEC)
 SPEC.loader.exec_module(refresh)
 
 
+def test_rotation_never_puts_secret_material_in_process_arguments(monkeypatch):
+    from types import SimpleNamespace
+    calls = []
+    def invoke(command, **kwargs):
+        calls.append((command, kwargs))
+        return SimpleNamespace(returncode=0, stdout="0|0|0" if "exec" in command else "postgres-fixture")
+    monkeypatch.setattr(refresh.subprocess, "run", invoke)
+    refresh.live_counts("docker-desktop", "wuji-vnext-test", {
+        "migration_password": "fixture-private-password", "database": {"dbname": "fixture"},
+    })
+    refresh.patch_secrets({"runtime-credentials": {"receiver.token": "fixture-private-token"}},
+                          context="docker-desktop", namespace="wuji-vnext-test")
+    assert all("fixture-private" not in " ".join(command) for command, _ in calls)
+    assert any(kwargs.get("input") == "fixture-private-password\n" for _, kwargs in calls)
+    assert any("fixture-private-token" in (kwargs.get("input") or "") for _, kwargs in calls)
+
+
 def test_the_plan_covers_every_consumer_with_one_fixed_subject():
     assert set(refresh.PLAN) == {
         "runtime-credentials",

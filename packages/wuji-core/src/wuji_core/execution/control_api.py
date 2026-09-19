@@ -53,6 +53,11 @@ class ControlAPI:
         if not isinstance(task_id, str) or not 1 <= len(task_id) <= 256:
             raise DomainError("INVALID_SCHEMA", 422)
         command = TaskCommand.model_validate(command)
+        if self.launch is not None and command.command.value == "resume":
+            progress = self.launch.read_launch(access, task_id)
+            if progress.operation_id is not None:
+                raise DomainError("OPERATION_UNKNOWN" if progress.phase_status.value == "reconciling"
+                                  else "CAPABILITY_UNAVAILABLE", 409 if progress.phase_status.value == "reconciling" else 503)
         if (
             self.launch is not None
             and command.command.value == "start"

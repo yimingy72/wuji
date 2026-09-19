@@ -120,6 +120,15 @@ def _start(case, task_id, *, key="launch-start"):
 def _worker(case, adapter, *, subject="launch-worker"):
     with case.environment.migration_connection() as connection:
         _register_worker(connection, subject=subject)
+    prepare = adapter.prepare
+    def publish_then_prepare(input):
+        # Simulate the deployment boundary's real persisted prerequisite;
+        # never bypass Control's capacity guard just to make activation pass.
+        from support.p03 import seed_capacity
+        with case.environment.migration_connection() as connection:
+            seed_capacity(connection, task=input["task_id"])
+        return prepare(input)
+    adapter.prepare = publish_then_prepare
     return LaunchWorker(
         case.uow,
         access=worker_access(case, subject),
@@ -482,3 +491,20 @@ def test_api12_unknown_launch_rejects_start_and_bare_resume_without_new_operatio
                 "SELECT count(*) FROM vnext.task_launch WHERE task_id=%s",
                 (task_id,),
             ).fetchone() == (1,)
+
+
+def test_unprepared_task_can_cancel_but_cannot_bypass_capacity_to_activate(
+    db_environment, audit_directory,
+):
+    with first_use_case(db_environment, audit_directory) as case:
+        task_id = create_task(case, payload(), key="never-started-cancel")["task_id"]
+        operator = access("control-fixture", role="operator")
+        with pytest.raises(DomainError, match="CAPABILITY_UNAVAILABLE"):
+            case.control.activate_task(operator, task_id, operation_id="no-pool-start",
+                                       expected_version="1", reason="must require published capacity")
+        response = task_command(case, task_id, "cancel", "1", key="cancel-before-prepare")
+        assert response.status_code == 202, response.text
+        assert task_view(case, task_id)["desired_state"] == "cancel"
+        with db_environment.migration_connection() as connection:
+            assert connection.execute("SELECT activated_at FROM vnext.task WHERE task_id=%s", (task_id,)).fetchone() == (None,)
+            assert connection.execute("SELECT count(*) FROM vnext.agent_run WHERE task_id=%s", (task_id,)).fetchone() == (0,)

@@ -656,6 +656,8 @@ class ControlService:
         }:
             raise DomainError("STALE_EXECUTION", 409)
         if command in {"start", "resume"}:
+            if not {"global", "tenant"} <= {pool["tier"] for pool in tx.capacity_pools}:
+                raise DomainError("CAPABILITY_UNAVAILABLE", 503)
             self._definition(tx)
             if (command == "start") != (task["activated_at"] is None) or task[
                 "completion_epoch_id"

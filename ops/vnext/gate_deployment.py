@@ -8,6 +8,8 @@ attempt, and only a guarded next attempt may replace it.
 
 from hashlib import sha256
 import json
+import re
+from threading import RLock
 from pathlib import Path
 
 import httpx
@@ -29,6 +31,8 @@ from wuji_core.http.tool_gate import create_tool_router
 class KeyResolver:
     def __init__(self, deployment):
         self.deployment = deployment
+        self._task_keys = self._key_api = None
+        self._key_lock = RLock()
 
     def resolve(self, secret_ref):
         return self.deployment.secret(secret_ref).decode().strip()
@@ -39,6 +43,17 @@ class KeyResolver:
             return self.resolve(secret_ref)
         if secret_ref != settings.task_model_key_ref:
             raise ValueError("unregistered Task model key reference")
+        if settings.task_model_keys_secret is not None:
+            if settings.task_model_keys_secret != "task-model-keys":
+                raise ValueError("unregistered Task key store")
+            with self._key_lock:
+                if self._task_keys is None:
+                    from kubernetes import client, config
+                    from task_model_keys import ReadOnlyKubernetesTaskKeys
+                    config.load_incluster_config()
+                    self._key_api = client.ApiClient()
+                    self._task_keys = ReadOnlyKubernetesTaskKeys(client.CoreV1Api(self._key_api))
+            return self._task_keys.resolve(tenant_id, task_id)
         from pathlib import Path
         from task_model_keys import task_key_filename
 
@@ -46,6 +61,10 @@ class KeyResolver:
         if not isinstance(directory, str) or not Path(directory).is_absolute():
             raise ValueError("an absolute Task key mount is required")
         return token(str(Path(directory) / task_key_filename(tenant_id, task_id)))
+
+    def close(self):
+        if self._key_api is not None:
+            self._key_api.close()
 
 
 def _canonical(value):
@@ -57,8 +76,13 @@ def _binding_key(binding):
 
 
 def _attempt(binding):
-    value = getattr(binding, "runtime_attempt", None)
-    return value if type(value) is int and value > 0 else None
+    prefix = "task-" + binding.task_id + "-a"
+    value = binding.receiver_id.removeprefix(prefix)
+    if binding.receiver_id.startswith(prefix) and re.fullmatch(r"[1-9][0-9]*", value):
+        attempt = int(value)
+        if binding.environment_ref == f"pod-environment-{binding.task_id}-a{attempt}":
+            return attempt
+    return None
 
 
 class TrustedGateConfig:
@@ -73,7 +97,8 @@ class TrustedGateConfig:
 
     def read(self):
         try:
-            raw = self.path.read_bytes()
+            with self.path.open("rb") as stream:
+                raw = stream.read(self.max_bytes + 1)
         except OSError as error:
             raise ValueError("trusted Gate configuration is unavailable") from error
         if not 0 < len(raw) <= self.max_bytes:
@@ -113,6 +138,7 @@ class GateBindingRefresher:
         self.deployment = deployment
         self.settings = settings
         self.reader = TrustedGateConfig(path)
+        self._lock = RLock()
         # The initial Settings object was validated by load_settings.  Keep an
         # immutable snapshot of identity fields to guard later reloads.
         self._known = {key: binding for binding in _gate_bindings(deployment, settings)[0]
@@ -120,17 +146,31 @@ class GateBindingRefresher:
         self._digest = sha256(_canonical(settings.model_dump(mode="json"))).hexdigest()
 
     def refresh(self, tools, authority):
+        with self._lock:
+            try:
+                return self._refresh(tools, authority)
+            except Exception:
+                self.reader._digest = None
+                raise
+
+    def _refresh(self, tools, authority):
         settings = self.reader.read()
         if settings is None:
             return False
         if settings.role != "gates" or settings.schema_version != "wuji.deployment.v1":
             raise ValueError("trusted Gate configuration role/version changed")
+        if settings.model_dump(exclude={"executors"}) != self.settings.model_dump(exclude={"executors"}):
+            raise ValueError("only Task executor bindings may refresh")
         bindings, executors, collectors = _gate_bindings(self.deployment, settings)
         current = {_binding_key(binding): binding for binding in bindings}
         if set(self._known) - set(current):
             raise ValueError("active Task Gate binding removal is refused")
         for key, old in self._known.items():
             new = current[key]
+            old_entry = next(e for e in self.settings.executors if _binding_key(ExecutorDeploymentBinding(**e["binding"])) == key)
+            new_entry = next(e for e in settings.executors if _binding_key(ExecutorDeploymentBinding(**e["binding"])) == key)
+            if {k:v for k,v in old_entry.items() if k != "binding"} != {k:v for k,v in new_entry.items() if k != "binding"}:
+                raise ValueError("existing Task executor transport changed")
             if _canonical(vars(old)) == _canonical(vars(new)):
                 continue
             old_attempt, new_attempt = _attempt(old), _attempt(new)
@@ -138,12 +178,9 @@ class GateBindingRefresher:
                 raise ValueError("fixed Task Gate binding changed outside a new attempt")
             if old.owner != new.owner or old.executor_ref != new.executor_ref:
                 raise ValueError("fixed Task Gate owner changed")
-        tools.executors.clear()
-        tools.executors.update(executors)
-        tools.collector_accesses.clear()
-        tools.collector_accesses.update(collectors)
-        authority.bindings.clear()
-        authority.bindings.update(current)
+        tools.executors = executors
+        tools.collector_accesses = collectors
+        authority.bindings = current
         self.settings = settings
         self._known = current
         self._digest = sha256(_canonical(settings.model_dump(mode="json"))).hexdigest()
@@ -171,9 +208,9 @@ class RefreshingToolGate:
         self._refresh()
         return self._gate.close_operations(access, request)
 
-    def result_material(self, access, tool_call_id):
+    def result_material(self, access, tool_call_id, *, representation=None):
         self._refresh()
-        return self._gate.result_material(access, tool_call_id)
+        return self._gate.result_material(access, tool_call_id, representation=representation)
 
     async def cancel(self, access, tool_call_id, *, operation_id, reason):
         self._refresh()
@@ -209,8 +246,9 @@ def build_gates():
     refreshing_authority = RefreshingExecutorAuthority(authority, refresher, tools)
     client = httpx.AsyncClient(verify=deployment.tls, trust_env=False,
         follow_redirects=False, transport=httpx.AsyncHTTPTransport(verify=deployment.tls, retries=0))
+    keys = KeyResolver(deployment)
     models = ModelGate(ModelAdmission(deployment.uow, registry=deployment.registry, ledger=ledger),
-        registry=deployment.registry, ledger=ledger, key_resolver=KeyResolver(deployment),
+        registry=deployment.registry, ledger=ledger, key_resolver=keys,
         transport=HttpxModelTransport(client), tool_capabilities=ToolCapabilityResolver(refreshing_tools))
     app = create_app(token_verifier=deployment.verifier, routers=[
         create_model_router(models), create_tool_router(refreshing_tools),
@@ -227,6 +265,7 @@ def build_gates():
                 await send({"type": "lifespan.startup.complete"})
             elif message["type"] == "lifespan.shutdown":
                 await client.aclose()
+                keys.close()
                 await send({"type": "lifespan.shutdown.complete"})
                 return
     return application

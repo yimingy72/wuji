@@ -18,6 +18,7 @@ def run(
     interval_seconds: float = 1.0,
     batch_limit: int = 16,
     pod_environment=None,
+    configuration_refresh=None,
 ) -> None:
     if (
         not isinstance(dispatcher, RuntimeDispatcher)
@@ -33,6 +34,13 @@ def run(
             lifecycle.enter_context(pod_environment)
         while not stop.is_set():
             try:
+                configuration_ready = True
+                if configuration_refresh is not None:
+                    try:
+                        configuration_refresh()
+                    except Exception as error:
+                        configuration_ready = False
+                        print(json.dumps({"event": "runtime_configuration_refused", "error": type(error).__name__}), flush=True)
                 if pod_environment is not None:
                     try:
                         pod_environment.ensure()
@@ -81,7 +89,7 @@ def run(
                                 detail["error"] = failure
                             print(json.dumps(detail, sort_keys=True), flush=True)
                         dispatcher.restrict_starts(
-                            pod_environment.start_eligible_task_ids()
+                            pod_environment.start_eligible_task_ids() if configuration_ready else ()
                         )
                         # A Pod the controller reports as `stopped` is gone: the
                         # Task can neither be delivered to nor queried, so its
@@ -99,7 +107,7 @@ def run(
                             )
                         dispatcher.note_ended_environments(ended)
                 else:
-                    dispatcher.restrict_starts(None)
+                    dispatcher.restrict_starts(None if configuration_ready else ())
                 observed = dispatcher.run_once(limit=batch_limit)
                 states: dict[str, int] = {}
                 for item in observed:
@@ -199,6 +207,7 @@ def main() -> None:
             "interval_seconds": args.interval_seconds,
             "batch_limit": args.batch_limit,
             "pod_environment": getattr(controller, "pod_environment", None),
+            "configuration_refresh": getattr(controller, "configuration_refresh", None),
         },
         name="wuji-runtime-dispatch",
         daemon=False,

@@ -1617,6 +1617,8 @@ export interface components {
             authorization_expires_at: string;
             /** @description Explicit URLs preserving path and non-sensitive query; each origin must be authorized by the confirmed scope. */
             entry_points?: string[];
+            /** @description Creator confirmation that the authorized task material may be sent to the selected external model. Missing approval never permits external analysis. */
+            external_analysis_approved?: boolean;
             model_profile_ref: string;
             runtime_profile_ref: string;
             budget: components["schemas"]["MoneyBudget"];

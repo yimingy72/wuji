@@ -9,6 +9,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "ops" / "vnext"))
+sys.path.insert(0, str(ROOT / "packages" / "task-runtime" / "src"))
 SPEC = importlib.util.spec_from_file_location("pod_deployment", ROOT / "ops" / "vnext" / "pod_deployment.py")
 pod = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = pod
@@ -57,13 +58,14 @@ def test_refresh_adds_task_but_refuses_removing_known_task():
     class Environment(pod.PodEnvironment):
         def _add_entry(self, task_id, values, receiver, item):
             self.runtimes[task_id] = Runtime(task_id)
-            self._entries[task_id] = (values, receiver)
+            self._entries[task_id] = (self._normalise(values), receiver)
+            self.entry_service_names[task_id] = self.service_names
 
     env = Environment.__new__(Environment)
     env.runtimes = {"task-a": Runtime("task-a")}
-    env._entries = {"task-a": (entry("task-a")["task_config"], entry("task-a")["receiver"])}
+    env._entries = {"task-a": (pod.PodEnvironment._normalise(entry("task-a")["task_config"]), entry("task-a")["receiver"])}
     env.observations = {}
-    env.entry_service_names = {}
+    env.entry_service_names = {"task-a": {"agent": "task-agent", "kali": "task-kali"}}
     env.service_names = {"agent": "task-agent", "kali": "task-kali"}
     env.refresh({"tasks": [entry("task-a"), entry("task-b")]})
     assert set(env.runtimes) == {"task-a", "task-b"}

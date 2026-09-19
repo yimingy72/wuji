@@ -16,7 +16,8 @@ model_list:
       mode: chat
       # Conservative peak planning tuple, USD per token. Source and both
       # peak/off-peak tiers: DEEPSEEK_PRICE_SNAPSHOT.20260918.yaml.
-      # Gateway usage/spend receipts remain authoritative for final billing.
+      # Gateway receipts record this conservative configured spend; they are
+      # not the supplier invoice. Provider billing reconciliation is separate.
       input_cost_per_token: 0.0000003
       cache_read_input_token_cost: 0.000000006
       cache_creation_input_token_cost: 0.0000003

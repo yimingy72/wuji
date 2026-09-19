@@ -92,12 +92,11 @@ def build_web_manifests(
             "identity_audience": identity_audience,
             "tenant_id": tenant_id,
             "project_id": project_id,
-            "task_id": task_id,
             "gateway_secret_name": gateway_secret_name,
             "gateway_ca_config_map": gateway_ca_config_map,
         }
         if any(not value.strip() for value in required.values()) or not allowed_origins:
-            raise ValueError("gateway deployment requires fixed identity and Task bindings")
+            raise ValueError("gateway deployment requires fixed identity and project bindings")
         if api_base_url or auth_entrypoint != "/auth/login":
             raise ValueError("read-only gateway uses same-origin API and fixed login path")
 
@@ -156,17 +155,19 @@ def build_web_manifests(
         pod_spec["securityContext"]["fsGroup"] = 10000
         pod_spec["containers"][0]["securityContext"]["runAsGroup"] = 10000
         gateway_settings = {
-            "schema_version": "wuji.web-gateway.v1",
+            "schema_version": "wuji.web-gateway.v2",
+            "mode": "local_single_operator",
             "api_base_url": gateway_api_base_url,
             "ca_file": "/config/api-ca.crt",
             "signing_key_file": "/run/wuji/web/identity.key",
             "session_key_file": "/run/wuji/web/session.key",
+            "local_access_token_file": "/run/wuji/web/access.token",
             "issuer": identity_issuer,
             "audience": identity_audience,
             "subject": "operator",
             "tenant_id": tenant_id,
             "project_id": project_id,
-            "task_id": task_id,
+            "task_id": task_id or None,
             "roles": ["operator"],
             "display_name": display_name,
             "allowed_origins": list(allowed_origins),

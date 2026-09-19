@@ -25,7 +25,7 @@ from wuji_core.contracts.execution import (
 )
 from wuji_core.contracts.generated import LaunchView
 from wuji_core.http import canonical_json_bytes, strict_json_loads
-from wuji_core.persistence.uow import AccessContext, DomainError
+from wuji_core.persistence.uow import AccessContext, DomainError, _require_control_actor
 
 
 PHASES = ("prepare", "activate", "wire", "capability")
@@ -313,7 +313,12 @@ class LaunchService:
             raise DomainError("INVALID_SCHEMA", 422)
         if not isinstance(idempotency_key, str) or not 1 <= len(idempotency_key) <= 256:
             raise DomainError("INVALID_SCHEMA", 422)
-        with self.uow.transaction(access, task_id, capability="control") as tx:
+        _require_control_actor(access, "control")
+        # Initial start admission precedes capacity/admission publication.
+        # The SQL producer takes the Task lock and rechecks this permission.
+        with self.uow.transaction(access, task_id) as tx:
+            if not tx.permissions["can_control"]:
+                raise DomainError("NOT_FOUND_OR_FORBIDDEN")
             task = dict(tx.task)
         expected = command.expected_version.root
         raw_definition = task.get("definition_json")
@@ -667,6 +672,7 @@ class LaunchWorker:
                             "definition_digest": job.get("definition_digest"),
                             "profile_digest": job.get("profile_digest"),
                             "external_ref": step.get("external_ref") or job["operation_id"],
+                            "observed_runtime_uid": self._runtime_uid(job),
                         },
                     )
                 elif phase == "activate":

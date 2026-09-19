@@ -60,6 +60,10 @@ class ModelAdmission:
             with self.uow.transaction(access, binding.identity.task_id, capability="model_request") as tx:
                 config = self.registry.config(tx)
                 run, work = current_run(tx, config)
+                definition = strict_json_loads(tx.task.get("definition_json") or "{}")
+                if (definition.get("evaluation_mode") == "real_model"
+                        and definition.get("task", {}).get("external_analysis_approved") is not True):
+                    raise DomainError("CAPABILITY_UNAVAILABLE", 503)
                 if source["model"] != config.model.client_model:
                     raise DomainError("CAPABILITY_UNAVAILABLE", 503)
                 allowed = set(config.allowed_tool_refs) & set(config.runtime.allowed_tool_refs) & set(tx.run_binding.allowed_tool_refs)

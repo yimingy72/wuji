@@ -192,6 +192,14 @@ class TaskSupervisorTransport:
             ):
                 raise ValueError("a real supervisor transport is required")
         self.default, self.by_task = default, by_task
+        self.max_tasks = max_tasks
+
+    def replace_routes(self, by_task):
+        """Atomically publish a validated routing snapshot; in-flight reads retain theirs."""
+        checked = TaskSupervisorTransport(default=self.default, by_task=by_task, max_tasks=self.max_tasks)
+        if not set(self.by_task) <= set(checked.by_task):
+            raise ValueError("existing Task routes cannot disappear during refresh")
+        self.by_task = checked.by_task
 
     def for_task(self, task_id):
         transport = self.by_task.get(task_id) if isinstance(task_id, str) else None

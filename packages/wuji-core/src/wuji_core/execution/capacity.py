@@ -3,7 +3,7 @@
 from wuji_core.persistence.uow import DomainError, row
 
 
-def prelock_pools(connection, owner):
+def prelock_pools(connection, owner, *, allow_unprepared=False):
     cursor = connection.execute(
         """SELECT p.* FROM vnext.capacity_pool p JOIN vnext.task_capacity_pool t USING(pool_key)
         WHERE t.tenant_id=%s AND t.project_id=%s AND t.task_id=%s
@@ -15,9 +15,9 @@ def prelock_pools(connection, owner):
         if pool["tier"] == "tenant" and pool["tenant_id"] != owner[0]:
             raise DomainError("CAPABILITY_UNAVAILABLE", 503)
         pools.append(pool)
-    if not any(p["tier"] == "global" for p in pools) or not any(
+    if not allow_unprepared and (not any(p["tier"] == "global" for p in pools) or not any(
         p["tier"] == "tenant" for p in pools
-    ):
+    )):
         raise DomainError("CAPABILITY_UNAVAILABLE", 503)
     return tuple(pools)
 
