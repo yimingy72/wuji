@@ -6,6 +6,7 @@ handed over (the observed material and the frozen states), not from a script.
 """
 
 import importlib.util
+from hashlib import sha256
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -75,9 +76,19 @@ def intent_record(question, identifier="intent-1"):
     }
 
 
-def request(*, role, records, question=None, tool_result=None, states=None):
+def request(
+    *,
+    role,
+    records,
+    question=None,
+    tool_result=None,
+    states=None,
+    model="synthetic",
+    start_point="workspace:materials/entry.json",
+    tool_name="read_workspace",
+):
     system = (
-        "fixture role instructions\nstart points: workspace:materials/entry.json\n"
+        "fixture role instructions\nstart points: " + start_point + "\n"
         "your duty as " + role + ": fixture duty"
     )
     context = {
@@ -109,12 +120,70 @@ def request(*, role, records, question=None, tool_result=None, states=None):
             }
         )
     return {
-        "model": "synthetic",
+        "model": model,
         "stream": True,
         "messages": messages,
         "tools": [
-            {"function": {"name": "read_workspace", "parameters": {"type": "object"}}}
+            {"function": {"name": tool_name, "parameters": {"type": "object"}}}
         ],
+    }
+
+
+def http_material(body):
+    body_text = json.dumps(body, ensure_ascii=False, sort_keys=True)
+    text = (
+        "schema_version: wuji.http-exchange.v1\n"
+        "response.status: 200\n"
+        "response.headers:\n"
+        "content-type: application/json; charset=utf-8\n"
+        "response.body:\n"
+        + body_text
+    )
+    encoded = text.encode()
+    return {
+        "schema_version": "wuji.model-material.v2",
+        "tool_call_id": "tool-call-first-use",
+        "status": "delivered",
+        "source": {
+            "artifact_ref": {
+                "id": "artifact-http",
+                "version": "1",
+                "sha256": "a" * 64,
+            },
+            "artifact_sha256": "a" * 64,
+            "media_type": "application/vnd.wuji.http-exchange+json",
+            "completeness": "complete",
+        },
+        "representation": {
+            "renderer_version": "wuji-http-renderer.v2",
+            "media_type": "text/plain; charset=utf-8",
+            "encoding": "utf-8",
+            "text": text,
+            "byte_length": len(encoded),
+            "representation_sha256": sha256(encoded).hexdigest(),
+            "truncated": False,
+            "redaction_applied": False,
+        },
+        "omission_reason": None,
+    }
+
+
+def http_artifact_record(body):
+    packet = http_material(body)
+    return {
+        "ref": reference("artifact", "artifact-http"),
+        "display_kind": "artifact",
+        "record": {
+            "artifact_ref": {
+                "id": "artifact-http",
+                "version": "1",
+                "sha256": "a" * 64,
+            },
+            "media_type": "application/vnd.wuji.http-exchange+json",
+            "size_bytes": 256,
+            "state": "sealed",
+        },
+        "material": packet,
     }
 
 
@@ -334,3 +403,96 @@ def test_explore_answers_the_newest_admitted_question():
     step = peer.decision(request(role="explore", records=[older, newer]))
     assert step["kind"] == "tool_call"
     assert json.loads(step["arguments"]) == {"path": "materials/record-b.json"}
+
+
+FIRST_USE_ORIGIN = "http://first-use-fixture.wuji-vnext-test.svc:8080"
+
+
+def first_use_request(*, role, records, tool_result=None, start="/f1/entry"):
+    return request(
+        role=role,
+        records=records,
+        tool_result=tool_result,
+        model="synthetic-first-use",
+        start_point=FIRST_USE_ORIGIN + start,
+        tool_name="http_target_get",
+    )
+
+
+def test_synthetic_first_use_is_reason_first_and_copies_the_frozen_entry_url():
+    step = peer.decision(first_use_request(role="reason", records=[]))
+    assert step["kind"] == "payload"
+    proposal = step["document"]["intent_proposals"][0]
+    assert FIRST_USE_ORIGIN + "/f1/entry" in proposal["question"]
+    assert proposal["basis_refs"] == []
+
+
+def test_synthetic_first_use_explore_calls_only_the_admitted_http_url():
+    url = FIRST_USE_ORIGIN + "/f1/entry"
+    step = peer.decision(
+        first_use_request(
+            role="explore",
+            records=[intent_record("Read approved URL " + url)],
+        )
+    )
+    assert step["kind"] == "tool_call"
+    assert json.loads(step["arguments"]) == {"url": url, "method": "GET"}
+
+
+def test_synthetic_first_use_derives_the_f1_marker_request_from_material_v2():
+    marker = "f1-random-marker-from-response"
+    body = {
+        "fixture": "F1",
+        "marker": marker,
+        "source_path": "/f1/source?marker=" + marker,
+    }
+    url = FIRST_USE_ORIGIN + "/f1/entry"
+    intent = intent_record("Read approved URL " + url)
+    receipt = {
+        "evidence_receipt": {
+            "status": "accepted",
+            "observation_ref": reference("observation", "observation-http"),
+        },
+        "material": http_material(body),
+    }
+    explored = peer.decision(
+        first_use_request(
+            role="explore", records=[intent], tool_result=receipt
+        )
+    )["document"]
+    assert marker in explored["claims"][0]["text"]
+
+    claim = claim_record(explored["claims"][0]["text"], identifier="claim-http")
+    reasoned = peer.decision(
+        first_use_request(
+            role="reason",
+            records=[intent, claim, http_artifact_record(body)],
+        )
+    )["document"]
+    proposal = reasoned["intent_proposals"][0]
+    assert FIRST_USE_ORIGIN + "/f1/source?marker=" + marker in proposal["question"]
+    assert proposal["basis_refs"] == [reference("claim", "claim-http")]
+
+
+@pytest.mark.parametrize(
+    "variant,guide",
+    [("a", "guide-a"), ("b", "guide-b")],
+)
+def test_synthetic_first_use_f2_follows_each_material_variant(variant, guide):
+    url = FIRST_USE_ORIGIN + "/f2/" + variant + "/entry"
+    body = {
+        "fixture": "F2",
+        "variant": variant,
+        "guide_path": "/f2/" + variant + "/" + guide,
+    }
+    intent = intent_record("Read approved URL " + url)
+    claim = claim_record("HTTP entry stored", identifier="claim-f2-" + variant)
+    step = peer.decision(
+        first_use_request(
+            role="reason",
+            records=[intent, claim, http_artifact_record(body)],
+            start="/f2/" + variant + "/entry",
+        )
+    )
+    question = step["document"]["intent_proposals"][0]["question"]
+    assert FIRST_USE_ORIGIN + "/f2/" + variant + "/" + guide in question

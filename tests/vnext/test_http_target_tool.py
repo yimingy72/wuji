@@ -138,7 +138,16 @@ def scope_entry(port, host="127.0.0.1", protocol="http"):
 
 
 @contextmanager
-def http_case(environment, tmp_path, audit_directory, *, port, max_total_output_bytes=8192):
+def http_case(
+    environment,
+    tmp_path,
+    audit_directory,
+    *,
+    port,
+    max_total_output_bytes=8192,
+    evaluation_mode=None,
+    mechanism_http_origins=None,
+):
     """The production tool Gate with one registered target tool."""
 
     registry_module = production("admission.registry")
@@ -157,10 +166,13 @@ def http_case(environment, tmp_path, audit_directory, *, port, max_total_output_
                     "SELECT definition_json FROM vnext.task WHERE task_id=%s", (TASK,)
                 ).fetchone()[0]
             )
-            definition["authorization_scope"] = [
-                *(definition.get("authorization_scope") or []),
-                scope_entry(port),
-            ]
+            # Production Task definitions keep the authoritative scope under
+            # ``task``; a top-level test-only field must not widen it.
+            definition["task"]["authorization_scope"] = [scope_entry(port)]
+            if evaluation_mode is not None:
+                definition["evaluation_mode"] = evaluation_mode
+            if mechanism_http_origins is not None:
+                definition["mechanism_http_origins"] = list(mechanism_http_origins)
             raw = canonical_json_bytes(definition).decode()
             connection.execute(
                 "UPDATE vnext.task SET definition_json=%s,definition_digest=%s"
@@ -346,6 +358,78 @@ def test_out_of_scope_target_is_refused_before_any_attempt(
             assert refused.value.status == 403
             assert attempts() == before, "an unapproved target never allocates an attempt"
             assert _Range.requests == [], "no request may reach an unapproved target"
+
+
+def test_mechanism_http_requires_the_frozen_loopback_fixture_origin(
+    db_environment, tmp_path, audit_directory
+):
+    with target_range() as port:
+        origin = f"http://127.0.0.1:{port}"
+        with http_case(
+            db_environment,
+            tmp_path,
+            audit_directory,
+            port=port,
+            evaluation_mode="mechanism_synthetic",
+            mechanism_http_origins=[origin],
+        ) as case:
+            permit = authorize(
+                case, "call-mechanism-fixture", url=origin + "/page"
+            )
+            result = asyncio.run(case.gate.execute_permit(case.access, permit))
+            assert result.status == "complete"
+            assert _Range.requests == [("GET", "/page")]
+
+
+def test_mechanism_http_is_disabled_without_the_owner_frozen_field(
+    db_environment, tmp_path, audit_directory
+):
+    with target_range() as port:
+        with http_case(
+            db_environment,
+            tmp_path,
+            audit_directory,
+            port=port,
+            evaluation_mode="mechanism_synthetic",
+        ) as case:
+            with pytest.raises(DomainError) as refused:
+                authorize(
+                    case,
+                    "call-mechanism-disabled",
+                    url=f"http://127.0.0.1:{port}/page",
+                )
+            assert refused.value.code == "CAPABILITY_UNAVAILABLE"
+            assert _Range.requests == []
+
+
+def test_tool_admission_refuses_mechanism_http_for_reason(
+    db_environment, tmp_path, audit_directory
+):
+    with target_range() as port:
+        origin = f"http://127.0.0.1:{port}"
+        with http_case(
+            db_environment,
+            tmp_path,
+            audit_directory,
+            port=port,
+            evaluation_mode="mechanism_synthetic",
+            mechanism_http_origins=[origin],
+        ) as case:
+            with case.environment.migration_connection() as connection:
+                connection.execute(
+                    "UPDATE vnext.work_item SET kind='reason'"
+                    " WHERE tenant_id=%s AND project_id=%s AND task_id=%s"
+                    " AND work_item_id=%s",
+                    (*OWNER, IDENTITY["work_item_id"]),
+                )
+            with pytest.raises(DomainError) as refused:
+                authorize(
+                    case,
+                    "call-mechanism-reason",
+                    url=origin + "/page",
+                )
+            assert refused.value.code == "CAPABILITY_UNAVAILABLE"
+            assert _Range.requests == []
 
 
 @pytest.mark.parametrize(

@@ -18,6 +18,7 @@ from support.p06 import ENVIRONMENT, OWNER, RECEIVER, TASK, TENANT, production
 from support.p09 import TOOL_REF, explore_assignment, scheduler_case
 from wuji_core.http import canonical_json_bytes
 from wuji_core.persistence.uow import DomainError
+from wuji_core.admission.mechanism_fixture import FIRST_USE_FIXTURE_ORIGIN
 
 
 HTTP_TOOL_REF = "fixture-http-target-v1"
@@ -122,6 +123,29 @@ def publish_target_capability(case, *, reason_refs=(TOOL_REF,)):
     return definition
 
 
+def freeze_mechanism_http_fixture(case):
+    with case.control.env.migration_connection() as connection:
+        definition = json.loads(
+            connection.execute(
+                "SELECT definition_json FROM vnext.task WHERE task_id=%s", (TASK,)
+            ).fetchone()[0]
+        )
+        definition["mechanism_http_origins"] = [FIRST_USE_FIXTURE_ORIGIN]
+        definition["task"]["authorization_scope"] = [
+            {
+                "host": "first-use-fixture.wuji-vnext-test.svc",
+                "protocol": "http",
+                "port": 8080,
+            }
+        ]
+        body = canonical_json_bytes(definition).decode()
+        connection.execute(
+            "UPDATE vnext.task SET definition_json=%s,definition_digest=%s"
+            " WHERE task_id=%s",
+            (body, sha256(body.encode()).hexdigest(), TASK),
+        )
+
+
 def test_scheduler_hands_a_published_target_tool_to_explore_only(
     db_environment, tmp_path, audit_directory
 ):
@@ -195,3 +219,24 @@ def test_scheduler_refuses_a_target_tool_for_a_mechanism_task(
         receipt = case.scheduler.tick(limit=2)
         assert receipt.assignments == ()
         assert [code for _, _, code in receipt.blocked] == ["worker_profile_unavailable"]
+
+
+def test_scheduler_allows_only_trusted_mechanism_explore_target_tool(
+    db_environment, tmp_path, audit_directory
+):
+    with scheduler_case(
+        db_environment, tmp_path, audit_directory, evaluation_mode="mechanism_synthetic"
+    ) as case:
+        publish_target_capability(case)
+        freeze_mechanism_http_fixture(case)
+
+        receipt = case.scheduler.tick(limit=2)
+        assert receipt.blocked == (), receipt.blocked
+        by_kind = {item.work_kind.value: item for item in receipt.assignments}
+        assert [ref.root for ref in by_kind["explore"].tool_definition_refs] == [
+            TOOL_REF,
+            HTTP_TOOL_REF,
+        ]
+        assert [ref.root for ref in by_kind["reason"].tool_definition_refs] == [
+            TOOL_REF
+        ]

@@ -28,6 +28,10 @@ from wuji_core.http.auth import Principal
 from wuji_core.persistence.uow import AccessContext, DomainError, row, json_text
 from wuji_core.admission.registry import TaskAdmissionConfig, RuntimeProfile
 from wuji_core.admission import target_scope
+from wuji_core.admission.mechanism_fixture import (
+    authorization_scope,
+    http_target_allowed,
+)
 from wuji_core.admission.common import audit, consume_attempt, current_run, digest, allocate_output
 from wuji_core.admission.ledger import tool_receipt
 
@@ -118,21 +122,34 @@ def capture_condition(kind):
     )
 
 
-def task_scope(tx):
-    """The Task's approved assets; an absent or broken scope approves nothing."""
-
-    import json as _json
+def task_definition(tx):
+    """The immutable Task definition, or an empty document on broken storage."""
 
     raw = (tx.task or {}).get("definition_json")
     if not isinstance(raw, str):
-        return ()
+        return {}
     try:
-        document = _json.loads(raw)
+        document = strict_json_loads(raw)
     except ValueError:
-        return ()
-    if not isinstance(document, dict):
-        return ()
-    return target_scope.approved_assets(document.get("authorization_scope"))
+        return {}
+    return document if isinstance(document, dict) else {}
+
+
+def task_scope(tx):
+    """The Task's approved assets; an absent or broken scope approves nothing."""
+
+    return authorization_scope(task_definition(tx))
+
+
+def require_http_target_role(tx, work):
+    """Repeat Scheduler's role/mode/fixture decision at ToolAdmission."""
+
+    try:
+        allowed = http_target_allowed(task_definition(tx), work.get("kind"))
+    except ValueError as error:
+        raise DomainError("CAPABILITY_UNAVAILABLE", 503) from error
+    if not allowed:
+        raise DomainError("CAPABILITY_UNAVAILABLE", 503)
 
 
 def _http_arguments(definition, arguments, scope):
@@ -367,6 +384,7 @@ class ToolAdmission:
         if kind == "workspace_read":
             _arguments(definition, request.arguments)
         else:
+            require_http_target_role(tx, work)
             # The platform, never the model or the tool, decides whether this
             # concrete target is inside the Task's approved scope.
             target = _http_arguments(
@@ -485,7 +503,9 @@ class ToolAdmission:
             actual = _attempt(tx, permit.tool_attempt_id)
             stored = strict_json_loads(actual["permit_json"])
             executor = self.registry.executor(tx, permit.executor_ref)
-            self.registry.tool(tx, permit.tool_definition_ref)
+            definition = self.registry.tool(tx, permit.tool_definition_ref)
+            if tool_kind(definition) == "http_target":
+                require_http_target_role(tx, work)
             if not compare_digest(stored["execution_token"], permit.execution_token) or digest(stored) != digest(permit.stored()) or receiver_id != executor.receiver_id or run["agent_run_id"] != permit.identity.agent_run_id or executor.environment_ref != run["environment_ref"] or datetime.now(timezone.utc) >= permit.expires_at or actual["status"] != "admitted":
                 raise DomainError("STALE_EXECUTION", 409)
             tx.connection.execute("UPDATE vnext.tool_attempt SET status='dispatched' WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND tool_attempt_id=%s", (*tx.owner, permit.tool_attempt_id))

@@ -49,6 +49,12 @@ from wuji_core.admission.registry import (
     register_session_capability,
     session_client_snapshot,
 )
+from wuji_core.admission.mechanism_fixture import (
+    MECHANISM_HTTP_FIELD,
+    http_target_allowed,
+    mechanism_http_origins as validated_mechanism_http_origins,
+    trusted_mechanism_http_origins,
+)
 from wuji_core.blackboard.claims import ClaimService
 from wuji_core.contracts.sessions import SessionLimits
 from wuji_core.http import canonical_json_bytes, strict_json_loads
@@ -120,6 +126,15 @@ def configured_evaluation_mode(config):
     return mode
 
 
+def configured_mechanism_http_origins(config):
+    """Owner-only first-use HTTP origins from trusted deployment config."""
+
+    try:
+        return trusted_mechanism_http_origins(config.get(MECHANISM_HTTP_FIELD))
+    except ValueError as error:
+        raise DomainError("INVALID_SCHEMA", 422) from error
+
+
 def binding_mode(config, binding):
     """The mode a rendered binding was frozen with, or the deployment's now."""
 
@@ -187,11 +202,20 @@ def role_tool_refs(config, definition, kind):
     if permitted is None:
         raise DomainError("CAPABILITY_UNAVAILABLE", 503)
     permitted = WORKSPACE_KINDS | permitted
-    refs = tuple(
-        ref
-        for ref in published
-        if ref in allowed and kinds.get(ref) is not None and kinds[ref] <= permitted
-    )
+    try:
+        refs = tuple(
+            ref
+            for ref in published
+            if ref in allowed
+            and kinds.get(ref) is not None
+            and kinds[ref] <= permitted
+            and (
+                "http_target" not in kinds[ref]
+                or http_target_allowed(definition, kind)
+            )
+        )
+    except ValueError as error:
+        raise DomainError("CAPABILITY_UNAVAILABLE", 503) from error
     if not refs:
         raise DomainError("CAPABILITY_UNAVAILABLE", 503)
     return refs
@@ -627,9 +651,33 @@ def finalise_definition(connection, *, owner, config):
         raise DomainError("INPUT_DIGEST_CONFLICT", 409)
     mode = configured_evaluation_mode(config)
     stored_mode = definition.get("evaluation_mode")
+    stored_profiles = definition.get("worker_profiles")
+    stored_origins = definition.get(MECHANISM_HTTP_FIELD)
+    owner_origins = configured_mechanism_http_origins(config)
     if stored_mode is not None and stored_mode != mode:
         # A finalised definition is immutable: the same Task is never replayed
         # under another mode after its profiles were published.
+        raise DomainError("INVALID_STATE", 409)
+    if stored_origins is not None and stored_profiles is None:
+        # Public Task creation does not own this field.  Only a successful owner
+        # finalisation may introduce it alongside the frozen worker profiles.
+        raise DomainError("INVALID_STATE", 409)
+    if mode == "mechanism_synthetic":
+        if stored_origins is not None:
+            try:
+                frozen_origins = trusted_mechanism_http_origins(stored_origins)
+            except ValueError as error:
+                raise DomainError("INVALID_STATE", 409) from error
+            if frozen_origins != owner_origins:
+                raise DomainError("INVALID_STATE", 409)
+        if owner_origins:
+            definition[MECHANISM_HTTP_FIELD] = list(owner_origins)
+            try:
+                validated_mechanism_http_origins(definition)
+            except ValueError as error:
+                raise DomainError("INVALID_STATE", 409) from error
+    elif owner_origins or stored_origins is not None:
+        # This narrow escape hatch never changes a real-model Task.
         raise DomainError("INVALID_STATE", 409)
     # The rendered profile body carries this Task's own frozen context, so the
     # mode and any published seed are part of the definition *before* the body
@@ -648,7 +696,6 @@ def finalise_definition(connection, *, owner, config):
             "read": workspace_path(deployment_materials(config)[0]["path"])
         }
     profiles = json.loads(canonical_json_bytes(published_session_profiles(config, definition)))
-    stored_profiles = definition.get("worker_profiles")
     definition["worker_profiles"] = profiles
     updated = json.loads(canonical_json_bytes(definition))
     latest = canonical_json_bytes(updated).decode()
@@ -901,11 +948,10 @@ def fixture_intent_document(definition_lines):
 def initial_intent_document(config, definition_lines):
     """The single starting Intent for a launched Task, or ``None``.
 
-    A mechanism Task keeps its fixture read. A real Task is Reason-first and
-    admits nothing here unless the deployment published an explicit seed: the
-    ``task.start`` trigger already generates the first Reason, and that Reason is
-    what proposes the first Intent from the Goal and already stored material. The
-    real path therefore never falls back to ``workspace:version.txt``.
+    A workspace-only mechanism Task keeps its fixture read.  A mechanism Task
+    frozen with trusted HTTP fixture origins is Reason-first, just like a real
+    Task, so it cannot mislabel an HTTP entry as ``workspace:``.  A real Task
+    admits nothing here unless the deployment published an explicit seed.
     """
 
     mode = definition_lines.get("evaluation_mode")
@@ -914,6 +960,13 @@ def initial_intent_document(config, definition_lines):
         return None if seed is None else dict(seed)
     if mode not in (None, "mechanism_synthetic"):
         raise DomainError("INVALID_STATE", 409)
+    if mode == "mechanism_synthetic" and MECHANISM_HTTP_FIELD in definition_lines:
+        try:
+            origins = validated_mechanism_http_origins(definition_lines)
+        except ValueError as error:
+            raise DomainError("INVALID_STATE", 409) from error
+        if origins:
+            return None
     return fixture_intent_document(definition_lines)
 
 

@@ -30,6 +30,10 @@ from test_task_creation import OWNER, create, creation_case, runtime_profile  # 
 from wuji_core.admission.registry import (  # noqa: E402
     register_tool_definition,
 )
+from wuji_core.admission.mechanism_fixture import (  # noqa: E402
+    FIRST_USE_FIXTURE_ORIGIN,
+    mechanism_http_origins,
+)
 from wuji_core.http import canonical_json_bytes  # noqa: E402
 from wuji_core.http.auth import Principal  # noqa: E402
 from wuji_core.persistence.uow import AccessContext, DomainError  # noqa: E402
@@ -239,6 +243,98 @@ def test_launch_prepares_a_created_task_before_activation(db_environment, audit_
             with pytest.raises(DomainError) as activated:
                 task_launch.finalise_definition(connection, owner=owner, config=conflicting)
             assert activated.value.code == "INVALID_STATE"
+
+
+@pytest.mark.parametrize(
+    "origin",
+    [
+        "https://example.com:443",
+        "http://10.0.0.5:8080",
+        "http://first-use-fixture.wuji-vnext-test.svc:8081",
+    ],
+)
+def test_owner_configuration_rejects_arbitrary_mechanism_http_origins(origin):
+    with pytest.raises(DomainError) as refused:
+        task_launch.configured_mechanism_http_origins(
+            {"mechanism_http_origins": [origin]}
+        )
+    assert refused.value.code == "INVALID_SCHEMA"
+
+
+def test_mechanism_http_refuses_a_scope_with_any_untrusted_asset():
+    definition = {
+        "evaluation_mode": "mechanism_synthetic",
+        "mechanism_http_origins": [FIRST_USE_FIXTURE_ORIGIN],
+        "task": {
+            "authorization_scope": [
+                {
+                    "host": "first-use-fixture.wuji-vnext-test.svc",
+                    "protocol": "http",
+                    "port": 8080,
+                },
+                {"host": "10.0.0.5", "protocol": "http", "port": 8080},
+            ]
+        },
+    }
+    with pytest.raises(ValueError, match="scope exceeds"):
+        mechanism_http_origins(definition)
+
+
+def test_mechanism_http_origins_freeze_and_cannot_expand_on_replay(
+    db_environment, audit_directory
+):
+    with creation_case(db_environment, audit_directory) as case:
+        created = create(case)
+        assert created.status_code == 201, created.text
+        task_id = created.json()["task_id"]
+        owner = (OWNER[0], OWNER[1], task_id)
+
+        with db_environment.migration_connection() as connection:
+            definition, _ = stored_definition(connection, task_id)
+            assert "mechanism_http_origins" not in definition
+            definition["task"]["authorization_scope"] = [
+                {
+                    "host": "first-use-fixture.wuji-vnext-test.svc",
+                    "protocol": "http",
+                    "port": 8080,
+                }
+            ]
+            definition["start_points"] = [FIRST_USE_FIXTURE_ORIGIN + "/f1/entry"]
+            raw = canonical_json_bytes(definition).decode()
+            connection.execute(
+                "UPDATE vnext.task SET definition_json=%s,definition_digest=%s"
+                " WHERE task_id=%s",
+                (raw, sha256(raw.encode()).hexdigest(), task_id),
+            )
+            register_tool_definition(
+                connection, tenant_id=OWNER[0], definition=tool_document()
+            )
+            seed_pools(connection, definition)
+            config = deployment_config(definition)
+            config["mechanism_http_origins"] = [FIRST_USE_FIXTURE_ORIGIN]
+
+            prepared = task_launch.finalise_definition(
+                connection, owner=owner, config=config
+            )
+            stored, _ = stored_definition(connection, task_id)
+            assert stored["mechanism_http_origins"] == [FIRST_USE_FIXTURE_ORIGIN]
+            assert task_launch.initial_intent_document(config, stored) is None
+            again = task_launch.finalise_definition(
+                connection, owner=owner, config=config
+            )
+            assert again["definition_changed"] is False
+
+            widened = json.loads(json.dumps(config))
+            widened["mechanism_http_origins"].append("http://localhost:8080")
+            with pytest.raises(DomainError) as refused:
+                task_launch.finalise_definition(
+                    connection, owner=owner, config=widened
+                )
+            assert refused.value.code == "INVALID_STATE"
+            unchanged, _ = stored_definition(connection, task_id)
+            assert unchanged["mechanism_http_origins"] == [
+                FIRST_USE_FIXTURE_ORIGIN
+            ]
 
 
 def test_launch_binds_admission_executor_intent_and_capability(

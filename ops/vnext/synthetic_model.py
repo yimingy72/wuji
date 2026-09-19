@@ -14,10 +14,12 @@ blocked until one exists.
 """
 
 import argparse
+from hashlib import sha256
 import json
 import re
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from time import time
+from urllib.parse import urljoin, urlsplit
 from uuid import uuid4
 
 
@@ -28,6 +30,9 @@ PATH_REF = re.compile(r"workspace:([A-Za-z0-9][A-Za-z0-9._/-]{0,255})")
 START_POINTS = re.compile(r"start points:([^\n]*)")
 POINTER = re.compile(r'"pointer"\s*:\s*"([A-Za-z0-9][A-Za-z0-9._/-]{0,255})"')
 READ_PREFIX = re.compile(r"^evidence read: ([^;]{1,256}); content: ", re.DOTALL)
+HTTP_URL = re.compile(r"http://[^\s\"'<>]+")
+HTTP_BODY_PREFIX = "response.body:\n"
+FIRST_USE_ALIAS = "synthetic-first-use"
 
 
 def _text(message):
@@ -112,6 +117,109 @@ def tool_result_of(messages):
             "omitted": document.get("material_omitted"),
         }
     return None
+
+
+def first_use_material(value):
+    """Return verified v2 representation/body; never reinterpret raw evidence."""
+
+    if (
+        not isinstance(value, dict)
+        or value.get("schema_version") != "wuji.model-material.v2"
+        or value.get("status") != "delivered"
+        or not isinstance(value.get("source"), dict)
+        or not isinstance(value.get("representation"), dict)
+    ):
+        raise ValueError("first-use requires delivered HTTP material v2")
+    source = value["source"]
+    representation = value["representation"]
+    text = representation.get("text")
+    encoded = text.encode("utf-8") if isinstance(text, str) else b""
+    if (
+        not isinstance(text, str)
+        or source.get("completeness") != "complete"
+        or representation.get("encoding") != "utf-8"
+        or representation.get("truncated") is not False
+        or type(representation.get("byte_length")) is not int
+        or representation["byte_length"] != len(encoded)
+        or representation.get("representation_sha256") != sha256(encoded).hexdigest()
+        or HTTP_BODY_PREFIX not in text
+    ):
+        raise ValueError("first-use HTTP material is incomplete or invalid")
+    body_text = text.split(HTTP_BODY_PREFIX, 1)[1]
+    try:
+        body = json.loads(body_text)
+    except (TypeError, ValueError) as error:
+        raise ValueError("first-use HTTP body is not JSON") from error
+    if not isinstance(body, dict):
+        raise ValueError("first-use HTTP body is not an object")
+    return text, body
+
+
+def first_use_tool_result_of(messages):
+    """The accepted ToolGate receipt and its exact v2 representation."""
+
+    for message in reversed(messages):
+        if message.get("role") != "tool":
+            continue
+        document = _parsed(_text(message))
+        evidence = (document or {}).get("evidence_receipt") or {}
+        if evidence.get("status") != "accepted" or not isinstance(
+            evidence.get("observation_ref"), dict
+        ):
+            raise ValueError("the first-use tool result carries no observation")
+        text, body = first_use_material((document or {}).get("material"))
+        return {
+            "observation_ref": evidence["observation_ref"],
+            "representation": text,
+            "body": body,
+        }
+    return None
+
+
+def http_url(text):
+    """One concrete HTTP URL copied from delivered text."""
+
+    match = HTTP_URL.search(text or "")
+    if match is None:
+        raise ValueError("no HTTP URL was delivered")
+    candidate = match.group(0).rstrip(".,);]")
+    try:
+        parsed = urlsplit(candidate)
+        port = parsed.port
+    except ValueError as error:
+        raise ValueError("the delivered HTTP URL is invalid") from error
+    if (
+        parsed.scheme != "http"
+        or not parsed.hostname
+        or parsed.username is not None
+        or parsed.password is not None
+        or port is None
+        or parsed.fragment
+    ):
+        raise ValueError("the delivered HTTP URL is not a bounded fixture URL")
+    return candidate
+
+
+def latest_intent_url(context):
+    candidates = [
+        (str(body.get("created_at") or ""), http_url(body.get("question") or ""), ref)
+        for ref, body in intents(context)
+        if HTTP_URL.search(body.get("question") or "")
+    ]
+    return max(candidates) if candidates else None
+
+
+def stored_first_use_material(context):
+    """Every actual, digest-checked HTTP material packet in this ContextBundle."""
+
+    result = []
+    for record in records_of(context, "artifact"):
+        material = record.get("material")
+        if not isinstance(material, dict) or material.get("schema_version") != "wuji.model-material.v2":
+            continue
+        text, body = first_use_material(material)
+        result.append((reference(record), text, body))
+    return result
 
 
 def read_path(question, instructions):
@@ -532,12 +640,195 @@ def explore_question(context):
     return max(candidates)[1]
 
 
+def first_use_intent(url, basis_refs):
+    return {
+        "client_ref": client_ref(urlsplit(url).path or "entry"),
+        "question": (
+            "Read the approved first-use HTTP fixture URL " + url
+            + " once through http_target_get and cite the accepted observation."
+        ),
+        "basis_refs": list(basis_refs),
+        "expected_output": PAYLOAD_SCHEMA,
+    }
+
+
+def first_use_reason_payload(context, instructions):
+    """Reason only from frozen entry text and stored, verified HTTP material."""
+
+    delivered = stored_first_use_material(context)
+    known_urls = {
+        http_url(body.get("question") or ""): ref
+        for ref, body in intents(context)
+        if HTTP_URL.search(body.get("question") or "")
+    }
+
+    # A terminal document wins over an older entry document.  Its exact body,
+    # not a fixture answer table, supplies the candidate conclusion.
+    terminals = [item for item in delivered if not any(
+        isinstance(item[2].get(key), str) for key in ("source_path", "guide_path")
+    )]
+    if terminals:
+        artifact_ref, _text_value, body = terminals[-1]
+        exact = json.dumps(body, ensure_ascii=False, sort_keys=True)
+        return payload(
+            claims=[
+                {
+                    "client_ref": "first-use-http-result",
+                    "kind": "derived-conclusion",
+                    "assertion_role": "explanation",
+                    "text": "the stored first-use HTTP body reports: " + exact,
+                    "basis_refs": [artifact_ref],
+                    "limitations": [
+                        "synthetic mechanism conclusion copied from stored HTTP material v2"
+                    ],
+                }
+            ],
+            reason_decision={
+                "decision": "propose_completion",
+                "wait_refs": [],
+                "reason": (
+                    "The second approved HTTP read is stored with complete material; "
+                    "the candidate conclusion quotes that body without a preset answer."
+                ),
+            },
+            limitations=["synthetic-first-use demonstrates mechanism, not model quality"],
+        )
+
+    if delivered:
+        _artifact_ref, _text_value, body = delivered[-1]
+        relative = next(
+            (
+                body[key]
+                for key in ("source_path", "guide_path")
+                if isinstance(body.get(key), str)
+            ),
+            None,
+        )
+        if relative is None:
+            raise ValueError("stored first-use entry names no next path")
+        current = latest_intent_url(context)
+        if current is None:
+            raise ValueError("stored first-use entry has no admitted origin")
+        base_url, _intent_ref = current[1], current[2]
+        next_url = urljoin(base_url, relative)
+        base, target = urlsplit(base_url), urlsplit(next_url)
+        if (base.scheme, base.hostname, base.port) != (
+            target.scheme,
+            target.hostname,
+            target.port,
+        ):
+            raise ValueError("stored first-use path leaves the admitted origin")
+        if next_url in known_urls:
+            return payload(
+                reason_decision={
+                    "decision": "wait",
+                    "wait_refs": [
+                        {
+                            "ref": known_urls[next_url],
+                            "predicate": "work_accepted_result",
+                            "predicate_version": "1",
+                        }
+                    ],
+                    "reason": "The material-derived HTTP read is already admitted.",
+                },
+                limitations=["no duplicate HTTP request was proposed"],
+            )
+        basis = [ref for ref, _claim in claims(context)]
+        if not basis:
+            basis = [ref for ref, _observation in observations(context)]
+        if not basis:
+            raise ValueError("stored first-use material has no board basis")
+        return payload(
+            intent_proposals=[first_use_intent(next_url, basis[-1:])],
+            reason_decision={
+                "decision": "propose_intents",
+                "wait_refs": [],
+                "reason": (
+                    "The stored HTTP entry body names the next approved path; the URL "
+                    "is derived from that path and the admitted entry origin."
+                ),
+            },
+            limitations=["the marker/path came from stored HTTP material v2"],
+        )
+
+    current = latest_intent_url(context)
+    if current is not None:
+        return payload(
+            reason_decision={
+                "decision": "wait",
+                "wait_refs": [
+                    {
+                        "ref": current[2],
+                        "predicate": "work_accepted_result",
+                        "predicate_version": "1",
+                    }
+                ],
+                "reason": "The first approved HTTP read is admitted but has no stored result yet.",
+            },
+            limitations=["no synthetic result was invented"],
+        )
+    entry = http_url(instructions)
+    return payload(
+        intent_proposals=[first_use_intent(entry, ())],
+        reason_decision={
+            "decision": "propose_intents",
+            "wait_refs": [],
+            "reason": "The initial URL is copied from the frozen Task start points.",
+        },
+        limitations=["synthetic-first-use demonstrates mechanism, not model quality"],
+    )
+
+
+def first_use_decision(request, messages, role, context):
+    """Explicit synthetic-first-use behavior; other synthetic aliases are unchanged."""
+
+    if role == "reason":
+        if first_use_tool_result_of(messages) is not None:
+            raise ValueError("a Reason Run must decide from stored context")
+        return {
+            "kind": "payload",
+            "document": first_use_reason_payload(context, instructions_of(messages)),
+        }
+    if role != "explore":
+        raise ValueError("synthetic-first-use serves reason and explore only")
+    result = first_use_tool_result_of(messages)
+    url = http_url(explore_question(context))
+    if result is None:
+        if "http_target_get" not in tool_names(request.get("tools")):
+            raise ValueError("no registered first-use HTTP tool was offered")
+        return {
+            "kind": "tool_call",
+            "arguments": json.dumps({"url": url, "method": "GET"}),
+        }
+    return {
+        "kind": "payload",
+        "document": payload(
+            claims=[
+                {
+                    "client_ref": "first-use-http-read",
+                    "kind": "observation-summary",
+                    "assertion_role": "candidate_fact",
+                    "text": (
+                        "http evidence read: " + url + "; material: "
+                        + result["representation"]
+                    ),
+                    "basis_refs": [result["observation_ref"]],
+                    "limitations": ["quoted complete HTTP material v2 without interpretation"],
+                }
+            ],
+            limitations=["synthetic-first-use demonstrates mechanism, not model quality"],
+        ),
+    }
+
+
 def decision(request):
     """The bounded next step: a tool call, or one settled payload."""
 
     messages = messages_of(request)
     role = role_of(messages)
     context = context_of(messages)
+    if request.get("model") == FIRST_USE_ALIAS:
+        return first_use_decision(request, messages, role, context)
     if role == "explore":
         result = tool_result_of(messages)
         if result is None:
@@ -575,15 +866,16 @@ class Peer(BaseHTTPRequestHandler):
             self.send_error(422)
             return
         if step["kind"] == "tool_call":
+            first_use = request.get("model") == FIRST_USE_ALIAS
             delta = {
                 "role": "assistant",
                 "tool_calls": [
                     {
                         "index": 0,
-                        "id": "call-c2-read",
+                        "id": "call-first-use-http" if first_use else "call-c2-read",
                         "type": "function",
                         "function": {
-                            "name": "read_workspace",
+                            "name": "http_target_get" if first_use else "read_workspace",
                             "arguments": step["arguments"],
                         },
                     }

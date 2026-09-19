@@ -11,6 +11,7 @@ from hashlib import sha256
 from uuid import uuid4
 
 from wuji_core.admission.registry import AdmissionRegistry, RunCredentialBinding
+from wuji_core.admission.mechanism_fixture import http_target_allowed
 from wuji_core.blackboard.relations import resolve
 from wuji_core.contracts.envelopes import RunIdentity, WorkerAssignment
 from wuji_core.contracts.knowledge import KnowledgeRef
@@ -424,13 +425,10 @@ class Scheduler:
                 set(config.allowed_tool_refs) & set(config.runtime.allowed_tool_refs)
             ):
                 raise ValueError("profile tool refs exceed frozen configuration")
-            # A published target tool is handed to Explore only, and only for a
-            # Task that was frozen as a real-model Task: the loopback mechanism
-            # fixture must never gain a path to a real asset, and Reason/Report
-            # keep material reads instead of target access. The tool's own
-            # admission still re-checks the Task's frozen authorization scope
-            # before any external action.
-            mode = definition.get("evaluation_mode")
+            # A published target tool is handed only to Explore.  Real-model
+            # behavior is unchanged; a mechanism Task additionally needs the
+            # owner's narrow frozen fixture origins and an entirely matching
+            # Task scope.  ToolAdmission repeats this decision before action.
             names = set()
             for ref in refs:
                 tool = self.registry.tool(tx, ref)
@@ -439,7 +437,10 @@ class Scheduler:
                 if (
                     (tool.approval_required and not session_profile)
                     or kinds not in (["workspace_read"], ["http_target"])
-                    or (kinds == ["http_target"] and (kind != "explore" or mode != "real_model"))
+                    or (
+                        kinds == ["http_target"]
+                        and not http_target_allowed(definition, kind)
+                    )
                     or tool.name in names
                     or ref not in executor.allowed_tool_refs
                     or executor.receiver_id != receiver["receiver_id"]
