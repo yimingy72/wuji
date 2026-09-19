@@ -4,6 +4,7 @@ The default CLI path is an offline, deterministic render.  ``--execute`` is
 required before this module reads or writes the fixed docker-desktop namespace.
 Secret values are sent to Kubernetes and PostgreSQL only over stdin; command
 arguments, successful output, and sanitized failures contain metadata only.
+Provider migration and legacy cleanup are separate, explicit actions.
 """
 
 from __future__ import annotations
@@ -17,17 +18,24 @@ from hashlib import sha256
 import json
 from pathlib import Path
 import re
-import secrets
+import selectors
 import subprocess
 from typing import Any, Callable, Sequence
+from urllib.error import HTTPError, URLError
 from urllib.parse import quote
+from urllib.request import Request, urlopen
 
 
 ROOT = Path(__file__).resolve().parents[2]
 CONTEXT = "docker-desktop"
-NAMESPACE = "wuji-vnext-test"
+CORE_NAMESPACE = "wuji-vnext-test"
+MODEL_NAMESPACE = "wuji-first-use-model"
+# Retain the public constant for focused consumers while making its meaning the
+# isolated workload namespace. Database administration always uses CORE_NAMESPACE.
+NAMESPACE = MODEL_NAMESPACE
 OWNER_LABEL = "wuji.dev/credential-owner"
 OWNER = "first-use-gateway-v1"
+MANIFEST_DIGEST_ANNOTATION = "wuji.dev/manifest-sha256"
 
 NAME = "first-use-litellm"
 CONFIG_NAME = NAME + "-config"
@@ -35,12 +43,16 @@ PRIVATE_SECRET = NAME + "-private"
 TLS_SECRET = NAME + "-tls-v2"
 PROVIDER_SECRET = "deepseek-provider-first-use"
 PROVIDER_KEY = "DEEPSEEK_API_KEY"
+PROVIDER_LABELS = {
+    "app.kubernetes.io/component": "model-gateway",
+    "app.kubernetes.io/part-of": "wuji-first-use",
+}
 
 PRIVATE_KEYS = frozenset({"master.key", "database.password", "database.url"})
 TLS_KEYS = frozenset({"tls.crt", "tls.key", "ca.crt"})
 DATABASE_ROLE = "wuji_first_use_litellm"
 DATABASE_NAME = "wuji_first_use_litellm_20260919"
-DATABASE_HOST = f"postgres.{NAMESPACE}.svc"
+DATABASE_HOST = f"postgres.{CORE_NAMESPACE}.svc"
 GATEWAY_HOST = f"{NAME}.{NAMESPACE}.svc"
 IMAGE = (
     "127.0.0.1:55529/wuji-first-use-litellm@"
@@ -68,7 +80,21 @@ def _metadata(name: str) -> dict[str, Any]:
         "labels": {
             OWNER_LABEL: OWNER,
             "app.kubernetes.io/name": NAME,
-            "app.kubernetes.io/part-of": "wuji",
+            "app.kubernetes.io/part-of": "wuji-first-use",
+        },
+    }
+
+
+def _namespace_manifest() -> dict[str, Any]:
+    return {
+        "apiVersion": "v1",
+        "kind": "Namespace",
+        "metadata": {
+            "name": MODEL_NAMESPACE,
+            "labels": {
+                OWNER_LABEL: OWNER,
+                "app.kubernetes.io/part-of": "wuji-first-use",
+            },
         },
     }
 
@@ -235,11 +261,28 @@ def render_manifests(config_text: str | None = None) -> list[dict[str, Any]]:
             ],
         },
     }
-    return [config, deployment, service]
+    manifests = [config, deployment, service]
+    digest = manifest_digest(manifests)
+    deployment["metadata"]["annotations"] = {MANIFEST_DIGEST_ANNOTATION: digest}
+    deployment["spec"]["template"]["metadata"]["annotations"] = {
+        MANIFEST_DIGEST_ANNOTATION: digest
+    }
+    return manifests
 
 
 def manifest_digest(manifests: Sequence[dict[str, Any]]) -> str:
-    return sha256(_canonical(list(manifests))).hexdigest()
+    normalized = copy.deepcopy(list(manifests))
+    for item in normalized:
+        annotations = item.get("metadata", {}).get("annotations", {})
+        annotations.pop(MANIFEST_DIGEST_ANNOTATION, None)
+        if not annotations:
+            item.get("metadata", {}).pop("annotations", None)
+        template = item.get("spec", {}).get("template", {})
+        pod_annotations = template.get("metadata", {}).get("annotations", {})
+        pod_annotations.pop(MANIFEST_DIGEST_ANNOTATION, None)
+        if not pod_annotations:
+            template.get("metadata", {}).pop("annotations", None)
+    return sha256(_canonical(normalized)).hexdigest()
 
 
 def render_json_documents(manifests: Sequence[dict[str, Any]]) -> str:
@@ -254,7 +297,7 @@ def postgres_exec_command() -> list[str]:
         "--context",
         CONTEXT,
         "--namespace",
-        NAMESPACE,
+        CORE_NAMESPACE,
         "exec",
         "-i",
         "deployment/postgres",
@@ -348,14 +391,82 @@ def _check_owned(resource: dict[str, Any], *, secret: bool = False) -> None:
         )
 
 
-def _private_secret(values: dict[str, str]) -> dict[str, Any]:
+def _check_namespace(resource: dict[str, Any]) -> None:
+    if resource.get("kind") not in (None, "Namespace") or not _owned(resource):
+        raise DeploymentError(
+            "namespace_owner_conflict",
+            "refusing to use an unknown same-name model namespace",
+        )
+
+
+def _provider_value(resource: dict[str, Any]) -> bytes:
+    metadata = resource.get("metadata", {})
+    if (
+        metadata.get("labels") != PROVIDER_LABELS
+        or set(resource.get("data", {})) != {PROVIDER_KEY}
+        or LAST_APPLIED in metadata.get("annotations", {})
+    ):
+        raise DeploymentError(
+            "provider_secret_invalid",
+            "provider Secret identity or shape is invalid",
+        )
+    value = _decode_secret(resource["data"], PROVIDER_KEY)
+    if not value:
+        raise DeploymentError(
+            "provider_secret_invalid", "provider Secret field is absent or empty"
+        )
+    return value
+
+
+def _private_values(resource: dict[str, Any]) -> dict[str, str]:
+    _check_owned(resource, secret=True)
+    if set(resource.get("data", {})) != PRIVATE_KEYS or resource.get("immutable") is not True:
+        raise DeploymentError(
+            "private_secret_invalid",
+            "gateway private Secret has an unexpected shape",
+        )
+    try:
+        values = {
+            key: _decode_secret(resource["data"], key).decode("ascii")
+            for key in PRIVATE_KEYS
+        }
+    except UnicodeDecodeError:
+        raise DeploymentError(
+            "private_secret_invalid", "gateway private Secret is malformed"
+        ) from None
+    if not re.fullmatch(r"sk-[A-Za-z0-9_-]{32,256}", values["master.key"]):
+        raise DeploymentError(
+            "private_secret_invalid", "gateway private Secret is malformed"
+        )
+    if values["database.url"] != database_url(values["database.password"]):
+        raise DeploymentError(
+            "private_secret_invalid", "gateway private Secret is malformed"
+        )
+    return values
+
+
+def _private_secret(encoded_data: dict[str, str]) -> dict[str, Any]:
     return {
         "apiVersion": "v1",
         "kind": "Secret",
         "metadata": _metadata(PRIVATE_SECRET),
         "type": "Opaque",
         "immutable": True,
-        "stringData": values,
+        "data": copy.deepcopy(encoded_data),
+    }
+
+
+def _provider_secret(encoded_data: dict[str, str]) -> dict[str, Any]:
+    return {
+        "apiVersion": "v1",
+        "kind": "Secret",
+        "metadata": {
+            "name": PROVIDER_SECRET,
+            "namespace": MODEL_NAMESPACE,
+            "labels": copy.deepcopy(PROVIDER_LABELS),
+        },
+        "type": "Opaque",
+        "data": copy.deepcopy(encoded_data),
     }
 
 
@@ -486,13 +597,19 @@ def validate_existing_tls(resource: dict[str, Any], ca_directory: Path) -> None:
 
 
 Runner = Callable[..., subprocess.CompletedProcess[bytes]]
+ProxyFactory = Callable[..., subprocess.Popen[bytes]]
 
 
 class KubernetesClient:
     """Small kubectl adapter that never exposes subprocess output in errors."""
 
-    def __init__(self, runner: Runner = subprocess.run):
+    def __init__(
+        self,
+        runner: Runner = subprocess.run,
+        proxy_factory: ProxyFactory = subprocess.Popen,
+    ):
         self.runner = runner
+        self.proxy_factory = proxy_factory
 
     def _run(
         self,
@@ -502,7 +619,7 @@ class KubernetesClient:
         timeout: int = 120,
         operation: str,
     ) -> bytes:
-        command = ["kubectl", "--context", CONTEXT, "--namespace", NAMESPACE, *arguments]
+        command = ["kubectl", "--context", CONTEXT, *arguments]
         try:
             result = self.runner(
                 command,
@@ -518,9 +635,11 @@ class KubernetesClient:
             raise DeploymentError("kubectl_failed", f"{operation} failed")
         return bytes(result.stdout)
 
-    def get(self, kind: str, name: str) -> dict[str, Any] | None:
+    def _get(
+        self, namespace_arguments: Sequence[str], kind: str, name: str
+    ) -> dict[str, Any] | None:
         raw = self._run(
-            ["get", kind, name, "--ignore-not-found", "-o", "json"],
+            [*namespace_arguments, "get", kind, name, "--ignore-not-found", "-o", "json"],
             timeout=30,
             operation="resource read",
         )
@@ -534,19 +653,40 @@ class KubernetesClient:
             raise DeploymentError("kubectl_invalid", "resource read returned invalid metadata")
         return value
 
-    def create(self, resource: dict[str, Any]) -> None:
+    def get_model(self, kind: str, name: str) -> dict[str, Any] | None:
+        return self._get(["--namespace", MODEL_NAMESPACE], kind, name)
+
+    def get_core(self, kind: str, name: str) -> dict[str, Any] | None:
+        return self._get(["--namespace", CORE_NAMESPACE], kind, name)
+
+    def get_namespace(self) -> dict[str, Any] | None:
+        return self._get([], "Namespace", MODEL_NAMESPACE)
+
+    def _create(self, namespace_arguments: Sequence[str], resource: dict[str, Any]) -> None:
         self._run(
-            ["create", "-f", "-", "-o", "name"],
+            [*namespace_arguments, "create", "-f", "-", "-o", "name"],
             input_bytes=_canonical(resource),
             operation="resource create",
         )
 
-    def replace(self, resource: dict[str, Any]) -> None:
+    def create_model(self, resource: dict[str, Any]) -> None:
+        self._create(["--namespace", MODEL_NAMESPACE], resource)
+
+    def create_namespace(self, resource: dict[str, Any]) -> None:
+        self._create([], resource)
+
+    def _replace(self, namespace_arguments: Sequence[str], resource: dict[str, Any]) -> None:
         self._run(
-            ["replace", "-f", "-", "-o", "name"],
+            [*namespace_arguments, "replace", "-f", "-", "-o", "name"],
             input_bytes=_canonical(resource),
             operation="resource replace",
         )
+
+    def replace_model(self, resource: dict[str, Any]) -> None:
+        self._replace(["--namespace", MODEL_NAMESPACE], resource)
+
+    def replace_core(self, resource: dict[str, Any]) -> None:
+        self._replace(["--namespace", CORE_NAMESPACE], resource)
 
     def reconcile_database(self, password: str) -> None:
         # Use the explicit command instead of _run because it is already fully
@@ -567,10 +707,89 @@ class KubernetesClient:
 
     def wait_for_rollout(self) -> None:
         self._run(
-            ["rollout", "status", f"deployment/{NAME}", "--timeout=300s"],
+            [
+                "--namespace",
+                MODEL_NAMESPACE,
+                "rollout",
+                "status",
+                f"deployment/{NAME}",
+                "--timeout=300s",
+            ],
             timeout=330,
             operation="gateway rollout",
         )
+
+    def delete_core_provider_with_preconditions(
+        self, *, uid: str, resource_version: str
+    ) -> None:
+        """DELETE the legacy provider with API-server UID/RV preconditions."""
+
+        command = [
+            "kubectl",
+            "--context",
+            CONTEXT,
+            "proxy",
+            "--port=0",
+            "--accept-hosts=^127[.]0[.]0[.]1$",
+        ]
+        process: subprocess.Popen[bytes] | None = None
+        selector: selectors.BaseSelector | None = None
+        try:
+            process = self.proxy_factory(
+                command,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            if process.stdout is None:
+                raise OSError
+            selector = selectors.DefaultSelector()
+            selector.register(process.stdout, selectors.EVENT_READ)
+            if not selector.select(timeout=15):
+                raise TimeoutError
+            line = process.stdout.readline()
+            match = re.search(rb"Starting to serve on 127[.]0[.]0[.]1:([0-9]+)", line)
+            if match is None:
+                raise OSError
+            port = int(match.group(1))
+            path = (
+                f"/api/v1/namespaces/{quote(CORE_NAMESPACE, safe='')}/secrets/"
+                f"{quote(PROVIDER_SECRET, safe='')}"
+            )
+            body = _canonical(
+                {
+                    "apiVersion": "v1",
+                    "kind": "DeleteOptions",
+                    "preconditions": {
+                        "uid": uid,
+                        "resourceVersion": resource_version,
+                    },
+                    "propagationPolicy": "Background",
+                }
+            )
+            request = Request(
+                f"http://127.0.0.1:{port}{path}",
+                data=body,
+                headers={"Content-Type": "application/json"},
+                method="DELETE",
+            )
+            with urlopen(request, timeout=30) as response:
+                if not 200 <= response.status < 300:
+                    raise OSError
+        except (OSError, TimeoutError, HTTPError, URLError, subprocess.SubprocessError):
+            raise DeploymentError(
+                "provider_delete_failed", "legacy provider Secret deletion failed"
+            ) from None
+        finally:
+            if selector is not None:
+                selector.close()
+            if process is not None and process.poll() is None:
+                process.terminate()
+                try:
+                    process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait(timeout=5)
 
 
 @dataclass
@@ -578,85 +797,173 @@ class GatewayDeployer:
     client: KubernetesClient
     ca_directory: Path
 
-    def _create_or_recover_secret(self, desired: dict[str, Any]) -> tuple[dict[str, Any], str]:
+    def _create_or_recover_secret(
+        self,
+        desired: dict[str, Any],
+        validator: Callable[[dict[str, Any]], Any],
+    ) -> tuple[dict[str, Any], str]:
         name = desired["metadata"]["name"]
-        existing = self.client.get("Secret", name)
+        existing = self.client.get_model("Secret", name)
         if existing is not None:
-            _check_owned(existing, secret=True)
+            validator(existing)
             return existing, "reused"
         try:
-            self.client.create(desired)
+            self.client.create_model(desired)
             return desired, "created"
         except DeploymentError:
-            # A concurrent creator or a lost success response is resolved by an
-            # ownership-checked read.  No second credential is generated.
-            existing = self.client.get("Secret", name)
+            # A concurrent creator or a lost success response is resolved only
+            # by a fresh identity/shape checked read.
+            existing = self.client.get_model("Secret", name)
             if existing is None:
                 raise
-            _check_owned(existing, secret=True)
+            validator(existing)
             return existing, "reused"
 
-    def _private_values(self) -> tuple[dict[str, str], str]:
-        existing = self.client.get("Secret", PRIVATE_SECRET)
-        if existing is None:
-            password = secrets.token_urlsafe(48)
-            values = {
-                "master.key": "sk-" + secrets.token_urlsafe(48),
-                "database.password": password,
-                "database.url": database_url(password),
-            }
-            resource, action = self._create_or_recover_secret(_private_secret(values))
-            if action == "created":
-                return values, action
-            existing = resource
-        _check_owned(existing, secret=True)
-        if (
-            set(existing.get("data", {})) != PRIVATE_KEYS
-            or existing.get("immutable") is not True
-        ):
-            raise DeploymentError("private_secret_invalid", "gateway private Secret has an unexpected shape")
+    def _require_namespace(self) -> None:
+        namespace = self.client.get_namespace()
+        if namespace is None:
+            raise DeploymentError(
+                "namespace_absent", "the isolated model namespace is absent"
+            )
+        _check_namespace(namespace)
+
+    def _ensure_migration_namespace(self) -> str:
+        namespace = self.client.get_namespace()
+        if namespace is not None:
+            _check_namespace(namespace)
+            return "reused"
+        desired = _namespace_manifest()
         try:
-            values = {
-                key: _decode_secret(existing["data"], key).decode("ascii")
-                for key in PRIVATE_KEYS
-            }
-        except UnicodeDecodeError:
-            raise DeploymentError("private_secret_invalid", "gateway private Secret is malformed") from None
-        if not re.fullmatch(r"sk-[A-Za-z0-9_-]{32,256}", values["master.key"]):
-            raise DeploymentError("private_secret_invalid", "gateway private Secret is malformed")
-        if values["database.url"] != database_url(values["database.password"]):
-            raise DeploymentError("private_secret_invalid", "gateway private Secret is malformed")
-        return values, "reused"
+            self.client.create_namespace(desired)
+            return "created"
+        except DeploymentError:
+            namespace = self.client.get_namespace()
+            if namespace is None:
+                raise
+            _check_namespace(namespace)
+            return "reused"
+
+    def _read_private(self) -> tuple[dict[str, Any], dict[str, str]]:
+        private = self.client.get_model("Secret", PRIVATE_SECRET)
+        if private is None:
+            raise DeploymentError(
+                "private_secret_absent",
+                "isolated gateway private Secret is absent; explicit migration is required",
+            )
+        return private, _private_values(private)
+
+    def _provider_preflight(self) -> dict[str, Any]:
+        provider = self.client.get_model("Secret", PROVIDER_SECRET)
+        if provider is None:
+            raise DeploymentError(
+                "provider_secret_absent",
+                "isolated provider Secret is absent; explicit migration is required",
+            )
+        _provider_value(provider)
+        return provider
+
+    def _preflight_model_objects(
+        self,
+        manifests: Sequence[dict[str, Any]],
+        *,
+        source_private: dict[str, Any] | None = None,
+        source_provider: dict[str, Any] | None = None,
+    ) -> None:
+        private = self.client.get_model("Secret", PRIVATE_SECRET)
+        if private is not None:
+            _private_values(private)
+            if source_private is not None and private.get("data") != source_private.get("data"):
+                raise DeploymentError(
+                    "migration_secret_conflict",
+                    "isolated private Secret does not match the verified legacy source",
+                )
+        provider = self.client.get_model("Secret", PROVIDER_SECRET)
+        if provider is not None:
+            target_value = _provider_value(provider)
+            if source_provider is not None and target_value != _provider_value(source_provider):
+                raise DeploymentError(
+                    "migration_secret_conflict",
+                    "isolated provider Secret does not match the verified legacy source",
+                )
+        tls = self.client.get_model("Secret", TLS_SECRET)
+        if tls is not None:
+            _check_owned(tls, secret=True)
+            validate_existing_tls(tls, self.ca_directory)
+        for desired in manifests:
+            existing = self.client.get_model(
+                desired["kind"], desired["metadata"]["name"]
+            )
+            if existing is not None:
+                _check_owned(existing)
+
+    def _migrate_secrets(self, manifests: Sequence[dict[str, Any]]) -> tuple[str, str, str]:
+        source_private = self.client.get_core("Secret", PRIVATE_SECRET)
+        if source_private is None:
+            raise DeploymentError(
+                "migration_source_absent", "legacy gateway private Secret is absent"
+            )
+        _private_values(source_private)
+        source_provider = self.client.get_core("Secret", PROVIDER_SECRET)
+        if source_provider is None:
+            raise DeploymentError(
+                "migration_source_absent", "legacy provider Secret is absent"
+            )
+        _provider_value(source_provider)
+
+        # If the target namespace already exists, all same-name targets are
+        # checked before the first write. Unknown ownership therefore produces
+        # a zero-write refusal in the ordinary (non-racing) case.
+        namespace = self.client.get_namespace()
+        if namespace is not None:
+            _check_namespace(namespace)
+            self._preflight_model_objects(
+                manifests,
+                source_private=source_private,
+                source_provider=source_provider,
+            )
+        namespace_action = self._ensure_migration_namespace()
+
+        migrated_private, private_action = self._create_or_recover_secret(
+            _private_secret(source_private["data"]), _private_values
+        )
+        if migrated_private.get("data") != source_private.get("data"):
+            raise DeploymentError(
+                "migration_secret_conflict",
+                "isolated private Secret does not match the verified legacy source",
+            )
+        migrated_provider, provider_action = self._create_or_recover_secret(
+            _provider_secret(source_provider["data"]), _provider_value
+        )
+        if _provider_value(migrated_provider) != _provider_value(source_provider):
+            raise DeploymentError(
+                "migration_secret_conflict",
+                "isolated provider Secret does not match the verified legacy source",
+            )
+        return namespace_action, private_action, provider_action
 
     def _ensure_tls(self) -> str:
-        existing = self.client.get("Secret", TLS_SECRET)
+        existing = self.client.get_model("Secret", TLS_SECRET)
         if existing is not None:
             _check_owned(existing, secret=True)
             validate_existing_tls(existing, self.ca_directory)
             return "reused"
         certificate, key, ca_certificate = sign_gateway_leaf(self.ca_directory)
         resource, action = self._create_or_recover_secret(
-            _tls_secret(certificate, key, ca_certificate)
+            _tls_secret(certificate, key, ca_certificate),
+            lambda value: (
+                _check_owned(value, secret=True),
+                validate_existing_tls(value, self.ca_directory),
+            ),
         )
         if action == "reused":
             validate_existing_tls(resource, self.ca_directory)
         return action
 
-    def _provider_preflight(self) -> None:
-        provider = self.client.get("Secret", PROVIDER_SECRET)
-        if provider is None:
-            raise DeploymentError("provider_secret_absent", "provider Secret is absent")
-        try:
-            if not _decode_secret(provider.get("data", {}), PROVIDER_KEY):
-                raise ValueError
-        except (DeploymentError, ValueError):
-            raise DeploymentError("provider_secret_invalid", "provider Secret field is absent or empty") from None
-
     def _write_manifest(self, desired: dict[str, Any]) -> str:
         kind, name = desired["kind"], desired["metadata"]["name"]
-        existing = self.client.get(kind, name)
+        existing = self.client.get_model(kind, name)
         if existing is None:
-            self.client.create(desired)
+            self.client.create_model(desired)
             return "created"
         _check_owned(existing)
         replacement = copy.deepcopy(desired)
@@ -668,25 +975,23 @@ class GatewayDeployer:
             for field in ("clusterIP", "clusterIPs", "ipFamilies", "ipFamilyPolicy"):
                 if field in existing.get("spec", {}):
                     replacement["spec"][field] = existing["spec"][field]
-        self.client.replace(replacement)
+        self.client.replace_model(replacement)
         return "matched"
 
-    def reconcile(self) -> dict[str, Any]:
-        if self.client.get("Namespace", NAMESPACE) is None:
-            raise DeploymentError("namespace_absent", "the fixed namespace is absent")
-        self._provider_preflight()
+    def reconcile(self, *, isolate_provider: bool = False) -> dict[str, Any]:
         manifests = render_manifests()
-        # Resolve all known same-name collisions before creating a credential,
-        # role, database, or workload. Reads are repeated at write time for races.
-        for kind, name in (
-            ("Secret", PRIVATE_SECRET),
-            ("Secret", TLS_SECRET),
-            *((item["kind"], item["metadata"]["name"]) for item in manifests),
-        ):
-            existing = self.client.get(kind, name)
-            if existing is not None:
-                _check_owned(existing, secret=kind == "Secret")
-        private, private_action = self._private_values()
+        namespace_action = "reused"
+        provider_action = "referenced"
+        if isolate_provider:
+            namespace_action, private_action, provider_action = self._migrate_secrets(
+                manifests
+            )
+        else:
+            self._require_namespace()
+            self._preflight_model_objects(manifests)
+            self._provider_preflight()
+            private_action = "reused"
+        _, private = self._read_private()
         self.client.reconcile_database(private["database.password"])
         tls_action = self._ensure_tls()
         actions = [
@@ -702,13 +1007,191 @@ class GatewayDeployer:
             "owner": OWNER,
             "endpoint": f"https://{GATEWAY_HOST}:4000",
             "database": {"name": DATABASE_NAME, "role": DATABASE_ROLE, "action": "reconciled"},
+            "namespace_action": namespace_action,
             "secrets": [
                 {"name": PRIVATE_SECRET, "action": private_action},
                 {"name": TLS_SECRET, "action": tls_action},
-                {"name": PROVIDER_SECRET, "action": "referenced"},
+                {"name": PROVIDER_SECRET, "action": provider_action},
             ],
             "resources": actions,
             "manifest_sha256": manifest_digest(manifests),
+        }
+
+
+def _require_metadata(
+    resource: dict[str, Any], *, uid: str, resource_version: str, kind: str
+) -> None:
+    metadata = resource.get("metadata", {})
+    if metadata.get("uid") != uid or metadata.get("resourceVersion") != resource_version:
+        raise DeploymentError(
+            "legacy_metadata_changed", f"legacy {kind} metadata no longer matches confirmation"
+        )
+
+
+def _ready_with_digest(deployment: dict[str, Any], expected_digest: str) -> bool:
+    metadata = deployment.get("metadata", {})
+    spec = deployment.get("spec", {})
+    status = deployment.get("status", {})
+    template = spec.get("template", {})
+    containers = template.get("spec", {}).get("containers", [])
+    conditions = status.get("conditions", [])
+    return bool(
+        re.fullmatch(r"[0-9a-f]{64}", expected_digest)
+        and expected_digest == manifest_digest(render_manifests())
+        and metadata.get("annotations", {}).get(MANIFEST_DIGEST_ANNOTATION)
+        == expected_digest
+        and template.get("metadata", {}).get("annotations", {}).get(
+            MANIFEST_DIGEST_ANNOTATION
+        )
+        == expected_digest
+        and spec.get("replicas") == 1
+        and status.get("observedGeneration") == metadata.get("generation")
+        and status.get("availableReplicas", 0) >= 1
+        and len(containers) == 1
+        and containers[0].get("image") == IMAGE
+        and any(
+            item.get("type") == "Available" and item.get("status") == "True"
+            for item in conditions
+        )
+    )
+
+
+def _contains_desired(actual: Any, desired: Any) -> bool:
+    """Compare desired fields while allowing API-server defaulted fields."""
+
+    if isinstance(desired, dict):
+        return isinstance(actual, dict) and all(
+            key in actual and _contains_desired(actual[key], value)
+            for key, value in desired.items()
+        )
+    if isinstance(desired, list):
+        return isinstance(actual, list) and len(actual) == len(desired) and all(
+            _contains_desired(actual_item, desired_item)
+            for actual_item, desired_item in zip(actual, desired)
+        )
+    return actual == desired
+
+
+@dataclass
+class IsolationFinalizer:
+    client: KubernetesClient
+    ca_directory: Path
+
+    def finalize(
+        self,
+        *,
+        expected_manifest_sha256: str,
+        legacy_deployment_uid: str,
+        legacy_deployment_resource_version: str,
+        legacy_provider_uid: str,
+        legacy_provider_resource_version: str,
+    ) -> dict[str, Any]:
+        namespace = self.client.get_namespace()
+        if namespace is None:
+            raise DeploymentError("namespace_absent", "the isolated model namespace is absent")
+        _check_namespace(namespace)
+
+        private = self.client.get_model("Secret", PRIVATE_SECRET)
+        provider = self.client.get_model("Secret", PROVIDER_SECRET)
+        tls = self.client.get_model("Secret", TLS_SECRET)
+        deployment = self.client.get_model("Deployment", NAME)
+        config = self.client.get_model("ConfigMap", CONFIG_NAME)
+        service = self.client.get_model("Service", NAME)
+        if None in (private, provider, tls, deployment, config, service):
+            raise DeploymentError(
+                "isolation_not_ready", "isolated gateway resources are incomplete"
+            )
+        assert private is not None and provider is not None and tls is not None
+        assert deployment is not None and config is not None and service is not None
+        _private_values(private)
+        target_provider_value = _provider_value(provider)
+        _check_owned(tls, secret=True)
+        validate_existing_tls(tls, self.ca_directory)
+        desired_by_identity = {
+            (item["kind"], item["metadata"]["name"]): item
+            for item in render_manifests()
+        }
+        live_resources = (config, deployment, service)
+        for resource in live_resources:
+            _check_owned(resource)
+        if (
+            not _ready_with_digest(deployment, expected_manifest_sha256)
+            or not all(
+                _contains_desired(
+                    resource,
+                    desired_by_identity[(
+                        resource["kind"],
+                        resource["metadata"]["name"],
+                    )],
+                )
+                for resource in live_resources
+            )
+        ):
+            raise DeploymentError(
+                "isolation_not_ready",
+                "isolated gateway is not Ready with the confirmed manifest digest",
+            )
+
+        legacy_deployment = self.client.get_core("Deployment", NAME)
+        legacy_private = self.client.get_core("Secret", PRIVATE_SECRET)
+        legacy_provider = self.client.get_core("Secret", PROVIDER_SECRET)
+        if (
+            legacy_deployment is None
+            or legacy_private is None
+            or legacy_provider is None
+        ):
+            raise DeploymentError(
+                "legacy_resource_absent", "legacy gateway resources are absent"
+            )
+        _check_owned(legacy_deployment)
+        _private_values(legacy_private)
+        if legacy_private.get("data") != private.get("data"):
+            raise DeploymentError(
+                "migration_secret_conflict",
+                "isolated private Secret does not match the verified legacy source",
+            )
+        legacy_provider_value = _provider_value(legacy_provider)
+        if legacy_provider_value != target_provider_value:
+            raise DeploymentError(
+                "migration_secret_conflict",
+                "isolated provider Secret does not match the verified legacy source",
+            )
+        _require_metadata(
+            legacy_deployment,
+            uid=legacy_deployment_uid,
+            resource_version=legacy_deployment_resource_version,
+            kind="Deployment",
+        )
+        _require_metadata(
+            legacy_provider,
+            uid=legacy_provider_uid,
+            resource_version=legacy_provider_resource_version,
+            kind="provider Secret",
+        )
+
+        scaled = copy.deepcopy(legacy_deployment)
+        scaled.pop("status", None)
+        scaled.get("metadata", {}).pop("managedFields", None)
+        scaled.setdefault("spec", {})["replicas"] = 0
+        self.client.replace_core(scaled)
+        self.client.delete_core_provider_with_preconditions(
+            uid=legacy_provider_uid,
+            resource_version=legacy_provider_resource_version,
+        )
+        return {
+            "ok": True,
+            "mode": "finalize-isolation",
+            "context": CONTEXT,
+            "model_namespace": MODEL_NAMESPACE,
+            "legacy_namespace": CORE_NAMESPACE,
+            "manifest_sha256": expected_manifest_sha256,
+            "actions": [
+                {"kind": "Deployment", "name": NAME, "action": "scaled-to-zero"},
+                {"kind": "Secret", "name": PROVIDER_SECRET, "action": "deleted"},
+            ],
+            "retained": [
+                {"kind": "Secret", "name": PRIVATE_SECRET, "namespace": CORE_NAMESPACE}
+            ],
         }
 
 
@@ -720,9 +1203,14 @@ def dry_run_plan() -> dict[str, Any]:
         "mutations": False,
         "context": CONTEXT,
         "namespace": NAMESPACE,
+        "core_namespace": CORE_NAMESPACE,
         "owner": OWNER,
         "endpoint": f"https://{GATEWAY_HOST}:4000",
-        "database": {"name": DATABASE_NAME, "role": DATABASE_ROLE},
+        "database": {
+            "name": DATABASE_NAME,
+            "role": DATABASE_ROLE,
+            "host": DATABASE_HOST,
+        },
         "secrets": [PRIVATE_SECRET, TLS_SECRET, PROVIDER_SECRET],
         "resources": [
             {"kind": item["kind"], "name": item["metadata"]["name"]}
@@ -758,25 +1246,69 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--execute",
         action="store_true",
-        help="perform owner-checked writes in the fixed local namespace",
+        help="perform owner-checked writes in the fixed isolated model namespace",
+    )
+    parser.add_argument(
+        "--isolate-provider",
+        action="store_true",
+        help="explicitly copy the verified legacy private/provider Secrets before deployment",
+    )
+    parser.add_argument(
+        "--finalize-isolation",
+        action="store_true",
+        help="after isolated readiness, scale the confirmed legacy gateway to zero and delete its provider Secret",
     )
     parser.add_argument(
         "--ca-directory",
         type=Path,
         help="existing CA directory; defaults to the main worktree deployment state",
     )
+    parser.add_argument("--expected-manifest-sha256")
+    parser.add_argument("--legacy-deployment-uid")
+    parser.add_argument("--legacy-deployment-resource-version")
+    parser.add_argument("--legacy-provider-uid")
+    parser.add_argument("--legacy-provider-resource-version")
     args = parser.parse_args(argv)
     try:
+        if (args.isolate_provider or args.finalize_isolation) and not args.execute:
+            raise DeploymentError(
+                "execute_required", "isolation mutations require the explicit --execute flag"
+            )
+        if args.isolate_provider and args.finalize_isolation:
+            raise DeploymentError(
+                "action_conflict", "provider migration and isolation finalization are separate actions"
+            )
         if args.execute and not PERSISTENCE_IMAGE_READY:
             raise DeploymentError("persistent_image_not_published",
                                   "the persistent gateway image is built but not published; deployment is blocked")
-        result = (
-            GatewayDeployer(
+        if args.finalize_isolation:
+            required = {
+                "expected manifest digest": args.expected_manifest_sha256,
+                "legacy Deployment UID": args.legacy_deployment_uid,
+                "legacy Deployment resourceVersion": args.legacy_deployment_resource_version,
+                "legacy provider UID": args.legacy_provider_uid,
+                "legacy provider resourceVersion": args.legacy_provider_resource_version,
+            }
+            if any(not value for value in required.values()):
+                raise DeploymentError(
+                    "confirmation_required",
+                    "finalization requires confirmed legacy metadata and manifest digest",
+                )
+            result = IsolationFinalizer(
                 KubernetesClient(), args.ca_directory or default_ca_directory()
-            ).reconcile()
-            if args.execute
-            else dry_run_plan()
-        )
+            ).finalize(
+                expected_manifest_sha256=args.expected_manifest_sha256,
+                legacy_deployment_uid=args.legacy_deployment_uid,
+                legacy_deployment_resource_version=args.legacy_deployment_resource_version,
+                legacy_provider_uid=args.legacy_provider_uid,
+                legacy_provider_resource_version=args.legacy_provider_resource_version,
+            )
+        elif args.execute:
+            result = GatewayDeployer(
+                KubernetesClient(), args.ca_directory or default_ca_directory()
+            ).reconcile(isolate_provider=args.isolate_provider)
+        else:
+            result = dry_run_plan()
         print(json.dumps(result, sort_keys=True, separators=(",", ":")))
         return 0
     except DeploymentError as error:

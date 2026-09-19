@@ -64,16 +64,42 @@ def _ca(directory: Path) -> None:
 
 class FakeClient:
     def __init__(self):
+        password = "D" * 48
+        private_data = {
+            "master.key": base64.b64encode(("sk-" + "M" * 48).encode()).decode(),
+            "database.password": base64.b64encode(password.encode()).decode(),
+            "database.url": base64.b64encode(gateway.database_url(password).encode()).decode(),
+        }
         self.objects = {
-            ("Namespace", gateway.NAMESPACE): {
-                "apiVersion": "v1",
-                "kind": "Namespace",
-                "metadata": {"name": gateway.NAMESPACE},
-            },
-            ("Secret", gateway.PROVIDER_SECRET): {
+            (gateway.CORE_NAMESPACE, "Secret", gateway.PRIVATE_SECRET): {
                 "apiVersion": "v1",
                 "kind": "Secret",
-                "metadata": {"name": gateway.PROVIDER_SECRET, "namespace": gateway.NAMESPACE},
+                "metadata": {
+                    "name": gateway.PRIVATE_SECRET,
+                    "namespace": gateway.CORE_NAMESPACE,
+                    "uid": "legacy-private-uid",
+                    "resourceVersion": "legacy-private-rv",
+                    "labels": {
+                        gateway.OWNER_LABEL: gateway.OWNER,
+                        "app.kubernetes.io/name": gateway.NAME,
+                        "app.kubernetes.io/part-of": "wuji",
+                    },
+                },
+                "type": "Opaque",
+                "immutable": True,
+                "data": private_data,
+            },
+            (gateway.CORE_NAMESPACE, "Secret", gateway.PROVIDER_SECRET): {
+                "apiVersion": "v1",
+                "kind": "Secret",
+                "metadata": {
+                    "name": gateway.PROVIDER_SECRET,
+                    "namespace": gateway.CORE_NAMESPACE,
+                    "uid": "legacy-provider-uid",
+                    "resourceVersion": "legacy-provider-rv",
+                    "labels": copy.deepcopy(gateway.PROVIDER_LABELS),
+                },
+                "type": "Opaque",
                 "data": {
                     gateway.PROVIDER_KEY: base64.b64encode(b"provider-fixture-value").decode()
                 },
@@ -83,9 +109,18 @@ class FakeClient:
         self.sql_inputs = []
         self.resource_version = 0
 
-    def get(self, kind, name):
-        value = self.objects.get((kind, name))
+    def _get(self, namespace, kind, name):
+        value = self.objects.get((namespace, kind, name))
         return copy.deepcopy(value) if value is not None else None
+
+    def get_model(self, kind, name):
+        return self._get(gateway.MODEL_NAMESPACE, kind, name)
+
+    def get_core(self, kind, name):
+        return self._get(gateway.CORE_NAMESPACE, kind, name)
+
+    def get_namespace(self):
+        return self._get(None, "Namespace", gateway.MODEL_NAMESPACE)
 
     def _store(self, resource):
         value = copy.deepcopy(resource)
@@ -95,21 +130,38 @@ class FakeClient:
                 for key, item in value.pop("stringData").items()
             }
         self.resource_version += 1
-        value.setdefault("metadata", {})["resourceVersion"] = str(self.resource_version)
-        value["metadata"].setdefault("uid", f"fixture-{self.resource_version}")
-        self.objects[(value["kind"], value["metadata"]["name"])] = value
+        metadata = value.setdefault("metadata", {})
+        metadata["resourceVersion"] = str(self.resource_version)
+        metadata.setdefault("uid", f"fixture-{self.resource_version}")
+        namespace = None if value["kind"] == "Namespace" else metadata["namespace"]
+        self.objects[(namespace, value["kind"], metadata["name"])] = value
 
-    def create(self, resource):
-        identity = (resource["kind"], resource["metadata"]["name"])
+    def _create(self, resource):
+        metadata = resource["metadata"]
+        namespace = None if resource["kind"] == "Namespace" else metadata["namespace"]
+        identity = (namespace, resource["kind"], metadata["name"])
         if identity in self.objects:
             raise gateway.DeploymentError("fixture_conflict", "resource create failed")
-        self.operations.append(("create", *identity))
+        self.operations.append(("create", resource["kind"], metadata["name"], namespace))
         self._store(resource)
 
-    def replace(self, resource):
-        identity = (resource["kind"], resource["metadata"]["name"])
-        self.operations.append(("replace", *identity))
+    def create_model(self, resource):
+        self._create(resource)
+
+    def create_namespace(self, resource):
+        self._create(resource)
+
+    def _replace(self, resource):
+        metadata = resource["metadata"]
+        namespace = metadata["namespace"]
+        self.operations.append(("replace", resource["kind"], metadata["name"], namespace))
         self._store(resource)
+
+    def replace_model(self, resource):
+        self._replace(resource)
+
+    def replace_core(self, resource):
+        self._replace(resource)
 
     def reconcile_database(self, password):
         self.operations.append(("exec", "PostgreSQL", "postgres"))
@@ -117,6 +169,13 @@ class FakeClient:
 
     def wait_for_rollout(self):
         self.operations.append(("read", "Deployment", gateway.NAME))
+
+    def delete_core_provider_with_preconditions(self, *, uid, resource_version):
+        provider = self.objects[(gateway.CORE_NAMESPACE, "Secret", gateway.PROVIDER_SECRET)]
+        assert provider["metadata"]["uid"] == uid
+        assert provider["metadata"]["resourceVersion"] == resource_version
+        self.operations.append(("delete", "Secret", gateway.PROVIDER_SECRET, gateway.CORE_NAMESPACE))
+        del self.objects[(gateway.CORE_NAMESPACE, "Secret", gateway.PROVIDER_SECRET)]
 
 
 def _container(manifests):
@@ -131,6 +190,11 @@ def test_manifest_is_reproducible_tls_only_and_provider_isolated():
     assert gateway.render_json_documents(first) == gateway.render_json_documents(second)
     assert [item["kind"] for item in first] == ["ConfigMap", "Deployment", "Service"]
     assert all(item["metadata"]["labels"][gateway.OWNER_LABEL] == gateway.OWNER for item in first)
+    assert all(item["metadata"]["namespace"] == gateway.MODEL_NAMESPACE for item in first)
+    assert gateway.CORE_NAMESPACE not in gateway.render_json_documents(first)
+    assert gateway.DATABASE_HOST == "postgres.wuji-vnext-test.svc"
+    postgres_command = gateway.postgres_exec_command()
+    assert postgres_command[postgres_command.index("--namespace") + 1] == gateway.CORE_NAMESPACE
 
     deployment, container = _container(first)
     pod = deployment["spec"]["template"]["spec"]
@@ -205,10 +269,15 @@ def test_default_cli_is_offline_dry_run_and_emits_no_secret(monkeypatch, capsys)
     assert output.err == ""
     assert result["mode"] == "dry-run"
     assert result["mutations"] is False
-    assert result["endpoint"] == "https://first-use-litellm.wuji-vnext-test.svc:4000"
+    assert result["endpoint"] == "https://first-use-litellm.wuji-first-use-model.svc:4000"
+    assert result["core_namespace"] == gateway.CORE_NAMESPACE
     assert "provider-fixture-value" not in output.out
     assert "database.password" not in output.out
     assert "master.key" not in output.out
+
+    assert gateway.main(["--isolate-provider"]) == 1
+    refused = json.loads(capsys.readouterr().out)
+    assert refused["error"] == "execute_required"
 
 
 def test_reconcile_creates_stable_secrets_database_and_tls_without_rotating_ca(tmp_path):
@@ -221,11 +290,18 @@ def test_reconcile_creates_stable_secrets_database_and_tls_without_rotating_ca(t
     client = FakeClient()
     deployer = gateway.GatewayDeployer(client, ca_directory)
 
-    first = deployer.reconcile()
-    private_before = copy.deepcopy(client.objects[("Secret", gateway.PRIVATE_SECRET)])
-    tls_before = copy.deepcopy(client.objects[("Secret", gateway.TLS_SECRET)])
+    legacy_private = copy.deepcopy(
+        client.objects[(gateway.CORE_NAMESPACE, "Secret", gateway.PRIVATE_SECRET)]
+    )
+    first = deployer.reconcile(isolate_provider=True)
+    private_key = (gateway.MODEL_NAMESPACE, "Secret", gateway.PRIVATE_SECRET)
+    tls_key = (gateway.MODEL_NAMESPACE, "Secret", gateway.TLS_SECRET)
+    provider_key = (gateway.MODEL_NAMESPACE, "Secret", gateway.PROVIDER_SECRET)
+    private_before = copy.deepcopy(client.objects[private_key])
+    tls_before = copy.deepcopy(client.objects[tls_key])
     second = deployer.reconcile()
 
+    assert first["namespace_action"] == "created"
     assert first["secrets"][:2] == [
         {"name": gateway.PRIVATE_SECRET, "action": "created"},
         {"name": gateway.TLS_SECRET, "action": "created"},
@@ -234,17 +310,19 @@ def test_reconcile_creates_stable_secrets_database_and_tls_without_rotating_ca(t
         {"name": gateway.PRIVATE_SECRET, "action": "reused"},
         {"name": gateway.TLS_SECRET, "action": "reused"},
     ]
-    assert client.objects[("Secret", gateway.PRIVATE_SECRET)]["data"] == private_before["data"]
-    assert client.objects[("Secret", gateway.TLS_SECRET)]["data"] == tls_before["data"]
-    assert not any(action == "replace" and kind == "Secret" for action, kind, _ in client.operations)
+    assert first["secrets"][2] == {"name": gateway.PROVIDER_SECRET, "action": "created"}
+    assert client.objects[private_key]["data"] == private_before["data"]
+    assert client.objects[private_key]["data"] == legacy_private["data"]
+    assert client.objects[tls_key]["data"] == tls_before["data"]
+    assert not any(action == "replace" and kind == "Secret" for action, kind, *_ in client.operations)
     assert not any(action == "apply" for action, *_ in client.operations)
     assert all(
         gateway.LAST_APPLIED not in value.get("metadata", {}).get("annotations", {})
-        for (kind, _), value in client.objects.items()
+        for (_, kind, _), value in client.objects.items()
         if kind == "Secret"
     )
 
-    private = client.objects[("Secret", gateway.PRIVATE_SECRET)]
+    private = client.objects[private_key]
     assert set(private["data"]) == gateway.PRIVATE_KEYS
     db_password = base64.b64decode(private["data"]["database.password"]).decode()
     db_url = base64.b64decode(private["data"]["database.url"]).decode()
@@ -256,7 +334,7 @@ def test_reconcile_creates_stable_secrets_database_and_tls_without_rotating_ca(t
     assert all(b"NOSUPERUSER" in sql and b"CREATE DATABASE" in sql for sql in client.sql_inputs)
     assert all(b"LiteLLM_VerificationToken" not in sql for sql in client.sql_inputs)
 
-    tls = client.objects[("Secret", gateway.TLS_SECRET)]
+    tls = client.objects[tls_key]
     leaf = x509.load_pem_x509_certificate(base64.b64decode(tls["data"]["tls.crt"]))
     assert leaf.extensions.get_extension_for_class(x509.SubjectKeyIdentifier).value.digest
     assert leaf.extensions.get_extension_for_class(x509.AuthorityKeyIdentifier).value.key_identifier
@@ -271,16 +349,19 @@ def test_reconcile_creates_stable_secrets_database_and_tls_without_rotating_ca(t
     serialized_results = json.dumps([first, second], sort_keys=True)
     assert db_password not in serialized_results
     assert base64.b64decode(private["data"]["master.key"]).decode() not in serialized_results
-    assert client.objects[("Secret", gateway.PROVIDER_SECRET)]["data"] == {
+    assert client.objects[provider_key]["metadata"]["labels"] == gateway.PROVIDER_LABELS
+    assert client.objects[provider_key]["data"] == {
         gateway.PROVIDER_KEY: base64.b64encode(b"provider-fixture-value").decode()
     }
+    assert client.objects[(gateway.CORE_NAMESPACE, "Secret", gateway.PROVIDER_SECRET)]["data"] == client.objects[provider_key]["data"]
 
 
 def test_unknown_same_name_object_is_never_overwritten(tmp_path):
     ca_directory = tmp_path / "tls"
     _ca(ca_directory)
     client = FakeClient()
-    client.objects[("ConfigMap", gateway.CONFIG_NAME)] = {
+    client.objects[(None, "Namespace", gateway.MODEL_NAMESPACE)] = gateway._namespace_manifest()
+    client.objects[(gateway.MODEL_NAMESPACE, "ConfigMap", gateway.CONFIG_NAME)] = {
         "apiVersion": "v1",
         "kind": "ConfigMap",
         "metadata": {
@@ -293,13 +374,114 @@ def test_unknown_same_name_object_is_never_overwritten(tmp_path):
     }
 
     with pytest.raises(gateway.DeploymentError, match="unknown same-name") as caught:
-        gateway.GatewayDeployer(client, ca_directory).reconcile()
+        gateway.GatewayDeployer(client, ca_directory).reconcile(isolate_provider=True)
     assert caught.value.code == "owner_conflict"
-    assert client.objects[("ConfigMap", gateway.CONFIG_NAME)]["data"] == {
+    assert client.objects[(gateway.MODEL_NAMESPACE, "ConfigMap", gateway.CONFIG_NAME)]["data"] == {
         "config.yaml": "foreign"
     }
     assert not any(action == "replace" for action, *_ in client.operations)
     assert not any(action in {"create", "exec"} for action, *_ in client.operations)
+
+
+def test_migration_provider_collision_and_regular_missing_provider_are_zero_write(tmp_path):
+    ca_directory = tmp_path / "tls"
+    _ca(ca_directory)
+
+    regular = FakeClient()
+    regular.objects[(None, "Namespace", gateway.MODEL_NAMESPACE)] = gateway._namespace_manifest()
+    with pytest.raises(gateway.DeploymentError) as absent:
+        gateway.GatewayDeployer(regular, ca_directory).reconcile()
+    assert absent.value.code == "provider_secret_absent"
+    assert regular.operations == []
+
+    collision = FakeClient()
+    collision.objects[(None, "Namespace", gateway.MODEL_NAMESPACE)] = gateway._namespace_manifest()
+    collision.objects[(gateway.MODEL_NAMESPACE, "Secret", gateway.PROVIDER_SECRET)] = {
+        "apiVersion": "v1",
+        "kind": "Secret",
+        "metadata": {
+            "name": gateway.PROVIDER_SECRET,
+            "namespace": gateway.MODEL_NAMESPACE,
+            "labels": {"app.kubernetes.io/component": "unknown"},
+        },
+        "data": {
+            gateway.PROVIDER_KEY: base64.b64encode(b"unknown-provider").decode()
+        },
+    }
+    with pytest.raises(gateway.DeploymentError) as conflict:
+        gateway.GatewayDeployer(collision, ca_directory).reconcile(
+            isolate_provider=True
+        )
+    assert conflict.value.code == "provider_secret_invalid"
+    assert collision.operations == []
+
+
+def test_finalize_requires_ready_verified_digest_and_exact_legacy_metadata(tmp_path):
+    ca_directory = tmp_path / "tls"
+    _ca(ca_directory)
+    client = FakeClient()
+    result = gateway.GatewayDeployer(client, ca_directory).reconcile(
+        isolate_provider=True
+    )
+    digest = result["manifest_sha256"]
+
+    target_key = (gateway.MODEL_NAMESPACE, "Deployment", gateway.NAME)
+    target = client.objects[target_key]
+    target["metadata"]["generation"] = 7
+    target["status"] = {
+        "observedGeneration": 7,
+        "availableReplicas": 0,
+        "conditions": [{"type": "Available", "status": "False"}],
+    }
+    legacy = copy.deepcopy(
+        next(
+            item
+            for item in gateway.render_manifests()
+            if item["kind"] == "Deployment"
+        )
+    )
+    legacy["metadata"].update(
+        {
+            "namespace": gateway.CORE_NAMESPACE,
+            "uid": "legacy-deployment-uid",
+            "resourceVersion": "legacy-deployment-rv",
+            "generation": 4,
+        }
+    )
+    client.objects[(gateway.CORE_NAMESPACE, "Deployment", gateway.NAME)] = legacy
+    finalizer = gateway.IsolationFinalizer(client, ca_directory)
+    arguments = {
+        "expected_manifest_sha256": digest,
+        "legacy_deployment_uid": "legacy-deployment-uid",
+        "legacy_deployment_resource_version": "legacy-deployment-rv",
+        "legacy_provider_uid": "legacy-provider-uid",
+        "legacy_provider_resource_version": "legacy-provider-rv",
+    }
+
+    before = list(client.operations)
+    with pytest.raises(gateway.DeploymentError) as not_ready:
+        finalizer.finalize(**arguments)
+    assert not_ready.value.code == "isolation_not_ready"
+    assert client.operations == before
+
+    target["status"] = {
+        "observedGeneration": 7,
+        "availableReplicas": 1,
+        "conditions": [{"type": "Available", "status": "True"}],
+    }
+    with pytest.raises(gateway.DeploymentError) as wrong_digest:
+        finalizer.finalize(**{**arguments, "expected_manifest_sha256": "0" * 64})
+    assert wrong_digest.value.code == "isolation_not_ready"
+    assert client.operations == before
+
+    finalized = finalizer.finalize(**arguments)
+    assert finalized["mode"] == "finalize-isolation"
+    assert client.objects[(gateway.CORE_NAMESPACE, "Deployment", gateway.NAME)]["spec"]["replicas"] == 0
+    assert (gateway.CORE_NAMESPACE, "Secret", gateway.PROVIDER_SECRET) not in client.objects
+    assert (gateway.CORE_NAMESPACE, "Secret", gateway.PRIVATE_SECRET) in client.objects
+    assert client.objects[(gateway.MODEL_NAMESPACE, "Secret", gateway.PROVIDER_SECRET)]["data"] == {
+        gateway.PROVIDER_KEY: base64.b64encode(b"provider-fixture-value").decode()
+    }
 
 
 def test_database_password_is_stdin_only_and_subprocess_errors_are_sanitized():
