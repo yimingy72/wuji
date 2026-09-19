@@ -1,0 +1,6 @@
+{
+  "candidate_sha": "5cdbd170939f1d2e410868ab591381331f5cdba9",
+  "exception_type": "TaskBudgetUnavailable",
+  "implements_launch_unknown": false,
+  "mode": "production_prepare_recording_prerequisites"
+}

@@ -1,0 +1,160 @@
+{
+  "candidate_sha": "5cdbd170939f1d2e410868ab591381331f5cdba9",
+  "first_progress": [
+    {
+      "task_id": "a60d33de-94f2-42d9-bcfb-b3cbcec31d61",
+      "operation_id": "a8-lost-budget-start",
+      "phase": "prepare",
+      "phase_status": "reconciling",
+      "reason_code": "gateway_budget_unknown"
+    }
+  ],
+  "second_progress": [
+    {
+      "task_id": "a60d33de-94f2-42d9-bcfb-b3cbcec31d61",
+      "operation_id": "a8-lost-budget-start",
+      "phase": "ready",
+      "phase_status": "succeeded",
+      "reason_code": null
+    }
+  ],
+  "launch": {
+    "operation_id": "a8-lost-budget-start",
+    "command_id": "a8-lost-budget-start",
+    "task_id": "a60d33de-94f2-42d9-bcfb-b3cbcec31d61",
+    "definition_digest": "cf025177c31e7d53eb90d8e645bc3fa3968bcf6b56f44ed4eec6a21d5bd8fb78",
+    "profile_digest": "82361b6c3016e44df649fc731e8d334c1acef7c3937c6d311f02c1c44148f07b",
+    "runtime_attempt": "1",
+    "execution_epoch": "2",
+    "phase": "ready",
+    "phase_status": "succeeded",
+    "reason_code": null,
+    "allowed_actions": [
+      "pause",
+      "cancel",
+      "finish"
+    ],
+    "observed_at": "2026-09-19T10:10:57.304064Z"
+  },
+  "gateway_key_persisted": true,
+  "gateway_requests": [
+    {
+      "method": "GET",
+      "path": "/key/info"
+    },
+    {
+      "method": "POST",
+      "path": "/key/generate"
+    },
+    {
+      "method": "GET",
+      "path": "/key/info"
+    }
+  ],
+  "wire_calls": 1,
+  "mode": "real_pg_launch_synthetic_gateway",
+  "http_exchanges": [
+    {
+      "request": {
+        "method": "POST",
+        "url": "http://testserver/api/v2/tasks",
+        "headers": {
+          "host": "testserver",
+          "accept": "*/*",
+          "accept-encoding": "gzip, deflate",
+          "connection": "keep-alive",
+          "user-agent": "python-httpx/0.28.1",
+          "authorization": "[REDACTED TEST CREDENTIAL]",
+          "idempotency-key": "a8-lost-budget-create",
+          "content-length": "641",
+          "content-type": "application/json"
+        },
+        "body": "{\"schema_version\":\"wuji.api.v2\",\"project_id\":\"project-fixture\",\"name\":\"Created fixture task\",\"scenario\":\"web_single\",\"goal\":{\"text\":\"Read the fixture version\",\"criteria\":[{\"criterion_id\":\"version\",\"object\":\"fixture bytes\",\"condition\":\"version captured\",\"evidence_requirements\":[\"sealed bytes\"],\"allowed_methods\":[\"deterministic\"],\"responsible_party\":\"fixture-checker\",\"required\":true}]},\"authorization_scope\":[{\"host\":\"fixture.invalid\",\"protocol\":\"https\",\"port\":443}],\"authorization_expires_at\":\"2099-01-01T00:00:00Z\",\"model_profile_ref\":\"fixture-model-v1\",\"runtime_profile_ref\":\"fixture-runtime-v1\",\"budget\":{\"amount\":\"5\",\"currency\":\"USD\"}}"
+      },
+      "response": {
+        "status": 201,
+        "headers": {
+          "content-length": "353",
+          "content-type": "application/json",
+          "x-request-id": "826144b7-5692-4735-b4f9-73d14c25717d"
+        },
+        "body": "{\"task_id\":\"a60d33de-94f2-42d9-bcfb-b3cbcec31d61\",\"tenant_id\":\"tenant-fixture\",\"project_id\":\"project-fixture\",\"version\":\"1\",\"name\":\"Created fixture task\",\"scenario\":\"web_single\",\"desired_state\":\"pause\",\"observed_state\":\"ready\",\"goal_revision\":\"1\",\"execution_epoch\":\"1\",\"activated_at\":null,\"close_trigger\":null,\"result_outcome\":null,\"allowed_actions\":[]}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "http://testserver/api/v2/tasks/a60d33de-94f2-42d9-bcfb-b3cbcec31d61",
+        "headers": {
+          "host": "testserver",
+          "accept": "*/*",
+          "accept-encoding": "gzip, deflate",
+          "connection": "keep-alive",
+          "user-agent": "python-httpx/0.28.1",
+          "authorization": "[REDACTED TEST CREDENTIAL]"
+        },
+        "body": ""
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-length": "369",
+          "content-type": "application/json",
+          "x-request-id": "0d8a5ec0-7924-4b65-beb0-be94cc4e1893"
+        },
+        "body": "{\"task_id\":\"a60d33de-94f2-42d9-bcfb-b3cbcec31d61\",\"tenant_id\":\"tenant-fixture\",\"project_id\":\"project-fixture\",\"version\":\"1\",\"name\":\"Created fixture task\",\"scenario\":\"web_single\",\"desired_state\":\"pause\",\"observed_state\":\"ready\",\"goal_revision\":\"1\",\"execution_epoch\":\"1\",\"activated_at\":null,\"close_trigger\":null,\"result_outcome\":null,\"allowed_actions\":[\"start\",\"cancel\"]}"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "http://testserver/api/v2/tasks/a60d33de-94f2-42d9-bcfb-b3cbcec31d61/commands",
+        "headers": {
+          "host": "testserver",
+          "accept": "*/*",
+          "accept-encoding": "gzip, deflate",
+          "connection": "keep-alive",
+          "user-agent": "python-httpx/0.28.1",
+          "authorization": "[REDACTED TEST CREDENTIAL]",
+          "idempotency-key": "a8-lost-budget-start",
+          "content-length": "100",
+          "content-type": "application/json"
+        },
+        "body": "{\"schema_version\":\"wuji.api.v2\",\"command\":\"start\",\"expected_version\":\"1\",\"reason\":\"first-use start\"}"
+      },
+      "response": {
+        "status": 202,
+        "headers": {
+          "content-length": "246",
+          "content-type": "application/json",
+          "x-request-id": "a8c01486-566d-4ab1-bb08-a5e6eae5ab19"
+        },
+        "body": "{\"command_id\":\"a8-lost-budget-start\",\"disposition\":\"accepted\",\"resource_ref\":{\"entity_type\":\"task\",\"id\":\"a60d33de-94f2-42d9-bcfb-b3cbcec31d61\",\"revision\":\"1\"},\"resource_version\":\"1\",\"request_id\":\"a8c01486-566d-4ab1-bb08-a5e6eae5ab19\",\"code\":null}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "http://testserver/api/v2/tasks/a60d33de-94f2-42d9-bcfb-b3cbcec31d61/launch",
+        "headers": {
+          "host": "testserver",
+          "accept": "*/*",
+          "accept-encoding": "gzip, deflate",
+          "connection": "keep-alive",
+          "user-agent": "python-httpx/0.28.1",
+          "authorization": "[REDACTED TEST CREDENTIAL]"
+        },
+        "body": ""
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-length": "491",
+          "content-type": "application/json",
+          "x-request-id": "071c592b-4390-4dbc-9508-c5c055d89780"
+        },
+        "body": "{\"operation_id\":\"a8-lost-budget-start\",\"command_id\":\"a8-lost-budget-start\",\"task_id\":\"a60d33de-94f2-42d9-bcfb-b3cbcec31d61\",\"definition_digest\":\"cf025177c31e7d53eb90d8e645bc3fa3968bcf6b56f44ed4eec6a21d5bd8fb78\",\"profile_digest\":\"82361b6c3016e44df649fc731e8d334c1acef7c3937c6d311f02c1c44148f07b\",\"runtime_attempt\":\"1\",\"execution_epoch\":\"2\",\"phase\":\"ready\",\"phase_status\":\"succeeded\",\"reason_code\":null,\"allowed_actions\":[\"pause\",\"cancel\",\"finish\"],\"observed_at\":\"2026-09-19T10:10:57.304064Z\"}"
+      }
+    }
+  ]
+}

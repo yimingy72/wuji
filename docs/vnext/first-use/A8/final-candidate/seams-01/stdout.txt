@@ -1,0 +1,28 @@
+FFF                                                                      [100%]
+=================================== FAILURES ===================================
+_____ test_lost_budget_response_remains_reconcilable_in_real_launch_worker _____
+tests/first_use/test_candidate_seams.py:84: in test_lost_budget_response_remains_reconcilable_in_real_launch_worker
+    assert view["phase_status"] == "reconciling", "unknown budget creation must remain available to original-operation reconciliation"
+E   AssertionError: unknown budget creation must remain available to original-operation reconciliation
+E   assert 'failed' == 'reconciling'
+E     
+E     - reconciling
+E     + failed
+________ test_wire_observation_does_not_accept_pod_without_gate_binding ________
+tests/first_use/test_candidate_seams.py:104: in test_wire_observation_does_not_accept_pod_without_gate_binding
+    assert observed["status"] != "ready", "a ready Pod cannot prove the separate Gate ConfigMap update succeeded"
+E   AssertionError: a ready Pod cannot prove the separate Gate ConfigMap update succeeded
+E   assert 'ready' != 'ready'
+_______ test_cancelled_prepare_observation_does_not_invoke_prepare_again _______
+tests/first_use/test_candidate_seams.py:127: in test_cancelled_prepare_observation_does_not_invoke_prepare_again
+    assert calls == [], "stop reconciliation must not re-enter mutating prepare"
+E   AssertionError: stop reconciliation must not re-enter mutating prepare
+E   assert ['prepare'] == []
+E     
+E     Left contains one more item: 'prepare'
+E     Use -v to get more diff
+=========================== short test summary info ============================
+FAILED tests/first_use/test_candidate_seams.py::test_lost_budget_response_remains_reconcilable_in_real_launch_worker
+FAILED tests/first_use/test_candidate_seams.py::test_wire_observation_does_not_accept_pod_without_gate_binding
+FAILED tests/first_use/test_candidate_seams.py::test_cancelled_prepare_observation_does_not_invoke_prepare_again
+3 failed in 2.06s

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="3" skipped="0" tests="3" time="2.042" timestamp="2026-09-19T18:04:23.613719+08:00" hostname="MacBook-Pro-4.local"><testcase classname="tests.first_use.test_candidate_seams" name="test_lost_budget_response_remains_reconcilable_in_real_launch_worker" time="1.272"><failure message="AssertionError: unknown budget creation must remain available to original-operation reconciliation&#10;assert 'failed' == 'reconciling'&#10;  &#10;  - reconciling&#10;  + failed">tests/first_use/test_candidate_seams.py:84: in test_lost_budget_response_remains_reconcilable_in_real_launch_worker
+    assert view["phase_status"] == "reconciling", "unknown budget creation must remain available to original-operation reconciliation"
+E   AssertionError: unknown budget creation must remain available to original-operation reconciliation
+E   assert 'failed' == 'reconciling'
+E     
+E     - reconciling
+E     + failed</failure></testcase><testcase classname="tests.first_use.test_candidate_seams" name="test_wire_observation_does_not_accept_pod_without_gate_binding" time="0.003"><failure message="AssertionError: a ready Pod cannot prove the separate Gate ConfigMap update succeeded&#10;assert 'ready' != 'ready'">tests/first_use/test_candidate_seams.py:104: in test_wire_observation_does_not_accept_pod_without_gate_binding
+    assert observed["status"] != "ready", "a ready Pod cannot prove the separate Gate ConfigMap update succeeded"
+E   AssertionError: a ready Pod cannot prove the separate Gate ConfigMap update succeeded
+E   assert 'ready' != 'ready'</failure></testcase><testcase classname="tests.first_use.test_candidate_seams" name="test_cancelled_prepare_observation_does_not_invoke_prepare_again" time="0.002"><failure message="AssertionError: stop reconciliation must not re-enter mutating prepare&#10;assert ['prepare'] == []&#10;  &#10;  Left contains one more item: 'prepare'&#10;  Use -v to get more diff">tests/first_use/test_candidate_seams.py:127: in test_cancelled_prepare_observation_does_not_invoke_prepare_again
+    assert calls == [], "stop reconciliation must not re-enter mutating prepare"
+E   AssertionError: stop reconciliation must not re-enter mutating prepare
+E   assert ['prepare'] == []
+E     
+E     Left contains one more item: 'prepare'
+E     Use -v to get more diff</failure></testcase></testsuite></testsuites>

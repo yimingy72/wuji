@@ -1,0 +1,11 @@
+{
+  "candidate_sha": "5cdbd170939f1d2e410868ab591381331f5cdba9",
+  "observed": {
+    "status": "ready"
+  },
+  "write_producer_calls": [
+    "prepare"
+  ],
+  "known_task_state": "cancel",
+  "mode": "production_observe_recording_boundaries"
+}

@@ -1,0 +1,12 @@
+{
+  "candidate_sha": "5cdbd170939f1d2e410868ab591381331f5cdba9",
+  "observed": {
+    "external_ref": "wire-a8",
+    "status": "ready",
+    "phase_status": "ready",
+    "pod_uid": "pod-a8"
+  },
+  "configmap_reads": [],
+  "gate_has_task_binding": false,
+  "mode": "production_observe_recording_boundaries"
+}

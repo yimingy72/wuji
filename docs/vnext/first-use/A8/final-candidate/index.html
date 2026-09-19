@@ -1,0 +1,14 @@
+<!doctype html><meta charset="utf-8"><title>A8 fixed candidate observations</title>
+<style>body{font:15px system-ui;margin:28px;max-width:1150px;color:#15273b}pre{background:#eef3f7;padding:15px;white-space:pre-wrap;font:13px monospace}h2{margin-top:25px}</style>
+<h1>A8 · Fixed candidate 5cdbd170 · 2026-09-19</h1>
+<p>Independent Python suite and targeted seam observations. Not the Wuji product UI; DG1–DG3 not run.</p>
+<div id="output">Loading actual retained outputs…</div>
+<script>
+(async()=>{
+const out=document.getElementById('output');out.textContent='';
+for(const file of ['python-suite-01/stdout.txt','seams-01/stdout.txt','seams-02/stdout.txt','seams-01/wire-incomplete-binding.json','seams-01/cancel-recovery-write.json']){
+ const text=await(await fetch(file)).text(); const title=document.createElement('h2');title.textContent=file;out.append(title);const pre=document.createElement('pre');pre.textContent=text;out.append(pre);
+}
+document.documentElement.dataset.loaded='true';
+})();
+</script>

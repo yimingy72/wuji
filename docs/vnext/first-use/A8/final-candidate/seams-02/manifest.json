@@ -1,0 +1,14 @@
+{
+  "candidate_sha": "5cdbd170939f1d2e410868ab591381331f5cdba9",
+  "command": "/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/packages/maf-worker/.venv/bin/python -m pytest tests/first_use/test_candidate_seams.py -q --tb=short -ra --junitxml=docs/vnext/first-use/A8/final-candidate/seams-02/junit.xml",
+  "PYTHONPATH": "packages/wuji-core/src:packages/maf-worker/src:packages/task-runtime/src:tests/vnext",
+  "WUJI_A8_SEAM_EVIDENCE": "docs/vnext/first-use/A8/final-candidate/seams-02",
+  "exit_code": 1,
+  "observed": "3 failed, 1 passed in 4.10s",
+  "supersedes": "seams-01 budget assertion after second tick only; original observations preserved",
+  "passing_case": "explicit LaunchUnknown adapter; first tick reconciling, observe GET same key, no second POST, ready after recovery",
+  "production_mapping_case": "direct ProductionLaunchProvisioner.prepare still raises TaskBudgetUnavailable instead of LaunchUnknown",
+  "real_kubernetes": false,
+  "real_provider": false,
+  "claims_full_case_acceptance": false
+}

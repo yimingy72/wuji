@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="3" skipped="0" tests="4" time="1.949" timestamp="2026-09-19T18:10:55.557214+08:00" hostname="MacBook-Pro-4.local"><testcase classname="tests.first_use.test_candidate_seams" name="test_lost_budget_response_remains_reconcilable_in_real_launch_worker" time="1.274" /><testcase classname="tests.first_use.test_candidate_seams" name="test_production_prepare_maps_unknown_budget_to_launch_unknown" time="0.006"><failure message="AssertionError: the production adapter must translate ambiguous budget operations into the launch recovery protocol&#10;assert False&#10; +  where False = isinstance(TaskBudgetUnavailable('gateway_budget_unknown'), LaunchUnknown)">tests/first_use/test_candidate_seams.py:129: in test_production_prepare_maps_unknown_budget_to_launch_unknown
+    assert isinstance(actual_error, LaunchUnknown), "the production adapter must translate ambiguous budget operations into the launch recovery protocol"
+E   AssertionError: the production adapter must translate ambiguous budget operations into the launch recovery protocol
+E   assert False
+E    +  where False = isinstance(TaskBudgetUnavailable('gateway_budget_unknown'), LaunchUnknown)</failure></testcase><testcase classname="tests.first_use.test_candidate_seams" name="test_wire_observation_does_not_accept_pod_without_gate_binding" time="0.002"><failure message="AssertionError: a ready Pod cannot prove the separate Gate ConfigMap update succeeded&#10;assert 'ready' != 'ready'">tests/first_use/test_candidate_seams.py:149: in test_wire_observation_does_not_accept_pod_without_gate_binding
+    assert observed["status"] != "ready", "a ready Pod cannot prove the separate Gate ConfigMap update succeeded"
+E   AssertionError: a ready Pod cannot prove the separate Gate ConfigMap update succeeded
+E   assert 'ready' != 'ready'</failure></testcase><testcase classname="tests.first_use.test_candidate_seams" name="test_cancelled_prepare_observation_does_not_invoke_prepare_again" time="0.002"><failure message="AssertionError: stop reconciliation must not re-enter mutating prepare&#10;assert ['prepare'] == []&#10;  &#10;  Left contains one more item: 'prepare'&#10;  Use -v to get more diff">tests/first_use/test_candidate_seams.py:172: in test_cancelled_prepare_observation_does_not_invoke_prepare_again
+    assert calls == [], "stop reconciliation must not re-enter mutating prepare"
+E   AssertionError: stop reconciliation must not re-enter mutating prepare
+E   assert ['prepare'] == []
+E     
+E     Left contains one more item: 'prepare'
+E     Use -v to get more diff</failure></testcase></testsuite></testsuites>

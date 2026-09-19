@@ -1,0 +1,27 @@
+{
+  "candidate_sha": "5cdbd170939f1d2e410868ab591381331f5cdba9",
+  "scope": "Python tests/vnext full suite",
+  "command": [
+    "/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/vnext-maf/packages/maf-worker/.venv/bin/python",
+    "-m",
+    "pytest",
+    "tests/vnext",
+    "-q",
+    "--tb=short",
+    "-ra",
+    "--junitxml=/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/first-use-verify/docs/vnext/first-use/A8/final-candidate/python-suite-01/junit.xml"
+  ],
+  "cwd": "/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/first-use-verify",
+  "PYTHONPATH": "packages/wuji-core/src:packages/maf-worker/src:packages/task-runtime/src:tests/vnext",
+  "started_at": "2026-09-19T09:47:02.991441+00:00",
+  "exit_code": 1,
+  "record_type": "process_result_not_product_acceptance",
+  "implicit_skips_added": false,
+  "elapsed_seconds": 757.959,
+  "ended_at": "2026-09-19T09:59:40.956183+00:00",
+  "head_after": "5cdbd170939f1d2e410868ab591381331f5cdba9",
+  "output_sha256": {
+    "stdout.txt": "387cd23abc7f9075c71bf2eb0619ce506bc4e6f75ae460ed5158c8ad94c125e2",
+    "stderr.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}
