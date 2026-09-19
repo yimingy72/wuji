@@ -333,6 +333,11 @@ def test_openapi_publishes_the_complete_s13_route_set() -> None:
 
     assert set(openapi["paths"]) == {
         "/api/v2/tasks",
+        "/api/v2/projects/{project_id}/task-options",
+        "/api/v2/tasks/{task_id}",
+        "/api/v2/tasks/{task_id}/readiness",
+        "/api/v2/tasks/{task_id}/launch",
+        "/api/v2/tasks/{task_id}/artifacts/{artifact_id}/material",
         "/api/v2/tasks/{task_id}/commands",
         "/api/v2/tasks/{task_id}/claims/proposals",
         "/api/v2/tasks/{task_id}/intents/proposals",

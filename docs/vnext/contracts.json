@@ -4,7 +4,7 @@
     "assignment": "wuji.assignment.v2",
     "result_envelope": "wuji.result-envelope.v2",
     "agent_payload": "wuji.agent-payload.v2",
-    "view_event": "wuji.view-event.v2",
+    "view_event": "wuji.view-event.v3",
     "view_reset": "wuji.view-reset.v2",
     "capture": "wuji.capture.v2"
   },
@@ -416,6 +416,7 @@
     "ViewEventBatch": [
       "schema_version",
       "view_id",
+      "snapshot_id",
       "base_view_revision",
       "view_revision",
       "cursor",

@@ -30,6 +30,7 @@ _REVISION = re.compile(r"^[1-9][0-9]{0,30}$")
 _ALLOWED_INPUT = frozenset({
     "task_id", "operation_id", "definition_digest", "profile_digest",
     "attempt", "epoch", "phase", "external_ref", "observed_runtime_uid",
+    "allow_repair",
 })
 _FORBIDDEN_INPUT = frozenset({
     "secret", "secret_value", "token", "password", "api_key", "authorization",
@@ -59,6 +60,7 @@ class LaunchInput:
     phase: str | None = None
     external_ref: str | None = None
     observed_runtime_uid: str | None = None
+    allow_repair: bool = False
 
     @property
     def attempt_int(self) -> int | None:
@@ -74,6 +76,8 @@ class LaunchInput:
             raise LaunchAdapterError("INVALID_SCHEMA", 422)
         keys = set(value)
         if keys & _FORBIDDEN_INPUT or not keys <= _ALLOWED_INPUT:
+            raise LaunchAdapterError("INVALID_SCHEMA", 422)
+        if type(value.get("allow_repair", False)) is not bool or (value.get("allow_repair") and phase != "observe"):
             raise LaunchAdapterError("INVALID_SCHEMA", 422)
         declared_phase = value.get("phase")
         if phase == "observe":
@@ -123,6 +127,7 @@ class LaunchInput:
             epoch=epoch, phase=declared_phase or phase,
             external_ref=value.get("external_ref") or value["operation_id"],
             observed_runtime_uid=value.get("observed_runtime_uid"),
+            allow_repair=value.get("allow_repair", False),
         )
 
     def external_ref_for(self, action: str) -> str:
@@ -518,7 +523,7 @@ class ProductionLaunchProvisioner:
     def _row(self, connection, task_id):
         task_launch = self._task_launch()
         value = connection.execute(
-            "SELECT definition_json, definition_digest, runtime_attempt, execution_epoch, control_version, activated_at"
+            "SELECT definition_json, definition_digest, runtime_attempt, execution_epoch, control_version, activated_at, desired_state, observed_state"
             " FROM vnext.task WHERE tenant_id=%s AND project_id=%s AND task_id=%s",
             self._owner(task_id),
         ).fetchone()
@@ -529,6 +534,7 @@ class ProductionLaunchProvisioner:
             "definition": strict_json_loads(value[0]), "definition_digest": value[1],
             "runtime_attempt": int(value[2]), "execution_epoch": int(value[3]),
             "control_version": str(value[4]), "activated_at": value[5],
+            "desired_state": value[6], "observed_state": value[7],
         }
 
     def _binding(self, request, connection, *, pod_uid=None):
@@ -579,7 +585,10 @@ class ProductionLaunchProvisioner:
         connection = task_launch.owner_connection(self.config)
         budget_metadata = None
         try:
-            selected = self._row(connection, request.task_id)["definition"]
+            task = self._row(connection, request.task_id)
+            if task["desired_state"] in {"cancel", "finish"} or task["observed_state"] == "closed":
+                raise LaunchAdapterError("STALE_EXECUTION", 409)
+            selected = task["definition"]
             if (task_launch.configured_evaluation_mode(self.config) == "real_model"
                     and selected["task"].get("external_analysis_approved") is not True):
                 raise LaunchAdapterError("CAPABILITY_UNAVAILABLE", 503)
@@ -721,7 +730,7 @@ class ProductionLaunchProvisioner:
             )
         return actions, config
 
-    def _update_configmaps(self, request, binding):
+    def _update_configmaps(self, request, binding, *, write=True):
         task_launch = self._task_launch()
         names = task_launch.task_service_names(request.task_id)
         runtime_entry = {
@@ -757,9 +766,28 @@ class ProductionLaunchProvisioner:
         runtime["data"]["deployment.json"] = _canonical(runtime_doc).decode()
         runtime["data"]["profiles.json"] = _canonical(profiles_doc).decode()
         gates["data"]["deployment.json"] = _canonical(gates_doc).decode()
-        self.store.replace("runtime-config", runtime)
-        self.store.replace("gates-config", gates)
+        if write:
+            if runtime_action != "unchanged" or profile_action != "unchanged":
+                self.store.replace("runtime-config", runtime)
+            if gate_action != "unchanged":
+                self.store.replace("gates-config", gates)
         return {"runtime": runtime_action, "profiles": profile_action, "gates": gate_action}
+
+    def _wire_complete(self, request, binding):
+        """A Pod alone does not prove the separate configuration writes landed."""
+        try:
+            actions = self._update_configmaps(request, binding, write=False)
+            if any(value != "unchanged" for value in actions.values()):
+                return False
+            task_launch = self._task_launch()
+            config = task_launch.attempt_config(binding)
+            for name in task_launch.task_service_names(binding["task_id"]).values():
+                service = self.options["core_api"].read_namespaced_service(name, self.options["namespace"])
+                if service.spec.selector != config.identity_labels:
+                    return False
+            return True
+        except (KeyError, TypeError, AttributeError, LaunchAdapterError):
+            return False
 
     def _pod_observation(self, config, expected_uid=None):
         core, namespace = self.options["core_api"], self.options["namespace"]
@@ -804,6 +832,9 @@ class ProductionLaunchProvisioner:
         try:
             if request.phase == "prepare":
                 prepared = self._row(connection, request.task_id)
+                may_repair = (getattr(request, "allow_repair", False)
+                              and prepared.get("desired_state") not in {"cancel", "finish"}
+                              and prepared.get("observed_state") != "closed")
                 # create_task's original five-field jsonb body remains fixed.
                 # Finalization adds trusted runtime fields and changes encoding;
                 # reconstructing the DB-native original binds a lost response
@@ -839,9 +870,13 @@ class ProductionLaunchProvisioner:
                         "prepared_profile_digest": current_profile,
                     }
                 if admission is None or executor is None:
-                    # Every prepare producer has a stable Task/ref/key. There
-                    # is no model/target request in this reconciliation path.
-                    return self.prepare(request)
+                    if may_repair:
+                        # Explicit active recovery only; prepare rechecks the
+                        # current Task and reconciles the same key before writes.
+                        return self.prepare(request)
+                    return {"status": "unknown", "phase_status": "reconciling",
+                            "external_ref": request.external_ref,
+                            "reason_code": "prepare_incomplete_readonly"}
                 return {
                     "status": "ready", "phase_status": "succeeded",
                     "external_ref": request.external_ref,
@@ -852,8 +887,25 @@ class ProductionLaunchProvisioner:
                     "execution_epoch": prepared["execution_epoch"],
                 }
             binding = self._binding(request, connection)
+            if not self._wire_complete(request, binding):
+                if getattr(request, "allow_repair", False):
+                    task = self._row(connection, request.task_id)
+                    if task["desired_state"] == "run" and task["observed_state"] != "closed":
+                        # Stable resource names and per-Task CAS merges repair
+                        # only missing steps, never roll shared deployments.
+                        repaired = self.wire(request)
+                        if request.phase != "capability" or repaired.get("status") != "ready":
+                            return repaired
+                        # Capability is its own phase, not implied by repaired
+                        # routing. Continue through UID-bound publication below.
+                    else:
+                        return {"status": "unknown", "phase_status": "reconciling",
+                                "external_ref": request.external_ref, "reason_code": "wire_incomplete"}
+                else:
+                    return {"status": "unknown", "phase_status": "reconciling",
+                            "external_ref": request.external_ref, "reason_code": "wire_incomplete"}
             state = self._pod_observation(task_launch.attempt_config(binding), request.observed_runtime_uid)
-            if request.phase == "capability" and state["status"] == "ready":
+            if request.phase == "capability" and state["status"] == "ready" and getattr(request, "allow_repair", False):
                 if request.observed_runtime_uid is None:
                     raise LaunchAdapterError("STALE_EXECUTION", 409)
                 binding["pod_uid"] = state["pod_uid"]

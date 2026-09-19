@@ -673,6 +673,7 @@ class LaunchWorker:
                             "profile_digest": job.get("profile_digest"),
                             "external_ref": step.get("external_ref") or job["operation_id"],
                             "observed_runtime_uid": self._runtime_uid(job),
+                            "allow_repair": True,
                         },
                     )
                 elif phase == "activate":

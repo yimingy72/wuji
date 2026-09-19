@@ -15,10 +15,19 @@ import re
 import secrets
 
 import httpx
+from wuji_core.execution.launch import LaunchUnknown
 
 
 class TaskBudgetUnavailable(RuntimeError):
     code = "CAPABILITY_UNAVAILABLE"
+
+
+class TaskBudgetUnknown(TaskBudgetUnavailable, LaunchUnknown):
+    """A management response was lost; the original stable key must be read."""
+
+    def __init__(self, reason_code):
+        self.reason_code = reason_code
+        super().__init__(reason_code)
 
 
 def task_key_filename(tenant_id: str, task_id: str) -> str:
@@ -83,7 +92,7 @@ class KubernetesTaskKeyStore:
                 if getattr(error, "status", None) != 409:
                     # A lost response is recovered by reading the same Secret,
                     # never by assuming a different newly generated key won.
-                    raise TaskBudgetUnavailable("task_key_write_unknown") from None
+                    raise TaskBudgetUnknown("task_key_write_unknown") from None
         raise TaskBudgetUnavailable("task_key_write_conflict")
 
 
@@ -120,12 +129,14 @@ class NativeTaskBudget:
             with self.client.stream(method, path, json=body, params=params) as response:
                 if missing and response.status_code == 404:
                     return None
+                if response.status_code >= 500:
+                    raise TaskBudgetUnknown("gateway_budget_unknown")
                 if not 200 <= response.status_code < 300:
                     raise TaskBudgetUnavailable("gateway_budget_rejected")
                 raw = bytearray()
                 for chunk in response.iter_bytes():
                     if len(raw) + len(chunk) > 65_536:
-                        raise TaskBudgetUnavailable("gateway_budget_response_limit")
+                        raise TaskBudgetUnknown("gateway_budget_response_limit")
                     raw.extend(chunk)
             from wuji_core.http import strict_json_loads
             result = strict_json_loads(bytes(raw))
@@ -133,7 +144,7 @@ class NativeTaskBudget:
                 raise ValueError
             return result
         except (httpx.HTTPError, OSError, ValueError):
-            raise TaskBudgetUnavailable("gateway_budget_unknown") from None
+            raise TaskBudgetUnknown("gateway_budget_unknown") from None
 
     def ensure(self, *, task_id, tenant_id, model_alias, budget_usd):
         if not isinstance(model_alias, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,254}", model_alias):
@@ -156,7 +167,7 @@ class NativeTaskBudget:
             result = self._request("GET", "/key/info", params={"key": key_hash})
         info = result.get("info", result)
         if not isinstance(info, dict):
-            raise TaskBudgetUnavailable("gateway_budget_unknown")
+            raise TaskBudgetUnknown("gateway_budget_unknown")
         recorded_metadata = info.get("metadata")
         if (
             not isinstance(recorded_metadata, dict)
