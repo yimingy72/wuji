@@ -1,0 +1,22 @@
+{
+  "core_source_revision": "af36be86c3aedc20f11fcfd5e1d2853ecf1c66ea",
+  "agent": {"id": "sha256:6d4a02cd48876c08102c7cc1f14babee5d7fd9b0790bc0e282b046f9bf7d7110", "reference": "127.0.0.1:55529/wuji-vnext-agent@sha256:830b146e875c0489597b957daffbc8ee62ec9a4def61c6184be0c36d8a3e1444"},
+  "kali": {"id": "sha256:865e3e0868937f83387af5f9702acfd38083bc36f84bb658fd7ee3beededf3d2", "reference": "127.0.0.1:55529/wuji-vnext-kali@sha256:6e2d52a5fa55c24df58a3c4490376f58618d7dc46efa8b1e8ae56c8a2dcc038e"},
+  "platform": {"id": "sha256:ec59d77054ad280a3f7f0cfe9979a39d0a20bc1575f71fac3a9de3b55d54a0bd", "reference": "127.0.0.1:55529/wuji-vnext-platform@sha256:85ed686f0e802b015c851f591db938863138430329ff1f6176e57c714849f56b"},
+  "web": {
+    "id": "sha256:58035e2c9e59fe2f533b628a4cf06c6402ffa8df751b170975b2db988796b89f",
+    "reference": "127.0.0.1:55529/wuji-web@sha256:e84b4f467ea1ce5f12c1f761e0662844fe6b8e2021be8ec98f3b25242cd02925",
+    "compiled_asset_source_revision": "5cdbd170939f1d2e410868ab591381331f5cdba9",
+    "nginx_overlay_recipe_revision": "a28c887d82660c9e0e66fc563d37e785c48f10be",
+    "nginx_overlay_recipe": "ops/vnext/images/Dockerfile.web-permissions"
+  },
+  "litellm": {
+    "id": "sha256:a74c00ff2e265b3d73e49216a08b078127d38b57f66fa1a74c33dc0ad6cfb4bb",
+    "reference": "127.0.0.1:55529/wuji-first-use-litellm@sha256:11c59c67f03f4012d9000d210147ace1e0058144962d2301db916517c4494c1d",
+    "namespace": "wuji-first-use-model",
+    "manifest_sha256": "ffa12d785726eb449e4aabc0c225dafa2c9ce6019248afb9ef71b5cd7eef1d25"
+  },
+  "migration": "vnext_0029_first_use_launch",
+  "mechanism_catalog_job": "first-use-catalog-mechanism-af36be86-5efb0f49",
+  "mechanism_catalog_config_digest": "454f3f6af15224330a39db777c65af8a51e5c722de0f71216f1d0a3419b664fe"
+}

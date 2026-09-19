@@ -5,7 +5,7 @@
 | 关口 | 当前状态 | 证据要求 |
 | --- | --- | --- |
 | DG0 代码与合同 | 初次 fail；修复复核中 | 生成合同、定向权限/状态检查、A8 独立复核 |
-| DG1 机制首用 | not_run | 固定版本、真 PostgreSQL/服务/MAF、自建目标/合成上游、浏览器创建到停止 |
+| DG1 机制首用 | in-progress；部署/登录局部通过，尚未创建新Task | 固定版本、真 PostgreSQL/服务/MAF、自建目标/合成上游、浏览器创建到停止 |
 | DG2 DeepSeek | not_run | 有效预算/数据许可、真实供应商原生工具往返、正文/usage/费用证据 |
 | DG3 用户现场 | not_run | 明确获准单实例/安全入口、同构建配置、真实工具与停止证据 |
 
@@ -26,3 +26,5 @@
 2026-09-19 继续部署：用户批准清理未使用构建缓存并重启 Docker，磁盘阻塞解除（约25 GiB可用），未删除镜像/容器/数据卷。仓库 VM-loopback 端口从56615变为55529；已有 LiteLLM 镜像重推 exit0，固定 digest `f6bd15c3e189ae2f4c8215f0233770e76c3cf1f94b3a3582877add2dde18ff24`。实际启动发现并定向处理2Gi OOM、Prisma根证书参数和叶证书AKI缺失；SQL迁移已执行到独立网关数据库，严格 HTTPS readiness 在13:14:34 UTC返回200、`{"status":"healthy","db":"connected"}`。本轮网关脚本定向测试最近一次6 passed / exit0，未重跑完整套件。仍存在Prisma0.15初连适配错误，兼容版本构建中；不能用readiness替代预算/模型/首用验收。
 
 当前平台标准构建在GHCR uv层下载约366秒持续0字节后由A0中断，命令exit1及原日志保留于 `work/vnext/k8s/build-fe6_k5hy/`；未安装或运行旧核心代替新实现。新增网关部署不等于整个平台发布：0029仍未上Wuji数据库，旧工作台未滚动，没有创建执行Task、真实模型调用或现场请求。用户已将现场替换为 `http://39.102.208.182`，见[授权记录](../../vnext/first-use/authorization.md)。网关补充截图采集被应用安全限制拒绝，缺项如实保留，不生成替代截图；本段为实施日志，不是已满足双证据的验收成果。
+
+以上为继续部署早期截面；后续实际结果由[2026-09-19部署检查](../../vnext/first-use/deployment-20260919/README.md)接替：核心镜像固定 `af36be86`、0029已应用、机制目录发布成功，7个Deployment Ready/digest核对通过；正式工作台可登录和读取Task目录。LiteLLM已迁往独立namespace，旧provider副本已收回，Launch跨namespace读取被RBAC拒绝。此前失败Job/镜像均保留；新完整HTTP和真实CUA截图归档于该目录。DG1完整链、DG2和DG3仍未通过；浏览器新建表单仅填好，原生日期控件等待用户设置，尚无新的首用Task。
