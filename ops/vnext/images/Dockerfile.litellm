@@ -9,6 +9,17 @@ WORKDIR /opt/litellm
 RUN python -m venv --copies /opt/litellm/.venv \
     && /opt/litellm/.venv/bin/python -m pip install --no-cache-dir 'litellm[proxy]==1.100.0'
 
+# The proxy extra alone does not install its optional persistent-DB client.
+# Generate from the package's own schema at build time, without a DB or key.
+ENV PRISMA_BINARY_CACHE_DIR=/opt/litellm/prisma-cache \
+    PRISMA_NODEENV_CACHE_DIR=/opt/litellm/prisma-nodeenv \
+    PATH=/opt/litellm/.venv/bin:$PATH
+COPY ops/vnext/images/litellm-prisma.toml /opt/litellm/pyproject.toml
+RUN /opt/litellm/.venv/bin/python -m pip install --no-cache-dir 'prisma==0.15.0' \
+    && /opt/litellm/.venv/bin/prisma generate \
+       --schema /opt/litellm/.venv/lib/python3.13/site-packages/litellm_proxy_extras/schema.prisma \
+    && /opt/litellm/.venv/bin/python -c "from prisma import Prisma; from importlib.metadata import version; assert version('prisma') == '0.15.0'"
+
 COPY ops/vnext/litellm_hooks.py /opt/litellm/ops/vnext/litellm_hooks.py
 COPY templates/LITELLM_GATEWAY_DEEPSEEK.example.yaml /opt/litellm/config.yaml
 

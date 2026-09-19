@@ -46,6 +46,10 @@ IMAGE = (
     "127.0.0.1:56615/wuji-first-use-litellm@"
     "sha256:ff399bcda3d2b0ed0afd1f57ffd3af82ce45645775506507c553c8ed93fd206d"
 )
+# The original fixed image lacks the persistent Prisma client. Its replacement
+# has been built locally, but registry publication failed when the host filled.
+# Replace IMAGE with its verified RepoDigest before enabling this operator CLI.
+PERSISTENCE_IMAGE_READY = False
 CONFIG_TEMPLATE = ROOT / "templates" / "LITELLM_GATEWAY_DEEPSEEK.example.yaml"
 LAST_APPLIED = "kubectl.kubernetes.io/last-applied-configuration"
 
@@ -130,7 +134,6 @@ def render_manifests(config_text: str | None = None) -> list[dict[str, Any]]:
                     "secretKeyRef": {"name": PRIVATE_SECRET, "key": "database.url"}
                 },
             },
-            {"name": "HOME", "value": "/tmp/litellm-home"},
             {"name": "TMPDIR", "value": "/tmp"},
             {"name": "LITELLM_TELEMETRY", "value": "False"},
             {"name": "DO_NOT_TRACK", "value": "1"},
@@ -748,6 +751,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
     try:
+        if args.execute and not PERSISTENCE_IMAGE_READY:
+            raise DeploymentError("persistent_image_not_published",
+                                  "the persistent gateway image is built but not published; deployment is blocked")
         result = (
             GatewayDeployer(
                 KubernetesClient(), args.ca_directory or default_ca_directory()

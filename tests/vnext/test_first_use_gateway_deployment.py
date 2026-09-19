@@ -19,6 +19,13 @@ from cryptography.x509.oid import NameOID
 import pytest
 
 
+def test_execute_refuses_unpublished_persistent_image_without_cluster_calls(monkeypatch, capsys):
+    monkeypatch.setattr(gateway, "PERSISTENCE_IMAGE_READY", False)
+    monkeypatch.setattr(gateway.GatewayDeployer, "reconcile", lambda self: pytest.fail("unpublished image touched the cluster"))
+    assert gateway.main(["--execute"]) == 1
+    assert json.loads(capsys.readouterr().out)["error"] == "persistent_image_not_published"
+
+
 ROOT = Path(__file__).resolve().parents[2]
 SPEC = importlib.util.spec_from_file_location(
     "first_use_gateway_deployment",

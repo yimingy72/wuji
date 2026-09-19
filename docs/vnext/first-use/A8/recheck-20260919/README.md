@@ -27,9 +27,9 @@
 
 预算恢复用例中的 PostgreSQL、签名 Task API、Launch 状态机和 NativeTaskBudget 是真实实现；预算上游是明确的合成 HTTP transport。Production budget 分类、Wire 与 CancelledPrepare 用例调用真实生产控制流，但数据库、ConfigMap、Service、Pod 是记录型边界，不能称为真 PostgreSQL或真 Kubernetes。没有执行真实 K8s、模型供应商、收费调用或目标访问。
 
-![真实 pytest 输出的静态终端画布渲染截图](screenshots/a8-recheck-results.png)
+![辅助日志可视化（不是验证截图）](screenshots/a8-recheck-results.png)
 
-截图说明：内置浏览器安全策略拒绝本地 `file://`，原生 Terminal 也不允许计算机控制工具访问；因此没有绕过限制，而是把已保存的真实 stdout 原文渲染为 1440×900 PNG。SVG 渲染源一并保留于 `screenshots/a8-recheck-results.svg`。
+截图缺项（A0 集成纠正）：上图是 SVG 派生的日志可视化，不是真实验证截图，不计入用户要求的截图证据。原始 stdout/JUnit/HTTP 结果仍有效；本报告的截图交付尚未满足。2026-09-19 A0 补采时首先遇到宿主机磁盘耗尽，回收本轮临时工作树后，内置浏览器访问仅含本报告的本机 HTTP 服务仍返回 `net::ERR_BLOCKED_BY_CLIENT`。没有绕过浏览器策略。需要获准可用的截图入口后补采，不能以该生成 PNG 代替。
 
 [完整脱敏 HTTP 请求/响应包](http-reproduction.md)包含 Task API 的方法、URL、Headers、请求体和响应体，以及明确标为合成网关的预算丢响应序列；没有把 synthetic 冒充真实服务。
 

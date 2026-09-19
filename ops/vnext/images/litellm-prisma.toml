@@ -1,0 +1,4 @@
+# Public Prisma configuration. TOML preserves list types with this fixed
+# client's Pydantic v2 loader; no SDK implementation is patched.
+[tool.prisma]
+nodeenv_extra_args = ["--node=24.20.0"]

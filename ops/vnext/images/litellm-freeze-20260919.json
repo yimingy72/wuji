@@ -1,0 +1,31 @@
+{
+  "schema_version": "wuji.litellm.image-freeze.v1",
+  "local_tag": "wuji-first-use-litellm:1.100.0-prisma",
+  "image_id": "sha256:3eaab6bceb366c951c67632ab727d13d926442bf83596d2149ceda680db74ad9",
+  "status": "built_locally_registry_publication_failed",
+  "replaces_for_persistent_db": "litellm-freeze-20260918.json",
+  "vendor_packages": {"litellm": "1.100.0", "litellm-proxy-extras": "0.4.91", "prisma": "0.15.0"},
+  "prisma_cli": "5.17.0",
+  "prisma_engine": "393aa359c9ad4a4bb28630fb5613f9c281cde053",
+  "node": "24.20.0",
+  "architecture": "arm64",
+  "client_generated": true,
+  "schema_source": "installed litellm_proxy_extras/schema.prisma, unmodified",
+  "configuration_source": "public tool.prisma TOML, no SDK private patch",
+  "readonly_root_smoke": {
+    "uid": 10001,
+    "prisma_import": "pass",
+    "prisma_version_command": "exit_0",
+    "database_connected": false
+  },
+  "publication": {
+    "destination": "127.0.0.1:56615/wuji-first-use-litellm:1.100.0-prisma",
+    "exit_code": 1,
+    "last_error": "received unexpected HTTP status: 500 Internal Server Error",
+    "concurrent_host_error": "No space left on device",
+    "repo_digest": null
+  },
+  "deployed": false,
+  "real_provider_calls": 0,
+  "task_budget_tested": false
+}
