@@ -145,7 +145,7 @@ def require_http_target_role(tx, work):
     """Repeat Scheduler's role/mode/fixture decision at ToolAdmission."""
 
     try:
-        allowed = http_target_allowed(task_definition(tx), work.get("kind"))
+        allowed = http_target_allowed(task_definition(tx), work.get("kind"), allow_legacy=True)
     except ValueError as error:
         raise DomainError("CAPABILITY_UNAVAILABLE", 503) from error
     if not allowed:

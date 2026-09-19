@@ -107,7 +107,7 @@ def mechanism_http_origins(definition) -> tuple[str, ...]:
     return origins
 
 
-def http_target_allowed(definition, work_kind: str) -> bool:
+def http_target_allowed(definition, work_kind: str, *, allow_legacy: bool = False) -> bool:
     """Whether this exact frozen Task/work role may use an HTTP target tool."""
 
     if work_kind != "explore" or not isinstance(definition, dict):
@@ -117,6 +117,7 @@ def http_target_allowed(definition, work_kind: str) -> bool:
         return True
     if mode == "mechanism_synthetic":
         return bool(mechanism_http_origins(definition))
-    # Definitions predating evaluation_mode retain their existing target-tool
-    # behavior.  A launched mechanism Task always freezes its explicit mode.
-    return mode is None
+    # ToolAdmission historically accepted an explicit old permit without this
+    # field. Scheduler did not issue HTTP assignments for those definitions;
+    # never broaden that dispatch authority while preserving old permit reads.
+    return allow_legacy and mode is None

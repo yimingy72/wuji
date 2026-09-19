@@ -209,7 +209,7 @@ def test_scheduler_refuses_a_target_tool_on_reason_or_a_mechanism_task(
 def test_scheduler_refuses_a_target_tool_for_a_mechanism_task(
     db_environment, tmp_path, audit_directory
 ):
-    """A mechanism Task keeps the loopback fixture: no target tool, ever."""
+    """An unconfigured mechanism Task gets no target tool."""
 
     with scheduler_case(
         db_environment, tmp_path, audit_directory, evaluation_mode="mechanism_synthetic"

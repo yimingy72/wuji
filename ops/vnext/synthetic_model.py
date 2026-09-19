@@ -767,7 +767,10 @@ def first_use_reason_payload(context, instructions):
             },
             limitations=["no synthetic result was invented"],
         )
-    entry = http_url(instructions)
+    start_points = START_POINTS.search(instructions)
+    if start_points is None:
+        raise ValueError("the frozen Task start points were not delivered")
+    entry = http_url(start_points.group(1))
     return payload(
         intent_proposals=[first_use_intent(entry, ())],
         reason_decision={

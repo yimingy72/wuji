@@ -420,10 +420,16 @@ def first_use_request(*, role, records, tool_result=None, start="/f1/entry"):
 
 
 def test_synthetic_first_use_is_reason_first_and_copies_the_frozen_entry_url():
-    step = peer.decision(first_use_request(role="reason", records=[]))
+    request_body = first_use_request(role="reason", records=[], start="/f1/entry?view=summary")
+    # The real frozen instructions list scope before start points. Do not lose
+    # path/query by copying the first HTTP-looking origin in the prompt.
+    request_body["messages"][0]["contents"][0]["text"] = (
+        "authorized scope: " + FIRST_USE_ORIGIN + "\n" + request_body["messages"][0]["contents"][0]["text"]
+    )
+    step = peer.decision(request_body)
     assert step["kind"] == "payload"
     proposal = step["document"]["intent_proposals"][0]
-    assert FIRST_USE_ORIGIN + "/f1/entry" in proposal["question"]
+    assert FIRST_USE_ORIGIN + "/f1/entry?view=summary" in proposal["question"]
     assert proposal["basis_refs"] == []
 
 
