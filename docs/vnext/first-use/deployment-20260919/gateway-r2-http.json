@@ -1,0 +1,21 @@
+{
+  "evidence_status": "raw_capture_only_screenshot_pending",
+  "observer": "A0; not independent A8 execution",
+  "code_revision": "054b2bc",
+  "image": "127.0.0.1:55529/wuji-first-use-litellm@sha256:11c59c67f03f4012d9000d210147ace1e0058144962d2301db916517c4494c1d",
+  "execution_location": "kubectl exec deployment/first-use-litellm, namespace wuji-vnext-test",
+  "transport": "Python 3.13 urllib with ssl.create_default_context(cafile=/run/wuji/tls/ca.crt); strict verification, no bypass",
+  "scope": "read-only local gateway health and key inventory; no Task key creation, target or inference request",
+  "exchanges": [
+    {
+      "request": {"method": "GET", "url": "https://first-use-litellm.wuji-vnext-test.svc:4000/health/readiness", "headers": {"Accept": "application/json", "Host": "first-use-litellm.wuji-vnext-test.svc:4000", "User-agent": "Python-urllib/3.13"}, "body": ""},
+      "response": {"status": 200, "headers": {"Connection": "close", "content-length": "37", "content-security-policy": "frame-ancestors 'none'", "content-type": "application/json", "date": "Sat, 19 Sep 2026 13:24:35 GMT", "server": "uvicorn", "x-content-type-options": "nosniff", "x-frame-options": "DENY"}, "body": "{\"status\":\"healthy\",\"db\":\"connected\"}"}
+    },
+    {
+      "request": {"method": "GET", "url": "https://first-use-litellm.wuji-vnext-test.svc:4000/key/list", "headers": {"Accept": "application/json", "Authorization": "Bearer <gateway-management-secret>", "Host": "first-use-litellm.wuji-vnext-test.svc:4000", "User-agent": "Python-urllib/3.13"}, "body": ""},
+      "response": {"status": 200, "headers": {"Connection": "close", "content-length": "60", "content-security-policy": "frame-ancestors 'none'", "content-type": "application/json", "date": "Sat, 19 Sep 2026 13:24:35 GMT", "server": "uvicorn", "x-content-type-options": "nosniff", "x-frame-options": "DENY"}, "body": "{\"keys\":[],\"total_count\":0,\"current_page\":1,\"total_pages\":0}"}
+    }
+  ],
+  "redaction": "Only Authorization replaced; neither response body truncated. Management token remains in trusted Kubernetes Secret.",
+  "does_not_prove": ["Task budget persistence", "DG1", "DG2", "DG3", "new gateway namespace isolation"]
+}
