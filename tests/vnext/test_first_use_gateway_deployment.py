@@ -216,6 +216,16 @@ def test_manifest_is_reproducible_tls_only_and_provider_isolated():
         "path": "/health/readiness",
         "port": "https",
     }
+    assert container["startupProbe"] == {
+        "httpGet": {
+            "scheme": "HTTPS",
+            "path": "/health/liveliness",
+            "port": "https",
+        },
+        "periodSeconds": 5,
+        "timeoutSeconds": 3,
+        "failureThreshold": 120,
+    }
     assert container["livenessProbe"]["httpGet"] == {
         "scheme": "HTTPS",
         "path": "/health/liveliness",

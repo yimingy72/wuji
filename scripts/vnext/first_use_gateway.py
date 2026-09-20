@@ -195,6 +195,12 @@ def render_manifests(config_text: str | None = None) -> list[dict[str, Any]]:
             "timeoutSeconds": 3,
             "failureThreshold": 12,
         },
+        "startupProbe": {
+            "httpGet": {"scheme": "HTTPS", "path": "/health/liveliness", "port": "https"},
+            "periodSeconds": 5,
+            "timeoutSeconds": 3,
+            "failureThreshold": 120,
+        },
         "livenessProbe": {
             "httpGet": {"scheme": "HTTPS", "path": "/health/liveliness", "port": "https"},
             "initialDelaySeconds": 60,
