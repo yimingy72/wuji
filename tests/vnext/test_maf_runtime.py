@@ -118,6 +118,59 @@ def test_toolless_model_request_may_omit_tool_controls():
         asyncio.run(tool_identity.request(request_with_tools))
 
 
+def test_invalid_unread_reference_is_rejected_once_without_duplicate_artifacts(
+    db_environment, tmp_path, audit_directory
+):
+    with m1_case(db_environment, tmp_path, audit_directory) as case:
+        raw = canonical_json_bytes(
+            {
+                "schema_version": "wuji.agent-payload.v2",
+                "claims": [],
+                "intent_proposals": [
+                    {
+                        "client_ref": "unread",
+                        "question": "Read the authorised entry.",
+                        "basis_refs": [
+                            {
+                                "entity_type": "origin",
+                                "id": "not-in-the-delivered-read-set",
+                                "revision": "1",
+                            }
+                        ],
+                        "expected_output": "A bounded observation.",
+                    }
+                ],
+                "limitations": [],
+            }
+        )
+        values = {
+            "raw_output": raw,
+            "context": case.context,
+            "tool_receipts": (),
+            "sdk_output": b'{"type":"message"}\n',
+        }
+
+        first = case.host.submit_result(case.assignment, **values)
+        assert first.status.value == "rejected"
+        assert first.code.value == "INVALID_REFERENCE"
+        with db_environment.migration_connection() as connection:
+            before = connection.execute(
+                "SELECT count(*) FROM vnext.artifact WHERE task_id=%s",
+                (case.assignment.identity.task_id,),
+            ).fetchone()[0]
+            assert connection.execute(
+                "SELECT count(*) FROM vnext.result_submission WHERE task_id=%s",
+                (case.assignment.identity.task_id,),
+            ).fetchone()[0] == 1
+
+        assert case.host.submit_result(case.assignment, **values) == first
+        with db_environment.migration_connection() as connection:
+            assert connection.execute(
+                "SELECT count(*) FROM vnext.artifact WHERE task_id=%s",
+                (case.assignment.identity.task_id,),
+            ).fetchone()[0] == before
+
+
 async def _finish_after_event_consumer_disconnects(case, runtime):
     iterator = runtime.execute(case.assignment).__aiter__()
     consumer = asyncio.create_task(anext(iterator))

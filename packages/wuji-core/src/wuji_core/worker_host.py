@@ -606,14 +606,20 @@ class PlatformWorkerHost:
                 payload = AgentPayload.model_validate(strict_json_loads(raw_output))
             except (ValueError, ValidationError):
                 payload = None  # P04 owns rejection of the untouched invalid bytes.
+            result_code = None
             if payload is not None:
                 for proposal in [*payload.claims, *payload.intent_proposals]:
-                    for ref in proposal.basis_refs:
-                        if isinstance(ref.root, KnowledgeRef) and _key(ref.root) not in observed:
-                            raise DomainError("INVALID_REFERENCE", 422)
+                    if any(
+                        isinstance(ref.root, KnowledgeRef)
+                        and _key(ref.root) not in observed
+                        for ref in proposal.basis_refs
+                    ):
+                        result_code = "INVALID_REFERENCE"
+                        break
                     revises = getattr(proposal, "revises", None)
                     if revises is not None and _key(revises) not in observed:
-                        raise DomainError("INVALID_REFERENCE", 422)
+                        result_code = "INVALID_REFERENCE"
+                        break
             envelope = ResultEnvelope.model_validate({
                 "schema_version": "wuji.result-envelope.v2", "submission_id": submission_id,
                 "identity": assignment.identity.model_dump(mode="json"),
@@ -645,9 +651,13 @@ class PlatformWorkerHost:
             )
             if self.retained_result is None:
                 return self.committer.reconcile(
-                    self.access, assignment.identity.task_id, submission_id
+                    self.access,
+                    assignment.identity.task_id,
+                    submission_id,
+                    result_code=result_code,
                 )
             return self.committer.reconcile_retained(
                 self.access, assignment.identity.task_id, submission_id,
                 retained=self.retained_result,
+                result_code=result_code,
             )

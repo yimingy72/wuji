@@ -193,17 +193,33 @@ class ResultCommitter:
             ResultReceipt.model_validate(strict_json_loads(value[0])) if value else None
         )
 
-    def reconcile(self, access, task_id, submission_id):
-        return self._reconcile(access, task_id, submission_id, retained=None)
-
-    def reconcile_retained(
-        self, access, task_id, submission_id, *, retained: RetainedResultKey
-    ):
+    def reconcile(self, access, task_id, submission_id, *, result_code=None):
         return self._reconcile(
-            access, task_id, submission_id, retained=retained
+            access, task_id, submission_id, retained=None, result_code=result_code
         )
 
-    def _reconcile(self, access, task_id, submission_id, *, retained):
+    def reconcile_retained(
+        self,
+        access,
+        task_id,
+        submission_id,
+        *,
+        retained: RetainedResultKey,
+        result_code=None,
+    ):
+        return self._reconcile(
+            access,
+            task_id,
+            submission_id,
+            retained=retained,
+            result_code=result_code,
+        )
+
+    def _reconcile(
+        self, access, task_id, submission_id, *, retained, result_code=None
+    ):
+        if result_code not in {None, "INVALID_REFERENCE"}:
+            raise ValueError("unsupported prevalidated result code")
         with self._transaction(access, task_id, retained) as tx:
             submission = self._submission(tx, submission_id)
             envelope = ResultEnvelope.model_validate(
@@ -240,7 +256,7 @@ class ResultCommitter:
                 return final
             components = []
             level = submission["access_level"]
-            code = parse_code
+            code = result_code or parse_code
             if not code:
                 try:
                     manifest = SnapshotRepository(self.uow)._get(
