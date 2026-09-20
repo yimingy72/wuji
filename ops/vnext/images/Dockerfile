@@ -53,7 +53,8 @@ EXPOSE 8443
 ENTRYPOINT ["python", "/opt/wuji/services/wuji-runtime/main.py", "--factory", "deployment:build_runtime", "--port", "8443", "--ssl-certfile", "/run/wuji/credentials/tls.crt", "--ssl-keyfile", "/run/wuji/credentials/tls.key"]
 
 FROM ${KALI_IMAGE} AS kali
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN sed -i 's|http://http.kali.org/kali|http://kali.download/kali|' /etc/apt/sources.list \
+    && apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates libbz2-1.0 libexpat1 libffi8 liblzma5 libsqlite3-0 libssl3t64 zlib1g \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=platform /usr/local /usr/local
