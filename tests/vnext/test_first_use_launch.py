@@ -209,15 +209,29 @@ def test_claim_requires_project_worker_and_grants_minimal_task_acl(
         assert progress and progress[-1]["task_id"] == task_id
         with db_environment.migration_connection() as connection:
             assert connection.execute(
-                """SELECT can_read,can_control,can_admit
+                """SELECT can_read,can_control,can_admit,can_observe,can_write,can_capture
                 FROM vnext.task_access WHERE task_id=%s AND subject=%s""",
                 (task_id, "launch-worker"),
-            ).fetchone() == (True, True, True)
+            ).fetchone() == (True, True, True, True, False, False)
         launch = case.client.get(
             f"/api/v2/tasks/{task_id}/launch", headers=bearer(case)
         )
         assert launch.json()["phase"] == "ready"
         assert launch.json()["phase_status"] == "succeeded"
+
+
+def test_reclaim_does_not_restore_revoked_observation_permission(db_environment, audit_directory):
+    with first_use_case(db_environment, audit_directory) as case:
+        task_id = create_task(case, payload(), key="observer-revocation-create")["task_id"]
+        _start(case, task_id, key="observer-revocation-start")
+        worker = _worker(case, FixtureLaunchAdapter())
+        first = worker.store.claim(worker.access, worker_id=worker.worker_id, lease_seconds=30)
+        assert first["task_id"] == task_id
+        with db_environment.migration_connection() as connection:
+            connection.execute("UPDATE vnext.task_access SET can_observe=false WHERE task_id=%s AND subject=%s", (task_id, "launch-worker"))
+        assert worker.store.claim(worker.access, worker_id=worker.worker_id, lease_seconds=30)["task_id"] == task_id
+        with db_environment.migration_connection() as connection:
+            assert connection.execute("SELECT can_observe FROM vnext.task_access WHERE task_id=%s AND subject=%s", (task_id, "launch-worker")).fetchone() == (False,)
 
 
 def test_cancel_before_activate_does_not_wire_or_publish(

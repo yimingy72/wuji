@@ -1,5 +1,11 @@
 # vnext migration head
 
+2026-09-20 current head: `vnext_0030_launch_observer_acl`, following
+`vnext_0029_first_use_launch`. The append-only upgrade aligns newly created
+private launch-controller ACLs with the published observation grant; existing
+ACLs and revoked permissions are not rewritten. Apply via the same `migrate`
+entry below. Earlier head descriptions are historical module notes.
+
 Current head: `vnext_0014_p08_session_approval`, following
 `vnext_0013_receiver_results`, `vnext_0012_p13_projection`, and
 `vnext_0011_p09_dispatch_fairness`. Apply it through the existing

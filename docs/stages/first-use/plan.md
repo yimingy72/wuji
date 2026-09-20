@@ -10,4 +10,6 @@ A0 统一合同/迁移/锁与集成；A1 修复当前状态回归；A2 目录/�
 
 三类结论分别为机制、真实模型、现场。先完成代码/本地测试，缺模型预算或现场条件时记录精确输入与解除条件；不因缺现场停掉可独立工作。生产切换、旧数据清理、归档扩建、通用登录/浏览器工具不属于本批。
 
+2026-09-20 A0 分配追加迁移0030：新启动租约的私有控制器Task ACL与已发布 `pod-controller` 的read/control/observe/admit合同对齐（原0029漏掉observe，实际prepare在固定ACL比较处拒绝）。仅修改新行的初始授予，保留注册主体/项目授权和 `ON CONFLICT DO NOTHING`；已有ACL及撤权不被修改。普通创建者、Agent、浏览器权限不变，不关闭严格权限比较。最低检查为真实PG新租约权限和再租用不能恢复撤权，历史0029原文不改。
+
 2026-09-19 部署安全收口：独立静态审查发现 Launch 创建动态 Task Secret/Job 的权限与供应商 Secret 同处 `wuji-vnext-test`，仅缩小 volume projection 不构成隔离。A0 固定将 LiteLLM 工作负载及供应商 Secret 放入独立 `wuji-first-use-model`；平台/Task 保留原命名空间，Launch 只保留网关管理授权，Gate 只持 Task key。迁移复用已有私有数据库密码、master key 和账本，新网关严格 TLS/摘要/数据库就绪核对后，才收回旧 namespace 的供应商 Secret 副本并停止旧网关。密钥从已验证的受信存储迁移，不传入普通日志。只修改本轮资源，不删除旧运行数据；若任何一步未完成，实际隔离保持未验收。
