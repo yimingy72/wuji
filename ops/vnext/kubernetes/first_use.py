@@ -26,6 +26,12 @@ def suffix_for(mode):
     return "deepseek" if mode == "real_model" else "mechanism"
 
 
+def owner_secret_name(mode):
+    # v2 freezes the same normalized Model/Runtime bytes as the registry.
+    # Keep the original private template for historical failed launches.
+    return f"first-use-{suffix_for(mode)}-owner-v2"
+
+
 def rbac_manifests():
     result = []
     rules = {
@@ -75,7 +81,7 @@ def launch_manifests(*, images, mode, source_revision, evidence_ref, public_data
     config = {"apiVersion": "v1", "kind": "ConfigMap", "metadata": metadata("first-use-launch-config"),
               "data": {**{key: public_data[key] for key in ("ca.crt", "identity.pub")},
                        "launch.json": json.dumps(settings, sort_keys=True)}}
-    secrets = {"input": (f"first-use-{suffix}-owner", "/run/wuji/bootstrap"),
+    secrets = {"input": (owner_secret_name(mode), "/run/wuji/bootstrap"),
                "agent-auth": ("task-agent-auth", "/run/wuji/task-agent-auth"),
                "kali-auth": ("task-kali-auth", "/run/wuji/task-kali-auth"),
                "signing-key": ("runtime-credentials", "/run/wuji/deployment-signing"),
@@ -131,7 +137,7 @@ def catalog_job(*, platform_image, mode, job_name, public_data, program):
                                              {"name": "input", "mountPath": "/run/wuji/bootstrap", "readOnly": True},
                                              {"name": "tmp", "mountPath": "/tmp"}]}],
                         "volumes": [{"name": "public", "configMap": {"name": config_name}},
-                                    {"name": "input", "secret": {"secretName": f"first-use-{suffix}-owner", "defaultMode": 0o440}},
+                                    {"name": "input", "secret": {"secretName": owner_secret_name(mode), "defaultMode": 0o440}},
                                     {"name": "tmp", "emptyDir": {"sizeLimit": "32Mi"}}]}}}}
     return [config, job]
 

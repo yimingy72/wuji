@@ -38,8 +38,9 @@ def test_catalog_keeps_immutable_limits_without_old_fixture_answers(mode):
     assert not {"materials", "seed_intent", "trial"} & config.keys()
     assert "old scripted" not in json.dumps(config)
     assert "bootstrap-test-password" not in json.dumps(config)
-    ModelProfile.model_validate(config["definition"]["model_profile"])
+    assert ModelProfile.model_validate(config["definition"]["model_profile"]).model_dump(mode="json") == config["definition"]["model_profile"]
     runtime = RuntimeProfile.model_validate(config["definition"]["runtime_profile"])
+    assert runtime.model_dump(mode="json") == config["definition"]["runtime_profile"]
     assert runtime.limits.max_tool_calls == 4
     assert runtime.limits.max_model_requests == 12
     assert runtime.limits.max_elapsed_seconds == 600

@@ -4,7 +4,7 @@
 
 ## 执行边界
 
-- 执行者：Codex 主代理；未启动子代理，未读取浏览器现有 session。
+- 执行者：A8 子代理 Banach（`gpt-5.6-luna/xhigh`），相对本轮实现独立；未再派发子代理，未读取浏览器现有 session。A0集成时依据实际派发记录纠正原稿误写的“主代理”，不改变原始检查结果。
 - 工作树：`/Users/yym1ng/Documents/ChatGPT/wuji/work/worktrees/first-use-entry-review`。
 - 被核对代码 HEAD：`a28c887d82660c9e0e66fc563d37e785c48f10be`；执行时工作树无未提交变更。
 - 集群上下文：`docker-desktop`。只读 `kubectl get Deployment/Pod/Job` 的元数据、镜像和就绪信息，以及指定 Secret 的存在性和 `auth can-i`；没有读取 Secret data，也没有操作集群。

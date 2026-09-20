@@ -10,7 +10,7 @@ import os
 import re
 from pathlib import Path
 
-from wuji_core.admission.registry import register_published_profile, register_tool_definition
+from wuji_core.admission.registry import ModelProfile, RuntimeProfile, register_published_profile, register_tool_definition
 from wuji_core.http import canonical_json_bytes, strict_json_loads
 from wuji_core.persistence.schema import migrate
 import task_launch
@@ -44,6 +44,7 @@ def owner_template(source, *, mode, lock_digest):
         "gateway_url": GATEWAY_ORIGIN + "/v1/chat/completions" if real else "http://127.0.0.1:8081/v1/chat/completions",
         "task_key_ref": "first-use-task-model-key" if real else "model-key", "max_retries": 0,
     }
+    model = ModelProfile.model_validate(model).model_dump(mode="json")
     refs = [WORKSPACE_REF, HTTP_REF]
     runtime = {
         "ref": f"first-use-{suffix}-runtime-v1", "revision": "1", "published_at": PUBLISHED_AT,
@@ -56,6 +57,9 @@ def owner_template(source, *, mode, lock_digest):
                    "max_total_output_bytes": 4194304, "max_elapsed_seconds": 600,
                    "max_attempts_per_work": 1, "repair_attempts": 0},
     }
+    # The registry freezes this exact normalized form, including explicit
+    # optional defaults. The private launcher must compare the same bytes.
+    runtime = RuntimeProfile.model_validate(runtime).model_dump(mode="json")
     tools = [
         {"ref": WORKSPACE_REF, "revision": "1", "published_at": PUBLISHED_AT,
          "name": "read_workspace", "executor_ref": EXECUTOR_REF, "approval_required": False,

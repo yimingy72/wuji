@@ -442,7 +442,7 @@ def main():
         print(json.dumps(report, sort_keys=True))
         return
     if args.action == "catalog":
-        owner_name = f"first-use-{suffix}-owner"
+        owner_name = render.owner_secret_name(args.mode)
         owner_data = {"config.json": json.dumps(config, sort_keys=True)}
         _preflight_catalog(owner_name, owner_data, catalog)
         report["owner_secret"] = private_secret(owner_name, owner_data)
