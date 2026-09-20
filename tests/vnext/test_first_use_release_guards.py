@@ -221,3 +221,12 @@ def test_new_web_config_names_preserve_unlabelled_legacy_objects():
         "first-use-web-config-v2", "first-use-web-gateway-config-v2"]
     assert [v["configMap"]["name"] for v in actual[2]["spec"]["template"]["spec"]["volumes"]] == [
         "first-use-web-config-v2", "first-use-web-gateway-config-v2", "api-config"]
+
+
+def test_rollout_publishes_worker_transport_for_full_task_output():
+    settings = release.rollout_runtime_settings({"role": "runtime"})
+    assert settings == {
+        "role": "runtime",
+        "session_transport": True,
+        "max_transport_bytes": 8_388_608,
+    }

@@ -52,6 +52,7 @@ WEB_SOURCE_PATHS = ("apps/web", "packages/contracts")
 # Reviewed settled-cancel copy and directory synchronization Web build.
 SELECTION_WEB_REVISION = "0d73f2de7162f43b34d1082f64b59bde450c39ea"
 SELECTION_WEB_DIGEST = "sha256:a8b8f8f96f590cd8e9dbeca04afb3883f18f81b286816d3278ff6ec69f95268a"
+FIRST_USE_WORKER_TRANSPORT_BYTES = 8_388_608
 
 
 class ReleaseError(RuntimeError):
@@ -60,6 +61,15 @@ class ReleaseError(RuntimeError):
     def __init__(self, code):
         super().__init__(code)
         self.code = code
+
+
+def rollout_runtime_settings(settings):
+    result = dict(settings)
+    result.update(
+        session_transport=True,
+        max_transport_bytes=FIRST_USE_WORKER_TRANSPORT_BYTES,
+    )
+    return result
 
 
 def kube(args, *, document=None, namespace=render.NAMESPACE):
@@ -501,8 +511,7 @@ def main():
         # bindings in place, never use this operator command.
         for document in rbac:
             apply_owned(document)
-        runtime_settings = dict(preflight["runtime_settings"])
-        runtime_settings["session_transport"] = True
+        runtime_settings = rollout_runtime_settings(preflight["runtime_settings"])
         kube(["patch", "configmap", "runtime-config", "--type", "merge", "--patch-file", "/dev/stdin"],
              document={"data": {"deployment.json": json.dumps(runtime_settings, sort_keys=True)}})
         gate_settings = dict(preflight["gate_settings"])

@@ -53,17 +53,21 @@ def test_catalog_keeps_immutable_limits_without_old_fixture_answers(mode):
     instructions = config["definition"]["worker_profiles"]["reason"]["body"]["instructions"]
     assert "When read_set is empty" in instructions
     assert "initial Intent must use an empty basis_refs list" in instructions
+    assert "propose exactly one Intent" in instructions
+    assert "do not use ProposalLocalRef" in instructions
     assert "return claims=[]" in instructions
     assert "Never wait on the current Reason WorkItem" in instructions
     assert "propose that Intent" in instructions
     explore = config["definition"]["worker_profiles"]["explore"]["body"]
-    assert explore["ref"] == "first-use-explore-instructions-v3"
-    assert explore["revision"] == "3"
+    assert explore["ref"] == "first-use-explore-instructions-v4"
+    assert explore["revision"] == "4"
     assert "no more than two target HTTP reads" in explore["instructions"]
     assert "never wait on that same Intent" in explore["instructions"]
     assert "call http_target_get before the final response" in explore["instructions"]
     assert "'/' is never such a path" in explore["instructions"]
     assert "observation-summary claim" in explore["instructions"]
+    assert "final response is the DeepSeek analysis" in explore["instructions"]
+    assert "at most one later HTTP read" in explore["instructions"]
     assert ("mechanism_http_origins" in config) == (mode == "mechanism_synthetic")
 
 
