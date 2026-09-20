@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from 'vitest';
 import { artifactContentPath, beginLocalWorkbenchSession, materialPath } from '../../apps/web/src/v2WorkbenchApi';
 import { resolveTaskSelection } from '../../apps/web/src/features/first-use/FirstUseWorkbench';
-import { includeRequestedTask, isCurrentRequest, selectAuthorizedTaskId, taskStatusLabel } from '../../apps/web/src/features/first-use/workbenchState';
+import { commandStatusMessage, includeRequestedTask, isCurrentRequest, selectAuthorizedTaskId, taskStatusLabel } from '../../apps/web/src/features/first-use/workbenchState';
 
 describe('first-use workbench state', () => {
   test('keeps an unstarted task visibly separate from running and stopped states', () => {
@@ -10,6 +10,8 @@ describe('first-use workbench state', () => {
     expect(taskStatusLabel({ desired_state: 'cancel', observed_state: 'reconciling', result_outcome: 'inconclusive' }, { phase: 'wire', phase_status: 'reconciling' })).toBe('待核对');
     expect(taskStatusLabel({ desired_state: 'cancel', observed_state: 'quiescing', result_outcome: null }, { phase: 'ready', phase_status: 'succeeded' })).toBe('已停止');
     expect(taskStatusLabel({ desired_state: 'finish', observed_state: 'closed', result_outcome: 'partial' }, { phase: 'ready', phase_status: 'succeeded' })).toBe('部分结果');
+    expect(commandStatusMessage('cancel', '已停止', '取消已受理，正在核对；尚未显示已停止。')).toBe('取消已确认；实际 Task 已停止。');
+    expect(commandStatusMessage('cancel', '待核对', '取消已受理，正在核对；尚未显示已停止。')).toBe('取消已受理，正在核对；尚未显示已停止。');
   });
 
   test('never selects a URL task or session task that is absent from the authorized list', () => {

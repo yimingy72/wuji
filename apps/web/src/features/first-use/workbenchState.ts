@@ -19,6 +19,10 @@ export function taskStatusLabel(
   return task.observed_state;
 }
 
+export function commandStatusMessage(command: string, label: string, fallback: string): string {
+  return command === 'cancel' && label === '已停止' ? '取消已确认；实际 Task 已停止。' : fallback;
+}
+
 export function selectAuthorizedTaskId(
   taskIds: readonly string[],
   requestedTaskId: string | null,

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   DownloadOutlined,
   PauseOutlined,
@@ -47,7 +47,7 @@ import { RecordPanel, readRecordView } from '../topology/panels/RecordPanel';
 import { SnapshotSelector, type ViewChoice } from '../topology/panels/SnapshotSelector';
 import { selectedRecordRef } from '../topology/record';
 import { CompletionPanel } from '../completion/CompletionPanel';
-import { includeRequestedTask, selectAuthorizedTaskId, taskStatusLabel } from './workbenchState';
+import { commandStatusMessage, includeRequestedTask, selectAuthorizedTaskId, taskStatusLabel } from './workbenchState';
 import styles from './firstUseWorkbench.module.css';
 
 const CREATE_KEY = 'wuji.first-use.v2.create-key';
@@ -357,9 +357,10 @@ interface TaskWorkspaceProps {
   readonly taskId: string;
   readonly session: WorkbenchSession;
   readonly onSessionExpired: () => void;
+  readonly onTaskUpdated: (task: TaskView) => void;
 }
 
-function TaskWorkspace({ taskId, session, onSessionExpired }: TaskWorkspaceProps) {
+function TaskWorkspace({ taskId, session, onSessionExpired, onTaskUpdated }: TaskWorkspaceProps) {
   const [task, setTask] = useState<TaskView | null>(null);
   const [readiness, setReadiness] = useState<ReadinessReport | null>(null);
   const [launch, setLaunch] = useState<LaunchView | null>(null);
@@ -391,6 +392,7 @@ function TaskWorkspace({ taskId, session, onSessionExpired }: TaskWorkspaceProps
     void Promise.all([readTask(taskId, controller.signal), readReadiness(taskId, controller.signal), readLaunch(taskId, controller.signal)]).then(([nextTask, nextReadiness, nextLaunch]) => {
       if (controller.signal.aborted || generation.current !== currentGeneration) return;
       setTask(nextTask);
+      onTaskUpdated(nextTask);
       setReadiness(nextReadiness);
       setLaunch(nextLaunch);
     }).catch((reason: unknown) => {
@@ -401,7 +403,7 @@ function TaskWorkspace({ taskId, session, onSessionExpired }: TaskWorkspaceProps
       if (!controller.signal.aborted && generation.current === currentGeneration) setLoading(false);
     });
     return () => controller.abort();
-  }, [taskId, refresh, onSessionExpired]);
+  }, [taskId, refresh, onSessionExpired, onTaskUpdated]);
 
   const selectedRef = useMemo(() => selectedRecordRef(snapshot, selection), [selection, snapshot]);
   const label = taskStatusLabel(task, launch);
@@ -438,7 +440,7 @@ function TaskWorkspace({ taskId, session, onSessionExpired }: TaskWorkspaceProps
   return (
     <div className={styles.detailBody}>
       {error && <Alert showIcon type="warning" title="读取未完成" description={error} action={<Button onClick={refreshCurrent}>重新读取</Button>} />}
-      {notice && <Alert showIcon type={notice.kind === 'error' ? 'error' : notice.kind === 'unknown' ? 'warning' : 'info'} title={notice.message} description={<code>Idempotency-Key {notice.key} · 原操作不会自动换键重发</code>} action={<Button onClick={refreshCurrent}>查看原操作结果</Button>} />}
+      {notice && <Alert showIcon type={notice.kind === 'error' ? 'error' : notice.kind === 'unknown' ? 'warning' : 'info'} title={commandStatusMessage(notice.command, label, notice.message)} description={<code>Idempotency-Key {notice.key} · 原操作不会自动换键重发</code>} action={<Button onClick={refreshCurrent}>查看原操作结果</Button>} />}
       <div className={styles.statusStrip} data-testid="task-status">
         <Tag color={statusColor(label)}>{label}</Tag>
         <code>{task.name} · {task.task_id} · version {task.version}</code>
@@ -597,6 +599,9 @@ export function FirstUseWorkbench({ session, onSessionExpired, onLogout }: First
   const initialRequestedTaskId = useRef(search.get('task')).current;
 
   const selectedTask = tasks.find((task) => task.task_id === selectedTaskId) ?? null;
+  const updateTask = useCallback((nextTask: TaskView) => {
+    setTasks((current) => current.map((task) => task.task_id === nextTask.task_id ? nextTask : task));
+  }, []);
   const selectTask = (taskId: string) => {
     if (!tasks.some((task) => task.task_id === taskId)) return;
     explicitSelection.current = taskId;
@@ -689,7 +694,7 @@ export function FirstUseWorkbench({ session, onSessionExpired, onLogout }: First
           <div className={styles.directoryFooter}><Button size="small" icon={<ReloadOutlined />} onClick={refreshList}>刷新目录</Button>{cursor && <Button size="small" onClick={() => setTaskCursor(cursor)}>加载更多</Button>}</div>
         </aside>
         <main className={styles.detail} aria-label="Task 详情">
-          {createOpen ? <TaskCreatePanel session={session} options={options} optionsError={optionsError} onCreated={openCreated} onClose={() => setCreateOpen(false)} onSessionExpired={onSessionExpired} /> : selectedTask ? <><div className={styles.detailHeader}><div><strong>{selectedTask.name}</strong><span>Task 详情 · 任务切换不会复用旧请求结果</span></div><code>{selectedTask.task_id}</code></div><TaskWorkspace key={selectedTask.task_id} taskId={selectedTask.task_id} session={session} onSessionExpired={onSessionExpired} /></> : <div className={styles.detailBody}><Empty description="从左侧选择一个 Task，或新建首个 Task" /></div>}
+          {createOpen ? <TaskCreatePanel session={session} options={options} optionsError={optionsError} onCreated={openCreated} onClose={() => setCreateOpen(false)} onSessionExpired={onSessionExpired} /> : selectedTask ? <><div className={styles.detailHeader}><div><strong>{selectedTask.name}</strong><span>Task 详情 · 任务切换不会复用旧请求结果</span></div><code>{selectedTask.task_id}</code></div><TaskWorkspace key={selectedTask.task_id} taskId={selectedTask.task_id} session={session} onSessionExpired={onSessionExpired} onTaskUpdated={updateTask} /></> : <div className={styles.detailBody}><Empty description="从左侧选择一个 Task，或新建首个 Task" /></div>}
         </main>
       </div>
     </div>
