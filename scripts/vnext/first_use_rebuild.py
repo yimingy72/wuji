@@ -69,6 +69,7 @@ EXPECTED_IMAGE_SOURCE_DELTA = frozenset(
         "packages/wuji-core/src/wuji_core/scheduling/claims.py",
         "packages/wuji-core/src/wuji_core/persistence/schema.py",
         "packages/wuji-core/src/wuji_core/persistence/launch_observer_schema.py",
+        "packages/wuji-core/src/wuji_core/persistence/launch_fairness_schema.py",
     }
 )
 
@@ -94,6 +95,7 @@ ALLOWED_NON_IMAGE_FILES = frozenset(
         "scripts/vnext/first_use_gateway.py",
         "scripts/vnext/first_use_platform.py",
         "scripts/vnext/first_use_rebuild.py",
+        "scripts/vnext/first_use_capture_task.py",
     }
 )
 ALLOWED_NON_IMAGE_PREFIXES = ("docs/", "tests/")

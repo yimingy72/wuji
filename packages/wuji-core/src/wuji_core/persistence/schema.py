@@ -113,8 +113,9 @@ from wuji_core.persistence.platform_settlement_schema import (
 # hard-coded historical identifier.
 from wuji_core.persistence.launch_schema import HEAD as LAUNCH_HEAD, upgrade as upgrade_task_launch
 from wuji_core.persistence.launch_observer_schema import HEAD as LAUNCH_OBSERVER_HEAD, upgrade as upgrade_launch_observer
+from wuji_core.persistence.launch_fairness_schema import HEAD as LAUNCH_FAIR_HEAD, upgrade as upgrade_launch_fairness
 
-HEAD = LAUNCH_OBSERVER_HEAD
+HEAD = LAUNCH_FAIR_HEAD
 
 OWNER = "tenant_id,project_id,task_id"
 SCOPE_COLUMNS = (
@@ -500,6 +501,7 @@ def migrate(connection, *, application_role: str) -> None:
                 PLATFORM_SETTLEMENT_HEAD,
                 LAUNCH_HEAD,
                 LAUNCH_OBSERVER_HEAD,
+                LAUNCH_FAIR_HEAD,
             ]
             if not heads or heads != set(chain[: len(heads)]):
                 raise ValueError("unrecognized vnext migration head")
@@ -533,6 +535,7 @@ def migrate(connection, *, application_role: str) -> None:
                 upgrade_platform_settlement,
                 upgrade_task_launch,
                 upgrade_launch_observer,
+                upgrade_launch_fairness,
             ]
             for upgrade in upgrades[len(heads) - 1 :]:
                 upgrade(connection, application_role)
@@ -663,3 +666,4 @@ def migrate(connection, *, application_role: str) -> None:
         upgrade_platform_settlement(connection, application_role)
         upgrade_task_launch(connection, application_role)
         upgrade_launch_observer(connection, application_role)
+        upgrade_launch_fairness(connection, application_role)

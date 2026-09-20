@@ -247,6 +247,24 @@ def test_reclaim_does_not_restore_revoked_observation_permission(db_environment,
             assert connection.execute("SELECT can_observe FROM vnext.task_access WHERE task_id=%s AND subject=%s", (task_id, "launch-worker")).fetchone() == (False,)
 
 
+def test_unknown_old_launch_cannot_starve_a_new_task(db_environment, audit_directory):
+    with first_use_case(db_environment, audit_directory) as case:
+        first_id = create_task(case, payload(), key="fair-first-create")["task_id"]
+        second_id = create_task(case, payload(), key="fair-second-create")["task_id"]
+        _start(case, first_id, key="fair-first-start")
+        _start(case, second_id, key="fair-second-start")
+        worker = _worker(case, FixtureLaunchAdapter())
+        first = worker.store.claim(worker.access, worker_id=worker.worker_id, lease_seconds=30)
+        assert first["task_id"] == first_id
+        worker._record(first, "prepare", "reconciling", reason_code="operation_unknown")
+        second = worker.store.claim(worker.access, worker_id=worker.worker_id, lease_seconds=30)
+        assert second["task_id"] == second_id
+        worker._record(second, "prepare", "reconciling", reason_code="operation_unknown")
+        resumed = worker.store.claim(worker.access, worker_id=worker.worker_id, lease_seconds=30)
+        assert resumed["task_id"] == first_id
+        assert resumed["phase_status"] == "reconciling"
+
+
 def test_cancel_before_activate_does_not_wire_or_publish(
     db_environment, audit_directory
 ):

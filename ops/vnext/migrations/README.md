@@ -1,5 +1,9 @@
 # vnext migration head
 
+2026-09-20 latest head: `vnext_0031_launch_fair_claim`, following 0030.
+Eligible launch jobs rotate by last-updated time; unknown jobs remain unknown,
+and leases, tenant/project worker checks and existing ACLs remain enforced.
+
 2026-09-20 current head: `vnext_0030_launch_observer_acl`, following
 `vnext_0029_first_use_launch`. The append-only upgrade aligns newly created
 private launch-controller ACLs with the published observation grant; existing
