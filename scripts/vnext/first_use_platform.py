@@ -49,9 +49,9 @@ REUSABLE_WEB_REVISION = "a28c887d82660c9e0e66fc563d37e785c48f10be"
 # Same 5cdbd17 compiled assets; reviewed nginx Host/port and permission overlay.
 REUSABLE_WEB_DIGEST = "sha256:e84b4f467ea1ce5f12c1f761e0662844fe6b8e2021be8ec98f3b25242cd02925"
 WEB_SOURCE_PATHS = ("apps/web", "packages/contracts")
-# Reviewed cancel/quiescing status mapping; all later Web sources are unchanged.
-SELECTION_WEB_REVISION = "3454b6bce5c8c42395425b37bbed3d29f278ddab"
-SELECTION_WEB_DIGEST = "sha256:1064b9d48d7b75a296a4c4f3ccf65a5a6f533f647c5afe3cd44583653c617e79"
+# Reviewed settled-cancel copy and directory synchronization Web build.
+SELECTION_WEB_REVISION = "0d73f2de7162f43b34d1082f64b59bde450c39ea"
+SELECTION_WEB_DIGEST = "sha256:a8b8f8f96f590cd8e9dbeca04afb3883f18f81b286816d3278ff6ec69f95268a"
 
 
 class ReleaseError(RuntimeError):
