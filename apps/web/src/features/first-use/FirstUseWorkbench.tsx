@@ -47,7 +47,7 @@ import { RecordPanel, readRecordView } from '../topology/panels/RecordPanel';
 import { SnapshotSelector, type ViewChoice } from '../topology/panels/SnapshotSelector';
 import { selectedRecordRef } from '../topology/record';
 import { CompletionPanel } from '../completion/CompletionPanel';
-import { taskStatusLabel } from './workbenchState';
+import { selectAuthorizedTaskId, taskStatusLabel } from './workbenchState';
 import styles from './firstUseWorkbench.module.css';
 
 const CREATE_KEY = 'wuji.first-use.v2.create-key';
@@ -91,6 +91,16 @@ interface CommandNotice {
   readonly command: TaskView['allowed_actions'][number];
   readonly message: string;
   readonly key: string;
+}
+
+export function resolveTaskSelection(
+  taskIds: readonly string[],
+  requestedTaskId: string | null,
+  sessionTaskId: string | null | undefined,
+  compatibleTaskId: string,
+  explicitTaskId: string | null,
+): string | null {
+  return explicitTaskId ?? selectAuthorizedTaskId(taskIds, requestedTaskId, sessionTaskId, compatibleTaskId);
 }
 
 function initialDraft(options: TaskOptions | null): CreateDraft {
@@ -583,10 +593,12 @@ export function FirstUseWorkbench({ session, onSessionExpired, onLogout }: First
   const [loggingOut, setLoggingOut] = useState(false);
   const listGeneration = useRef(0);
   const listController = useRef<AbortController | null>(null);
+  const explicitSelection = useRef<string | null>(null);
 
   const selectedTask = tasks.find((task) => task.task_id === selectedTaskId) ?? null;
   const selectTask = (taskId: string) => {
     if (!tasks.some((task) => task.task_id === taskId)) return;
+    explicitSelection.current = taskId;
     setSelectedTaskId(taskId);
     setSearch((current) => { const next = new URLSearchParams(current); next.set('task', taskId); return next; }, { replace: true });
   };
@@ -615,7 +627,13 @@ export function FirstUseWorkbench({ session, onSessionExpired, onLogout }: First
 
   useEffect(() => {
     const requested = search.get('task');
-    const compatible = requested && tasks.some((task) => task.task_id === requested) ? requested : session.task_id && tasks.some((task) => task.task_id === session.task_id) ? session.task_id : webConfig.taskId && tasks.some((task) => task.task_id === webConfig.taskId) ? webConfig.taskId : tasks[0]?.task_id ?? null;
+    const compatible = resolveTaskSelection(
+      tasks.map((task) => task.task_id),
+      requested,
+      session.task_id,
+      webConfig.taskId,
+      explicitSelection.current,
+    );
     if (compatible !== selectedTaskId) setSelectedTaskId(compatible);
   }, [search, session.task_id, tasks, selectedTaskId]);
 
@@ -634,9 +652,14 @@ export function FirstUseWorkbench({ session, onSessionExpired, onLogout }: First
 
   const refreshList = () => { setTaskCursor(null); setCursor(null); setListNonce((value) => value + 1); };
   const openCreated = (created: TaskView) => {
+    listGeneration.current += 1;
+    listController.current?.abort();
+    explicitSelection.current = created.task_id;
     setCreateOpen(false);
     setTasks((current) => [created, ...current.filter((task) => task.task_id !== created.task_id)]);
-    selectTask(created.task_id);
+    setLoading(false);
+    setSelectedTaskId(created.task_id);
+    setSearch((current) => { const next = new URLSearchParams(current); next.set('task', created.task_id); return next; }, { replace: true });
   };
   const logout = async () => {
     setLoggingOut(true);

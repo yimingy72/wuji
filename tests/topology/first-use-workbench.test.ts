@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from 'vitest';
 import { artifactContentPath, beginLocalWorkbenchSession, materialPath } from '../../apps/web/src/v2WorkbenchApi';
+import { resolveTaskSelection } from '../../apps/web/src/features/first-use/FirstUseWorkbench';
 import { isCurrentRequest, selectAuthorizedTaskId, taskStatusLabel } from '../../apps/web/src/features/first-use/workbenchState';
 
 describe('first-use workbench state', () => {
@@ -13,6 +14,12 @@ describe('first-use workbench state', () => {
   test('never selects a URL task or session task that is absent from the authorized list', () => {
     expect(selectAuthorizedTaskId(['task-b', 'task-c'], 'task-a', 'task-a', 'task-a')).toBe('task-b');
     expect(selectAuthorizedTaskId(['task-b', 'task-c'], null, 'task-c', 'task-a')).toBe('task-c');
+  });
+
+  test('keeps an explicit created task ahead of a stale directory and initial session hint', () => {
+    expect(resolveTaskSelection(['task-old'], null, 'task-old', 'task-old', 'task-new')).toBe('task-new');
+    expect(resolveTaskSelection(['task-new', 'task-old'], null, 'task-old', 'task-old', 'task-new')).toBe('task-new');
+    expect(resolveTaskSelection(['task-old'], null, 'task-old', 'task-old', null)).toBe('task-old');
   });
 
   test('rejects a late response after a task generation switch', () => {
