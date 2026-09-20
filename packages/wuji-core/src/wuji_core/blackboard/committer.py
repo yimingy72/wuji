@@ -193,9 +193,13 @@ class ResultCommitter:
             ResultReceipt.model_validate(strict_json_loads(value[0])) if value else None
         )
 
-    def reconcile(self, access, task_id, submission_id, *, result_code=None):
+    def reconcile(self, access, task_id, submission_id, *, result_policy=None):
         return self._reconcile(
-            access, task_id, submission_id, retained=None, result_code=result_code
+            access,
+            task_id,
+            submission_id,
+            retained=None,
+            result_policy=result_policy,
         )
 
     def reconcile_retained(
@@ -205,21 +209,25 @@ class ResultCommitter:
         submission_id,
         *,
         retained: RetainedResultKey,
-        result_code=None,
+        result_policy=None,
     ):
         return self._reconcile(
             access,
             task_id,
             submission_id,
             retained=retained,
-            result_code=result_code,
+            result_policy=result_policy,
         )
 
     def _reconcile(
-        self, access, task_id, submission_id, *, retained, result_code=None
+        self, access, task_id, submission_id, *, retained, result_policy=None
     ):
-        if result_code not in {None, "INVALID_REFERENCE"}:
-            raise ValueError("unsupported prevalidated result code")
+        if result_policy not in {
+            None,
+            "reject_invalid_reference",
+            "initial_reason_empty_basis",
+        }:
+            raise ValueError("unsupported prevalidated result policy")
         with self._transaction(access, task_id, retained) as tx:
             submission = self._submission(tx, submission_id)
             envelope = ResultEnvelope.model_validate(
@@ -246,6 +254,15 @@ class ResultCommitter:
             payload = AgentPayload.model_validate(parsed)
         except (ValueError, ValidationError, InvalidJsonDocument, DomainError):
             parse_code = "INVALID_SCHEMA"
+        if payload is not None and result_policy == "initial_reason_empty_basis":
+            payload = payload.model_copy(
+                update={
+                    "intent_proposals": [
+                        proposal.model_copy(update={"basis_refs": []})
+                        for proposal in payload.intent_proposals
+                    ]
+                }
+            )
         with self._transaction(access, task_id, retained) as tx:
             submission = self._submission(tx, submission_id)
             run, disposition = self._bound(
@@ -256,7 +273,11 @@ class ResultCommitter:
                 return final
             components = []
             level = submission["access_level"]
-            code = result_code or parse_code
+            code = (
+                "INVALID_REFERENCE"
+                if result_policy == "reject_invalid_reference"
+                else parse_code
+            )
             if not code:
                 try:
                     manifest = SnapshotRepository(self.uow)._get(

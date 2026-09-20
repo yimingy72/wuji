@@ -118,33 +118,36 @@ def test_toolless_model_request_may_omit_tool_controls():
         asyncio.run(tool_identity.request(request_with_tools))
 
 
+def _unread_intent_output():
+    return canonical_json_bytes(
+        {
+            "schema_version": "wuji.agent-payload.v2",
+            "claims": [],
+            "intent_proposals": [
+                {
+                    "client_ref": "unread",
+                    "question": "Read the authorised entry.",
+                    "basis_refs": [
+                        {
+                            "entity_type": "origin",
+                            "id": "not-in-the-delivered-read-set",
+                            "revision": "1",
+                        }
+                    ],
+                    "expected_output": "A bounded observation.",
+                }
+            ],
+            "limitations": [],
+        }
+    )
+
+
 def test_invalid_unread_reference_is_rejected_once_without_duplicate_artifacts(
     db_environment, tmp_path, audit_directory
 ):
     with m1_case(db_environment, tmp_path, audit_directory) as case:
-        raw = canonical_json_bytes(
-            {
-                "schema_version": "wuji.agent-payload.v2",
-                "claims": [],
-                "intent_proposals": [
-                    {
-                        "client_ref": "unread",
-                        "question": "Read the authorised entry.",
-                        "basis_refs": [
-                            {
-                                "entity_type": "origin",
-                                "id": "not-in-the-delivered-read-set",
-                                "revision": "1",
-                            }
-                        ],
-                        "expected_output": "A bounded observation.",
-                    }
-                ],
-                "limitations": [],
-            }
-        )
         values = {
-            "raw_output": raw,
+            "raw_output": _unread_intent_output(),
             "context": case.context,
             "tool_receipts": (),
             "sdk_output": b'{"type":"message"}\n',
@@ -168,6 +171,53 @@ def test_invalid_unread_reference_is_rejected_once_without_duplicate_artifacts(
             assert connection.execute(
                 "SELECT count(*) FROM vnext.artifact WHERE task_id=%s",
                 (case.assignment.identity.task_id,),
+            ).fetchone()[0] == before
+
+
+def test_initial_reason_drops_unread_basis_but_preserves_raw_output(
+    db_environment, tmp_path, audit_directory
+):
+    with m1_case(db_environment, tmp_path, audit_directory) as case:
+        assignment = case.assignment.model_copy(
+            update={
+                "work_kind": type(case.assignment.work_kind).reason,
+                "tool_definition_refs": (),
+            }
+        )
+        raw = _unread_intent_output()
+        values = {
+            "raw_output": raw,
+            "context": case.context,
+            "tool_receipts": (),
+            "sdk_output": b'{"type":"message"}\n',
+        }
+
+        first = case.host.submit_result(assignment, **values)
+        assert first.status.value == "accepted"
+        assert first.components[0].status.value == "accepted_shared"
+        with db_environment.migration_connection() as connection:
+            basis, envelope = connection.execute(
+                "SELECT i.basis_json,s.envelope_json FROM vnext.intent_revision i"
+                " JOIN vnext.result_submission s USING(tenant_id,project_id,task_id)"
+                " WHERE i.task_id=%s",
+                (assignment.identity.task_id,),
+            ).fetchone()
+            before = connection.execute(
+                "SELECT count(*) FROM vnext.artifact WHERE task_id=%s",
+                (assignment.identity.task_id,),
+            ).fetchone()[0]
+        assert strict_json_loads(basis) == []
+        raw_ref = strict_json_loads(envelope)["raw_output_ref"]
+        stored, _digest = case.control.store.read(
+            case.host_access, raw_ref["id"], raw_ref["version"]
+        )
+        assert stored == raw
+
+        assert case.host.submit_result(assignment, **values) == first
+        with db_environment.migration_connection() as connection:
+            assert connection.execute(
+                "SELECT count(*) FROM vnext.artifact WHERE task_id=%s",
+                (assignment.identity.task_id,),
             ).fetchone()[0] == before
 
 

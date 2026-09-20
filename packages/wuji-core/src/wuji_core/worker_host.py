@@ -606,7 +606,7 @@ class PlatformWorkerHost:
                 payload = AgentPayload.model_validate(strict_json_loads(raw_output))
             except (ValueError, ValidationError):
                 payload = None  # P04 owns rejection of the untouched invalid bytes.
-            result_code = None
+            invalid_reference = False
             if payload is not None:
                 for proposal in [*payload.claims, *payload.intent_proposals]:
                     if any(
@@ -614,12 +614,23 @@ class PlatformWorkerHost:
                         and _key(ref.root) not in observed
                         for ref in proposal.basis_refs
                     ):
-                        result_code = "INVALID_REFERENCE"
+                        invalid_reference = True
                         break
                     revises = getattr(proposal, "revises", None)
                     if revises is not None and _key(revises) not in observed:
-                        result_code = "INVALID_REFERENCE"
+                        invalid_reference = True
                         break
+            result_policy = None
+            if invalid_reference:
+                result_policy = (
+                    "initial_reason_empty_basis"
+                    if assignment.work_kind.value == "reason"
+                    and not context.read_set
+                    and not tool_refs
+                    and payload is not None
+                    and not payload.claims
+                    else "reject_invalid_reference"
+                )
             envelope = ResultEnvelope.model_validate({
                 "schema_version": "wuji.result-envelope.v2", "submission_id": submission_id,
                 "identity": assignment.identity.model_dump(mode="json"),
@@ -654,10 +665,10 @@ class PlatformWorkerHost:
                     self.access,
                     assignment.identity.task_id,
                     submission_id,
-                    result_code=result_code,
+                    result_policy=result_policy,
                 )
             return self.committer.reconcile_retained(
                 self.access, assignment.identity.task_id, submission_id,
                 retained=self.retained_result,
-                result_code=result_code,
+                result_policy=result_policy,
             )
