@@ -1802,6 +1802,12 @@ def publish_capabilities(connection, *, config, binding):
                         fixed.pop("published_at")
                         if fixed.get("candidate_binding") is not None:
                             fixed["candidate_binding"].pop("expires_at")
+                        else:
+                            # The verified profile/client/runtime tuple is the
+                            # stable authority. A later release may cite another
+                            # review of those same bytes without replacing the
+                            # immutable capability or its original evidence.
+                            fixed.pop("evidence_refs")
                     if canonical_json_bytes(old_fixed) != canonical_json_bytes(new_fixed):
                         raise DomainError("INPUT_DIGEST_CONFLICT", 409)
                     # Reuse the original publication/expiry after a lost reply,

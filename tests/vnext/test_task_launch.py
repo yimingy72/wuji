@@ -434,6 +434,20 @@ def test_launch_binds_admission_executor_intent_and_capability(
             )
             assert repeat["capabilities"] == result["capabilities"]
 
+            real = {**binding, "evaluation_mode": "real_model", "evidence_ref": "review-one"}
+            verified = task_launch.publish_capabilities(
+                connection, config=config, binding=real
+            )
+            changed_review = {**real, "evidence_ref": "review-two"}
+            assert task_launch.publish_capabilities(
+                connection, config=config, binding=changed_review
+            ) == verified
+            persisted = connection.execute(
+                "SELECT document_json FROM vnext.session_capability WHERE ref=%s",
+                (verified["capabilities"][0],),
+            ).fetchone()[0]
+            assert json.loads(persisted)["evidence_refs"] == ["review-one"]
+
 
 def test_published_session_bounds_follow_the_admission_limits():
     """A real MAF history must fit one bounded Session object.
