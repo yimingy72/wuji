@@ -212,6 +212,20 @@ def _preflight_rollout(*, job_name, platform_image, documents):
     ):
         raise ReleaseError("gates_config_schema_invalid")
 
+    runtime_config = get("configmap", "runtime-config")
+    _require_platform_object(runtime_config, "configmap", "runtime-config")
+    runtime_data = runtime_config.get("data")
+    try:
+        runtime_settings = json.loads(runtime_data["deployment.json"])
+    except (KeyError, TypeError, json.JSONDecodeError):
+        raise ReleaseError("runtime_config_schema_invalid") from None
+    if (
+        not isinstance(runtime_settings, dict)
+        or runtime_settings.get("schema_version") != "wuji.deployment.v1"
+        or runtime_settings.get("role") != "runtime"
+    ):
+        raise ReleaseError("runtime_config_schema_invalid")
+
     deployments = {}
     for name, roles in CORE_CONTAINERS.items():
         deployment = get("deployment", name)
@@ -237,6 +251,7 @@ def _preflight_rollout(*, job_name, platform_image, documents):
             _require_existing_document(existing, document)
     return {
         "gate_settings": gate_settings,
+        "runtime_settings": runtime_settings,
         "deployments": deployments,
         "credentials": credentials,
     }
@@ -482,6 +497,10 @@ def main():
         # bindings in place, never use this operator command.
         for document in rbac:
             apply_owned(document)
+        runtime_settings = dict(preflight["runtime_settings"])
+        runtime_settings["session_transport"] = True
+        kube(["patch", "configmap", "runtime-config", "--type", "merge", "--patch-file", "/dev/stdin"],
+             document={"data": {"deployment.json": json.dumps(runtime_settings, sort_keys=True)}})
         gate_settings = dict(preflight["gate_settings"])
         if args.mode == "real_model":
             gate_settings.update(task_model_key_ref="first-use-task-model-key", task_model_keys_secret="task-model-keys")
@@ -492,6 +511,10 @@ def main():
         for name, roles in CORE_CONTAINERS.items():
             updates = [role + "=" + images["platform"] for role in roles]
             kube(["set", "image", "deployment/" + name, *updates])
+            kube(["patch", "deployment", name, "--type", "merge", "--patch-file", "/dev/stdin"],
+                 document={"spec": {"template": {"metadata": {"annotations": {
+                     "wuji.dev/release-revision": revision,
+                 }}}}})
         credentials = preflight["credentials"]
         if "access.token" not in credentials["data"]:
             kube(["patch", "secret", "wuji-web-gateway-credentials", "--type", "merge", "--patch-file", "/dev/stdin"],
