@@ -714,6 +714,8 @@ def test_mechanism_candidate_requires_exact_short_lived_binding_without_fake_pas
 
 
 def test_verified_session_capability_requires_real_evidence_and_new_immutable_record():
+    from wuji_core.admission.registry import verified_session_capability_ref
+
     verified = _capability_document(
         status="verified",
         evidence_refs=["docs/vnext/evidence/P08/final/binding.json"],
@@ -725,6 +727,9 @@ def test_verified_session_capability_requires_real_evidence_and_new_immutable_re
 
     assert registration.validation_status == "verified"
     assert registration.candidate_binding is None
+    assert verified_session_capability_ref("a" * 64) == (
+        "session-capability-verified-" + "a" * 64
+    )
     with pytest.raises(ValueError, match="verified capability requires actual evidence"):
         SessionCapabilityRegistration.model_validate(
             _capability_document(

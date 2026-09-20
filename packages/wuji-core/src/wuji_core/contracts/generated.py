@@ -2827,9 +2827,7 @@ class WorkerHarnessProfileBody(BaseModel):
     revision: RevisionString
     work_kind: WorkKind
     instructions: Annotated[StrictStr, Field(max_length=32768, min_length=1)]
-    tool_definition_refs: Annotated[
-        list[ToolDefinitionRef], Field(max_length=256, min_length=1)
-    ]
+    tool_definition_refs: Annotated[list[ToolDefinitionRef], Field(max_length=256)]
     lock_digest: Sha256Digest
     max_context_records: Annotated[StrictInt, Field(ge=1, le=5000)]
     max_context_bytes: Annotated[StrictInt, Field(ge=1, le=16777216)]
@@ -2947,9 +2945,7 @@ class WorkerSessionHarnessProfileBody(BaseModel):
     revision: RevisionString
     work_kind: WorkKind
     instructions: Annotated[StrictStr, Field(max_length=32768, min_length=1)]
-    tool_definition_refs: Annotated[
-        list[ToolDefinitionRef], Field(max_length=256, min_length=1)
-    ]
+    tool_definition_refs: Annotated[list[ToolDefinitionRef], Field(max_length=256)]
     lock_digest: Sha256Digest
     max_context_records: Annotated[StrictInt, Field(ge=1, le=5000)]
     max_context_bytes: Annotated[StrictInt, Field(ge=1, le=16777216)]

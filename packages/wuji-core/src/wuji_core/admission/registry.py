@@ -3,6 +3,7 @@
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 from ipaddress import ip_address
+import re
 from typing import Literal
 from urllib.parse import urlsplit
 
@@ -174,6 +175,12 @@ class SessionCapabilityRegistration(Published):
 
 def configuration_digest(value):
     return sha256(canonical_json_bytes(value)).hexdigest()
+
+
+def verified_session_capability_ref(profile_digest):
+    if not isinstance(profile_digest, str) or not re.fullmatch(r"[a-f0-9]{64}", profile_digest):
+        raise ValueError("verified Session capability requires a profile digest")
+    return "session-capability-verified-" + profile_digest
 
 
 def _storage_document(value):
@@ -715,7 +722,11 @@ class AdmissionRegistry:
                         continue
                 matches.append((record, limits, raw, stored_digest))
             verified = [item for item in matches if item[0].validation_status == "verified"]
-            selected = verified if verified else matches
+            stable = [
+                item for item in verified
+                if item[0].ref == verified_session_capability_ref(profile_snapshot["digest"])
+            ]
+            selected = stable if stable else verified if verified else matches
             if len(selected) != 1:
                 raise ValueError("one exact verified or fixed mechanism candidate is required")
             record, limits, raw, stored_digest = selected[0]

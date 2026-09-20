@@ -48,6 +48,7 @@ from wuji_core.admission.registry import (
     register_executor,
     register_session_capability,
     session_client_snapshot,
+    verified_session_capability_ref,
 )
 from wuji_core.admission.mechanism_fixture import (
     MECHANISM_HTTP_FIELD,
@@ -1737,7 +1738,11 @@ def publish_capabilities(connection, *, config, binding):
     mode = binding_mode(config, binding)
     published = []
     for kind, profile in binding["worker_profiles"].items():
-        capability_ref = f"session-capability-{binding['task_id']}-a{binding['runtime_attempt']}-{kind}"
+        capability_ref = (
+            f"session-capability-{binding['task_id']}-a{binding['runtime_attempt']}-{kind}"
+            if mode == "mechanism_synthetic"
+            else verified_session_capability_ref(profile["digest"])
+        )
         # The attempt must have registered its receiver before the platform may
         # publish a Session capability for it, and registration follows the Pod
         # the runtime created for this same attempt. Wait for that registration
