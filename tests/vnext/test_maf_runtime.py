@@ -33,6 +33,15 @@ def test_maf_runtime_exposes_the_formal_execute_operation_port():
     assert callable(getattr(runtime_type, "execute", None))
 
 
+def test_worker_host_resolves_an_explicitly_toolless_reason():
+    from wuji_core.worker_host import _profile_tools_valid
+
+    assert _profile_tools_valid("reason", ())
+    assert _profile_tools_valid("report", ())
+    assert _profile_tools_valid("explore", ("http-read-v1",))
+    assert not _profile_tools_valid("explore", ())
+
+
 def test_native_stream_contract_preserves_released_sdk_fields_and_token_dialect():
     native = {
         **NATIVE_MODEL_REQUEST,

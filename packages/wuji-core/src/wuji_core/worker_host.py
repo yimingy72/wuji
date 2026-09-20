@@ -28,6 +28,10 @@ def _key(ref):
     return ref.entity_type.value, ref.id, ref.revision.root
 
 
+def _profile_tools_valid(work_kind, refs):
+    return bool(refs) or work_kind in {"reason", "report"}
+
+
 class PlatformWorkerHost:
     def __init__(self, *, uow, registry, access, artifacts, committer, profiles, lock_digest,
                  sessions=None, inputs=None, receiver_access=None, retained_result=None):
@@ -74,7 +78,7 @@ class PlatformWorkerHost:
                     or trusted["body"]["lock_digest"] != config.runtime.lock_digest
                     or config.runtime.lock_digest != self.lock_digest
                     or tuple(trusted["body"]["tool_definition_refs"]) != tool_refs
-                    or not tool_refs
+                    or not _profile_tools_valid(work["kind"], tool_refs)
                     or assignment.limits != config.runtime.limits
                 ):
                     raise ValueError("assignment changed frozen harness configuration")
