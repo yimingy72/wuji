@@ -620,17 +620,20 @@ class PlatformWorkerHost:
                     if revises is not None and _key(revises) not in observed:
                         invalid_reference = True
                         break
+            initial_reason = (
+                assignment.work_kind.value == "reason"
+                and not context.read_set
+                and not tool_refs
+                and payload is not None
+                and not payload.claims
+            )
             result_policy = None
-            if invalid_reference:
-                result_policy = (
-                    "initial_reason_empty_basis"
-                    if assignment.work_kind.value == "reason"
-                    and not context.read_set
-                    and not tool_refs
-                    and payload is not None
-                    and not payload.claims
-                    else "reject_invalid_reference"
-                )
+            if initial_reason and any(
+                proposal.basis_refs for proposal in payload.intent_proposals
+            ):
+                result_policy = "initial_reason_empty_basis"
+            elif invalid_reference:
+                result_policy = "reject_invalid_reference"
             elif assignment.work_kind.value == "reason" and payload is not None:
                 supported = {"claim", "observation"}
                 needs_filter = any(

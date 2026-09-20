@@ -142,6 +142,12 @@ def _unread_intent_output():
     )
 
 
+def _self_referencing_intent_output():
+    value = strict_json_loads(_unread_intent_output())
+    value["intent_proposals"][0]["basis_refs"] = [{"client_ref": "unread"}]
+    return canonical_json_bytes(value)
+
+
 def test_invalid_unread_reference_is_rejected_once_without_duplicate_artifacts(
     db_environment, tmp_path, audit_directory
 ):
@@ -184,7 +190,7 @@ def test_initial_reason_drops_unread_basis_but_preserves_raw_output(
                 "tool_definition_refs": (),
             }
         )
-        raw = _unread_intent_output()
+        raw = _self_referencing_intent_output()
         values = {
             "raw_output": raw,
             "context": case.context,
