@@ -65,6 +65,7 @@ EXPECTED_IMAGE_SOURCE_DELTA = frozenset(
         "packages/wuji-core/src/wuji_core/admission/mechanism_fixture.py",
         "packages/wuji-core/src/wuji_core/admission/tools.py",
         "packages/wuji-core/src/wuji_core/execution/launch.py",
+        "packages/wuji-core/src/wuji_core/execution/control.py",
         "packages/wuji-core/src/wuji_core/scheduling/claims.py",
         "packages/wuji-core/src/wuji_core/persistence/schema.py",
         "packages/wuji-core/src/wuji_core/persistence/launch_observer_schema.py",

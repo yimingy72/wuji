@@ -218,6 +218,19 @@ def test_claim_requires_project_worker_and_grants_minimal_task_acl(
         )
         assert launch.json()["phase"] == "ready"
         assert launch.json()["phase_status"] == "succeeded"
+        # Match the actual Pod permit's provenance join, not only UI status.
+        with db_environment.migration_connection() as connection:
+            assert connection.execute("""SELECT count(*) FROM vnext.outbox o
+                JOIN vnext.control_receipt c ON c.task_id=o.task_id
+                  AND c.operation_id=o.payload_json::jsonb->>'command_id'
+                  AND c.operation_kind='task_command'
+                WHERE o.task_id=%s AND o.kind='control.applied'
+                  AND c.receipt_json::jsonb->>'disposition'='accepted'""", (task_id,)).fetchone() == (1,)
+        case.control.activate_task(worker.access, task_id,
+            operation_id="launch-worker-start", expected_version="1",
+            reason="persistent launch activation")
+        with db_environment.migration_connection() as connection:
+            assert connection.execute("SELECT count(*) FROM vnext.outbox WHERE task_id=%s AND kind='control.applied'", (task_id,)).fetchone() == (1,)
 
 
 def test_reclaim_does_not_restore_revoked_observation_permission(db_environment, audit_directory):

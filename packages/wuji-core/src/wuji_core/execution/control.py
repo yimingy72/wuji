@@ -353,6 +353,9 @@ class ControlService:
                     json_text(receipt.model_dump(mode="python")),
                 ),
             )
+            # Pod permits correlate task.started with this accepted receipt
+            # through the same event emitted by the public command path.
+            tx.semantic_event("control.applied", receipt.model_dump(mode="python"))
             return tx.task
 
     def read_work(self, access, task_id, work_id):
