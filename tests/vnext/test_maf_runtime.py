@@ -15,6 +15,7 @@ from support.m1 import (
     MODEL_ROUTE,
     TOOL_DEFINITION_REF,
     TOOL_ROUTE,
+    _sse,
     gate_headers,
     m1_case,
     maf_runtime_type,
@@ -327,6 +328,90 @@ def test_verified_bearer_must_match_host_and_assignment_before_model_request(
         assert case.upstream.exchanges == []
         assert _model_gate_exchanges(case) == []
         assert table_count(case, "model_attempt") == 0
+
+
+def test_explore_intent_keeps_observation_and_drops_redundant_artifact(
+    db_environment, tmp_path, audit_directory
+):
+    with m1_case(db_environment, tmp_path, audit_directory) as case:
+        def final_stream(observation_ref):
+            receipt = case.upstream.received_tool_receipt
+            artifact = receipt["evidence_receipt"]["artifact_refs"][0]
+            artifact_ref = {
+                "entity_type": "artifact",
+                "id": artifact["id"],
+                "revision": artifact["version"],
+            }
+            payload = {
+                "schema_version": "wuji.agent-payload.v2",
+                "claims": [
+                    {
+                        "client_ref": "evidence",
+                        "kind": "observation-summary",
+                        "assertion_role": "candidate_fact",
+                        "text": "The actual tool receipt supports one bounded follow-up.",
+                        "basis_refs": [observation_ref],
+                        "limitations": [],
+                    }
+                ],
+                "intent_proposals": [
+                    {
+                        "client_ref": "follow-up",
+                        "question": "Read the evidence-derived resource.",
+                        "basis_refs": [observation_ref, artifact_ref],
+                        "expected_output": "One bounded observation.",
+                    }
+                ],
+                "limitations": [],
+            }
+            return _sse(
+                {
+                    "id": "chatcmpl-m1-final",
+                    "object": "chat.completion.chunk",
+                    "created": 2,
+                    "model": "fixture-upstream-model",
+                    "choices": [{
+                        "index": 0,
+                        "delta": {
+                            "role": "assistant",
+                            "content": canonical_json_bytes(payload).decode(),
+                        },
+                        "finish_reason": None,
+                    }],
+                },
+                {
+                    "id": "chatcmpl-m1-final",
+                    "object": "chat.completion.chunk",
+                    "created": 2,
+                    "model": "fixture-upstream-model",
+                    "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+                    "usage": {
+                        "prompt_tokens": 31,
+                        "completion_tokens": 13,
+                        "total_tokens": 44,
+                    },
+                },
+            )
+
+        case.upstream._final_stream = final_stream
+        _events, result = asyncio.run(
+            _finish_with_worker_consumer(case, case.new_runtime())
+        )
+
+        assert result.status.value == "accepted"
+        assert [item.status.value for item in result.components] == [
+            "accepted_shared",
+            "accepted_shared",
+        ]
+        observation_ref = case.upstream.received_tool_receipt[
+            "evidence_receipt"
+        ]["observation_ref"]
+        with db_environment.migration_connection() as connection:
+            basis = connection.execute(
+                "SELECT basis_json FROM vnext.intent_revision WHERE task_id=%s",
+                (case.assignment.identity.task_id,),
+            ).fetchone()[0]
+        assert strict_json_loads(basis) == [observation_ref]
 
 
 def test_actual_maf_stream_tool_evidence_claim_and_result_replay(

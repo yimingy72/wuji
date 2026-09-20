@@ -27,9 +27,9 @@ def suffix_for(mode):
 
 
 def owner_secret_name(mode):
-    # v7 freezes the evidence-driven v4 role instructions and wider Worker wire.
+    # v8 freezes the evidence-driven v5 role instructions and wider Worker wire.
     # Keep older private templates for historical failed launches.
-    return f"first-use-{suffix_for(mode)}-owner-v7"
+    return f"first-use-{suffix_for(mode)}-owner-v8"
 
 
 def rbac_manifests():

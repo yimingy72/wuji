@@ -227,7 +227,7 @@ class ResultCommitter:
             "reject_invalid_reference",
             "reject_missing_tool_evidence",
             "initial_reason_empty_basis",
-            "reason_intent_supported_basis",
+            "intent_supported_basis",
         }:
             raise ValueError("unsupported prevalidated result policy")
         with self._transaction(access, task_id, retained) as tx:
@@ -266,7 +266,7 @@ class ResultCommitter:
                         ]
                     }
                 )
-            elif result_policy == "reason_intent_supported_basis":
+            elif result_policy == "intent_supported_basis":
                 payload = payload.model_copy(
                     update={
                         "intent_proposals": [

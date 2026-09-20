@@ -634,7 +634,7 @@ class PlatformWorkerHost:
                 result_policy = "initial_reason_empty_basis"
             elif invalid_reference:
                 result_policy = "reject_invalid_reference"
-            elif assignment.work_kind.value == "reason" and payload is not None:
+            elif payload is not None:
                 supported = {"claim", "observation"}
                 needs_filter = any(
                     isinstance(ref.root, KnowledgeRef)
@@ -652,7 +652,7 @@ class PlatformWorkerHost:
                     for proposal in payload.intent_proposals
                 )
                 if needs_filter and keeps_basis:
-                    result_policy = "reason_intent_supported_basis"
+                    result_policy = "intent_supported_basis"
             if (
                 result_policy is None
                 and assignment.work_kind.value == "explore"
