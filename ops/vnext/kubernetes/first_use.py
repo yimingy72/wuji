@@ -27,9 +27,9 @@ def suffix_for(mode):
 
 
 def owner_secret_name(mode):
-    # v3 keeps goal/start-point context out of model-supplied KnowledgeRefs.
+    # v4 also keeps Reason waits on delivered references and follow-ups as Intents.
     # Keep older private templates for historical failed launches.
-    return f"first-use-{suffix_for(mode)}-owner-v3"
+    return f"first-use-{suffix_for(mode)}-owner-v4"
 
 
 def rbac_manifests():

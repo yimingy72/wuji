@@ -76,6 +76,15 @@ def owner_template(source, *, mode, lock_digest):
     profiles = {}
     for kind in ("reason", "explore", "report"):
         ref = f"first-use-{kind}-instructions-v1"
+        reason_rule = ""
+        if kind == "reason":
+            reason_rule = (
+                "As Reason, return claims=[]; propose needed follow-up work through intent_proposals. "
+                "Every wait_ref must also name a reference literally present in the delivered "
+                "read_set. Never wait on the current Reason WorkItem. If delivered evidence supports "
+                "a required follow-up read and no admitted Intent for it exists, propose that Intent "
+                "with the exact delivered evidence references instead of waiting. "
+            )
         profiles[kind] = {"ref": ref, "revision": "1", "body": {
             "ref": ref, "revision": "1", "work_kind": kind, "lock_digest": lock_digest,
             "instructions": (
@@ -87,6 +96,7 @@ def owner_template(source, *, mode, lock_digest):
                 "not KnowledgeRefs. Only references literally present in the delivered read_set "
                 "or a tool receipt may appear in basis_refs or revises. When read_set is empty, "
                 "the initial Intent must use an empty basis_refs list. "
+                + reason_rule +
                 "A proposed read must stay within the authorized origin; never request SSH, "
                 "credentials, exploitation, scanning, writes or another origin. "
                 "Return only the required AgentPayload JSON at the final boundary."

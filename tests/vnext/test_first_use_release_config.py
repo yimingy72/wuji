@@ -53,6 +53,9 @@ def test_catalog_keeps_immutable_limits_without_old_fixture_answers(mode):
     instructions = config["definition"]["worker_profiles"]["reason"]["body"]["instructions"]
     assert "When read_set is empty" in instructions
     assert "initial Intent must use an empty basis_refs list" in instructions
+    assert "return claims=[]" in instructions
+    assert "Never wait on the current Reason WorkItem" in instructions
+    assert "propose that Intent" in instructions
     assert ("mechanism_http_origins" in config) == (mode == "mechanism_synthetic")
 
 
@@ -74,7 +77,7 @@ def test_launcher_separates_owner_management_and_provider_secrets():
     assert catalog.GATEWAY_ORIGIN == settings["gateway_url"]
     pod = deployment["spec"]["template"]["spec"]
     owner = next(volume["secret"] for volume in pod["volumes"] if volume["name"] == "input")
-    assert owner["secretName"] == "first-use-deepseek-owner-v3"
+    assert owner["secretName"] == "first-use-deepseek-owner-v4"
     assert pod["serviceAccountName"] == "first-use-launch"
     management = next(volume["secret"] for volume in pod["volumes"] if volume["name"] == "gateway")
     assert management["items"] == [{"key": "master.key", "path": "master.key"}]
