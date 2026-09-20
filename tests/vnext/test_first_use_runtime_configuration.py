@@ -14,6 +14,7 @@ sys.path.insert(0, str(ROOT / "ops/vnext"))
 
 from deployment_common import Settings
 from wuji_core.execution.dispatch_outbox import TaskSupervisorTransport
+from wuji_core.persistence.uow import DomainError
 from wuji_maf_worker.factory import HarnessProfile
 
 
@@ -82,6 +83,33 @@ def test_material_refresh_wrapper_preserves_explicit_representation():
     wrapper = gates.RefreshingToolGate(Gate(), refresher, object())
     assert wrapper.result_material("access", "call", representation="wuji.model-material.v2") == "existing-material"
     assert calls == [("access", "call", "wuji.model-material.v2")]
+
+
+def test_gate_waits_for_one_projected_executor_refresh():
+    gates = module("ops/vnext/gate_deployment.py", "gate_executor_refresh_test")
+    calls = []
+
+    class Gate:
+        def _assembly(self, access, ref):
+            calls.append((access, ref))
+            if len(calls) == 1:
+                raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+            return "available"
+
+    refreshes = []
+    wrapper = gates.RefreshingToolGate(
+        Gate(),
+        SimpleNamespace(refresh=lambda *_: refreshes.append("refresh")),
+        object(),
+        refresh_timeout_seconds=1,
+        refresh_interval_seconds=0.1,
+        sleep=lambda _seconds: None,
+        monotonic=lambda: 0,
+    )
+
+    assert wrapper._assembly("access", "tool-ref") == "available"
+    assert calls == [("access", "tool-ref"), ("access", "tool-ref")]
+    assert refreshes == ["refresh", "refresh"]
 
 
 def test_runtime_refuses_to_start_without_the_session_transport(monkeypatch):

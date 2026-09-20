@@ -11,6 +11,7 @@ import json
 import re
 from threading import RLock
 from pathlib import Path
+import time
 
 import httpx
 
@@ -26,6 +27,7 @@ from wuji_core.http import JsonBoundaryLimits, create_app
 from wuji_core.http.executor_host import create_executor_host_router
 from wuji_core.http.model_gate import create_model_router
 from wuji_core.http.tool_gate import create_tool_router
+from wuji_core.persistence.uow import DomainError
 
 
 class KeyResolver:
@@ -190,15 +192,34 @@ class GateBindingRefresher:
 class RefreshingToolGate:
     """Compatibility view that refreshes before model/tool request assembly."""
 
-    def __init__(self, gate, refresher, authority):
+    def __init__(self, gate, refresher, authority, *, refresh_timeout_seconds=60.0,
+                 refresh_interval_seconds=1.0, sleep=time.sleep,
+                 monotonic=time.monotonic):
+        if (not 0 < refresh_timeout_seconds <= 60
+                or not 0 < refresh_interval_seconds <= refresh_timeout_seconds):
+            raise ValueError("bounded Gate refresh interval required")
         self._gate, self._refresher, self._authority = gate, refresher, authority
+        self._refresh_timeout = refresh_timeout_seconds
+        self._refresh_interval = refresh_interval_seconds
+        self._sleep, self._monotonic = sleep, monotonic
 
     def _refresh(self):
         return self._refresher.refresh(self._gate, self._authority)
 
     def _assembly(self, access, ref):
-        self._refresh()
-        return self._gate._assembly(access, ref)
+        deadline = self._monotonic() + self._refresh_timeout
+        while True:
+            self._refresh()
+            try:
+                return self._gate._assembly(access, ref)
+            except DomainError as error:
+                remaining = deadline - self._monotonic()
+                if error.code != "CAPABILITY_UNAVAILABLE" or remaining <= 0:
+                    raise
+                # Kubernetes projects ConfigMap updates asynchronously.  A
+                # newly admitted Task may reach the Gate before its executor
+                # entry reaches this Pod, even though the API write succeeded.
+                self._sleep(min(self._refresh_interval, remaining))
 
     async def invoke(self, access, request):
         self._refresh()
