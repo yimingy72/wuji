@@ -1,111 +1,158 @@
 # Core first-use trial — 2026-09-20
 
-Status: **incomplete**. The fixed build delivers more of the core path, but the
-complete user flow has not passed on one Task and cancellation does not yet
-converge to `stopped`.
+Status: **incomplete**. Creation, explicit start, real Scheduler/Supervisor/MAF/Gate
+execution, DeepSeek calls, one real target observation, evidence-backed analysis,
+follow-up Intent admission, cancellation and actual-state reconciliation have all
+run. They have not all completed on one Task: the assigned follow-up Explore may
+still exit without invoking its required target tool, so result closure remains
+unaccepted.
 
-## Fixed build
+## Fixed deployment
 
-- Code SHA: `69cf02ef59b8e0081d103f47db744be60d7894de`
-- Agent: `127.0.0.1:55529/wuji-vnext-agent@sha256:8f3414bd13e64d882b31e1910253dae25721b76ef34f170a0588d30955134289`
-- Platform: `127.0.0.1:55529/wuji-vnext-platform@sha256:1c19814554b1b3b1a0bbe4535fd6978c983d570de07b5136df921d6b9e395b2b`
-- Kali: `127.0.0.1:55529/wuji-vnext-kali@sha256:957a6c77c816ace0f7e20bb327ab0b730e6d7eccfd6ca82d7238bca80354190d`
-- Web: `127.0.0.1:55529/wuji-web@sha256:bdf35fc3a7eea6da58c8a5d04d2724a3e38e6f46241375746cbf55b859a0ec7a`
-- Rollout: API, Runtime, Scheduler, Gates, Web, first-use launch, fixture and
+- Platform/Agent/Kali source: `f8c1dbc3b1e9efb34f7fa00b8dcc463224e92903`
+- Web source: `0d73f2de7162f43b34d1082f64b59bde450c39ea`
+- Release-registration commit: `d27321a`
+- Agent: `127.0.0.1:55529/wuji-vnext-agent@sha256:50851a60aee7cbc2b35618c36f1549bc12e467081a35c4b77abbf198cbfc0665`
+- Platform: `127.0.0.1:55529/wuji-vnext-platform@sha256:617c0b17afb2f277285abec147e17897304644c8c56e6f560f6446a75a43f9da`
+- Kali: `127.0.0.1:55529/wuji-vnext-kali@sha256:abe46bfc28188f0aa95bbd77b6c8e28a7f02d7caa13e749bf8866a90eb445864`
+- Web: `127.0.0.1:55529/wuji-web@sha256:a8b8f8f96f590cd8e9dbeca04afb3883f18f81b286816d3278ff6ec69f95268a`
+- Catalog Job: `first-use-catalog-deepseek-f8c1dbc3-523a3519`
+- Owner SecretRef: `first-use-deepseek-owner-v6`
+- Rollout result: API, Runtime, Scheduler, Gates, Web, launch service, fixture and
   isolated LiteLLM all reported Ready.
 
-## What changed
+The Web-only follow-up reused the reviewed base image and replaced compiled
+assets. It did not rebuild or change Platform, Agent, Kali, the model profile,
+or task execution behavior.
 
-1. HTTP material keeps the largest real body prefix that fits the canonical
-   envelope and distinguishes malformed UTF-8 from malformed JSON.
-2. Reason/Report may resolve with zero tools; Explore still requires its fixed
-   published tools.
-3. Native zero-tool MAF requests may omit `tools` and
-   `parallel_tool_calls`; tool-bearing requests remain strict.
-4. Session capability/profile resolution, generated wire contracts and Runtime
-   session transport now agree on zero-tool roles and model material v2.
-5. Initial Reason output is constrained to delivered references; follow-up work
-   must be emitted as an evidence-backed Intent rather than a wait on the
-   current Reason WorkItem.
-6. Gates wait up to 60 seconds for a newly written Task executor to reach the
-   projected ConfigMap, within the existing model request deadline.
-7. A removed Task environment now settles a started, non-exited Run as
-   `environment_stopped` without inventing a successful result; capacity is
-   released.
-8. A URL-selected Task remains selected even when it is outside the first
-   directory page.
+## Implemented core fixes
 
-## Actual results
+1. Settled `cancel/quiescing` is displayed as `已停止`; `reconciling` remains
+   `待核对`. A reconciled cancel notice now says `取消已确认`, and the refreshed
+   Task is synchronized back into the left directory.
+2. A malformed retained MAF result is persisted as one rejected receipt rather
+   than restaging an artifact on every receiver cycle.
+3. Initial Reason self/local basis references are normalized without rewriting
+   the sealed raw model output. Unsupported follow-up Artifact bases are dropped
+   only when supported Claim/Observation bases remain.
+4. Launch reuses the already verified immutable capability when only release
+   evidence references change, avoiding a false input-digest conflict.
+5. The Explore profile explicitly limits target reads, forbids waiting on its
+   own assigned Intent and directs a concrete unfulfilled HTTP Intent to the
+   registered `http_target_get` tool.
 
-### Mechanism and focused checks
+## Actual validation
 
-- HTTP target/material: 29 focused tests passed (`13 + 16`).
-- Remote capability/release/task launch: 21 focused tests passed.
-- Workbench selection: 7 tests passed; production Web build passed.
-- Tool-less MAF request boundary: 2 passed.
-- First-use owner/prompt release configuration: 7 passed.
-- Removed-environment settlement: 2 passed.
-- Gate projected-executor refresh: 4 focused configuration tests passed.
-- OpenAPI/generated contract check passed with only the three pre-existing
-  Redocly warnings.
+### Focused mechanism checks
 
-### Real DeepSeek and fixture
+- First-use workbench state: 7 passed.
+- Production Web typecheck/build: passed.
+- Release configuration and guards: 11 passed.
+- First-use release configuration before the final Web-only change: 7 passed.
+- First-use release guards before the final Web-only change: 4 passed.
+- Launch capability reuse against real PostgreSQL: 1 passed.
+- Initial local-reference, invalid retained result and valid replay paths: 3
+  passed; the retained receiver replay check separately passed.
+- No unrelated full suite or performance matrix was run.
 
-R11 (`d2fcc0cd-1b42-4db1-9f3b-8488770fe4ef`) demonstrated:
+The first test invocation used local pnpm 11 and was rejected by the repository
+engine guard before test collection. The recorded pass used pinned pnpm
+10.32.1. The initial Vitest invocation used the root contracts-only config and
+found no matching test; the recorded 7-pass result used
+`tests/topology/vitest.config.ts`.
 
-- explicit workbench creation and start;
-- two completed Reason Runs and one completed Explore Run;
-- four completed DeepSeek calls with reported usage: 13,130 prompt tokens,
-  3,539 completion tokens, 16,669 total tokens;
-- one native provider tool call with provider id
-  `call_00_I6rhvAslcMyILHoikQz51291`;
-- one actual GET of
-  `http://first-use-fixture.wuji-vnext-test.svc:8080/f1/entry`;
-- one complete live-capture Observation and a sealed HTTP exchange artifact;
-- the actual JSON body reached DeepSeek and produced evidence-backed claims,
-  including the observed `source_path` and marker.
+### Real DeepSeek and target runs
 
-R11 did **not** complete the required follow-up GET. Its second Reason waited on
-its own WorkItem; Scheduler rejected that decision as `INVALID_REFERENCE`.
-The fixed v4 Reason instruction addresses this in subsequent Tasks.
+R18 (`87d85331-da2c-4b8b-8764-cb09400f3d33`) is the most complete single run:
 
-R12 and R13, both on the fixed v4 instruction, failed before their first Reason
-response. Each Gate ledger contains exactly one ended model attempt with
-`send_state=unknown`, `response_state=unknown`, no response bytes, no usage and
-no corresponding LiteLLM chat-completions request. The same external transport
-condition repeated twice, so no further Task was created.
+- formal workbench create and explicit start reached launch `ready/succeeded`;
+- four completed DeepSeek calls reported 28,365 total tokens;
+- the registered tool performed one non-destructive
+  `GET http://39.97.227.109/`;
+- the live capture is complete: HTTP 200, `nginx/1.27.4`, 12,429 response bytes,
+  `text/html; charset=utf-8`, no truncation;
+- DeepSeek produced two accepted, evidence-backed claims: the root is the
+  `若依管理系统` SPA shell, and its observed static references include
+  `/static/js/app.f0661109.js` and the listed CSS/chunk assets;
+- a follow-up Intent for `/static/js/app.f0661109.js` was admitted with an
+  Observation and Claim as its basis;
+- the second Explore nevertheless exited without a tool call, so the follow-up
+  observation and final result were not produced.
 
-### Pause, cancel and actual state
+R19 (`853d88b9-d27e-4c40-87db-39e34e9c407b`) used the final v6 execution
+profile and reached launch `ready/succeeded`. Two DeepSeek calls completed with
+5,557 total tokens, but its first Explore exited without a tool call. It was
+cancelled through the workbench. PostgreSQL records
+`desired_state=cancel`, `observed_state=quiescing`,
+`close_trigger=user_cancel`; both AgentRuns are exited, the Task Pod is absent,
+and the workbench displays `已停止`. Only its completed workspace-init Job
+remains.
 
-- R9 pause converged to Task `paused`, WorkItem `suspended`, and no Task Pod.
-- Cancel commands were accepted and Task Pods were removed.
-- R11, R12 and R13 nevertheless remained `observed_state=quiescing` after their
-  terminal WorkItems and exited Runs were gone. This is an uncompleted task-level
-  stop-convergence boundary; it is not reported as stopped.
+R15 (`4990f614-1d16-4687-84cf-a0ee7f613447`) separately demonstrated two real
+reads, `/` and `/static/js/app.f0661109.js`, and five completed model calls
+(61,628 total tokens). Its JS material was partial at the then-current 65,536
+byte capture limit, and its follow-up basis was rejected by the older policy;
+it is supporting evidence, not a full-flow pass.
 
-## Reproducible HTTP captures
+## Complete HTTP packets
 
-The files below contain complete redacted GET requests and responses (method,
-URL, headers, request body and full response body). Authorization headers are
-represented by their SecretRef and are not written to Git.
+These files contain complete redacted request and response records. Platform
+authorization is represented by its SecretRef, never by a token value.
 
+- [R18 final Task/launch/readiness GETs](http/r18-final.json)
+- [R18 real target GET](http/r18-target-get.json) — the exact 12,429 response
+  bytes are retained as base64; decoded SHA-256 is
+  `1390ef07362ff9fd6e1f1fc4c147a778d86b586f1aca4ba11343bd6504ff790f`.
+- [R19 final Task/launch/readiness GETs](http/r19-final.json)
 - [R11 partial final state](http/r11-partial-final.json)
 - [R9 paused state](http/r9-paused.json)
 - [R12 cancellation state](http/r12-cancel.json)
 - [R13 cancellation state](http/r13-cancel.json)
 
-The actual workbench screenshot was captured from the in-app browser at R13
-cancellation and retained in the task conversation. This repository snapshot
-does not contain a binary PNG because the browser-control interface returned
-image bytes without a filesystem export path; this is an explicit evidence
-packaging gap, not a claim that screenshot-file acceptance passed.
+The R19 stopped-state screenshot was captured from the in-app browser and is
+retained in the task conversation. The browser-control interface returned image
+bytes without a filesystem export path, so this repository still lacks the
+required PNG under `screenshots/`. Screenshot-file packaging is therefore
+**not passed**; no synthetic image is substituted.
 
-## Scope and exclusions
+## Asset and interface inventory
 
-- Only the self-built in-cluster first-use fixture was accessed.
-- `http://39.102.208.182` was not accessed.
-- No SSH credential was used.
-- No synthetic result is presented as a real-model or target pass.
-- Full core flow, final result display, and verified terminal cancellation remain
-  unaccepted until a single fixed-build Task completes both HTTP observations
-  and cancellation converges to `stopped`.
+| Asset/interface | Validation state | Evidence |
+| --- | --- | --- |
+| `http://39.97.227.109/` | 已利用（只读 GET） | R18 complete live capture |
+| `/static/js/app.f0661109.js` | 已利用（R15，partial material）；R18 follow-up未执行 | R15/R18 task records |
+| `/static/css/app.07b3ceaf.css` | 未利用，仅正文引用 | R18 root body |
+| `/static/css/chunk-libs.d52e5467.css` | 未利用，仅正文引用 | R18 root body |
+| `/static/js/chunk-elementUI.32b5af96.js` | 未利用，仅正文引用 | R18 root body |
+| `/static/js/chunk-libs.1c571370.js` | 未利用，仅正文引用 | R18 root body |
+| `/static/js/runtime.6d86708d.js` | 未利用，仅正文引用 | R18 root body |
+| Task/launch/readiness API | 已验证，200 | R18/R19 HTTP captures |
+| Workbench cancel and state read | 已验证；底层 `cancel/quiescing/user_cancel`，Task Pod absent | R19 UI/API/Kubernetes |
+
+## Configuration and operation
+
+- Workbench: `http://localhost:44180/`
+- Authorized target: `http://39.97.227.109`, HTTP port 80 only.
+- Authorization expiry supplied by the user: 2026-09-21 17:00 Asia/Shanghai.
+- Model: published DeepSeek `deepseek-flash` profile; key remains behind the
+  gateway SecretRef and is not in Git or Task material.
+- Trial budget: USD 1 per Task.
+- Login code can be read locally without posting it to chat:
+  `kubectl --context docker-desktop -n wuji-vnext-test get secret wuji-web-gateway-credentials -o jsonpath='{.data.access\.token}' | base64 --decode`
+- Normal use: establish the local session, create a Web single-target Task,
+  confirm target and external analysis separately, select the published model
+  and runtime, create the unstarted Task, click `显式启动`, inspect topology and
+  evidence, then use pause/cancel and `查看原操作结果` to reconcile state.
+
+## Remaining boundary and next code item
+
+The user flow is not complete until one fixed-build Task performs its assigned
+follow-up target read and reaches a result display. The next code item is a
+deterministic Explore completion invariant: a concrete admitted target Intent
+must not be accepted as `done` when the Run produced no registered tool attempt;
+the scheduler/supervisor should requeue or fail it with an explicit reason. Once
+that focused failure path passes, run one new authorized Task through the same
+core path and stop—no broader test matrix is required.
+
+No SSH credential was used, no destructive request was sent, and no synthetic
+result is reported as a real-model or target pass.
