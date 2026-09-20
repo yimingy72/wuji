@@ -27,9 +27,9 @@ def suffix_for(mode):
 
 
 def owner_secret_name(mode):
-    # v6 also makes Explore execute its assigned HTTP Intent before settling.
+    # v7 freezes the evidence-driven v4 role instructions and wider Worker wire.
     # Keep older private templates for historical failed launches.
-    return f"first-use-{suffix_for(mode)}-owner-v6"
+    return f"first-use-{suffix_for(mode)}-owner-v7"
 
 
 def rbac_manifests():
