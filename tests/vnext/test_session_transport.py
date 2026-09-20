@@ -65,6 +65,15 @@ def test_session_boundary_transport_uses_explicit_binary_and_preserves_decimal()
     assert restored.provider_state.session_state["provider_decimal"] == Decimal("1.250")
 
 
+def test_session_resolved_transport_keeps_an_explicit_zero_tool_set():
+    resolved = session_resolved()
+    resolved["tools"] = []
+
+    encoded = session_transport_codec().encode_resolved(resolved)
+
+    assert encoded["tools"] == []
+
+
 def test_published_session_transport_requires_the_exact_object_closure():
     """Catch omitted, duplicate, extra, or wrong-slot published object bytes."""
     original = published_session()

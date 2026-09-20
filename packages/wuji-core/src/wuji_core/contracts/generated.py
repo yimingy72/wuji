@@ -2895,7 +2895,7 @@ class WorkerResolvedHost(BaseModel):
     client_model: Annotated[StrictStr, Field(max_length=256, min_length=1)]
     limits: ExecutionLimits
     request_timeout_seconds: Annotated[StrictFloat, Field(gt=0.0, le=300.0)]
-    tools: Annotated[list[WorkerToolDefinition], Field(max_length=256, min_length=1)]
+    tools: Annotated[list[WorkerToolDefinition], Field(max_length=256)]
     session_lineage: Annotated[StrictStr, Field(max_length=256, min_length=1)]
 
 
@@ -3024,7 +3024,7 @@ class WorkerSessionResolvedHost(BaseModel):
     client_model: Annotated[StrictStr, Field(max_length=256, min_length=1)]
     limits: ExecutionLimits
     request_timeout_seconds: Annotated[StrictFloat, Field(gt=0.0, le=300.0)]
-    tools: Annotated[list[WorkerToolDefinition], Field(max_length=256, min_length=1)]
+    tools: Annotated[list[WorkerToolDefinition], Field(max_length=256)]
     session_lineage: Annotated[StrictStr, Field(max_length=256, min_length=1)]
     session_compatibility: WorkerSessionPayload
     session_limits: WorkerSessionLimits
