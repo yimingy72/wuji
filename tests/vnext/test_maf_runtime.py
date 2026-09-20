@@ -61,6 +61,63 @@ def test_native_stream_contract_preserves_released_sdk_fields_and_token_dialect(
         )
 
 
+def test_toolless_model_request_may_omit_tool_controls():
+    """The released SDK omits both fields when function invocation is disabled."""
+
+    from wuji_maf_worker.tools import ModelCallIdentity
+
+    identity = ModelCallIdentity([], max_bytes=65_536)
+    request = httpx.Request(
+        "POST",
+        "https://gate.invalid/internal/v2/model/chat/completions",
+        json={
+            "model": "fixture",
+            "messages": [{"role": "user", "content": "bounded fixture"}],
+            "stream": True,
+            "stream_options": {"include_usage": True},
+            "max_completion_tokens": 64,
+        },
+    )
+
+    asyncio.run(identity.request(request))
+    assert request.headers["X-Wuji-Request-ID"]
+
+    request_with_tools = httpx.Request(
+        "POST",
+        "https://gate.invalid/internal/v2/model/chat/completions",
+        json={
+            **strict_json_loads(request.content),
+            "tools": [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "read_fixture",
+                        "parameters": {
+                            "type": "object",
+                            "additionalProperties": False,
+                        },
+                    },
+                }
+            ],
+        },
+    )
+    tool_identity = ModelCallIdentity(
+        [
+            {
+                "name": "read_fixture",
+                "input_schema": {
+                    "type": "object",
+                    "additionalProperties": False,
+                },
+            }
+        ],
+        max_bytes=65_536,
+    )
+
+    with pytest.raises(ValueError, match="frozen M1 transport"):
+        asyncio.run(tool_identity.request(request_with_tools))
+
+
 async def _finish_after_event_consumer_disconnects(case, runtime):
     iterator = runtime.execute(case.assignment).__aiter__()
     consumer = asyncio.create_task(anext(iterator))

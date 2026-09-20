@@ -73,15 +73,23 @@ class ModelCallIdentity:
         body = strict_json_loads(request.content)
         if body.get("n", 1) != 1 or body.get("stream") is not True:
             raise ValueError("M1 requires single-choice native streaming")
+        advertised_tools = body.get("tools", [])
         if (
             not isinstance(body.get("max_completion_tokens"), int)
             or isinstance(body.get("max_completion_tokens"), bool)
             or "max_tokens" in body
-            or body.get("parallel_tool_calls") is not False
             or body.get("stream_options") != {"include_usage": True}
+            or (
+                advertised_tools
+                and body.get("parallel_tool_calls") is not False
+            )
+            or (
+                "parallel_tool_calls" in body
+                and body["parallel_tool_calls"] is not False
+            )
         ):
             raise ValueError("SDK request does not match the frozen M1 transport")
-        for advertised in body.get("tools", []):
+        for advertised in advertised_tools:
             proposed = advertised["function"]
             definition = self.definitions.get(proposed["name"])
             if definition is None or canonical_json_bytes(proposed["parameters"]) != canonical_json_bytes(definition["input_schema"]):
