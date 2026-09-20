@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from 'vitest';
 import { artifactContentPath, beginLocalWorkbenchSession, materialPath } from '../../apps/web/src/v2WorkbenchApi';
 import { resolveTaskSelection } from '../../apps/web/src/features/first-use/FirstUseWorkbench';
-import { isCurrentRequest, selectAuthorizedTaskId, taskStatusLabel } from '../../apps/web/src/features/first-use/workbenchState';
+import { includeRequestedTask, isCurrentRequest, selectAuthorizedTaskId, taskStatusLabel } from '../../apps/web/src/features/first-use/workbenchState';
 
 describe('first-use workbench state', () => {
   test('keeps an unstarted task visibly separate from running and stopped states', () => {
@@ -20,6 +20,15 @@ describe('first-use workbench state', () => {
     expect(resolveTaskSelection(['task-old'], null, 'task-old', 'task-old', 'task-new')).toBe('task-new');
     expect(resolveTaskSelection(['task-new', 'task-old'], null, 'task-old', 'task-old', 'task-new')).toBe('task-new');
     expect(resolveTaskSelection(['task-old'], null, 'task-old', 'task-old', null)).toBe('task-old');
+  });
+
+  test('includes an authorized URL task that is outside the first directory page', () => {
+    const requested = { task_id: 'task-new', name: 'new' };
+    expect(includeRequestedTask([{ task_id: 'task-old', name: 'old' }], requested)).toEqual([
+      requested,
+      { task_id: 'task-old', name: 'old' },
+    ]);
+    expect(includeRequestedTask([requested], requested)).toEqual([requested]);
   });
 
   test('rejects a late response after a task generation switch', () => {

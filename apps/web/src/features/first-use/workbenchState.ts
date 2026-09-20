@@ -31,6 +31,14 @@ export function selectAuthorizedTaskId(
   return taskIds[0] ?? null;
 }
 
+export function includeRequestedTask<T extends { readonly task_id: string }>(
+  items: readonly T[],
+  requested: T | null,
+): T[] {
+  if (!requested || items.some((item) => item.task_id === requested.task_id)) return [...items];
+  return [requested, ...items];
+}
+
 export function isCurrentRequest(generation: number, currentGeneration: number, taskId: string, currentTaskId: string): boolean {
   return generation === currentGeneration && taskId === currentTaskId;
 }

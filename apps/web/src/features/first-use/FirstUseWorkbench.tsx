@@ -47,7 +47,7 @@ import { RecordPanel, readRecordView } from '../topology/panels/RecordPanel';
 import { SnapshotSelector, type ViewChoice } from '../topology/panels/SnapshotSelector';
 import { selectedRecordRef } from '../topology/record';
 import { CompletionPanel } from '../completion/CompletionPanel';
-import { selectAuthorizedTaskId, taskStatusLabel } from './workbenchState';
+import { includeRequestedTask, selectAuthorizedTaskId, taskStatusLabel } from './workbenchState';
 import styles from './firstUseWorkbench.module.css';
 
 const CREATE_KEY = 'wuji.first-use.v2.create-key';
@@ -594,6 +594,7 @@ export function FirstUseWorkbench({ session, onSessionExpired, onLogout }: First
   const listGeneration = useRef(0);
   const listController = useRef<AbortController | null>(null);
   const explicitSelection = useRef<string | null>(null);
+  const initialRequestedTaskId = useRef(search.get('task')).current;
 
   const selectedTask = tasks.find((task) => task.task_id === selectedTaskId) ?? null;
   const selectTask = (taskId: string) => {
@@ -611,9 +612,17 @@ export function FirstUseWorkbench({ session, onSessionExpired, onLogout }: First
     listController.current = controller;
     setLoading(true);
     setListError(null);
-    void listTasks(session.project_id, taskCursor, controller.signal).then((page) => {
+    const requested = !taskCursor && initialRequestedTaskId
+      ? readTask(initialRequestedTaskId, controller.signal).catch((reason: unknown) => {
+        if (reason instanceof ApiRequestError && (reason.status === 403 || reason.status === 404)) return null;
+        throw reason;
+      })
+      : Promise.resolve(null);
+    void Promise.all([listTasks(session.project_id, taskCursor, controller.signal), requested]).then(([page, requestedTask]) => {
       if (controller.signal.aborted || listGeneration.current !== currentGeneration) return;
-      setTasks((current) => taskCursor ? [...current, ...page.items.filter((item) => !current.some((existing) => existing.task_id === item.task_id))] : page.items);
+      setTasks((current) => taskCursor
+        ? [...current, ...page.items.filter((item) => !current.some((existing) => existing.task_id === item.task_id))]
+        : includeRequestedTask(page.items, requestedTask));
       setCursor(page.next_cursor);
     }).catch((reason: unknown) => {
       if (controller.signal.aborted || listGeneration.current !== currentGeneration) return;
@@ -623,7 +632,7 @@ export function FirstUseWorkbench({ session, onSessionExpired, onLogout }: First
       if (!controller.signal.aborted && listGeneration.current === currentGeneration) setLoading(false);
     });
     return () => controller.abort();
-  }, [session.project_id, session.identity_mode, taskCursor, listNonce, onSessionExpired]);
+  }, [session.project_id, session.identity_mode, taskCursor, listNonce, onSessionExpired, initialRequestedTaskId]);
 
   useEffect(() => {
     const requested = search.get('task');
