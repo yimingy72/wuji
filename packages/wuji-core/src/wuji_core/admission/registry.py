@@ -338,7 +338,12 @@ def _validate_mechanism_candidate(connection, *, capability, run_binding):
     if not receiver_matches:
         raise ValueError("mechanism candidate receiver mismatch")
     tool_refs = body.get("tool_definition_refs")
-    if not tool_refs or set(tool_refs) - set(config.allowed_tool_refs) or set(tool_refs) - set(config.runtime.allowed_tool_refs):
+    if (
+        not isinstance(tool_refs, list)
+        or (body["work_kind"] == "explore" and not tool_refs)
+        or set(tool_refs) - set(config.allowed_tool_refs)
+        or set(tool_refs) - set(config.runtime.allowed_tool_refs)
+    ):
         raise ValueError("mechanism candidate tool profile mismatch")
     for ref in tool_refs:
         tool_row = row(connection.execute(

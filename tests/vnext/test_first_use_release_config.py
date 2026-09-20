@@ -49,7 +49,7 @@ def test_catalog_keeps_immutable_limits_without_old_fixture_answers(mode):
         validate_input_schema(tool["input_schema"])
     assert config["tools"][1]["input_schema"]["properties"]["method"]["enum"] == ["GET", "HEAD"]
     for kind in ("reason", "report"):
-        assert config["definition"]["worker_profiles"][kind]["body"]["tool_definition_refs"] == [catalog.WORKSPACE_REF]
+        assert config["definition"]["worker_profiles"][kind]["body"]["tool_definition_refs"] == []
     assert ("mechanism_http_origins" in config) == (mode == "mechanism_synthetic")
 
 

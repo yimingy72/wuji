@@ -87,7 +87,7 @@ def owner_template(source, *, mode, lock_digest):
                 "credentials, exploitation, scanning, writes or another origin. "
                 "Return only the required AgentPayload JSON at the final boundary."
             ),
-            "tool_definition_refs": refs if kind == "explore" else [WORKSPACE_REF],
+            "tool_definition_refs": refs if kind == "explore" else [],
             "max_context_records": 128, "max_context_bytes": 65536, "max_output_tokens": 4096,
         }}
     result.update(

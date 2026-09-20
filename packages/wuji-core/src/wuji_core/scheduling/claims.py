@@ -409,7 +409,10 @@ class Scheduler:
                 or body["lock_digest"] != config.runtime.lock_digest
                 or (not session_profile and body["capabilities"] != disabled)
                 or not body["instructions"]
-                or not body["tool_definition_refs"]
+                or (
+                    kind == "explore"
+                    and not body["tool_definition_refs"]
+                )
                 or any(
                     type(body[n]) is not int or body[n] <= 0
                     for n in (

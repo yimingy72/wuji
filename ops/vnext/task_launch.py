@@ -181,6 +181,36 @@ def published_tool_kinds(config):
     return kinds
 
 
+def published_tool_routes(config, definition):
+    """Frozen built-in adapter route for every tool this Task may receive."""
+
+    allowed = set(definition["runtime_profile"]["allowed_tool_refs"])
+    routes = {}
+    for tool in deployment_tools(config):
+        ref = tool.get("ref") if isinstance(tool, dict) else None
+        if ref not in allowed:
+            continue
+        kinds = tool.get("allowed_target_kinds")
+        revision = tool.get("revision")
+        executor_ref = tool.get("executor_ref")
+        if (
+            kinds not in (["workspace_read"], ["http_target"])
+            or not isinstance(revision, str)
+            or not revision.isdigit()
+            or not isinstance(executor_ref, str)
+            or not executor_ref
+        ):
+            raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+        routes[ref] = {
+            "revision": revision,
+            "executor_ref": executor_ref,
+            "kind": kinds[0],
+        }
+    if set(routes) != allowed:
+        raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+    return routes
+
+
 def role_tool_refs(config, definition, kind):
     """Effective, role-scoped tool refs for one published Session profile.
 
@@ -189,8 +219,8 @@ def role_tool_refs(config, definition, kind):
     frozen runtime profile names what this Task may ever use. The intersection is
     the only effective set, and a ref whose published target kind is outside the
     role's kinds is dropped. Reason therefore never receives a target tool even
-    if a deployment profile names one, and a profile left with nothing fails
-    before activation instead of running a weaker identity.
+    if a deployment profile names one. Explore must retain a concrete tool;
+    Reason and Report may intentionally publish none.
     """
 
     published = tuple(
@@ -216,7 +246,7 @@ def role_tool_refs(config, definition, kind):
         )
     except ValueError as error:
         raise DomainError("CAPABILITY_UNAVAILABLE", 503) from error
-    if not refs:
+    if not refs and kind == "explore":
         raise DomainError("CAPABILITY_UNAVAILABLE", 503)
     return refs
 
@@ -1241,6 +1271,7 @@ def task_objects(binding, material, *, namespace):
             "collector_subject": "collector",
             "gate_subject": "gate",
         },
+        "tool_routes": binding["tool_routes"],
         "platform_url": binding["gate_url"],
         "ca_file": "/config/ca.crt",
         "collector_token_file": "/run/wuji/credentials/collector.token",
@@ -1817,6 +1848,7 @@ def binding_document(config, task_id, *, agent_image, kali_image, prepared, extr
             for kind, profile in published_session_profiles(config, definition).items()
         },
         "worker_profiles": published_session_profiles(config, definition),
+        "tool_routes": published_tool_routes(config, definition),
         "issuer": config["identity"]["issuer"],
         "audience": config["identity"]["audience"],
         "runtime_origin": extra["runtime_origin"],

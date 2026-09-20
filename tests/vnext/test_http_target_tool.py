@@ -41,7 +41,7 @@ from test_knowledge_admission import IDENTITY
 from test_work_state_guards import control_case, observe, prepared_run, process
 from wuji_core.admission import target_scope
 from wuji_core.admission.common import digest
-from wuji_core.admission.tools import HttpTargetExecutor
+from wuji_core.admission.tools import HttpTargetExecutor, ToolExecutorRouter
 from wuji_core.contracts.admission import ToolCallRequest
 from wuji_core.http import canonical_json_bytes, create_app, strict_json_loads
 from wuji_core.persistence.uow import AccessContext, DomainError
@@ -493,6 +493,52 @@ def test_an_oversized_body_is_truncated_and_marked_partial(
             document = strict_json_loads(bytes(row[2]))
             assert document["response"]["truncated"] is True
             assert len(bytes(row[2])) <= 2048
+            import base64
+
+            retained = base64.b64decode(document["response"]["body_base64"])
+            assert retained
+            assert document["response"]["body_bytes"] == len(retained)
+            material = case.gate.result_material(
+                case.access,
+                permit.tool_call_id,
+                representation="wuji.model-material.v2",
+            )
+            assert material.status.value == "delivered"
+            assert material.source.completeness.value == "partial"
+            assert retained.decode() in material.representation.text
+
+
+def test_cumulative_output_shortage_keeps_partial_source_but_not_broken_material(
+    db_environment, tmp_path, audit_directory
+):
+    with target_range() as port:
+        with http_case(
+            db_environment, tmp_path, audit_directory, port=port,
+            max_total_output_bytes=1200,
+        ) as case:
+            first = authorize(
+                case, "call-target-cumulative-1",
+                url=f"http://127.0.0.1:{port}/page",
+            )
+            assert asyncio.run(case.gate.execute_permit(case.access, first)).status == "complete"
+            second = authorize(
+                case, "call-target-cumulative-2",
+                url=f"http://127.0.0.1:{port}/large",
+            )
+            receipt = asyncio.run(case.gate.execute_permit(case.access, second))
+            row = attempt_row(case, second.tool_attempt_id)
+            assert receipt.status == "complete"
+            assert receipt.reason_code.value == "LIMIT_BLOCKED"
+            assert row[3:] == ("partial", "LIMIT_BLOCKED")
+            material = case.gate.result_material(
+                case.access,
+                second.tool_call_id,
+                representation="wuji.model-material.v2",
+            )
+            assert material.status.value == "omitted"
+            assert material.source.completeness.value == "partial"
+            assert material.omission_reason.value == "unsupported_schema"
+            assert material.representation is None
 
 
 def test_the_executor_refuses_a_permit_that_does_not_match_its_own_key(
@@ -510,3 +556,32 @@ def test_the_executor_refuses_a_permit_that_does_not_match_its_own_key(
                 case.executor._operate(tampered)
             assert refused.value.code == "FORBIDDEN_TARGET"
             assert _Range.requests == []
+
+
+def test_executor_router_uses_frozen_tool_identity_not_argument_shape():
+    workspace = SimpleNamespace(
+        receiver_id="receiver", environment_ref="environment"
+    )
+    target = SimpleNamespace(
+        receiver_id="receiver", environment_ref="environment"
+    )
+    router = ToolExecutorRouter(
+        executor_ref="executor-v1",
+        routes={"workspace-v1": workspace, "http-v1": target},
+    )
+    misleading = SimpleNamespace(
+        executor_ref="executor-v1",
+        tool_definition_ref="workspace-v1",
+        arguments={"url": "http://fixture.invalid", "method": "GET"},
+    )
+    assert router._select(misleading) is workspace
+    with pytest.raises(DomainError) as wrong_executor:
+        router._select(SimpleNamespace(**{
+            **vars(misleading), "executor_ref": "executor-v2",
+        }))
+    assert wrong_executor.value.code == "CAPABILITY_UNAVAILABLE"
+    with pytest.raises(DomainError) as unknown_tool:
+        router._select(SimpleNamespace(**{
+            **vars(misleading), "tool_definition_ref": "unknown-v1",
+        }))
+    assert unknown_tool.value.code == "CAPABILITY_UNAVAILABLE"

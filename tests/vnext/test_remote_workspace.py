@@ -116,6 +116,13 @@ def _remote_stack(
             admission=remote_admission,
             root=case.workspace,
             receipt_root=case.receipt_root,
+            tool_routes={
+                "fixture-reader-v1": {
+                    "revision": "1",
+                    "executor_ref": binding.executor_ref,
+                    "kind": "workspace_read",
+                }
+            },
         )
         with TlsAsgiServer(
             kali_app,

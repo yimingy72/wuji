@@ -11,6 +11,7 @@ from wuji_core.http.executor_host import create_workspace_executor_router
 
 
 def create_kali_executor_app(*, token_verifier, binding, admission, root, receipt_root,
+                             tool_routes,
                              json_limits=JsonBoundaryLimits(),
                              max_response_bytes=2097152, max_output_bytes=1048576,
                              target_timeout_seconds=30):
@@ -33,7 +34,27 @@ def create_kali_executor_app(*, token_verifier, binding, admission, root, receip
         receiver_id=binding.receiver_id, environment_ref=binding.environment_ref,
         timeout_seconds=target_timeout_seconds,
     )
-    executor = ToolExecutorRouter(workspace_read=workspace, http_target=target)
+    adapters = {"workspace_read": workspace, "http_target": target}
+    if (
+        not isinstance(tool_routes, dict)
+        or not tool_routes
+        or any(
+            not isinstance(ref, str)
+            or not ref
+            or not isinstance(route, dict)
+            or set(route) != {"revision", "executor_ref", "kind"}
+            or not isinstance(route["revision"], str)
+            or not route["revision"].isdigit()
+            or route["executor_ref"] != binding.executor_ref
+            or route["kind"] not in adapters
+            for ref, route in tool_routes.items()
+        )
+    ):
+        raise ValueError("Kali requires fixed published built-in tool routes")
+    executor = ToolExecutorRouter(
+        executor_ref=binding.executor_ref,
+        routes={ref: adapters[route["kind"]] for ref, route in tool_routes.items()},
+    )
     return create_app(
         token_verifier=token_verifier, json_limits=json_limits,
         routers=[create_workspace_executor_router(

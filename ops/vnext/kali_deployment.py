@@ -12,7 +12,7 @@ from wuji_core.http.auth import TokenVerifier
 
 def build_kali():
     config = strict_json_loads(read_file(os.environ.get("WUJI_DEPLOYMENT_CONFIG", "/config/kali.json")))
-    required = {"schema_version", "binding", "platform_url", "ca_file", "collector_token_file",
+    required = {"schema_version", "binding", "tool_routes", "platform_url", "ca_file", "collector_token_file",
                 "public_key_file", "issuer", "audience", "root", "receipt_root"}
     if set(config) != required or config["schema_version"] != "wuji.kali.deployment.v1":
         raise ValueError("explicit Kali configuration without database/key material required")
@@ -27,4 +27,5 @@ def build_kali():
         token_verifier=TokenVerifier(public_key_pem=read_file(config["public_key_file"]),
             issuer=config["issuer"], audience=config["audience"]),
         binding=binding, admission=admission, root=config["root"],
-        receipt_root=config["receipt_root"], json_limits=JsonBoundaryLimits(max_body_bytes=1048576))
+        receipt_root=config["receipt_root"], tool_routes=config["tool_routes"],
+        json_limits=JsonBoundaryLimits(max_body_bytes=1048576))

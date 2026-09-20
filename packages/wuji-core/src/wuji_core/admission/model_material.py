@@ -224,8 +224,10 @@ def _document(raw: bytes) -> tuple[dict, ModelMaterialSource | None, str | None]
 
     try:
         value = strict_json_loads(raw)
-    except (UnicodeDecodeError, ValueError, RecursionError):
+    except UnicodeDecodeError:
         return {}, None, "invalid_encoding"
+    except (ValueError, RecursionError):
+        return {}, None, "unsupported_schema"
     if not isinstance(value, dict):
         return {}, None, "unsupported_schema"
     if value.get("schema_version") != HTTP_EXCHANGE_SCHEMA:

@@ -170,6 +170,24 @@ def test_scheduler_hands_a_published_target_tool_to_explore_only(
         )
 
 
+def test_scheduler_accepts_an_explicitly_toolless_reason_profile(
+    db_environment, tmp_path, audit_directory
+):
+    with scheduler_case(
+        db_environment, tmp_path, audit_directory, evaluation_mode="real_model"
+    ) as case:
+        publish_target_capability(case, reason_refs=())
+
+        receipt = case.scheduler.tick(limit=2)
+        assert receipt.blocked == (), receipt.blocked
+        by_kind = {item.work_kind.value: item for item in receipt.assignments}
+        assert by_kind["reason"].tool_definition_refs == []
+        assert [ref.root for ref in by_kind["explore"].tool_definition_refs] == [
+            TOOL_REF,
+            HTTP_TOOL_REF,
+        ]
+
+
 def test_scheduler_refuses_a_target_tool_on_reason_or_a_mechanism_task(
     db_environment, tmp_path, audit_directory
 ):

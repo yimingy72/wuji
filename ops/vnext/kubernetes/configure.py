@@ -489,7 +489,9 @@ def configure(root, state, images):
         "receiver":{"receiver_id":receiver,"runtime_attempt":"1","environment_ref":environment},"receiver_token_file":"/run/wuji/credentials/receiver.token",
         "profiles":{p["ref"]:[kind] for kind,p in profiles.items()},"inbox_dir":"/var/lib/wuji/agent/inbox",
         "ca_file":"/config/ca.crt","certificate_file":"/run/wuji/credentials/tls.crt","private_key_file":"/run/wuji/credentials/tls.key","port":8443}
-    kali_config={"schema_version":"wuji.kali.deployment.v1","binding":binding,"platform_url":f"https://gates.{NAMESPACE}.svc:8443",
+    kali_config={"schema_version":"wuji.kali.deployment.v1","binding":binding,
+        "tool_routes":{tool_ref:{"revision":"1","executor_ref":executor_ref,"kind":"workspace_read"}},
+        "platform_url":f"https://gates.{NAMESPACE}.svc:8443",
         "ca_file":"/config/ca.crt","collector_token_file":"/run/wuji/credentials/collector.token",
         "public_key_file":"/config/identity.pub","issuer":issuer,"audience":audience,"root":"/workspace","receipt_root":"/var/lib/wuji/kali-receipts"}
     for role,cfg,bearer_name,bearer_subject in (("agent",agent_config,"receiver.token","receiver"),("kali",kali_config,"collector.token","collector")):

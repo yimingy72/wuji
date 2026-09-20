@@ -1260,7 +1260,10 @@ def test_e02_role_tool_refs_scope_target_tools_to_explore():
     """E02: the published role profile and the Task allowlist both have to agree."""
 
     task_launch = _load_launch_module()
-    definition = {"runtime_profile": {"allowed_tool_refs": [TOOL_REF, HTTP_TOOL_REF]}}
+    definition = {
+        "evaluation_mode": "real_model",
+        "runtime_profile": {"allowed_tool_refs": [TOOL_REF, HTTP_TOOL_REF]},
+    }
     profiles = role_profiles(
         {
             "reason": [TOOL_REF, HTTP_TOOL_REF],
@@ -1295,17 +1298,16 @@ def test_e02_role_tool_refs_scope_target_tools_to_explore():
     for kind in ("reason", "explore", "report"):
         assert task_launch.role_tool_refs(catalog, definition, kind) == (TOOL_REF,)
 
-    # A role left with only a target tool fails instead of silently widening.
+    # A tool-less role stays explicit after target capabilities are filtered;
+    # it never receives the target tool or a replacement capability.
     target_only = role_profiles(
         {"reason": [HTTP_TOOL_REF], "explore": [TOOL_REF], "report": [TOOL_REF]}
     )
-    with pytest.raises(DomainError) as error:
-        task_launch.role_tool_refs(
-            {**config, "definition": {"worker_profiles": target_only}},
-            definition,
-            "reason",
-        )
-    assert error.value.code == "CAPABILITY_UNAVAILABLE"
+    assert task_launch.role_tool_refs(
+        {**config, "definition": {"worker_profiles": target_only}},
+        definition,
+        "reason",
+    ) == ()
 
 
 def test_e01_preflight_reports_declared_state_without_a_target_action(
@@ -1440,9 +1442,16 @@ def test_e03_the_harness_receives_the_composed_instructions(monkeypatch):
         captured.update(kwargs)
         return object()
 
+    class FakeChatClient:
+        def __init__(self, **kwargs):
+            captured["function_invocation_configuration"] = kwargs[
+                "function_invocation_configuration"
+            ]
+
     monkeypatch.setattr(
         worker_factory, "create_harness_agent", fake_create_harness_agent
     )
+    monkeypatch.setattr(worker_factory, "OpenAIChatCompletionClient", FakeChatClient)
     instructions = (
         "published role instruction\n\n"
         "Frozen Task context (published before activation, never editable later):\n"
@@ -1451,9 +1460,9 @@ def test_e03_the_harness_receives_the_composed_instructions(monkeypatch):
     profile = HarnessProfile(
         ref="harness.explore.task.deadbeefdeadbeef",
         revision="1",
-        work_kind="explore",
+        work_kind="reason",
         instructions=instructions,
-        tool_definition_refs=(TOOL_REF,),
+        tool_definition_refs=(),
         lock_digest=task_launch.shipped_worker_lock_digest(),
         max_context_records=8,
         max_context_bytes=4096,
@@ -1469,12 +1478,14 @@ def test_e03_the_harness_receives_the_composed_instructions(monkeypatch):
     agent, native = worker_factory.build_agent(
         resolved=resolved, profile=profile, model_http=None,
         model_gate_url="https://gates.invalid", run_credential="run-token",
-        tools=[{"name": "read_workspace"}], middleware=[], response_parser=None,
+        tools=[], middleware=[], response_parser=None,
     )
     assert agent is not None and native is not None
     assert captured["agent_instructions"] == instructions
     assert captured["disable_todo"] is True
     assert captured["disable_tool_auto_approval"] is True
+    assert captured["tools"] == []
+    assert captured["function_invocation_configuration"] == {"enabled": False}
 
 
 def test_e06_published_materials_seed_the_workspace_without_shell_interpretation():

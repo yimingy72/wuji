@@ -36,7 +36,7 @@ class HarnessProfile:
             or self.work_kind not in {"reason", "explore", "report"}
             or self.material_representation not in {None, "wuji.model-material.v2"}
             or not 1 <= len(self.instructions) <= 32768
-            or not self.tool_definition_refs
+            or (self.work_kind == "explore" and not self.tool_definition_refs)
             or len(set(self.tool_definition_refs)) != len(self.tool_definition_refs)
             or any(not 1 <= len(ref) <= 256 for ref in self.tool_definition_refs)
             or not re.fullmatch(r"[a-f0-9]{64}", self.lock_digest)
@@ -194,8 +194,12 @@ def build_agent(*, resolved, profile, model_http, model_gate_url, run_credential
     ):
         raise ValueError("installed MAF release/lock does not match published profile")
     limits = resolved["limits"]
-    if not tools or limits["max_model_requests"] < 1 or limits["max_tool_calls"] < 1:
-        raise ValueError("M1 needs a nonempty bounded tool profile")
+    if (
+        limits["max_model_requests"] < 1
+        or (tools and limits["max_tool_calls"] < 1)
+        or (profile.work_kind == "explore" and not tools)
+    ):
+        raise ValueError("published role limits do not match its tool profile")
     session_options = {}
     if isinstance(profile, SessionHarnessProfile):
         if (
@@ -241,17 +245,20 @@ def build_agent(*, resolved, profile, model_http, model_gate_url, run_credential
         api_key=run_credential, base_url=model_gate_url.rstrip("/") + "/",
         http_client=model_http, max_retries=0, organization="", project="",
     )
-    client = OpenAIChatCompletionClient(
-        model=resolved["client_model"], async_client=native,
-        response_parser=response_parser,
-        function_invocation_configuration={
+    function_invocation = {"enabled": False}
+    if tools:
+        function_invocation = {
             "enabled": True,
             "max_iterations": limits["max_model_requests"],
             "max_function_calls": limits["max_tool_calls"],
             "max_duration_seconds": float(limits["max_elapsed_seconds"]),
             "terminate_on_unknown_calls": True,
             "additional_tools": [], "include_detailed_errors": False,
-        },
+        }
+    client = OpenAIChatCompletionClient(
+        model=resolved["client_model"], async_client=native,
+        response_parser=response_parser,
+        function_invocation_configuration=function_invocation,
     )
     agent = create_harness_agent(
         client, name="wuji-" + profile.work_kind,

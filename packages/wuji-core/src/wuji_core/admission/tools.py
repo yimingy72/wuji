@@ -1181,27 +1181,41 @@ class HttpTargetExecutor(WorkspaceReadExecutor):
         from wuji_core.http import canonical_json_bytes
 
         budget = self._budget(permit)
-        document = {
-            "schema_version": self.SCHEMA_VERSION,
-            "tool_attempt_id": permit.tool_attempt_id,
-            "target": target_scope.permit_target_matches(
-                permit.resource_keys, url
-            ).key,
-            "request": {"method": method, "url": url, "headers": headers},
-            "response": {
-                "status": status,
-                "headers": response_headers,
-                "body_base64": base64.b64encode(body).decode(),
-                "body_bytes": len(body),
-                "truncated": truncated,
-            },
-        }
-        raw = canonical_json_bytes(document)
-        if len(raw) > budget:
-            document["response"]["body_base64"] = ""
-            document["response"]["truncated"] = True
-            raw = canonical_json_bytes(document)
-        return raw if len(raw) <= budget else None
+        target = target_scope.permit_target_matches(permit.resource_keys, url).key
+
+        def encode(size):
+            kept = body[:size]
+            return canonical_json_bytes(
+                {
+                    "schema_version": self.SCHEMA_VERSION,
+                    "tool_attempt_id": permit.tool_attempt_id,
+                    "target": target,
+                    "request": {"method": method, "url": url, "headers": headers},
+                    "response": {
+                        "status": status,
+                        "headers": response_headers,
+                        "body_base64": base64.b64encode(kept).decode(),
+                        "body_bytes": len(kept),
+                        "truncated": truncated or len(kept) < len(body),
+                    },
+                }
+            )
+
+        raw = encode(len(body))
+        if len(raw) <= budget:
+            return raw, False
+        empty = encode(0)
+        if len(empty) > budget:
+            return None, True
+        low, high, fitted = 0, len(body), empty
+        while low <= high:
+            size = (low + high) // 2
+            candidate = encode(size)
+            if len(candidate) <= budget:
+                fitted, low = candidate, size + 1
+            else:
+                high = size - 1
+        return fitted, True
 
     def _operate(self, permit):
         import httpx
@@ -1247,7 +1261,7 @@ class HttpTargetExecutor(WorkspaceReadExecutor):
             complete, error = False, "http_target_failed"
         if status is None and error is None:
             complete, error = False, "http_target_failed"
-        document = self._exchange(
+        document, envelope_truncated = self._exchange(
             permit,
             url,
             method,
@@ -1256,26 +1270,27 @@ class HttpTargetExecutor(WorkspaceReadExecutor):
             status=status if status is not None else 0,
             response_headers=response_headers,
             truncated=truncated,
-        ) if target else None
+        )
+        if envelope_truncated:
+            complete, error = False, error or "output_limit"
         if document is None:
             return None, "unknown", error or "output_limit", self.MEDIA_TYPE
         return document, "complete" if complete else "partial", error, self.MEDIA_TYPE
 
 
 class ToolExecutorRouter:
-    """One Kali receiver serving several published tool kinds.
+    """Select a built-in adapter by the deployment's frozen tool identity."""
 
-    The router only *selects* an implementation by the frozen argument contract;
-    each executor re-validates its own contract and the permit's resource key, so
-    picking the wrong branch can never widen authority.
-    """
-
-    def __init__(self, *, workspace_read=None, http_target=None):
-        implementations = [
-            item for item in (workspace_read, http_target) if item is not None
-        ]
-        if not implementations:
-            raise ValueError("at least one tool implementation is required")
+    def __init__(self, *, executor_ref, routes):
+        if (
+            not isinstance(executor_ref, str)
+            or not executor_ref
+            or not isinstance(routes, dict)
+            or not routes
+            or any(not isinstance(ref, str) or not ref for ref in routes)
+        ):
+            raise ValueError("a fixed executor and tool routes are required")
+        implementations = list(routes.values())
         identities = {
             (item.receiver_id, item.environment_ref) for item in implementations
         }
@@ -1283,17 +1298,17 @@ class ToolExecutorRouter:
             raise ValueError(
                 "every tool implementation must share one receiver identity"
             )
+        self.executor_ref = executor_ref
         self.receiver_id, self.environment_ref = identities.pop()
-        self.workspace_read = workspace_read
-        self.http_target = http_target
+        self.routes = dict(routes)
 
     def _select(self, permit):
-        keys = set(getattr(permit, "arguments", None) or {})
-        if keys == {"path"} and self.workspace_read is not None:
-            return self.workspace_read
-        if keys == {"url", "method"} and self.http_target is not None:
-            return self.http_target
-        raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+        if permit.executor_ref != self.executor_ref:
+            raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+        try:
+            return self.routes[permit.tool_definition_ref]
+        except KeyError as error:
+            raise DomainError("CAPABILITY_UNAVAILABLE", 503) from error
 
     async def dispatch(self, permit):
         return await self._select(permit).dispatch(permit)
