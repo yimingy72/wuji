@@ -49,8 +49,9 @@ REUSABLE_WEB_REVISION = "a28c887d82660c9e0e66fc563d37e785c48f10be"
 # Same 5cdbd17 compiled assets; reviewed nginx Host/port and permission overlay.
 REUSABLE_WEB_DIGEST = "sha256:e84b4f467ea1ce5f12c1f761e0662844fe6b8e2021be8ec98f3b25242cd02925"
 WEB_SOURCE_PATHS = ("apps/web", "packages/contracts")
-SELECTION_WEB_REVISION = "a2b57c9b65f9b150c96a18c24a2ad618a070801d"
-SELECTION_WEB_DIGEST = "sha256:25a478bc764f729b9a4b228424d16213a472323da34e341de269b8e8c319d93a"
+# Reviewed cancel/quiescing status mapping; all later Web sources are unchanged.
+SELECTION_WEB_REVISION = "3454b6bce5c8c42395425b37bbed3d29f278ddab"
+SELECTION_WEB_DIGEST = "sha256:1064b9d48d7b75a296a4c4f3ccf65a5a6f533f647c5afe3cd44583653c617e79"
 
 
 class ReleaseError(RuntimeError):
@@ -149,7 +150,10 @@ def validate_web_source(web_image, web_source_revision, release_revision):
             cwd=ROOT, capture_output=True, text=True, timeout=20, check=False,
         )
         if difference.returncode or not set(difference.stdout.splitlines()) <= {
-            "apps/web/src/features/first-use/FirstUseWorkbench.tsx"
+            "apps/web/src/features/first-use/FirstUseWorkbench.tsx",
+            "apps/web/src/features/first-use/workbenchState.ts",
+            "packages/contracts/openapi-v2.yaml",
+            "packages/contracts/src/v2/generated.ts",
         }:
             raise ReleaseError("web_source_changed_since_reviewed_selection_fix")
         return "reviewed_ui_selection_fix"
