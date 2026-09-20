@@ -64,6 +64,7 @@ EXPECTED_IMAGE_SOURCE_DELTA = frozenset(
         "ops/vnext/task_model_keys.py",
         "packages/wuji-core/src/wuji_core/admission/mechanism_fixture.py",
         "packages/wuji-core/src/wuji_core/admission/tools.py",
+        "packages/wuji-core/src/wuji_core/admission/registry.py",
         "packages/wuji-core/src/wuji_core/execution/launch.py",
         "packages/wuji-core/src/wuji_core/execution/control.py",
         "packages/wuji-core/src/wuji_core/scheduling/claims.py",

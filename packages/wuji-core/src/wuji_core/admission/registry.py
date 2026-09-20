@@ -253,6 +253,17 @@ def _loopback_model(url):
         return False
 
 
+def _mechanism_candidate_tool_allowed(definition, work_kind, target_kinds, evidence_origin):
+    from wuji_core.admission.mechanism_fixture import mechanism_http_origins
+    if definition.get("evaluation_mode") != "mechanism_synthetic":
+        return False
+    fixture_http = bool(mechanism_http_origins(definition))
+    workspace = target_kinds == ["workspace_read"]
+    http_fixture = fixture_http and work_kind == "explore" and target_kinds == ["http_target"]
+    origins = {"fixture_capture", "live_capture"} if fixture_http else {"fixture_capture"}
+    return (workspace or http_fixture) and evidence_origin in origins
+
+
 def _validate_mechanism_candidate(connection, *, capability, run_binding):
     binding = capability.candidate_binding
     if binding is None or binding.expires_at <= datetime.now(timezone.utc):
@@ -345,12 +356,12 @@ def _validate_mechanism_candidate(connection, *, capability, run_binding):
             raise ValueError("mechanism candidate executor absent")
         executor = ExecutorRegistration.model_validate(strict_json_loads(executor_row[0]))
         if (
-            tool.allowed_target_kinds != ["workspace_read"]
-            or executor.evidence_origin != "fixture_capture"
+            not _mechanism_candidate_tool_allowed(definition, body["work_kind"],
+                tool.allowed_target_kinds, executor.evidence_origin)
             or executor.receiver_id != binding.receiver_id
             or ref not in executor.allowed_tool_refs
         ):
-            raise ValueError("mechanism candidate requires fixture workspace reads")
+            raise ValueError("mechanism candidate requires owner-bound fixture reads")
     if run_binding is not None:
         identity = run_binding.identity
         if (
