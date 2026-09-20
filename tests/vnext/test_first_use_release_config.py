@@ -57,9 +57,11 @@ def test_catalog_keeps_immutable_limits_without_old_fixture_answers(mode):
     assert "Never wait on the current Reason WorkItem" in instructions
     assert "propose that Intent" in instructions
     explore = config["definition"]["worker_profiles"]["explore"]["body"]
-    assert explore["ref"] == "first-use-explore-instructions-v2"
-    assert explore["revision"] == "2"
+    assert explore["ref"] == "first-use-explore-instructions-v3"
+    assert explore["revision"] == "3"
     assert "no more than two target HTTP reads" in explore["instructions"]
+    assert "never wait on that same Intent" in explore["instructions"]
+    assert "call http_target_get before the final response" in explore["instructions"]
     assert "'/' is never such a path" in explore["instructions"]
     assert "observation-summary claim" in explore["instructions"]
     assert ("mechanism_http_origins" in config) == (mode == "mechanism_synthetic")
@@ -83,7 +85,7 @@ def test_launcher_separates_owner_management_and_provider_secrets():
     assert catalog.GATEWAY_ORIGIN == settings["gateway_url"]
     pod = deployment["spec"]["template"]["spec"]
     owner = next(volume["secret"] for volume in pod["volumes"] if volume["name"] == "input")
-    assert owner["secretName"] == "first-use-deepseek-owner-v5"
+    assert owner["secretName"] == "first-use-deepseek-owner-v6"
     assert pod["serviceAccountName"] == "first-use-launch"
     management = next(volume["secret"] for volume in pod["volumes"] if volume["name"] == "gateway")
     assert management["items"] == [{"key": "master.key", "path": "master.key"}]

@@ -27,9 +27,9 @@ def suffix_for(mode):
 
 
 def owner_secret_name(mode):
-    # v5 also bounds Explore tool turns and requires an evidence-backed claim.
+    # v6 also makes Explore execute its assigned HTTP Intent before settling.
     # Keep older private templates for historical failed launches.
-    return f"first-use-{suffix_for(mode)}-owner-v5"
+    return f"first-use-{suffix_for(mode)}-owner-v6"
 
 
 def rbac_manifests():
