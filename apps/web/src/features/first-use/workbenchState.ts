@@ -1,11 +1,12 @@
 import type { LaunchView, TaskView } from '../../v2WorkbenchApi';
 
 export function taskStatusLabel(
-  task: Pick<TaskView, 'observed_state' | 'result_outcome'> | null,
+  task: Pick<TaskView, 'desired_state' | 'observed_state' | 'result_outcome'> | null,
   launch: Pick<LaunchView, 'phase' | 'phase_status'> | null,
 ): string {
   if (!task) return '等待选择 Task';
   if (launch?.phase_status === 'reconciling' || task.observed_state === 'reconciling') return '待核对';
+  if (task.desired_state === 'cancel' && task.observed_state === 'quiescing') return '已停止';
   if (launch?.phase_status === 'pending' || launch?.phase_status === 'running') return `启动${launch.phase}中`;
   if (launch?.phase_status === 'blocked' || launch?.phase_status === 'failed') return '启动阻断';
   if (launch?.phase_status === 'cancelled') return '取消受理';

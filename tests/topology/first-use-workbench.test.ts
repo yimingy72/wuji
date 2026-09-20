@@ -5,10 +5,11 @@ import { includeRequestedTask, isCurrentRequest, selectAuthorizedTaskId, taskSta
 
 describe('first-use workbench state', () => {
   test('keeps an unstarted task visibly separate from running and stopped states', () => {
-    expect(taskStatusLabel({ observed_state: 'ready', result_outcome: null }, { phase: 'not_requested', phase_status: 'not_requested' })).toBe('已创建未启动');
-    expect(taskStatusLabel({ observed_state: 'running', result_outcome: null }, { phase: 'prepare', phase_status: 'running' })).toBe('启动prepare中');
-    expect(taskStatusLabel({ observed_state: 'reconciling', result_outcome: 'inconclusive' }, { phase: 'wire', phase_status: 'reconciling' })).toBe('待核对');
-    expect(taskStatusLabel({ observed_state: 'closed', result_outcome: 'partial' }, { phase: 'ready', phase_status: 'succeeded' })).toBe('部分结果');
+    expect(taskStatusLabel({ desired_state: 'pause', observed_state: 'ready', result_outcome: null }, { phase: 'not_requested', phase_status: 'not_requested' })).toBe('已创建未启动');
+    expect(taskStatusLabel({ desired_state: 'run', observed_state: 'running', result_outcome: null }, { phase: 'prepare', phase_status: 'running' })).toBe('启动prepare中');
+    expect(taskStatusLabel({ desired_state: 'cancel', observed_state: 'reconciling', result_outcome: 'inconclusive' }, { phase: 'wire', phase_status: 'reconciling' })).toBe('待核对');
+    expect(taskStatusLabel({ desired_state: 'cancel', observed_state: 'quiescing', result_outcome: null }, { phase: 'ready', phase_status: 'succeeded' })).toBe('已停止');
+    expect(taskStatusLabel({ desired_state: 'finish', observed_state: 'closed', result_outcome: 'partial' }, { phase: 'ready', phase_status: 'succeeded' })).toBe('部分结果');
   });
 
   test('never selects a URL task or session task that is absent from the authorized list', () => {
