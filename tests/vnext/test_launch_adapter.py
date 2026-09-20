@@ -25,6 +25,13 @@ SCOPE = "b" * 64
 LOCK = "c" * 64
 
 
+def test_profile_digest_accepts_the_actual_strict_decoder_decimal_values():
+    from wuji_core.http import strict_json_loads, canonical_json_bytes
+    value = strict_json_loads('{"model_profile":{},"runtime_profile":{"idle_timeout_seconds":45.0,"total_timeout_seconds":90.0},"lock_digest":"c"}')
+    assert adapter._canonical(value) == canonical_json_bytes(value)
+    assert adapter.task_profile_digest(value) == hashlib.sha256(canonical_json_bytes(value)).hexdigest()
+
+
 def canonical(value):
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
 

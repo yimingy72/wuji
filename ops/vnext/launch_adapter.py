@@ -190,7 +190,10 @@ def _json(data: Any, *, code: str = "RUNTIME_CONFIG_UNAVAILABLE") -> Any:
 
 
 def _canonical(value: Any) -> bytes:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+    # Owner/Task documents use the core strict decoder, which preserves JSON
+    # decimals. Reuse its matching encoder rather than losing numeric types.
+    from wuji_core.http import canonical_json_bytes
+    return canonical_json_bytes(value)
 
 
 def task_profile_digest(definition: Mapping[str, Any]) -> str:
