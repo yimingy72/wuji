@@ -226,6 +226,7 @@ class ResultCommitter:
             None,
             "reject_invalid_reference",
             "initial_reason_empty_basis",
+            "reason_intent_supported_basis",
         }:
             raise ValueError("unsupported prevalidated result policy")
         with self._transaction(access, task_id, retained) as tx:
@@ -254,15 +255,35 @@ class ResultCommitter:
             payload = AgentPayload.model_validate(parsed)
         except (ValueError, ValidationError, InvalidJsonDocument, DomainError):
             parse_code = "INVALID_SCHEMA"
-        if payload is not None and result_policy == "initial_reason_empty_basis":
-            payload = payload.model_copy(
-                update={
-                    "intent_proposals": [
-                        proposal.model_copy(update={"basis_refs": []})
-                        for proposal in payload.intent_proposals
-                    ]
-                }
-            )
+        if payload is not None:
+            if result_policy == "initial_reason_empty_basis":
+                payload = payload.model_copy(
+                    update={
+                        "intent_proposals": [
+                            proposal.model_copy(update={"basis_refs": []})
+                            for proposal in payload.intent_proposals
+                        ]
+                    }
+                )
+            elif result_policy == "reason_intent_supported_basis":
+                payload = payload.model_copy(
+                    update={
+                        "intent_proposals": [
+                            proposal.model_copy(
+                                update={
+                                    "basis_refs": [
+                                        ref
+                                        for ref in proposal.basis_refs
+                                        if not isinstance(ref.root, KnowledgeRef)
+                                        or ref.root.entity_type.value
+                                        in {"claim", "observation"}
+                                    ]
+                                }
+                            )
+                            for proposal in payload.intent_proposals
+                        ]
+                    }
+                )
         with self._transaction(access, task_id, retained) as tx:
             submission = self._submission(tx, submission_id)
             run, disposition = self._bound(

@@ -631,6 +631,25 @@ class PlatformWorkerHost:
                     and not payload.claims
                     else "reject_invalid_reference"
                 )
+            elif assignment.work_kind.value == "reason" and payload is not None:
+                supported = {"claim", "observation"}
+                needs_filter = any(
+                    isinstance(ref.root, KnowledgeRef)
+                    and ref.root.entity_type.value not in supported
+                    for proposal in payload.intent_proposals
+                    for ref in proposal.basis_refs
+                )
+                keeps_basis = all(
+                    not proposal.basis_refs
+                    or any(
+                        not isinstance(ref.root, KnowledgeRef)
+                        or ref.root.entity_type.value in supported
+                        for ref in proposal.basis_refs
+                    )
+                    for proposal in payload.intent_proposals
+                )
+                if needs_filter and keeps_basis:
+                    result_policy = "reason_intent_supported_basis"
             envelope = ResultEnvelope.model_validate({
                 "schema_version": "wuji.result-envelope.v2", "submission_id": submission_id,
                 "identity": assignment.identity.model_dump(mode="json"),

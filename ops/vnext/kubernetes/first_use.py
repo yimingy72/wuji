@@ -27,9 +27,9 @@ def suffix_for(mode):
 
 
 def owner_secret_name(mode):
-    # v4 also keeps Reason waits on delivered references and follow-ups as Intents.
+    # v5 also bounds Explore tool turns and requires an evidence-backed claim.
     # Keep older private templates for historical failed launches.
-    return f"first-use-{suffix_for(mode)}-owner-v4"
+    return f"first-use-{suffix_for(mode)}-owner-v5"
 
 
 def rbac_manifests():
