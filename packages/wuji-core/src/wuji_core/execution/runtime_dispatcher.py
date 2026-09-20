@@ -398,9 +398,11 @@ class RuntimeDispatcher:
             ended = self._ended_environments.get(task_id)
             for candidate in candidates:
                 try:
-                    if ended is not None and candidate.process_state == "registered":
-                        # The environment is gone and this Run never produced a
-                        # receipt, so no query can settle it.
+                    if ended is not None and candidate.process_state != "exited":
+                        # The environment is gone and no later process receipt
+                        # can arrive. ControlService preserves whether the Run
+                        # may have executed; it does not turn a started Run into
+                        # a claimed non-start or a successful result.
                         observed.append(
                             self.reconciler.settle_ended_environment(
                                 candidate.run, reason=ended

@@ -820,8 +820,10 @@ def test_a_run_that_may_have_executed_is_not_settled_by_a_gone_pod(
         run_id = case.assignment.identity.agent_run_id
         with db_environment.migration_connection() as connection:
             connection.execute(
-                "UPDATE vnext.agent_run SET process_identity_json=%s WHERE agent_run_id=%s",
-                (json.dumps({"pid": 4321, "birth_id": "fixture-birth",
+                "UPDATE vnext.agent_run SET process_state='running',started_at=%s,"
+                " process_identity_json=%s WHERE agent_run_id=%s",
+                ("2026-09-16T01:00:00Z",
+                 json.dumps({"pid": 4321, "birth_id": "fixture-birth",
                              "started_at": "2026-09-16T01:00:00Z",
                              "exited_at": None, "exit_code": None}), run_id),
             )
