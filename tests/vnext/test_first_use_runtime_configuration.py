@@ -82,3 +82,20 @@ def test_material_refresh_wrapper_preserves_explicit_representation():
     wrapper = gates.RefreshingToolGate(Gate(), refresher, object())
     assert wrapper.result_material("access", "call", representation="wuji.model-material.v2") == "existing-material"
     assert calls == [("access", "call", "wuji.model-material.v2")]
+
+
+def test_runtime_refuses_to_start_without_the_session_transport(monkeypatch):
+    runtime = module("services/wuji-runtime/deployment.py", "runtime_session_required_test")
+    settings = SimpleNamespace(
+        supervisor_url="https://supervisor.invalid",
+        receiver_token_file="/run/receiver.token",
+        host_origin="https://runtime.invalid",
+        model_gate_url="https://gates.invalid/model",
+        tool_gate_url="https://gates.invalid/tools",
+        task_ids=["task"],
+        session_transport=False,
+    )
+    monkeypatch.setattr(runtime, "load_settings", lambda _role: settings)
+
+    with pytest.raises(ValueError, match="fixed runtime"):
+        runtime.build_runtime()

@@ -460,6 +460,7 @@ def configure(root, state, images):
             settings.update(task_ids=[task],work_kinds=["reason","explore","report"],receiver_token_file="/run/wuji/credentials/receiver.token",
                 supervisor_url=f"https://task-agent.{NAMESPACE}.svc:8443",host_origin=f"https://runtime.{NAMESPACE}.svc:8443",
                 model_gate_url=f"https://gates.{NAMESPACE}.svc:8443/internal/v2/model",tool_gate_url=f"https://gates.{NAMESPACE}.svc:8443/internal/v2/tool-calls",
+                session_transport=True,
                 public_commands=True,public_approvals=True,journal_path="/var/lib/wuji/platform/state/dispatch.sqlite3",
                 spool_directory="/var/lib/wuji/platform/state/intake",
                 pod_runtime={"tasks":[{"task_config":config_values,"receiver":{"receiver_id":receiver,"receiver_subject":"receiver",

@@ -149,11 +149,11 @@ class RuntimeConfiguration:
 
 def build_runtime():
     settings = load_settings("runtime")
-    deployment = Deployment(settings)
     if not all((settings.supervisor_url, settings.receiver_token_file,
                 settings.host_origin, settings.model_gate_url, settings.tool_gate_url,
-                settings.task_ids)):
+                settings.task_ids)) or settings.session_transport is not True:
         raise ValueError("fixed runtime receiver/endpoints/Task discovery required")
+    deployment = Deployment(settings)
     supervisor_transport = _supervisor_transport(settings, deployment)
     configuration = RuntimeConfiguration(deployment, supervisor_transport)
     receiver_access = deployment.access(settings.receiver_token_file)
