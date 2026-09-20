@@ -1434,6 +1434,8 @@ export interface components {
             work_kind: components["schemas"]["WorkKind"];
             instructions: string;
             tool_definition_refs: string[];
+            /** @enum {string} */
+            material_representation?: "wuji.model-material.v2";
             lock_digest: components["schemas"]["Sha256Digest"];
             max_context_records: number;
             max_context_bytes: number;
@@ -1452,6 +1454,8 @@ export interface components {
             work_kind: components["schemas"]["WorkKind"];
             instructions: string;
             tool_definition_refs: string[];
+            /** @enum {string} */
+            material_representation?: "wuji.model-material.v2";
             lock_digest: components["schemas"]["Sha256Digest"];
             max_context_records: number;
             max_context_bytes: number;
