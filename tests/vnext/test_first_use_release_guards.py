@@ -20,7 +20,7 @@ SPEC.loader.exec_module(release)
 PLATFORM_IMAGE = "127.0.0.1:55529/wuji-vnext-platform@sha256:" + "a" * 64
 MODEL_IMAGE = "127.0.0.1:55529/wuji-first-use-litellm@sha256:" + "b" * 64
 WEB_IMAGE = "127.0.0.1:55529/wuji-web@" + release.REUSABLE_WEB_DIGEST
-BASELINE = "c5e216f4ebb0f66043a3af5ffbaa77ade4f1f4b6"
+BASELINE = "aeef6956028f8bf07f0319a8366f4dabed5cc1f5"
 
 
 def _deployment(name, images, *, namespace=release.render.NAMESPACE, ready=True):
@@ -189,6 +189,10 @@ def test_owner_mismatch_stops_rollout_before_any_write(monkeypatch, tmp_path):
 
 
 def test_reviewed_old_web_is_reusable_but_digest_or_source_mismatch_is_rejected():
+    assert release.validate_web_source(
+        "127.0.0.1:55529/wuji-web@" + release.SELECTION_WEB_DIGEST,
+        release.SELECTION_WEB_REVISION, BASELINE,
+    ) == "reviewed_ui_selection_fix"
     assert release.validate_web_source(
         WEB_IMAGE, release.REUSABLE_WEB_REVISION, BASELINE
     ) == "reviewed_unchanged_reuse"

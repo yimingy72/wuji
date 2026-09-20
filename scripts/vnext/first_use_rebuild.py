@@ -77,6 +77,8 @@ ALLOWED_NON_IMAGE_FILES = frozenset(
         "AGENTS.md",
         "apps/web/Dockerfile",
         "apps/web/nginx.conf",
+        "apps/web/src/features/first-use/FirstUseWorkbench.tsx",
+        "ops/vnext/images/Dockerfile.web-built-assets",
         "ops/vnext/images/Dockerfile.web-permissions",
         "ops/vnext/first_use_catalog.py",
         "ops/vnext/images/Dockerfile.litellm",

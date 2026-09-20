@@ -1,0 +1,10 @@
+# Compiled by the repository's pinned Node/pnpm and unchanged frozen lock.
+# Build with apps/web/dist as the context, never the repository root.
+# Keep the reviewed nginx Host/port boundary and replace only compiled assets.
+FROM 127.0.0.1:55529/wuji-web@sha256:e84b4f467ea1ce5f12c1f761e0662844fe6b8e2021be8ec98f3b25242cd02925
+LABEL org.opencontainers.image.revision="a2b57c9b65f9b150c96a18c24a2ad618a070801d"
+USER root
+COPY index.html /usr/share/nginx/html/index.html
+COPY assets /usr/share/nginx/html/assets
+RUN chmod -R a+rX /usr/share/nginx/html
+USER 101:101
