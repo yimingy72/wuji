@@ -50,6 +50,9 @@ def test_catalog_keeps_immutable_limits_without_old_fixture_answers(mode):
     assert config["tools"][1]["input_schema"]["properties"]["method"]["enum"] == ["GET", "HEAD"]
     for kind in ("reason", "report"):
         assert config["definition"]["worker_profiles"][kind]["body"]["tool_definition_refs"] == []
+    instructions = config["definition"]["worker_profiles"]["reason"]["body"]["instructions"]
+    assert "When read_set is empty" in instructions
+    assert "initial Intent must use an empty basis_refs list" in instructions
     assert ("mechanism_http_origins" in config) == (mode == "mechanism_synthetic")
 
 
@@ -70,6 +73,8 @@ def test_launcher_separates_owner_management_and_provider_secrets():
     assert settings["gateway_url"] == "https://first-use-litellm.wuji-first-use-model.svc:4000"
     assert catalog.GATEWAY_ORIGIN == settings["gateway_url"]
     pod = deployment["spec"]["template"]["spec"]
+    owner = next(volume["secret"] for volume in pod["volumes"] if volume["name"] == "input")
+    assert owner["secretName"] == "first-use-deepseek-owner-v3"
     assert pod["serviceAccountName"] == "first-use-launch"
     management = next(volume["secret"] for volume in pod["volumes"] if volume["name"] == "gateway")
     assert management["items"] == [{"key": "master.key", "path": "master.key"}]

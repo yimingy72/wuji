@@ -27,9 +27,9 @@ def suffix_for(mode):
 
 
 def owner_secret_name(mode):
-    # v2 freezes the same normalized Model/Runtime bytes as the registry.
-    # Keep the original private template for historical failed launches.
-    return f"first-use-{suffix_for(mode)}-owner-v2"
+    # v3 keeps goal/start-point context out of model-supplied KnowledgeRefs.
+    # Keep older private templates for historical failed launches.
+    return f"first-use-{suffix_for(mode)}-owner-v3"
 
 
 def rbac_manifests():
