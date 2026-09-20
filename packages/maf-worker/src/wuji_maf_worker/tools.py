@@ -57,9 +57,12 @@ def _difference_paths(left, right, path="$", *, limit=16):
 class ModelCallIdentity:
     """Gate-observed calls, including identity retained before native approval."""
 
-    def __init__(self, definitions, *, max_bytes):
+    def __init__(self, definitions, *, max_bytes, require_initial_tool=False):
+        if type(require_initial_tool) is not bool:
+            raise ValueError("initial tool requirement must be explicit")
         self.definitions = {d["name"]: d for d in definitions}
         self.max_bytes = max_bytes
+        self.require_initial_tool = require_initial_tool
         self.attempt_id = None
         self.calls = {}
         self.mapping = []
@@ -86,6 +89,12 @@ class ModelCallIdentity:
             or (
                 "parallel_tool_calls" in body
                 and body["parallel_tool_calls"] is not False
+            )
+            or (
+                self.require_initial_tool
+                and advertised_tools
+                and not self.mapping
+                and body.get("tool_choice") != "required"
             )
         ):
             raise ValueError("SDK request does not match the frozen M1 transport")

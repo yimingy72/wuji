@@ -225,6 +225,7 @@ class ResultCommitter:
         if result_policy not in {
             None,
             "reject_invalid_reference",
+            "reject_missing_tool_evidence",
             "initial_reason_empty_basis",
             "reason_intent_supported_basis",
         }:
@@ -294,11 +295,10 @@ class ResultCommitter:
                 return final
             components = []
             level = submission["access_level"]
-            code = (
-                "INVALID_REFERENCE"
-                if result_policy == "reject_invalid_reference"
-                else parse_code
-            )
+            code = {
+                "reject_invalid_reference": "INVALID_REFERENCE",
+                "reject_missing_tool_evidence": "MISSING_TOOL_EVIDENCE",
+            }.get(result_policy, parse_code)
             if not code:
                 try:
                     manifest = SnapshotRepository(self.uow)._get(

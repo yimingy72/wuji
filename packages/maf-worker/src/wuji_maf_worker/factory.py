@@ -271,7 +271,10 @@ def build_agent(*, resolved, profile, model_http, model_gate_url, run_credential
         skills_provider=None, skills_paths=None, shell_executor=None,
         background_agents=None, disable_web_search=True,
         disable_tool_auto_approval=True, loop_should_continue=None,
-        default_options={"allow_multiple_tool_calls": False},
+        default_options={
+            "allow_multiple_tool_calls": False,
+            **({"tool_choice": "required"} if profile.work_kind == "explore" else {}),
+        },
         **session_options,
     )
     return agent, native

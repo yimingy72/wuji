@@ -148,6 +148,57 @@ def _self_referencing_intent_output():
     return canonical_json_bytes(value)
 
 
+def _empty_explore_output():
+    return canonical_json_bytes(
+        {
+            "schema_version": "wuji.agent-payload.v2",
+            "claims": [],
+            "intent_proposals": [],
+            "limitations": ["The assigned Explore returned without a tool call."],
+        }
+    )
+
+
+def test_explore_without_tool_evidence_is_rejected_once(
+    db_environment, tmp_path, audit_directory
+):
+    with m1_case(db_environment, tmp_path, audit_directory) as case:
+        values = {
+            "raw_output": _empty_explore_output(),
+            "context": case.context,
+            "tool_receipts": (),
+            "sdk_output": b'{"type":"message"}\n',
+        }
+
+        first = case.host.submit_result(case.assignment, **values)
+        assert first.status.value == "rejected"
+        assert first.code.value == "MISSING_TOOL_EVIDENCE"
+        with db_environment.migration_connection() as connection:
+            before = connection.execute(
+                "SELECT count(*) FROM vnext.artifact WHERE task_id=%s",
+                (case.assignment.identity.task_id,),
+            ).fetchone()[0]
+            envelope = strict_json_loads(
+                connection.execute(
+                    "SELECT envelope_json FROM vnext.result_submission WHERE task_id=%s",
+                    (case.assignment.identity.task_id,),
+                ).fetchone()[0]
+            )
+        stored, _digest = case.control.store.read(
+            case.host_access,
+            envelope["raw_output_ref"]["id"],
+            envelope["raw_output_ref"]["version"],
+        )
+        assert stored == values["raw_output"]
+
+        assert case.host.submit_result(case.assignment, **values) == first
+        with db_environment.migration_connection() as connection:
+            assert connection.execute(
+                "SELECT count(*) FROM vnext.artifact WHERE task_id=%s",
+                (case.assignment.identity.task_id,),
+            ).fetchone()[0] == before
+
+
 def test_invalid_unread_reference_is_rejected_once_without_duplicate_artifacts(
     db_environment, tmp_path, audit_directory
 ):
@@ -316,6 +367,8 @@ def test_actual_maf_stream_tool_evidence_claim_and_result_replay(
             and "max_tokens" not in request
             for request in upstream_requests
         )
+        assert upstream_requests[0]["tool_choice"] == "required"
+        assert "tool_choice" not in upstream_requests[1]
         with case.environment.migration_connection() as connection:
             settlements = [
                 strict_json_loads(value[0])

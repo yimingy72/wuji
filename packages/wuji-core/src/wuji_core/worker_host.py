@@ -653,6 +653,12 @@ class PlatformWorkerHost:
                 )
                 if needs_filter and keeps_basis:
                     result_policy = "reason_intent_supported_basis"
+            if (
+                result_policy is None
+                and assignment.work_kind.value == "explore"
+                and not tool_binding
+            ):
+                result_policy = "reject_missing_tool_evidence"
             envelope = ResultEnvelope.model_validate({
                 "schema_version": "wuji.result-envelope.v2", "submission_id": submission_id,
                 "identity": assignment.identity.model_dump(mode="json"),

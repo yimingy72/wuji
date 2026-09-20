@@ -233,7 +233,11 @@ class MafRuntime:
         ):
             raise ValueError("context does not match the frozen input/profile")
         limits = resolved["limits"]
-        identity = ModelCallIdentity(resolved["tools"], max_bytes=limits["max_single_output_bytes"])
+        identity = ModelCallIdentity(
+            resolved["tools"],
+            max_bytes=limits["max_single_output_bytes"],
+            require_initial_tool=profile.work_kind == "explore",
+        )
         self.identity_mapping = identity.mapping
         adapter = history = memory = memory_provider = restored = None
         if session_profile:
