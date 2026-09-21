@@ -272,6 +272,27 @@ paths:
         '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
         '410': {$ref: '#/components/responses/Expired'}
         '422': {$ref: '#/components/responses/InvalidSchema'}
+  /api/v2/tasks/{task_id}/exploration:
+    get:
+      operationId: getTaskExplorationV2
+      summary: Read an authorized problem-centered exploration snapshot
+      tags: [Views]
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+        - $ref: '#/components/parameters/ViewMode'
+        - $ref: '#/components/parameters/SnapshotIdQuery'
+        - $ref: '#/components/parameters/ViewCursor'
+        - $ref: '#/components/parameters/NodeLimit'
+      responses:
+        '200':
+          description: Authorized problem and insight projection from one fixed snapshot
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ExplorationViewV1'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
+        '410': {$ref: '#/components/responses/Expired'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
   /api/v2/views/{view_id}/events:
     get:
       operationId: streamViewEventsV2
@@ -1371,6 +1392,21 @@ components:
     AgentPayloadSchemaVersion:
       type: string
       enum: [wuji.agent-payload.v2]
+    AgentPayloadV3SchemaVersion:
+      type: string
+      enum: [wuji.agent-payload.v3]
+    ResultEnvelopeV3SchemaVersion:
+      type: string
+      enum: [wuji.result-envelope.v3]
+    WorkerContextV3SchemaVersion:
+      type: string
+      enum: [wuji.worker-context.v3]
+    ExplorationViewSchemaVersion:
+      type: string
+      enum: [wuji.exploration-view.v1]
+    KnowledgeDeliverySchemaVersion:
+      type: string
+      enum: [wuji.knowledge-delivery.v1]
     ViewEventSchemaVersion:
       type: string
       enum: [wuji.view-event.v3]
@@ -1464,6 +1500,24 @@ components:
     ReasonDecision:
       type: string
       enum: [propose_intents, wait, propose_completion, blocked]
+    WorkResultOutcome:
+      type: string
+      enum: [answered, inconclusive, no_new_information, needs_input, capability_gap]
+    CapabilityCategory:
+      type: string
+      enum: [session_state, knowledge_read, environment_action]
+    KnowledgeDeliveryKind:
+      type: string
+      enum: [initial_context, knowledge_tool, environment_material, refresh]
+    KnowledgeDisclosure:
+      type: string
+      enum: [metadata, content]
+    KnowledgeDeliveryState:
+      type: string
+      enum: [prepared, attached]
+    CompletionMode:
+      type: string
+      enum: [review_then_close, manual_review]
     TestResult:
       type: string
       enum: [pass, fail, not_run, blocked]
@@ -1549,6 +1603,11 @@ components:
         - DELIVERY_TOO_LARGE
         - DELIVERY_COMMIT_CORRUPT
         - FORBIDDEN_TARGET
+        - CONTEXT_BUDGET_EXCEEDED
+        - REPRESENTATION_LIMIT
+        - UNSUPPORTED_MEDIA
+        - WAIT_UNSATISFIABLE
+        - SESSION_PUBLISH_FAILED
     KnowledgeRef:
       type: object
       additionalProperties: false
@@ -1676,6 +1735,105 @@ components:
           oneOf:
             - $ref: '#/components/schemas/ReasonDecisionPayload'
             - type: 'null'
+    IntentPlanningV3:
+      type: object
+      additionalProperties: false
+      required: [goal_criterion_refs, public_rationale, information_needed, exit_conditions, required_capability_refs]
+      properties:
+        goal_criterion_refs:
+          type: array
+          maxItems: 16
+          uniqueItems: true
+          items: {$ref: '#/components/schemas/GoalCriterionRef'}
+        public_rationale: {type: string, minLength: 1, maxLength: 2048}
+        information_needed: {type: string, minLength: 1, maxLength: 2048}
+        exit_conditions:
+          type: array
+          minItems: 1
+          maxItems: 4
+          items: {type: string, minLength: 1, maxLength: 512}
+        required_capability_refs:
+          type: array
+          maxItems: 8
+          uniqueItems: true
+          items: {type: string, minLength: 1, maxLength: 256}
+    IntentProposalV3:
+      type: object
+      additionalProperties: false
+      required: [client_ref, question, basis_refs, expected_output, planning]
+      properties:
+        client_ref: {type: string, minLength: 1, maxLength: 256}
+        question: {type: string, minLength: 1, maxLength: 32768}
+        basis_refs:
+          type: array
+          maxItems: 256
+          items: {$ref: '#/components/schemas/ProposalReference'}
+        expected_output: {type: string, minLength: 1, maxLength: 32768}
+        planning:
+          oneOf:
+            - $ref: '#/components/schemas/IntentPlanningV3'
+            - type: 'null'
+    WorkResultV3:
+      type: object
+      additionalProperties: false
+      required: [outcome, summary, answer_basis_refs, unresolved_items, capability_gaps]
+      properties:
+        outcome: {$ref: '#/components/schemas/WorkResultOutcome'}
+        summary: {type: string, minLength: 1, maxLength: 4096}
+        answer_basis_refs:
+          type: array
+          maxItems: 256
+          items: {$ref: '#/components/schemas/ProposalReference'}
+        unresolved_items:
+          type: array
+          maxItems: 8
+          items: {type: string, minLength: 1, maxLength: 1024}
+        capability_gaps:
+          type: array
+          maxItems: 8
+          items: {type: string, minLength: 1, maxLength: 1024}
+    ReasonDecisionPayloadV3:
+      type: object
+      additionalProperties: false
+      required: [decision, wait_refs, public_rationale, basis_refs]
+      properties:
+        decision: {$ref: '#/components/schemas/ReasonDecision'}
+        wait_refs:
+          type: array
+          maxItems: 128
+          items: {$ref: '#/components/schemas/WaitRef'}
+        public_rationale: {type: string, minLength: 1, maxLength: 2048}
+        basis_refs:
+          type: array
+          maxItems: 256
+          items: {$ref: '#/components/schemas/ProposalReference'}
+    AgentPayloadV3:
+      type: object
+      additionalProperties: false
+      required: [schema_version, claims, intent_proposals, reason_decision, work_result, input_acknowledgements]
+      properties:
+        schema_version: {$ref: '#/components/schemas/AgentPayloadV3SchemaVersion'}
+        claims:
+          type: array
+          maxItems: 16
+          items: {$ref: '#/components/schemas/ClaimProposal'}
+        intent_proposals:
+          type: array
+          maxItems: 3
+          items: {$ref: '#/components/schemas/IntentProposalV3'}
+        reason_decision:
+          oneOf:
+            - $ref: '#/components/schemas/ReasonDecisionPayloadV3'
+            - type: 'null'
+        work_result:
+          oneOf:
+            - $ref: '#/components/schemas/WorkResultV3'
+            - type: 'null'
+        input_acknowledgements:
+          type: array
+          maxItems: 32
+          uniqueItems: true
+          items: {type: string, minLength: 1, maxLength: 256}
     FactAssessment:
       type: object
       additionalProperties: false
@@ -1756,6 +1914,32 @@ components:
         raw_output_ref: {$ref: '#/components/schemas/BlobRef'}
         raw_output_digest: {$ref: '#/components/schemas/Sha256Digest'}
         payload: {description: 'Untrusted JSON value or null; validate AgentPayload only after sealing and receiving raw output.'}
+        producer_version: {type: string, minLength: 1, maxLength: 256}
+    ResultEnvelopeV3:
+      type: object
+      additionalProperties: false
+      required: [schema_version, submission_id, identity, initial_snapshot_id, delivery_manifest_ref, read_set, native_tool_receipt_refs, raw_output_ref, raw_output_digest, payload, producer_version]
+      properties:
+        schema_version: {$ref: '#/components/schemas/ResultEnvelopeV3SchemaVersion'}
+        submission_id: {type: string, minLength: 1, maxLength: 256}
+        identity: {$ref: '#/components/schemas/RunIdentity'}
+        initial_snapshot_id: {type: string, minLength: 1, maxLength: 256}
+        delivery_manifest_ref: {$ref: '#/components/schemas/BlobRef'}
+        read_set:
+          type: array
+          maxItems: 4096
+          items: {$ref: '#/components/schemas/KnowledgeRef'}
+        native_tool_receipt_refs:
+          type: array
+          maxItems: 512
+          uniqueItems: true
+          items: {type: string, minLength: 1, maxLength: 1024}
+        raw_output_ref: {$ref: '#/components/schemas/BlobRef'}
+        raw_output_digest: {$ref: '#/components/schemas/Sha256Digest'}
+        payload:
+          oneOf:
+            - $ref: '#/components/schemas/AgentPayloadV3'
+            - type: 'null'
         producer_version: {type: string, minLength: 1, maxLength: 256}
     CaptureEnvelope:
       type: object
@@ -1914,6 +2098,160 @@ components:
           type: array
           maxItems: 5000
           items: {$ref: '#/components/schemas/KnowledgeRef'}
+        text: {type: string, maxLength: 16777216}
+        input_digest: {$ref: '#/components/schemas/Sha256Digest'}
+    RecordFieldsSelectorV1:
+      type: object
+      additionalProperties: false
+      required: [kind, fields]
+      properties:
+        kind: {type: string, const: record_fields}
+        fields:
+          type: array
+          minItems: 1
+          maxItems: 32
+          uniqueItems: true
+          items: {type: string, pattern: '^[a-z][a-z0-9_]{0,63}$'}
+    TextRangeSelectorV1:
+      type: object
+      additionalProperties: false
+      required: [kind, start, end]
+      properties:
+        kind: {type: string, const: text_range}
+        start: {type: integer, minimum: 0, maximum: 1048576}
+        end: {type: integer, minimum: 1, maximum: 1048576}
+    KnowledgeSelectorV1:
+      oneOf:
+        - $ref: '#/components/schemas/RecordFieldsSelectorV1'
+        - $ref: '#/components/schemas/TextRangeSelectorV1'
+    KnowledgeDeliveryV1:
+      type: object
+      additionalProperties: false
+      required: [schema_version, delivery_id, kind, snapshot_id, ref, source_digest, selector, renderer_version, redaction_policy_ref, text, representation_digest, byte_length, source_completeness, representation_truncated, has_more, disclosure, state, work_item_id, agent_run_id, session_id, native_occurrence]
+      properties:
+        schema_version: {$ref: '#/components/schemas/KnowledgeDeliverySchemaVersion'}
+        delivery_id: {type: string, minLength: 1, maxLength: 256}
+        kind: {$ref: '#/components/schemas/KnowledgeDeliveryKind'}
+        snapshot_id: {type: string, minLength: 1, maxLength: 256}
+        ref: {$ref: '#/components/schemas/KnowledgeRef'}
+        source_digest: {$ref: '#/components/schemas/Sha256Digest'}
+        selector: {$ref: '#/components/schemas/KnowledgeSelectorV1'}
+        renderer_version: {type: string, minLength: 1, maxLength: 256}
+        redaction_policy_ref: {type: string, minLength: 1, maxLength: 256}
+        text: {type: string, maxLength: 16384}
+        representation_digest: {$ref: '#/components/schemas/Sha256Digest'}
+        byte_length: {type: integer, minimum: 0, maximum: 16384}
+        source_completeness: {$ref: '#/components/schemas/CaptureCompleteness'}
+        representation_truncated: {type: boolean}
+        has_more: {type: boolean}
+        disclosure: {$ref: '#/components/schemas/KnowledgeDisclosure'}
+        state: {$ref: '#/components/schemas/KnowledgeDeliveryState'}
+        work_item_id: {type: string, minLength: 1, maxLength: 256}
+        agent_run_id:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 256}
+            - {type: 'null'}
+        session_id:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 256}
+            - {type: 'null'}
+        native_occurrence:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 1024}
+            - {type: 'null'}
+    KnowledgeIndexItemV1:
+      type: object
+      additionalProperties: false
+      required: [ref, material_type, disclosure, completeness, available_selectors]
+      properties:
+        ref: {$ref: '#/components/schemas/KnowledgeRef'}
+        material_type: {type: string, minLength: 1, maxLength: 256}
+        disclosure: {$ref: '#/components/schemas/KnowledgeDisclosure'}
+        completeness: {$ref: '#/components/schemas/CaptureCompleteness'}
+        available_selectors:
+          type: array
+          minItems: 1
+          maxItems: 2
+          uniqueItems: true
+          items: {type: string, enum: [record_fields, text_range]}
+    WorkBriefV1:
+      type: object
+      additionalProperties: false
+      required: [task_goal, goal_criterion_refs, authorization_summary, capability_refs, capability_gaps, question, expected_output, planning, canonical_work_ref, related_claim_refs, counterevidence_refs, attempt_summaries, unresolved_items, committed_todo_summary]
+      properties:
+        task_goal: {type: string, minLength: 1, maxLength: 32768}
+        goal_criterion_refs:
+          type: array
+          maxItems: 256
+          items: {$ref: '#/components/schemas/GoalCriterionRef'}
+        authorization_summary:
+          type: array
+          minItems: 1
+          maxItems: 128
+          items: {type: string, minLength: 1, maxLength: 2048}
+        capability_refs:
+          type: array
+          maxItems: 64
+          uniqueItems: true
+          items: {type: string, minLength: 1, maxLength: 256}
+        capability_gaps:
+          type: array
+          maxItems: 32
+          items: {type: string, minLength: 1, maxLength: 1024}
+        question: {type: string, minLength: 1, maxLength: 32768}
+        expected_output: {type: string, minLength: 1, maxLength: 32768}
+        planning:
+          oneOf:
+            - $ref: '#/components/schemas/IntentPlanningV3'
+            - type: 'null'
+        canonical_work_ref:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 256}
+            - {type: 'null'}
+        related_claim_refs:
+          type: array
+          maxItems: 256
+          items: {$ref: '#/components/schemas/KnowledgeRef'}
+        counterevidence_refs:
+          type: array
+          maxItems: 256
+          items: {$ref: '#/components/schemas/KnowledgeRef'}
+        attempt_summaries:
+          type: array
+          maxItems: 64
+          items: {type: string, minLength: 1, maxLength: 2048}
+        unresolved_items:
+          type: array
+          maxItems: 32
+          items: {type: string, minLength: 1, maxLength: 1024}
+        committed_todo_summary:
+          type: array
+          maxItems: 16
+          items: {type: string, minLength: 1, maxLength: 512}
+    WorkerContextV3:
+      type: object
+      additionalProperties: false
+      required: [schema_version, snapshot_id, read_set, record_refs, brief, knowledge_index, initial_deliveries, text, input_digest]
+      properties:
+        schema_version: {$ref: '#/components/schemas/WorkerContextV3SchemaVersion'}
+        snapshot_id: {type: string, minLength: 1, maxLength: 256}
+        read_set:
+          type: array
+          maxItems: 4096
+          items: {$ref: '#/components/schemas/KnowledgeRef'}
+        record_refs:
+          type: array
+          maxItems: 5000
+          items: {$ref: '#/components/schemas/KnowledgeRef'}
+        brief: {$ref: '#/components/schemas/WorkBriefV1'}
+        knowledge_index:
+          type: array
+          maxItems: 5000
+          items: {$ref: '#/components/schemas/KnowledgeIndexItemV1'}
+        initial_deliveries:
+          type: array
+          maxItems: 256
+          items: {$ref: '#/components/schemas/KnowledgeDeliveryV1'}
         text: {type: string, maxLength: 16777216}
         input_digest: {$ref: '#/components/schemas/Sha256Digest'}
     WorkerSessionLimits:
@@ -2108,6 +2446,106 @@ components:
           type: array
           items: {$ref: '#/components/schemas/WorkerSessionMemoryInput'}
           description: Optional fixed memory inputs, bounded by session_limits.max_objects. Absence preserves the original Profile document; content bytes use the existing resolved memory_files field.
+    CapabilityManifestEntryV1:
+      type: object
+      additionalProperties: false
+      required: [name, source_ref, input_schema_digest, category, implementation_version, per_work_limit, required_permissions]
+      properties:
+        name: {type: string, pattern: '^[a-z][a-z0-9_]{0,127}$'}
+        source_ref: {type: string, minLength: 1, maxLength: 256}
+        input_schema_digest: {$ref: '#/components/schemas/Sha256Digest'}
+        category: {$ref: '#/components/schemas/CapabilityCategory'}
+        implementation_version: {type: string, minLength: 1, maxLength: 256}
+        per_work_limit: {type: integer, minimum: 0, maximum: 1000000}
+        required_permissions:
+          type: array
+          maxItems: 32
+          uniqueItems: true
+          items: {type: string, minLength: 1, maxLength: 128}
+    ProblemContextPolicyV1:
+      type: object
+      additionalProperties: false
+      required: [policy_revision, initial_brief_bytes, index_limit, default_read_bytes, max_read_bytes, max_delivered_bytes, max_refreshes, renderer_version, redaction_policy_ref]
+      properties:
+        policy_revision: {$ref: '#/components/schemas/RevisionString'}
+        initial_brief_bytes: {type: integer, minimum: 1024, maximum: 65536}
+        index_limit: {type: integer, minimum: 1, maximum: 5000}
+        default_read_bytes: {type: integer, minimum: 1, maximum: 16384}
+        max_read_bytes: {type: integer, minimum: 1, maximum: 16384}
+        max_delivered_bytes: {type: integer, minimum: 1, maximum: 1048576}
+        max_refreshes: {type: integer, minimum: 0, maximum: 32}
+        renderer_version: {type: string, minLength: 1, maxLength: 256}
+        redaction_policy_ref: {type: string, minLength: 1, maxLength: 256}
+    ProblemPlanningPolicyV1:
+      type: object
+      additionalProperties: false
+      required: [policy_revision, reason_proposal_limit, explore_proposal_limit, coalesce_milliseconds, max_delay_milliseconds, no_progress_rounds]
+      properties:
+        policy_revision: {$ref: '#/components/schemas/RevisionString'}
+        reason_proposal_limit: {type: integer, minimum: 1, maximum: 3}
+        explore_proposal_limit: {type: integer, minimum: 0, maximum: 2}
+        coalesce_milliseconds: {type: integer, minimum: 0, maximum: 60000}
+        max_delay_milliseconds: {type: integer, minimum: 0, maximum: 300000}
+        no_progress_rounds: {type: integer, minimum: 1, maximum: 100}
+    ProblemWorkMemoryPolicyV1:
+      type: object
+      additionalProperties: false
+      required: [store, max_files, max_file_bytes, max_total_bytes, path_pattern]
+      properties:
+        store: {type: string, const: agent_file_store}
+        max_files: {type: integer, minimum: 1, maximum: 128}
+        max_file_bytes: {type: integer, minimum: 1, maximum: 65536}
+        max_total_bytes: {type: integer, minimum: 1, maximum: 1048576}
+        path_pattern: {type: string, minLength: 1, maxLength: 256}
+    ProblemFunctionLimitsV1:
+      type: object
+      additionalProperties: false
+      required: [session_state_per_work, knowledge_read_per_work, environment_action_per_work, total_per_work, total_per_task]
+      properties:
+        session_state_per_work: {type: integer, minimum: 0, maximum: 1000000}
+        knowledge_read_per_work: {type: integer, minimum: 0, maximum: 1000000}
+        environment_action_per_work: {type: integer, minimum: 0, maximum: 1000000}
+        total_per_work: {type: integer, minimum: 0, maximum: 1000000}
+        total_per_task: {type: integer, minimum: 0, maximum: 1000000}
+    ProblemHarnessProfileBody:
+      type: object
+      additionalProperties: false
+      required: [ref, revision, work_kind, instructions, tool_definition_refs, lock_digest, max_context_records, max_context_bytes, max_output_tokens, capabilities, schema_version, history_source_id, memory_mode, memory_source_id, session_limits, max_context_window_tokens, compaction_enabled, context_policy, capability_manifest, planning_policy, work_memory_policy, function_limits, tool_choice_policy, completion_mode]
+      properties:
+        ref: {type: string, minLength: 1, maxLength: 256}
+        revision: {$ref: '#/components/schemas/RevisionString'}
+        work_kind: {$ref: '#/components/schemas/WorkKind'}
+        instructions: {type: string, minLength: 1, maxLength: 32768}
+        tool_definition_refs:
+          type: array
+          maxItems: 256
+          items: {type: string, minLength: 1, maxLength: 256}
+        material_representation: {type: string, enum: [wuji.model-material.v2]}
+        lock_digest: {$ref: '#/components/schemas/Sha256Digest'}
+        max_context_records: {type: integer, minimum: 1, maximum: 5000}
+        max_context_bytes: {type: integer, minimum: 1, maximum: 16777216}
+        max_output_tokens: {type: integer, minimum: 1, maximum: 1048576}
+        capabilities: {$ref: '#/components/schemas/WorkerSessionHarnessCapabilities'}
+        schema_version: {type: string, const: wuji.harness.problem.v1}
+        history_source_id: {type: string, pattern: '^[a-z][a-z0-9_]{0,63}$'}
+        memory_mode: {type: string, enum: [disabled, pinned_context, work_memory]}
+        memory_source_id: {type: string, pattern: '^[a-z][a-z0-9_]{0,63}$'}
+        session_limits: {$ref: '#/components/schemas/WorkerSessionLimits'}
+        max_context_window_tokens: {type: integer, minimum: 1, maximum: 1073741824}
+        compaction_enabled: {type: boolean}
+        memory_inputs:
+          type: array
+          items: {$ref: '#/components/schemas/WorkerSessionMemoryInput'}
+        context_policy: {$ref: '#/components/schemas/ProblemContextPolicyV1'}
+        capability_manifest:
+          type: array
+          maxItems: 256
+          items: {$ref: '#/components/schemas/CapabilityManifestEntryV1'}
+        planning_policy: {$ref: '#/components/schemas/ProblemPlanningPolicyV1'}
+        work_memory_policy: {$ref: '#/components/schemas/ProblemWorkMemoryPolicyV1'}
+        function_limits: {$ref: '#/components/schemas/ProblemFunctionLimitsV1'}
+        tool_choice_policy: {type: string, const: auto}
+        completion_mode: {$ref: '#/components/schemas/CompletionMode'}
     WorkerHarnessProfile:
       type: object
       additionalProperties: false
@@ -2120,6 +2558,7 @@ components:
           oneOf:
             - {$ref: '#/components/schemas/WorkerHarnessProfileBody'}
             - {$ref: '#/components/schemas/WorkerSessionHarnessProfileBody'}
+            - {$ref: '#/components/schemas/ProblemHarnessProfileBody'}
     WorkerToolDefinition:
       type: object
       additionalProperties: false
@@ -2839,6 +3278,147 @@ components:
           type: array
           uniqueItems: true
           items: {type: string, minLength: 1, maxLength: 128}
+    ExplorationAttemptV1:
+      type: object
+      additionalProperties: false
+      required: [kind, status, summary, source_ref]
+      properties:
+        kind: {type: string, enum: [environment_action, knowledge_read, work_result]}
+        status: {type: string, minLength: 1, maxLength: 128}
+        summary: {type: string, minLength: 1, maxLength: 2048}
+        source_ref: {type: string, minLength: 1, maxLength: 1024}
+    ExplorationProblemV1:
+      type: object
+      additionalProperties: false
+      required: [intent_ref, canonical_work_ref, question, public_rationale, goal_criterion_refs, execution_state, work_result, basis_refs, attempts, gaps, todo_summary, allowed_actions]
+      properties:
+        intent_ref: {$ref: '#/components/schemas/KnowledgeRef'}
+        canonical_work_ref:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 256}
+            - {type: 'null'}
+        question: {type: string, minLength: 1, maxLength: 32768}
+        public_rationale:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 2048}
+            - {type: 'null'}
+        goal_criterion_refs:
+          type: array
+          maxItems: 16
+          items: {$ref: '#/components/schemas/GoalCriterionRef'}
+        execution_state:
+          oneOf:
+            - $ref: '#/components/schemas/WorkState'
+            - {type: 'null'}
+        work_result:
+          oneOf:
+            - $ref: '#/components/schemas/WorkResultV3'
+            - {type: 'null'}
+        basis_refs:
+          type: array
+          maxItems: 256
+          items: {$ref: '#/components/schemas/KnowledgeRef'}
+        attempts:
+          type: array
+          maxItems: 256
+          items: {$ref: '#/components/schemas/ExplorationAttemptV1'}
+        gaps:
+          type: array
+          maxItems: 32
+          items: {type: string, minLength: 1, maxLength: 1024}
+        todo_summary:
+          type: array
+          maxItems: 16
+          items: {type: string, minLength: 1, maxLength: 512}
+        allowed_actions:
+          type: array
+          uniqueItems: true
+          maxItems: 32
+          items: {type: string, minLength: 1, maxLength: 128}
+    ExplorationInsightV1:
+      type: object
+      additionalProperties: false
+      required: [claim_ref, text, kind, grounding_state, evidence_state, applicability_state, source_refs, limitations, supporting_refs, opposing_refs]
+      properties:
+        claim_ref: {$ref: '#/components/schemas/KnowledgeRef'}
+        text: {type: string, minLength: 1, maxLength: 32768}
+        kind: {$ref: '#/components/schemas/ClaimKind'}
+        grounding_state: {$ref: '#/components/schemas/GroundingState'}
+        evidence_state: {$ref: '#/components/schemas/EvidenceState'}
+        applicability_state: {$ref: '#/components/schemas/ApplicabilityState'}
+        source_refs:
+          type: array
+          maxItems: 256
+          items: {$ref: '#/components/schemas/KnowledgeRef'}
+        limitations:
+          type: array
+          maxItems: 128
+          items: {type: string, minLength: 1, maxLength: 8192}
+        supporting_refs:
+          type: array
+          maxItems: 256
+          items: {$ref: '#/components/schemas/KnowledgeRef'}
+        opposing_refs:
+          type: array
+          maxItems: 256
+          items: {$ref: '#/components/schemas/KnowledgeRef'}
+    ExplorationRelationV1:
+      type: object
+      additionalProperties: false
+      required: [relation_id, kind, source_ref, target_ref, witness_refs]
+      properties:
+        relation_id: {type: string, minLength: 1, maxLength: 256}
+        kind: {type: string, enum: [basis, produced_by, supersedes, contradicts, input_to, depends_on]}
+        source_ref: {type: string, minLength: 1, maxLength: 1024}
+        target_ref: {type: string, minLength: 1, maxLength: 1024}
+        witness_refs:
+          type: array
+          minItems: 1
+          maxItems: 32
+          items: {type: string, minLength: 1, maxLength: 1024}
+    ExplorationExecutionSummaryV1:
+      type: object
+      additionalProperties: false
+      required: [settled_work, active_work, waiting_work, reconciling_work, needs_attention]
+      properties:
+        settled_work: {type: integer, minimum: 0}
+        active_work: {type: integer, minimum: 0}
+        waiting_work: {type: integer, minimum: 0}
+        reconciling_work: {type: integer, minimum: 0}
+        needs_attention: {type: integer, minimum: 0}
+    ExplorationViewV1:
+      type: object
+      additionalProperties: false
+      required: [schema_version, task_id, snapshot_id, view_revision, projection_version, mode, problems, insights, relations, execution_summary, opaque_cursor, continuation, missing_fields]
+      properties:
+        schema_version: {$ref: '#/components/schemas/ExplorationViewSchemaVersion'}
+        task_id: {type: string, minLength: 1, maxLength: 256}
+        snapshot_id: {type: string, minLength: 1, maxLength: 256}
+        view_revision: {$ref: '#/components/schemas/RevisionString'}
+        projection_version: {type: string, minLength: 1, maxLength: 256}
+        mode: {$ref: '#/components/schemas/ViewMode'}
+        problems:
+          type: array
+          maxItems: 1000
+          items: {$ref: '#/components/schemas/ExplorationProblemV1'}
+        insights:
+          type: array
+          maxItems: 1000
+          items: {$ref: '#/components/schemas/ExplorationInsightV1'}
+        relations:
+          type: array
+          maxItems: 2000
+          items: {$ref: '#/components/schemas/ExplorationRelationV1'}
+        execution_summary: {$ref: '#/components/schemas/ExplorationExecutionSummaryV1'}
+        opaque_cursor: {type: string, minLength: 1, maxLength: 4096}
+        continuation:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 4096}
+            - {type: 'null'}
+        missing_fields:
+          type: array
+          maxItems: 128
+          items: {type: string, minLength: 1, maxLength: 256}
     ViewEventBatch:
       type: object
       additionalProperties: false

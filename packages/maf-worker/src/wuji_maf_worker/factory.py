@@ -14,6 +14,7 @@ from openai import AsyncOpenAI
 from wuji_core.http import canonical_json_bytes
 from wuji_core.contracts.sessions import SessionLimits
 from wuji_core.contracts.knowledge import KnowledgeRef
+from wuji_core.contracts.generated import ProblemHarnessProfileBody
 
 
 @dataclass(frozen=True)
@@ -176,8 +177,41 @@ class SessionHarnessProfile(HarnessProfile):
         return profile
 
 
+@dataclass(frozen=True)
+class ProblemHarnessProfile:
+    """Strictly recognized problem Profile; execution is enabled by C3."""
+
+    body: ProblemHarnessProfileBody
+    digest: str
+
+    @classmethod
+    def from_snapshot(cls, snapshot):
+        body = ProblemHarnessProfileBody.model_validate(snapshot["body"])
+        if (
+            snapshot.get("ref") != body.ref
+            or str(snapshot.get("revision")) != body.revision.root
+            or snapshot.get("digest") != sha256(canonical_json_bytes(snapshot["body"])).hexdigest()
+        ):
+            raise ValueError("Problem Profile snapshot mismatch")
+        return cls(body=body, digest=snapshot["digest"])
+
+    def snapshot(self):
+        return {
+            "ref": self.body.ref,
+            "revision": self.body.revision.root,
+            "digest": self.digest,
+            "body": self.body.model_dump(mode="json", exclude_none=True),
+        }
+
+    def __getattr__(self, name):
+        return getattr(self.body, name)
+
+
 def parse_profile(snapshot):
-    if snapshot["body"].get("schema_version") == "wuji.harness.session.v1":
+    schema_version = snapshot["body"].get("schema_version")
+    if schema_version == "wuji.harness.problem.v1":
+        return ProblemHarnessProfile.from_snapshot(snapshot)
+    if schema_version == "wuji.harness.session.v1":
         return SessionHarnessProfile.from_snapshot(snapshot)
     return HarnessProfile.from_snapshot(snapshot)
 
@@ -185,6 +219,8 @@ def parse_profile(snapshot):
 def build_agent(*, resolved, profile, model_http, model_gate_url, run_credential,
                 tools, middleware, response_parser, history=None, memory_provider=None):
     """Build the same released public Harness for a fixed fresh/restored profile."""
+    if isinstance(profile, ProblemHarnessProfile):
+        raise ValueError("problem Profile is recognized but not runnable before C3")
     if (
         sys.version_info[:3] != (3, 13, 15)
         or version("agent-framework-core") != "1.18.0"

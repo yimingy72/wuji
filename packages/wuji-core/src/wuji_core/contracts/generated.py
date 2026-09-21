@@ -258,6 +258,30 @@ class AgentPayloadSchemaVersion(RootModel[Literal['wuji.agent-payload.v2']]):
     root: Literal['wuji.agent-payload.v2']
 
 
+class AgentPayloadV3(_JsonSchemaRuntimeValidationBase):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    __json_schema_unique_items__: ClassVar[tuple[tuple[object, ...], ...]] = (
+        (('input_acknowledgements',),),
+    )
+
+    schema_version: AgentPayloadV3SchemaVersion
+    claims: Annotated[list[ClaimProposal], Field(max_length=16)]
+    intent_proposals: Annotated[list[IntentProposalV3], Field(max_length=3)]
+    reason_decision: ReasonDecisionPayloadV3 | None
+    work_result: WorkResultV3 | None
+    input_acknowledgements: Annotated[list[InputAcknowledgement], Field(max_length=32)]
+
+
+class AgentPayloadV3SchemaVersion(RootModel[Literal['wuji.agent-payload.v3']]):
+    root: Literal['wuji.agent-payload.v3']
+
+
+class AgentRunId(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+
+
 class AgentRunRecord(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -421,6 +445,10 @@ class AssignmentSchemaVersion(RootModel[Literal['wuji.assignment.v2']]):
     root: Literal['wuji.assignment.v2']
 
 
+class AttemptSummary(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=2048, min_length=1)]
+
+
 class Authority(StrEnum):
     assessor = 'assessor'
     controller = 'controller'
@@ -438,6 +466,15 @@ class AuthorizationScopeEntry(BaseModel):
     host: Annotated[StrictStr, Field(max_length=253, min_length=1)]
     protocol: Protocol
     port: Annotated[StrictInt, Field(ge=1, le=65535)]
+
+
+class AuthorizationSummaryItem(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=2048, min_length=1)]
+
+
+class AvailableSelector(StrEnum):
+    record_fields = 'record_fields'
+    text_range = 'text_range'
 
 
 class BillingState(StrEnum):
@@ -463,8 +500,43 @@ class ByteLength(RootModel[StrictInt]):
     root: Annotated[StrictInt, Field(ge=0)]
 
 
+class CanonicalWorkRef(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+
+
 class Capability(RootModel[StrictStr]):
     root: Annotated[StrictStr, Field(max_length=128, min_length=1)]
+
+
+class CapabilityCategory(StrEnum):
+    session_state = 'session_state'
+    knowledge_read = 'knowledge_read'
+    environment_action = 'environment_action'
+
+
+class CapabilityGap(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=1024, min_length=1)]
+
+
+class CapabilityManifestEntryV1(_JsonSchemaRuntimeValidationBase):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    __json_schema_unique_items__: ClassVar[tuple[tuple[object, ...], ...]] = (
+        (('required_permissions',),),
+    )
+
+    name: Annotated[StrictStr, Field(pattern='^[a-z][a-z0-9_]{0,127}$')]
+    source_ref: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    input_schema_digest: Sha256Digest
+    category: CapabilityCategory
+    implementation_version: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    per_work_limit: Annotated[StrictInt, Field(ge=0, le=1000000)]
+    required_permissions: Annotated[list[RequiredPermission], Field(max_length=32)]
+
+
+class CapabilityRef(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
 
 
 class CaptureCompleteness(StrEnum):
@@ -695,6 +767,10 @@ class CommandResourceType(StrEnum):
     approval = 'approval'
 
 
+class CommittedTodoSummaryItem(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=512, min_length=1)]
+
+
 class Completeness(StrEnum):
     complete = 'complete'
     partial = 'partial'
@@ -709,6 +785,11 @@ class CompletionDecision(StrEnum):
 
 class CompletionEpochId(RootModel[StrictStr]):
     root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+
+
+class CompletionMode(StrEnum):
+    review_then_close = 'review_then_close'
+    manual_review = 'manual_review'
 
 
 class CompletionReview(BaseModel):
@@ -938,6 +1019,11 @@ class ErrorCode2(StrEnum):
     DELIVERY_TOO_LARGE = 'DELIVERY_TOO_LARGE'
     DELIVERY_COMMIT_CORRUPT = 'DELIVERY_COMMIT_CORRUPT'
     FORBIDDEN_TARGET = 'FORBIDDEN_TARGET'
+    CONTEXT_BUDGET_EXCEEDED = 'CONTEXT_BUDGET_EXCEEDED'
+    REPRESENTATION_LIMIT = 'REPRESENTATION_LIMIT'
+    UNSUPPORTED_MEDIA = 'UNSUPPORTED_MEDIA'
+    WAIT_UNSATISFIABLE = 'WAIT_UNSATISFIABLE'
+    SESSION_PUBLISH_FAILED = 'SESSION_PUBLISH_FAILED'
 
 
 class ErrorCode3(RootModel[StrictStr]):
@@ -1159,6 +1245,103 @@ class ExecutorReceiptResponse(
         return self
 
 
+class ExitCondition(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=512, min_length=1)]
+
+
+class ExplorationAttemptV1(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    kind: Kind
+    status: Annotated[StrictStr, Field(max_length=128, min_length=1)]
+    summary: Annotated[StrictStr, Field(max_length=2048, min_length=1)]
+    source_ref: Annotated[StrictStr, Field(max_length=1024, min_length=1)]
+
+
+class ExplorationExecutionSummaryV1(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    settled_work: Annotated[StrictInt, Field(ge=0)]
+    active_work: Annotated[StrictInt, Field(ge=0)]
+    waiting_work: Annotated[StrictInt, Field(ge=0)]
+    reconciling_work: Annotated[StrictInt, Field(ge=0)]
+    needs_attention: Annotated[StrictInt, Field(ge=0)]
+
+
+class ExplorationInsightV1(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    claim_ref: KnowledgeRef
+    text: Annotated[StrictStr, Field(max_length=32768, min_length=1)]
+    kind: ClaimKind
+    grounding_state: GroundingState
+    evidence_state: EvidenceState
+    applicability_state: ApplicabilityState
+    source_refs: Annotated[list[KnowledgeRef], Field(max_length=256)]
+    limitations: Annotated[list[Limitation3], Field(max_length=128)]
+    supporting_refs: Annotated[list[KnowledgeRef], Field(max_length=256)]
+    opposing_refs: Annotated[list[KnowledgeRef], Field(max_length=256)]
+
+
+class ExplorationProblemV1(_JsonSchemaRuntimeValidationBase):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    __json_schema_unique_items__: ClassVar[tuple[tuple[object, ...], ...]] = (
+        (('allowed_actions',),),
+    )
+
+    intent_ref: KnowledgeRef
+    canonical_work_ref: CanonicalWorkRef | None
+    question: Annotated[StrictStr, Field(max_length=32768, min_length=1)]
+    public_rationale: PublicRationale | None
+    goal_criterion_refs: Annotated[list[GoalCriterionRef], Field(max_length=16)]
+    execution_state: WorkState | None
+    work_result: WorkResultV3 | None
+    basis_refs: Annotated[list[KnowledgeRef], Field(max_length=256)]
+    attempts: Annotated[list[ExplorationAttemptV1], Field(max_length=256)]
+    gaps: Annotated[list[Gap], Field(max_length=32)]
+    todo_summary: Annotated[list[TodoSummaryItem], Field(max_length=16)]
+    allowed_actions: Annotated[list[AllowedAction], Field(max_length=32)]
+
+
+class ExplorationRelationV1(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    relation_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    kind: Kind1
+    source_ref: Annotated[StrictStr, Field(max_length=1024, min_length=1)]
+    target_ref: Annotated[StrictStr, Field(max_length=1024, min_length=1)]
+    witness_refs: Annotated[list[WitnessRef], Field(max_length=32, min_length=1)]
+
+
+class ExplorationViewSchemaVersion(RootModel[Literal['wuji.exploration-view.v1']]):
+    root: Literal['wuji.exploration-view.v1']
+
+
+class ExplorationViewV1(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    schema_version: ExplorationViewSchemaVersion
+    task_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    snapshot_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    view_revision: RevisionString
+    projection_version: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    mode: ViewMode
+    problems: Annotated[list[ExplorationProblemV1], Field(max_length=1000)]
+    insights: Annotated[list[ExplorationInsightV1], Field(max_length=1000)]
+    relations: Annotated[list[ExplorationRelationV1], Field(max_length=2000)]
+    execution_summary: ExplorationExecutionSummaryV1
+    opaque_cursor: Annotated[StrictStr, Field(max_length=4096, min_length=1)]
+    continuation: Continuation | None
+    missing_fields: Annotated[list[MissingField], Field(max_length=128)]
+
+
 class FactAssessment(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -1174,6 +1357,10 @@ class FactAssessment(BaseModel):
     reviewer_ref: Annotated[StrictStr, Field(max_length=256, min_length=1)]
     conditions: Annotated[list[Condition], Field(max_length=128)]
     reason: Annotated[StrictStr, Field(max_length=32768, min_length=1)]
+
+
+class FieldModel(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(pattern='^[a-z][a-z0-9_]{0,63}$')]
 
 
 class FinishReason(RootModel[StrictStr]):
@@ -1194,6 +1381,10 @@ class Function1(BaseModel):
         extra='forbid',
     )
     name: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+
+
+class Gap(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=1024, min_length=1)]
 
 
 class GatewaySpendRef(RootModel[StrictStr]):
@@ -1281,11 +1472,33 @@ class GroupingState(StrEnum):
     grouping_unknown = 'grouping_unknown'
 
 
+class InputAcknowledgement(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+
+
 class IntentAcceptance(StrEnum):
     proposed = 'proposed'
     admitted = 'admitted'
     rejected = 'rejected'
     superseded = 'superseded'
+
+
+class IntentPlanningV3(_JsonSchemaRuntimeValidationBase):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    __json_schema_unique_items__: ClassVar[tuple[tuple[object, ...], ...]] = (
+        (('goal_criterion_refs',),),
+        (('required_capability_refs',),),
+    )
+
+    goal_criterion_refs: Annotated[list[GoalCriterionRef], Field(max_length=16)]
+    public_rationale: Annotated[StrictStr, Field(max_length=2048, min_length=1)]
+    information_needed: Annotated[StrictStr, Field(max_length=2048, min_length=1)]
+    exit_conditions: Annotated[list[ExitCondition], Field(max_length=4, min_length=1)]
+    required_capability_refs: Annotated[
+        list[RequiredCapabilityRef], Field(max_length=8)
+    ]
 
 
 class IntentProposal(BaseModel):
@@ -1296,6 +1509,22 @@ class IntentProposal(BaseModel):
     question: Annotated[StrictStr, Field(max_length=32768, min_length=1)]
     basis_refs: Annotated[list[ProposalReference], Field(max_length=256)]
     expected_output: Annotated[StrictStr, Field(max_length=32768, min_length=1)]
+
+
+class IntentProposalV3(_JsonSchemaRuntimeValidationBase):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    __json_schema_unique_items__: ClassVar[tuple[tuple[object, ...], ...]] = (
+        (('planning',), ('goal_criterion_refs',)),
+        (('planning',), ('required_capability_refs',)),
+    )
+
+    client_ref: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    question: Annotated[StrictStr, Field(max_length=32768, min_length=1)]
+    basis_refs: Annotated[list[ProposalReference], Field(max_length=256)]
+    expected_output: Annotated[StrictStr, Field(max_length=32768, min_length=1)]
+    planning: IntentPlanningV3 | None
 
 
 class IntentRecord(BaseModel):
@@ -1310,6 +1539,86 @@ class IntentRecord(BaseModel):
     expected_output: Annotated[StrictStr, Field(min_length=1)]
     acceptance_state: IntentAcceptance
     created_at: AwareDatetime
+
+
+class Kind(StrEnum):
+    environment_action = 'environment_action'
+    knowledge_read = 'knowledge_read'
+    work_result = 'work_result'
+
+
+class Kind1(StrEnum):
+    basis = 'basis'
+    produced_by = 'produced_by'
+    supersedes = 'supersedes'
+    contradicts = 'contradicts'
+    input_to = 'input_to'
+    depends_on = 'depends_on'
+
+
+class KnowledgeDeliveryKind(StrEnum):
+    initial_context = 'initial_context'
+    knowledge_tool = 'knowledge_tool'
+    environment_material = 'environment_material'
+    refresh = 'refresh'
+
+
+class KnowledgeDeliverySchemaVersion(RootModel[Literal['wuji.knowledge-delivery.v1']]):
+    root: Literal['wuji.knowledge-delivery.v1']
+
+
+class KnowledgeDeliveryState(StrEnum):
+    prepared = 'prepared'
+    attached = 'attached'
+
+
+class KnowledgeDeliveryV1(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    schema_version: KnowledgeDeliverySchemaVersion
+    delivery_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    kind: KnowledgeDeliveryKind
+    snapshot_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    ref: KnowledgeRef
+    source_digest: Sha256Digest
+    selector: KnowledgeSelectorV1
+    renderer_version: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    redaction_policy_ref: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    text: Annotated[StrictStr, Field(max_length=16384)]
+    representation_digest: Sha256Digest
+    byte_length: Annotated[StrictInt, Field(ge=0, le=16384)]
+    source_completeness: CaptureCompleteness
+    representation_truncated: StrictBool
+    has_more: StrictBool
+    disclosure: KnowledgeDisclosure
+    state: KnowledgeDeliveryState
+    work_item_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    agent_run_id: AgentRunId | None
+    session_id: SessionId | None
+    native_occurrence: NativeOccurrence | None
+
+
+class KnowledgeDisclosure(StrEnum):
+    metadata = 'metadata'
+    content = 'content'
+
+
+class KnowledgeIndexItemV1(_JsonSchemaRuntimeValidationBase):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    __json_schema_unique_items__: ClassVar[tuple[tuple[object, ...], ...]] = (
+        (('available_selectors',),),
+    )
+
+    ref: KnowledgeRef
+    material_type: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    disclosure: KnowledgeDisclosure
+    completeness: CaptureCompleteness
+    available_selectors: Annotated[
+        list[AvailableSelector], Field(max_length=2, min_length=1)
+    ]
 
 
 class KnowledgeRef(BaseModel):
@@ -1461,6 +1770,16 @@ class MemoryMode(StrEnum):
     pinned_context = 'pinned_context'
 
 
+class MemoryMode1(StrEnum):
+    disabled = 'disabled'
+    pinned_context = 'pinned_context'
+    work_memory = 'work_memory'
+
+
+class MissingField(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+
+
 class Mode(StrEnum):
     offline = 'offline'
     http = 'http'
@@ -1542,6 +1861,14 @@ class MoneyBudget(BaseModel):
 
 class Name(RootModel[StrictStr]):
     root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+
+
+class NativeOccurrence(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=1024, min_length=1)]
+
+
+class NativeToolReceiptRef(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=1024, min_length=1)]
 
 
 class NextCursor(RootModel[StrictStr]):
@@ -1634,6 +1961,89 @@ class PhaseStatus(StrEnum):
     failed = 'failed'
 
 
+class ProblemContextPolicyV1(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    policy_revision: RevisionString
+    initial_brief_bytes: Annotated[StrictInt, Field(ge=1024, le=65536)]
+    index_limit: Annotated[StrictInt, Field(ge=1, le=5000)]
+    default_read_bytes: Annotated[StrictInt, Field(ge=1, le=16384)]
+    max_read_bytes: Annotated[StrictInt, Field(ge=1, le=16384)]
+    max_delivered_bytes: Annotated[StrictInt, Field(ge=1, le=1048576)]
+    max_refreshes: Annotated[StrictInt, Field(ge=0, le=32)]
+    renderer_version: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    redaction_policy_ref: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+
+
+class ProblemFunctionLimitsV1(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    session_state_per_work: Annotated[StrictInt, Field(ge=0, le=1000000)]
+    knowledge_read_per_work: Annotated[StrictInt, Field(ge=0, le=1000000)]
+    environment_action_per_work: Annotated[StrictInt, Field(ge=0, le=1000000)]
+    total_per_work: Annotated[StrictInt, Field(ge=0, le=1000000)]
+    total_per_task: Annotated[StrictInt, Field(ge=0, le=1000000)]
+
+
+class ProblemHarnessProfileBody(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    ref: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    revision: RevisionString
+    work_kind: WorkKind
+    instructions: Annotated[StrictStr, Field(max_length=32768, min_length=1)]
+    tool_definition_refs: Annotated[list[ToolDefinitionRef], Field(max_length=256)]
+    material_representation: Literal['wuji.model-material.v2'] | None = None
+    lock_digest: Sha256Digest
+    max_context_records: Annotated[StrictInt, Field(ge=1, le=5000)]
+    max_context_bytes: Annotated[StrictInt, Field(ge=1, le=16777216)]
+    max_output_tokens: Annotated[StrictInt, Field(ge=1, le=1048576)]
+    capabilities: WorkerSessionHarnessCapabilities
+    schema_version: Literal['wuji.harness.problem.v1']
+    history_source_id: Annotated[StrictStr, Field(pattern='^[a-z][a-z0-9_]{0,63}$')]
+    memory_mode: MemoryMode1
+    memory_source_id: Annotated[StrictStr, Field(pattern='^[a-z][a-z0-9_]{0,63}$')]
+    session_limits: WorkerSessionLimits
+    max_context_window_tokens: Annotated[StrictInt, Field(ge=1, le=1073741824)]
+    compaction_enabled: StrictBool
+    memory_inputs: list[WorkerSessionMemoryInput] | None = None
+    context_policy: ProblemContextPolicyV1
+    capability_manifest: Annotated[
+        list[CapabilityManifestEntryV1], Field(max_length=256)
+    ]
+    planning_policy: ProblemPlanningPolicyV1
+    work_memory_policy: ProblemWorkMemoryPolicyV1
+    function_limits: ProblemFunctionLimitsV1
+    tool_choice_policy: Literal['auto']
+    completion_mode: CompletionMode
+
+
+class ProblemPlanningPolicyV1(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    policy_revision: RevisionString
+    reason_proposal_limit: Annotated[StrictInt, Field(ge=1, le=3)]
+    explore_proposal_limit: Annotated[StrictInt, Field(ge=0, le=2)]
+    coalesce_milliseconds: Annotated[StrictInt, Field(ge=0, le=60000)]
+    max_delay_milliseconds: Annotated[StrictInt, Field(ge=0, le=300000)]
+    no_progress_rounds: Annotated[StrictInt, Field(ge=1, le=100)]
+
+
+class ProblemWorkMemoryPolicyV1(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    store: Literal['agent_file_store']
+    max_files: Annotated[StrictInt, Field(ge=1, le=128)]
+    max_file_bytes: Annotated[StrictInt, Field(ge=1, le=65536)]
+    max_total_bytes: Annotated[StrictInt, Field(ge=1, le=1048576)]
+    path_pattern: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+
+
 class ProcessIdentity(RootModel[StrictStr]):
     root: Annotated[StrictStr, Field(min_length=1)]
 
@@ -1667,6 +2077,10 @@ class ProposalReference(RootModel[KnowledgeRef | ProposalLocalRef]):
 class Protocol(StrEnum):
     http = 'http'
     https = 'https'
+
+
+class PublicRationale(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=2048, min_length=1)]
 
 
 class PurgeId(RootModel[StrictStr]):
@@ -1731,6 +2145,16 @@ class ReasonDecisionPayload(BaseModel):
     reason: Annotated[StrictStr, Field(max_length=32768, min_length=1)]
 
 
+class ReasonDecisionPayloadV3(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    decision: ReasonDecision
+    wait_refs: Annotated[list[WaitRef], Field(max_length=128)]
+    public_rationale: Annotated[StrictStr, Field(max_length=2048, min_length=1)]
+    basis_refs: Annotated[list[ProposalReference], Field(max_length=256)]
+
+
 class ReceiverBridgeGrant(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -1753,6 +2177,18 @@ class ReceiverBridgeRequest(BaseModel):
     receiver: WorkerReceiver
     action: WorkerBridgeAction
     control_operation_id: ControlOperationId | None
+
+
+class RecordFieldsSelectorV1(_JsonSchemaRuntimeValidationBase):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    __json_schema_unique_items__: ClassVar[tuple[tuple[object, ...], ...]] = (
+        (('fields',),),
+    )
+
+    kind: Literal['record_fields']
+    fields: Annotated[list[FieldModel], Field(max_length=32, min_length=1)]
 
 
 class RecordView(BaseModel):
@@ -1885,6 +2321,14 @@ class ReportView(BaseModel):
     unavailable_evidence: Annotated[list[UnavailableMaterial], Field(max_length=200)]
 
 
+class RequiredCapabilityRef(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+
+
+class RequiredPermission(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=128, min_length=1)]
+
+
 class ResourceKey(RootModel[StrictStr]):
     root: Annotated[StrictStr, Field(max_length=4096, min_length=1)]
 
@@ -1918,6 +2362,34 @@ class ResultEnvelope(BaseModel):
 
 class ResultEnvelopeSchemaVersion(RootModel[Literal['wuji.result-envelope.v2']]):
     root: Literal['wuji.result-envelope.v2']
+
+
+class ResultEnvelopeV3(_JsonSchemaRuntimeValidationBase):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    __json_schema_unique_items__: ClassVar[tuple[tuple[object, ...], ...]] = (
+        (('native_tool_receipt_refs',),),
+        (('payload',), ('input_acknowledgements',)),
+    )
+
+    schema_version: ResultEnvelopeV3SchemaVersion
+    submission_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    identity: RunIdentity
+    initial_snapshot_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    delivery_manifest_ref: BlobRef
+    read_set: Annotated[list[KnowledgeRef], Field(max_length=4096)]
+    native_tool_receipt_refs: Annotated[
+        list[NativeToolReceiptRef], Field(max_length=512)
+    ]
+    raw_output_ref: BlobRef
+    raw_output_digest: Sha256Digest
+    payload: AgentPayloadV3 | None
+    producer_version: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+
+
+class ResultEnvelopeV3SchemaVersion(RootModel[Literal['wuji.result-envelope.v3']]):
+    root: Literal['wuji.result-envelope.v3']
 
 
 class ResultOutcome(StrEnum):
@@ -2011,6 +2483,10 @@ class SendState(StrEnum):
     sending = 'sending'
     sent = 'sent'
     unknown = 'unknown'
+
+
+class SessionId(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
 
 
 class SessionManifest(BaseModel):
@@ -2353,6 +2829,23 @@ class TestResult(StrEnum):
     blocked = 'blocked'
 
 
+class TextRangeSelectorV1(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    kind: Literal['text_range']
+    start: Annotated[StrictInt, Field(ge=0, le=1048576)]
+    end: Annotated[StrictInt, Field(ge=1, le=1048576)]
+
+
+class KnowledgeSelectorV1(RootModel[RecordFieldsSelectorV1 | TextRangeSelectorV1]):
+    root: RecordFieldsSelectorV1 | TextRangeSelectorV1
+
+
+class TodoSummaryItem(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=512, min_length=1)]
+
+
 class TokenUsage(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -2516,6 +3009,10 @@ class UnavailableMaterial(BaseModel):
     purge_id: PurgeId | None
 
 
+class UnresolvedItem(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=1024, min_length=1)]
+
+
 class UnsettledRun(RootModel[StrictStr]):
     root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
 
@@ -2615,6 +3112,40 @@ class WaitRef(BaseModel):
     predicate_version: RevisionString
 
 
+class WitnessRef(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=1024, min_length=1)]
+
+
+class WorkBriefV1(_JsonSchemaRuntimeValidationBase):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    __json_schema_unique_items__: ClassVar[tuple[tuple[object, ...], ...]] = (
+        (('capability_refs',),),
+        (('planning',), ('goal_criterion_refs',)),
+        (('planning',), ('required_capability_refs',)),
+    )
+
+    task_goal: Annotated[StrictStr, Field(max_length=32768, min_length=1)]
+    goal_criterion_refs: Annotated[list[GoalCriterionRef], Field(max_length=256)]
+    authorization_summary: Annotated[
+        list[AuthorizationSummaryItem], Field(max_length=128, min_length=1)
+    ]
+    capability_refs: Annotated[list[CapabilityRef], Field(max_length=64)]
+    capability_gaps: Annotated[list[CapabilityGap], Field(max_length=32)]
+    question: Annotated[StrictStr, Field(max_length=32768, min_length=1)]
+    expected_output: Annotated[StrictStr, Field(max_length=32768, min_length=1)]
+    planning: IntentPlanningV3 | None
+    canonical_work_ref: CanonicalWorkRef | None
+    related_claim_refs: Annotated[list[KnowledgeRef], Field(max_length=256)]
+    counterevidence_refs: Annotated[list[KnowledgeRef], Field(max_length=256)]
+    attempt_summaries: Annotated[list[AttemptSummary], Field(max_length=64)]
+    unresolved_items: Annotated[list[UnresolvedItem], Field(max_length=32)]
+    committed_todo_summary: Annotated[
+        list[CommittedTodoSummaryItem], Field(max_length=16)
+    ]
+
+
 class WorkCommand(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -2686,6 +3217,25 @@ class WorkKind(StrEnum):
     reason = 'reason'
     explore = 'explore'
     report = 'report'
+
+
+class WorkResultOutcome(StrEnum):
+    answered = 'answered'
+    inconclusive = 'inconclusive'
+    no_new_information = 'no_new_information'
+    needs_input = 'needs_input'
+    capability_gap = 'capability_gap'
+
+
+class WorkResultV3(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    outcome: WorkResultOutcome
+    summary: Annotated[StrictStr, Field(max_length=4096, min_length=1)]
+    answer_basis_refs: Annotated[list[ProposalReference], Field(max_length=256)]
+    unresolved_items: Annotated[list[UnresolvedItem], Field(max_length=8)]
+    capability_gaps: Annotated[list[CapabilityGap], Field(max_length=8)]
 
 
 class WorkState(StrEnum):
@@ -2780,6 +3330,25 @@ class WorkerContext(BaseModel):
     input_digest: Sha256Digest
 
 
+class WorkerContextV3(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    schema_version: WorkerContextV3SchemaVersion
+    snapshot_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    read_set: Annotated[list[KnowledgeRef], Field(max_length=4096)]
+    record_refs: Annotated[list[KnowledgeRef], Field(max_length=5000)]
+    brief: WorkBriefV1
+    knowledge_index: Annotated[list[KnowledgeIndexItemV1], Field(max_length=5000)]
+    initial_deliveries: Annotated[list[KnowledgeDeliveryV1], Field(max_length=256)]
+    text: Annotated[StrictStr, Field(max_length=16777216)]
+    input_digest: Sha256Digest
+
+
+class WorkerContextV3SchemaVersion(RootModel[Literal['wuji.worker-context.v3']]):
+    root: Literal['wuji.worker-context.v3']
+
+
 class WorkerControl(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -2817,7 +3386,7 @@ class WorkerHarnessProfile(BaseModel):
     ref: Annotated[StrictStr, Field(max_length=256, min_length=1)]
     revision: RevisionString
     digest: Sha256Digest
-    body: WorkerHarnessProfileBody | WorkerSessionHarnessProfileBody
+    body: WorkerHarnessProfileBody | WorkerSessionHarnessProfileBody | ProblemHarnessProfileBody
 
 
 class WorkerHarnessProfileBody(BaseModel):

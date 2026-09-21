@@ -209,6 +209,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v2/tasks/{task_id}/exploration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read an authorized problem-centered exploration snapshot */
+        get: operations["getTaskExplorationV2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v2/views/{view_id}/events": {
         parameters: {
             query?: never;
@@ -1050,6 +1067,16 @@ export interface components {
         /** @enum {string} */
         AgentPayloadSchemaVersion: "wuji.agent-payload.v2";
         /** @enum {string} */
+        AgentPayloadV3SchemaVersion: "wuji.agent-payload.v3";
+        /** @enum {string} */
+        ResultEnvelopeV3SchemaVersion: "wuji.result-envelope.v3";
+        /** @enum {string} */
+        WorkerContextV3SchemaVersion: "wuji.worker-context.v3";
+        /** @enum {string} */
+        ExplorationViewSchemaVersion: "wuji.exploration-view.v1";
+        /** @enum {string} */
+        KnowledgeDeliverySchemaVersion: "wuji.knowledge-delivery.v1";
+        /** @enum {string} */
         ViewEventSchemaVersion: "wuji.view-event.v3";
         /** @enum {string} */
         ViewResetSchemaVersion: "wuji.view-reset.v2";
@@ -1112,6 +1139,18 @@ export interface components {
         /** @enum {string} */
         ReasonDecision: "propose_intents" | "wait" | "propose_completion" | "blocked";
         /** @enum {string} */
+        WorkResultOutcome: "answered" | "inconclusive" | "no_new_information" | "needs_input" | "capability_gap";
+        /** @enum {string} */
+        CapabilityCategory: "session_state" | "knowledge_read" | "environment_action";
+        /** @enum {string} */
+        KnowledgeDeliveryKind: "initial_context" | "knowledge_tool" | "environment_material" | "refresh";
+        /** @enum {string} */
+        KnowledgeDisclosure: "metadata" | "content";
+        /** @enum {string} */
+        KnowledgeDeliveryState: "prepared" | "attached";
+        /** @enum {string} */
+        CompletionMode: "review_then_close" | "manual_review";
+        /** @enum {string} */
         TestResult: "pass" | "fail" | "not_run" | "blocked";
         /** @enum {string} */
         SuspensionCause: "user_hold" | "task_pause" | "completion_epoch" | "scope_revoked";
@@ -1148,7 +1187,7 @@ export interface components {
         /** @enum {string} */
         ScenarioKind: "ctf" | "web_single" | "comprehensive" | "adversary_emulation" | "code_audit";
         /** @enum {string} */
-        ErrorCode: "UNAUTHENTICATED" | "FORBIDDEN_COLLECTOR" | "FORBIDDEN_ASSESSOR" | "NOT_FOUND_OR_FORBIDDEN" | "STALE_VERSION" | "STALE_EXECUTION" | "STALE_INPUT" | "SESSION_FRONTIER_MISMATCH" | "INPUT_DIGEST_CONFLICT" | "OPERATION_UNKNOWN" | "SNAPSHOT_EXPIRED" | "VIEW_EXPIRED" | "HISTORY_UNAVAILABLE" | "INVALID_REFERENCE" | "MISSING_TOOL_EVIDENCE" | "INVALID_WAIT" | "INVALID_SCHEMA" | "INVALID_SCHEMA_VERSION" | "LIMIT_BLOCKED" | "CAPABILITY_UNAVAILABLE" | "COMPLETION_EPOCH_ABSENT" | "COMPLETION_PRECHECK_INCOMPLETE" | "COMPLETION_EPOCH_UNSETTLED" | "COMPLETION_NOT_CLOSED" | "DELIVERY_EXCHANGE_REQUIRED" | "DELIVERY_TOO_LARGE" | "DELIVERY_COMMIT_CORRUPT" | "FORBIDDEN_TARGET";
+        ErrorCode: "UNAUTHENTICATED" | "FORBIDDEN_COLLECTOR" | "FORBIDDEN_ASSESSOR" | "NOT_FOUND_OR_FORBIDDEN" | "STALE_VERSION" | "STALE_EXECUTION" | "STALE_INPUT" | "SESSION_FRONTIER_MISMATCH" | "INPUT_DIGEST_CONFLICT" | "OPERATION_UNKNOWN" | "SNAPSHOT_EXPIRED" | "VIEW_EXPIRED" | "HISTORY_UNAVAILABLE" | "INVALID_REFERENCE" | "MISSING_TOOL_EVIDENCE" | "INVALID_WAIT" | "INVALID_SCHEMA" | "INVALID_SCHEMA_VERSION" | "LIMIT_BLOCKED" | "CAPABILITY_UNAVAILABLE" | "COMPLETION_EPOCH_ABSENT" | "COMPLETION_PRECHECK_INCOMPLETE" | "COMPLETION_EPOCH_UNSETTLED" | "COMPLETION_NOT_CLOSED" | "DELIVERY_EXCHANGE_REQUIRED" | "DELIVERY_TOO_LARGE" | "DELIVERY_COMMIT_CORRUPT" | "FORBIDDEN_TARGET" | "CONTEXT_BUDGET_EXCEEDED" | "REPRESENTATION_LIMIT" | "UNSUPPORTED_MEDIA" | "WAIT_UNSATISFIABLE" | "SESSION_PUBLISH_FAILED";
         KnowledgeRef: {
             entity_type: components["schemas"]["NodeEntityType"];
             id: string;
@@ -1214,6 +1253,41 @@ export interface components {
             limitations: string[];
             reason_decision?: components["schemas"]["ReasonDecisionPayload"] | null;
         };
+        IntentPlanningV3: {
+            goal_criterion_refs: components["schemas"]["GoalCriterionRef"][];
+            public_rationale: string;
+            information_needed: string;
+            exit_conditions: string[];
+            required_capability_refs: string[];
+        };
+        IntentProposalV3: {
+            client_ref: string;
+            question: string;
+            basis_refs: components["schemas"]["ProposalReference"][];
+            expected_output: string;
+            planning: components["schemas"]["IntentPlanningV3"] | null;
+        };
+        WorkResultV3: {
+            outcome: components["schemas"]["WorkResultOutcome"];
+            summary: string;
+            answer_basis_refs: components["schemas"]["ProposalReference"][];
+            unresolved_items: string[];
+            capability_gaps: string[];
+        };
+        ReasonDecisionPayloadV3: {
+            decision: components["schemas"]["ReasonDecision"];
+            wait_refs: components["schemas"]["WaitRef"][];
+            public_rationale: string;
+            basis_refs: components["schemas"]["ProposalReference"][];
+        };
+        AgentPayloadV3: {
+            schema_version: components["schemas"]["AgentPayloadV3SchemaVersion"];
+            claims: components["schemas"]["ClaimProposal"][];
+            intent_proposals: components["schemas"]["IntentProposalV3"][];
+            reason_decision: components["schemas"]["ReasonDecisionPayloadV3"] | null;
+            work_result: components["schemas"]["WorkResultV3"] | null;
+            input_acknowledgements: string[];
+        };
         FactAssessment: {
             assessment_id: string;
             claim_ref: components["schemas"]["KnowledgeRef"];
@@ -1253,6 +1327,19 @@ export interface components {
             raw_output_digest: components["schemas"]["Sha256Digest"];
             /** @description Untrusted JSON value or null; validate AgentPayload only after sealing and receiving raw output. */
             payload: unknown;
+            producer_version: string;
+        };
+        ResultEnvelopeV3: {
+            schema_version: components["schemas"]["ResultEnvelopeV3SchemaVersion"];
+            submission_id: string;
+            identity: components["schemas"]["RunIdentity"];
+            initial_snapshot_id: string;
+            delivery_manifest_ref: components["schemas"]["BlobRef"];
+            read_set: components["schemas"]["KnowledgeRef"][];
+            native_tool_receipt_refs: string[];
+            raw_output_ref: components["schemas"]["BlobRef"];
+            raw_output_digest: components["schemas"]["Sha256Digest"];
+            payload: components["schemas"]["AgentPayloadV3"] | null;
             producer_version: string;
         };
         CaptureEnvelope: {
@@ -1339,6 +1426,75 @@ export interface components {
             snapshot_id: string;
             read_set: components["schemas"]["KnowledgeRef"][];
             record_refs: components["schemas"]["KnowledgeRef"][];
+            text: string;
+            input_digest: components["schemas"]["Sha256Digest"];
+        };
+        RecordFieldsSelectorV1: {
+            /** @constant */
+            kind: "record_fields";
+            fields: string[];
+        };
+        TextRangeSelectorV1: {
+            /** @constant */
+            kind: "text_range";
+            start: number;
+            end: number;
+        };
+        KnowledgeSelectorV1: components["schemas"]["RecordFieldsSelectorV1"] | components["schemas"]["TextRangeSelectorV1"];
+        KnowledgeDeliveryV1: {
+            schema_version: components["schemas"]["KnowledgeDeliverySchemaVersion"];
+            delivery_id: string;
+            kind: components["schemas"]["KnowledgeDeliveryKind"];
+            snapshot_id: string;
+            ref: components["schemas"]["KnowledgeRef"];
+            source_digest: components["schemas"]["Sha256Digest"];
+            selector: components["schemas"]["KnowledgeSelectorV1"];
+            renderer_version: string;
+            redaction_policy_ref: string;
+            text: string;
+            representation_digest: components["schemas"]["Sha256Digest"];
+            byte_length: number;
+            source_completeness: components["schemas"]["CaptureCompleteness"];
+            representation_truncated: boolean;
+            has_more: boolean;
+            disclosure: components["schemas"]["KnowledgeDisclosure"];
+            state: components["schemas"]["KnowledgeDeliveryState"];
+            work_item_id: string;
+            agent_run_id: string | null;
+            session_id: string | null;
+            native_occurrence: string | null;
+        };
+        KnowledgeIndexItemV1: {
+            ref: components["schemas"]["KnowledgeRef"];
+            material_type: string;
+            disclosure: components["schemas"]["KnowledgeDisclosure"];
+            completeness: components["schemas"]["CaptureCompleteness"];
+            available_selectors: ("record_fields" | "text_range")[];
+        };
+        WorkBriefV1: {
+            task_goal: string;
+            goal_criterion_refs: components["schemas"]["GoalCriterionRef"][];
+            authorization_summary: string[];
+            capability_refs: string[];
+            capability_gaps: string[];
+            question: string;
+            expected_output: string;
+            planning: components["schemas"]["IntentPlanningV3"] | null;
+            canonical_work_ref: string | null;
+            related_claim_refs: components["schemas"]["KnowledgeRef"][];
+            counterevidence_refs: components["schemas"]["KnowledgeRef"][];
+            attempt_summaries: string[];
+            unresolved_items: string[];
+            committed_todo_summary: string[];
+        };
+        WorkerContextV3: {
+            schema_version: components["schemas"]["WorkerContextV3SchemaVersion"];
+            snapshot_id: string;
+            read_set: components["schemas"]["KnowledgeRef"][];
+            record_refs: components["schemas"]["KnowledgeRef"][];
+            brief: components["schemas"]["WorkBriefV1"];
+            knowledge_index: components["schemas"]["KnowledgeIndexItemV1"][];
+            initial_deliveries: components["schemas"]["KnowledgeDeliveryV1"][];
             text: string;
             input_digest: components["schemas"]["Sha256Digest"];
         };
@@ -1473,11 +1629,86 @@ export interface components {
             /** @description Optional fixed memory inputs, bounded by session_limits.max_objects. Absence preserves the original Profile document; content bytes use the existing resolved memory_files field. */
             memory_inputs?: components["schemas"]["WorkerSessionMemoryInput"][];
         };
+        CapabilityManifestEntryV1: {
+            name: string;
+            source_ref: string;
+            input_schema_digest: components["schemas"]["Sha256Digest"];
+            category: components["schemas"]["CapabilityCategory"];
+            implementation_version: string;
+            per_work_limit: number;
+            required_permissions: string[];
+        };
+        ProblemContextPolicyV1: {
+            policy_revision: components["schemas"]["RevisionString"];
+            initial_brief_bytes: number;
+            index_limit: number;
+            default_read_bytes: number;
+            max_read_bytes: number;
+            max_delivered_bytes: number;
+            max_refreshes: number;
+            renderer_version: string;
+            redaction_policy_ref: string;
+        };
+        ProblemPlanningPolicyV1: {
+            policy_revision: components["schemas"]["RevisionString"];
+            reason_proposal_limit: number;
+            explore_proposal_limit: number;
+            coalesce_milliseconds: number;
+            max_delay_milliseconds: number;
+            no_progress_rounds: number;
+        };
+        ProblemWorkMemoryPolicyV1: {
+            /** @constant */
+            store: "agent_file_store";
+            max_files: number;
+            max_file_bytes: number;
+            max_total_bytes: number;
+            path_pattern: string;
+        };
+        ProblemFunctionLimitsV1: {
+            session_state_per_work: number;
+            knowledge_read_per_work: number;
+            environment_action_per_work: number;
+            total_per_work: number;
+            total_per_task: number;
+        };
+        ProblemHarnessProfileBody: {
+            ref: string;
+            revision: components["schemas"]["RevisionString"];
+            work_kind: components["schemas"]["WorkKind"];
+            instructions: string;
+            tool_definition_refs: string[];
+            /** @enum {string} */
+            material_representation?: "wuji.model-material.v2";
+            lock_digest: components["schemas"]["Sha256Digest"];
+            max_context_records: number;
+            max_context_bytes: number;
+            max_output_tokens: number;
+            capabilities: components["schemas"]["WorkerSessionHarnessCapabilities"];
+            /** @constant */
+            schema_version: "wuji.harness.problem.v1";
+            history_source_id: string;
+            /** @enum {string} */
+            memory_mode: "disabled" | "pinned_context" | "work_memory";
+            memory_source_id: string;
+            session_limits: components["schemas"]["WorkerSessionLimits"];
+            max_context_window_tokens: number;
+            compaction_enabled: boolean;
+            memory_inputs?: components["schemas"]["WorkerSessionMemoryInput"][];
+            context_policy: components["schemas"]["ProblemContextPolicyV1"];
+            capability_manifest: components["schemas"]["CapabilityManifestEntryV1"][];
+            planning_policy: components["schemas"]["ProblemPlanningPolicyV1"];
+            work_memory_policy: components["schemas"]["ProblemWorkMemoryPolicyV1"];
+            function_limits: components["schemas"]["ProblemFunctionLimitsV1"];
+            /** @constant */
+            tool_choice_policy: "auto";
+            completion_mode: components["schemas"]["CompletionMode"];
+        };
         WorkerHarnessProfile: {
             ref: string;
             revision: components["schemas"]["RevisionString"];
             digest: components["schemas"]["Sha256Digest"];
-            body: components["schemas"]["WorkerHarnessProfileBody"] | components["schemas"]["WorkerSessionHarnessProfileBody"];
+            body: components["schemas"]["WorkerHarnessProfileBody"] | components["schemas"]["WorkerSessionHarnessProfileBody"] | components["schemas"]["ProblemHarnessProfileBody"];
         };
         WorkerToolDefinition: {
             ref: string;
@@ -1874,6 +2105,69 @@ export interface components {
             truncated: boolean;
             continuation: string | null;
             allowed_actions: string[];
+        };
+        ExplorationAttemptV1: {
+            /** @enum {string} */
+            kind: "environment_action" | "knowledge_read" | "work_result";
+            status: string;
+            summary: string;
+            source_ref: string;
+        };
+        ExplorationProblemV1: {
+            intent_ref: components["schemas"]["KnowledgeRef"];
+            canonical_work_ref: string | null;
+            question: string;
+            public_rationale: string | null;
+            goal_criterion_refs: components["schemas"]["GoalCriterionRef"][];
+            execution_state: components["schemas"]["WorkState"] | null;
+            work_result: components["schemas"]["WorkResultV3"] | null;
+            basis_refs: components["schemas"]["KnowledgeRef"][];
+            attempts: components["schemas"]["ExplorationAttemptV1"][];
+            gaps: string[];
+            todo_summary: string[];
+            allowed_actions: string[];
+        };
+        ExplorationInsightV1: {
+            claim_ref: components["schemas"]["KnowledgeRef"];
+            text: string;
+            kind: components["schemas"]["ClaimKind"];
+            grounding_state: components["schemas"]["GroundingState"];
+            evidence_state: components["schemas"]["EvidenceState"];
+            applicability_state: components["schemas"]["ApplicabilityState"];
+            source_refs: components["schemas"]["KnowledgeRef"][];
+            limitations: string[];
+            supporting_refs: components["schemas"]["KnowledgeRef"][];
+            opposing_refs: components["schemas"]["KnowledgeRef"][];
+        };
+        ExplorationRelationV1: {
+            relation_id: string;
+            /** @enum {string} */
+            kind: "basis" | "produced_by" | "supersedes" | "contradicts" | "input_to" | "depends_on";
+            source_ref: string;
+            target_ref: string;
+            witness_refs: string[];
+        };
+        ExplorationExecutionSummaryV1: {
+            settled_work: number;
+            active_work: number;
+            waiting_work: number;
+            reconciling_work: number;
+            needs_attention: number;
+        };
+        ExplorationViewV1: {
+            schema_version: components["schemas"]["ExplorationViewSchemaVersion"];
+            task_id: string;
+            snapshot_id: string;
+            view_revision: components["schemas"]["RevisionString"];
+            projection_version: string;
+            mode: components["schemas"]["ViewMode"];
+            problems: components["schemas"]["ExplorationProblemV1"][];
+            insights: components["schemas"]["ExplorationInsightV1"][];
+            relations: components["schemas"]["ExplorationRelationV1"][];
+            execution_summary: components["schemas"]["ExplorationExecutionSummaryV1"];
+            opaque_cursor: string;
+            continuation: string | null;
+            missing_fields: string[];
         };
         ViewEventBatch: {
             schema_version: components["schemas"]["ViewEventSchemaVersion"];
@@ -2839,6 +3133,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TopologySnapshot"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFoundOrForbidden"];
+            410: components["responses"]["Expired"];
+            422: components["responses"]["InvalidSchema"];
+        };
+    };
+    getTaskExplorationV2: {
+        parameters: {
+            query?: {
+                mode?: components["parameters"]["ViewMode"];
+                snapshot_id?: components["parameters"]["SnapshotIdQuery"];
+                cursor?: components["parameters"]["ViewCursor"];
+                node_limit?: components["parameters"]["NodeLimit"];
+            };
+            header?: never;
+            path: {
+                task_id: components["parameters"]["TaskId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Authorized problem and insight projection from one fixed snapshot */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExplorationViewV1"];
                 };
             };
             401: components["responses"]["Unauthenticated"];
