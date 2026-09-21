@@ -206,6 +206,28 @@ def test_reviewed_old_web_is_reusable_but_digest_or_source_mismatch_is_rejected(
         release.validate_web_source(WEB_IMAGE, "e" * 40, BASELINE)
 
 
+def test_problem_core_web_is_reused_only_when_sources_are_unchanged(monkeypatch):
+    calls = []
+
+    def unchanged(command, **kwargs):
+        calls.append((command, kwargs))
+        return type("Result", (), {"returncode": 0})()
+
+    monkeypatch.setattr(release.subprocess, "run", unchanged)
+    image = "127.0.0.1:57827/wuji-web@" + release.PROBLEM_WEB_DIGEST
+    assert release.validate_web_source(
+        image, release.PROBLEM_WEB_REVISION, "f" * 40
+    ) == "reviewed_problem_core_web"
+    assert calls[0][0][0:3] == ["git", "diff", "--quiet"]
+
+    with pytest.raises(release.ReleaseError, match="web_reusable_digest_mismatch"):
+        release.validate_web_source(
+            "127.0.0.1:57827/wuji-web@sha256:" + "0" * 64,
+            release.PROBLEM_WEB_REVISION,
+            "f" * 40,
+        )
+
+
 def test_new_web_config_names_preserve_unlabelled_legacy_objects():
     documents = [
         {"kind": "ConfigMap", "metadata": {"name": "wuji-web-config"}},

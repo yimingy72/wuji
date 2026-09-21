@@ -52,6 +52,10 @@ WEB_SOURCE_PATHS = ("apps/web", "packages/contracts")
 # Reviewed settled-cancel copy and directory synchronization Web build.
 SELECTION_WEB_REVISION = "0d73f2de7162f43b34d1082f64b59bde450c39ea"
 SELECTION_WEB_DIGEST = "sha256:a8b8f8f96f590cd8e9dbeca04afb3883f18f81b286816d3278ff6ec69f95268a"
+# Problem-board and input-portal Web build already deployed by the preceding
+# reviewed release.  Later admission-only commits do not change Web sources.
+PROBLEM_WEB_REVISION = "5061664d10837449de8a61787bd5755f23c58f66"
+PROBLEM_WEB_DIGEST = "sha256:f0912e5ac775e1c57f53d0c680531247bad9de427e65607654dd7c5e2ed0b13d"
 FIRST_USE_WORKER_TRANSPORT_BYTES = 8_388_608
 
 
@@ -167,6 +171,19 @@ def validate_web_source(web_image, web_source_revision, release_revision):
         }:
             raise ReleaseError("web_source_changed_since_reviewed_selection_fix")
         return "reviewed_ui_selection_fix"
+    if web_source_revision == PROBLEM_WEB_REVISION:
+        if web_image.rsplit("@", 1)[-1] != PROBLEM_WEB_DIGEST:
+            raise ReleaseError("web_reusable_digest_mismatch")
+        result = subprocess.run(
+            ["git", "diff", "--quiet", web_source_revision, release_revision,
+             "--", *WEB_SOURCE_PATHS],
+            cwd=ROOT, capture_output=True, text=True, timeout=20, check=False,
+        )
+        if result.returncode == 1:
+            raise ReleaseError("web_source_changed_since_problem_core_build")
+        if result.returncode != 0:
+            raise ReleaseError("web_source_comparison_failed")
+        return "reviewed_problem_core_web"
     if web_source_revision != REUSABLE_WEB_REVISION:
         raise ReleaseError("web_source_revision_mismatch")
     if web_image.rsplit("@", 1)[-1] != REUSABLE_WEB_DIGEST:
