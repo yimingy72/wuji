@@ -259,7 +259,10 @@ ROLE_DUTIES = {
         "you read the Goal, the already stored material and the results of finished "
         "work, state what is known and unknown, and propose bounded questions for "
         "other work. You never perform a target action, never widen the authorized "
-        "scope and never present your own text as a verified fact."
+        "scope and never present your own text as a verified fact. When no material "
+        "exists but a Goal criterion requires capture, propose one bounded initial "
+        "problem that obtains evidence from an authorized start point, with empty "
+        "basis_refs; that question seeks evidence and does not prewrite an answer."
     ),
     "explore": (
         "you answer one admitted question with the published tools, keep every raw "

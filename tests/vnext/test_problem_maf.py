@@ -9,6 +9,7 @@ from wuji_core.admission.common import model_function_capabilities
 from wuji_core.contracts import generated as wire
 from wuji_core.contracts.sessions import SessionCompatibility, SessionLimits
 from wuji_core.http import canonical_json_bytes, strict_json_loads
+from wuji_core.worker_host import PlatformWorkerHost
 from wuji_maf_worker.capability_manifest import build_capability_manifest
 from wuji_maf_worker.factory import ProblemHarnessProfile, build_agent
 from wuji_maf_worker.history import BoundedWorkMemoryProvider, HistoryArchive, WorkMemoryStore
@@ -37,6 +38,28 @@ def test_problem_model_capabilities_use_the_current_run_profile_without_assignme
         item.name for item in profile.capability_manifest
     }
     assert environment_refs == set()
+
+
+def test_problem_result_binding_digests_the_v3_brief_components():
+    semantic = {
+        "schema_version": "wuji.work-brief.v1",
+        "brief": {"question": "obtain authorized evidence"},
+        "knowledge_index": [],
+        "initial_deliveries": [],
+    }
+    text = canonical_json_bytes(semantic).decode()
+    binding = PlatformWorkerHost._context_binding(SimpleNamespace(
+        text=text, snapshot_id="snapshot-1", input_digest=sha256(text.encode()).hexdigest(),
+        read_set=(), record_refs=(),
+    ))
+
+    assert binding["schema_version"] == "wuji.work-brief.v1"
+    assert binding["brief_digest"] == sha256(
+        canonical_json_bytes(semantic["brief"])
+    ).hexdigest()
+    assert binding["knowledge_index_digest"] == sha256(b"[]").hexdigest()
+    assert binding["initial_deliveries_digest"] == sha256(b"[]").hexdigest()
+    assert "relations_digest" not in binding
 
 
 def _tool_stream(ordinal, name, arguments):

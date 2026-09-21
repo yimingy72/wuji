@@ -59,6 +59,7 @@ def test_catalog_keeps_immutable_limits_without_old_fixture_answers(mode):
     assert "When read_set is empty" in instructions
     assert "initial Intent must use an empty basis_refs list" in instructions
     assert "Do not create work merely because the queue is empty" in instructions
+    assert "propose one bounded initial problem" in task_launch.ROLE_DUTIES["reason"]
     assert "do not use ProposalLocalRef" in instructions
     assert "at most three independent problems" in instructions
     assert "AgentPayloadV3" in instructions

@@ -441,15 +441,26 @@ class PlatformWorkerHost:
     @staticmethod
     def _context_binding(context):
         rendered = strict_json_loads(context.text)
-        return {
+        binding = {
             "schema_version": rendered["schema_version"],
             "snapshot_id": context.snapshot_id,
             "input_digest": context.input_digest,
             "text_digest": sha256(context.text.encode()).hexdigest(),
             "read_set": [ref.model_dump(mode="json") for ref in context.read_set],
             "record_refs": [ref.model_dump(mode="json") for ref in context.record_refs],
-            "relations_digest": sha256(canonical_json_bytes(rendered["relations"])).hexdigest(),
         }
+        if rendered["schema_version"] == "wuji.context.v2":
+            binding["relations_digest"] = sha256(
+                canonical_json_bytes(rendered["relations"])
+            ).hexdigest()
+        elif rendered["schema_version"] == "wuji.work-brief.v1":
+            for name in ("brief", "knowledge_index", "initial_deliveries"):
+                binding[name + "_digest"] = sha256(
+                    canonical_json_bytes(rendered[name])
+                ).hexdigest()
+        else:
+            raise DomainError("INVALID_SCHEMA", 422)
+        return binding
 
     def _result_binding(self, assignment, submission_id, raw_ref, raw_output,
                         sdk_ref, sdk_output, context, tool_binding):
