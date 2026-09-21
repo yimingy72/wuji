@@ -47,9 +47,11 @@ def owner_template(source, *, mode, lock_digest):
     model = ModelProfile.model_validate(model).model_dump(mode="json")
     refs = [WORKSPACE_REF, HTTP_REF]
     runtime = {
-        "ref": f"first-use-{suffix}-runtime-v1", "revision": "1", "published_at": PUBLISHED_AT,
+        "ref": f"first-use-{suffix}-runtime-v1", "revision": "2", "published_at": PUBLISHED_AT,
         "lock_digest": lock_digest, "allowed_tool_refs": refs,
-        "chunk_bytes": 4096, "buffer_bytes": 65536,
+        # Keep the complete approved tool envelope up to the already-frozen
+        # single-output limit; model material remains a bounded 32 KiB view.
+        "chunk_bytes": 4096, "buffer_bytes": 1048576,
         "idle_timeout_seconds": 45.0, "total_timeout_seconds": 90.0,
         "max_pending_operations": 4, "max_inflight_tools": 1, "max_inflight_model_requests": 1,
         "limits": {"max_work_items": 6, "max_reason_runs": 3, "max_model_requests": 12,

@@ -1,4 +1,5 @@
 """First-use release configuration tests, no cluster or supplier access."""
+import base64
 import importlib.util
 import json
 from pathlib import Path
@@ -12,7 +13,8 @@ sys.path.insert(0, str(ROOT / "ops/vnext"))
 import first_use_catalog as catalog
 import task_launch
 from wuji_core.admission.registry import ModelProfile, RuntimeProfile, ToolDefinition
-from wuji_core.admission.tools import validate_input_schema
+from wuji_core.admission.tools import HttpTargetExecutor, validate_input_schema
+from wuji_core.http import strict_json_loads
 from wuji_core.persistence.uow import DomainError
 
 spec = importlib.util.spec_from_file_location("first_use_manifests", ROOT / "ops/vnext/kubernetes/first_use.py")
@@ -44,6 +46,8 @@ def test_catalog_keeps_immutable_limits_without_old_fixture_answers(mode):
     assert runtime.limits.max_tool_calls == 4
     assert runtime.limits.max_model_requests == 12
     assert runtime.limits.max_elapsed_seconds == 600
+    assert runtime.revision == "2"
+    assert runtime.buffer_bytes == runtime.limits.max_single_output_bytes == 1048576
     for tool in config["tools"]:
         ToolDefinition.model_validate(tool)
         validate_input_schema(tool["input_schema"])
@@ -72,6 +76,40 @@ def test_catalog_keeps_immutable_limits_without_old_fixture_answers(mode):
     assert ("mechanism_http_origins" in config) == (mode == "mechanism_synthetic")
 
 
+def test_first_use_http_envelope_keeps_an_approved_large_response(tmp_path):
+    runtime = RuntimeProfile.model_validate(
+        catalog.owner_template(source(), mode="real_model", lock_digest="a" * 64)[
+            "definition"
+        ]["runtime_profile"]
+    )
+    executor = HttpTargetExecutor(
+        receipt_root=tmp_path,
+        admission=object(),
+        receiver_id="receiver",
+        environment_ref="environment",
+    )
+    body = b"x" * 250042
+    raw, truncated = executor._exchange(
+        SimpleNamespace(
+            runtime=runtime,
+            resource_keys=("target:http://39.97.227.109:80:read:run",),
+            tool_attempt_id="attempt",
+        ),
+        "http://39.97.227.109/static/js/app.js",
+        "GET",
+        body=body,
+        headers={"accept": "*/*"},
+        status=200,
+        response_headers={"content-length": str(len(body))},
+        truncated=False,
+    )
+    document = strict_json_loads(raw)
+    assert truncated is False
+    assert len(raw) <= runtime.limits.max_single_output_bytes
+    assert document["response"]["truncated"] is False
+    assert base64.b64decode(document["response"]["body_base64"]) == body
+
+
 @pytest.mark.parametrize("methods", [[], ["POST"], ["GET", "POST"]])
 def test_catalog_http_method_schema_cannot_expand_read_only_methods(methods):
     config = catalog.owner_template(source(), mode="mechanism_synthetic", lock_digest="a" * 64)
@@ -90,7 +128,7 @@ def test_launcher_separates_owner_management_and_provider_secrets():
     assert catalog.GATEWAY_ORIGIN == settings["gateway_url"]
     pod = deployment["spec"]["template"]["spec"]
     owner = next(volume["secret"] for volume in pod["volumes"] if volume["name"] == "input")
-    assert owner["secretName"] == "first-use-deepseek-owner-v8"
+    assert owner["secretName"] == "first-use-deepseek-owner-v9"
     assert pod["serviceAccountName"] == "first-use-launch"
     management = next(volume["secret"] for volume in pod["volumes"] if volume["name"] == "gateway")
     assert management["items"] == [{"key": "master.key", "path": "master.key"}]
