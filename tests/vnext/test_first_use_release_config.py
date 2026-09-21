@@ -139,10 +139,15 @@ def test_problem_catalog_publishes_exact_native_and_host_capabilities():
     assert reason["body"]["memory_mode"] == "disabled"
     assert explore["body"]["memory_mode"] == "work_memory"
     assert explore["body"]["tool_choice_policy"] == "auto"
+    assert '"const":"wuji.agent-payload.v3"' in reason["body"]["instructions"]
+    reason_names = {item["name"] for item in reason["body"]["capability_manifest"]}
+    assert {"knowledge_list", "knowledge_read"} <= reason_names
+    assert "knowledge_refresh" not in reason_names
     categories = {item["name"]: item["category"] for item in explore["body"]["capability_manifest"]}
     assert categories["todos_add"] == "session_state"
     assert categories["file_memory_write"] == "session_state"
     assert categories["knowledge_read"] == "knowledge_read"
+    assert categories["knowledge_refresh"] == "knowledge_read"
     assert categories["http_target_get"] == "environment_action"
 
 

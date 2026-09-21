@@ -345,7 +345,7 @@ def composed_instructions(config, definition, kind):
         raise DomainError("CAPABILITY_UNAVAILABLE", 503)
     text = published.rstrip() + "\n\n" + task_context_block(definition, kind)
     if config.get("material_representation") == "wuji.model-material.v2":
-        from wuji_core.contracts.generated import AgentPayload
+        from wuji_core.contracts.generated import AgentPayloadV3
         text += (
             "\n\nReturn one JSON object conforming to this output schema, without Markdown fences. "
             "Use the supplied exact knowledge references; a tool's artifact version maps to the "
@@ -354,7 +354,7 @@ def composed_instructions(config, definition, kind):
             "Reason proposes questions only when the current evidence and Goal require them; "
             "do not repeat already answered work. Explore states what the captured body supports "
             "and what remains untested. No fixed answer or fixed Intent sequence is prescribed.\n"
-            + json.dumps(AgentPayload.model_json_schema(), ensure_ascii=False, separators=(",", ":"))
+            + json.dumps(AgentPayloadV3.model_json_schema(), ensure_ascii=False, separators=(",", ":"))
         )
     if len(text) > 32768:
         raise DomainError("CAPABILITY_UNAVAILABLE", 503)
@@ -687,6 +687,11 @@ def published_session_profiles(config, definition):
                     include_todo=kind == "explore",
                     include_memory=kind == "explore",
                     include_knowledge=True,
+                    knowledge_names=(
+                        None
+                        if kind == "explore"
+                        else ("knowledge_list", "knowledge_read")
+                    ),
                     session_limit=function_limits["session_state_per_work"],
                     knowledge_limit=function_limits["knowledge_read_per_work"],
                     environment_limit=function_limits["environment_action_per_work"],

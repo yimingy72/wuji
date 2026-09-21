@@ -626,6 +626,10 @@ class GateFunctions(FunctionMiddleware):
             "knowledge_read": knowledge_read,
             "knowledge_refresh": knowledge_refresh,
         }
+        selected = {
+            name for name, capability in self.identity.capability_manifest.items()
+            if capability["category"] == "knowledge_read"
+        }
         return [
             FunctionTool(
                 name=name,
@@ -639,6 +643,7 @@ class GateFunctions(FunctionMiddleware):
                 approval_mode="never_require",
             )
             for name, schema in KNOWLEDGE_SCHEMAS.items()
+            if name in selected
         ]
 
     def registered_tools(self):

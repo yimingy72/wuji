@@ -92,7 +92,7 @@ def native_schemas():
 
 def build_capability_manifest(*, environment_tools=(), include_todo, include_memory,
                               include_knowledge, session_limit, knowledge_limit,
-                              environment_limit):
+                              environment_limit, knowledge_names=None):
     entries = []
     schemas = native_schemas() if include_todo or include_memory else {}
     for name, schema in sorted(schemas.items()):
@@ -109,7 +109,12 @@ def build_capability_manifest(*, environment_tools=(), include_todo, include_mem
             "required_permissions": ["session_writer"],
         })
     if include_knowledge:
+        selected = set(KNOWLEDGE_SCHEMAS if knowledge_names is None else knowledge_names)
+        if not selected <= set(KNOWLEDGE_SCHEMAS):
+            raise ValueError("unknown knowledge capability")
         for name, schema in KNOWLEDGE_SCHEMAS.items():
+            if name not in selected:
+                continue
             entries.append({
                 "name": name, "source_ref": "wuji.knowledge.v1",
                 "input_schema_digest": _digest(schema), "category": "knowledge_read",
