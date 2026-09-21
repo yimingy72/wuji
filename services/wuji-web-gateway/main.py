@@ -36,6 +36,7 @@ from joserfc.jwk import RSAKey
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from wuji_core.contracts.generated import (
+    InputAnswerCommandV1,
     LayoutPatch,
     ReportDeliveryCommand,
     TaskCommand,
@@ -72,6 +73,7 @@ _GET_ROUTES = (
     ("task_launch", re.compile(rf"^/api/v2/tasks/(?P<task_id>{_TASK_ID})/launch$")),
     ("topology", re.compile(rf"^/api/v2/tasks/(?P<task_id>{_TASK_ID})/topology$")),
     ("exploration", re.compile(rf"^/api/v2/tasks/(?P<task_id>{_TASK_ID})/exploration$")),
+    ("task_inputs", re.compile(rf"^/api/v2/tasks/(?P<task_id>{_TASK_ID})/inputs$")),
     ("snapshots", re.compile(rf"^/api/v2/tasks/(?P<task_id>{_TASK_ID})/snapshots$")),
     (
         "completion_get",
@@ -134,6 +136,10 @@ _POST_ROUTES = (
         re.compile(
             rf"^/api/v2/tasks/(?P<task_id>{_TASK_ID})/reports/(?P<report_id>{_REPORT_ID})/deliveries$"
         ),
+    ),
+    (
+        "input_answer",
+        re.compile(rf"^/api/v2/inputs/(?P<input_request_id>{_IDENTIFIER})/answers$"),
     ),
 )
 
@@ -819,6 +825,7 @@ def _query_for_route(request: Request, name: str):
         "task_launch": set(),
         "topology": {"mode", "snapshot_id", "cursor", "node_limit", "edge_limit"},
         "exploration": {"mode", "snapshot_id", "cursor", "node_limit"},
+        "task_inputs": set(),
         "snapshots": {"cursor"},
         "completion_get": set(),
         "report_get": set(),
@@ -858,6 +865,7 @@ def _model_for_post(name: str):
         "task_command": TaskCommand,
         "completion_post": TaskCompletionCommand,
         "delivery_post": ReportDeliveryCommand,
+        "input_answer": InputAnswerCommandV1,
     }[name]
 
 
@@ -1153,6 +1161,7 @@ def create_gateway(settings: GatewaySettings, *, client=None) -> FastAPI:
             "task_command": 65_536,
             "completion_post": 65_536,
             "delivery_post": 262_144,
+            "input_answer": 65_536,
         }[name]
         body, error = await _validated_json(
             request,

@@ -293,6 +293,32 @@ paths:
         '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
         '410': {$ref: '#/components/responses/Expired'}
         '422': {$ref: '#/components/responses/InvalidSchema'}
+  /api/v2/tasks/{task_id}/inputs:
+    get:
+      operationId: listTaskInputsV2
+      summary: List visible pending human input requests for one task
+      tags: [Tasks]
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      responses:
+        '200': {description: Visible pending inputs, content: {application/json: {schema: {$ref: '#/components/schemas/TaskInputListV1'}}}}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
+  /api/v2/inputs/{input_request_id}/answers:
+    post:
+      operationId: answerTaskInputV2
+      summary: Supply bounded text for one fixed pending question
+      tags: [Tasks]
+      parameters:
+        - {name: input_request_id, in: path, required: true, schema: {type: string, minLength: 1, maxLength: 256}}
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/InputAnswerCommandV1'}}}}
+      responses:
+        '200': {description: Persisted delivery identity, content: {application/json: {schema: {$ref: '#/components/schemas/InputAnswerReceiptV1'}}}}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
   /api/v2/views/{view_id}/events:
     get:
       operationId: streamViewEventsV2
@@ -2113,10 +2139,11 @@ components:
     KnowledgeRefreshResultV1:
       type: object
       additionalProperties: false
-      required: [schema_version, delivery_id, previous_snapshot_id, snapshot_id, added_refs, removed_refs]
+      required: [schema_version, delivery_id, representation_digest, previous_snapshot_id, snapshot_id, added_refs, removed_refs]
       properties:
         schema_version: {type: string, const: wuji.knowledge-refresh.v1}
         delivery_id: {type: string, minLength: 1, maxLength: 256}
+        representation_digest: {$ref: '#/components/schemas/Sha256Digest'}
         previous_snapshot_id: {type: string, minLength: 1, maxLength: 256}
         snapshot_id: {type: string, minLength: 1, maxLength: 256}
         added_refs:
@@ -3569,6 +3596,44 @@ components:
           type: array
           maxItems: 128
           items: {type: string, minLength: 1, maxLength: 256}
+    TaskInputItemV1:
+      type: object
+      additionalProperties: false
+      required: [input_request_id, work_item_id, kind, status, prompt, manifest_ref]
+      properties:
+        input_request_id: {type: string, minLength: 1, maxLength: 256}
+        work_item_id: {type: string, minLength: 1, maxLength: 256}
+        kind: {type: string, enum: [question, approval]}
+        status: {type: string, enum: [pending, resolved, revoked]}
+        prompt: {type: string, minLength: 1, maxLength: 32768}
+        manifest_ref: {type: string, minLength: 1, maxLength: 256}
+    TaskInputListV1:
+      type: object
+      additionalProperties: false
+      required: [schema_version, task_id, items]
+      properties:
+        schema_version: {type: string, const: wuji.task-inputs.v1}
+        task_id: {type: string, minLength: 1, maxLength: 256}
+        items:
+          type: array
+          maxItems: 256
+          items: {$ref: '#/components/schemas/TaskInputItemV1'}
+    InputAnswerCommandV1:
+      type: object
+      additionalProperties: false
+      required: [schema_version, text]
+      properties:
+        schema_version: {$ref: '#/components/schemas/ApiSchemaVersion'}
+        text: {type: string, minLength: 1, maxLength: 32768}
+    InputAnswerReceiptV1:
+      type: object
+      additionalProperties: false
+      required: [schema_version, input_request_id, delivery_id, status]
+      properties:
+        schema_version: {type: string, const: wuji.input-answer.v1}
+        input_request_id: {type: string, minLength: 1, maxLength: 256}
+        delivery_id: {type: string, minLength: 1, maxLength: 256}
+        status: {type: string, const: resolved}
     ViewEventBatch:
       type: object
       additionalProperties: false

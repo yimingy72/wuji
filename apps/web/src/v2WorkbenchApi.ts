@@ -14,6 +14,8 @@ export type ModelMaterialV2 = components['schemas']['ModelMaterialV2'];
 export type ReadinessCheck = components['schemas']['ReadinessCheck'];
 export type TaskProfileOption = components['schemas']['TaskProfileOption'];
 export type ExplorationViewV1 = components['schemas']['ExplorationViewV1'];
+export type TaskInputListV1 = components['schemas']['TaskInputListV1'];
+export type InputAnswerReceiptV1 = components['schemas']['InputAnswerReceiptV1'];
 
 export interface WorkbenchSession {
   readonly authenticated: true;
@@ -198,6 +200,20 @@ function isExplorationView(value: unknown): value is ExplorationViewV1 {
     && value.missing_fields.every(isString);
 }
 
+function isTaskInputList(value: unknown): value is TaskInputListV1 {
+  return isRecord(value) && value.schema_version === 'wuji.task-inputs.v1'
+    && isString(value.task_id) && Array.isArray(value.items)
+    && value.items.every((item) => isRecord(item) && isString(item.input_request_id)
+      && isString(item.work_item_id) && (item.kind === 'question' || item.kind === 'approval')
+      && item.status === 'pending' && isString(item.prompt) && isString(item.manifest_ref));
+}
+
+function isInputAnswerReceipt(value: unknown): value is InputAnswerReceiptV1 {
+  return isRecord(value) && value.schema_version === 'wuji.input-answer.v1'
+    && isString(value.input_request_id) && isString(value.delivery_id)
+    && value.status === 'resolved';
+}
+
 function isModelMaterial(value: unknown): value is ModelMaterialV2 {
   if (!isRecord(value) || value.schema_version !== 'wuji.model-material.v2' || !isString(value.tool_call_id)) return false;
   if (value.status !== 'delivered' && value.status !== 'omitted') return false;
@@ -334,6 +350,18 @@ export function readExploration(taskId: string, mode: 'live' | 'history', snapsh
   const query = new URLSearchParams({ mode, node_limit: '300' });
   if (snapshotId) query.set('snapshot_id', snapshotId);
   return requestJson(`/api/v2/tasks/${encoded(taskId)}/exploration?${query.toString()}`, isExplorationView, signal);
+}
+
+export function readTaskInputs(taskId: string, signal: AbortSignal): Promise<TaskInputListV1> {
+  return requestJson(`/api/v2/tasks/${encoded(taskId)}/inputs`, isTaskInputList, signal);
+}
+
+export function answerTaskInput(inputRequestId: string, text: string, idempotencyKey: string, csrfToken: string | null | undefined, signal: AbortSignal): Promise<InputAnswerReceiptV1> {
+  return requestJson(`/api/v2/inputs/${encoded(inputRequestId)}/answers`, isInputAnswerReceipt, signal, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey, ...csrfHeaders(csrfToken) },
+    body: JSON.stringify({ schema_version: 'wuji.api.v2', text }),
+  });
 }
 
 export function createTask(body: TaskCreate, idempotencyKey: string, csrfToken: string | null | undefined, signal: AbortSignal): Promise<TaskView> {

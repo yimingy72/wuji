@@ -10,6 +10,7 @@ from wuji_core.contracts.envelopes import WorkerAssignment
 from wuji_core.contracts.sessions import (
     DeliveryReceipt, HumanInput, InputPayload, InputReceipt, NativeApprovalObservation,
 )
+from wuji_core.contracts import generated as wire
 from wuji_core.execution.sessions import document, equal, row, rows, work_row
 from wuji_core.http import strict_json_loads
 from wuji_core.persistence.uow import DomainError, json_text
@@ -70,6 +71,43 @@ def save_delivery(tx, input_row, manifest_ref, payload):
 class InputService:
     def __init__(self, uow, *, sessions, registry):
         self.uow, self.sessions, self.registry = uow, sessions, registry
+
+    def list_pending(self, access, task_id):
+        with self.uow.transaction(access, task_id) as tx:
+            items = []
+            for value in rows(tx.connection.execute(
+                "SELECT * FROM vnext.input_request WHERE tenant_id=%s AND project_id=%s "
+                "AND task_id=%s AND status='pending' ORDER BY input_request_id LIMIT 256",
+                tx.owner,
+            )):
+                wait = strict_json_loads(value["wait_ref_json"])
+                kind = wait.get("kind")
+                if kind == "question":
+                    question = tx.connection.execute(
+                        "SELECT question_text FROM vnext.human_question WHERE tenant_id=%s AND project_id=%s "
+                        "AND task_id=%s AND question_ref=%s AND work_item_id=%s",
+                        (*tx.owner, wait.get("question_ref"), value["work_item_id"]),
+                    ).fetchone()
+                    if question is None:
+                        raise DomainError("INVALID_REFERENCE", 422)
+                    prompt = question[0]
+                elif kind == "native_approval":
+                    kind, prompt = "approval", "该工作有一个受控工具调用等待审批"
+                else:
+                    raise DomainError("INVALID_REFERENCE", 422)
+                items.append({
+                    "input_request_id": value["input_request_id"],
+                    "work_item_id": value["work_item_id"],
+                    "kind": kind,
+                    "status": value["status"],
+                    "prompt": prompt,
+                    "manifest_ref": value["source_receipt_json"]
+                    and strict_json_loads(value["source_receipt_json"])["manifest_ref"],
+                })
+        return wire.TaskInputListV1.model_validate({
+            "schema_version": "wuji.task-inputs.v1", "task_id": task_id,
+            "items": items,
+        })
 
     def register_native(self, access, assignment, observation):
         assignment = WorkerAssignment.model_validate(assignment)

@@ -7,7 +7,7 @@ from pathlib import Path
 import re
 import sys
 
-from agent_framework import ContextWindowCompactionStrategy, create_harness_agent
+from agent_framework import ContextWindowCompactionStrategy, TodoProvider, create_harness_agent
 from agent_framework.openai import OpenAIChatCompletionClient
 from openai import AsyncOpenAI
 
@@ -206,6 +206,28 @@ class ProblemHarnessProfile:
     def __getattr__(self, name):
         return getattr(self.body, name)
 
+    @property
+    def session_limits(self):
+        return SessionLimits.model_validate(
+            self.body.session_limits.model_dump(mode="python")
+        )
+
+    @property
+    def lock_digest(self):
+        return self.body.lock_digest.root
+
+    @property
+    def revision(self):
+        return self.body.revision.root
+
+    @property
+    def work_kind(self):
+        return self.body.work_kind.value
+
+    @property
+    def memory_mode(self):
+        return self.body.memory_mode.value
+
 
 def parse_profile(snapshot):
     schema_version = snapshot["body"].get("schema_version")
@@ -217,10 +239,10 @@ def parse_profile(snapshot):
 
 
 def build_agent(*, resolved, profile, model_http, model_gate_url, run_credential,
-                tools, middleware, response_parser, history=None, memory_provider=None):
+                tools, middleware, response_parser, history=None, memory_provider=None,
+                work_memory_provider=None, extra_middleware=(), environment_tool_count=0):
     """Build the same released public Harness for a fixed fresh/restored profile."""
-    if isinstance(profile, ProblemHarnessProfile):
-        raise ValueError("problem Profile is recognized but not runnable before C3")
+    problem_profile = isinstance(profile, ProblemHarnessProfile)
     if (
         sys.version_info[:3] != (3, 13, 15)
         or version("agent-framework-core") != "1.18.0"
@@ -232,17 +254,18 @@ def build_agent(*, resolved, profile, model_http, model_gate_url, run_credential
     limits = resolved["limits"]
     if (
         limits["max_model_requests"] < 1
-        or (tools and limits["max_tool_calls"] < 1)
-        or (profile.work_kind == "explore" and not tools)
+        or (environment_tool_count and limits["max_tool_calls"] < 1)
+        or (not problem_profile and profile.work_kind == "explore" and not tools)
     ):
         raise ValueError("published role limits do not match its tool profile")
     session_options = {}
-    if isinstance(profile, SessionHarnessProfile):
+    if isinstance(profile, SessionHarnessProfile) or problem_profile:
         if (
             history is None or history.source_id != profile.history_source_id
             or history.compatibility.profile_snapshot != profile.snapshot()
             or history.limits != profile.session_limits
             or (memory_provider is not None) != (profile.memory_mode == "pinned_context")
+            or (work_memory_provider is not None) != (profile.memory_mode == "work_memory")
             or profile.session_limits.max_object_bytes > limits["max_single_output_bytes"]
             or profile.session_limits.max_total_bytes > limits["max_total_output_bytes"]
         ):
@@ -261,6 +284,10 @@ def build_agent(*, resolved, profile, model_http, model_gate_url, run_credential
             if memory_provider.source_id != profile.memory_source_id:
                 raise ValueError("memory source differs from the fixed profile")
             session_options["context_providers"].append(memory_provider)
+        if work_memory_provider is not None:
+            if work_memory_provider.source_id != profile.memory_source_id:
+                raise ValueError("work memory source differs from the fixed profile")
+            session_options["context_providers"].append(work_memory_provider)
         if profile.compaction_enabled:
             # These public strategies use native token/annotation processing,
             # never a hidden summarization client or another Agent loop.
@@ -275,7 +302,7 @@ def build_agent(*, resolved, profile, model_http, model_gate_url, run_credential
                 "before_compaction_strategy": ContextWindowCompactionStrategy(**strategy_options),
                 "after_compaction_strategy": ContextWindowCompactionStrategy(**strategy_options),
             })
-    elif history is not None or memory_provider is not None:
+    elif history is not None or memory_provider is not None or work_memory_provider is not None:
         raise ValueError("M1 does not accept Session providers")
     native = AsyncOpenAI(
         api_key=run_credential, base_url=model_gate_url.rstrip("/") + "/",
@@ -283,10 +310,15 @@ def build_agent(*, resolved, profile, model_http, model_gate_url, run_credential
     )
     function_invocation = {"enabled": False}
     if tools:
+        max_function_calls = (
+            profile.function_limits.total_per_work
+            if problem_profile
+            else limits["max_tool_calls"]
+        )
         function_invocation = {
             "enabled": True,
             "max_iterations": limits["max_model_requests"],
-            "max_function_calls": limits["max_tool_calls"],
+            "max_function_calls": max_function_calls,
             "max_duration_seconds": float(limits["max_elapsed_seconds"]),
             "terminate_on_unknown_calls": True,
             "additional_tools": [], "include_detailed_errors": False,
@@ -299,17 +331,20 @@ def build_agent(*, resolved, profile, model_http, model_gate_url, run_credential
     agent = create_harness_agent(
         client, name="wuji-" + profile.work_kind,
         harness_instructions="", agent_instructions=profile.instructions,
-        tools=tools, middleware=[middleware],
+        tools=tools, middleware=[middleware, *extra_middleware],
+        max_context_window_tokens=(profile.max_context_window_tokens if problem_profile else None),
         max_output_tokens=profile.max_output_tokens,
         disable_compaction=not (isinstance(profile, SessionHarnessProfile) and profile.compaction_enabled),
-        disable_todo=True, disable_mode=True,
-        disable_file_memory=True, file_access_store=None,
+        disable_todo=not (problem_profile and profile.work_kind == "explore"),
+        todo_provider=(TodoProvider(source_id="problem_todo") if problem_profile and profile.work_kind == "explore" else None),
+        disable_mode=True,
+        disable_file_memory=True, file_memory_store=None, file_access_store=None,
         skills_provider=None, skills_paths=None, shell_executor=None,
         background_agents=None, disable_web_search=True,
         disable_tool_auto_approval=True, loop_should_continue=None,
         default_options={
             "allow_multiple_tool_calls": False,
-            **({"tool_choice": "required"} if profile.work_kind == "explore" else {}),
+            **({"tool_choice": "required"} if profile.work_kind == "explore" and not problem_profile else {}),
         },
         **session_options,
     )

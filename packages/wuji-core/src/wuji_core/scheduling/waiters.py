@@ -68,17 +68,16 @@ class WaiterRepository:
                 or wait.predicate not in {"work_settled", "work_accepted_result"}
             ):
                 raise DomainError("unsupported_wait_reference", 422)
-            work = row(
-                tx.connection.execute(
-                    """SELECT w.work_item_id FROM vnext.work_item w JOIN vnext.scheduler_work s
-                USING(tenant_id,project_id,task_id,work_item_id)
-                WHERE w.tenant_id=%s AND w.project_id=%s AND w.task_id=%s AND w.intent_id=%s AND w.intent_revision=%s""",
-                    (*tx.owner, ref.id, ref.revision.root),
-                )
+            from wuji_core.scheduling.claims import WorkRepository
+
+            binding = WorkRepository().resolve_canonical_work(
+                tx, intent_id=ref.id, intent_revision=ref.revision.root
             )
-            if not work:
+            if not binding:
                 raise DomainError("wait_work_unregistered", 409)
-            result.append(WaitPredicate(wait.predicate + ".v1", work["work_item_id"]))
+            result.append(WaitPredicate(
+                wait.predicate + ".v1", binding["canonical_work_item_id"]
+            ))
         return tuple(result)
 
     def _evaluate(self, tx, predicate):
@@ -90,8 +89,12 @@ class WaiterRepository:
                 )
             )
             if not value:
-                raise DomainError("INVALID_REFERENCE", 422)
-            return value["status"] == "resolved"
+                return "unsatisfiable"
+            if value["status"] == "resolved":
+                return "satisfied"
+            if value["status"] in {"cancelled", "expired"}:
+                return "unsatisfiable"
+            return "pending"
         work_id = (
             predicate.predecessor_id
             if predicate.kind == "criterion_satisfied.v1"
@@ -104,13 +107,19 @@ class WaiterRepository:
             )
         )
         if not work:
-            raise DomainError("INVALID_REFERENCE", 422)
+            return "unsatisfiable"
         if predicate.kind == "work_settled.v1":
-            return work["state"] in {"done", "failed", "cancelled"}
-        if predicate.kind == "work_accepted_result.v1":
-            return work["state"] == "done" and result_accepted(
-                tx, work["current_run_id"]
+            return (
+                "satisfied"
+                if work["state"] in {"done", "failed", "cancelled"}
+                else "pending"
             )
+        if predicate.kind == "work_accepted_result.v1":
+            if work["state"] == "done" and result_accepted(tx, work["current_run_id"]):
+                return "satisfied"
+            if work["state"] in {"done", "failed", "cancelled"}:
+                return "unsatisfiable"
+            return "pending"
         criterion = row(
             tx.connection.execute(
                 """SELECT c.criterion_id,j.status,j.applicability FROM vnext.goal_criterion c
@@ -122,12 +131,16 @@ class WaiterRepository:
             )
         )
         if not criterion:
-            raise DomainError("INVALID_REFERENCE", 422)
-        return (
+            return "unsatisfiable"
+        if (
             work["state"] not in {"failed", "cancelled"}
             and criterion["status"] == "met"
             and criterion["applicability"] == "current"
-        )
+        ):
+            return "satisfied"
+        if work["state"] in {"failed", "cancelled"}:
+            return "unsatisfiable"
+        return "pending"
 
     def register(self, tx, *, work_item_id, processing_generation, predicates):
         require_admission(tx)
@@ -187,8 +200,10 @@ class WaiterRepository:
                     p.ref_id if p.kind == "input_resolved.v1" else None,
                 ),
             )
-        if all(outcomes):
+        if outcomes and all(outcome == "satisfied" for outcome in outcomes):
             self._wake(tx, waiter_id)
+        elif "unsatisfiable" in outcomes:
+            self._unsatisfiable(tx, waiter_id)
         return waiter_id
 
     def _wake(self, tx, waiter_id):
@@ -199,6 +214,15 @@ class WaiterRepository:
         if updated:
             _bump(tx, event_key="waiter:" + waiter_id, reason="wait_satisfied")
         # No Work state, capacity or process truth is changed by a wake.
+
+    def _unsatisfiable(self, tx, waiter_id):
+        updated = tx.connection.execute(
+            "UPDATE vnext.scheduler_waiter SET status='unsatisfiable' WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND waiter_id=%s AND status='waiting' RETURNING waiter_id",
+            (*tx.owner, waiter_id),
+        ).fetchone()
+        if updated:
+            _bump(tx, event_key="wait-unsatisfiable:" + waiter_id,
+                  reason="wait_unsatisfiable")
 
     def scan(self, tx):
         require_admission(tx)
@@ -226,7 +250,10 @@ class WaiterRepository:
                     p["work_ref"] if criterion else None,
                 )
                 checks.append(self._evaluate(tx, predicate))
-            if checks and all(checks):
+            if checks and all(check == "satisfied" for check in checks):
                 self._wake(tx, value["waiter_id"])
+                ready.append(value["waiter_id"])
+            elif "unsatisfiable" in checks:
+                self._unsatisfiable(tx, value["waiter_id"])
                 ready.append(value["waiter_id"])
         return tuple(ready)

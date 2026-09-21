@@ -351,6 +351,8 @@ def test_openapi_publishes_the_complete_s13_route_set() -> None:
         "/api/v2/tasks/{task_id}/artifacts/{artifact_id}/purges",
         "/api/v2/tasks/{task_id}/topology",
         "/api/v2/tasks/{task_id}/exploration",
+        "/api/v2/tasks/{task_id}/inputs",
+        "/api/v2/inputs/{input_request_id}/answers",
         "/api/v2/views/{view_id}/events",
         "/api/v2/tasks/{task_id}/snapshots",
         "/api/v2/tasks/{task_id}/records/{record_type}/{record_id}",

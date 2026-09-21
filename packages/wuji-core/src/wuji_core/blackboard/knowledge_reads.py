@@ -355,6 +355,7 @@ class KnowledgeReadService:
                 })
         return wire.KnowledgeRefreshResultV1.model_validate({
             **result, "delivery_id": delivery.delivery_id,
+            "representation_digest": delivery.representation_digest,
         })
 
     def attach(self, access, assignment, *, deliveries, manifest_ref):

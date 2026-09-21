@@ -1,5 +1,6 @@
 """Public SDK function identity -> the existing HTTP ToolGate."""
 
+import asyncio
 from contextvars import ContextVar
 from hashlib import sha256
 from urllib.parse import quote
@@ -16,6 +17,55 @@ from wuji_core.admission.model_material import (
     omitted_model_material,
     validate_model_material_v2,
 )
+from wuji_maf_worker.capability_manifest import KNOWLEDGE_SCHEMAS
+
+
+class FunctionBudget:
+    """Per-Work counters persisted inside the native Session state."""
+
+    SOURCE_ID = "wuji_function_usage"
+
+    def __init__(self, limits):
+        self.limits = {
+            key: int(getattr(value, "root", value))
+            for key, value in dict(limits).items()
+        }
+        self.state = None
+
+    def bind(self, session):
+        state = session.state.setdefault(self.SOURCE_ID, {
+            "total": 0,
+            "session_state": 0,
+            "knowledge_read": 0,
+            "environment_action": 0,
+            "occurrences": [],
+        })
+        if (
+            not isinstance(state, dict)
+            or any(type(state.get(key)) is not int or state[key] < 0 for key in (
+                "total", "session_state", "knowledge_read", "environment_action"
+            ))
+            or not isinstance(state.get("occurrences"), list)
+        ):
+            raise ValueError("published function counters are invalid")
+        self.state = state
+
+    def consume(self, *, category, occurrence):
+        if self.state is None or category not in {
+            "session_state", "knowledge_read", "environment_action"
+        } or not isinstance(occurrence, str) or not occurrence:
+            raise ValueError("function budget is not bound to an exact occurrence")
+        if occurrence in self.state["occurrences"]:
+            raise ValueError("native function occurrence was already consumed")
+        category_limit = self.limits[category + "_per_work"]
+        if (
+            self.state["total"] >= self.limits["total_per_work"]
+            or self.state[category] >= category_limit
+        ):
+            raise ValueError("published function limit exhausted")
+        self.state["total"] += 1
+        self.state[category] += 1
+        self.state["occurrences"].append(occurrence)
 
 
 def _difference_paths(left, right, path="$", *, limit=16):
@@ -57,15 +107,22 @@ def _difference_paths(left, right, path="$", *, limit=16):
 class ModelCallIdentity:
     """Gate-observed calls, including identity retained before native approval."""
 
-    def __init__(self, definitions, *, max_bytes, require_initial_tool=False):
+    def __init__(self, definitions, *, max_bytes, require_initial_tool=False,
+                 capability_manifest=()):
         if type(require_initial_tool) is not bool:
             raise ValueError("initial tool requirement must be explicit")
         self.definitions = {d["name"]: d for d in definitions}
+        self.capability_manifest = {
+            item["name"]: item for item in capability_manifest
+        }
+        if len(self.capability_manifest) != len(tuple(capability_manifest)):
+            raise ValueError("capability manifest function names must be unique")
         self.max_bytes = max_bytes
         self.require_initial_tool = require_initial_tool
         self.attempt_id = None
         self.calls = {}
         self.mapping = []
+        self.local_mapping = []
         self._restored = {}
         self._pending_contents = {}
         self._decisions = {}
@@ -101,8 +158,26 @@ class ModelCallIdentity:
         for advertised in advertised_tools:
             proposed = advertised["function"]
             definition = self.definitions.get(proposed["name"])
-            if definition is None or canonical_json_bytes(proposed["parameters"]) != canonical_json_bytes(definition["input_schema"]):
+            capability = self.capability_manifest.get(proposed["name"])
+            if self.capability_manifest:
+                if (
+                    capability is None
+                    or sha256(canonical_json_bytes(proposed["parameters"])).hexdigest()
+                    != capability["input_schema_digest"]
+                    or capability["category"] == "environment_action"
+                    and (
+                        definition is None
+                        or canonical_json_bytes(proposed["parameters"])
+                        != canonical_json_bytes(definition["input_schema"])
+                    )
+                ):
+                    raise ValueError("SDK advertised a function outside the capability manifest")
+            elif definition is None or canonical_json_bytes(proposed["parameters"]) != canonical_json_bytes(definition["input_schema"]):
                 raise ValueError("SDK advertised a tool outside the frozen profile")
+        if self.capability_manifest and {
+            item["function"]["name"] for item in advertised_tools
+        } != set(self.capability_manifest):
+            raise ValueError("SDK visible functions differ from the capability manifest")
         request.headers["X-Wuji-Request-ID"] = str(uuid4())
         self.attempt_id = None
         self.calls = {}
@@ -235,6 +310,41 @@ class ModelCallIdentity:
         if record not in self.mapping:
             self.mapping.append(record)
         return request
+
+    def bind_local(self, context):
+        name = context.function.name
+        capability = self.capability_manifest.get(name)
+        call_id = context.metadata.get("call_id")
+        occurrence = context.metadata.get("function_call_occurrence_id")
+        if (
+            capability is None
+            or capability["category"] == "environment_action"
+            or not isinstance(call_id, str)
+            or not call_id
+            or not isinstance(occurrence, str)
+            or not occurrence
+            or self.attempt_id is None
+        ):
+            raise ValueError("unpublished local function invocation")
+        matches = [value for value in self.calls.values() if value["id"] == call_id]
+        if len(matches) != 1 or matches[0]["name"] != name:
+            raise ValueError("local function differs from the observed model response")
+        original = matches[0]["arguments"]
+        arguments = strict_json_loads(original)
+        supplied = context.arguments
+        if hasattr(supplied, "model_dump"):
+            supplied = supplied.model_dump(mode="python")
+        if canonical_json_bytes(arguments) != canonical_json_bytes(dict(supplied)):
+            raise ValueError("SDK changed native local-function arguments")
+        self.local_mapping.append({
+            "model_attempt_id": self.attempt_id,
+            "provider_call_id": call_id,
+            "sdk_content_id": occurrence,
+            "name": name,
+            "category": capability["category"],
+            "arguments_digest": sha256(canonical_json_bytes(arguments)).hexdigest(),
+        })
+        return capability, occurrence
 
     def capture_pending(self, response, lineage):
         """Bind at the native return boundary, before FunctionMiddleware exists."""
@@ -402,7 +512,8 @@ def _refusal_failure(refusal):
 
 class GateFunctions(FunctionMiddleware):
     def __init__(self, *, definitions, identity, lineage, client, url,
-                 native_approval=False, material_representation="v1"):
+                 native_approval=False, material_representation="v1",
+                 budget=None, host=None, assignment=None):
         self.definitions = {d["name"]: d for d in definitions}
         self.identity, self.lineage, self.client, self.url = identity, lineage, client, url
         if material_representation not in {"v1", MODEL_MATERIAL_SCHEMA}:
@@ -412,13 +523,35 @@ class GateFunctions(FunctionMiddleware):
         self.native_approval = native_approval
         self.pending_receipts = []
         self._invocation = ContextVar("wuji_gate_invocation", default=None)
+        self._local_invocation = ContextVar("wuji_local_invocation", default=None)
+        self.budget, self.host, self.assignment = budget, host, assignment
+        self.knowledge_deliveries = []
 
     async def process(self, context, call_next):
-        token = None
+        token = capability = None
         try:
-            definition = self.definitions[context.function.name]
-            request = self.identity.bind(context, definition, self.lineage)
-            token = self._invocation.set(request)
+            name = context.function.name
+            capability = self.identity.capability_manifest.get(name)
+            if capability is not None and capability["category"] != "environment_action":
+                capability, occurrence = self.identity.bind_local(context)
+                if self.budget is None:
+                    raise ValueError("local function has no published budget")
+                self.budget.consume(
+                    category=capability["category"], occurrence=occurrence
+                )
+                token = self._local_invocation.set({
+                    "name": name, "occurrence": occurrence,
+                    "category": capability["category"],
+                })
+            else:
+                definition = self.definitions[name]
+                request = self.identity.bind(context, definition, self.lineage)
+                if self.budget is not None:
+                    self.budget.consume(
+                        category="environment_action",
+                        occurrence=context.metadata["function_call_occurrence_id"],
+                    )
+                token = self._invocation.set(request)
             await call_next()
         except ToolGateRefused as refusal:
             # Keep the escape, but name the refusing predicate so the child's
@@ -430,7 +563,83 @@ class GateFunctions(FunctionMiddleware):
             raise MiddlewareFailure("Wuji ToolGate invocation failed") from error
         finally:
             if token is not None:
-                self._invocation.reset(token)
+                if capability is not None and capability["category"] != "environment_action":
+                    self._local_invocation.reset(token)
+                else:
+                    self._invocation.reset(token)
+
+    def registered_knowledge_tools(self):
+        if self.host is None or self.assignment is None:
+            return []
+
+        def invocation(name):
+            value = self._local_invocation.get()
+            if value is None or value["name"] != name or value["category"] != "knowledge_read":
+                raise ValueError("knowledge function called outside verified middleware")
+            return value
+
+        async def knowledge_list(snapshot_id, material_types=(), cursor=None, limit=10):
+            current = invocation("knowledge_list")
+            value = await asyncio.to_thread(
+                self.host.knowledge_list,
+                self.assignment,
+                snapshot_id=snapshot_id,
+                material_types=tuple(material_types),
+                cursor=cursor,
+                limit=limit,
+                native_occurrence=current["occurrence"],
+            )
+            return canonical_json_bytes(value.model_dump(mode="json")).decode()
+
+        async def knowledge_read(snapshot_id, ref, selector):
+            current = invocation("knowledge_read")
+            value = await asyncio.to_thread(
+                self.host.knowledge_read,
+                self.assignment,
+                snapshot_id=snapshot_id,
+                ref=ref,
+                selector=selector,
+                native_occurrence=current["occurrence"],
+            )
+            self.knowledge_deliveries.append({
+                "delivery_id": value.delivery_id,
+                "representation_digest": value.representation_digest.root,
+            })
+            return canonical_json_bytes(value.model_dump(mode="json")).decode()
+
+        async def knowledge_refresh(snapshot_id, neighborhood):
+            current = invocation("knowledge_refresh")
+            value = await asyncio.to_thread(
+                self.host.knowledge_refresh,
+                self.assignment,
+                snapshot_id=snapshot_id,
+                native_occurrence=current["occurrence"],
+            )
+            self.knowledge_deliveries.append({
+                "delivery_id": value.delivery_id,
+                "representation_digest": value.representation_digest.root,
+            })
+            return canonical_json_bytes(value.model_dump(mode="json")).decode()
+
+        functions = {
+            "knowledge_list": knowledge_list,
+            "knowledge_read": knowledge_read,
+            "knowledge_refresh": knowledge_refresh,
+        }
+        return [
+            FunctionTool(
+                name=name,
+                description={
+                    "knowledge_list": "List authorized fixed records without reading their content.",
+                    "knowledge_read": "Read one exact authorized record field set or safe text range.",
+                    "knowledge_refresh": "Refresh only the current problem's authorized record neighborhood.",
+                }[name],
+                input_model=schema,
+                func=functions[name],
+                approval_mode="never_require",
+            )
+            for name, schema in KNOWLEDGE_SCHEMAS.items()
+        ]
 
     def registered_tools(self):
         result = []

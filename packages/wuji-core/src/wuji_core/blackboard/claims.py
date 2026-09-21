@@ -7,6 +7,7 @@ from wuji_core.contracts.knowledge import (
     ComponentReceipt,
     KnowledgeRef,
 )
+from wuji_core.http import strict_json_loads
 from wuji_core.persistence.uow import DomainError, json_text
 from wuji_core.blackboard.relations import (
     actor,
@@ -165,10 +166,28 @@ class ClaimService:
             if old:
                 add_relation(tx, ref, "supersedes", old, level)
         else:
+            planning = getattr(proposal, "planning", None)
+            if planning is not None:
+                for criterion in planning.goal_criterion_refs:
+                    if tx.connection.execute(
+                        "SELECT 1 FROM vnext.goal_criterion WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND criterion_id=%s AND revision=%s",
+                        (*tx.owner, criterion.criterion_id, criterion.revision.root),
+                    ).fetchone() is None:
+                        raise DomainError("INVALID_REFERENCE", 422)
+                definition = strict_json_loads(tx.task["definition_json"])
+                published = {
+                    item["source_ref"]
+                    for profile in definition.get("worker_profiles", {}).values()
+                    for item in profile.get("body", {}).get("capability_manifest", ())
+                }
+                if not {
+                    item.root for item in planning.required_capability_refs
+                } <= published:
+                    raise DomainError("CAPABILITY_UNAVAILABLE", 422)
             tx.connection.execute(
                 """INSERT INTO vnext.intent_revision(tenant_id,project_id,task_id,entity_id,revision,
-                question,expected_output,producer_subject,agent_run_id,basis_json,limitations_json,access_level)
-                VALUES(%s,%s,%s,%s,1,%s,%s,%s,%s,%s,%s,%s)""",
+                question,expected_output,producer_subject,agent_run_id,basis_json,limitations_json,planning_json,access_level)
+                VALUES(%s,%s,%s,%s,1,%s,%s,%s,%s,%s,%s,%s,%s)""",
                 (
                     *tx.owner,
                     entity_id,
@@ -178,6 +197,7 @@ class ClaimService:
                     run_id,
                     refs_json,
                     json_text(limits),
+                    None if planning is None else json_text(planning.model_dump(mode="json")),
                     level,
                 ),
             )

@@ -226,6 +226,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v2/tasks/{task_id}/inputs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List visible pending human input requests for one task */
+        get: operations["listTaskInputsV2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/inputs/{input_request_id}/answers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Supply bounded text for one fixed pending question */
+        post: operations["answerTaskInputV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v2/views/{view_id}/events": {
         parameters: {
             query?: never;
@@ -1481,6 +1515,7 @@ export interface components {
             /** @constant */
             schema_version: "wuji.knowledge-refresh.v1";
             delivery_id: string;
+            representation_digest: components["schemas"]["Sha256Digest"];
             previous_snapshot_id: string;
             snapshot_id: string;
             added_refs: components["schemas"]["KnowledgeRef"][];
@@ -2283,6 +2318,34 @@ export interface components {
             opaque_cursor: string;
             continuation: string | null;
             missing_fields: string[];
+        };
+        TaskInputItemV1: {
+            input_request_id: string;
+            work_item_id: string;
+            /** @enum {string} */
+            kind: "question" | "approval";
+            /** @enum {string} */
+            status: "pending" | "resolved" | "revoked";
+            prompt: string;
+            manifest_ref: string;
+        };
+        TaskInputListV1: {
+            /** @constant */
+            schema_version: "wuji.task-inputs.v1";
+            task_id: string;
+            items: components["schemas"]["TaskInputItemV1"][];
+        };
+        InputAnswerCommandV1: {
+            schema_version: components["schemas"]["ApiSchemaVersion"];
+            text: string;
+        };
+        InputAnswerReceiptV1: {
+            /** @constant */
+            schema_version: "wuji.input-answer.v1";
+            input_request_id: string;
+            delivery_id: string;
+            /** @constant */
+            status: "resolved";
         };
         ViewEventBatch: {
             schema_version: components["schemas"]["ViewEventSchemaVersion"];
@@ -3284,6 +3347,62 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             404: components["responses"]["NotFoundOrForbidden"];
             410: components["responses"]["Expired"];
+            422: components["responses"]["InvalidSchema"];
+        };
+    };
+    listTaskInputsV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: components["parameters"]["TaskId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Visible pending inputs */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskInputListV1"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFoundOrForbidden"];
+        };
+    };
+    answerTaskInputV2: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                input_request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InputAnswerCommandV1"];
+            };
+        };
+        responses: {
+            /** @description Persisted delivery identity */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InputAnswerReceiptV1"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFoundOrForbidden"];
+            409: components["responses"]["Conflict"];
             422: components["responses"]["InvalidSchema"];
         };
     };

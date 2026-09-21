@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from hashlib import sha256
+from types import SimpleNamespace
 
 from agent_framework import AgentSession, Content
 
@@ -13,7 +14,7 @@ from wuji_core.contracts.sessions import (
 )
 from wuji_core.http import canonical_json_bytes, strict_json_loads
 from wuji_maf_worker.approvals import extract_approval_requests, validate_pending
-from wuji_maf_worker.history import VersionedMemoryStore, digest, locate_content
+from wuji_maf_worker.history import WorkMemoryStore, VersionedMemoryStore, digest, locate_content
 
 
 def _ref_key(ref):
@@ -238,14 +239,16 @@ class NativeSessionAdapter:
         if memory is not None:
             if not isinstance(memory, VersionedMemoryStore):
                 raise TypeError("memory must be a bounded publication-owned AgentFileStore")
-            configured = tuple(
-                self.compatibility.profile_snapshot["body"].get("memory_inputs", ())
-            )
-            configured_paths = {
-                item["path"] for item in configured if isinstance(item, dict)
-            }
-            if set(memory.snapshot_files()) != configured_paths:
-                raise ValueError("memory files do not match the fixed Session Profile")
+            profile_body = self.compatibility.profile_snapshot["body"]
+            if profile_body["memory_mode"] == "pinned_context":
+                configured = tuple(profile_body.get("memory_inputs", ()))
+                configured_paths = {
+                    item["path"] for item in configured if isinstance(item, dict)
+                }
+                if set(memory.snapshot_files()) != configured_paths:
+                    raise ValueError("memory files do not match the fixed Session Profile")
+            elif not isinstance(memory, WorkMemoryStore):
+                raise ValueError("mutable notes require the bounded work-memory store")
             for path, data in memory.snapshot_files().items():
                 key = "memory-" + sha256(path.encode("utf-8")).hexdigest()
                 files.append(MemoryFile(path=path, object_key=key))
@@ -269,6 +272,22 @@ class NativeSessionAdapter:
         ):
             raise ValueError("complete native export exceeds fixed object/byte bounds")
         return BoundaryObjects(history=root, provider_state=provider, memory=memory_root, objects=tuple(objects))
+
+    def export_settled_boundary(self, *, session, messages, history, call_bindings,
+                                tool_receipts, memory, observed_at):
+        """Publish complete public messages before the next model request."""
+
+        response = SimpleNamespace(messages=tuple(messages), continuation_token=None)
+        return self.export_boundary(
+            session=session,
+            response=response,
+            history=history,
+            call_bindings=call_bindings,
+            tool_receipts=tool_receipts,
+            memory=memory,
+            recovery_class="settled_boundary",
+            observed_at=observed_at,
+        )
 
     def restore_boundary(self, published: PublishedSession):
         if not isinstance(published, PublishedSession):
@@ -295,11 +314,13 @@ class NativeSessionAdapter:
             raise ValueError("published memory differs from the fixed Session Profile")
         if published.memory.state_refs:
             raise ValueError("published memory contains unsupported mutable provider state")
-        configured = tuple(
-            self.compatibility.profile_snapshot["body"].get("memory_inputs", ())
-        )
+        profile_body = self.compatibility.profile_snapshot["body"]
+        configured = tuple(profile_body.get("memory_inputs", ()))
         expected_paths = {item["path"] for item in configured if isinstance(item, dict)}
-        if {file.path for file in published.memory.files} != expected_paths:
+        if (
+            profile_body["memory_mode"] == "pinned_context"
+            and {file.path for file in published.memory.files} != expected_paths
+        ):
             raise ValueError("published memory files do not match the fixed Session Profile")
         refs = (manifest.history_root, manifest.provider_state_ref, manifest.memory_manifest_ref)
         for root, ref in zip(roots, refs, strict=True):
@@ -346,5 +367,15 @@ class NativeSessionAdapter:
             if item.ref is None or item.object_key is not None:
                 raise ValueError("memory contains unpublished mutable keys")
             files[item.path] = published.object_bytes[_ref_key(item.ref)]
-        memory = VersionedMemoryStore(limits=self.limits, files=files) if published.memory.enabled else None
+        memory = None
+        if published.memory.enabled:
+            memory = (
+                WorkMemoryStore(
+                    limits=self.limits,
+                    policy=profile_body["work_memory_policy"],
+                    files=files,
+                )
+                if profile_body["memory_mode"] == "work_memory"
+                else VersionedMemoryStore(limits=self.limits, files=files)
+            )
         return RestoredNativeSession(session, pending, bindings, published.history, memory, published)

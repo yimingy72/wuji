@@ -130,7 +130,7 @@ class SessionCapabilityRegistration(Published):
     lock_digest: str = Field(pattern=r"^[a-f0-9]{64}$")
     limits: dict
     recovery_classes: list[Literal["settled_boundary", "approval_boundary"]] = Field(min_length=1, max_length=2)
-    memory_mode: Literal["disabled", "pinned_context"]
+    memory_mode: Literal["disabled", "pinned_context", "work_memory"]
     approver_subjects: list[str] = Field(min_length=1, max_length=256)
     approval_ttl_seconds: int = Field(gt=0, le=86400)
     evidence_refs: list[str] = Field(default_factory=list, max_length=128)
@@ -212,7 +212,7 @@ def register_session_capability(connection, *, tenant_id, capability):
     profile = capability.profile_snapshot
     body = profile["body"]
     if (profile["digest"] != sha256(canonical_json_bytes(body)).hexdigest()
-            or body["schema_version"] != "wuji.harness.session.v1"
+            or body["schema_version"] not in {"wuji.harness.session.v1", "wuji.harness.problem.v1"}
             or body["memory_mode"] != capability.memory_mode
             or body["lock_digest"] != capability.lock_digest
             or not all(isinstance(ref, str) and 1 <= len(ref) <= 2048 for ref in capability.evidence_refs)
@@ -684,7 +684,7 @@ class AdmissionRegistry:
             actual = definition["worker_profiles"][body["work_kind"]]
             if (canonical_json_bytes(actual) != canonical_json_bytes(profile_snapshot)
                     or profile_snapshot["digest"] != sha256(canonical_json_bytes(body)).hexdigest()
-                    or body["schema_version"] != "wuji.harness.session.v1"
+                    or body["schema_version"] not in {"wuji.harness.session.v1", "wuji.harness.problem.v1"}
                     or profile_snapshot["ref"] != body["ref"] or profile_snapshot["revision"] != body["revision"]
                     or body["lock_digest"] != config.runtime.lock_digest):
                 raise ValueError("unpublished Session profile")
@@ -694,7 +694,12 @@ class AdmissionRegistry:
             ).fetchall()
             disabled = {name: False for name in ("todo", "mode", "file_memory", "file_access", "skills", "shell", "web_search", "background_agents", "outer_loop", "auto_approval", "mcp")}
             caps = {**disabled, "restoration": True, "compaction": body["compaction_enabled"],
-                "native_approval": True, "versioned_memory": body["memory_mode"] == "pinned_context"}
+                "native_approval": True, "versioned_memory": body["memory_mode"] != "disabled"}
+            if body["schema_version"] == "wuji.harness.problem.v1":
+                caps.update(
+                    todo=body["work_kind"] == "explore",
+                    file_memory=body["memory_mode"] == "work_memory",
+                )
             matches = []
             for raw, stored_digest in stored_records:
                 record = SessionCapabilityRegistration.model_validate(strict_json_loads(raw))

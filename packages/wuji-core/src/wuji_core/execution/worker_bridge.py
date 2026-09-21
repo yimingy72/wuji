@@ -865,7 +865,9 @@ class WorkerHostBridge:
                 step = "host_resolve"
                 resolved = host.resolve(assignment, context, verified_principal=access.principal)
                 profile_body = resolved.get("profile", {}).get("body", {})
-                if profile_body.get("schema_version") == "wuji.harness.session.v1":
+                if profile_body.get("schema_version") in {
+                    "wuji.harness.session.v1", "wuji.harness.problem.v1"
+                }:
                     step = "session_encode"
                     if self.session_resolve_encoder is None:
                         raise DomainError("CAPABILITY_UNAVAILABLE", 503)

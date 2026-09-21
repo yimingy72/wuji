@@ -12,7 +12,14 @@ from pydantic import ValidationError
 
 from wuji_core.admission.common import current_run
 from wuji_core.admission.ledger import AdmissionLedger, tool_receipt
-from wuji_core.contracts.envelopes import AgentPayload, BlobRef, ResultEnvelope, WorkerAssignment
+from wuji_core.contracts.envelopes import (
+    AgentPayload,
+    AgentPayloadV3,
+    BlobRef,
+    ResultEnvelope,
+    ResultEnvelopeV3,
+    WorkerAssignment,
+)
 from wuji_core.contracts.knowledge import KnowledgeRef
 from wuji_core.evidence.artifacts import bound_run
 from wuji_core.execution.retained_results import (
@@ -99,7 +106,9 @@ class PlatformWorkerHost:
             memory_files = None
             memory_inputs = ()
             session_limits = None
-            if trusted["body"].get("schema_version") == "wuji.harness.session.v1":
+            if trusted["body"].get("schema_version") in {
+                "wuji.harness.session.v1", "wuji.harness.problem.v1"
+            }:
                 if self.sessions is None or self.inputs is None or not callable(self.receiver_access):
                     raise DomainError("CAPABILITY_UNAVAILABLE", 503)
                 capability = self.registry.session_capability(tx, trusted)
@@ -463,6 +472,31 @@ class PlatformWorkerHost:
             "tool_receipts": tool_binding,
         }
 
+    def _is_problem_profile(self, assignment):
+        refs = {item.root for item in assignment.profile_refs}
+        profiles = [
+            profile for ref, profile in self.profiles.items() if ref in refs
+        ]
+        return len(profiles) == 1 and profiles[0]["body"].get("schema_version") == "wuji.harness.problem.v1"
+
+    def _delivery_manifest(self, assignment, context):
+        with self._result_transaction(assignment) as tx:
+            rows = tx.connection.execute(
+                "SELECT delivery_json,state,attached_manifest_ref FROM vnext.knowledge_delivery "
+                "WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND agent_run_id=%s "
+                "ORDER BY prepared_at,delivery_id",
+                (*tx.owner, assignment.identity.agent_run_id),
+            ).fetchall()
+        if any(state != "attached" or manifest_ref is None for _body, state, manifest_ref in rows):
+            raise DomainError("SESSION_PUBLISH_FAILED", 409)
+        deliveries = [strict_json_loads(body) for body, _state, _manifest in rows]
+        return {
+            "schema_version": "wuji.delivery-manifest.v1",
+            "initial_snapshot_id": context.snapshot_id,
+            "context_digest": context.input_digest,
+            "deliveries": deliveries,
+        }
+
     def submit_result(self, assignment, *, raw_output, context, tool_receipts, sdk_output):
         """Seal raw bytes before parsing; replay never re-enters an Agent/tool loop."""
         assignment = WorkerAssignment.model_validate(assignment)
@@ -470,6 +504,7 @@ class PlatformWorkerHost:
             raise DomainError("INVALID_SCHEMA", 422)
         if len(raw_output) > assignment.limits.max_single_output_bytes or len(sdk_output) > assignment.limits.max_total_output_bytes:
             raise DomainError("LIMIT_BLOCKED", 422)
+        problem_profile = self._is_problem_profile(assignment)
         submission_id = "maf-m1:" + self._operation_digest(assignment)
         # One host owns one active Run in M1. This only serializes local sink calls;
         # P04 remains the durable idempotency authority, not this lock or a cache.
@@ -486,10 +521,20 @@ class PlatformWorkerHost:
                     (*tx.owner, submission_id),
                 ))
             if saved is not None:
-                envelope = ResultEnvelope.model_validate(strict_json_loads(saved["envelope_json"]))
+                saved_envelope = strict_json_loads(saved["envelope_json"])
+                envelope = (
+                    ResultEnvelopeV3.model_validate(saved_envelope)
+                    if saved_envelope.get("schema_version") == "wuji.result-envelope.v3"
+                    else ResultEnvelope.model_validate(saved_envelope)
+                )
+                envelope_snapshot = (
+                    envelope.initial_snapshot_id
+                    if isinstance(envelope, ResultEnvelopeV3)
+                    else envelope.snapshot_id
+                )
                 if saved["writer_subject"] not in {
                     self.access.principal.subject, source_writer,
-                } or envelope.identity != assignment.identity or envelope.raw_output_digest.root != sha256(raw_output).hexdigest() or envelope.snapshot_id != context.snapshot_id or envelope.read_set != list(context.read_set):
+                } or envelope.identity != assignment.identity or envelope.raw_output_digest.root != sha256(raw_output).hexdigest() or envelope_snapshot != context.snapshot_id:
                     raise DomainError("INPUT_DIGEST_CONFLICT", 409)
                 published = self._published_artifacts(
                     assignment, "result:" + submission_id
@@ -504,10 +549,12 @@ class PlatformWorkerHost:
                 ]
                 sdk_records = [r for r in published if r["media_type"] == "application/x-ndjson"]
                 binding_records = [r for r in published if r["media_type"] == "application/vnd.wuji.maf-result-binding+json"]
+                delivery_records = [r for r in published if r["media_type"] == "application/vnd.wuji.delivery-manifest+json"]
                 if (
                     len(raw_records) != 1
                     or len(sdk_records) > 1
                     or len(binding_records) > 1
+                    or len(delivery_records) > (1 if isinstance(envelope, ResultEnvelopeV3) else 0)
                     or any(
                         record["state"] != "sealed"
                         or record["provenance"] != "model_output"
@@ -518,6 +565,7 @@ class PlatformWorkerHost:
                             "text/plain; charset=utf-8",
                             "application/x-ndjson",
                             "application/vnd.wuji.maf-result-binding+json",
+                            "application/vnd.wuji.delivery-manifest+json",
                         }
                         for record in published
                     )
@@ -569,6 +617,14 @@ class PlatformWorkerHost:
                     )
                 else:
                     raise DomainError("INPUT_DIGEST_CONFLICT", 409)
+                if isinstance(envelope, ResultEnvelopeV3):
+                    if (
+                        len(delivery_records) != 1
+                        or self._blob_ref(delivery_records[0]) != envelope.delivery_manifest_ref
+                        or self.artifacts.checked_bytes(delivery_records[0])
+                        != canonical_json_bytes(self._delivery_manifest(assignment, context))
+                    ):
+                        raise DomainError("INPUT_DIGEST_CONFLICT", 409)
                 if repair_refs:
                     self._publish(
                         assignment,
@@ -580,7 +636,7 @@ class PlatformWorkerHost:
                     assignment, "result:" + submission_id
                 )
                 if (
-                    len(repaired) != 3
+                    len(repaired) != (4 if isinstance(envelope, ResultEnvelopeV3) else 3)
                     or len([r for r in repaired if self._blob_ref(r) == envelope.raw_output_ref]) != 1
                     or len([r for r in repaired if r["media_type"] == "application/x-ndjson"]) != 1
                     or len([r for r in repaired if r["media_type"] == "application/vnd.wuji.maf-result-binding+json"]) != 1
@@ -600,10 +656,34 @@ class PlatformWorkerHost:
             )
             raw_ref = self._stage(assignment, raw_output, "text/plain; charset=utf-8")
             sdk_ref = self.archive_sdk(assignment, sdk_output)
-            observed = {_key(ref) for ref in context.read_set}
-            observed.update(tool_refs)
+            delivery_document = (
+                self._delivery_manifest(assignment, context)
+                if problem_profile else None
+            )
+            delivery_ref = (
+                self._stage(
+                    assignment,
+                    canonical_json_bytes(delivery_document),
+                    "application/vnd.wuji.delivery-manifest+json",
+                )
+                if delivery_document is not None else None
+            )
+            read_refs = {_key(ref) for ref in context.read_set}
+            if delivery_document is not None:
+                read_refs.update(
+                    _key(KnowledgeRef.model_validate(item["ref"]))
+                    for item in delivery_document["deliveries"]
+                    if item["disclosure"] == "content"
+                )
+            observed = read_refs | tool_refs
             try:
-                payload = AgentPayload.model_validate(strict_json_loads(raw_output))
+                payload = (
+                    AgentPayloadV3.model_validate(strict_json_loads(raw_output)).for_work_kind(
+                        assignment.work_kind.value
+                    )
+                    if problem_profile
+                    else AgentPayload.model_validate(strict_json_loads(raw_output))
+                )
             except (ValueError, ValidationError):
                 payload = None  # P04 owns rejection of the untouched invalid bytes.
             invalid_reference = False
@@ -620,7 +700,19 @@ class PlatformWorkerHost:
                     if revises is not None and _key(revises) not in observed:
                         invalid_reference = True
                         break
+                if (
+                    isinstance(payload, AgentPayloadV3)
+                    and payload.work_result is not None
+                    and any(
+                        isinstance(ref.root, KnowledgeRef)
+                        and _key(ref.root) not in observed
+                        for ref in payload.work_result.answer_basis_refs
+                    )
+                ):
+                    invalid_reference = True
             initial_reason = (
+                not problem_profile
+                and
                 assignment.work_kind.value == "reason"
                 and not context.read_set
                 and not tool_refs
@@ -634,7 +726,7 @@ class PlatformWorkerHost:
                 result_policy = "initial_reason_empty_basis"
             elif invalid_reference:
                 result_policy = "reject_invalid_reference"
-            elif payload is not None:
+            elif payload is not None and not problem_profile:
                 supported = {"claim", "observation"}
                 needs_filter = any(
                     isinstance(ref.root, KnowledgeRef)
@@ -655,19 +747,42 @@ class PlatformWorkerHost:
                     result_policy = "intent_supported_basis"
             if (
                 result_policy is None
+                and not problem_profile
                 and assignment.work_kind.value == "explore"
                 and not tool_binding
             ):
                 result_policy = "reject_missing_tool_evidence"
-            envelope = ResultEnvelope.model_validate({
-                "schema_version": "wuji.result-envelope.v2", "submission_id": submission_id,
-                "identity": assignment.identity.model_dump(mode="json"),
-                "snapshot_id": context.snapshot_id,
-                "read_set": [ref.model_dump(mode="json") for ref in context.read_set],
-                "raw_output_ref": raw_ref.model_dump(mode="json"),
-                "raw_output_digest": raw_ref.sha256.root,
-                "payload": None, "producer_version": "wuji-maf-worker/0.1.0:maf-core/1.18.0",
-            })
+            envelope = (
+                ResultEnvelopeV3.model_validate({
+                    "schema_version": "wuji.result-envelope.v3",
+                    "submission_id": submission_id,
+                    "identity": assignment.identity.model_dump(mode="json"),
+                    "initial_snapshot_id": context.snapshot_id,
+                    "delivery_manifest_ref": delivery_ref.model_dump(mode="json"),
+                    "read_set": [
+                        {"entity_type": kind, "id": identifier, "revision": revision}
+                        for kind, identifier, revision in sorted(read_refs)
+                        if kind in {"claim", "intent", "observation", "artifact"}
+                    ],
+                    "native_tool_receipt_refs": sorted(
+                        receipt.tool_call_id for receipt in tool_receipts
+                    ),
+                    "raw_output_ref": raw_ref.model_dump(mode="json"),
+                    "raw_output_digest": raw_ref.sha256.root,
+                    "payload": None,
+                    "producer_version": "wuji-maf-worker/0.1.0:maf-core/1.18.0",
+                })
+                if problem_profile
+                else ResultEnvelope.model_validate({
+                    "schema_version": "wuji.result-envelope.v2", "submission_id": submission_id,
+                    "identity": assignment.identity.model_dump(mode="json"),
+                    "snapshot_id": context.snapshot_id,
+                    "read_set": [ref.model_dump(mode="json") for ref in context.read_set],
+                    "raw_output_ref": raw_ref.model_dump(mode="json"),
+                    "raw_output_digest": raw_ref.sha256.root,
+                    "payload": None, "producer_version": "wuji-maf-worker/0.1.0:maf-core/1.18.0",
+                })
+            )
             binding = self._result_binding(
                 assignment, submission_id, raw_ref, raw_output, sdk_ref,
                 sdk_output, context, tool_binding,
@@ -686,7 +801,10 @@ class PlatformWorkerHost:
                 assignment,
                 "result:" + submission_id,
                 "result_submission",
-                (sdk_ref, binding_ref),
+                tuple(
+                    ref for ref in (sdk_ref, binding_ref, delivery_ref)
+                    if ref is not None
+                ),
             )
             if self.retained_result is None:
                 return self.committer.reconcile(

@@ -61,7 +61,9 @@ from wuji_core.contracts.sessions import SessionLimits
 from wuji_core.http import canonical_json_bytes, strict_json_loads
 from wuji_core.http.auth import TokenVerifier
 from wuji_core.persistence.uow import AccessContext, DomainError, UnitOfWork
-from wuji_maf_worker.factory import SessionHarnessProfile
+from wuji_maf_worker.capability_manifest import build_capability_manifest
+from wuji_maf_worker.factory import ProblemHarnessProfile, SessionHarnessProfile
+from wuji_core.contracts.generated import ProblemHarnessProfileBody
 
 
 SCHEMA_VERSION = "wuji.task-launch.v1"
@@ -641,6 +643,79 @@ def published_session_profiles(config, definition):
 
     published = {}
     for kind, profile in deployment_profiles(config).items():
+        if config.get("problem_core_enabled") and kind in {"reason", "explore"}:
+            function_limits = {
+                "session_state_per_work": 16 if kind == "explore" else 0,
+                "knowledge_read_per_work": 8,
+                "environment_action_per_work": limits["max_tool_calls"] if kind == "explore" else 0,
+                "total_per_work": 24,
+                "total_per_task": min(24, limits["max_model_requests"]),
+            }
+            environment = [
+                tool for tool in config["tools"] if tool["ref"] in role_refs[kind]
+            ]
+            body = {
+                "ref": f"harness.{kind}.problem.candidate",
+                "revision": "1",
+                **body_of(kind, profile),
+                "schema_version": "wuji.harness.problem.v1",
+                "history_source_id": "deployment",
+                "memory_mode": "work_memory" if kind == "explore" else "disabled",
+                "memory_source_id": "problem_memory",
+                "session_limits": session_limits.model_dump(mode="json"),
+                "max_context_window_tokens": 65536,
+                "compaction_enabled": True,
+                "capabilities": {
+                    "todo": kind == "explore", "mode": False,
+                    "file_memory": kind == "explore", "file_access": False,
+                    "skills": False, "shell": False, "web_search": False,
+                    "background_agents": False, "outer_loop": False,
+                    "auto_approval": False, "compaction": True,
+                    "restoration": True, "mcp": False,
+                    "native_approval": True,
+                    "versioned_memory": kind == "explore",
+                },
+                "context_policy": {
+                    "policy_revision": "1", "initial_brief_bytes": 16384,
+                    "index_limit": 64, "default_read_bytes": 8192,
+                    "max_read_bytes": 16384, "max_delivered_bytes": 32768,
+                    "max_refreshes": 2, "renderer_version": "wuji-http-renderer.v2",
+                    "redaction_policy_ref": "wuji-redaction.v1",
+                },
+                "capability_manifest": build_capability_manifest(
+                    environment_tools=environment,
+                    include_todo=kind == "explore",
+                    include_memory=kind == "explore",
+                    include_knowledge=True,
+                    session_limit=function_limits["session_state_per_work"],
+                    knowledge_limit=function_limits["knowledge_read_per_work"],
+                    environment_limit=function_limits["environment_action_per_work"],
+                ),
+                "planning_policy": {
+                    "policy_revision": "1", "reason_proposal_limit": 3,
+                    "explore_proposal_limit": 2, "coalesce_milliseconds": 500,
+                    "max_delay_milliseconds": 5000, "no_progress_rounds": 3,
+                },
+                "work_memory_policy": {
+                    "store": "agent_file_store", "max_files": 8,
+                    "max_file_bytes": 8192, "max_total_bytes": 32768,
+                    "path_pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+                },
+                "function_limits": function_limits,
+                "tool_choice_policy": "auto",
+                "completion_mode": "review_then_close",
+            }
+            candidate = ProblemHarnessProfileBody.model_validate(body).model_dump(
+                mode="json", exclude_none=True
+            )
+            candidate["ref"] = session_profile_ref(kind, candidate)
+            digest = sha256(canonical_json_bytes(candidate)).hexdigest()
+            snapshot = {
+                "ref": candidate["ref"], "revision": candidate["revision"],
+                "digest": digest, "body": candidate,
+            }
+            published[kind] = ProblemHarnessProfile.from_snapshot(snapshot).snapshot()
+            continue
         values = dict(
             revision="1",
             **body_of(kind, profile),

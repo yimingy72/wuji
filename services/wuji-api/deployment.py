@@ -22,6 +22,7 @@ from wuji_core.http.layouts import create_layout_router
 from wuji_core.http.tasks import create_task_router
 from wuji_core.http.views import create_view_router
 from wuji_core.http.topology import create_topology_router
+from wuji_core.http.inputs import create_input_router
 from wuji_core.projection.layouts import LayoutRepository
 from wuji_core.projection.snapshots import ProjectionRepository
 
@@ -49,6 +50,7 @@ def build_api():
             create_task_router(tasks),
             create_launch_router(launch),
             create_command_router(ControlAPI(deployment.control, launch_service=launch)),
+            create_input_router(deployment.inputs),
             create_completion_router(portal),
             create_delivery_router(deliveries),
             create_retention_router(retention),

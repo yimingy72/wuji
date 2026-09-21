@@ -874,7 +874,7 @@ class CriterionJudgmentView(BaseModel):
     criterion_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
     revision: RevisionString | None
     required: StrictBool
-    status: Status6
+    status: Status7
     applicability: Applicability
 
 
@@ -1476,6 +1476,24 @@ class InputAcknowledgement(RootModel[StrictStr]):
     root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
 
 
+class InputAnswerCommandV1(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    schema_version: ApiSchemaVersion
+    text: Annotated[StrictStr, Field(max_length=32768, min_length=1)]
+
+
+class InputAnswerReceiptV1(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    schema_version: Literal['wuji.input-answer.v1']
+    input_request_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    delivery_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    status: Literal['resolved']
+
+
 class IntentAcceptance(StrEnum):
     proposed = 'proposed'
     admitted = 'admitted'
@@ -1554,6 +1572,11 @@ class Kind1(StrEnum):
     contradicts = 'contradicts'
     input_to = 'input_to'
     depends_on = 'depends_on'
+
+
+class Kind2(StrEnum):
+    question = 'question'
+    approval = 'approval'
 
 
 class KnowledgeDeliveryAttachmentV1(BaseModel):
@@ -1654,6 +1677,7 @@ class KnowledgeRefreshResultV1(BaseModel):
     )
     schema_version: Literal['wuji.knowledge-refresh.v1']
     delivery_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    representation_digest: Sha256Digest
     previous_snapshot_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
     snapshot_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
     added_refs: Annotated[list[KnowledgeRef], Field(max_length=5000)]
@@ -1876,7 +1900,7 @@ class ModelMaterialV2(BaseModel):
     )
     schema_version: Literal['wuji.model-material.v2']
     tool_call_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
-    status: Status4
+    status: Status5
     source: ModelMaterialSource | None
     representation: ModelMaterialRepresentation | None
     omission_reason: MaterialOmissionReason | None
@@ -2639,6 +2663,12 @@ class Status2(StrEnum):
 
 
 class Status3(StrEnum):
+    pending = 'pending'
+    resolved = 'resolved'
+    revoked = 'revoked'
+
+
+class Status4(StrEnum):
     pending_approval = 'pending_approval'
     admitted = 'admitted'
     dispatched = 'dispatched'
@@ -2651,12 +2681,12 @@ class Status3(StrEnum):
     failed = 'failed'
 
 
-class Status4(StrEnum):
+class Status5(StrEnum):
     delivered = 'delivered'
     omitted = 'omitted'
 
 
-class Status6(StrEnum):
+class Status7(StrEnum):
     met = 'met'
     not_met = 'not_met'
     unknown = 'unknown'
@@ -2788,6 +2818,27 @@ class TaskDesired(StrEnum):
     finish = 'finish'
 
 
+class TaskInputItemV1(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    input_request_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    work_item_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    kind: Kind2
+    status: Status3
+    prompt: Annotated[StrictStr, Field(max_length=32768, min_length=1)]
+    manifest_ref: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+
+
+class TaskInputListV1(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    schema_version: Literal['wuji.task-inputs.v1']
+    task_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    items: Annotated[list[TaskInputItemV1], Field(max_length=256)]
+
+
 class TaskList(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -2907,7 +2958,7 @@ class ToolCallReceipt(BaseModel):
     tool_call_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
     operation_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
     tool_attempt_id: ToolAttemptId | None
-    status: Status3
+    status: Status4
     evidence_receipt: EvidenceReceipt | None
     result_ref: BlobRef | None
     reason_code: ErrorCode2 | None
@@ -2957,7 +3008,7 @@ class ToolResultMaterial(BaseModel):
         extra='forbid',
     )
     tool_call_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
-    status: Status4
+    status: Status5
     reason: Reason | None
     artifact_ref: BlobRef | None
     media_type: MediaType | None

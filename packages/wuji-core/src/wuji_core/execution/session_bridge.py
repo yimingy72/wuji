@@ -296,7 +296,7 @@ class SessionTransportCodec:
             raise DomainError("CAPABILITY_UNAVAILABLE", 503) from None
         if schema_version is None:
             return resolved
-        if schema_version != "wuji.harness.session.v1":
+        if schema_version not in {"wuji.harness.session.v1", "wuji.harness.problem.v1"}:
             raise DomainError("CAPABILITY_UNAVAILABLE", 503)
         required = {
             "session_compatibility",
@@ -346,7 +346,7 @@ class SessionTransportCodec:
         if schema_version is None:
             wire.WorkerResolvedHost.model_validate(resolved)
             return resolved
-        if schema_version != "wuji.harness.session.v1":
+        if schema_version not in {"wuji.harness.session.v1", "wuji.harness.problem.v1"}:
             raise DomainError("CAPABILITY_UNAVAILABLE", 503)
         if len(canonical_json_bytes(resolved)) > self.maximum:
             raise DomainError("LIMIT_BLOCKED", 422)

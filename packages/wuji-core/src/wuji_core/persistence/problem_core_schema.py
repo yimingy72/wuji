@@ -22,6 +22,20 @@ def upgrade(connection, application_role):
         "ALTER TABLE vnext.result_submission ADD work_result_json text,"
         "ADD CONSTRAINT result_work_json_object CHECK(work_result_json IS NULL OR jsonb_typeof(work_result_json::jsonb)='object')"
     )
+    connection.execute(
+        "ALTER TABLE vnext.scheduler_waiter DROP CONSTRAINT scheduler_waiter_status_check,"
+        "ADD CONSTRAINT scheduler_waiter_status_check CHECK(status IN ('waiting','ready','unsatisfiable'))"
+    )
+    connection.execute(
+        "ALTER TABLE vnext.scheduler_state ADD pending_since timestamptz,ADD max_pending_at timestamptz,"
+        "ADD CONSTRAINT scheduler_pending_window CHECK((pending_since IS NULL)=(max_pending_at IS NULL) "
+        "AND (pending_since IS NULL OR max_pending_at>=pending_since))"
+    )
+    connection.execute(
+        sql.SQL("GRANT UPDATE(pending_since,max_pending_at) ON vnext.scheduler_state TO {}").format(
+            sql.Identifier(application_role)
+        )
+    )
     connection.execute(f"""CREATE TABLE vnext.intent_work_binding({S},
         intent_id text NOT NULL,intent_revision numeric NOT NULL,
         canonical_work_item_id text NOT NULL,problem_digest text NOT NULL,
@@ -90,5 +104,27 @@ def upgrade(connection, application_role):
     connection.execute(sql.SQL("GRANT INSERT ON vnext.knowledge_delivery TO {}").format(app))
     connection.execute(
         sql.SQL("GRANT UPDATE(state,attached_manifest_ref,attached_at) ON vnext.knowledge_delivery TO {}").format(app)
+    )
+    connection.execute(
+        """CREATE FUNCTION vnext.guard_work_result_update() RETURNS trigger
+        LANGUAGE plpgsql SET search_path=pg_catalog AS $$ BEGIN
+          IF OLD.work_result_json IS NOT NULL OR NEW.work_result_json IS NULL
+             OR (to_jsonb(NEW)-'work_result_json')<>(to_jsonb(OLD)-'work_result_json') THEN
+            RAISE EXCEPTION 'accepted WorkResult is append-only' USING ERRCODE='42501';
+          END IF;
+          RETURN NEW;
+        END $$"""
+    )
+    connection.execute(
+        "CREATE TRIGGER result_work_result_append BEFORE UPDATE ON vnext.result_submission "
+        "FOR EACH ROW EXECUTE FUNCTION vnext.guard_work_result_update()"
+    )
+    result_scope = "vnext.in_scope(tenant_id,project_id,task_id,access_level) AND current_setting('wuji.model_output',true)='true'"
+    connection.execute(
+        "CREATE POLICY result_work_result_update ON vnext.result_submission FOR UPDATE "
+        "USING(" + result_scope + ") WITH CHECK(" + result_scope + ")"
+    )
+    connection.execute(
+        sql.SQL("GRANT UPDATE(work_result_json) ON vnext.result_submission TO {}").format(app)
     )
     connection.execute("INSERT INTO vnext.schema_migration(head) VALUES(%s)", (HEAD,))

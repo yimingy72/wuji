@@ -640,6 +640,14 @@ def test_an_identical_question_is_associated_instead_of_executed_again(
                 "SELECT count(*) FROM vnext.intent_revision WHERE task_id=%s AND question=%s",
                 (TASK, question),
             ).fetchone()[0]
+            bindings = connection.execute(
+                "SELECT b.binding_kind,b.canonical_work_item_id FROM vnext.intent_work_binding b "
+                "JOIN vnext.intent_revision i ON "
+                "(i.tenant_id,i.project_id,i.task_id,i.entity_id,i.revision)="
+                "(b.tenant_id,b.project_id,b.task_id,b.intent_id,b.intent_revision) "
+                "WHERE b.task_id=%s AND i.question=%s ORDER BY b.binding_kind",
+                (TASK, question),
+            ).fetchall()
         # Both Intent revisions were admitted; only one Work item exists, and the
         # association names the Work the question is already being asked by.
         assert admitted == 2, admitted
@@ -650,6 +658,10 @@ def test_an_identical_question_is_associated_instead_of_executed_again(
         assert recorded["problem_digest"] == json.loads(events[0][0])["problem_digest"]
         assert len(recorded["problem_digest"]) == 64
         assert recorded["rule"].startswith("exact-question")
+        assert bindings == [
+            ("exact_duplicate", asked[0][0]),
+            ("primary", asked[0][0]),
+        ]
 
 
 def test_a_repeated_question_with_new_basis_is_a_legitimate_continuation():

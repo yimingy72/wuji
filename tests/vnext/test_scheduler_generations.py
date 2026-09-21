@@ -594,6 +594,38 @@ def test_wait_registration_handles_condition_before_or_after_registration(
         assert active_reservations == 3
 
 
+def test_terminal_work_without_an_accepted_result_makes_wait_unsatisfiable_once(
+    db_environment, tmp_path, audit_directory
+) -> None:
+    with scheduler_case(db_environment, tmp_path, audit_directory) as case:
+        reason = next(
+            item for item in case.scheduler.tick(limit=2).assignments
+            if item.work_kind.value == "reason"
+        )
+        command(case.control, "cancel", work="work-b")
+        with case.control.uow.transaction(SCHEDULER, TASK, capability="admit") as tx:
+            generation = tx.connection.execute(
+                "SELECT processing_generation FROM vnext.scheduler_reason_lease WHERE work_item_id=%s",
+                (reason.identity.work_item_id,),
+            ).fetchone()[0]
+            waiter = WaiterRepository()
+            waiter_id = waiter.register(
+                tx,
+                work_item_id=reason.identity.work_item_id,
+                processing_generation=generation,
+                predicates=(WaitPredicate("work_accepted_result.v1", "work-b"),),
+            )
+            assert tx.connection.execute(
+                "SELECT status FROM vnext.scheduler_waiter WHERE waiter_id=%s",
+                (waiter_id,),
+            ).fetchone() == ("unsatisfiable",)
+            assert waiter.scan(tx) == ()
+            assert tx.connection.execute(
+                "SELECT count(*) FROM vnext.scheduler_trigger WHERE event_key=%s",
+                ("wait-unsatisfiable:" + waiter_id,),
+            ).fetchone() == (1,)
+
+
 def test_work_repository_deduplicates_exact_key_and_rejects_intent_conflict(
     db_environment, tmp_path, audit_directory
 ) -> None:

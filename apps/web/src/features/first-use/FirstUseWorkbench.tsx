@@ -48,6 +48,7 @@ import { SnapshotSelector, type ViewChoice } from '../topology/panels/SnapshotSe
 import { selectedRecordRef } from '../topology/record';
 import { CompletionPanel } from '../completion/CompletionPanel';
 import { ProblemBoard } from '../exploration/ProblemBoard';
+import { InputPanel } from '../exploration/InputPanel';
 import { commandStatusMessage, includeRequestedTask, selectAuthorizedTaskId, taskStatusLabel } from './workbenchState';
 import styles from './firstUseWorkbench.module.css';
 
@@ -474,6 +475,7 @@ function TaskWorkspace({ taskId, session, onSessionExpired, onTaskUpdated }: Tas
           onSelect={handleProblemSelect}
           onSessionExpired={onSessionExpired}
         />
+        {viewChoice.mode === 'live' && <InputPanel taskId={task.task_id} csrfToken={session.csrf_token} refreshKey={refresh} onChanged={refreshCurrent} onSessionExpired={onSessionExpired} />}
         <div className={styles.detail}><RecordPanel taskId={task.task_id} snapshotId={problemSnapshotId} ref={selectedRef} /></div>
       </section>
       <section className={styles.launch} aria-label="启动进度" data-testid="launch-status">

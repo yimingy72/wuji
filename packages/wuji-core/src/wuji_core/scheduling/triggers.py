@@ -5,7 +5,13 @@ from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 
 from wuji_core.admission.registry import AdmissionRegistry
-from wuji_core.contracts.envelopes import AgentPayload, ResultEnvelope, ResultReceipt
+from wuji_core.contracts.envelopes import (
+    AgentPayload,
+    AgentPayloadV3,
+    ResultEnvelope,
+    ResultEnvelopeV3,
+    ResultReceipt,
+)
 from wuji_core.execution.capacity import operations_settled
 from wuji_core.http.json_boundary import canonical_json_bytes, strict_json_loads
 from wuji_core.persistence.uow import DomainError, json_text, row
@@ -71,6 +77,14 @@ def block(
     )
 
 
+def _planning_policy(tx):
+    definition = strict_json_loads(tx.task["definition_json"])
+    body = definition.get("worker_profiles", {}).get("reason", {}).get("body", {})
+    return (
+        body.get("planning_policy")
+        if body.get("schema_version") == "wuji.harness.problem.v1"
+        else None
+    )
 def _bump(tx, *, event_key, reason, event_seq=None):
     current = state_row(tx)
     existing = row(
@@ -87,10 +101,26 @@ def _bump(tx, *, event_key, reason, event_seq=None):
         (*tx.owner, event_key, event_seq, generation, reason or "excluded_event"),
     )
     if generation is not None:
-        tx.connection.execute(
-            "UPDATE vnext.scheduler_state SET trigger_generation=%s WHERE tenant_id=%s AND project_id=%s AND task_id=%s",
-            (generation, *tx.owner),
-        )
+        policy = _planning_policy(tx)
+        if policy is None:
+            tx.connection.execute(
+                "UPDATE vnext.scheduler_state SET trigger_generation=%s WHERE tenant_id=%s AND project_id=%s AND task_id=%s",
+                (generation, *tx.owner),
+            )
+        else:
+            now = datetime.now(timezone.utc)
+            tx.connection.execute(
+                """UPDATE vnext.scheduler_state SET trigger_generation=%s,
+                pending_since=COALESCE(pending_since,%s),
+                max_pending_at=COALESCE(max_pending_at,%s)
+                WHERE tenant_id=%s AND project_id=%s AND task_id=%s""",
+                (
+                    generation,
+                    now,
+                    now + timedelta(milliseconds=policy["max_delay_milliseconds"]),
+                    *tx.owner,
+                ),
+            )
     return generation
 
 
@@ -103,6 +133,8 @@ class TriggerState:
     failure_count: int
     retry_at: datetime | None
     blocked_reason: str | None
+    pending_since: datetime | None = None
+    max_pending_at: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -118,18 +150,29 @@ class TriggerRepository:
 
     def read(self, tx):
         state = state_row(tx)
+        pending = (
+            state["trigger_generation"]
+            if state["trigger_generation"] > state["consumed_generation"]
+            else None
+        )
+        policy = _planning_policy(tx)
+        if pending is not None and policy is not None and state["pending_since"] is not None:
+            now = datetime.now(timezone.utc)
+            due = state["pending_since"] + timedelta(
+                milliseconds=policy["coalesce_milliseconds"]
+            )
+            if now < due and now < state["max_pending_at"]:
+                pending = None
         return TriggerState(
             state["trigger_generation"],
             state["consumed_generation"],
-            (
-                state["trigger_generation"]
-                if state["trigger_generation"] > state["consumed_generation"]
-                else None
-            ),
+            pending,
             state["inflight_reason_work_id"],
             state["failure_count"],
             state["retry_at"],
             state["blocked_reason"],
+            state["pending_since"],
+            state["max_pending_at"],
         )
 
     def start(self, tx):
@@ -318,17 +361,24 @@ class TriggerRepository:
             return
         canonical = sorted(
             (
-                component["canonical_ref"]["entity_type"],
-                component["canonical_ref"]["id"],
-                str(component["canonical_ref"]["revision"]),
+                claim["kind"], claim["assertion_role"], claim["text"],
+                claim["structured_json"], claim["basis_json"],
             )
             for component in receipt.get("components", [])
             if component.get("canonical_ref") and not component.get("code")
+            and component["canonical_ref"]["entity_type"] == "claim"
+            for claim in [row(tx.connection.execute(
+                "SELECT kind,assertion_role,text,structured_json,basis_json FROM vnext.claim_revision "
+                "WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND entity_id=%s AND revision=%s",
+                (*tx.owner, component["canonical_ref"]["id"],
+                 component["canonical_ref"]["revision"]),
+            ))]
+            if claim is not None
         )
         if not canonical:
             return
         key = "material:" + sha256(
-            canonical_json_bytes({"canonical_refs": canonical})
+            canonical_json_bytes({"accepted_claim_content": canonical})
         ).hexdigest()
         self._material(tx, key=key, event_seq=event["event_seq"])
 
@@ -397,14 +447,22 @@ class TriggerRepository:
             or value["current_run_id"] != value["agent_run_id"]
         ):
             raise DomainError("STALE_EXECUTION", 409)
-        envelope = ResultEnvelope.model_validate(
-            strict_json_loads(value["envelope_json"])
+        raw_envelope = strict_json_loads(value["envelope_json"])
+        envelope = (
+            ResultEnvelopeV3.model_validate(raw_envelope)
+            if raw_envelope.get("schema_version") == "wuji.result-envelope.v3"
+            else ResultEnvelope.model_validate(raw_envelope)
+        )
+        snapshot_id = (
+            envelope.initial_snapshot_id
+            if isinstance(envelope, ResultEnvelopeV3)
+            else envelope.snapshot_id
         )
         receipt = ResultReceipt.model_validate(strict_json_loads(value["receipt_json"]))
         if (
             receipt.status.value != "accepted"
             or receipt.code is not None
-            or envelope.snapshot_id != value["snapshot_id"]
+            or snapshot_id != value["snapshot_id"]
             or any(
                 str(value[k]) != str(v)
                 for k, v in envelope.identity.model_dump(mode="json").items()
@@ -424,7 +482,13 @@ class TriggerRepository:
             or record["writer_subject"] != value["writer_subject"]
         ):
             raise DomainError("INVALID_REFERENCE", 422)
-        payload = AgentPayload.model_validate(strict_json_loads(raw.decode("utf-8")))
+        payload = (
+            AgentPayloadV3.model_validate(
+                strict_json_loads(raw.decode("utf-8"))
+            ).for_work_kind("reason")
+            if isinstance(envelope, ResultEnvelopeV3)
+            else AgentPayload.model_validate(strict_json_loads(raw.decode("utf-8")))
+        )
         decision = payload.reason_decision
         code = None
         try:
@@ -478,11 +542,15 @@ class TriggerRepository:
             """UPDATE vnext.scheduler_state SET consumed_generation=%s,inflight_reason_work_id=NULL,
             failure_count=0,retry_at=NULL,
             no_progress_count=CASE WHEN %s THEN 0 WHEN %s THEN no_progress_count+1 ELSE no_progress_count END
+            ,pending_since=CASE WHEN trigger_generation<=%s THEN NULL ELSE pending_since END
+            ,max_pending_at=CASE WHEN trigger_generation<=%s THEN NULL ELSE max_pending_at END
             WHERE tenant_id=%s AND project_id=%s AND task_id=%s""",
             (
                 value["processing_generation"],
                 bool(new_material),
                 counted,
+                value["processing_generation"],
+                value["processing_generation"],
                 *tx.owner,
             ),
         )
@@ -525,7 +593,13 @@ class TriggerRepository:
         """
 
         limits = AdmissionRegistry(None).config(tx).runtime.limits
-        window = limits.max_no_progress_rounds
+        definition = strict_json_loads(tx.task["definition_json"])
+        reason_profile = definition.get("worker_profiles", {}).get("reason", {}).get("body", {})
+        window = (
+            reason_profile.get("planning_policy", {}).get("no_progress_rounds")
+            if reason_profile.get("schema_version") == "wuji.harness.problem.v1"
+            else limits.max_no_progress_rounds
+        )
         if not window:
             return
         count = tx.connection.execute(

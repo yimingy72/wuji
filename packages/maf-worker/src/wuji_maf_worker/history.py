@@ -6,7 +6,7 @@ The native provider owns history persistence; the platform owns publication.
 
 from hashlib import sha256
 
-from agent_framework import AgentFileStore, ContextProvider, FileStoreEntry, InMemoryHistoryProvider, Message
+from agent_framework import AgentFileStore, ContextProvider, FileMemoryProvider, FileStoreEntry, InMemoryHistoryProvider, Message
 
 from wuji_core.http import canonical_json_bytes, strict_json_loads
 
@@ -216,6 +216,35 @@ class VersionedMemoryStore(AgentFileStore):
 
     def snapshot_files(self):
         return dict(sorted(self._files.items()))
+
+
+class WorkMemoryStore(VersionedMemoryStore):
+    """The same versioned store with the problem Profile's tighter note bound."""
+
+    def __init__(self, *, limits, policy, files=None):
+        from wuji_core.contracts.generated import ProblemWorkMemoryPolicyV1
+
+        self.policy = ProblemWorkMemoryPolicyV1.model_validate(policy)
+        super().__init__(limits=limits, files=files)
+
+    def _bounded(self, files):
+        super()._bounded(files)
+        if (
+            len(files) > self.policy.max_files
+            or any(len(body) > self.policy.max_file_bytes for body in files.values())
+            or sum(map(len, files.values())) > self.policy.max_total_bytes
+        ):
+            raise ValueError("work memory exceeds the fixed problem Profile limits")
+
+
+class BoundedWorkMemoryProvider(FileMemoryProvider):
+    """Native memory tools without injecting mutable note text into every turn."""
+
+    async def before_run(self, *, agent, session, context, state):
+        await super().before_run(
+            agent=agent, session=session, context=context, state=state
+        )
+        context.context_messages.pop(self.source_id, None)
 
 
 class PinnedMemoryContextProvider(ContextProvider):

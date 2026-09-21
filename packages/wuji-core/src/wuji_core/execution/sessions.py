@@ -292,8 +292,14 @@ class SessionRepository:
     def _memory_context(self, tx, history, memory):
         """Reconstruct the public ContextProvider message from pinned source bytes."""
 
+        profile_body = history.compatibility.profile_snapshot["body"]
+        if profile_body["memory_mode"] == "work_memory":
+            if memory.state_refs or any(file.ref is None for file in memory.files):
+                raise DomainError("INVALID_REFERENCE", 422)
+            return None
+
         configured = tuple(
-            history.compatibility.profile_snapshot["body"].get("memory_inputs", ())
+            profile_body.get("memory_inputs", ())
         )
         files = {file.path: file for file in memory.files}
         if len(files) != len(memory.files) or set(files) != {

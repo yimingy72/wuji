@@ -4,7 +4,13 @@ from hashlib import sha256
 from pydantic import ValidationError
 import psycopg
 
-from wuji_core.contracts.envelopes import ResultEnvelope, ResultReceipt, AgentPayload
+from wuji_core.contracts.envelopes import (
+    AgentPayload,
+    AgentPayloadV3,
+    ResultEnvelope,
+    ResultEnvelopeV3,
+    ResultReceipt,
+)
 from wuji_core.contracts.knowledge import KnowledgeRef
 from wuji_core.evidence.artifacts import bound_run, run_disposition
 from wuji_core.execution.retained_results import (
@@ -39,6 +45,22 @@ class ResultCommitter:
         )
 
     @staticmethod
+    def _envelope(value):
+        if isinstance(value, (ResultEnvelope, ResultEnvelopeV3)):
+            return value
+        if isinstance(value, dict) and value.get("schema_version") == "wuji.result-envelope.v3":
+            return ResultEnvelopeV3.model_validate(value)
+        return ResultEnvelope.model_validate(value)
+
+    @staticmethod
+    def _snapshot_id(envelope):
+        return (
+            envelope.initial_snapshot_id
+            if isinstance(envelope, ResultEnvelopeV3)
+            else envelope.snapshot_id
+        )
+
+    @staticmethod
     def _bound(tx, run_id, identity, retained):
         if retained is None:
             run = bound_run(tx, run_id, identity)
@@ -58,7 +80,7 @@ class ResultCommitter:
 
     def _receive(self, access, envelope, *, retained):
         """Durable phase one. This port never runs an Agent or a tool."""
-        envelope = ResultEnvelope.model_validate(envelope)
+        envelope = self._envelope(envelope)
         task_id = envelope.identity.task_id
         canonical = json_text(envelope.model_dump(mode="python"))
         digest = sha256(canonical.encode()).hexdigest()
@@ -75,7 +97,20 @@ class ResultCommitter:
                 or artifact["sha256"] != envelope.raw_output_digest.root
             ):
                 raise DomainError("INVALID_REFERENCE", 422)
+            if isinstance(envelope, ResultEnvelopeV3):
+                delivery = self.artifacts.record(tx, envelope.delivery_manifest_ref)
+                if (
+                    delivery["state"] != "sealed"
+                    or delivery["provenance"] != "model_output"
+                    or delivery["agent_run_id"] != run["agent_run_id"]
+                    or delivery["writer_subject"] != access.principal.subject
+                    or delivery["media_type"]
+                    != "application/vnd.wuji.delivery-manifest+json"
+                ):
+                    raise DomainError("INVALID_REFERENCE", 422)
         self.artifacts.checked_bytes(artifact)
+        if isinstance(envelope, ResultEnvelopeV3):
+            self.artifacts.checked_bytes(delivery)
         with self._transaction(access, task_id, retained) as tx:
             run, _disposition = self._bound(
                 tx, envelope.identity.agent_run_id, envelope.identity, retained
@@ -139,12 +174,12 @@ class ResultCommitter:
             return received
 
     def submit(self, access, envelope):
-        envelope = ResultEnvelope.model_validate(envelope)
+        envelope = self._envelope(envelope)
         self.receive(access, envelope)
         return self.reconcile(access, envelope.identity.task_id, envelope.submission_id)
 
     def submit_retained(self, access, envelope, *, retained: RetainedResultKey):
-        envelope = ResultEnvelope.model_validate(envelope)
+        envelope = self._envelope(envelope)
         self.receive_retained(access, envelope, retained=retained)
         return self.reconcile_retained(
             access,
@@ -232,12 +267,14 @@ class ResultCommitter:
             raise ValueError("unsupported prevalidated result policy")
         with self._transaction(access, task_id, retained) as tx:
             submission = self._submission(tx, submission_id)
-            envelope = ResultEnvelope.model_validate(
-                strict_json_loads(submission["envelope_json"])
-            )
-            self._bound(
+            envelope = self._envelope(strict_json_loads(submission["envelope_json"]))
+            run, _disposition = self._bound(
                 tx, envelope.identity.agent_run_id, envelope.identity, retained
             )
+            work_kind = tx.connection.execute(
+                "SELECT kind FROM vnext.work_item WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND work_item_id=%s",
+                (*tx.owner, run["work_item_id"]),
+            ).fetchone()[0]
             final = self._final(tx, submission_id)
             if final:
                 return final
@@ -253,7 +290,13 @@ class ResultCommitter:
                 [parsed]
             ) != canonical_json_bytes([envelope.payload]):
                 raise ValueError("payload differs from sealed output")
-            payload = AgentPayload.model_validate(parsed)
+            payload = (
+                AgentPayloadV3.model_validate(parsed).for_work_kind(
+                    work_kind
+                )
+                if isinstance(envelope, ResultEnvelopeV3)
+                else AgentPayload.model_validate(parsed)
+            )
         except (ValueError, ValidationError, InvalidJsonDocument, DomainError):
             parse_code = "INVALID_SCHEMA"
         if payload is not None:
@@ -302,10 +345,24 @@ class ResultCommitter:
             if not code:
                 try:
                     manifest = SnapshotRepository(self.uow)._get(
-                        tx, envelope.snapshot_id
+                        tx, self._snapshot_id(envelope)
                     )
+                    def ref_key(ref):
+                        return ref.entity_type.value, ref.id, ref.revision.root
+
+                    delivered = {ref_key(ref) for ref in manifest.refs}
+                    if isinstance(envelope, ResultEnvelopeV3):
+                        delivered |= {
+                            ref_key(KnowledgeRef.model_validate(
+                                strict_json_loads(value)["ref"]
+                            ))
+                            for (value,) in tx.connection.execute(
+                                "SELECT delivery_json FROM vnext.knowledge_delivery WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND agent_run_id=%s AND state='attached' AND delivery_json::jsonb->>'disclosure'='content'",
+                                (*tx.owner, envelope.identity.agent_run_id),
+                            ).fetchall()
+                        }
                     for ref in envelope.read_set:
-                        if ref not in manifest.refs:
+                        if ref_key(ref) not in delivered:
                             raise DomainError("INVALID_REFERENCE", 422)
                         resolve(tx, ref)
                     stale = not inputs_current(tx, envelope.read_set)
@@ -353,6 +410,11 @@ class ResultCommitter:
                         )
                         for _, p in entries
                     ]
+                    if isinstance(payload, AgentPayloadV3) and payload.work_result is not None:
+                        tx.connection.execute(
+                            "UPDATE vnext.result_submission SET work_result_json=%s WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND submission_id=%s",
+                            (json_text(payload.work_result.model_dump(mode="json")), *tx.owner, submission_id),
+                        )
             status = "rejected" if code else disposition
             final = ResultReceipt.model_validate(
                 dict(

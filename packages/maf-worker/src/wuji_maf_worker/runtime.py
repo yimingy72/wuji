@@ -9,7 +9,7 @@ from typing import AsyncIterator, Protocol
 from urllib.parse import urlsplit
 
 import httpx
-from agent_framework import Message
+from agent_framework import ChatMiddleware, Message
 from agent_framework.exceptions import ChatClientException
 
 from wuji_core.contracts.envelopes import RunIdentity, WorkerAssignment
@@ -21,11 +21,17 @@ from wuji_core.contracts.sessions import (
 from wuji_core.http import canonical_json_bytes, strict_json_loads
 from wuji_core.http.auth import TokenVerifier
 from wuji_maf_worker.context import ContextBundle
-from wuji_maf_worker.factory import SessionHarnessProfile, build_agent, parse_profile
+from wuji_maf_worker.factory import ProblemHarnessProfile, SessionHarnessProfile, build_agent, parse_profile
 from wuji_maf_worker.approvals import approval_response_message
-from wuji_maf_worker.history import HistoryArchive, PinnedMemoryContextProvider, VersionedMemoryStore
+from wuji_maf_worker.history import (
+    BoundedWorkMemoryProvider,
+    HistoryArchive,
+    PinnedMemoryContextProvider,
+    VersionedMemoryStore,
+    WorkMemoryStore,
+)
 from wuji_maf_worker.sessions import NativeSessionAdapter
-from wuji_maf_worker.tools import GateFunctions, ModelCallIdentity
+from wuji_maf_worker.tools import FunctionBudget, GateFunctions, ModelCallIdentity
 
 
 class ModelGateTransportError(ValueError):
@@ -72,6 +78,22 @@ class WorkerEvent:
     kind: str
     agent_run_id: str
     data: dict
+
+
+class CheckpointBeforeModel(ChatMiddleware):
+    """Publish the prior complete tool-result group before another model call."""
+
+    def __init__(self, publish):
+        self.publish = publish
+        self.calls = 0
+
+    async def process(self, context, call_next):
+        if self.calls:
+            if context.session is None:
+                raise ValueError("problem checkpoint requires the native Session")
+            await self.publish(context.session, context.messages)
+        self.calls += 1
+        await call_next()
 
 
 class AgentRuntimePort(Protocol):
@@ -226,7 +248,8 @@ class MafRuntime:
             verified_principal=verified_principal,
         )
         profile = parse_profile(resolved["profile"])
-        session_profile = isinstance(profile, SessionHarnessProfile)
+        problem_profile = isinstance(profile, ProblemHarnessProfile)
+        session_profile = isinstance(profile, SessionHarnessProfile) or problem_profile
         if not session_profile and (assignment.session_manifest_ref is not None or assignment.resume_reason is not None):
             raise NotImplementedError("M1 only executes fresh work; manifest restoration is unavailable")
         if (
@@ -240,10 +263,18 @@ class MafRuntime:
         identity = ModelCallIdentity(
             resolved["tools"],
             max_bytes=limits["max_single_output_bytes"],
-            require_initial_tool=profile.work_kind == "explore",
+            require_initial_tool=profile.work_kind == "explore" and not problem_profile,
+            capability_manifest=(
+                [item.model_dump(mode="json") for item in profile.capability_manifest]
+                if problem_profile else ()
+            ),
         )
         self.identity_mapping = identity.mapping
-        adapter = history = memory = memory_provider = restored = None
+        budget = (
+            FunctionBudget(profile.function_limits.model_dump(mode="python"))
+            if problem_profile else None
+        )
+        adapter = history = memory = memory_provider = work_memory_provider = restored = None
         if session_profile:
             compatibility = SessionCompatibility.model_validate(resolved["session_compatibility"])
             if (
@@ -279,10 +310,28 @@ class MafRuntime:
                     raise ValueError("a resume reason cannot create an unrelated fresh Session")
                 if profile.memory_mode == "pinned_context":
                     memory = VersionedMemoryStore(limits=profile.session_limits, files=resolved["memory_files"])
+                elif profile.memory_mode == "work_memory":
+                    memory = WorkMemoryStore(
+                        limits=profile.session_limits,
+                        policy=profile.work_memory_policy.model_dump(mode="python"),
+                    )
             if profile.memory_mode == "pinned_context":
                 memory_provider = PinnedMemoryContextProvider(
                     source_id=profile.memory_source_id, store=memory,
                     max_context_bytes=profile.max_context_bytes - len(self._context.text.encode()),
+                )
+            if profile.memory_mode == "work_memory":
+                if not isinstance(memory, WorkMemoryStore):
+                    raise ValueError("problem memory did not restore as the bounded store")
+                scope = sha256(canonical_json_bytes({
+                    "task_id": assignment.identity.task_id,
+                    "work_item_id": assignment.identity.work_item_id,
+                    "session_lineage": resolved["session_lineage"],
+                })).hexdigest()
+                work_memory_provider = BoundedWorkMemoryProvider(
+                    memory,
+                    source_id=profile.memory_source_id,
+                    scope=scope,
                 )
         timeout = httpx.Timeout(float(resolved["request_timeout_seconds"]))
         sdk_lines = []
@@ -299,6 +348,7 @@ class MafRuntime:
             rendered_context = strict_json_loads(self._context.text)
             return b"\n".join(sdk_lines + [canonical_json_bytes({
                 "source": "wuji_worker_adapter", "identity_mapping": identity.mapping,
+                "local_identity_mapping": identity.local_mapping,
                 "tool_receipts": [r.model_dump(mode="python") for r in self.tool_receipts],
                 "context": {
                     "schema_version": rendered_context["schema_version"],
@@ -307,7 +357,7 @@ class MafRuntime:
                     "text_digest": sha256(self._context.text.encode()).hexdigest(),
                     "read_set": [r.model_dump(mode="json") for r in self._context.read_set],
                     "record_refs": [r.model_dump(mode="json") for r in self._context.record_refs],
-                    "relations_digest": sha256(canonical_json_bytes(rendered_context["relations"])).hexdigest(),
+                    "semantic_digest": sha256(canonical_json_bytes(rendered_context)).hexdigest(),
                 },
             })]) + b"\n"
 
@@ -330,18 +380,142 @@ class MafRuntime:
                 material_representation=resolved["profile"]["body"].get(
                     "material_representation", "v1"
                 ),
+                budget=budget, host=self._host if problem_profile else None,
+                assignment=assignment if problem_profile else None,
             )
             self.tool_receipts = functions.receipts
+            current_revision = [
+                0 if restored is None
+                else int(restored.published.receipt.checkpoint_revision)
+            ]
+            attached_deliveries = set()
+            initial_deliveries = []
+            if problem_profile and self._context.wire is not None:
+                initial_deliveries = [
+                    {
+                        "delivery_id": item["delivery_id"],
+                        "representation_digest": item["representation_digest"],
+                    }
+                    for item in self._context.wire.get("initial_deliveries", ())
+                ]
+
+            async def publish_boundary(session, *, response=None, settled=False):
+                observed_at = datetime.now(timezone.utc)
+                stored = await history.get_messages(
+                    session.session_id, state=session.state.get(history.source_id),
+                )
+                history.observe_messages(
+                    stored,
+                    model_attempt_id=identity.attempt_id,
+                    call_bindings=identity.export_bindings(),
+                    tool_receipts=functions.receipts,
+                )
+                objects = (
+                    adapter.export_settled_boundary(
+                        session=session, messages=stored, history=history,
+                        call_bindings=identity.export_bindings(),
+                        tool_receipts=functions.receipts, memory=memory,
+                        observed_at=observed_at,
+                    )
+                    if settled
+                    else adapter.export_boundary(
+                        session=session, response=response, history=history,
+                        call_bindings=identity.export_bindings(),
+                        tool_receipts=functions.receipts, memory=memory,
+                        recovery_class=(
+                            "approval_boundary"
+                            if any(content.type == "function_approval_request"
+                                   for message in response.messages for content in message.contents)
+                            else "settled_boundary"
+                        ),
+                        observed_at=observed_at,
+                        rejection_decisions=identity.rejected_decisions(),
+                    )
+                )
+                staged = StagedSessionObjects.model_validate(await asyncio.to_thread(
+                    self._host.stage_session, assignment, objects,
+                ))
+                recovery_class = (
+                    "approval_boundary"
+                    if staged.history.frontier.pending_approvals
+                    else "settled_boundary"
+                )
+                previous = current_revision[0]
+                manifest = SessionManifest.model_validate({
+                    "session_id": session.session_id,
+                    "work_item_id": assignment.identity.work_item_id,
+                    "checkpoint_revision": str(previous + 1),
+                    "owner_run_id": assignment.identity.agent_run_id,
+                    "run_epoch": assignment.identity.run_epoch,
+                    "history_root": staged.history_root,
+                    "message_end": str(staged.history.message_end),
+                    "provider_state_ref": staged.provider_state_ref,
+                    "memory_manifest_ref": staged.memory_manifest_ref,
+                    "pending_operation_refs": [
+                        binding.tool_call_id
+                        for binding in staged.history.frontier.pending_approvals
+                    ],
+                    "lock_digest": profile.lock_digest,
+                    "recovery_class": recovery_class,
+                    "saved_at": observed_at,
+                })
+                receipt = SessionReceipt.model_validate(await asyncio.to_thread(
+                    self._host.publish_session,
+                    assignment,
+                    manifest,
+                    expected_revision=previous,
+                ))
+                if (
+                    receipt.session_id != session.session_id
+                    or receipt.checkpoint_revision != str(previous + 1)
+                    or receipt.manifest_digest
+                    != sha256(canonical_json_bytes(manifest.model_dump(mode="json"))).hexdigest()
+                ):
+                    raise ValueError("Host published a different native boundary")
+                current_revision[0] = previous + 1
+                self.session_receipt = receipt
+                if problem_profile:
+                    deliveries = [
+                        item for item in [*initial_deliveries, *functions.knowledge_deliveries]
+                        if item["delivery_id"] not in attached_deliveries
+                    ]
+                    if deliveries:
+                        await asyncio.to_thread(
+                            self._host.knowledge_attach,
+                            assignment,
+                            deliveries=deliveries,
+                            manifest_ref=receipt.manifest_ref,
+                        )
+                        attached_deliveries.update(
+                            item["delivery_id"] for item in deliveries
+                        )
+                return staged, receipt
+
+            checkpoint = (
+                CheckpointBeforeModel(
+                    lambda session, _messages: publish_boundary(
+                        session, settled=True
+                    )
+                )
+                if problem_profile else None
+            )
+            environment_tools = functions.registered_tools()
+            knowledge_tools = functions.registered_knowledge_tools()
             agent, native = build_agent(
                 resolved=resolved, profile=profile, model_http=model_http,
                 model_gate_url=self._model_url, run_credential=self._credential,
-                tools=functions.registered_tools(), middleware=functions,
+                tools=[*environment_tools, *knowledge_tools], middleware=functions,
                 response_parser=identity.parse_response,
                 history=history, memory_provider=memory_provider,
+                work_memory_provider=work_memory_provider,
+                extra_middleware=(() if checkpoint is None else (checkpoint,)),
+                environment_tool_count=len(environment_tools),
             )
             try:
                 async with asyncio.timeout(limits["max_elapsed_seconds"]):
                     session = restored.session if restored is not None else agent.create_session()
+                    if budget is not None:
+                        budget.bind(session)
                     messages = self._context.text
                     if session_profile:
                         history.bind_context(
@@ -398,47 +572,11 @@ class MafRuntime:
                     if session_profile:
                         if approvals:
                             await functions.register_pending(final)
-                        observed_at = datetime.now(timezone.utc)
-                        stored = await history.get_messages(
-                            session.session_id, state=session.state.get(history.source_id),
+                        staged, self.session_receipt = await publish_boundary(
+                            session, response=final
                         )
-                        history.observe_messages(
-                            stored, model_attempt_id=identity.attempt_id,
-                            call_bindings=identity.export_bindings(), tool_receipts=functions.receipts,
-                        )
-                        objects = adapter.export_boundary(
-                            session=session, response=final, history=history,
-                            call_bindings=identity.export_bindings(), tool_receipts=functions.receipts,
-                            memory=memory, recovery_class="approval_boundary" if approvals else "settled_boundary",
-                            observed_at=observed_at,
-                            rejection_decisions=identity.rejected_decisions(),
-                        )
-                        staged = StagedSessionObjects.model_validate(await asyncio.to_thread(
-                            self._host.stage_session, assignment, objects,
-                        ))
-                        previous = 0 if restored is None else int(restored.published.receipt.checkpoint_revision)
-                        manifest = SessionManifest.model_validate({
-                            "session_id": session.session_id, "work_item_id": assignment.identity.work_item_id,
-                            "checkpoint_revision": str(previous + 1), "owner_run_id": assignment.identity.agent_run_id,
-                            "run_epoch": assignment.identity.run_epoch,
-                            "history_root": staged.history_root, "message_end": str(staged.history.message_end),
-                            "provider_state_ref": staged.provider_state_ref,
-                            "memory_manifest_ref": staged.memory_manifest_ref,
-                            "pending_operation_refs": [b.tool_call_id for b in staged.history.frontier.pending_approvals],
-                            "lock_digest": profile.lock_digest,
-                            "recovery_class": "approval_boundary" if approvals else "settled_boundary",
-                            "saved_at": observed_at,
-                        })
-                        self.session_receipt = SessionReceipt.model_validate(await asyncio.to_thread(
-                            self._host.publish_session, assignment, manifest, expected_revision=previous,
-                        ))
-                        if (
-                            self.session_receipt.session_id != session.session_id
-                            or self.session_receipt.checkpoint_revision != str(previous + 1)
-                            or self.session_receipt.manifest_digest != sha256(canonical_json_bytes(manifest.model_dump(mode="json"))).hexdigest()
-                        ):
-                            raise ValueError("Host published a different native boundary")
                         if approvals:
+                            observed_at = datetime.now(timezone.utc)
                             self.sdk_output = archive_bytes()
                             await asyncio.to_thread(self._host.archive_sdk, assignment, self.sdk_output)
                             observation = NativeApprovalObservation(

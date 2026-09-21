@@ -103,6 +103,65 @@ class SchedulerOwnership:
 
 
 class WorkRepository:
+    RULE_VERSION = "exact-question-basis-method-environment-output-v1"
+
+    def _bind(self, tx, *, intent_id, intent_revision, work_item_id, digest, kind,
+              source_event_ref=None):
+        tx.connection.execute(
+            """INSERT INTO vnext.intent_work_binding(
+            tenant_id,project_id,task_id,intent_id,intent_revision,
+            canonical_work_item_id,problem_digest,binding_kind,rule_version,source_event_ref)
+            VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            ON CONFLICT(tenant_id,project_id,task_id,intent_id,intent_revision) DO NOTHING""",
+            (*tx.owner, intent_id, intent_revision, work_item_id, digest, kind,
+             self.RULE_VERSION, source_event_ref),
+        )
+        bound = row(tx.connection.execute(
+            "SELECT * FROM vnext.intent_work_binding WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND intent_id=%s AND intent_revision=%s",
+            (*tx.owner, intent_id, intent_revision),
+        ))
+        if (
+            bound is None
+            or bound["canonical_work_item_id"] != work_item_id
+            or bound["problem_digest"] != digest
+            or bound["binding_kind"] != kind
+        ):
+            raise DomainError("INPUT_DIGEST_CONFLICT", 409)
+        return bound
+
+    def resolve_canonical_work(self, tx, *, intent_id, intent_revision):
+        binding = row(tx.connection.execute(
+            "SELECT * FROM vnext.intent_work_binding WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND intent_id=%s AND intent_revision=%s",
+            (*tx.owner, intent_id, intent_revision),
+        ))
+        if binding:
+            return binding
+        legacy = row(tx.connection.execute(
+            "SELECT work_item_id,key_digest FROM vnext.scheduler_work WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND intent_id=%s AND intent_revision=%s",
+            (*tx.owner, intent_id, intent_revision),
+        ))
+        if legacy is None:
+            return None
+        return {
+            "intent_id": intent_id,
+            "intent_revision": intent_revision,
+            "canonical_work_item_id": legacy["work_item_id"],
+            "problem_digest": legacy["key_digest"],
+            "binding_kind": "primary",
+            "rule_version": "legacy-scheduler-work-v1",
+            "source_event_ref": None,
+        }
+
+    def bind_duplicate(self, tx, *, intent, work_item_id, digest):
+        return self._bind(
+            tx,
+            intent_id=intent["entity_id"],
+            intent_revision=intent["revision"],
+            work_item_id=work_item_id,
+            digest=digest,
+            kind="exact_duplicate",
+        )
+
     def register(self, tx, *, key, kind, priority=0):
         require_admission(tx)
         if (
@@ -182,6 +241,22 @@ class WorkRepository:
                 priority,
             ),
         )
+        if key.intent_id is not None:
+            self._bind(
+                tx,
+                intent_id=key.intent_id,
+                intent_revision=key.intent_revision,
+                work_item_id=work_id,
+                digest=problem_digest(
+                    question=intent["question"],
+                    basis=key.basis,
+                    method_ref=key.method_ref,
+                    profile_digest=key.profile_digest,
+                    environment_ref=key.environment_ref,
+                    output_contract=key.output_contract,
+                ),
+                kind="primary",
+            )
         return work_id
 
     def duplicate_problem(self, tx, *, digest):
@@ -379,7 +454,9 @@ class Scheduler:
             profile = definition["worker_profiles"][kind]
             published = strict_json_loads(receiver["harness_profiles_json"])[kind]
             body = profile["body"]
-            session_profile = body.get("schema_version") == "wuji.harness.session.v1"
+            session_profile = body.get("schema_version") in {
+                "wuji.harness.session.v1", "wuji.harness.problem.v1"
+            }
             if session_profile:
                 self.registry.session_capability(tx, profile)
             disabled = {
@@ -566,9 +643,14 @@ class Scheduler:
         intents = rows(
             tx.connection.execute(
                 """SELECT i.* FROM vnext.intent_revision i WHERE i.tenant_id=%s AND i.project_id=%s AND i.task_id=%s
-            AND i.acceptance_state='admitted' AND NOT EXISTS(SELECT 1 FROM vnext.scheduler_work s
-            WHERE (s.tenant_id,s.project_id,s.task_id,s.intent_id,s.intent_revision)=
-            (i.tenant_id,i.project_id,i.task_id,i.entity_id,i.revision)) ORDER BY i.created_at,i.entity_id LIMIT 256""",
+            AND i.acceptance_state='admitted'
+            AND NOT EXISTS(SELECT 1 FROM vnext.intent_work_binding b WHERE
+            (b.tenant_id,b.project_id,b.task_id,b.intent_id,b.intent_revision)=
+            (i.tenant_id,i.project_id,i.task_id,i.entity_id,i.revision))
+            AND NOT EXISTS(SELECT 1 FROM vnext.scheduler_work s WHERE
+            (s.tenant_id,s.project_id,s.task_id,s.intent_id,s.intent_revision)=
+            (i.tenant_id,i.project_id,i.task_id,i.entity_id,i.revision))
+            ORDER BY i.created_at,i.entity_id LIMIT 256""",
                 tx.owner,
             )
         )
@@ -601,9 +683,31 @@ class Scheduler:
                     # One durable association per repeated question. The
                     # identical question is not new work, so it neither creates
                     # a second Explore nor wakes the Reason again.
+                    self.works.bind_duplicate(
+                        tx, intent=intent, work_item_id=duplicate, digest=digest
+                    )
                     self._deduplicated(tx, intent=intent, work_item_id=duplicate, digest=digest)
                     continue
-                self.works.register(tx, key=key, kind="explore")
+                work_id = self.works.register(tx, key=key, kind="explore")
+                planning = (
+                    None if intent.get("planning_json") is None
+                    else strict_json_loads(intent["planning_json"])
+                )
+                required = set(
+                    () if planning is None
+                    else planning.get("required_capability_refs", ())
+                )
+                available = {
+                    item["source_ref"]
+                    for item in profile["body"].get("capability_manifest", ())
+                }
+                if not required <= available:
+                    block(
+                        tx,
+                        work_id,
+                        "capability_gap",
+                        remedy="Publish a matching capability and new problem Profile",
+                    )
         state = self.triggers.read(tx)
         if state.inflight_reason_work_id:
             work = row(
@@ -668,7 +772,7 @@ class Scheduler:
             )
             self.works.register(tx, key=key, kind="reason")
 
-    def _limits(self, tx, work, config, now):
+    def _limits(self, tx, work, config, profile, now):
         limits = config.runtime.limits
         if (
             tx.task["activated_at"] is None
@@ -688,7 +792,11 @@ class Scheduler:
             or counts["tool_attempts"] >= limits.max_tool_calls
         ):
             raise DomainError("task_call_limit", 429)
-        if limits.max_model_requests < 1 or limits.max_tool_calls < 1:
+        if (
+            limits.max_model_requests < 1
+            or profile["body"]["tool_definition_refs"]
+            and limits.max_tool_calls < 1
+        ):
             raise DomainError("task_call_limit", 429)
         count = tx.connection.execute(
             "SELECT count(*) FROM vnext.agent_run WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND work_item_id=%s",
@@ -753,12 +861,14 @@ class Scheduler:
             )
         if not self.control.can_dispatch(tx, work):
             raise DomainError("dispatch_guard_unsatisfied", 409)
-        attempts = self._limits(tx, work, config, now)
+        attempts = self._limits(tx, work, config, profile, now)
         recovery = None
         published = None
         previous_run_id = work["current_run_id"]
         if work["session_id"] is not None:
-            if self.control.sessions is None or profile["body"].get("schema_version") != "wuji.harness.session.v1":
+            if self.control.sessions is None or profile["body"].get("schema_version") not in {
+                "wuji.harness.session.v1", "wuji.harness.problem.v1"
+            }:
                 raise DomainError("worker_recovery_unavailable", 503)
             recovery = self.control.sessions.validate_recovery_in_transaction(tx, work)
             if not recovery.resumable:

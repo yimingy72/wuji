@@ -16,6 +16,7 @@ from wuji_core.admission.registry import ModelProfile, RuntimeProfile, ToolDefin
 from wuji_core.admission.tools import HttpTargetExecutor, validate_input_schema
 from wuji_core.http import strict_json_loads
 from wuji_core.persistence.uow import DomainError
+from wuji_maf_worker.factory import ProblemHarnessProfile, parse_profile
 
 spec = importlib.util.spec_from_file_location("first_use_manifests", ROOT / "ops/vnext/kubernetes/first_use.py")
 manifests = importlib.util.module_from_spec(spec)
@@ -57,22 +58,19 @@ def test_catalog_keeps_immutable_limits_without_old_fixture_answers(mode):
     instructions = config["definition"]["worker_profiles"]["reason"]["body"]["instructions"]
     assert "When read_set is empty" in instructions
     assert "initial Intent must use an empty basis_refs list" in instructions
-    assert "propose exactly one Intent" in instructions
+    assert "Do not create work merely because the queue is empty" in instructions
     assert "do not use ProposalLocalRef" in instructions
-    assert "return claims=[]" in instructions
-    assert "Never wait on the current Reason WorkItem" in instructions
-    assert "propose that Intent" in instructions
+    assert "at most three independent problems" in instructions
+    assert "AgentPayloadV3" in instructions
+    assert "no work_result" in instructions
     explore = config["definition"]["worker_profiles"]["explore"]["body"]
-    assert explore["ref"] == "first-use-explore-instructions-v5"
-    assert explore["revision"] == "5"
-    assert "no more than two target HTTP reads" in explore["instructions"]
-    assert "never wait on that same Intent" in explore["instructions"]
-    assert "call http_target_get before the final response" in explore["instructions"]
-    assert "'/' is never such a path" in explore["instructions"]
-    assert "observation-summary claim" in explore["instructions"]
-    assert "configured DeepSeek model" in explore["instructions"]
-    assert "never state that DeepSeek was not called" in explore["instructions"]
-    assert "at most one later HTTP read" in explore["instructions"]
+    assert explore["ref"] == "first-use-explore-instructions-v6"
+    assert explore["revision"] == "6"
+    assert "inside this WorkItem and Session" in explore["instructions"]
+    assert "read exact fixed material on demand" in explore["instructions"]
+    assert "finish without tools" in explore["instructions"]
+    assert "AgentPayloadV3" in explore["instructions"]
+    assert config["problem_core_enabled"] is True
     assert ("mechanism_http_origins" in config) == (mode == "mechanism_synthetic")
 
 
@@ -108,6 +106,44 @@ def test_first_use_http_envelope_keeps_an_approved_large_response(tmp_path):
     assert len(raw) <= runtime.limits.max_single_output_bytes
     assert document["response"]["truncated"] is False
     assert base64.b64decode(document["response"]["body_base64"]) == body
+
+
+def test_problem_catalog_publishes_exact_native_and_host_capabilities():
+    lock = task_launch.shipped_worker_lock_digest()
+    config = catalog.owner_template(source(), mode="real_model", lock_digest=lock)
+    definition = {
+        **config["definition"],
+        "evaluation_mode": "real_model",
+        "task": {
+            "schema_version": "wuji.api.v2", "project_id": "project", "name": "problem",
+            "scenario": "web_single",
+            "goal": {"text": "Determine the fixed material version.", "criteria": [{
+                "criterion_id": "version", "object": "material", "condition": "version identified",
+                "evidence_requirements": ["fixed source"], "allowed_methods": ["deterministic"],
+                "responsible_party": "platform", "required": True,
+            }]},
+            "authorization_scope": [{"host": "fixture.invalid", "protocol": "https", "port": 443}],
+            "authorization_expires_at": "2026-09-22T17:00:00+08:00",
+            "entry_points": ["https://fixture.invalid/"], "external_analysis_approved": True,
+            "model_profile_ref": config["definition"]["model_profile"]["ref"],
+            "runtime_profile_ref": config["definition"]["runtime_profile"]["ref"],
+            "budget": {"amount": "1", "currency": "USD"},
+        },
+        "start_points": ["https://fixture.invalid/"],
+    }
+    profiles = task_launch.published_session_profiles(config, definition)
+    reason, explore = profiles["reason"], profiles["explore"]
+    assert isinstance(parse_profile(reason), ProblemHarnessProfile)
+    assert isinstance(parse_profile(explore), ProblemHarnessProfile)
+    assert profiles["report"]["body"]["schema_version"] == "wuji.harness.session.v1"
+    assert reason["body"]["memory_mode"] == "disabled"
+    assert explore["body"]["memory_mode"] == "work_memory"
+    assert explore["body"]["tool_choice_policy"] == "auto"
+    categories = {item["name"]: item["category"] for item in explore["body"]["capability_manifest"]}
+    assert categories["todos_add"] == "session_state"
+    assert categories["file_memory_write"] == "session_state"
+    assert categories["knowledge_read"] == "knowledge_read"
+    assert categories["http_target_get"] == "environment_action"
 
 
 @pytest.mark.parametrize("methods", [[], ["POST"], ["GET", "POST"]])
