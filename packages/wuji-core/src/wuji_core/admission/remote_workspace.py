@@ -73,7 +73,7 @@ class RemoteExecutorTransportError(OSError):
 
 class _HttpsJsonEndpoint:
     def __init__(self, *, binding, base_url, ca_file, bearer_token,
-                 timeout_seconds=15.0, max_request_bytes=1048576,
+                 timeout_seconds=45.0, max_request_bytes=1048576,
                  max_response_bytes=2097152):
         target = urlsplit(base_url)
         if (target.scheme != "https" or not target.hostname
