@@ -1,0 +1,86 @@
+{
+  "task_id": "b058c399-3318-4a05-85a4-48b9a5801922",
+  "observer": "A0",
+  "method": "real public API HTTP from API Pod; not browser wire capture",
+  "inference_or_target_requests": false,
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "url": "https://api.wuji-vnext-test.svc:8443/api/v2/tasks/b058c399-3318-4a05-85a4-48b9a5801922",
+        "headers": {
+          "host": "api.wuji-vnext-test.svc:8443",
+          "accept": "*/*",
+          "accept-encoding": "gzip, deflate",
+          "connection": "keep-alive",
+          "user-agent": "python-httpx/0.28.1",
+          "authorization": "Bearer <operator SecretRef>"
+        },
+        "body": ""
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "date": "Sun, 20 Sep 2026 23:47:25 GMT",
+          "server": "uvicorn",
+          "content-length": "461",
+          "content-type": "application/json",
+          "x-request-id": "1e50ccd6-8b73-41f4-948b-af890d910947"
+        },
+        "body": "{\"task_id\":\"b058c399-3318-4a05-85a4-48b9a5801922\",\"tenant_id\":\"1fc6b1f3-6f24-456b-9dc1-4e14c7197604\",\"project_id\":\"81e8c413-ba26-45fb-8b5a-1bc477eef99f\",\"version\":\"4\",\"name\":\"正式现场页面证据分析 · 20260921 R22\",\"scenario\":\"web_single\",\"desired_state\":\"cancel\",\"observed_state\":\"quiescing\",\"goal_revision\":\"1\",\"execution_epoch\":\"4\",\"activated_at\":\"2026-09-20T23:39:14.533670Z\",\"close_trigger\":\"user_cancel\",\"result_outcome\":null,\"allowed_actions\":[]}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "https://api.wuji-vnext-test.svc:8443/api/v2/tasks/b058c399-3318-4a05-85a4-48b9a5801922/launch",
+        "headers": {
+          "host": "api.wuji-vnext-test.svc:8443",
+          "accept": "*/*",
+          "accept-encoding": "gzip, deflate",
+          "connection": "keep-alive",
+          "user-agent": "python-httpx/0.28.1",
+          "authorization": "Bearer <operator SecretRef>"
+        },
+        "body": ""
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "date": "Sun, 20 Sep 2026 23:47:25 GMT",
+          "server": "uvicorn",
+          "content-length": "523",
+          "content-type": "application/json",
+          "x-request-id": "3b60786a-a933-4e3f-9fcf-e110eaad2b5c"
+        },
+        "body": "{\"operation_id\":\"49614bb1-5102-478a-8d25-24e4d40c5bbc\",\"command_id\":\"49614bb1-5102-478a-8d25-24e4d40c5bbc\",\"task_id\":\"b058c399-3318-4a05-85a4-48b9a5801922\",\"definition_digest\":\"d642a21f52e04b9a3c39ba408aca60fcfcaacccc951086e8b3778e4e8f9a6746\",\"profile_digest\":\"f6944e67b6398c5a499a395e9d1a9a8dee61e07a41087a68e6ff8f1598d54cbe\",\"runtime_attempt\":\"1\",\"execution_epoch\":\"2\",\"phase\":\"ready\",\"phase_status\":\"succeeded\",\"reason_code\":null,\"allowed_actions\":[\"pause\",\"cancel\",\"finish\"],\"observed_at\":\"2026-09-20T23:40:06.071095Z\"}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "https://api.wuji-vnext-test.svc:8443/api/v2/tasks/b058c399-3318-4a05-85a4-48b9a5801922/readiness",
+        "headers": {
+          "host": "api.wuji-vnext-test.svc:8443",
+          "accept": "*/*",
+          "accept-encoding": "gzip, deflate",
+          "connection": "keep-alive",
+          "user-agent": "python-httpx/0.28.1",
+          "authorization": "Bearer <operator SecretRef>"
+        },
+        "body": ""
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "date": "Sun, 20 Sep 2026 23:47:25 GMT",
+          "server": "uvicorn",
+          "content-length": "2471",
+          "content-type": "application/json",
+          "x-request-id": "a69ac144-0b1d-4627-8ddf-b1ee65f38ec2"
+        },
+        "body": "{\"task_id\":\"b058c399-3318-4a05-85a4-48b9a5801922\",\"definition_digest\":\"d642a21f52e04b9a3c39ba408aca60fcfcaacccc951086e8b3778e4e8f9a6746\",\"observed_at\":\"2026-09-20T23:47:25.810687Z\",\"can_request_start\":false,\"checks\":[{\"id\":\"identity\",\"layer\":\"identity\",\"status\":\"pass\",\"reason_code\":\"identity_authorized\",\"observed_at\":\"2026-09-20T23:47:25.810687Z\",\"evidence_ref\":null,\"remediation_owner\":\"application\",\"message\":\"Current identity can read this Task.\"},{\"id\":\"definition\",\"layer\":\"profile\",\"status\":\"pass\",\"reason_code\":\"definition_frozen\",\"observed_at\":\"2026-09-20T23:47:25.810687Z\",\"evidence_ref\":null,\"remediation_owner\":\"application\",\"message\":\"The Task definition is frozen for launch.\"},{\"id\":\"budget\",\"layer\":\"budget\",\"status\":\"pass\",\"reason_code\":\"budget_registered\",\"observed_at\":\"2026-09-20T23:47:25.810687Z\",\"evidence_ref\":null,\"remediation_owner\":\"user\",\"message\":\"The Task carries a registered budget.\"},{\"id\":\"model_profile\",\"layer\":\"model\",\"status\":\"pass\",\"reason_code\":\"model_profile_published\",\"observed_at\":\"2026-09-20T23:47:25.810687Z\",\"evidence_ref\":null,\"remediation_owner\":\"gateway\",\"message\":\"Published model profile status; no model request was made.\"},{\"id\":\"runtime_profile\",\"layer\":\"runtime\",\"status\":\"pass\",\"reason_code\":\"runtime_profile_published\",\"observed_at\":\"2026-09-20T23:47:25.810687Z\",\"evidence_ref\":null,\"remediation_owner\":\"infrastructure\",\"message\":\"Published runtime and lock status; no resource was deployed.\"},{\"id\":\"target\",\"layer\":\"target\",\"status\":\"unknown\",\"reason_code\":\"target_not_probed\",\"observed_at\":\"2026-09-20T23:47:25.810687Z\",\"evidence_ref\":null,\"remediation_owner\":\"user\",\"message\":\"Target reachability is not probed by readiness.\"},{\"id\":\"material\",\"layer\":\"material\",\"status\":\"not_applicable\",\"reason_code\":\"material_not_required\",\"observed_at\":\"2026-09-20T23:47:25.810687Z\",\"evidence_ref\":null,\"remediation_owner\":\"application\",\"message\":\"No material probe is performed by readiness.\"},{\"id\":\"scope\",\"layer\":\"target\",\"status\":\"pass\",\"reason_code\":\"scope_current\",\"observed_at\":\"2026-09-20T23:47:25.810687Z\",\"evidence_ref\":null,\"remediation_owner\":\"user\",\"message\":\"Authorization deadline only; target connectivity remains untested.\"},{\"id\":\"external_analysis\",\"layer\":\"material\",\"status\":\"pass\",\"reason_code\":\"external_analysis_approved\",\"observed_at\":\"2026-09-20T23:47:25.810687Z\",\"evidence_ref\":null,\"remediation_owner\":\"user\",\"message\":\"External analysis uses the creator confirmation frozen in this Task.\"}]}"
+      }
+    }
+  ]
+}
