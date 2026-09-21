@@ -115,8 +115,9 @@ from wuji_core.persistence.launch_schema import HEAD as LAUNCH_HEAD, upgrade as 
 from wuji_core.persistence.launch_observer_schema import HEAD as LAUNCH_OBSERVER_HEAD, upgrade as upgrade_launch_observer
 from wuji_core.persistence.launch_fairness_schema import HEAD as LAUNCH_FAIR_HEAD, upgrade as upgrade_launch_fairness
 from wuji_core.persistence.problem_core_schema import HEAD as PROBLEM_CORE_HEAD, upgrade as upgrade_problem_core
+from wuji_core.persistence.task_goal_schema import HEAD as TASK_GOAL_HEAD, upgrade as upgrade_task_goals
 
-HEAD = PROBLEM_CORE_HEAD
+HEAD = TASK_GOAL_HEAD
 
 OWNER = "tenant_id,project_id,task_id"
 SCOPE_COLUMNS = (
@@ -504,6 +505,7 @@ def migrate(connection, *, application_role: str) -> None:
                 LAUNCH_OBSERVER_HEAD,
                 LAUNCH_FAIR_HEAD,
                 PROBLEM_CORE_HEAD,
+                TASK_GOAL_HEAD,
             ]
             if not heads or heads != set(chain[: len(heads)]):
                 raise ValueError("unrecognized vnext migration head")
@@ -539,6 +541,7 @@ def migrate(connection, *, application_role: str) -> None:
                 upgrade_launch_observer,
                 upgrade_launch_fairness,
                 upgrade_problem_core,
+                upgrade_task_goals,
             ]
             for upgrade in upgrades[len(heads) - 1 :]:
                 upgrade(connection, application_role)
@@ -671,3 +674,4 @@ def migrate(connection, *, application_role: str) -> None:
         upgrade_launch_observer(connection, application_role)
         upgrade_launch_fairness(connection, application_role)
         upgrade_problem_core(connection, application_role)
+        upgrade_task_goals(connection, application_role)

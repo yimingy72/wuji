@@ -24,6 +24,7 @@ DECLARE
   subject_value text:=current_setting('wuji.subject',true);
   clearance_value integer;
   model_doc jsonb; runtime_doc jsonb; lock_value text;
+  criterion jsonb;
   definition jsonb; request_digest text; receipt jsonb; saved vnext.task_create_command;
 BEGIN
   IF tenant_value IS NULL OR tenant_value='' OR subject_value IS NULL OR subject_value='' THEN
@@ -86,6 +87,20 @@ BEGIN
     VALUES(tenant_value,project_key,new_task,subject_value,true,true,true,clearance_value);
   INSERT INTO vnext.task_assessment_policy(tenant_id,project_id,task_id,policy_version)
     VALUES(tenant_value,project_key,new_task,'assessment-policy-v1');
+  IF jsonb_typeof(payload#>'{goal,criteria}')<>'array'
+     OR jsonb_array_length(payload#>'{goal,criteria}')<1 THEN
+    RAISE EXCEPTION 'task goal criteria required' USING ERRCODE='22023';
+  END IF;
+  FOR criterion IN SELECT value FROM jsonb_array_elements(payload#>'{goal,criteria}') LOOP
+    IF jsonb_typeof(criterion)<>'object'
+       OR criterion->>'criterion_id' IS NULL
+       OR length(criterion->>'criterion_id') NOT BETWEEN 1 AND 256 THEN
+      RAISE EXCEPTION 'invalid task goal criterion' USING ERRCODE='22023';
+    END IF;
+    INSERT INTO vnext.goal_criterion(
+      tenant_id,project_id,task_id,criterion_id,revision,definition_json)
+      VALUES(tenant_value,project_key,new_task,criterion->>'criterion_id',1,criterion::text);
+  END LOOP;
   receipt:=jsonb_build_object('task_id',new_task,'tenant_id',tenant_value,
     'project_id',project_key,'version','1','name',payload->>'name',
     'scenario',payload->>'scenario','desired_state','pause','observed_state','ready',

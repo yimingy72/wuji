@@ -133,12 +133,12 @@ def test_problem_profile_is_recognized_but_not_confused_with_session_v1():
     assert profile.snapshot() == snapshot
 
 
-def test_problem_core_migration_is_the_single_new_head(db_environment):
+def test_problem_core_migration_chain_reaches_the_current_head(db_environment):
     with db_environment.migration_connection() as connection:
         schema.migrate(connection, application_role=db_environment.application_role)
         assert connection.execute(
             "SELECT head FROM vnext.schema_migration WHERE head=%s", (schema.HEAD,)
-        ).fetchone() == ("vnext_0032_problem_core",)
+        ).fetchone() == (schema.HEAD,)
         columns = {
             row[0]
             for row in connection.execute(

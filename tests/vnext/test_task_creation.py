@@ -233,6 +233,14 @@ def test_task_creation_persists_a_non_running_task_with_only_creator_access(
                 (view["task_id"],),
             ).fetchone()
             assert policy == ("assessment-policy-v1",)
+            criteria = connection.execute(
+                "SELECT criterion_id,revision,definition_json FROM vnext.goal_criterion "
+                "WHERE task_id=%s ORDER BY criterion_id",
+                (view["task_id"],),
+            ).fetchall()
+            assert [(item[0], int(item[1]), json.loads(item[2])) for item in criteria] == [
+                ("version", 1, payload()["goal"]["criteria"][0])
+            ]
             for table in ("claim_revision", "intent_revision", "outbox", "agent_run", "work_item"):
                 assert connection.execute(
                     f"SELECT count(*) FROM vnext.{table} WHERE task_id=%s",
