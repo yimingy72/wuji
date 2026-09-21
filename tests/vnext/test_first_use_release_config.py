@@ -164,7 +164,7 @@ def test_launcher_separates_owner_management_and_provider_secrets():
     assert catalog.GATEWAY_ORIGIN == settings["gateway_url"]
     pod = deployment["spec"]["template"]["spec"]
     owner = next(volume["secret"] for volume in pod["volumes"] if volume["name"] == "input")
-    assert owner["secretName"] == "first-use-deepseek-owner-v9"
+    assert owner["secretName"] == "first-use-deepseek-owner-v10"
     assert pod["serviceAccountName"] == "first-use-launch"
     management = next(volume["secret"] for volume in pod["volumes"] if volume["name"] == "gateway")
     assert management["items"] == [{"key": "master.key", "path": "master.key"}]

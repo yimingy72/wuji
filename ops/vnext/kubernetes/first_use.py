@@ -29,7 +29,7 @@ def suffix_for(mode):
 def owner_secret_name(mode):
     # v9 selects runtime revision 2 so approved large HTTP evidence is retained.
     # Keep older private templates for historical failed launches.
-    return f"first-use-{suffix_for(mode)}-owner-v9"
+    return f"first-use-{suffix_for(mode)}-owner-v10"
 
 
 def rbac_manifests():
