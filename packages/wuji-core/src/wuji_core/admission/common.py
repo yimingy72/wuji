@@ -46,6 +46,64 @@ def current_run(tx, config, *, allow_leased_work=False):
     return run, work
 
 
+def model_function_capabilities(tx, registry, config, run, work):
+    """Trusted final function set for this assigned Profile, including native tools."""
+
+    definition = strict_json_loads(tx.task["definition_json"])
+    profile = definition["worker_profiles"][work["kind"]]
+    body = profile["body"]
+    allowed = (
+        set(config.allowed_tool_refs)
+        & set(config.runtime.allowed_tool_refs)
+        & set(tx.run_binding.allowed_tool_refs)
+    )
+    if body.get("schema_version") == "wuji.harness.problem.v1":
+        assignment = row(tx.connection.execute(
+            "SELECT assignment_json,assignment_digest FROM vnext.scheduler_assignment "
+            "WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND agent_run_id=%s",
+            (*tx.owner, run["agent_run_id"]),
+        ))
+        if assignment is None:
+            raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+        document = strict_json_loads(assignment["assignment_json"])
+        if (
+            digest(document) != assignment["assignment_digest"]
+            or profile["ref"] not in document["profile_refs"]
+            or tuple(body["tool_definition_refs"])
+            != tuple(document["tool_definition_refs"])
+        ):
+            raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+        capabilities = {
+            item["name"]: item for item in body["capability_manifest"]
+        }
+        if len(capabilities) != len(body["capability_manifest"]):
+            raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+        environment_refs = {
+            item["source_ref"] for item in capabilities.values()
+            if item["category"] == "environment_action"
+        }
+        if environment_refs != set(body["tool_definition_refs"]) or not environment_refs <= allowed:
+            raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+        for item in capabilities.values():
+            if item["category"] == "environment_action":
+                tool = registry.tool(tx, item["source_ref"])
+                if tool.name != item["name"] or digest(tool.input_schema) != item["input_schema_digest"]:
+                    raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+        return capabilities, environment_refs
+    definitions = {registry.tool(tx, ref).name: registry.tool(tx, ref) for ref in allowed}
+    if len(definitions) != len(allowed):
+        raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+    return ({
+        name: {
+            "name": name,
+            "source_ref": value.ref,
+            "input_schema_digest": digest(value.input_schema),
+            "category": "environment_action",
+        }
+        for name, value in definitions.items()
+    }, {value.ref for value in definitions.values()})
+
+
 def counter(tx):
     tx.connection.execute("INSERT INTO vnext.admission_counter(tenant_id,project_id,task_id) VALUES(%s,%s,%s) ON CONFLICT DO NOTHING", tx.owner)
     return row(tx.connection.execute("SELECT * FROM vnext.admission_counter WHERE tenant_id=%s AND project_id=%s AND task_id=%s FOR UPDATE", tx.owner))

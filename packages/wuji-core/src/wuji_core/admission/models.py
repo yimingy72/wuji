@@ -14,7 +14,9 @@ from wuji_core.contracts.envelopes import RunIdentity
 from wuji_core.http import canonical_json_bytes, strict_json_loads
 from wuji_core.persistence.uow import DomainError, row, json_text
 from wuji_core.admission.registry import TaskAdmissionConfig
-from wuji_core.admission.common import audit, consume_attempt, current_run, digest
+from wuji_core.admission.common import (
+    audit, consume_attempt, current_run, digest, model_function_capabilities,
+)
 from wuji_core.admission.usage import UsageAccumulator, UsageSchemaError, usage_from_completion
 
 
@@ -66,15 +68,20 @@ class ModelAdmission:
                     raise DomainError("CAPABILITY_UNAVAILABLE", 503)
                 if source["model"] != config.model.client_model:
                     raise DomainError("CAPABILITY_UNAVAILABLE", 503)
-                allowed = set(config.allowed_tool_refs) & set(config.runtime.allowed_tool_refs) & set(tx.run_binding.allowed_tool_refs)
-                definitions = {self.registry.tool(tx, ref).name: self.registry.tool(tx, ref) for ref in allowed}
-                if len(definitions) != len(allowed):
-                    raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+                capabilities, _environment_refs = model_function_capabilities(
+                    tx, self.registry, config, run, work
+                )
                 for tool in source.get("tools") or []:
                     proposed = tool["function"]
-                    registered = definitions.get(proposed["name"])
-                    if not registered or digest(proposed["parameters"]) != digest(registered.input_schema):
+                    registered = capabilities.get(proposed["name"])
+                    if (
+                        not registered
+                        or digest(proposed["parameters"])
+                        != registered["input_schema_digest"]
+                    ):
                         raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+                if {tool["function"]["name"] for tool in source.get("tools") or []} != set(capabilities):
+                    raise DomainError("CAPABILITY_UNAVAILABLE", 503)
                 old = row(tx.connection.execute("SELECT * FROM vnext.model_call WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND agent_run_id=%s AND logical_request_id=%s", (*tx.owner, run["agent_run_id"], request_id)))
                 request_digest = digest(source)
                 if old:

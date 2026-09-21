@@ -32,7 +32,10 @@ from wuji_core.admission.mechanism_fixture import (
     authorization_scope,
     http_target_allowed,
 )
-from wuji_core.admission.common import audit, consume_attempt, current_run, digest, allocate_output
+from wuji_core.admission.common import (
+    allocate_output, audit, consume_attempt, current_run, digest,
+    model_function_capabilities,
+)
 from wuji_core.admission.ledger import tool_receipt
 
 
@@ -546,30 +549,28 @@ class ToolCapabilityResolver:
     def require_available(self, access, tools):
         binding = self.gate.registry.binding(access)
         with self.gate.admission.uow.transaction(
-            access, binding.identity.task_id
+            access, binding.identity.task_id, capability="model_request"
         ) as tx:
             config = self.gate.registry.config(tx)
-            allowed = (
-                set(config.allowed_tool_refs)
-                & set(config.runtime.allowed_tool_refs)
-                & set(binding.allowed_tool_refs)
+            run, work = current_run(tx, config)
+            capabilities, _environment_refs = model_function_capabilities(
+                tx, self.gate.registry, config, run, work
             )
-            definitions = {
-                self.gate.registry.tool(tx, ref).name: self.gate.registry.tool(tx, ref)
-                for ref in allowed
-            }
             refs = []
             for advertised in tools:
                 value = advertised.model_dump(mode="python")
                 function = value["function"]
-                definition = definitions.get(function["name"])
+                definition = capabilities.get(function["name"])
                 if (
                     definition is None
                     or digest(function["parameters"])
-                    != digest(definition.input_schema)
+                    != definition["input_schema_digest"]
                 ):
                     raise DomainError("CAPABILITY_UNAVAILABLE", 503)
-                refs.append(definition.ref)
+                if definition["category"] == "environment_action":
+                    refs.append(definition["source_ref"])
+            if {tool.function.name for tool in tools} != set(capabilities):
+                raise DomainError("CAPABILITY_UNAVAILABLE", 503)
         for ref in refs:
             self.gate._assembly(access, ref)
 
