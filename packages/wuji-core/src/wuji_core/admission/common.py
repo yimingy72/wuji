@@ -58,21 +58,10 @@ def model_function_capabilities(tx, registry, config, run, work):
         & set(tx.run_binding.allowed_tool_refs)
     )
     if body.get("schema_version") == "wuji.harness.problem.v1":
-        assignment = row(tx.connection.execute(
-            "SELECT assignment_json,assignment_digest FROM vnext.scheduler_assignment "
-            "WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND agent_run_id=%s",
-            (*tx.owner, run["agent_run_id"]),
-        ))
-        if assignment is None:
-            raise DomainError("CAPABILITY_UNAVAILABLE", 503)
-        document = strict_json_loads(assignment["assignment_json"])
-        if (
-            digest(document) != assignment["assignment_digest"]
-            or profile["ref"] not in document["profile_refs"]
-            or tuple(body["tool_definition_refs"])
-            != tuple(document["tool_definition_refs"])
-        ):
-            raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+        # current_run already binds this credential to the exact Task, Work,
+        # Run epoch and immutable Task definition.  scheduler_assignment is
+        # intentionally unreadable while request_purpose=model_request, so it
+        # cannot be used as a second trust source here.
         capabilities = {
             item["name"]: item for item in body["capability_manifest"]
         }

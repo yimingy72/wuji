@@ -1,9 +1,11 @@
 import asyncio
 from hashlib import sha256
+from types import SimpleNamespace
 
 import httpx
 
 from support.m1 import _sse
+from wuji_core.admission.common import model_function_capabilities
 from wuji_core.contracts import generated as wire
 from wuji_core.contracts.sessions import SessionCompatibility, SessionLimits
 from wuji_core.http import canonical_json_bytes, strict_json_loads
@@ -11,6 +13,30 @@ from wuji_maf_worker.capability_manifest import build_capability_manifest
 from wuji_maf_worker.factory import ProblemHarnessProfile, build_agent
 from wuji_maf_worker.history import BoundedWorkMemoryProvider, HistoryArchive, WorkMemoryStore
 from wuji_maf_worker.tools import FunctionBudget, GateFunctions, ModelCallIdentity
+
+
+def test_problem_model_capabilities_use_the_current_run_profile_without_assignment_read():
+    profile, snapshot = _profile()
+    tx = SimpleNamespace(
+        task={
+            "definition_json": canonical_json_bytes(
+                {"worker_profiles": {"explore": snapshot}}
+            ).decode()
+        },
+        run_binding=SimpleNamespace(allowed_tool_refs=()),
+    )
+    config = SimpleNamespace(
+        allowed_tool_refs=(), runtime=SimpleNamespace(allowed_tool_refs=())
+    )
+
+    capabilities, environment_refs = model_function_capabilities(
+        tx, object(), config, {"agent_run_id": "run-1"}, {"kind": "explore"}
+    )
+
+    assert set(capabilities) == {
+        item.name for item in profile.capability_manifest
+    }
+    assert environment_refs == set()
 
 
 def _tool_stream(ordinal, name, arguments):
