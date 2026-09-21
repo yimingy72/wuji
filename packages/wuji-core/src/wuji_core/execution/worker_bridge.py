@@ -23,6 +23,7 @@ from wuji_core.admission.model_material import (
 )
 from wuji_core.contracts import generated as wire
 from wuji_core.contracts.envelopes import WorkerAssignment
+from wuji_core.contracts.knowledge import KnowledgeRef
 from wuji_core.execution.control import ExecutionObservation
 from wuji_core.execution.dispatch_outbox import ReceiverAuthorizer
 from wuji_core.execution.reconcile import read_registered_run
