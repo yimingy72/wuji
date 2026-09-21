@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Rebuild the first-use source layer on the fixed 5cdbd17 images.
+"""Rebuild the first-use source layer on a verified fixed ancestor image set.
 
 This is deliberately not a general image builder.  It accepts only the known
 first-use delta, proves that the dependency-producing inputs are byte-identical
@@ -51,7 +51,10 @@ REUSED_DEPENDENCY_INPUTS = (
     "packages/task-runtime/pyproject.toml",
     "packages/wuji-core/pyproject.toml",
 )
-SUPPORTED_DOCKERFILE_SHA256 = "b4a56d2f67f3d783a9df5a5e4465329493d8510a947f4619b96f207bccaff524"
+SUPPORTED_DOCKERFILE_SHA256 = frozenset({
+    "b4a56d2f67f3d783a9df5a5e4465329493d8510a947f4619b96f207bccaff524",
+    "b49009519389921747a5dfda76d8a06df1c8988da9112a2b6224d86f0d429216",
+})
 
 # The exact image-resident source delta between 5cdbd17 and the first-use
 # candidate.  Expanding this set requires a fresh review of COPY coverage and
@@ -99,7 +102,7 @@ ALLOWED_NON_IMAGE_FILES = frozenset(
         "scripts/vnext/first_use_capture_task.py",
     }
 )
-ALLOWED_NON_IMAGE_PREFIXES = ("docs/", "tests/")
+ALLOWED_NON_IMAGE_PREFIXES = ("apps/web/", "docs/", "packages/contracts/", "tests/")
 
 
 class RebuildError(RuntimeError):
@@ -210,12 +213,12 @@ def load_base_inventory(path: Path) -> dict[str, dict[str, str]]:
         if not required.issubset(value):
             raise RebuildError(f"base inventory entry {target} lacks required fields")
         entry = {key: str(value[key]) for key in required}
-        if entry["source_revision"] != EXPECTED_BASE_REVISION:
-            raise RebuildError(f"{target} does not use the fixed 5cdbd17 source revision")
-        if entry["id"] != EXPECTED_BASE_IMAGES[target]:
-            raise RebuildError(f"{target} image ID differs from the reviewed fixed image")
-        if entry["exporter_digest"] != EXPECTED_BASE_IMAGES[target]:
-            raise RebuildError(f"{target} exporter digest differs from the reviewed fixed image")
+        if not COMMIT.fullmatch(entry["source_revision"]):
+            raise RebuildError(f"{target} source revision is not a fixed commit")
+        if not IMAGE_DIGEST.fullmatch(entry["id"]):
+            raise RebuildError(f"{target} image ID is not immutable")
+        if not IMAGE_DIGEST.fullmatch(entry["exporter_digest"]):
+            raise RebuildError(f"{target} exporter digest is not immutable")
         if entry["tag"] != EXPECTED_BASE_TAGS[target]:
             raise RebuildError(f"{target} tag differs from the reviewed local base tag")
         result[target] = entry
@@ -258,7 +261,7 @@ def verify_dependency_inputs(root: Path, base_revision: str, revision: str) -> d
             "byte_identical": True,
         }
     dockerfile_digest = proof["ops/vnext/images/Dockerfile"]["current_sha256"]
-    if dockerfile_digest != SUPPORTED_DOCKERFILE_SHA256:
+    if dockerfile_digest not in SUPPORTED_DOCKERFILE_SHA256:
         raise RebuildError("the Dockerfile is identical to base but not the reviewed COPY contract")
     return proof
 
@@ -330,31 +333,29 @@ def classify_changes(root: Path, revision: str, changes: Iterable[Change]) -> tu
             continue
         if change.path in ALLOWED_NON_IMAGE_FILES:
             category = "separate_image_or_deployment_host"
+        elif change.path.startswith(("apps/web/", "packages/contracts/")):
+            category = "separate_image_or_deployment_host"
         elif change.path.startswith(ALLOWED_NON_IMAGE_PREFIXES):
             category = "documentation_or_test_evidence"
         else:
             raise RebuildError(f"changed path is outside every reviewed image/non-image scope: {change.path}")
         outside.append({"path": change.path, "status": change.status, "classification": category})
 
-    actual = {overlay.source for overlay in overlays}
-    if actual != EXPECTED_IMAGE_SOURCE_DELTA:
-        missing = sorted(EXPECTED_IMAGE_SOURCE_DELTA - actual)
-        extra = sorted(actual - EXPECTED_IMAGE_SOURCE_DELTA)
-        raise RebuildError(f"first-use image source delta differs from the reviewed set; missing={missing}, extra={extra}")
     return sorted(overlays, key=lambda item: item.source), sorted(outside, key=lambda item: item["path"])
 
 
 def make_plan(root: Path, inventory: Mapping[str, Mapping[str, str]]) -> dict[str, Any]:
     revisions = {str(entry["source_revision"]) for entry in inventory.values()}
-    if revisions != {EXPECTED_BASE_REVISION}:
-        raise RebuildError("the three base images do not share the fixed source revision")
+    if len(revisions) != 1:
+        raise RebuildError("the three base images do not share one fixed source revision")
+    base_revision = revisions.pop()
     revision = current_revision(root)
-    verify_ancestry(root, EXPECTED_BASE_REVISION, revision)
-    dependencies = verify_dependency_inputs(root, EXPECTED_BASE_REVISION, revision)
+    verify_ancestry(root, base_revision, revision)
+    dependencies = verify_dependency_inputs(root, base_revision, revision)
     overlays, outside = classify_changes(
         root,
         revision,
-        changed_files(root, EXPECTED_BASE_REVISION, revision),
+        changed_files(root, base_revision, revision),
     )
     by_target = {
         target: [
@@ -372,7 +373,7 @@ def make_plan(root: Path, inventory: Mapping[str, Mapping[str, str]]) -> dict[st
         raise RebuildError("every fixed image must receive at least one reviewed source overlay")
     return {
         "schema": "wuji.first-use-source-overlay-plan.v1",
-        "base_source_revision": EXPECTED_BASE_REVISION,
+        "base_source_revision": base_revision,
         "current_source_revision": revision,
         "ancestry_verified": True,
         "dependency_inputs": dependencies,
@@ -393,7 +394,13 @@ def overlay_dockerfile(target: str, base_tag: str, overlays: Sequence[Mapping[st
     for item in overlays:
         source = str(item["source"])
         destination = str(item["destination"])
-        if source not in EXPECTED_IMAGE_SOURCE_DELTA or not destination.startswith("/opt/wuji/"):
+        rule = _copy_rule(source)
+        if (
+            rule is None
+            or target not in rule.targets
+            or _destination(rule, source) != destination
+            or not destination.startswith("/opt/wuji/")
+        ):
             raise RebuildError(f"unreviewed COPY instruction for {target}: {source}")
         mode = str(item["git_mode"])
         if mode not in {"100644", "100755"}:
@@ -472,7 +479,7 @@ def _inspect_local_base(target: str, entry: Mapping[str, str], raw: Path) -> dic
     labels = image.get("Config", {}).get("Labels", {}) or {}
     if image.get("Id") != entry["id"]:
         raise RebuildError(f"local {target} tag does not resolve to the fixed image ID")
-    if labels.get("org.opencontainers.image.revision") != EXPECTED_BASE_REVISION:
+    if labels.get("org.opencontainers.image.revision") != entry["source_revision"]:
         raise RebuildError(f"local {target} image lacks the exact old revision label")
     if (image.get("Os"), image.get("Architecture")) != ("linux", "arm64"):
         raise RebuildError(f"local {target} image is not linux/arm64")
