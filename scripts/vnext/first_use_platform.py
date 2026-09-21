@@ -468,6 +468,7 @@ def main():
     job_name = (
         "first-use-catalog-" + suffix + "-" + revision[:8]
         + "-" + catalog_program_digest[:8]
+        + "-" + sha256(render.owner_secret_name(args.mode).encode()).hexdigest()[:4]
     )
     catalog = render.catalog_job(platform_image=images["platform"], mode=args.mode, job_name=job_name,
         public_data=public, program=catalog_program)

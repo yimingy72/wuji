@@ -27,7 +27,7 @@ def suffix_for(mode):
 
 
 def owner_secret_name(mode):
-    # v9 selects runtime revision 2 so approved large HTTP evidence is retained.
+    # v11 carries the current owner credential after deployment-bearer rotation.
     # Keep older private templates for historical failed launches.
     return f"first-use-{suffix_for(mode)}-owner-v11"
 
