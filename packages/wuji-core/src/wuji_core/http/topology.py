@@ -51,6 +51,21 @@ def create_topology_router(projection):
             )),
         ))
 
+    @router.get("/api/v2/tasks/{task_id}/exploration")
+    def exploration(
+        request: Request, task_id: str,
+        mode: ViewMode = ViewMode.live,
+        snapshot_id: Annotated[str | None, Query(min_length=1, max_length=256)] = None,
+        cursor: Annotated[str | None, Query(min_length=1, max_length=4096)] = None,
+        node_limit: Annotated[int, Query(ge=1, le=1000)] = 300,
+    ):
+        return respond(request, lambda access: projection.exploration_view(
+            task_id, access, query=ViewQuery.model_validate(dict(
+                mode=mode, snapshot_id=snapshot_id, cursor=cursor,
+                node_limit=node_limit, edge_limit=2000,
+            )),
+        ))
+
     @router.get("/api/v2/tasks/{task_id}/snapshots")
     def history(
         request: Request, task_id: str,

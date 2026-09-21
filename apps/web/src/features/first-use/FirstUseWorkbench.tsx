@@ -47,6 +47,7 @@ import { RecordPanel, readRecordView } from '../topology/panels/RecordPanel';
 import { SnapshotSelector, type ViewChoice } from '../topology/panels/SnapshotSelector';
 import { selectedRecordRef } from '../topology/record';
 import { CompletionPanel } from '../completion/CompletionPanel';
+import { ProblemBoard } from '../exploration/ProblemBoard';
 import { commandStatusMessage, includeRequestedTask, selectAuthorizedTaskId, taskStatusLabel } from './workbenchState';
 import styles from './firstUseWorkbench.module.css';
 
@@ -366,6 +367,7 @@ function TaskWorkspace({ taskId, session, onSessionExpired, onTaskUpdated }: Tas
   const [launch, setLaunch] = useState<LaunchView | null>(null);
   const [selection, setSelection] = useState<TopologySelection | null>(null);
   const [snapshot, setSnapshot] = useState<TopologySnapshotInput | null>(null);
+  const [problemSnapshotId, setProblemSnapshotId] = useState<string | null>(null);
   const [viewChoice, setViewChoice] = useState<ViewChoice>({ mode: 'live', snapshotId: null });
   const [notice, setNotice] = useState<CommandNotice | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -388,6 +390,7 @@ function TaskWorkspace({ taskId, session, onSessionExpired, onTaskUpdated }: Tas
     setLaunch(null);
     setSelection(null);
     setSnapshot(null);
+    setProblemSnapshotId(null);
     setViewChoice({ mode: 'live', snapshotId: null });
     void Promise.all([readTask(taskId, controller.signal), readReadiness(taskId, controller.signal), readLaunch(taskId, controller.signal)]).then(([nextTask, nextReadiness, nextLaunch]) => {
       if (controller.signal.aborted || generation.current !== currentGeneration) return;
@@ -405,7 +408,12 @@ function TaskWorkspace({ taskId, session, onSessionExpired, onTaskUpdated }: Tas
     return () => controller.abort();
   }, [taskId, refresh, onSessionExpired, onTaskUpdated]);
 
-  const selectedRef = useMemo(() => selectedRecordRef(snapshot, selection), [selection, snapshot]);
+  const selectedRef = useMemo(
+    () => selection?.mode === 'explicit_revision' ? selection.ref : selectedRecordRef(snapshot, selection),
+    [selection, snapshot],
+  );
+  const handleProblemSnapshot = useCallback((next: string) => setProblemSnapshotId(next), []);
+  const handleProblemSelect = useCallback((ref: KnowledgeRef) => setSelection({ mode: 'explicit_revision', ref }), []);
   const label = taskStatusLabel(task, launch);
   const allowed = task?.allowed_actions ?? launch?.allowed_actions ?? [];
 
@@ -453,6 +461,21 @@ function TaskWorkspace({ taskId, session, onSessionExpired, onTaskUpdated }: Tas
         {allowed.includes('cancel') && <Button danger icon={<StopOutlined />} onClick={() => void submitCommand('cancel')} data-testid="task-cancel">取消 Task</Button>}
         <Button icon={<ReloadOutlined />} onClick={refreshCurrent}>刷新状态</Button>
       </div>
+      <section className={styles.topology} aria-label="探索">
+        <div className={styles.readinessHeader}><h2>问题中心黑板</h2><Typography.Text type="secondary">问题、认识和详情来自同一固定快照；缺失历史明确显示“未记录”。</Typography.Text></div>
+        <SnapshotSelector taskId={task.task_id} value={viewChoice} onChange={(next) => { setSelection(null); setSnapshot(null); setProblemSnapshotId(null); setViewChoice(next); }} />
+        <ProblemBoard
+          key={`${task.task_id}:${viewChoice.mode}:${viewChoice.snapshotId ?? 'live'}:${refresh}`}
+          taskId={task.task_id}
+          mode={viewChoice.mode}
+          snapshotId={viewChoice.snapshotId}
+          refreshKey={refresh}
+          onSnapshotChange={handleProblemSnapshot}
+          onSelect={handleProblemSelect}
+          onSessionExpired={onSessionExpired}
+        />
+        <div className={styles.detail}><RecordPanel taskId={task.task_id} snapshotId={problemSnapshotId} ref={selectedRef} /></div>
+      </section>
       <section className={styles.launch} aria-label="启动进度" data-testid="launch-status">
         <div className={styles.launchLine}><strong>启动进度</strong><Tag>{launch?.phase ?? 'not_requested'} · {launch?.phase_status ?? 'not_requested'}</Tag><code>{launch?.reason_code ?? '无阻断原因'}</code></div>
         <div className={styles.launchLine}><span>真实 attempt</span><code>{launch?.runtime_attempt ?? '尚未生成'}</code><span>execution epoch</span><code>{launch?.execution_epoch ?? '尚未生成'}</code></div>
@@ -463,14 +486,13 @@ function TaskWorkspace({ taskId, session, onSessionExpired, onTaskUpdated }: Tas
         <Typography.Text type="secondary">只读配置事实；target 的 unknown 仍表示未实测网络，不会被解释为网络通过。</Typography.Text>
         <CheckList checks={readiness?.checks ?? []} />
       </section>
-      <section className={styles.topology} aria-label="Task 图与记录">
-        <div className={styles.readinessHeader}><h2>任务图与记录</h2><Typography.Text type="secondary">图与详情使用同一快照；历史模式不发送执行动作。</Typography.Text></div>
-        <SnapshotSelector taskId={task.task_id} value={viewChoice} onChange={(next) => { setSelection(null); setSnapshot(null); setViewChoice(next); }} />
-        <TopologyContainer key={`${task.task_id}:${viewChoice.mode}:${viewChoice.snapshotId ?? 'live'}`} taskId={task.task_id} mode={viewChoice.mode} snapshotId={viewChoice.snapshotId} selection={selection} onSelect={setSelection} onSnapshotChange={setSnapshot} />
-        <div className={styles.detail}><RecordPanel taskId={task.task_id} snapshotId={snapshot?.snapshot_id ?? null} ref={selectedRef} /></div>
-        <EvidencePreview taskId={task.task_id} snapshotId={snapshot?.snapshot_id ?? null} ref={selectedRef} />
-        {viewChoice.mode === 'live' && <CompletionPanel taskId={task.task_id} onChanged={refreshCurrent} />}
-      </section>
+      <details className={styles.technical}>
+        <summary>执行与证据（技术视图）</summary>
+        <Typography.Text type="secondary">按需展开 Run、证据和实际调用；不会从布局写入领域关系。</Typography.Text>
+        {problemSnapshotId ? <TopologyContainer key={`${task.task_id}:${problemSnapshotId}`} taskId={task.task_id} mode="history" snapshotId={problemSnapshotId} selection={selection} onSelect={setSelection} onSnapshotChange={setSnapshot} /> : <Spin description="等待问题快照" />}
+        <EvidencePreview taskId={task.task_id} snapshotId={problemSnapshotId} ref={selectedRef} />
+      </details>
+      {viewChoice.mode === 'live' && <section className={styles.topology} aria-label="结论与完成"><div className={styles.readinessHeader}><h2>结论与完成</h2><Typography.Text type="secondary">工作结果、Goal 判断和实际停止分别核对。</Typography.Text></div><CompletionPanel taskId={task.task_id} onChanged={refreshCurrent} /></section>}
     </div>
   );
 }

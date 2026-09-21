@@ -71,6 +71,7 @@ _GET_ROUTES = (
     ),
     ("task_launch", re.compile(rf"^/api/v2/tasks/(?P<task_id>{_TASK_ID})/launch$")),
     ("topology", re.compile(rf"^/api/v2/tasks/(?P<task_id>{_TASK_ID})/topology$")),
+    ("exploration", re.compile(rf"^/api/v2/tasks/(?P<task_id>{_TASK_ID})/exploration$")),
     ("snapshots", re.compile(rf"^/api/v2/tasks/(?P<task_id>{_TASK_ID})/snapshots$")),
     (
         "completion_get",
@@ -817,6 +818,7 @@ def _query_for_route(request: Request, name: str):
         "task_readiness": set(),
         "task_launch": set(),
         "topology": {"mode", "snapshot_id", "cursor", "node_limit", "edge_limit"},
+        "exploration": {"mode", "snapshot_id", "cursor", "node_limit"},
         "snapshots": {"cursor"},
         "completion_get": set(),
         "report_get": set(),

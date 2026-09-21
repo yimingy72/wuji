@@ -211,15 +211,26 @@ def test_browser_proxy_mints_short_lived_internal_identity(tmp_path):
             wrong_task = await client.get(
                 "/api/v2/tasks/other-task/topology?mode=live"
             )
-            return response, wrong_task
+            exploration = await client.get(
+                "/api/v2/tasks/task-fixture/exploration?mode=live&node_limit=20"
+            )
+            rejected = await client.get(
+                "/api/v2/tasks/task-fixture/exploration?mode=live&edge_limit=20"
+            )
+            return response, wrong_task, exploration, rejected
 
-    response, wrong_task = asyncio.run(run())
+    response, wrong_task, exploration, rejected = asyncio.run(run())
     assert response.status_code == 200
     assert response.content == body
     assert wrong_task.status_code == 200
-    assert len(fake.requests) == 2
+    assert exploration.status_code == 200
+    assert rejected.status_code == 422
+    assert len(fake.requests) == 3
     url, headers = fake.requests[0]
     assert url.endswith("/api/v2/tasks/task-fixture/topology?mode=live")
+    assert fake.requests[2][0].endswith(
+        "/api/v2/tasks/task-fixture/exploration?mode=live&node_limit=20"
+    )
     scheme, bearer = headers["Authorization"].split(" ", 1)
     assert scheme == "Bearer"
     claims = jwt.decode(bearer, RSAKey.import_key(public), algorithms=["RS256"]).claims

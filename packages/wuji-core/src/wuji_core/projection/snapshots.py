@@ -7,12 +7,14 @@ from uuid import uuid4
 
 from wuji_core.blackboard.fact_view import FactLedger
 from wuji_core.contracts.knowledge import KnowledgeRef
+from wuji_core.contracts.generated import ExplorationViewV1
 from wuji_core.contracts.views import RecordView, SnapshotIndex, TopologySnapshot, ViewQuery
 from wuji_core.http.json_boundary import strict_json_loads
 from wuji_core.persistence.snapshots import SnapshotQuery, SnapshotRepository
 from wuji_core.persistence.uow import DomainError, json_text, row
 from wuji_core.projection.access import AccessRequirements, access_digest, require_binding
 from wuji_core.projection.builder import build_projection, node_id
+from wuji_core.projection.exploration import ExplorationReadModel, PROJECTION_VERSION as EXPLORATION_VERSION
 from wuji_core.projection.records import ProjectionRecords, public_value
 
 
@@ -91,6 +93,7 @@ class ProjectionRepository:
         if self.snapshots.uow is not uow or self.ledger.uow is not uow:
             raise ValueError("projection services must share the same UnitOfWork")
         self.records = ProjectionRecords(self.ledger, max_records=max_records)
+        self.exploration = ExplorationReadModel()
 
     def topology(self, task_id, access, *, query=None):
         query = _query(query)
@@ -134,12 +137,23 @@ class ProjectionRepository:
                     (*tx.owner, manifest.snapshot_id, ref["id"], ref["revision"], frozen.access_level),
                 )
         graph = build_projection(frozen.records, frozen.relations)
+        problems, insights, problem_relations = self.exploration.materialize(tx, frozen)
         # Edges are scheduled only after both endpoints have been delivered.
         indexes = {node.id: index for index, node in enumerate(graph.nodes)}
         edges = sorted(graph.edges, key=lambda e: (max(indexes[e.source], indexes[e.target]), e.id))
         document = {
             "records": {node_id(record.ref): public_value(record) for record in frozen.records},
             "nodes": public_value(graph.nodes), "edges": public_value(edges),
+            "exploration": {
+                "problems": public_value(problems),
+                "insights": public_value(insights),
+                "relations": public_value(problem_relations),
+                "missing_fields": sorted({
+                    *("public_rationale" for problem in problems if problem.public_rationale is None),
+                    *("work_result" for problem in problems if problem.work_result is None),
+                    *("todo_summary" for problem in problems if not problem.todo_summary),
+                }),
+            },
             "guards": frozen.guards,
         }
         now = _now()
@@ -184,6 +198,40 @@ class ProjectionRepository:
                                     event_origin=tx.task["event_seq"])
         view = self._new_view(tx, saved, query, view_id=view_id)
         return self._page(tx, saved, view, {"node": 0, "edge": 0})
+
+    def exploration_view(self, task_id, access, *, query=None):
+        """Return problem semantics from the same fixed records as topology."""
+
+        query = _query(query)
+        if (query.mode.value == "history") != (query.snapshot_id is not None):
+            raise DomainError("INVALID_SCHEMA", 422)
+        with self.uow.transaction(access, task_id, capability="snapshot", repeatable_read=True) as tx:
+            if query.cursor is not None:
+                cursor = self._cursor(tx, query.cursor.root, "page")
+                position = strict_json_loads(cursor["position_json"])
+                if position.get("projection") != EXPLORATION_VERSION:
+                    raise DomainError("NOT_FOUND_OR_FORBIDDEN")
+                if cursor["query_digest"] != _digest(_query_body(query)):
+                    raise DomainError("NOT_FOUND_OR_FORBIDDEN")
+                view = self._view(tx, cursor["view_id"])
+                saved = self._materialization(tx, view["snapshot_id"])
+                return self._exploration_page(tx, saved, view, position)
+            if query.snapshot_id is not None:
+                saved = self._materialization(tx, query.snapshot_id.root, history=True)
+                view = self._new_view(tx, saved, query)
+                return self._exploration_page(tx, saved, view, {
+                    "projection": EXPLORATION_VERSION, "problem": 0, "insight": 0, "relation": 0,
+                })
+            saved = self._compose(tx, query)
+            view_id = str(uuid4())
+            saved["initial_view_id"] = view_id
+            self._write_materialization(
+                tx, saved, initial_view_id=view_id, event_origin=tx.task["event_seq"]
+            )
+            view = self._new_view(tx, saved, query, view_id=view_id)
+            return self._exploration_page(tx, saved, view, {
+                "projection": EXPLORATION_VERSION, "problem": 0, "insight": 0, "relation": 0,
+            })
 
     def _materialization(self, tx, snapshot_id, *, history=False):
         saved = row(tx.connection.execute(
@@ -286,6 +334,78 @@ class ProjectionRepository:
             edges=edges[start_edge:end_edge], opaque_cursor=handle, truncated=more,
             continuation=handle if more else None, allowed_actions=[],
         ))
+
+    def _exploration_page(self, tx, saved, view, position):
+        document = strict_json_loads(saved["materialization_json"])
+        content = document.get("exploration")
+        if not isinstance(content, dict):
+            raise DomainError("HISTORY_UNAVAILABLE", 410)
+        query = _query(strict_json_loads(view["query_json"]))
+        starts = tuple(position.get(key) for key in ("problem", "insight", "relation"))
+        if any(type(value) is not int or value < 0 for value in starts):
+            raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+        start_problem, start_insight, start_relation = starts
+        problems, insights, relations = (
+            content["problems"], content["insights"], content["relations"]
+        )
+        if start_problem > len(problems) or start_insight > len(insights) or start_relation > len(relations):
+            raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+        end_problem = min(len(problems), start_problem + query.node_limit)
+        end_insight = min(len(insights), start_insight + query.node_limit)
+        delivered = {
+            "intent:" + problem["intent_ref"]["id"] + "@" + problem["intent_ref"]["revision"]
+            for problem in problems[:end_problem]
+        } | {
+            "claim:" + insight["claim_ref"]["id"] + "@" + insight["claim_ref"]["revision"]
+            for insight in insights[:end_insight]
+        }
+        end_relation = start_relation
+        while end_relation < len(relations) and end_relation - start_relation < query.edge_limit:
+            relation = relations[end_relation]
+            if relation["source_ref"] not in delivered or relation["target_ref"] not in delivered:
+                break
+            end_relation += 1
+        more = (
+            end_problem < len(problems)
+            or end_insight < len(insights)
+            or end_relation < len(relations)
+        )
+        handle = self._save_cursor(
+            tx,
+            kind="page",
+            query_digest=view["query_digest"],
+            expires_at=view["expires_at"],
+            position={
+                "projection": EXPLORATION_VERSION,
+                "problem": end_problem,
+                "insight": end_insight,
+                "relation": end_relation,
+            },
+            view_id=view["view_id"],
+        )
+        states = [problem["execution_state"] for problem in problems if problem["execution_state"]]
+        gaps = sum(bool(problem["gaps"]) for problem in problems)
+        return ExplorationViewV1.model_validate({
+            "schema_version": "wuji.exploration-view.v1",
+            "task_id": tx.owner[2],
+            "snapshot_id": saved["snapshot_id"],
+            "view_revision": str(view["view_revision"]),
+            "projection_version": EXPLORATION_VERSION,
+            "mode": query.mode,
+            "problems": problems[start_problem:end_problem],
+            "insights": insights[start_insight:end_insight],
+            "relations": relations[start_relation:end_relation],
+            "execution_summary": {
+                "settled_work": sum(state in {"done", "failed", "cancelled"} for state in states),
+                "active_work": sum(state in {"leased", "running", "stopping"} for state in states),
+                "waiting_work": sum(state in {"waiting_input", "blocked", "suspended"} for state in states),
+                "reconciling_work": sum(state == "reconciling" for state in states),
+                "needs_attention": gaps,
+            },
+            "opaque_cursor": handle,
+            "continuation": handle if more else None,
+            "missing_fields": content["missing_fields"],
+        })
 
     def stream_task(self, access, view_id):
         """Resolve the Task of one saved view for the current tenant and subject.

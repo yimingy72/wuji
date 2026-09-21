@@ -13,6 +13,7 @@ export type CommandReceipt = components['schemas']['CommandReceipt'];
 export type ModelMaterialV2 = components['schemas']['ModelMaterialV2'];
 export type ReadinessCheck = components['schemas']['ReadinessCheck'];
 export type TaskProfileOption = components['schemas']['TaskProfileOption'];
+export type ExplorationViewV1 = components['schemas']['ExplorationViewV1'];
 
 export interface WorkbenchSession {
   readonly authenticated: true;
@@ -156,6 +157,47 @@ function isBlobRef(value: unknown): value is components['schemas']['BlobRef'] {
   return isRecord(value) && isString(value.id) && isString(value.version) && isString(value.sha256);
 }
 
+function isKnowledgeRef(value: unknown): value is components['schemas']['KnowledgeRef'] {
+  return isRecord(value) && isString(value.entity_type) && isString(value.id) && isString(value.revision);
+}
+
+function isExplorationView(value: unknown): value is ExplorationViewV1 {
+  return isRecord(value)
+    && value.schema_version === 'wuji.exploration-view.v1'
+    && isString(value.task_id)
+    && isString(value.snapshot_id)
+    && isString(value.view_revision)
+    && isString(value.projection_version)
+    && (value.mode === 'live' || value.mode === 'history')
+    && Array.isArray(value.problems)
+    && value.problems.every((problem) => isRecord(problem)
+      && isKnowledgeRef(problem.intent_ref)
+      && isString(problem.question)
+      && (problem.public_rationale === null || typeof problem.public_rationale === 'string')
+      && Array.isArray(problem.basis_refs)
+      && problem.basis_refs.every(isKnowledgeRef)
+      && Array.isArray(problem.attempts)
+      && Array.isArray(problem.gaps))
+    && Array.isArray(value.insights)
+    && value.insights.every((insight) => isRecord(insight)
+      && isKnowledgeRef(insight.claim_ref)
+      && isString(insight.text)
+      && Array.isArray(insight.source_refs)
+      && insight.source_refs.every(isKnowledgeRef))
+    && Array.isArray(value.relations)
+    && value.relations.every((relation) => isRecord(relation)
+      && isString(relation.relation_id)
+      && isString(relation.source_ref)
+      && isString(relation.target_ref)
+      && Array.isArray(relation.witness_refs)
+      && relation.witness_refs.every(isString))
+    && isRecord(value.execution_summary)
+    && isString(value.opaque_cursor)
+    && isNullableString(value.continuation)
+    && Array.isArray(value.missing_fields)
+    && value.missing_fields.every(isString);
+}
+
 function isModelMaterial(value: unknown): value is ModelMaterialV2 {
   if (!isRecord(value) || value.schema_version !== 'wuji.model-material.v2' || !isString(value.tool_call_id)) return false;
   if (value.status !== 'delivered' && value.status !== 'omitted') return false;
@@ -286,6 +328,12 @@ export function readReadiness(taskId: string, signal: AbortSignal): Promise<Read
 
 export function readLaunch(taskId: string, signal: AbortSignal): Promise<LaunchView> {
   return requestJson(`/api/v2/tasks/${encoded(taskId)}/launch`, isLaunchView, signal);
+}
+
+export function readExploration(taskId: string, mode: 'live' | 'history', snapshotId: string | null, signal: AbortSignal): Promise<ExplorationViewV1> {
+  const query = new URLSearchParams({ mode, node_limit: '300' });
+  if (snapshotId) query.set('snapshot_id', snapshotId);
+  return requestJson(`/api/v2/tasks/${encoded(taskId)}/exploration?${query.toString()}`, isExplorationView, signal);
 }
 
 export function createTask(body: TaskCreate, idempotencyKey: string, csrfToken: string | null | undefined, signal: AbortSignal): Promise<TaskView> {
