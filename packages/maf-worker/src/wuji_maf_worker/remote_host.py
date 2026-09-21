@@ -91,6 +91,8 @@ def document(value):
 
 
 def context_document(context):
+    if context.wire is not None:
+        return context.wire
     return {"snapshot_id": context.snapshot_id, "read_set": document(context.read_set),
             "record_refs": document(context.record_refs), "text": context.text,
             "input_digest": context.input_digest}
@@ -271,7 +273,7 @@ class RemoteWorkerHost:
     def load_context(self, assignment):
         value = self._resolved(assignment).context
         return ContextBundle(value.snapshot_id, tuple(value.read_set), tuple(value.record_refs),
-                             value.text, scalar(value.input_digest))
+                             value.text, scalar(value.input_digest), document(value))
 
     def resolve(self, assignment, context, *, verified_principal):
         if verified_principal != self.verifier.verify(self._credential):
@@ -283,6 +285,46 @@ class RemoteWorkerHost:
         if hasattr(resolved, "model_dump"):
             resolved = resolved.model_dump(mode="python", exclude_unset=True)
         return self.session_codec.decode_resolved(document(resolved))
+
+    def knowledge_list(self, assignment, *, snapshot_id, material_types, cursor, limit, native_occurrence):
+        assignment = self._bind(assignment)
+        request = wire.WorkerKnowledgeListRequest.model_validate({
+            "assignment": document(assignment), "snapshot_id": snapshot_id,
+            "material_types": list(material_types), "cursor": cursor,
+            "limit": limit, "native_occurrence": native_occurrence,
+        })
+        return wire.KnowledgeListPageV1.model_validate(
+            self._request("knowledge-list", request)
+        )
+
+    def knowledge_read(self, assignment, *, snapshot_id, ref, selector, native_occurrence):
+        assignment = self._bind(assignment)
+        request = wire.WorkerKnowledgeReadRequest.model_validate({
+            "assignment": document(assignment), "snapshot_id": snapshot_id,
+            "ref": document(ref), "selector": document(selector),
+            "native_occurrence": native_occurrence,
+        })
+        return wire.KnowledgeDeliveryV1.model_validate(
+            self._request("knowledge-read", request)
+        )
+
+    def knowledge_refresh(self, assignment, *, snapshot_id, native_occurrence):
+        assignment = self._bind(assignment)
+        request = wire.WorkerKnowledgeRefreshRequest.model_validate({
+            "assignment": document(assignment), "snapshot_id": snapshot_id,
+            "neighborhood": "current_problem", "native_occurrence": native_occurrence,
+        })
+        return wire.KnowledgeRefreshResultV1.model_validate(
+            self._request("knowledge-refresh", request)
+        )
+
+    def knowledge_attach(self, assignment, *, deliveries, manifest_ref):
+        assignment = self._bind(assignment)
+        request = wire.WorkerKnowledgeAttachRequest.model_validate({
+            "assignment": document(assignment), "deliveries": document(deliveries),
+            "manifest_ref": manifest_ref,
+        })
+        return self._request("knowledge-attach", request)
 
     def _session_exchange(self, assignment, action, payload, decode):
         if payload.assignment != assignment:

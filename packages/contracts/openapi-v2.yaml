@@ -916,6 +916,61 @@ paths:
         '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/InvalidSchema'}
         '503': {$ref: '#/components/responses/Unavailable'}
+  /internal/v2/worker-host/knowledge-list:
+    post:
+      operationId: listWorkerKnowledgeV2
+      summary: List authorized records in one fixed Worker snapshot
+      tags: [Internal]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/WorkerKnowledgeListRequest'}}}}
+      responses:
+        '200': {description: Authorized fixed knowledge index page, content: {application/json: {schema: {$ref: '#/components/schemas/KnowledgeListPageV1'}}}}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+        '429': {$ref: '#/components/responses/LimitBlocked'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /internal/v2/worker-host/knowledge-read:
+    post:
+      operationId: readWorkerKnowledgeV2
+      summary: Prepare one bounded authorized knowledge delivery
+      tags: [Internal]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/WorkerKnowledgeReadRequest'}}}}
+      responses:
+        '200': {description: Prepared exact delivery, content: {application/json: {schema: {$ref: '#/components/schemas/KnowledgeDeliveryV1'}}}}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+        '429': {$ref: '#/components/responses/LimitBlocked'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /internal/v2/worker-host/knowledge-refresh:
+    post:
+      operationId: refreshWorkerKnowledgeV2
+      summary: Refresh the authorized current-problem record neighborhood
+      tags: [Internal]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/WorkerKnowledgeRefreshRequest'}}}}
+      responses:
+        '200': {description: New fixed snapshot and explicit delta, content: {application/json: {schema: {$ref: '#/components/schemas/KnowledgeRefreshResultV1'}}}}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+        '429': {$ref: '#/components/responses/LimitBlocked'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /internal/v2/worker-host/knowledge-attach:
+    post:
+      operationId: attachWorkerKnowledgeV2
+      summary: Confirm prepared deliveries in one complete Session checkpoint
+      tags: [Internal]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/WorkerKnowledgeAttachRequest'}}}}
+      responses:
+        '200': {description: Attached delivery identities and checkpoint, content: {application/json: {schema: {type: object, additionalProperties: true}}}}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+        '503': {$ref: '#/components/responses/Unavailable'}
   /internal/v2/worker-host/archive-sdk:
     post:
       operationId: archiveWorkerSdkV2
@@ -2040,6 +2095,95 @@ components:
       required: [assignment]
       properties:
         assignment: {$ref: '#/components/schemas/WorkerAssignment'}
+    KnowledgeListPageV1:
+      type: object
+      additionalProperties: false
+      required: [schema_version, snapshot_id, items, cursor]
+      properties:
+        schema_version: {type: string, const: wuji.knowledge-index.v1}
+        snapshot_id: {type: string, minLength: 1, maxLength: 256}
+        items:
+          type: array
+          maxItems: 20
+          items: {$ref: '#/components/schemas/KnowledgeIndexItemV1'}
+        cursor:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 4096}
+            - {type: 'null'}
+    KnowledgeRefreshResultV1:
+      type: object
+      additionalProperties: false
+      required: [schema_version, delivery_id, previous_snapshot_id, snapshot_id, added_refs, removed_refs]
+      properties:
+        schema_version: {type: string, const: wuji.knowledge-refresh.v1}
+        delivery_id: {type: string, minLength: 1, maxLength: 256}
+        previous_snapshot_id: {type: string, minLength: 1, maxLength: 256}
+        snapshot_id: {type: string, minLength: 1, maxLength: 256}
+        added_refs:
+          type: array
+          maxItems: 5000
+          items: {$ref: '#/components/schemas/KnowledgeRef'}
+        removed_refs:
+          type: array
+          maxItems: 5000
+          items: {$ref: '#/components/schemas/KnowledgeRef'}
+    WorkerKnowledgeListRequest:
+      type: object
+      additionalProperties: false
+      required: [assignment, snapshot_id, material_types, cursor, limit, native_occurrence]
+      properties:
+        assignment: {$ref: '#/components/schemas/WorkerAssignment'}
+        snapshot_id: {type: string, minLength: 1, maxLength: 256}
+        material_types:
+          type: array
+          maxItems: 4
+          uniqueItems: true
+          items: {type: string, enum: [artifact, observation, claim, intent]}
+        cursor:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 4096}
+            - {type: 'null'}
+        limit: {type: integer, minimum: 1, maximum: 20}
+        native_occurrence: {type: string, minLength: 1, maxLength: 1024}
+    WorkerKnowledgeReadRequest:
+      type: object
+      additionalProperties: false
+      required: [assignment, snapshot_id, ref, selector, native_occurrence]
+      properties:
+        assignment: {$ref: '#/components/schemas/WorkerAssignment'}
+        snapshot_id: {type: string, minLength: 1, maxLength: 256}
+        ref: {$ref: '#/components/schemas/KnowledgeRef'}
+        selector: {$ref: '#/components/schemas/KnowledgeSelectorV1'}
+        native_occurrence: {type: string, minLength: 1, maxLength: 1024}
+    WorkerKnowledgeRefreshRequest:
+      type: object
+      additionalProperties: false
+      required: [assignment, snapshot_id, neighborhood, native_occurrence]
+      properties:
+        assignment: {$ref: '#/components/schemas/WorkerAssignment'}
+        snapshot_id: {type: string, minLength: 1, maxLength: 256}
+        neighborhood: {type: string, const: current_problem}
+        native_occurrence: {type: string, minLength: 1, maxLength: 1024}
+    KnowledgeDeliveryAttachmentV1:
+      type: object
+      additionalProperties: false
+      required: [delivery_id, representation_digest]
+      properties:
+        delivery_id: {type: string, minLength: 1, maxLength: 256}
+        representation_digest: {$ref: '#/components/schemas/Sha256Digest'}
+    WorkerKnowledgeAttachRequest:
+      type: object
+      additionalProperties: false
+      required: [assignment, deliveries, manifest_ref]
+      properties:
+        assignment: {$ref: '#/components/schemas/WorkerAssignment'}
+        deliveries:
+          type: array
+          minItems: 1
+          maxItems: 256
+          uniqueItems: true
+          items: {$ref: '#/components/schemas/KnowledgeDeliveryAttachmentV1'}
+        manifest_ref: {type: string, minLength: 1, maxLength: 256}
     WorkerReceiver:
       type: object
       additionalProperties: false
@@ -2619,7 +2763,10 @@ components:
       additionalProperties: false
       required: [context, resolved, assignment_digest]
       properties:
-        context: {$ref: '#/components/schemas/WorkerContext'}
+        context:
+          oneOf:
+            - {$ref: '#/components/schemas/WorkerContext'}
+            - {$ref: '#/components/schemas/WorkerContextV3'}
         resolved:
           oneOf:
             - {$ref: '#/components/schemas/WorkerResolvedHost'}
@@ -2639,7 +2786,10 @@ components:
       required: [assignment, context, raw_output_base64, sdk_output_base64, raw_digest, sdk_digest, tool_receipts]
       properties:
         assignment: {$ref: '#/components/schemas/WorkerAssignment'}
-        context: {$ref: '#/components/schemas/WorkerContext'}
+        context:
+          oneOf:
+            - {$ref: '#/components/schemas/WorkerContext'}
+            - {$ref: '#/components/schemas/WorkerContextV3'}
         raw_output_base64: {type: string, minLength: 1, maxLength: 22369624}
         sdk_output_base64: {type: string, minLength: 1, maxLength: 22369624}
         raw_digest: {$ref: '#/components/schemas/Sha256Digest'}

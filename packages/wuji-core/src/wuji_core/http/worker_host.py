@@ -7,6 +7,8 @@ from starlette.concurrency import run_in_threadpool
 
 from wuji_core.contracts.generated import (
     ReceiverBridgeRequest, WorkerArchiveRequest, WorkerBridgeRequest, WorkerSubmitRequest,
+    WorkerKnowledgeAttachRequest, WorkerKnowledgeListRequest,
+    WorkerKnowledgeReadRequest, WorkerKnowledgeRefreshRequest,
 )
 from wuji_core.execution.worker_bridge import document
 from wuji_core.http import DecimalJSONResponse, VNextAPIRouter
@@ -68,5 +70,21 @@ def create_worker_host_router(bridge):
     @router.post("/internal/v2/worker-host/receiver-archive")
     async def receiver_archive(request: Request, payload: WorkerArchiveRequest):
         return await invoke(request, bridge.receiver_archive, payload)
+
+    @router.post("/internal/v2/worker-host/knowledge-list")
+    async def knowledge_list(request: Request, payload: WorkerKnowledgeListRequest):
+        return await invoke(request, bridge.knowledge_list, payload)
+
+    @router.post("/internal/v2/worker-host/knowledge-read")
+    async def knowledge_read(request: Request, payload: WorkerKnowledgeReadRequest):
+        return await invoke(request, bridge.knowledge_read, payload)
+
+    @router.post("/internal/v2/worker-host/knowledge-refresh")
+    async def knowledge_refresh(request: Request, payload: WorkerKnowledgeRefreshRequest):
+        return await invoke(request, bridge.knowledge_refresh, payload)
+
+    @router.post("/internal/v2/worker-host/knowledge-attach")
+    async def knowledge_attach(request: Request, payload: WorkerKnowledgeAttachRequest):
+        return await invoke(request, bridge.knowledge_attach, payload)
 
     return router

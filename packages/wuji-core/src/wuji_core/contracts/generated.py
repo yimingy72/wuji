@@ -1556,6 +1556,14 @@ class Kind1(StrEnum):
     depends_on = 'depends_on'
 
 
+class KnowledgeDeliveryAttachmentV1(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    delivery_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    representation_digest: Sha256Digest
+
+
 class KnowledgeDeliveryKind(StrEnum):
     initial_context = 'initial_context'
     knowledge_tool = 'knowledge_tool'
@@ -1621,6 +1629,16 @@ class KnowledgeIndexItemV1(_JsonSchemaRuntimeValidationBase):
     ]
 
 
+class KnowledgeListPageV1(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    schema_version: Literal['wuji.knowledge-index.v1']
+    snapshot_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    items: Annotated[list[KnowledgeIndexItemV1], Field(max_length=20)]
+    cursor: Cursor | None
+
+
 class KnowledgeRef(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -1628,6 +1646,18 @@ class KnowledgeRef(BaseModel):
     entity_type: NodeEntityType
     id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
     revision: RevisionString
+
+
+class KnowledgeRefreshResultV1(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    schema_version: Literal['wuji.knowledge-refresh.v1']
+    delivery_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    previous_snapshot_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    snapshot_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    added_refs: Annotated[list[KnowledgeRef], Field(max_length=5000)]
+    removed_refs: Annotated[list[KnowledgeRef], Field(max_length=5000)]
 
 
 class Label(RootModel[StrictStr]):
@@ -1759,6 +1789,13 @@ class MaterialOmissionReason(StrEnum):
     capture_truncated = 'capture_truncated'
     representation_limit = 'representation_limit'
     delivery_error = 'delivery_error'
+
+
+class MaterialType(StrEnum):
+    artifact = 'artifact'
+    observation = 'observation'
+    claim = 'claim'
+    intent = 'intent'
 
 
 class MediaType(RootModel[StrictStr]):
@@ -3406,6 +3443,58 @@ class WorkerHarnessProfileBody(BaseModel):
     capabilities: WorkerHarnessCapabilities
 
 
+class WorkerKnowledgeAttachRequest(_JsonSchemaRuntimeValidationBase):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    __json_schema_unique_items__: ClassVar[tuple[tuple[object, ...], ...]] = (
+        (('deliveries',),),
+    )
+
+    assignment: WorkerAssignment
+    deliveries: Annotated[
+        list[KnowledgeDeliveryAttachmentV1], Field(max_length=256, min_length=1)
+    ]
+    manifest_ref: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+
+
+class WorkerKnowledgeListRequest(_JsonSchemaRuntimeValidationBase):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    __json_schema_unique_items__: ClassVar[tuple[tuple[object, ...], ...]] = (
+        (('material_types',),),
+    )
+
+    assignment: WorkerAssignment
+    snapshot_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    material_types: Annotated[list[MaterialType], Field(max_length=4)]
+    cursor: Cursor | None
+    limit: Annotated[StrictInt, Field(ge=1, le=20)]
+    native_occurrence: Annotated[StrictStr, Field(max_length=1024, min_length=1)]
+
+
+class WorkerKnowledgeReadRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    assignment: WorkerAssignment
+    snapshot_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    ref: KnowledgeRef
+    selector: KnowledgeSelectorV1
+    native_occurrence: Annotated[StrictStr, Field(max_length=1024, min_length=1)]
+
+
+class WorkerKnowledgeRefreshRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    assignment: WorkerAssignment
+    snapshot_id: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    neighborhood: Literal['current_problem']
+    native_occurrence: Annotated[StrictStr, Field(max_length=1024, min_length=1)]
+
+
 class WorkerLoadDeliveryRequest(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -3453,7 +3542,7 @@ class WorkerResolvedContext(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
     )
-    context: WorkerContext
+    context: WorkerContext | WorkerContextV3
     resolved: WorkerResolvedHost | WorkerSessionResolvedHost
     assignment_digest: Sha256Digest
 
@@ -3638,7 +3727,7 @@ class WorkerSubmitRequest(BaseModel):
         extra='forbid',
     )
     assignment: WorkerAssignment
-    context: WorkerContext
+    context: WorkerContext | WorkerContextV3
     raw_output_base64: Annotated[StrictStr, Field(max_length=22369624, min_length=1)]
     sdk_output_base64: Annotated[StrictStr, Field(max_length=22369624, min_length=1)]
     raw_digest: Sha256Digest

@@ -1219,46 +1219,60 @@ class HttpTargetExecutor(WorkspaceReadExecutor):
 
     def _operate(self, permit):
         import httpx
-        from wuji_core.http import canonical_json_bytes
 
         url = permit.arguments["url"]
         method = permit.arguments["method"]
-        target = target_scope.permit_target_matches(permit.resource_keys, url)
+        target_scope.permit_target_matches(permit.resource_keys, url)
         request_headers = {"accept": "*/*", "user-agent": "wuji-target-read/1"}
         budget = self._budget(permit)
-        body = b""
-        status = None
-        response_headers = {}
-        truncated = False
-        error = None
-        complete = True
-        try:
-            with httpx.Client(
+        cancel_path = self._path(permit).with_suffix(".cancel")
+
+        async def fetch():
+            body = b""
+            async with httpx.AsyncClient(
                 follow_redirects=False,
                 trust_env=False,
                 verify=True,
                 timeout=min(self.timeout_seconds, permit.runtime.total_timeout_seconds),
             ) as client:
-                with client.stream(method, url, headers=request_headers) as response:
-                    status = response.status_code
+                async with client.stream(method, url, headers=request_headers) as response:
                     response_headers = {
                         key.lower(): value
                         for key, value in response.headers.items()
                         if key.lower() in {"content-type", "content-length", "location", "server", "date"}
                     }
-                    for chunk in response.iter_bytes(permit.runtime.chunk_bytes):
-                        if datetime.now(timezone.utc) >= permit.expires_at:
-                            complete, error = False, "cancelled_or_expired"
-                            break
+                    async for chunk in response.aiter_bytes(permit.runtime.chunk_bytes):
+                        if cancel_path.exists() or datetime.now(timezone.utc) >= permit.expires_at:
+                            return body, response.status_code, response_headers, False, False, "cancelled_or_expired"
                         if len(body) + len(chunk) > budget:
                             body += chunk[: max(0, budget - len(body))]
-                            truncated = True
-                            complete = False
-                            error = "output_limit"
-                            break
+                            return body, response.status_code, response_headers, True, False, "output_limit"
                         body += chunk
-        except (httpx.HTTPError, OSError, ValueError):
-            complete, error = False, "http_target_failed"
+                    return body, response.status_code, response_headers, False, True, None
+
+        async def cancellable_fetch():
+            if cancel_path.exists() or datetime.now(timezone.utc) >= permit.expires_at:
+                return b"", None, {}, False, False, "cancelled_or_expired"
+            operation = asyncio.create_task(fetch())
+            while True:
+                done, _pending = await asyncio.wait({operation}, timeout=0.1)
+                if operation in done:
+                    return operation.result()
+                if cancel_path.exists() or datetime.now(timezone.utc) >= permit.expires_at:
+                    operation.cancel()
+                    try:
+                        await operation
+                    except asyncio.CancelledError:
+                        pass
+                    return b"", None, {}, False, False, "cancelled_or_expired"
+
+        try:
+            body, status, response_headers, truncated, complete, error = asyncio.run(
+                cancellable_fetch()
+            )
+        except (httpx.HTTPError, OSError, ValueError, TimeoutError):
+            body, status, response_headers = b"", None, {}
+            truncated, complete, error = False, False, "http_target_failed"
         if status is None and error is None:
             complete, error = False, "http_target_failed"
         document, envelope_truncated = self._exchange(

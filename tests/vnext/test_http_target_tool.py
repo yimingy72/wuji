@@ -16,7 +16,7 @@ from hashlib import sha256
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 from pathlib import Path
-from threading import Thread
+from threading import Event, Thread
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -67,6 +67,8 @@ class _Range(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
     requests: list[tuple[str, str]] = []
     large_bytes = 8192
+    slow_started = Event()
+    slow_release = Event()
 
     def log_message(self, *args):  # pragma: no cover - quiet test output
         return
@@ -90,6 +92,20 @@ class _Range(BaseHTTPRequestHandler):
             self._body(b"", status=302, headers={"Location": "/page"})
         elif self.path == "/large":
             self._body(b"x" * type(self).large_bytes)
+        elif self.path == "/slow":
+            payload = b"first-chunk" + b"second-chunk"
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(b"first-chunk")
+            self.wfile.flush()
+            type(self).slow_started.set()
+            type(self).slow_release.wait(timeout=5)
+            try:
+                self.wfile.write(b"second-chunk")
+            except (BrokenPipeError, ConnectionResetError):
+                pass
         else:
             self._body(PAGE)
 
@@ -109,6 +125,8 @@ class _Range(BaseHTTPRequestHandler):
 @contextmanager
 def target_range():
     _Range.requests = []
+    _Range.slow_started = Event()
+    _Range.slow_release = Event()
     server = ThreadingHTTPServer(("127.0.0.1", 0), _Range)
     thread = Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -118,6 +136,32 @@ def target_range():
         server.shutdown()
         server.server_close()
         thread.join(timeout=5)
+
+
+def test_http_adapter_checks_cancel_before_request_and_while_reading(
+    db_environment, tmp_path, audit_directory
+):
+    async def scenario(case, port):
+        before = authorize(case, "call-target-cancel-before", url=f"http://127.0.0.1:{port}/page")
+        receipt = await case.executor.cancel(before, reason="cancel before start")
+        assert receipt.status == "not_started"
+        await case.gate.execute_permit(case.access, before)
+        assert _Range.requests == []
+
+        active = authorize(case, "call-target-cancel-active", url=f"http://127.0.0.1:{port}/slow")
+        operation = asyncio.create_task(case.executor.dispatch(active))
+        assert await asyncio.to_thread(_Range.slow_started.wait, 2)
+        pending = await case.executor.cancel(active, reason="cancel active read")
+        assert pending.status == "unknown"
+        final = await asyncio.wait_for(operation, timeout=2)
+        _Range.slow_release.set()
+        assert final.status == "exited"
+        assert final.completeness == "partial"
+        assert final.error_code == "cancelled_or_expired"
+
+    with target_range() as port:
+        with http_case(db_environment, tmp_path, audit_directory, port=port) as case:
+            asyncio.run(scenario(case, port))
 
 
 def http_request(provider_call_id, *, url, method="GET"):

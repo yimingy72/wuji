@@ -435,24 +435,27 @@ class SnapshotRepository:
 
     def read_ref(self, task_id, access, snapshot_id, ref):
         with self.uow.transaction(access, task_id) as tx:
-            manifest = self._get(tx, snapshot_id)
-            if ref not in manifest.refs:
-                raise DomainError("INVALID_REFERENCE", 422)
-            tables = {
-                "claim": "claim_revision",
-                "intent": "intent_revision",
-                "observation": "observation",
-                "artifact": "artifact",
-            }
-            result = row(
-                tx.connection.execute(
-                    sql.SQL(
-                        "SELECT * FROM {} WHERE entity_id=%s AND revision=%s"
-                    ).format(sql.Identifier("vnext", tables[ref.entity_type.value])),
-                    (ref.id, ref.revision.root),
-                )
+            return self.read_ref_in_transaction(tx, snapshot_id, ref)
+
+    def read_ref_in_transaction(self, tx, snapshot_id, ref):
+        manifest = self._get(tx, snapshot_id)
+        if ref not in manifest.refs:
+            raise DomainError("INVALID_REFERENCE", 422)
+        tables = {
+            "claim": "claim_revision",
+            "intent": "intent_revision",
+            "observation": "observation",
+            "artifact": "artifact",
+        }
+        result = row(
+            tx.connection.execute(
+                sql.SQL("SELECT * FROM {} WHERE entity_id=%s AND revision=%s").format(
+                    sql.Identifier("vnext", tables[ref.entity_type.value])
+                ),
+                (ref.id, ref.revision.root),
             )
-            if result is None:
-                raise DomainError("NOT_FOUND_OR_FORBIDDEN")
-            # This is an internal immutable-domain row, not a public RecordView DTO.
-            return result
+        )
+        if result is None:
+            raise DomainError("NOT_FOUND_OR_FORBIDDEN")
+        # This is an internal immutable-domain row, not a public RecordView DTO.
+        return result

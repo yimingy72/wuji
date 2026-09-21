@@ -785,6 +785,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/internal/v2/worker-host/knowledge-list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** List authorized records in one fixed Worker snapshot */
+        post: operations["listWorkerKnowledgeV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/v2/worker-host/knowledge-read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Prepare one bounded authorized knowledge delivery */
+        post: operations["readWorkerKnowledgeV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/v2/worker-host/knowledge-refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Refresh the authorized current-problem record neighborhood */
+        post: operations["refreshWorkerKnowledgeV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/v2/worker-host/knowledge-attach": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm prepared deliveries in one complete Session checkpoint */
+        post: operations["attachWorkerKnowledgeV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/internal/v2/worker-host/archive-sdk": {
         parameters: {
             query?: never;
@@ -1402,6 +1470,53 @@ export interface components {
         WorkerBridgeRequest: {
             assignment: components["schemas"]["WorkerAssignment"];
         };
+        KnowledgeListPageV1: {
+            /** @constant */
+            schema_version: "wuji.knowledge-index.v1";
+            snapshot_id: string;
+            items: components["schemas"]["KnowledgeIndexItemV1"][];
+            cursor: string | null;
+        };
+        KnowledgeRefreshResultV1: {
+            /** @constant */
+            schema_version: "wuji.knowledge-refresh.v1";
+            delivery_id: string;
+            previous_snapshot_id: string;
+            snapshot_id: string;
+            added_refs: components["schemas"]["KnowledgeRef"][];
+            removed_refs: components["schemas"]["KnowledgeRef"][];
+        };
+        WorkerKnowledgeListRequest: {
+            assignment: components["schemas"]["WorkerAssignment"];
+            snapshot_id: string;
+            material_types: ("artifact" | "observation" | "claim" | "intent")[];
+            cursor: string | null;
+            limit: number;
+            native_occurrence: string;
+        };
+        WorkerKnowledgeReadRequest: {
+            assignment: components["schemas"]["WorkerAssignment"];
+            snapshot_id: string;
+            ref: components["schemas"]["KnowledgeRef"];
+            selector: components["schemas"]["KnowledgeSelectorV1"];
+            native_occurrence: string;
+        };
+        WorkerKnowledgeRefreshRequest: {
+            assignment: components["schemas"]["WorkerAssignment"];
+            snapshot_id: string;
+            /** @constant */
+            neighborhood: "current_problem";
+            native_occurrence: string;
+        };
+        KnowledgeDeliveryAttachmentV1: {
+            delivery_id: string;
+            representation_digest: components["schemas"]["Sha256Digest"];
+        };
+        WorkerKnowledgeAttachRequest: {
+            assignment: components["schemas"]["WorkerAssignment"];
+            deliveries: components["schemas"]["KnowledgeDeliveryAttachmentV1"][];
+            manifest_ref: string;
+        };
         WorkerReceiver: {
             receiver_id: string;
             runtime_attempt: components["schemas"]["RevisionString"];
@@ -1744,7 +1859,7 @@ export interface components {
             memory_files: components["schemas"]["WorkerSessionBinary"][];
         };
         WorkerResolvedContext: {
-            context: components["schemas"]["WorkerContext"];
+            context: components["schemas"]["WorkerContext"] | components["schemas"]["WorkerContextV3"];
             resolved: components["schemas"]["WorkerResolvedHost"] | components["schemas"]["WorkerSessionResolvedHost"];
             assignment_digest: components["schemas"]["Sha256Digest"];
         };
@@ -1755,7 +1870,7 @@ export interface components {
         };
         WorkerSubmitRequest: {
             assignment: components["schemas"]["WorkerAssignment"];
-            context: components["schemas"]["WorkerContext"];
+            context: components["schemas"]["WorkerContext"] | components["schemas"]["WorkerContextV3"];
             raw_output_base64: string;
             sdk_output_base64: string;
             raw_digest: components["schemas"]["Sha256Digest"];
@@ -4223,6 +4338,127 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkerSessionPayload"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidSchema"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    listWorkerKnowledgeV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkerKnowledgeListRequest"];
+            };
+        };
+        responses: {
+            /** @description Authorized fixed knowledge index page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeListPageV1"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidSchema"];
+            429: components["responses"]["LimitBlocked"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    readWorkerKnowledgeV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkerKnowledgeReadRequest"];
+            };
+        };
+        responses: {
+            /** @description Prepared exact delivery */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeDeliveryV1"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidSchema"];
+            429: components["responses"]["LimitBlocked"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    refreshWorkerKnowledgeV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkerKnowledgeRefreshRequest"];
+            };
+        };
+        responses: {
+            /** @description New fixed snapshot and explicit delta */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeRefreshResultV1"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidSchema"];
+            429: components["responses"]["LimitBlocked"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    attachWorkerKnowledgeV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkerKnowledgeAttachRequest"];
+            };
+        };
+        responses: {
+            /** @description Attached delivery identities and checkpoint */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
             401: components["responses"]["Unauthenticated"];

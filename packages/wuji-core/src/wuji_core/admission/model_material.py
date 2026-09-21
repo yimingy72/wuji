@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+from dataclasses import dataclass
 from hashlib import sha256
 import re
 from typing import Mapping
@@ -33,7 +34,7 @@ HTTP_EXCHANGE_MEDIA_TYPE = "application/vnd.wuji.http-exchange+json"
 REPRESENTATION_MEDIA_TYPE = "text/plain; charset=utf-8"
 
 DEFAULT_SOURCE_BYTES = 1 * 1024 * 1024
-DEFAULT_DECODED_BODY_BYTES = 256 * 1024
+DEFAULT_DECODED_BODY_BYTES = DEFAULT_SOURCE_BYTES
 DEFAULT_REPRESENTATION_BYTES = 32 * 1024
 
 _CONTENT_TYPE = "content-type"
@@ -264,6 +265,107 @@ def _document(raw: bytes) -> tuple[dict, ModelMaterialSource | None, str | None]
     }, None, None
 
 
+@dataclass(frozen=True)
+class SafeTextRepresentation:
+    source: ModelMaterialSource | None
+    text: str | None
+    redaction_applied: bool
+    omission_reason: MaterialOmissionReason | None
+
+
+def render_text_artifact_v1(raw: bytes, media_type: str) -> tuple[str, bool]:
+    """Decode and redact one already-authorized bounded text artifact."""
+
+    if not isinstance(raw, bytes) or not isinstance(media_type, str) or not _TEXT_MEDIA.match(media_type):
+        raise ValueError("unsupported text material")
+    try:
+        text = raw.decode(_charset(media_type))
+    except (UnicodeDecodeError, LookupError):
+        raise ValueError("invalid text encoding") from None
+    return _redact_body(text)
+
+
+def render_http_exchange_text_v1(
+    *,
+    artifact_ref: BlobRef | dict | None,
+    artifact_record: Mapping[str, object] | None,
+    raw: bytes | None,
+    max_source_bytes: int = DEFAULT_SOURCE_BYTES,
+    max_decoded_body_bytes: int = DEFAULT_DECODED_BODY_BYTES,
+) -> SafeTextRepresentation:
+    """Produce the fixed full safe representation before any range selection."""
+
+    if type(max_source_bytes) is not int or max_source_bytes < 1:
+        raise ValueError("max_source_bytes must be positive")
+    if type(max_decoded_body_bytes) is not int or max_decoded_body_bytes < 1:
+        raise ValueError("max_decoded_body_bytes must be positive")
+    try:
+        ref = BlobRef.model_validate(artifact_ref) if artifact_ref is not None else None
+    except ValueError:
+        return SafeTextRepresentation(None, None, False, _reason("source_digest_mismatch"))
+    source = _source(ref, artifact_record)
+
+    def omitted(reason):
+        return SafeTextRepresentation(source, None, False, _reason(reason))
+
+    if ref is None or artifact_record is None:
+        return omitted("source_unavailable")
+    if artifact_record.get("state") != "sealed":
+        return omitted("source_not_sealed")
+    if type(artifact_record.get("size_bytes")) is not int or artifact_record["size_bytes"] > max_source_bytes:
+        return omitted("representation_limit")
+    if raw is None:
+        return omitted("source_unavailable")
+    if not _source_digest_ok(ref, artifact_record, raw):
+        return omitted("source_digest_mismatch")
+    if len(raw) > max_source_bytes:
+        return omitted("representation_limit")
+    if artifact_record.get("media_type") != HTTP_EXCHANGE_MEDIA_TYPE:
+        return omitted("unsupported_media")
+    document, _unused, error = _document(raw)
+    if error:
+        return omitted(error)
+    response = document["response"]
+    if response["truncated"] and artifact_record.get("completeness") == "complete":
+        return omitted("capture_truncated")
+    body_base64 = response["body_base64"]
+    if len(body_base64) > ((max_decoded_body_bytes + 2) // 3) * 4 + 4:
+        return omitted("representation_limit")
+    try:
+        body = base64.b64decode(body_base64.encode("ascii"), validate=True)
+    except (UnicodeEncodeError, binascii.Error):
+        return omitted("invalid_encoding")
+    if len(body) != response["body_bytes"]:
+        return omitted("source_digest_mismatch")
+    if len(body) > max_decoded_body_bytes:
+        return omitted("representation_limit")
+    content_type = document["content_type"]
+    if body and (not content_type or not _TEXT_MEDIA.match(content_type)):
+        return omitted("unsupported_media")
+    try:
+        charset = _charset(content_type if body else "text/plain; charset=utf-8")
+    except LookupError:
+        return omitted("unsupported_charset")
+    try:
+        text = body.decode(charset)
+    except (UnicodeDecodeError, LookupError):
+        return omitted("invalid_encoding")
+    text, body_redacted = _redact_body(text)
+    lines = [
+        f"schema_version: {HTTP_EXCHANGE_SCHEMA}",
+        f"response.status: {document['status']}",
+        "response.headers:",
+    ]
+    lines.extend(f"{key}: {value}" for key, value in document["headers"].items())
+    lines.extend(("response.body:", text))
+    return SafeTextRepresentation(
+        source,
+        "\n".join(lines),
+        document["redaction_applied"] or body_redacted,
+        None,
+    )
+
+
 def render_http_exchange_v2(
     tool_call_id: str,
     *,
@@ -292,72 +394,24 @@ def render_http_exchange_v2(
     if type(max_representation_bytes) is not int or not 1 <= max_representation_bytes <= DEFAULT_REPRESENTATION_BYTES:
         raise ValueError("max_representation_bytes must be within the v2 bound")
 
-    try:
-        ref = BlobRef.model_validate(artifact_ref) if artifact_ref is not None else None
-    except ValueError:
-        return omitted_model_material(tool_call_id, "source_digest_mismatch")
-    source = _source(ref, artifact_record)
-    if ref is None or artifact_record is None:
-        return omitted_model_material(tool_call_id, "source_unavailable")
-    if artifact_record.get("state") != "sealed":
-        return omitted_model_material(tool_call_id, "source_not_sealed", source=source)
-    if (
-        type(artifact_record.get("size_bytes")) is not int
-        or artifact_record["size_bytes"] > max_source_bytes
-    ):
-        return omitted_model_material(tool_call_id, "representation_limit", source=source)
-    if raw is None:
-        return omitted_model_material(tool_call_id, "source_unavailable")
-    if not _source_digest_ok(ref, artifact_record, raw):
-        return omitted_model_material(tool_call_id, "source_digest_mismatch", source=source)
-    if len(raw) > max_source_bytes:
-        return omitted_model_material(tool_call_id, "representation_limit", source=source)
-    if artifact_record.get("media_type") != HTTP_EXCHANGE_MEDIA_TYPE:
-        return omitted_model_material(tool_call_id, "unsupported_media", source=source)
-
-    document, _unused, error = _document(raw)
-    if error:
-        return omitted_model_material(tool_call_id, error, source=source)
-    response = document["response"]
-    if response["truncated"] and artifact_record.get("completeness") == "complete":
-        return omitted_model_material(tool_call_id, "capture_truncated", source=source)
-    body_base64 = response["body_base64"]
-    if len(body_base64) > ((max_decoded_body_bytes + 2) // 3) * 4 + 4:
-        return omitted_model_material(tool_call_id, "representation_limit", source=source)
-    try:
-        body = base64.b64decode(body_base64.encode("ascii"), validate=True)
-    except (UnicodeEncodeError, binascii.Error):
-        return omitted_model_material(tool_call_id, "invalid_encoding", source=source)
-    if len(body) != response["body_bytes"]:
-        return omitted_model_material(tool_call_id, "source_digest_mismatch", source=source)
-    if len(body) > max_decoded_body_bytes:
-        return omitted_model_material(tool_call_id, "representation_limit", source=source)
-
-    content_type = document["content_type"]
-    if body and not content_type:
-        return omitted_model_material(tool_call_id, "unsupported_media", source=source)
-    if body and content_type and not _TEXT_MEDIA.match(content_type):
-        return omitted_model_material(tool_call_id, "unsupported_media", source=source)
-    try:
-        # An empty body is still a useful observed 204/3xx/4xx result even when
-        # its declared media type is binary; no bytes are decoded or faked.
-        charset = _charset(content_type if body else "text/plain; charset=utf-8")
-    except LookupError:
-        return omitted_model_material(tool_call_id, "unsupported_charset", source=source)
-    try:
-        text = body.decode(charset)
-    except (UnicodeDecodeError, LookupError):
-        return omitted_model_material(tool_call_id, "invalid_encoding", source=source)
-    text, body_redacted = _redact_body(text)
-
-    lines = [
-        f"schema_version: {HTTP_EXCHANGE_SCHEMA}",
-        f"response.status: {document['status']}",
-        "response.headers:",
-    ]
-    lines.extend(f"{key}: {value}" for key, value in document["headers"].items())
-    lines.extend(("response.body:", text))
-    rendered, truncated = _bounded_prefix("\n".join(lines), max_representation_bytes)
+    full = render_http_exchange_text_v1(
+        artifact_ref=artifact_ref,
+        artifact_record=artifact_record,
+        raw=raw,
+        max_source_bytes=max_source_bytes,
+        max_decoded_body_bytes=max_decoded_body_bytes,
+    )
+    if full.omission_reason is not None or full.text is None:
+        return omitted_model_material(
+            tool_call_id,
+            full.omission_reason or "delivery_error",
+            source=(
+                None
+                if raw is None and full.omission_reason == MaterialOmissionReason.source_unavailable
+                else full.source
+            ),
+        )
+    rendered, truncated = _bounded_prefix(full.text, max_representation_bytes)
     encoded = rendered.encode("utf-8")
     representation = ModelMaterialRepresentation.model_validate(
         {
@@ -368,7 +422,7 @@ def render_http_exchange_v2(
             "byte_length": len(encoded),
             "representation_sha256": sha256(encoded).hexdigest(),
             "truncated": truncated,
-            "redaction_applied": document["redaction_applied"] or body_redacted,
+            "redaction_applied": full.redaction_applied,
         }
     )
     return ModelMaterialV2.model_validate(
@@ -376,7 +430,7 @@ def render_http_exchange_v2(
             "schema_version": MODEL_MATERIAL_SCHEMA,
             "tool_call_id": tool_call_id,
             "status": "delivered",
-            "source": source,
+            "source": full.source,
             "representation": representation,
             "omission_reason": None,
         }

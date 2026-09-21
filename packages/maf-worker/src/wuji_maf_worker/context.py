@@ -124,6 +124,7 @@ class ContextBundle:
     record_refs: tuple[KnowledgeRef, ...]
     text: str
     input_digest: str
+    wire: dict | None = None
 
 
 def _key(ref: KnowledgeRef) -> tuple[str, str, str]:
