@@ -3303,12 +3303,16 @@ components:
         process_state: {$ref: '#/components/schemas/RunProcessState'}
         result_state: {$ref: '#/components/schemas/RunResultState'}
         raw_result_state:
-          type: string
-          enum: [saved, not_recorded]
+          oneOf:
+            - type: string
+              enum: [saved, not_recorded]
+            - type: 'null'
           description: Visible fixed raw-result publication for this Run; absent on historical records.
         checkpoint_state:
-          type: string
-          enum: [published, not_recorded]
+          oneOf:
+            - type: string
+              enum: [published, not_recorded]
+            - type: 'null'
           description: Publication only, never an execution or recovery permit.
         checkpoint_ref:
           type: [string, 'null']
