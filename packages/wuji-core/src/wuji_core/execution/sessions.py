@@ -2,6 +2,7 @@
 
 from datetime import datetime, timezone
 from hashlib import sha256
+import json
 from uuid import uuid4
 
 from wuji_core.admission.common import current_run, digest
@@ -1579,7 +1580,15 @@ class SessionRepository:
         ) as tx:
             run = self.receiver(tx, assignment)
             work = work_row(tx, manifest.work_item_id)
-            self._current_writer(tx, work, run)
+            try:
+                self._current_writer(tx, work, run)
+            except DomainError as error:
+                print(json.dumps({
+                    "event": "native_session_publish_refused",
+                    "step": "current_writer",
+                    "code": error.code,
+                }, sort_keys=True), flush=True)
+                raise
             if manifest.saved_at > datetime.now(timezone.utc) or manifest.saved_at < run["started_at"]:
                 raise DomainError("INVALID_REFERENCE", 422)
             old = row(tx.connection.execute(
@@ -1626,7 +1635,17 @@ class SessionRepository:
             dependencies = NativeDependencyManifestV2.model_validate(
                 strict_json_loads(self.artifacts.checked_bytes(provisional))
             )
-            capability = self._native_capability(tx, dependencies.compatibility)
+            try:
+                capability = self._native_capability(
+                    tx, dependencies.compatibility
+                )
+            except DomainError as error:
+                print(json.dumps({
+                    "event": "native_session_publish_refused",
+                    "step": "capability",
+                    "code": error.code,
+                }, sort_keys=True), flush=True)
+                raise
             records, bodies = self._graph(
                 tx,
                 roots,
