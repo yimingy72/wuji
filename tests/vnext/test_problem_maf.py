@@ -1,18 +1,23 @@
 import asyncio
+from datetime import datetime, timezone
 from hashlib import sha256
 from types import SimpleNamespace
 
 import httpx
+from agent_framework import AgentSession, Content, Message
 
 from support.m1 import _sse
 from wuji_core.admission.common import model_function_capabilities
+from wuji_core.contracts.admission import ToolCallReceipt
 from wuji_core.contracts import generated as wire
-from wuji_core.contracts.sessions import SessionCompatibility, SessionLimits
+from wuji_core.contracts.sessions import NativeCallBinding, SessionCompatibility, SessionLimits
 from wuji_core.http import canonical_json_bytes, strict_json_loads
 from wuji_core.worker_host import PlatformWorkerHost
 from wuji_maf_worker.capability_manifest import build_capability_manifest
 from wuji_maf_worker.factory import ProblemHarnessProfile, build_agent
 from wuji_maf_worker.history import BoundedWorkMemoryProvider, HistoryArchive, WorkMemoryStore
+from wuji_maf_worker.runtime import _settled_messages
+from wuji_maf_worker.sessions import NativeSessionAdapter
 from wuji_maf_worker.tools import FunctionBudget, GateFunctions, ModelCallIdentity
 
 
@@ -156,6 +161,85 @@ def _profile():
     snapshot = {"ref": body["ref"], "revision": "1", "body": body,
                 "digest": sha256(canonical_json_bytes(body)).hexdigest()}
     return ProblemHarnessProfile.from_snapshot(snapshot), snapshot
+
+
+def test_problem_checkpoint_persists_the_current_tool_result_group():
+    profile, snapshot = _profile()
+    compatibility = SessionCompatibility.model_validate({
+        "profile_snapshot": snapshot, "client_snapshot": {}, "runtime_snapshot": {},
+        "framework_snapshot": {"agent_framework_core": "1.18.0"},
+        "lock_digest": profile.lock_digest, "capability_ref": "problem-test",
+        "capability_digest": "a" * 64, "validation_status": "verified",
+    })
+    history = HistoryArchive(
+        compatibility=compatibility,
+        limits=SessionLimits.model_validate(profile.session_limits),
+    )
+    history.bind_context(
+        session_id="session-1", session_lineage="lineage-1",
+        assignment=SimpleNamespace(identity=SimpleNamespace(work_item_id="work-1")),
+        context=SimpleNamespace(snapshot_id="snapshot-1", read_set=()),
+    )
+    history.model_identity = SimpleNamespace(attempt_id="attempt-1")
+    session = AgentSession(session_id="session-1")
+    call = Message(role="assistant", contents=[Content.from_function_call(
+        "provider-call-1", "http_target_get", arguments={"url": "http://fixture.invalid"},
+        id="native-call-1",
+    )])
+    provider_context = Message(
+        role="user", contents=[Content.from_text("provider-only context")],
+        additional_properties={"_context_source": "problem_todo"},
+    )
+    result = Message(role="tool", contents=[Content.from_function_result(
+        "provider-call-1", result="fixed result",
+    )])
+
+    async def settle():
+        state = session.state.setdefault(history.source_id, {})
+        await history.save_messages(session.session_id, [call], state=state)
+        return await _settled_messages(
+            history, session, [call, provider_context, result]
+        )
+
+    stored = asyncio.run(settle())
+
+    assert [item.to_dict() for item in stored] == [call.to_dict(), result.to_dict()]
+    assert session.state[history.source_id]["messages"][-1].contents[0].type == "function_result"
+    binding = NativeCallBinding(
+        model_attempt_id="attempt-1", message_id="model-attempt:attempt-1:choice:0",
+        provider_call_id="provider-call-1", sdk_content_id="native-call-1",
+        tool_definition_ref="http-target-v1", native_arguments='{"url":"http://fixture.invalid"}',
+        arguments_digest=sha256(b'{"url":"http://fixture.invalid"}').hexdigest(),
+        tool_call_id="tool-call-1",
+    )
+    receipt = ToolCallReceipt.model_validate({
+        "tool_call_id": "tool-call-1", "operation_id": "operation-1",
+        "tool_attempt_id": "attempt-1", "status": "complete",
+        "evidence_receipt": {
+            "observation_ref": {"entity_type": "observation", "id": "observation-1", "revision": "1"},
+            "capture_id": "capture-1", "status": "accepted", "artifact_refs": [{
+                "id": "artifact-1", "version": "1", "sha256": "b" * 64,
+            }], "request_id": "request-1", "code": None,
+        },
+        "result_ref": {"id": "artifact-1", "version": "1", "sha256": "b" * 64},
+        "reason_code": None,
+    })
+    history.observe_messages(
+        stored, model_attempt_id="attempt-1",
+        call_bindings=(binding,), tool_receipts=(receipt,),
+    )
+    boundary = NativeSessionAdapter(
+        compatibility=compatibility, limits=profile.session_limits,
+    ).export_settled_boundary(
+        session=session, messages=stored, history=history,
+        call_bindings=(binding,), tool_receipts=(receipt,),
+        memory=WorkMemoryStore(
+            limits=profile.session_limits,
+            policy=profile.work_memory_policy.model_dump(mode="python"),
+        ),
+        observed_at=datetime.now(timezone.utc),
+    )
+    assert len(boundary.history.frontier.tool_entries[0].positions) == 2
 
 
 def test_problem_harness_uses_native_todo_memory_and_host_knowledge_in_one_session():

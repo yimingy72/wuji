@@ -96,6 +96,17 @@ class CheckpointBeforeModel(ChatMiddleware):
         await call_next()
 
 
+async def _settled_messages(history, session, messages):
+    """Persist the complete tool-result group before publishing its boundary."""
+    state = session.state.setdefault(history.source_id, {})
+    await history.save_messages(
+        session.session_id,
+        [message for message in messages if message.role == "tool"],
+        state=state,
+    )
+    return await history.get_messages(session.session_id, state=state)
+
+
 class AgentRuntimePort(Protocol):
     def execute(self, assignment: WorkerAssignment) -> AsyncIterator[WorkerEvent]: ...
     async def cancel(self, identity: RunIdentity, reason: str): ...
@@ -399,10 +410,16 @@ class MafRuntime:
                     for item in self._context.wire.get("initial_deliveries", ())
                 ]
 
-            async def publish_boundary(session, *, response=None, settled=False):
+            async def publish_boundary(session, *, response=None, settled=False,
+                                       messages=None):
                 observed_at = datetime.now(timezone.utc)
-                stored = await history.get_messages(
-                    session.session_id, state=session.state.get(history.source_id),
+                stored = await (
+                    _settled_messages(history, session, messages)
+                    if settled and messages is not None
+                    else history.get_messages(
+                        session.session_id,
+                        state=session.state.get(history.source_id),
+                    )
                 )
                 history.observe_messages(
                     stored,
@@ -493,8 +510,8 @@ class MafRuntime:
 
             checkpoint = (
                 CheckpointBeforeModel(
-                    lambda session, _messages: publish_boundary(
-                        session, settled=True
+                    lambda session, messages: publish_boundary(
+                        session, settled=True, messages=messages
                     )
                 )
                 if problem_profile else None
