@@ -83,6 +83,7 @@ EXPECTED_IMAGE_SOURCE_DELTA = frozenset(
 ALLOWED_NON_IMAGE_FILES = frozenset(
     {
         "AGENTS.md",
+        "README.md",
         "ops/vnext/migrations/README.md",
         "apps/web/Dockerfile",
         "apps/web/nginx.conf",
