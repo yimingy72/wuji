@@ -24,6 +24,7 @@ from uuid import uuid4
 
 
 CONTEXT_SCHEMA = "wuji.context.v2"
+WORK_BRIEF_SCHEMA = "wuji.work-brief.v1"
 PAYLOAD_SCHEMA = "wuji.agent-payload.v2"
 # A workspace reference the platform publishes; the peer never invents one.
 PATH_REF = re.compile(r"workspace:([A-Za-z0-9][A-Za-z0-9._/-]{0,255})")
@@ -90,7 +91,9 @@ def context_of(messages):
         if message.get("role") == "system":
             continue
         document = _parsed(_text(message))
-        if document is not None and document.get("schema_version") == CONTEXT_SCHEMA:
+        if document is not None and document.get("schema_version") in {
+            CONTEXT_SCHEMA, WORK_BRIEF_SCHEMA
+        }:
             return document
     raise ValueError("no frozen context document reached the model")
 
@@ -588,6 +591,52 @@ def payload(*, claims=(), intent_proposals=(), limitations=(), reason_decision=N
     return document
 
 
+def problem_payload(document, role):
+    """Render the same fixture decision through the published v3 result shape."""
+
+    claims = list(document.get("claims") or ())
+    intents = [
+        {**item, "planning": item.get("planning")}
+        for item in document.get("intent_proposals") or ()
+    ]
+    if role == "reason":
+        decision = document.get("reason_decision")
+        if not isinstance(decision, dict):
+            raise ValueError("problem Reason requires a decision")
+        rendered_decision = {
+            "decision": decision["decision"],
+            "wait_refs": list(decision.get("wait_refs") or ()),
+            "public_rationale": decision["reason"][:2048],
+            "basis_refs": [
+                ref for item in intents for ref in item.get("basis_refs") or ()
+            ][:256],
+        }
+        work_result = None
+    else:
+        rendered_decision = None
+        basis = [
+            ref for claim in claims for ref in claim.get("basis_refs") or ()
+        ][:256]
+        work_result = {
+            "outcome": "answered" if basis else "no_new_information",
+            "summary": (
+                "The authorized fixture result was returned with durable evidence."
+                if basis else "No durable fixture result was available."
+            ),
+            "answer_basis_refs": basis,
+            "unresolved_items": [],
+            "capability_gaps": [],
+        }
+    return {
+        "schema_version": "wuji.agent-payload.v3",
+        "claims": claims,
+        "intent_proposals": intents,
+        "reason_decision": rendered_decision,
+        "work_result": work_result,
+        "input_acknowledgements": [],
+    }
+
+
 def explore_payload(path, observation_ref, material, omitted):
     if material is None:
         return payload(
@@ -630,6 +679,10 @@ def explore_question(context):
     admitted question, which is the one the Scheduler dispatched this Run for.
     """
 
+    if context.get("schema_version") == WORK_BRIEF_SCHEMA:
+        question = (context.get("brief") or {}).get("question")
+        if isinstance(question, str):
+            return question
     candidates = [
         (str(body.get("created_at") or ""), body.get("question"))
         for _, body in intents(context)
@@ -831,7 +884,13 @@ def decision(request):
     role = role_of(messages)
     context = context_of(messages)
     if request.get("model") == FIRST_USE_ALIAS:
-        return first_use_decision(request, messages, role, context)
+        step = first_use_decision(request, messages, role, context)
+        if (
+            step["kind"] == "payload"
+            and context.get("schema_version") == WORK_BRIEF_SCHEMA
+        ):
+            step["document"] = problem_payload(step["document"], role)
+        return step
     if role == "explore":
         result = tool_result_of(messages)
         if result is None:

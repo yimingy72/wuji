@@ -433,6 +433,23 @@ def test_synthetic_first_use_is_reason_first_and_copies_the_frozen_entry_url():
     assert proposal["basis_refs"] == []
 
 
+def test_synthetic_first_use_renders_problem_v2_work_brief_as_payload_v3():
+    request_body = first_use_request(role="reason", records=[])
+    request_body["messages"][1]["contents"][0]["text"] = json.dumps({
+        "schema_version": "wuji.work-brief.v1",
+        "brief": {"question": "choose the next necessary work"},
+        "knowledge_index": [],
+        "initial_deliveries": [],
+    })
+
+    document = peer.decision(request_body)["document"]
+
+    assert document["schema_version"] == "wuji.agent-payload.v3"
+    assert document["reason_decision"]["decision"] == "propose_intents"
+    assert document["intent_proposals"][0]["planning"] is None
+    assert document["work_result"] is None
+
+
 def test_synthetic_first_use_explore_calls_only_the_admitted_http_url():
     url = FIRST_USE_ORIGIN + "/f1/entry"
     step = peer.decision(
