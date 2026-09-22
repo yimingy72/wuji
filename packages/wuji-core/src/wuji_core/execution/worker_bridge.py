@@ -921,6 +921,21 @@ class WorkerHostBridge:
             raise DomainError("STALE_EXECUTION", 409)
         return host.archive_sdk(payload.assignment, body)
 
+    def _retain_final(self, access, payload):
+        context = self.intake.read(payload.assignment, "context")
+        if context is None or context["snapshot_id"] != payload.assignment.snapshot_id:
+            raise DomainError("INVALID_REFERENCE", 422)
+        body = self._bytes(
+            payload.raw_output_base64,
+            payload.raw_digest.root,
+            min(payload.assignment.limits.max_single_output_bytes, 16777216),
+        )
+        self.intake.save(payload.assignment, "raw-final", payload)
+        host = self.host_factory(access)
+        if host.access.principal != access.principal:
+            raise DomainError("STALE_EXECUTION", 409)
+        return host.retain_final_output(payload.assignment, raw_output=body)
+
     def _submit(self, access, payload):
         context = self._stored_context(payload.assignment, payload.context)
         raw = self._bytes(payload.raw_output_base64, payload.raw_digest.root,
@@ -939,6 +954,12 @@ class WorkerHostBridge:
         self._ready(access, payload.assignment)
         with self._lock:
             return self._archive(access, payload)
+
+    def retain_final_output(self, access, payload):
+        payload = wire.WorkerRetainFinalRequest.model_validate(payload)
+        self._ready(access, payload.assignment)
+        with self._lock:
+            return self._retain_final(access, payload)
 
     def submit_result(self, access, payload):
         payload = wire.WorkerSubmitRequest.model_validate(payload)

@@ -450,6 +450,29 @@ class RemoteWorkerHost:
             raise HostTransportError("SDK archive receipt digest changed")
         return ref
 
+    def retain_final_output(self, assignment, *, raw_output):
+        assignment = self._bind(assignment)
+        if (
+            not isinstance(raw_output, bytes)
+            or len(raw_output)
+            > min(assignment.limits.max_single_output_bytes, 16777216)
+        ):
+            raise HostTransportError("final output exceeds frozen limit")
+        payload = wire.WorkerRetainFinalRequest.model_validate({
+            "assignment": document(assignment),
+            "raw_output_base64": base64.b64encode(raw_output).decode("ascii"),
+            "raw_digest": sha256(raw_output).hexdigest(),
+        })
+        private_save(
+            self.directory / "raw-final-request.json",
+            canonical_json_bytes(document(payload)),
+            self.maximum,
+        )
+        ref = BlobRef.model_validate(self._request("retain-final", payload))
+        if ref.sha256.root != sha256(raw_output).hexdigest():
+            raise HostTransportError("final output receipt digest changed")
+        return ref
+
     def submit_result(self, assignment, *, raw_output, context, tool_receipts, sdk_output):
         assignment = self._bind(assignment)
         if (not isinstance(raw_output, bytes) or not isinstance(sdk_output, bytes)

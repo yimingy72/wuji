@@ -554,6 +554,36 @@ class PlatformWorkerHost:
             "deliveries": deliveries,
         }
 
+    def _retain_final_output(self, assignment, raw_output):
+        if not self._native_problem_profile(assignment):
+            raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+        if (
+            not isinstance(raw_output, bytes)
+            or len(raw_output) > assignment.limits.max_single_output_bytes
+        ):
+            raise DomainError("LIMIT_BLOCKED", 422)
+        self._writer(assignment)
+        submission_id = "maf-m1:" + self._operation_digest(assignment)
+        publication_id = "raw-result:" + submission_id
+        retained = self._published_artifacts(assignment, publication_id)
+        if retained:
+            if (
+                len(retained) != 1
+                or self.artifacts.checked_bytes(retained[0]) != raw_output
+            ):
+                raise DomainError("INPUT_DIGEST_CONFLICT", 409)
+            return self._blob_ref(retained[0])
+        ref = self._stage(
+            assignment, raw_output, "text/plain; charset=utf-8"
+        )
+        self._publish(assignment, publication_id, "raw_result", (ref,))
+        return ref
+
+    def retain_final_output(self, assignment, *, raw_output):
+        assignment = WorkerAssignment.model_validate(assignment)
+        with self._submit_lock:
+            return self._retain_final_output(assignment, raw_output)
+
     def submit_result(self, assignment, *, raw_output, context, tool_receipts, sdk_output):
         """Seal raw bytes before parsing; replay never re-enters an Agent/tool loop."""
         assignment = WorkerAssignment.model_validate(assignment)
@@ -712,24 +742,7 @@ class PlatformWorkerHost:
                 assignment, tool_receipts
             )
             if self._native_problem_profile(assignment):
-                raw_publication = "raw-result:" + submission_id
-                retained_raw = self._published_artifacts(
-                    assignment, raw_publication
-                )
-                if retained_raw:
-                    if (
-                        len(retained_raw) != 1
-                        or self.artifacts.checked_bytes(retained_raw[0]) != raw_output
-                    ):
-                        raise DomainError("INPUT_DIGEST_CONFLICT", 409)
-                    raw_ref = self._blob_ref(retained_raw[0])
-                else:
-                    raw_ref = self._stage(
-                        assignment, raw_output, "text/plain; charset=utf-8"
-                    )
-                    self._publish(
-                        assignment, raw_publication, "raw_result", (raw_ref,)
-                    )
+                raw_ref = self._retain_final_output(assignment, raw_output)
             else:
                 raw_ref = self._stage(
                     assignment, raw_output, "text/plain; charset=utf-8"

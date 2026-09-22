@@ -1010,6 +1010,19 @@ paths:
         '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/InvalidSchema'}
         '503': {$ref: '#/components/responses/Unavailable'}
+  /internal/v2/worker-host/retain-final:
+    post:
+      operationId: retainWorkerFinalV2
+      summary: Retain exact final output before optional Session publication
+      tags: [Internal]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/WorkerRetainFinalRequest'}}}}
+      responses:
+        '200': {description: Fixed raw output artifact, content: {application/json: {schema: {$ref: '#/components/schemas/BlobRef'}}}}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+        '503': {$ref: '#/components/responses/Unavailable'}
   /internal/v2/worker-host/submit-result:
     post:
       operationId: submitWorkerResultV2
@@ -2822,6 +2835,14 @@ components:
         assignment: {$ref: '#/components/schemas/WorkerAssignment'}
         sdk_output_base64: {type: string, minLength: 1, maxLength: 22369624}
         sdk_digest: {$ref: '#/components/schemas/Sha256Digest'}
+    WorkerRetainFinalRequest:
+      type: object
+      additionalProperties: false
+      required: [assignment, raw_output_base64, raw_digest]
+      properties:
+        assignment: {$ref: '#/components/schemas/WorkerAssignment'}
+        raw_output_base64: {type: string, minLength: 1, maxLength: 22369624}
+        raw_digest: {$ref: '#/components/schemas/Sha256Digest'}
     WorkerSubmitRequest:
       type: object
       additionalProperties: false

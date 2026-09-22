@@ -6,7 +6,8 @@ import psycopg
 from starlette.concurrency import run_in_threadpool
 
 from wuji_core.contracts.generated import (
-    ReceiverBridgeRequest, WorkerArchiveRequest, WorkerBridgeRequest, WorkerSubmitRequest,
+    ReceiverBridgeRequest, WorkerArchiveRequest, WorkerBridgeRequest,
+    WorkerRetainFinalRequest, WorkerSubmitRequest,
     WorkerKnowledgeAttachRequest, WorkerKnowledgeListRequest,
     WorkerKnowledgeReadRequest, WorkerKnowledgeRefreshRequest,
 )
@@ -50,6 +51,10 @@ def create_worker_host_router(bridge):
     @router.post("/internal/v2/worker-host/submit-result")
     async def submit(request: Request, payload: WorkerSubmitRequest):
         return await invoke(request, bridge.submit_result, payload)
+
+    @router.post("/internal/v2/worker-host/retain-final")
+    async def retain_final(request: Request, payload: WorkerRetainFinalRequest):
+        return await invoke(request, bridge.retain_final_output, payload)
 
     @router.post("/internal/v2/worker-host/replay")
     async def replay(request: Request, payload: WorkerSubmitRequest):

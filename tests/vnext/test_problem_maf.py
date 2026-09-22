@@ -484,6 +484,13 @@ def test_native_final_is_submitted_before_a_failed_checkpoint(
                 components=[], request_id="request-native", code=None,
             )
 
+        def retain_final_output(self, _assignment, *, raw_output):
+            calls.append(("retain", raw_output))
+            return wire.BlobRef(
+                id="raw-native", version="1",
+                sha256=sha256(raw_output).hexdigest(),
+            )
+
         def stage_session(self, _assignment, _objects):
             calls.append(("stage", None))
             raise ValueError("injected checkpoint failure")
@@ -520,7 +527,7 @@ def test_native_final_is_submitted_before_a_failed_checkpoint(
 
     events = asyncio.run(run())
 
-    assert [item[0] for item in calls] == ["submit", "stage"]
+    assert [item[0] for item in calls] == ["retain", "stage", "submit"]
     assert calls[0][1] == payload.encode()
     assert events[0].kind == "result_receipt"
     assert isinstance(runtime.session_checkpoint_error, ValueError)

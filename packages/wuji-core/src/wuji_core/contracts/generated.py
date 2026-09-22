@@ -3626,6 +3626,15 @@ class WorkerResolvedHost(BaseModel):
     session_lineage: Annotated[StrictStr, Field(max_length=256, min_length=1)]
 
 
+class WorkerRetainFinalRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    assignment: WorkerAssignment
+    raw_output_base64: Annotated[StrictStr, Field(max_length=22369624, min_length=1)]
+    raw_digest: Sha256Digest
+
+
 class WorkerSessionBinary(BaseModel):
     model_config = ConfigDict(
         extra='forbid',

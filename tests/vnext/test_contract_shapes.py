@@ -389,6 +389,7 @@ def test_openapi_publishes_the_complete_s13_route_set() -> None:
         "/internal/v2/worker-host/resolve",
         "/internal/v2/worker-host/stage-session",
         "/internal/v2/worker-host/submit-result",
+        "/internal/v2/worker-host/retain-final",
         "/internal/v2/worker-host/archive-sdk",
         "/internal/v2/worker-host/receiver-archive",
         "/internal/v2/worker-host/receiver-authorize",

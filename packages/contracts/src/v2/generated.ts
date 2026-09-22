@@ -904,6 +904,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/internal/v2/worker-host/retain-final": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retain exact final output before optional Session publication */
+        post: operations["retainWorkerFinalV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/internal/v2/worker-host/submit-result": {
         parameters: {
             query?: never;
@@ -1908,6 +1925,11 @@ export interface components {
             assignment: components["schemas"]["WorkerAssignment"];
             sdk_output_base64: string;
             sdk_digest: components["schemas"]["Sha256Digest"];
+        };
+        WorkerRetainFinalRequest: {
+            assignment: components["schemas"]["WorkerAssignment"];
+            raw_output_base64: string;
+            raw_digest: components["schemas"]["Sha256Digest"];
         };
         WorkerSubmitRequest: {
             assignment: components["schemas"]["WorkerAssignment"];
@@ -4607,6 +4629,35 @@ export interface operations {
         };
         responses: {
             /** @description Retained SDK artifact */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlobRef"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidSchema"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    retainWorkerFinalV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkerRetainFinalRequest"];
+            };
+        };
+        responses: {
+            /** @description Fixed raw output artifact */
             200: {
                 headers: {
                     [name: string]: unknown;

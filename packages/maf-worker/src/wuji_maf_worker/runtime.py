@@ -126,6 +126,7 @@ class AgentRuntimePort(Protocol):
 class WorkerHostPort(Protocol):
     def resolve(self, assignment, context, *, verified_principal): ...
     def archive_sdk(self, assignment, body: bytes): ...
+    def retain_final_output(self, assignment, *, raw_output): ...
     def submit_result(self, assignment, *, raw_output, context, tool_receipts, sdk_output): ...
     def stage_session(self, assignment, objects) -> StagedSessionObjects: ...
     def publish_session(self, assignment, manifest, *, expected_revision) -> SessionReceipt: ...
@@ -794,12 +795,13 @@ class MafRuntime:
                         await confirm_native_handoffs(
                             functions.knowledge_deliveries, "function_result"
                         )
-                    self.result = await asyncio.to_thread(
-                        self._host.submit_result, assignment,
-                        raw_output=self.raw_output, context=self._context,
-                        tool_receipts=tuple(self.tool_receipts), sdk_output=self.sdk_output,
-                    )
-                    if native_v2:
+                        raw_ref = await asyncio.to_thread(
+                            self._host.retain_final_output,
+                            assignment,
+                            raw_output=self.raw_output,
+                        )
+                        if raw_ref.sha256.root != sha256(self.raw_output).hexdigest():
+                            raise ValueError("Host retained different final output bytes")
                         try:
                             _staged, self.session_receipt = await publish_boundary(
                                 session, response=final
@@ -808,6 +810,11 @@ class MafRuntime:
                             # The accepted raw/result is authoritative. A failed
                             # optional recovery point never re-runs the Agent.
                             self.session_checkpoint_error = error
+                    self.result = await asyncio.to_thread(
+                        self._host.submit_result, assignment,
+                        raw_output=self.raw_output, context=self._context,
+                        tool_receipts=tuple(self.tool_receipts), sdk_output=self.sdk_output,
+                    )
                     return self.result
             except BaseException:
                 self._delivery_window = False
