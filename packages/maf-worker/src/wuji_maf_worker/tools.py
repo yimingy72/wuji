@@ -8,7 +8,7 @@ from uuid import uuid4
 
 from agent_framework import Content, FunctionMiddleware, FunctionTool, MiddlewareFailure
 
-from wuji_maf_worker.remote_host import error_code_from_bytes
+from wuji_maf_worker.remote_host import HostTransportError, error_code_from_bytes
 
 from wuji_core.contracts.admission import ToolCallRequest, ToolCallReceipt
 from wuji_core.http import canonical_json_bytes, strict_json_loads
@@ -572,6 +572,22 @@ class GateFunctions(FunctionMiddleware):
         if self.host is None or self.assignment is None:
             return []
 
+        async def call(method, **kwargs):
+            try:
+                return await asyncio.to_thread(
+                    method, self.assignment, **kwargs
+                )
+            except HostTransportError as error:
+                code = getattr(error, "code", None)
+                if getattr(error, "status_code", None) == 422 and code in {
+                    "INVALID_REFERENCE", "INVALID_SCHEMA", "REPRESENTATION_LIMIT",
+                    "UNSUPPORTED_MEDIA",
+                }:
+                    return canonical_json_bytes({
+                        "status": "rejected", "code": code, "retryable": False,
+                    }).decode()
+                raise
+
         def invocation(name):
             value = self._local_invocation.get()
             if value is None or value["name"] != name or value["category"] != "knowledge_read":
@@ -580,27 +596,29 @@ class GateFunctions(FunctionMiddleware):
 
         async def knowledge_list(snapshot_id, material_types=(), cursor=None, limit=10):
             current = invocation("knowledge_list")
-            value = await asyncio.to_thread(
+            value = await call(
                 self.host.knowledge_list,
-                self.assignment,
                 snapshot_id=snapshot_id,
                 material_types=tuple(material_types),
                 cursor=cursor,
                 limit=limit,
                 native_occurrence=current["occurrence"],
             )
+            if isinstance(value, str):
+                return value
             return canonical_json_bytes(value.model_dump(mode="json")).decode()
 
         async def knowledge_read(snapshot_id, ref, selector):
             current = invocation("knowledge_read")
-            value = await asyncio.to_thread(
+            value = await call(
                 self.host.knowledge_read,
-                self.assignment,
                 snapshot_id=snapshot_id,
                 ref=ref,
                 selector=selector,
                 native_occurrence=current["occurrence"],
             )
+            if isinstance(value, str):
+                return value
             self.knowledge_deliveries.append({
                 "delivery_id": value.delivery_id,
                 "representation_digest": value.representation_digest.root,
@@ -609,12 +627,13 @@ class GateFunctions(FunctionMiddleware):
 
         async def knowledge_refresh(snapshot_id, neighborhood):
             current = invocation("knowledge_refresh")
-            value = await asyncio.to_thread(
+            value = await call(
                 self.host.knowledge_refresh,
-                self.assignment,
                 snapshot_id=snapshot_id,
                 native_occurrence=current["occurrence"],
             )
+            if isinstance(value, str):
+                return value
             self.knowledge_deliveries.append({
                 "delivery_id": value.delivery_id,
                 "representation_digest": value.representation_digest.root,

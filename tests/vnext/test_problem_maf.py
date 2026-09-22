@@ -17,6 +17,7 @@ from wuji_maf_worker.capability_manifest import build_capability_manifest
 from wuji_maf_worker.factory import ProblemHarnessProfile, build_agent
 from wuji_maf_worker.history import BoundedWorkMemoryProvider, HistoryArchive, WorkMemoryStore
 from wuji_maf_worker.runtime import CheckpointBeforeModel, _settled_boundary
+from wuji_maf_worker.remote_host import HostTransportError
 from wuji_maf_worker.sessions import NativeSessionAdapter
 from wuji_maf_worker.tools import FunctionBudget, GateFunctions, ModelCallIdentity
 
@@ -269,6 +270,7 @@ def test_problem_harness_uses_native_todo_memory_and_host_knowledge_in_one_sessi
             _tool_stream(1, "todos_add", '{"todos":[{"title":"read material"}]}'),
             _tool_stream(2, "file_memory_write", '{"file_name":"notes.md","content":"local note"}'),
             _tool_stream(3, "knowledge_read", '{"snapshot_id":"snapshot-1","ref":{"entity_type":"claim","id":"claim-1","revision":"1"},"selector":{"kind":"record_fields","fields":["text"]}}'),
+            _tool_stream(4, "knowledge_read", '{"snapshot_id":"snapshot-1","ref":{"entity_type":"claim","id":"claim-1","revision":"1"},"selector":{"kind":"record_fields","fields":["text"]}}'),
             _final_stream(),
         ]
 
@@ -281,8 +283,17 @@ def test_problem_harness_uses_native_todo_memory_and_host_knowledge_in_one_sessi
             )
 
         class Host:
+            def __init__(self):
+                self.reads = 0
+
             def knowledge_read(self, _assignment, **kwargs):
                 assert kwargs["native_occurrence"]
+                self.reads += 1
+                if self.reads == 1:
+                    error = HostTransportError("bounded knowledge refusal")
+                    error.status_code = 422
+                    error.code = "INVALID_REFERENCE"
+                    raise error
                 return wire.KnowledgeDeliveryV1.model_validate({
                     "schema_version": "wuji.knowledge-delivery.v1",
                     "delivery_id": "delivery-1", "kind": "knowledge_tool",
@@ -341,7 +352,7 @@ def test_problem_harness_uses_native_todo_memory_and_host_knowledge_in_one_sessi
         assert session.state["problem_todo"]["items"][0]["title"] == "read material"
         assert any(body.decode() == "local note" for body in memory.snapshot_files().values())
         assert functions.knowledge_deliveries[0]["delivery_id"] == "delivery-1"
-        assert len(identity.local_mapping) == 3
+        assert len(identity.local_mapping) == 4
         assert all(request.get("tool_choice", "auto") != "required" for request in requests)
         assert all(request["messages"][0]["content"] == profile.instructions for request in requests)
         assert all(
