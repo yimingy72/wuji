@@ -9,14 +9,22 @@ from typing import AsyncIterator, Protocol
 from urllib.parse import urlsplit
 
 import httpx
-from agent_framework import AgentSession, ChatMiddleware, Message
+from agent_framework import (
+    AgentSession,
+    ChatMiddleware,
+    FileMemoryProvider,
+    InMemoryHistoryProvider,
+    Message,
+)
 from agent_framework.exceptions import ChatClientException
 
 from wuji_core.contracts.envelopes import RunIdentity, WorkerAssignment
 from wuji_core.contracts.execution import SessionManifest
 from wuji_core.contracts.sessions import (
     DeliveryReceipt, HumanInput, InputReceipt, NativeApprovalObservation,
-    PublishedSession, SessionCompatibility, SessionReceipt, StagedSessionObjects,
+    NativeCheckpointManifestV2, PublishedNativeSessionV2, PublishedSession,
+    SessionCompatibility, SessionReceipt, StagedNativeSessionV2,
+    StagedSessionObjects,
 )
 from wuji_core.http import canonical_json_bytes, strict_json_loads
 from wuji_core.http.auth import TokenVerifier
@@ -30,7 +38,7 @@ from wuji_maf_worker.history import (
     VersionedMemoryStore,
     WorkMemoryStore,
 )
-from wuji_maf_worker.sessions import NativeSessionAdapter
+from wuji_maf_worker.sessions import NativeSessionAdapter, NativeSessionV2Adapter
 from wuji_maf_worker.tools import FunctionBudget, GateFunctions, ModelCallIdentity
 
 
@@ -128,7 +136,7 @@ class WorkerHostPort(Protocol):
     def knowledge_list(self, assignment, *, snapshot_id, material_types, cursor, limit, native_occurrence): ...
     def knowledge_read(self, assignment, *, snapshot_id, ref, selector, native_occurrence): ...
     def knowledge_refresh(self, assignment, *, snapshot_id, native_occurrence): ...
-    def knowledge_attach(self, assignment, *, deliveries, manifest_ref): ...
+    def knowledge_attach(self, assignment, *, deliveries, manifest_ref=None, channel=None): ...
 
 
 class MafRuntime:
@@ -158,6 +166,7 @@ class MafRuntime:
         self.result = None
         self.input_receipt = None
         self.session_receipt = None
+        self.session_checkpoint_error = None
         self.delivery_receipt = None
         self._delivery = None
         self._delivery_id = None
@@ -262,6 +271,7 @@ class MafRuntime:
         )
         profile = parse_profile(resolved["profile"])
         problem_profile = isinstance(profile, ProblemHarnessProfile)
+        native_v2 = problem_profile and profile.native_session
         session_profile = isinstance(profile, SessionHarnessProfile) or problem_profile
         if not session_profile and (assignment.session_manifest_ref is not None or assignment.resume_reason is not None):
             raise NotImplementedError("M1 only executes fresh work; manifest restoration is unavailable")
@@ -296,23 +306,57 @@ class MafRuntime:
                 or profile.session_limits.model_dump(mode="python") != resolved["session_limits"]
             ):
                 raise ValueError("Host Session compatibility does not match the fixed Task Profile")
-            adapter = NativeSessionAdapter(compatibility=compatibility, limits=profile.session_limits)
-            history = HistoryArchive(compatibility=compatibility, limits=profile.session_limits)
-            history.model_identity = identity
+            adapter = (
+                NativeSessionV2Adapter(
+                    compatibility=compatibility, limits=profile.session_limits
+                )
+                if native_v2
+                else NativeSessionAdapter(
+                    compatibility=compatibility, limits=profile.session_limits
+                )
+            )
+            history = (
+                InMemoryHistoryProvider(
+                    source_id=profile.history_source_id, skip_excluded=False
+                )
+                if native_v2
+                else HistoryArchive(
+                    compatibility=compatibility, limits=profile.session_limits
+                )
+            )
+            if not native_v2:
+                history.model_identity = identity
             if assignment.session_manifest_ref is not None:
-                published = PublishedSession.model_validate(await asyncio.to_thread(
-                    self._host.load_session, assignment, manifest_ref=assignment.session_manifest_ref.root,
-                ))
-                if (
-                    published.receipt.manifest_ref != assignment.session_manifest_ref.root
-                    or published.history.work_item_id != assignment.identity.work_item_id
+                loaded = await asyncio.to_thread(
+                    self._host.load_session,
+                    assignment,
+                    manifest_ref=assignment.session_manifest_ref.root,
+                )
+                published = (
+                    PublishedNativeSessionV2.model_validate(loaded)
+                    if native_v2
+                    else PublishedSession.model_validate(loaded)
+                )
+                if published.receipt.manifest_ref != assignment.session_manifest_ref.root:
+                    raise ValueError("restored Session differs from the assigned Work/input/lineage")
+                if native_v2:
+                    if (
+                        published.manifest.work_item_id
+                        != assignment.identity.work_item_id
+                        or published.manifest.session_lineage
+                        != resolved["session_lineage"]
+                    ):
+                        raise ValueError("restored native Session differs from its assignment")
+                elif (
+                    published.history.work_item_id != assignment.identity.work_item_id
                     or published.history.snapshot_id != self._context.snapshot_id
                     or published.history.read_set != self._context.read_set
                     or published.history.session_lineage != resolved["session_lineage"]
                 ):
                     raise ValueError("restored Session differs from the assigned Work/input/lineage")
                 restored = adapter.restore_boundary(published)
-                history.restore_observations(published)
+                if not native_v2:
+                    history.restore_observations(published)
                 identity.restore_bindings(
                     call_bindings=restored.call_bindings, pending_contents=restored.pending_contents,
                     lineage=resolved["session_lineage"],
@@ -341,10 +385,18 @@ class MafRuntime:
                     "work_item_id": assignment.identity.work_item_id,
                     "session_lineage": resolved["session_lineage"],
                 })).hexdigest()
-                work_memory_provider = BoundedWorkMemoryProvider(
-                    memory,
-                    source_id=profile.memory_source_id,
-                    scope=scope,
+                work_memory_provider = (
+                    FileMemoryProvider(
+                        memory,
+                        source_id=profile.memory_source_id,
+                        scope=scope,
+                    )
+                    if native_v2
+                    else BoundedWorkMemoryProvider(
+                        memory,
+                        source_id=profile.memory_source_id,
+                        scope=scope,
+                    )
                 )
         timeout = httpx.Timeout(float(resolved["request_timeout_seconds"]))
         sdk_lines = []
@@ -412,9 +464,110 @@ class MafRuntime:
                     for item in self._context.wire.get("initial_deliveries", ())
                 ]
 
+            async def confirm_native_handoffs(deliveries, channel):
+                if not native_v2:
+                    return
+                pending = [
+                    item for item in deliveries
+                    if item["delivery_id"] not in attached_deliveries
+                ]
+                if not pending:
+                    return
+                await asyncio.to_thread(
+                    self._host.knowledge_attach,
+                    assignment,
+                    deliveries=pending,
+                    manifest_ref=None,
+                    channel=channel,
+                )
+                attached_deliveries.update(
+                    item["delivery_id"] for item in pending
+                )
+
             async def publish_boundary(session, *, response=None, settled=False,
                                        messages=None):
                 observed_at = datetime.now(timezone.utc)
+                if native_v2:
+                    boundary_kind = (
+                        "approval_wait"
+                        if any(
+                            content.type == "function_approval_request"
+                            for message in response.messages
+                            for content in message.contents
+                        )
+                        else "run_return"
+                    )
+                    objects = adapter.export_boundary(
+                        session=session,
+                        response=response,
+                        memory=memory,
+                        session_lineage=resolved["session_lineage"],
+                        work_item_id=assignment.identity.work_item_id,
+                        boundary_kind=boundary_kind,
+                        call_bindings=identity.export_bindings(),
+                    )
+                    staged = StagedNativeSessionV2.model_validate(
+                        await asyncio.to_thread(
+                            self._host.stage_session, assignment, objects
+                        )
+                    )
+                    previous = current_revision[0]
+                    parent = (
+                        None
+                        if restored is None
+                        else restored.published.receipt.manifest_ref
+                    )
+                    publication_key = "session-publish:" + sha256(
+                        canonical_json_bytes({
+                            "identity": assignment.identity.model_dump(mode="json"),
+                            "session_id": session.session_id,
+                            "parent_manifest_ref": parent,
+                            "native_state_ref": staged.native_state_ref.model_dump(mode="json"),
+                            "dependency_manifest_ref": staged.dependency_manifest_ref.model_dump(mode="json"),
+                            "operation_fence_ref": staged.operation_fence_ref.model_dump(mode="json"),
+                        })
+                    ).hexdigest()
+                    manifest = NativeCheckpointManifestV2(
+                        session_id=session.session_id,
+                        session_lineage=resolved["session_lineage"],
+                        work_item_id=assignment.identity.work_item_id,
+                        checkpoint_revision=str(previous + 1),
+                        parent_manifest_ref=parent,
+                        producer_identity=assignment.identity,
+                        profile_ref=profile.ref,
+                        profile_revision=profile.revision,
+                        profile_digest=profile.digest,
+                        compatibility_ref=compatibility.capability_ref,
+                        compatibility_digest=compatibility.capability_digest,
+                        native_state_ref=staged.native_state_ref,
+                        dependency_manifest_ref=staged.dependency_manifest_ref,
+                        operation_fence_ref=staged.operation_fence_ref,
+                        boundary_kind=boundary_kind,
+                        pending_approval_refs=staged.operation_fence.pending_approval_refs,
+                        access_scope_ref="task:" + assignment.identity.task_id,
+                        publication_key=publication_key,
+                        saved_at=observed_at,
+                    )
+                    receipt = SessionReceipt.model_validate(
+                        await asyncio.to_thread(
+                            self._host.publish_session,
+                            assignment,
+                            manifest,
+                            expected_revision=previous,
+                        )
+                    )
+                    if (
+                        receipt.session_id != session.session_id
+                        or receipt.checkpoint_revision != str(previous + 1)
+                        or receipt.manifest_digest
+                        != sha256(
+                            canonical_json_bytes(manifest.model_dump(mode="json"))
+                        ).hexdigest()
+                    ):
+                        raise ValueError("Host published a different native v2 boundary")
+                    current_revision[0] = previous + 1
+                    self.session_receipt = receipt
+                    return staged, receipt
                 if settled and messages is not None:
                     boundary_session, stored = await _settled_boundary(
                         history, session, messages
@@ -518,7 +671,7 @@ class MafRuntime:
                         session, settled=True, messages=messages
                     )
                 )
-                if problem_profile else None
+                if problem_profile and not native_v2 else None
             )
             environment_tools = functions.registered_tools()
             knowledge_tools = functions.registered_knowledge_tools()
@@ -538,7 +691,7 @@ class MafRuntime:
                     if budget is not None:
                         budget.bind(session)
                     messages = self._context.text
-                    if session_profile:
+                    if session_profile and not native_v2:
                         history.bind_context(
                             session_id=session.session_id, session_lineage=resolved["session_lineage"],
                             assignment=assignment, context=self._context,
@@ -569,6 +722,10 @@ class MafRuntime:
                             messages = None  # Continue the original settled Session, without duplicating its input.
                     try:
                         stream = agent.run(messages, session=session, stream=True)
+                        if restored is None:
+                            await confirm_native_handoffs(
+                                initial_deliveries, "initial_input"
+                            )
                         async for update in stream:
                             retain(update.to_json().encode())
                         final = await stream.get_final_response()
@@ -593,17 +750,31 @@ class MafRuntime:
                     if session_profile:
                         if approvals:
                             await functions.register_pending(final)
-                        staged, self.session_receipt = await publish_boundary(
-                            session, response=final
-                        )
+                            staged, self.session_receipt = await publish_boundary(
+                                session, response=final
+                            )
+                        elif not native_v2:
+                            staged, self.session_receipt = await publish_boundary(
+                                session, response=final
+                            )
                         if approvals:
                             observed_at = datetime.now(timezone.utc)
                             self.sdk_output = archive_bytes()
                             await asyncio.to_thread(self._host.archive_sdk, assignment, self.sdk_output)
+                            pending_contents = (
+                                staged.pending_contents
+                                if native_v2
+                                else staged.provider_state.pending_contents
+                            )
+                            pending_bindings = (
+                                staged.call_bindings
+                                if native_v2
+                                else staged.provider_state.call_bindings
+                            )
                             observation = NativeApprovalObservation(
                                 manifest_ref=self.session_receipt.manifest_ref,
-                                contents=staged.provider_state.pending_contents,
-                                call_bindings=staged.provider_state.call_bindings,
+                                contents=pending_contents,
+                                call_bindings=pending_bindings,
                                 observed_at=observed_at,
                             )
                             self.input_receipt = InputReceipt.model_validate(await asyncio.to_thread(
@@ -619,11 +790,24 @@ class MafRuntime:
                     self.sdk_output = archive_bytes()
                     if len(self.raw_output) > limits["max_single_output_bytes"] or len(self.sdk_output) > limits["max_total_output_bytes"]:
                         raise ValueError("final SDK output exceeds published limits")
+                    if native_v2:
+                        await confirm_native_handoffs(
+                            functions.knowledge_deliveries, "function_result"
+                        )
                     self.result = await asyncio.to_thread(
                         self._host.submit_result, assignment,
                         raw_output=self.raw_output, context=self._context,
                         tool_receipts=tuple(self.tool_receipts), sdk_output=self.sdk_output,
                     )
+                    if native_v2:
+                        try:
+                            _staged, self.session_receipt = await publish_boundary(
+                                session, response=final
+                            )
+                        except Exception as error:
+                            # The accepted raw/result is authoritative. A failed
+                            # optional recovery point never re-runs the Agent.
+                            self.session_checkpoint_error = error
                     return self.result
             except BaseException:
                 self._delivery_window = False

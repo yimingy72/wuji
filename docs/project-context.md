@@ -1,5 +1,7 @@
 # Wuji 项目背景与有效文档索引
 
+2026-09-22 当前 Session 改造：活动开发线 `codex/vnext-maf` 新增 `wuji.harness.problem.v2` / `wuji.session.native.v2`，替代新问题流程中“每次模型调用前完整 checkpoint”的旧要求。新路径由 MAF 独占消息和 Provider 状态，Wuji 固定原生 state、Memory、操作 fence、CAS/恢复许可；原始结果与 knowledge handoff 独立。旧 v1 会话保持原 reader/writer，不自动转换；当前恢复保证限正常返回和审批等待边界。
+
 2026-09-19 最新部署补充：磁盘缓存阻塞已解除；用户将现场地址替换为 `http://39.102.208.182`，原地址不再访问。网关namespace隔离、平台守卫及正式工作台发布已实际执行，0029已应用，页面可登录；完整首用仍未放行。当前固定core代码 `af36be86`、后续部署代码 `a28c887`，见[部署证据](vnext/first-use/deployment-20260919/README.md)、[首用 Plan](stages/first-use/plan.md)及[当前验收日志](stages/first-use/acceptance.md)。
 
 2026-09-19 当前补充：用户最新允许按难度分派子代理，仅用 `gpt-5.6-luna/xhigh` 或 `gpt-5.6-sol/high`、`gpt-5.6-sol/xhigh`，禁止GPT-6和Terra；覆盖稍早统一Sol/xhigh的决定，历史验收保留实际执行者与原结果。首用真实模型金额及自建单实例的最新批准见[授权记录](vnext/first-use/authorization.md)；不是凭据/供应商未定。完整 Python 初次独立运行与接缝失败见[A8 固定候选证据](vnext/first-use/A8/final-candidate/README.md)，当前仍在定向修复/部署准备，未宣称 DG1–DG3 通过。

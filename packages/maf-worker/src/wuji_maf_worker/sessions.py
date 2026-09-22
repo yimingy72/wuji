@@ -9,7 +9,8 @@ from agent_framework import AgentSession, Content
 from wuji_core.contracts.sessions import (
     BoundaryObject, BoundaryObjects, MemoryFile, MemoryManifestRoot,
     ModelFrontierEntry, NativeCallBinding, OperationFrontier, ProviderStateRoot,
-    PublishedSession, RejectedCallFrontierEntry, SessionCompatibility,
+    NativeSessionBoundaryV2, PublishedNativeSessionV2, PublishedSession,
+    RejectedCallFrontierEntry, SessionCompatibility,
     SessionLimits, ToolFrontierEntry, native_rejection_content,
 )
 from wuji_core.http import canonical_json_bytes, strict_json_loads
@@ -90,6 +91,156 @@ class RestoredNativeSession:
     history: object
     memory: VersionedMemoryStore | None
     published: PublishedSession
+
+
+@dataclass(frozen=True)
+class RestoredNativeSessionV2:
+    session: AgentSession
+    pending_contents: tuple
+    call_bindings: tuple
+    memory: VersionedMemoryStore | None
+    published: PublishedNativeSessionV2
+
+
+class NativeSessionV2Adapter:
+    """Serialize public MAF state without interpreting its message history."""
+
+    def __init__(self, *, compatibility, limits):
+        self.compatibility = SessionCompatibility.model_validate(compatibility)
+        self.limits = SessionLimits.model_validate(limits)
+
+    def export_boundary(
+        self,
+        *,
+        session,
+        response,
+        memory,
+        session_lineage,
+        work_item_id,
+        boundary_kind,
+        call_bindings=(),
+    ):
+        if not isinstance(session, AgentSession) or boundary_kind not in {
+            "run_return",
+            "approval_wait",
+        }:
+            raise ValueError("native v2 requires a public stable MAF boundary")
+        bindings = tuple(
+            NativeCallBinding.model_validate(value) for value in call_bindings
+        )
+        pending = extract_approval_requests(response, call_bindings=bindings)
+        if (boundary_kind == "approval_wait") != bool(pending):
+            raise ValueError("native boundary kind differs from the MAF response")
+        if response.continuation_token is not None:
+            raise ValueError("unfinished native continuation is not restorable")
+        if len(pending) > self.limits.max_pending_approvals:
+            raise ValueError("native approval batch exceeds the fixed limit")
+        pending_ids = {content.id for content in pending}
+        pending_bindings = tuple(
+            binding for binding in bindings if binding.sdk_approval_id in pending_ids
+        )
+        if len(pending_bindings) != len(pending):
+            raise ValueError("native approval lacks its original call binding")
+        if any(binding.tool_call_id is None for binding in pending_bindings):
+            raise ValueError("native approval lacks its canonical ToolGate identity")
+        state = canonical_json_bytes({
+            "schema_version": "wuji.maf-native-state.v2",
+            "session": session.to_dict(),
+            "pending_contents": [content.to_dict() for content in pending],
+            "call_bindings": [
+                binding.model_dump(mode="json") for binding in pending_bindings
+            ],
+        })
+        if len(state) > self.limits.max_object_bytes:
+            raise ValueError("native state exceeds the fixed object limit")
+        files = []
+        paths = {}
+        if memory is not None:
+            if not isinstance(memory, VersionedMemoryStore):
+                raise TypeError("native memory requires the bounded AgentFileStore")
+            for path, data in memory.snapshot_files().items():
+                key = "memory-" + sha256(path.encode()).hexdigest()
+                paths[key] = path
+                files.append(BoundaryObject(
+                    key=key,
+                    data=data,
+                    media_type="text/plain; charset=utf-8",
+                    object_refs=(),
+                ))
+        total = len(state) + sum(len(item.data) for item in files)
+        if len(files) + 3 > self.limits.max_objects or total > self.limits.max_total_bytes:
+            raise ValueError("native Session export exceeds fixed limits")
+        return NativeSessionBoundaryV2(
+            session_id=session.session_id,
+            session_lineage=session_lineage,
+            work_item_id=work_item_id,
+            compatibility=self.compatibility,
+            native_state=state,
+            boundary_kind=boundary_kind,
+            pending_approval_refs=tuple(
+                binding.tool_call_id for binding in pending_bindings
+            ),
+            dependency_paths=paths,
+            dependency_files=tuple(files),
+        )
+
+    def restore_boundary(self, published):
+        published = PublishedNativeSessionV2.model_validate(published)
+        check, manifest = published.recovery_check, published.manifest
+        if (
+            check is None
+            or not check.resumable
+            or check.manifest_ref != published.receipt.manifest_ref
+            or check.checkpoint_revision != published.receipt.checkpoint_revision
+            or check.session_id != manifest.session_id
+            or check.session_lineage != manifest.session_lineage
+            or manifest.compatibility_digest
+            != self.compatibility.capability_digest
+        ):
+            raise ValueError("native v2 publication is not currently resumable")
+        expected = {_ref_key(ref): ref for ref in published.object_refs}
+        if set(expected) != set(published.object_bytes):
+            raise ValueError("native v2 object closure is incomplete")
+        for key, ref in expected.items():
+            data = published.object_bytes[key]
+            if sha256(data).hexdigest() != ref.sha256.root:
+                raise ValueError("native v2 object digest changed")
+        body = strict_json_loads(
+            published.object_bytes[_ref_key(manifest.native_state_ref)]
+        )
+        if body.get("schema_version") != "wuji.maf-native-state.v2":
+            raise ValueError("unsupported native MAF state")
+        session = AgentSession.from_dict(body["session"])
+        if session.session_id != manifest.session_id:
+            raise ValueError("restored native Session identity changed")
+        pending = tuple(Content.from_dict(item) for item in body["pending_contents"])
+        bindings = tuple(
+            NativeCallBinding.model_validate(item) for item in body["call_bindings"]
+        )
+        by_id = {binding.sdk_approval_id: binding for binding in bindings}
+        if set(by_id) != {content.id for content in pending}:
+            raise ValueError("restored approvals lost their original call binding")
+        for content in pending:
+            validate_pending(content, by_id[content.id])
+        files = {
+            item.path: published.object_bytes[_ref_key(item.ref)]
+            for item in published.dependencies.files
+        }
+        profile = self.compatibility.profile_snapshot["body"]
+        memory = None
+        if profile["memory_mode"] == "work_memory":
+            memory = WorkMemoryStore(
+                limits=self.limits,
+                policy=profile["work_memory_policy"],
+                files=files,
+            )
+        elif profile["memory_mode"] == "pinned_context":
+            memory = VersionedMemoryStore(limits=self.limits, files=files)
+        elif files:
+            raise ValueError("disabled native memory contains dependencies")
+        return RestoredNativeSessionV2(
+            session, pending, bindings, memory, published
+        )
 
 
 class NativeSessionAdapter:

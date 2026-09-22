@@ -318,11 +318,13 @@ class RemoteWorkerHost:
             self._request("knowledge-refresh", request)
         )
 
-    def knowledge_attach(self, assignment, *, deliveries, manifest_ref):
+    def knowledge_attach(
+        self, assignment, *, deliveries, manifest_ref=None, channel=None
+    ):
         assignment = self._bind(assignment)
         request = wire.WorkerKnowledgeAttachRequest.model_validate({
             "assignment": document(assignment), "deliveries": document(deliveries),
-            "manifest_ref": manifest_ref,
+            "manifest_ref": manifest_ref, "channel": channel,
         })
         return self._request("knowledge-attach", request)
 
@@ -363,7 +365,11 @@ class RemoteWorkerHost:
         payload = wire.WorkerPublishSessionRequest.model_validate(
             {
                 "assignment": document(assignment),
-                "manifest": document(manifest),
+                "manifest": (
+                    manifest
+                    if isinstance(manifest, wire.SessionManifest)
+                    else document(manifest)
+                ),
                 "expected_revision": str(scalar(expected_revision)),
             }
         )

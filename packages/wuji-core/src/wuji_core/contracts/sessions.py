@@ -8,7 +8,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StrictInt, StrictStr, model_validator
 
-from wuji_core.contracts.envelopes import BlobRef
+from wuji_core.contracts.envelopes import BlobRef, RunIdentity
 from wuji_core.contracts.execution import SessionManifest
 from wuji_core.contracts.knowledge import KnowledgeRef
 
@@ -221,6 +221,81 @@ class BoundaryObjects(SessionModel):
     objects: tuple[BoundaryObject, ...] = ()
 
 
+class NativeSessionBoundaryV2(SessionRoot):
+    """Opaque MAF state captured only after a public stable boundary."""
+
+    schema_version: Literal["wuji.session.native-boundary.v2"] = (
+        "wuji.session.native-boundary.v2"
+    )
+    native_state: bytes
+    boundary_kind: Literal["run_return", "approval_wait"]
+    pending_approval_refs: tuple[Text, ...] = ()
+    dependency_paths: dict[Text, Text] = Field(default_factory=dict)
+    dependency_files: tuple[BoundaryObject, ...] = ()
+
+
+class NativeDependencyManifestV2(SessionRoot):
+    schema_version: Literal["wuji.session.native-dependencies.v2"] = (
+        "wuji.session.native-dependencies.v2"
+    )
+    files: tuple[MemoryFile, ...] = ()
+
+
+class OperationFenceEntryV2(SessionModel):
+    kind: Literal["model", "tool", "input"]
+    operation_id: Text
+    state: Text
+    digest: Digest
+
+
+class OperationFenceV2(SessionModel):
+    schema_version: Literal["wuji.session.operation-fence.v2"] = (
+        "wuji.session.operation-fence.v2"
+    )
+    work_item_id: Text
+    session_lineage: Text
+    producer_identity: RunIdentity
+    entries: tuple[OperationFenceEntryV2, ...] = ()
+    pending_approval_refs: tuple[Text, ...] = ()
+    ledger_digest: Digest
+
+
+class StagedNativeSessionV2(SessionModel):
+    native_state_ref: BlobRef
+    dependency_manifest_ref: BlobRef
+    operation_fence_ref: BlobRef
+    object_refs: tuple[BlobRef, ...]
+    lease_owner: Text
+    native_state_digest: Digest
+    pending_contents: tuple[dict[str, Any], ...] = ()
+    call_bindings: tuple[NativeCallBinding, ...] = ()
+    dependencies: NativeDependencyManifestV2
+    operation_fence: OperationFenceV2
+
+
+class NativeCheckpointManifestV2(SessionModel):
+    schema_version: Literal["wuji.session.native.v2"] = "wuji.session.native.v2"
+    session_id: Text
+    session_lineage: Text
+    work_item_id: Text
+    checkpoint_revision: Revision
+    parent_manifest_ref: Text | None = None
+    producer_identity: RunIdentity
+    profile_ref: Text
+    profile_revision: Revision
+    profile_digest: Digest
+    compatibility_ref: Text
+    compatibility_digest: Digest
+    native_state_ref: BlobRef
+    dependency_manifest_ref: BlobRef
+    operation_fence_ref: BlobRef
+    boundary_kind: Literal["run_return", "approval_wait"]
+    pending_approval_refs: tuple[Text, ...] = ()
+    access_scope_ref: Text
+    publication_key: Text
+    saved_at: AwareDatetime
+
+
 def require_published_call(binding):
     if any(value is None for value in (
         binding.position, binding.tool_call_id,
@@ -309,6 +384,16 @@ class PublishedSession(SessionModel):
     memory: PublishedMemoryManifestRoot
     object_refs: tuple[BlobRef, ...]
     # Exact bytes for all refs, keyed by '<id>@<version>'. Never mutable paths.
+    object_bytes: dict[str, bytes] = Field(default_factory=dict)
+    recovery_check: RecoveryCheck | None = None
+
+
+class PublishedNativeSessionV2(SessionModel):
+    receipt: SessionReceipt
+    manifest: NativeCheckpointManifestV2
+    dependencies: NativeDependencyManifestV2
+    operation_fence: OperationFenceV2
+    object_refs: tuple[BlobRef, ...]
     object_bytes: dict[str, bytes] = Field(default_factory=dict)
     recovery_check: RecoveryCheck | None = None
 

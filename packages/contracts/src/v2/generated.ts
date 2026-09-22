@@ -1550,7 +1550,9 @@ export interface components {
         WorkerKnowledgeAttachRequest: {
             assignment: components["schemas"]["WorkerAssignment"];
             deliveries: components["schemas"]["KnowledgeDeliveryAttachmentV1"][];
-            manifest_ref: string;
+            manifest_ref?: string | null;
+            /** @enum {string} */
+            channel?: "initial_input" | "function_result";
         };
         WorkerReceiver: {
             receiver_id: string;
@@ -1657,9 +1659,9 @@ export interface components {
             max_pending_approvals: number;
         };
         /** @enum {string} */
-        WorkerSessionPayloadVersion: "wuji.worker.session.boundary.v1" | "wuji.worker.session.staged.v1" | "wuji.worker.session.receipt.v1" | "wuji.worker.session.published.v1" | "wuji.worker.session.approval-observation.v1" | "wuji.worker.session.input-receipt.v1" | "wuji.worker.session.human-input.v1" | "wuji.worker.session.delivery-receipt.v1" | "wuji.worker.session.compatibility.v1";
+        WorkerSessionPayloadVersion: "wuji.worker.session.boundary.v1" | "wuji.worker.session.staged.v1" | "wuji.worker.session.receipt.v1" | "wuji.worker.session.published.v1" | "wuji.worker.session.approval-observation.v1" | "wuji.worker.session.input-receipt.v1" | "wuji.worker.session.human-input.v1" | "wuji.worker.session.delivery-receipt.v1" | "wuji.worker.session.compatibility.v1" | "wuji.worker.session.native-boundary.v2" | "wuji.worker.session.native-staged.v2" | "wuji.worker.session.native-published.v2";
         /** @enum {string} */
-        WorkerSessionBinarySlot: "boundary_object_data" | "published_object_bytes" | "resolved_memory_file";
+        WorkerSessionBinarySlot: "boundary_object_data" | "published_object_bytes" | "resolved_memory_file" | "native_state" | "native_dependency_file";
         WorkerSessionBinary: {
             slot: components["schemas"]["WorkerSessionBinarySlot"];
             key: string;
@@ -1682,7 +1684,9 @@ export interface components {
         };
         WorkerPublishSessionRequest: {
             assignment: components["schemas"]["WorkerAssignment"];
-            manifest: components["schemas"]["SessionManifest"];
+            manifest: components["schemas"]["SessionManifest"] | {
+                [key: string]: unknown;
+            };
             expected_revision: components["schemas"]["RevisionString"];
         };
         WorkerLoadSessionRequest: {
@@ -1835,8 +1839,10 @@ export interface components {
             max_context_bytes: number;
             max_output_tokens: number;
             capabilities: components["schemas"]["WorkerSessionHarnessCapabilities"];
-            /** @constant */
-            schema_version: "wuji.harness.problem.v1";
+            /** @enum {string} */
+            schema_version: "wuji.harness.problem.v1" | "wuji.harness.problem.v2";
+            /** @enum {string} */
+            session_codec?: "wuji.session.native.v2";
             history_source_id: string;
             /** @enum {string} */
             memory_mode: "disabled" | "pinned_context" | "work_memory";

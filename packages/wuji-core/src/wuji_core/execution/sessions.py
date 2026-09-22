@@ -11,10 +11,13 @@ from wuji_core.contracts.execution import SessionManifest
 from wuji_core.contracts.knowledge import KnowledgeRef
 from wuji_core.contracts.sessions import (
     BoundaryObjects, InputPayload, MessagePosition, ModelFrontierEntry,
-    NativeCallBinding,
+    NativeCallBinding, NativeCheckpointManifestV2, NativeDependencyManifestV2,
+    NativeSessionBoundaryV2, OperationFenceEntryV2, OperationFenceV2,
     OperationFrontier,
+    PublishedNativeSessionV2,
     PublishedHistoryRoot, PublishedMemoryManifestRoot, PublishedProviderStateRoot,
-    PublishedSession, RecoveryCheck, SessionReceipt, StagedSessionObjects,
+    PublishedSession, RecoveryCheck, SessionReceipt, StagedNativeSessionV2,
+    StagedSessionObjects,
     native_rejection_content,
 )
 from wuji_core.http import canonical_json_bytes, strict_json_loads
@@ -30,6 +33,9 @@ SESSION_OBJECT_ROLES = {
     "history_root",
     "provider_root",
     "memory_root",
+    "native_state",
+    "dependency_manifest",
+    "operation_fence",
 }
 
 
@@ -385,6 +391,93 @@ class SessionRepository:
             raise DomainError("NOT_FOUND_OR_FORBIDDEN")
         return stored
 
+    def _native_capability(self, tx, compatibility):
+        capability = self.registry.session_capability(
+            tx, compatibility.profile_snapshot
+        )
+        body = compatibility.profile_snapshot["body"]
+        if (
+            body.get("schema_version") != "wuji.harness.problem.v2"
+            or body.get("session_codec") != "wuji.session.native.v2"
+            or not equal(capability["compatibility"], compatibility)
+        ):
+            raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+        return capability
+
+    def _operation_fence(self, tx, assignment, session_lineage, pending=()):
+        work_id = assignment.identity.work_item_id
+        model_rows = rows(tx.connection.execute(
+            "SELECT m.model_attempt_id,m.send_state,m.response_state,m.billing_state,"
+            "m.local_state,m.inflight,m.input_digest FROM vnext.model_call m "
+            "JOIN vnext.agent_run r USING(tenant_id,project_id,task_id,agent_run_id) "
+            "WHERE m.tenant_id=%s AND m.project_id=%s AND m.task_id=%s "
+            "AND r.work_item_id=%s ORDER BY m.model_attempt_id",
+            (*tx.owner, work_id),
+        ))
+        tool_rows = rows(tx.connection.execute(
+            "SELECT c.tool_call_id,c.status,c.latest_attempt_id,a.status AS attempt_status "
+            "FROM vnext.tool_call c LEFT JOIN vnext.tool_attempt a ON "
+            "(a.tenant_id,a.project_id,a.task_id,a.tool_attempt_id)="
+            "(c.tenant_id,c.project_id,c.task_id,c.latest_attempt_id) "
+            "WHERE c.tenant_id=%s AND c.project_id=%s AND c.task_id=%s "
+            "AND c.work_item_id=%s AND c.session_lineage=%s ORDER BY c.tool_call_id",
+            (*tx.owner, work_id, session_lineage),
+        ))
+        input_rows = rows(tx.connection.execute(
+            "SELECT d.delivery_id,d.status,d.input_request_id FROM vnext.input_delivery d "
+            "JOIN vnext.input_request i USING(tenant_id,project_id,task_id,input_request_id) "
+            "WHERE d.tenant_id=%s AND d.project_id=%s AND d.task_id=%s "
+            "AND i.work_item_id=%s ORDER BY d.delivery_id",
+            (*tx.owner, work_id),
+        ))
+        entries = []
+        for value in model_rows:
+            state = "/".join(str(value[name]) for name in (
+                "send_state", "response_state", "billing_state", "local_state"
+            ))
+            if value["inflight"] or state != "sent/complete/reported/ended":
+                raise DomainError("OPERATION_UNKNOWN", 409)
+            entries.append(OperationFenceEntryV2(
+                kind="model", operation_id=value["model_attempt_id"],
+                state=state, digest=digest(value),
+            ))
+        allowed_tools = {"complete", "cancelled"}
+        if pending:
+            allowed_tools.add("pending_approval")
+        for value in tool_rows:
+            state = value["status"] + "/" + (value["attempt_status"] or "none")
+            if value["status"] not in allowed_tools or (
+                value["status"] == "complete" and value["attempt_status"] != "complete"
+            ):
+                raise DomainError("OPERATION_UNKNOWN", 409)
+            entries.append(OperationFenceEntryV2(
+                kind="tool", operation_id=value["tool_call_id"],
+                state=state, digest=digest(value),
+            ))
+        for value in input_rows:
+            entries.append(OperationFenceEntryV2(
+                kind="input", operation_id=value["delivery_id"],
+                state=value["status"], digest=digest(value),
+            ))
+        entries = tuple(sorted(entries, key=lambda item: (item.kind, item.operation_id)))
+        pending = tuple(sorted(pending))
+        pending_calls = {
+            value["tool_call_id"] for value in tool_rows
+            if value["status"] == "pending_approval"
+        }
+        if set(pending) != pending_calls:
+            raise DomainError("SESSION_FRONTIER_MISMATCH", 409)
+        return OperationFenceV2(
+            work_item_id=work_id,
+            session_lineage=session_lineage,
+            producer_identity=assignment.identity,
+            entries=entries,
+            pending_approval_refs=pending,
+            ledger_digest=digest([
+                item.model_dump(mode="json") for item in entries
+            ]),
+        )
+
     def _model(self, tx, history, attempt_id):
         record = row(tx.connection.execute(
             "SELECT m.*,r.work_item_id FROM vnext.model_call m JOIN vnext.agent_run r USING(tenant_id,project_id,task_id,agent_run_id) WHERE m.tenant_id=%s AND m.project_id=%s AND m.task_id=%s AND m.model_attempt_id=%s AND m.access_level<=%s",
@@ -577,8 +670,174 @@ class SessionRepository:
             )
         return ref
 
+    def _stage_native(self, worker_access, assignment, boundary):
+        boundary = NativeSessionBoundaryV2.model_validate(boundary).model_copy(
+            deep=True
+        )
+        binding = self._writer(worker_access, assignment)
+        if (
+            boundary.work_item_id != assignment.identity.work_item_id
+            or boundary.session_lineage != binding.session_lineage
+            or set(boundary.dependency_paths)
+            != {item.key for item in boundary.dependency_files}
+        ):
+            raise DomainError("INVALID_REFERENCE", 422)
+        try:
+            state = strict_json_loads(boundary.native_state)
+            if (
+                state.get("schema_version") != "wuji.maf-native-state.v2"
+                or state.get("session", {}).get("session_id") != boundary.session_id
+            ):
+                raise ValueError("native state identity changed")
+        except (AttributeError, TypeError, ValueError) as error:
+            raise DomainError("INVALID_SCHEMA", 422) from error
+        try:
+            pending_contents = tuple(state["pending_contents"])
+            call_bindings = tuple(
+                NativeCallBinding.model_validate(item)
+                for item in state["call_bindings"]
+            )
+            if (
+                {item["id"] for item in pending_contents}
+                != {item.sdk_approval_id for item in call_bindings}
+                or set(boundary.pending_approval_refs)
+                != {item.tool_call_id for item in call_bindings}
+            ):
+                raise ValueError("native approval binding changed")
+        except (KeyError, TypeError, ValueError) as error:
+            raise DomainError("INVALID_REFERENCE", 422) from error
+        with self.uow.transaction(
+            worker_access, assignment.identity.task_id, capability="tool_request"
+        ) as tx:
+            current_run(tx, self.registry.config(tx))
+            capability = self._native_capability(tx, boundary.compatibility)
+            level = tx.permissions["clearance"]
+            fence = self._operation_fence(
+                tx,
+                assignment,
+                boundary.session_lineage,
+                boundary.pending_approval_refs,
+            )
+        limits = capability["limits"]
+        lease = "session-stage:" + str(uuid4())
+        refs, total = [], 0
+
+        def save(data, media_type, children=(), role="dependency"):
+            nonlocal total
+            total += len(data)
+            if (
+                len(data) > limits.max_object_bytes
+                or total > limits.max_total_bytes
+                or len(refs) >= limits.max_objects
+            ):
+                raise DomainError("LIMIT_BLOCKED", 429)
+            ref = self._stage(
+                worker_access,
+                assignment,
+                data,
+                media_type,
+                children,
+                role,
+                level,
+                lease,
+            )
+            refs.append(ref)
+            return ref
+
+        file_refs = {}
+        for item in boundary.dependency_files:
+            if item.object_refs or item.key in file_refs:
+                raise DomainError("INVALID_REFERENCE", 422)
+            file_refs[item.key] = save(item.data, item.media_type)
+        dependencies = NativeDependencyManifestV2(
+            session_id=boundary.session_id,
+            session_lineage=boundary.session_lineage,
+            work_item_id=boundary.work_item_id,
+            compatibility=boundary.compatibility,
+            object_refs=unique_refs(file_refs.values()),
+            files=tuple(
+                {
+                    "path": boundary.dependency_paths[key],
+                    "ref": ref.model_dump(mode="json"),
+                    "object_key": None,
+                }
+                for key, ref in sorted(file_refs.items())
+            ),
+        )
+        native_ref = save(
+            boundary.native_state,
+            "application/vnd.wuji.maf-native-state+json",
+            role="native_state",
+        )
+        dependency_ref = save(
+            canonical_json_bytes(document(dependencies)),
+            "application/vnd.wuji.session-dependencies+json",
+            dependencies.object_refs,
+            "dependency_manifest",
+        )
+        fence_ref = save(
+            canonical_json_bytes(document(fence)),
+            "application/vnd.wuji.operation-fence+json",
+            role="operation_fence",
+        )
+        roots = (native_ref, dependency_ref, fence_ref)
+        with self.uow.transaction(
+            worker_access, assignment.identity.task_id, capability="tool_request"
+        ) as tx:
+            current_run(tx, self.registry.config(tx))
+            records, _ = self._graph(
+                tx,
+                roots,
+                limits,
+                work_id=assignment.identity.work_item_id,
+                session_id=boundary.session_id,
+                owner_run_id=assignment.identity.agent_run_id,
+                source_subject=worker_access.principal.subject,
+                source_token_id=worker_access.principal.token_id,
+            )
+            recorded = tx.connection.execute(
+                """SELECT vnext.record_session_stage(
+                %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                (
+                    *tx.owner,
+                    lease,
+                    assignment.identity.work_item_id,
+                    boundary.session_id,
+                    assignment.identity.agent_run_id,
+                    native_ref.id,
+                    native_ref.version.root,
+                    dependency_ref.id,
+                    dependency_ref.version.root,
+                    fence_ref.id,
+                    fence_ref.version.root,
+                    session_graph_digest(records),
+                    max(record["access_level"] for record in records.values()),
+                    boundary.compatibility.capability_ref,
+                    boundary.compatibility.capability_digest,
+                ),
+            ).fetchone()
+            if recorded != (lease,):
+                raise DomainError("INVALID_REFERENCE", 422)
+        return StagedNativeSessionV2(
+            native_state_ref=native_ref,
+            dependency_manifest_ref=dependency_ref,
+            operation_fence_ref=fence_ref,
+            object_refs=unique_refs(refs),
+            lease_owner=lease,
+            native_state_digest=sha256(boundary.native_state).hexdigest(),
+            pending_contents=pending_contents,
+            call_bindings=call_bindings,
+            dependencies=dependencies,
+            operation_fence=fence,
+        )
+
     def stage_objects(self, worker_access, assignment, objects):
         assignment = WorkerAssignment.model_validate(assignment)
+        if isinstance(objects, NativeSessionBoundaryV2) or (
+            isinstance(objects, dict)
+            and objects.get("schema_version") == "wuji.session.native-boundary.v2"
+        ):
+            return self._stage_native(worker_access, assignment, objects)
         objects = BoundaryObjects.model_validate(objects).model_copy(deep=True)
         binding = self._writer(worker_access, assignment)
         history, provider, memory = objects.history, objects.provider_state, objects.memory
@@ -1113,6 +1372,91 @@ class SessionRepository:
             visit(root, 0)
         return records, bodies
 
+    def _load_native_in_transaction(self, tx, work, value, manifest):
+        if (
+            manifest.session_id != work["session_id"]
+            or manifest.work_item_id != work["work_item_id"]
+            or manifest.producer_identity.agent_run_id != value["owner_run_id"]
+            or manifest.checkpoint_revision != str(value["revision"])
+            or digest(document(manifest)) != value["manifest_digest"]
+        ):
+            raise DomainError("INVALID_REFERENCE", 422)
+        roots = (
+            manifest.native_state_ref,
+            manifest.dependency_manifest_ref,
+            manifest.operation_fence_ref,
+        )
+        provisional = self.artifacts.record(tx, manifest.dependency_manifest_ref)
+        dependencies = NativeDependencyManifestV2.model_validate(
+            strict_json_loads(self.artifacts.checked_bytes(provisional))
+        )
+        capability = self._native_capability(tx, dependencies.compatibility)
+        records, bodies = self._graph(
+            tx, roots, capability["limits"], publication_id=value["publication_id"]
+        )
+        if value["graph_digest"] != session_graph_digest(records):
+            raise DomainError("INVALID_REFERENCE", 422)
+        dependencies = NativeDependencyManifestV2.model_validate(
+            strict_json_loads(bodies[ref_key(manifest.dependency_manifest_ref)])
+        )
+        fence = OperationFenceV2.model_validate(
+            strict_json_loads(bodies[ref_key(manifest.operation_fence_ref)])
+        )
+        state = strict_json_loads(bodies[ref_key(manifest.native_state_ref)])
+        explicit = [*dependencies.object_refs, *(item.ref for item in dependencies.files)]
+        if (
+            dependencies.session_id != manifest.session_id
+            or dependencies.session_lineage != manifest.session_lineage
+            or dependencies.work_item_id != manifest.work_item_id
+            or not equal(dependencies.compatibility, capability["compatibility"])
+            or fence.work_item_id != manifest.work_item_id
+            or fence.session_lineage != manifest.session_lineage
+            or fence.producer_identity != manifest.producer_identity
+            or fence.ledger_digest != value["frontier_digest"]
+            or tuple(fence.pending_approval_refs) != tuple(manifest.pending_approval_refs)
+            or state.get("schema_version") != "wuji.maf-native-state.v2"
+            or state.get("session", {}).get("session_id") != manifest.session_id
+            or manifest.compatibility_ref != dependencies.compatibility.capability_ref
+            or manifest.compatibility_digest
+            != dependencies.compatibility.capability_digest
+            or manifest.profile_digest
+            != dependencies.compatibility.profile_snapshot["digest"]
+            or manifest.profile_ref
+            != dependencies.compatibility.profile_snapshot["ref"]
+            or manifest.profile_revision
+            != dependencies.compatibility.profile_snapshot["revision"]
+            or any(
+                ref is None
+                or ref_key(ref) not in records
+                or records[ref_key(ref)]["sha256"] != ref.sha256.root
+                for ref in explicit
+            )
+        ):
+            raise DomainError("INVALID_REFERENCE", 422)
+        receipt = SessionReceipt(
+            session_id=manifest.session_id,
+            manifest_ref=value["manifest_ref"],
+            checkpoint_revision=str(value["revision"]),
+            manifest_digest=value["manifest_digest"],
+            publication_id=value["publication_id"],
+            published_at=value["published_at"],
+        )
+        return PublishedNativeSessionV2(
+            receipt=receipt,
+            manifest=manifest,
+            dependencies=dependencies,
+            operation_fence=fence,
+            object_refs=tuple(
+                BlobRef.model_validate({
+                    "id": record["entity_id"],
+                    "version": str(record["revision"]),
+                    "sha256": record["sha256"],
+                })
+                for record in records.values()
+            ),
+            object_bytes=bodies,
+        )
+
     def _load_in_transaction(self, tx, work, *, revision=None):
         revision = work["session_revision"] if revision is None else revision
         value = row(tx.connection.execute(
@@ -1121,7 +1465,15 @@ class SessionRepository:
         ))
         if value is None or not value["manifest_ref"]:
             raise DomainError("SESSION_NOT_PUBLISHED", 409)
-        manifest = SessionManifest.model_validate(strict_json_loads(value["manifest_json"]))
+        manifest_document = strict_json_loads(value["manifest_json"])
+        if manifest_document.get("schema_version") == "wuji.session.native.v2":
+            return self._load_native_in_transaction(
+                tx,
+                work,
+                value,
+                NativeCheckpointManifestV2.model_validate(manifest_document),
+            )
+        manifest = SessionManifest.model_validate(manifest_document)
         if (manifest.session_id != work["session_id"] or manifest.work_item_id != work["work_item_id"]
                 or manifest.owner_run_id != value["owner_run_id"]
                 or manifest.checkpoint_revision.root != str(value["revision"]) or digest(document(manifest)) != value["manifest_digest"]):
@@ -1176,16 +1528,252 @@ class SessionRepository:
                 raise DomainError("INVALID_REFERENCE", 422)
 
     def require_current_root_writer(self, tx, manifest):
-        for ref in (manifest.history_root, manifest.provider_state_ref, manifest.memory_manifest_ref):
+        refs = (
+            (
+                manifest.native_state_ref,
+                manifest.dependency_manifest_ref,
+                manifest.operation_fence_ref,
+            )
+            if isinstance(manifest, NativeCheckpointManifestV2)
+            else (
+                manifest.history_root,
+                manifest.provider_state_ref,
+                manifest.memory_manifest_ref,
+            )
+        )
+        owner_run_id = (
+            manifest.producer_identity.agent_run_id
+            if isinstance(manifest, NativeCheckpointManifestV2)
+            else manifest.owner_run_id
+        )
+        for ref in refs:
             actual = tx.connection.execute(
                 "SELECT 1 FROM vnext.session_object o JOIN vnext.run_credential c ON (c.tenant_id,c.project_id,c.task_id,c.agent_run_id,c.token_id)=(o.tenant_id,o.project_id,o.task_id,o.agent_run_id,o.writer_token_id) JOIN vnext.run_writer w ON (w.tenant_id,w.project_id,w.task_id,w.agent_run_id,w.subject)=(c.tenant_id,c.project_id,c.task_id,c.agent_run_id,c.subject) WHERE o.tenant_id=%s AND o.project_id=%s AND o.task_id=%s AND o.artifact_id=%s AND o.artifact_revision=%s AND o.agent_run_id=%s AND NOT c.revoked AND NOT w.revoked AND (c.document_json::jsonb->>'expires_at')::timestamptz>clock_timestamp()",
-                (*tx.owner, ref.id, ref.version.root, manifest.owner_run_id),
+                (*tx.owner, ref.id, ref.version.root, owner_run_id),
             ).fetchone()
             if actual is None:
                 raise DomainError("STALE_EXECUTION", 409)
 
+    def _publish_native(
+        self, access, assignment, manifest, *, expected_revision
+    ):
+        manifest = NativeCheckpointManifestV2.model_validate(manifest)
+        if (
+            manifest.producer_identity != assignment.identity
+            or manifest.work_item_id != assignment.identity.work_item_id
+            or int(manifest.checkpoint_revision) != expected_revision + 1
+        ):
+            raise DomainError("STALE_EXECUTION", 409)
+        expected_key = "session-publish:" + digest({
+            "identity": document(assignment.identity),
+            "session_id": manifest.session_id,
+            "parent_manifest_ref": manifest.parent_manifest_ref,
+            "native_state_ref": document(manifest.native_state_ref),
+            "dependency_manifest_ref": document(manifest.dependency_manifest_ref),
+            "operation_fence_ref": document(manifest.operation_fence_ref),
+        })
+        if manifest.publication_key != expected_key:
+            raise DomainError("INPUT_DIGEST_CONFLICT", 409)
+        with self.uow.transaction(
+            access, assignment.identity.task_id, capability="observe"
+        ) as tx:
+            run = self.receiver(tx, assignment)
+            work = work_row(tx, manifest.work_item_id)
+            self._current_writer(tx, work, run)
+            if manifest.saved_at > datetime.now(timezone.utc) or manifest.saved_at < run["started_at"]:
+                raise DomainError("INVALID_REFERENCE", 422)
+            old = row(tx.connection.execute(
+                "SELECT * FROM vnext.session_manifest WHERE tenant_id=%s AND project_id=%s "
+                "AND task_id=%s AND session_id=%s AND revision=%s",
+                (*tx.owner, manifest.session_id, manifest.checkpoint_revision),
+            ))
+            if old:
+                if (
+                    old["owner_run_id"] != run["agent_run_id"]
+                    or old["manifest_digest"] != digest(document(manifest))
+                ):
+                    raise DomainError("INPUT_DIGEST_CONFLICT", 409)
+                return self._load_in_transaction(
+                    tx, {**work, "session_id": manifest.session_id},
+                    revision=old["revision"],
+                ).receipt
+            expected_parent = None
+            if expected_revision:
+                parent = row(tx.connection.execute(
+                    "SELECT manifest_ref FROM vnext.session_manifest WHERE tenant_id=%s "
+                    "AND project_id=%s AND task_id=%s AND session_id=%s AND revision=%s",
+                    (*tx.owner, manifest.session_id, expected_revision),
+                ))
+                expected_parent = None if parent is None else parent["manifest_ref"]
+            if (
+                manifest.parent_manifest_ref != expected_parent
+                or (expected_revision == 0 and work["session_id"] is not None)
+                or (
+                    expected_revision > 0
+                    and (
+                        work["session_id"] != manifest.session_id
+                        or work["session_revision"] != expected_revision
+                    )
+                )
+            ):
+                raise DomainError("STALE_VERSION", 409)
+            roots = (
+                manifest.native_state_ref,
+                manifest.dependency_manifest_ref,
+                manifest.operation_fence_ref,
+            )
+            provisional = self.artifacts.record(tx, manifest.dependency_manifest_ref)
+            dependencies = NativeDependencyManifestV2.model_validate(
+                strict_json_loads(self.artifacts.checked_bytes(provisional))
+            )
+            capability = self._native_capability(tx, dependencies.compatibility)
+            records, bodies = self._graph(
+                tx,
+                roots,
+                capability["limits"],
+                work_id=work["work_item_id"],
+                session_id=manifest.session_id,
+                owner_run_id=run["agent_run_id"],
+            )
+            fence = OperationFenceV2.model_validate(
+                strict_json_loads(bodies[ref_key(manifest.operation_fence_ref)])
+            )
+            current_fence = self._operation_fence(
+                tx,
+                assignment,
+                manifest.session_lineage,
+                manifest.pending_approval_refs,
+            )
+            if (
+                fence != current_fence
+                or fence.producer_identity != manifest.producer_identity
+                or manifest.access_scope_ref
+                != "task:" + assignment.identity.task_id
+                or dependencies.session_id != manifest.session_id
+                or dependencies.session_lineage != manifest.session_lineage
+                or dependencies.work_item_id != manifest.work_item_id
+                or manifest.compatibility_ref
+                != dependencies.compatibility.capability_ref
+                or manifest.compatibility_digest
+                != dependencies.compatibility.capability_digest
+                or manifest.profile_ref
+                != dependencies.compatibility.profile_snapshot["ref"]
+                or manifest.profile_revision
+                != dependencies.compatibility.profile_snapshot["revision"]
+                or manifest.profile_digest
+                != dependencies.compatibility.profile_snapshot["digest"]
+            ):
+                raise DomainError("SESSION_FRONTIER_MISMATCH", 409)
+            stage = tx.connection.execute(
+                """SELECT * FROM vnext.check_session_stage_for_publish(
+                %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                (
+                    *tx.owner,
+                    work["work_item_id"],
+                    manifest.session_id,
+                    run["agent_run_id"],
+                    manifest.native_state_ref.id,
+                    manifest.native_state_ref.version.root,
+                    manifest.dependency_manifest_ref.id,
+                    manifest.dependency_manifest_ref.version.root,
+                    manifest.operation_fence_ref.id,
+                    manifest.operation_fence_ref.version.root,
+                    session_graph_digest(records),
+                    dependencies.compatibility.capability_ref,
+                    dependencies.compatibility.capability_digest,
+                ),
+            ).fetchone()
+            if stage is None:
+                raise DomainError("STALE_EXECUTION", 409)
+            level = max(record["access_level"] for record in records.values())
+            publication_id = "session:" + str(uuid4())
+            manifest_ref = "session-checkpoint:" + str(uuid4())
+            tx.connection.execute(
+                "INSERT INTO vnext.publication(tenant_id,project_id,task_id,publication_id,kind,access_level) "
+                "VALUES(%s,%s,%s,%s,'session_manifest',%s)",
+                (*tx.owner, publication_id, level),
+            )
+            for record in sorted(
+                records.values(), key=lambda item: (item["entity_id"], item["revision"])
+            ):
+                tx.connection.execute(
+                    "INSERT INTO vnext.publication_ref(tenant_id,project_id,task_id,publication_id,"
+                    "artifact_id,artifact_revision,access_level) VALUES(%s,%s,%s,%s,%s,%s,%s)",
+                    (*tx.owner, publication_id, record["entity_id"], record["revision"], level),
+                )
+            published_at = tx.connection.execute(
+                "INSERT INTO vnext.session_manifest(tenant_id,project_id,task_id,session_id,revision,"
+                "work_item_id,owner_run_id,manifest_json,publication_id,published_at,access_level,"
+                "manifest_ref,manifest_digest,frontier_digest,graph_digest,session_lineage,capability_ref,"
+                "capability_digest) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,clock_timestamp(),%s,%s,%s,%s,%s,%s,%s,%s) "
+                "RETURNING published_at",
+                (
+                    *tx.owner,
+                    manifest.session_id,
+                    manifest.checkpoint_revision,
+                    work["work_item_id"],
+                    run["agent_run_id"],
+                    json_text(document(manifest)),
+                    publication_id,
+                    level,
+                    manifest_ref,
+                    digest(document(manifest)),
+                    fence.ledger_digest,
+                    session_graph_digest(records),
+                    manifest.session_lineage,
+                    dependencies.compatibility.capability_ref,
+                    dependencies.compatibility.capability_digest,
+                ),
+            ).fetchone()[0]
+            updated = tx.connection.execute(
+                "UPDATE vnext.work_item SET session_id=%s,session_revision=%s,revision=revision+1 "
+                "WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND work_item_id=%s "
+                "AND current_run_id=%s AND run_epoch=%s AND session_revision IS NOT DISTINCT FROM %s "
+                "RETURNING work_item_id",
+                (
+                    manifest.session_id,
+                    manifest.checkpoint_revision,
+                    *tx.owner,
+                    work["work_item_id"],
+                    run["agent_run_id"],
+                    run["run_epoch"],
+                    work["session_revision"],
+                ),
+            ).fetchone()
+            if not updated:
+                raise DomainError("STALE_VERSION", 409)
+            tx.semantic_event(
+                "session.published",
+                {"work_item_id": work["work_item_id"], "manifest_ref": manifest_ref},
+                access_level=level,
+            )
+            return SessionReceipt(
+                session_id=manifest.session_id,
+                manifest_ref=manifest_ref,
+                checkpoint_revision=manifest.checkpoint_revision,
+                manifest_digest=digest(document(manifest)),
+                publication_id=publication_id,
+                published_at=published_at,
+            )
+
     def publish(self, access, assignment, manifest, *, expected_revision):
         assignment = WorkerAssignment.model_validate(assignment)
+        if isinstance(manifest, NativeCheckpointManifestV2) or (
+            isinstance(manifest, dict)
+            and manifest.get("schema_version") == "wuji.session.native.v2"
+        ):
+            if (
+                isinstance(expected_revision, bool)
+                or str(expected_revision) != str(int(expected_revision))
+                or int(expected_revision) < 0
+            ):
+                raise DomainError("INVALID_SCHEMA", 422)
+            return self._publish_native(
+                access,
+                assignment,
+                manifest,
+                expected_revision=int(expected_revision),
+            )
         manifest = SessionManifest.model_validate(manifest)
         if isinstance(expected_revision, bool) or str(expected_revision) != str(int(expected_revision)) or int(expected_revision) < 0:
             raise DomainError("INVALID_SCHEMA", 422)
@@ -1328,15 +1916,51 @@ class SessionRepository:
                 if (assignment.identity.agent_run_id != work["current_run_id"] or assignment.identity.run_epoch.root != str(work["run_epoch"])
                         or assignment.session_manifest_ref is None or assignment.session_manifest_ref.root != published.receipt.manifest_ref):
                     raise DomainError("STALE_EXECUTION", 409)
-                holder = tx.connection.execute("SELECT 1 FROM vnext.session_holder WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND agent_run_id=%s AND manifest_ref=%s AND session_lineage=%s", (*tx.owner, current["agent_run_id"], published.receipt.manifest_ref, published.history.session_lineage)).fetchone()
+                lineage = (
+                    manifest.session_lineage
+                    if isinstance(published, PublishedNativeSessionV2)
+                    else published.history.session_lineage
+                )
+                holder = tx.connection.execute("SELECT 1 FROM vnext.session_holder WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND agent_run_id=%s AND manifest_ref=%s AND session_lineage=%s", (*tx.owner, current["agent_run_id"], published.receipt.manifest_ref, lineage)).fetchone()
                 if holder is None:
                     raise DomainError("STALE_EXECUTION", 409)
-            self._frontier(tx, published.history, published.provider_state,
-                published.memory,
-                allow_pending=manifest.recovery_class.value == "approval_boundary")
+            if isinstance(published, PublishedNativeSessionV2):
+                fence = self._operation_fence(
+                    tx,
+                    WorkerAssignment.model_validate(assignment)
+                    if assignment is not None
+                    else WorkerAssignment.model_validate(
+                        strict_json_loads(tx.connection.execute(
+                            "SELECT assignment_json FROM vnext.scheduler_assignment WHERE tenant_id=%s "
+                            "AND project_id=%s AND task_id=%s AND agent_run_id=%s",
+                            (*tx.owner, current["agent_run_id"]),
+                        ).fetchone()[0])
+                    ),
+                    manifest.session_lineage,
+                    manifest.pending_approval_refs,
+                )
+                if fence.entries != published.operation_fence.entries:
+                    raise DomainError("OPERATION_UNKNOWN", 409)
+                lineage = manifest.session_lineage
+                frontier_digest = fence.ledger_digest
+            else:
+                self._frontier(tx, published.history, published.provider_state,
+                    published.memory,
+                    allow_pending=manifest.recovery_class.value == "approval_boundary")
+                lineage = published.history.session_lineage
+                frontier_digest = digest(document(published.history.frontier))
             return RecoveryCheck(resumable=True, manifest_ref=published.receipt.manifest_ref,
-                session_id=manifest.session_id, checkpoint_revision=manifest.checkpoint_revision.root,
-                session_lineage=published.history.session_lineage, owner_run_id=manifest.owner_run_id,
-                frontier_digest=digest(document(published.history.frontier)))
+                session_id=manifest.session_id, checkpoint_revision=(
+                    manifest.checkpoint_revision
+                    if isinstance(published, PublishedNativeSessionV2)
+                    else manifest.checkpoint_revision.root
+                ),
+                session_lineage=lineage,
+                owner_run_id=(
+                    manifest.producer_identity.agent_run_id
+                    if isinstance(published, PublishedNativeSessionV2)
+                    else manifest.owner_run_id
+                ),
+                frontier_digest=frontier_digest)
         except (ValueError, KeyError, TypeError, DomainError) as error:
             return RecoveryCheck(resumable=False, reason_code=getattr(error, "code", "SESSION_INCOMPATIBLE"))

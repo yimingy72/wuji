@@ -358,7 +358,9 @@ class KnowledgeReadService:
             "representation_digest": delivery.representation_digest,
         })
 
-    def attach(self, access, assignment, *, deliveries, manifest_ref):
+    def attach(
+        self, access, assignment, *, deliveries, manifest_ref=None, channel=None
+    ):
         expected = {
             item["delivery_id"]: item["representation_digest"]
             for item in deliveries
@@ -369,26 +371,79 @@ class KnowledgeReadService:
             access, assignment.identity.task_id, capability="model_output"
         ) as tx:
             self._identity(tx, assignment)
+            definition = strict_json_loads(tx.task["definition_json"])
+            profile = definition["worker_profiles"][assignment.work_kind.value]
+            native_v2 = (
+                profile["body"].get("schema_version")
+                == "wuji.harness.problem.v2"
+                and profile["body"].get("session_codec")
+                == "wuji.session.native.v2"
+            )
+            if native_v2:
+                if manifest_ref is not None or channel not in {
+                    "initial_input", "function_result"
+                }:
+                    raise DomainError("INVALID_SCHEMA", 422)
+            elif channel is not None or manifest_ref is None:
+                raise DomainError("INVALID_SCHEMA", 422)
             manifest = tx.connection.execute(
                 "SELECT 1 FROM vnext.session_manifest WHERE tenant_id=%s AND project_id=%s AND task_id=%s "
                 "AND work_item_id=%s AND owner_run_id=%s AND manifest_ref=%s",
                 (*tx.owner, assignment.identity.work_item_id,
                  assignment.identity.agent_run_id, manifest_ref),
-            ).fetchone()
+            ).fetchone() if not native_v2 else (1,)
             if manifest is None:
                 raise DomainError("INVALID_REFERENCE", 422)
             rows = tx.connection.execute(
-                "SELECT delivery_id,state,representation_digest FROM vnext.knowledge_delivery WHERE tenant_id=%s AND project_id=%s "
+                "SELECT delivery_id,state,representation_digest,kind,native_occurrence FROM vnext.knowledge_delivery WHERE tenant_id=%s AND project_id=%s "
                 "AND task_id=%s AND work_item_id=%s AND agent_run_id=%s AND delivery_id=ANY(%s) FOR UPDATE",
                 (*tx.owner, assignment.identity.work_item_id,
                  assignment.identity.agent_run_id, list(expected)),
             ).fetchall()
             if (
                 len(rows) != len(expected)
-                or any(state not in {"prepared", "attached"} or expected[delivery_id] != digest
-                       for delivery_id, state, digest in rows)
+                or any(
+                    state not in {"prepared", "attached", "returned_to_framework"}
+                    or expected[delivery_id] != representation_digest
+                    or (
+                        native_v2
+                        and (kind == "initial_context")
+                        != (channel == "initial_input")
+                    )
+                    or (native_v2 and channel == "function_result" and not occurrence)
+                    for delivery_id, state, representation_digest, kind, occurrence in rows
+                )
             ):
                 raise DomainError("INVALID_REFERENCE", 422)
+            if native_v2:
+                for delivery_id in sorted(expected):
+                    handoff_id = "knowledge-handoff:" + sha256(
+                        canonical_json_bytes({
+                            "identity": assignment.identity.model_dump(mode="json"),
+                            "delivery_id": delivery_id,
+                            "representation_digest": expected[delivery_id],
+                            "channel": channel,
+                        })
+                    ).hexdigest()
+                    tx.connection.execute(
+                        "UPDATE vnext.knowledge_delivery SET protocol_version='v2',"
+                        "state='returned_to_framework',handoff_id=%s,handoff_channel=%s,"
+                        "handoff_at=clock_timestamp() WHERE tenant_id=%s AND project_id=%s "
+                        "AND task_id=%s AND work_item_id=%s AND agent_run_id=%s "
+                        "AND delivery_id=%s AND state='prepared'",
+                        (
+                            handoff_id,
+                            channel,
+                            *tx.owner,
+                            assignment.identity.work_item_id,
+                            assignment.identity.agent_run_id,
+                            delivery_id,
+                        ),
+                    )
+                return {
+                    "returned_to_framework": sorted(expected),
+                    "channel": channel,
+                }
             tx.connection.execute(
                 "UPDATE vnext.knowledge_delivery SET state='attached',attached_manifest_ref=%s,attached_at=clock_timestamp() "
                 "WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND work_item_id=%s AND agent_run_id=%s "

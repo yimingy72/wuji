@@ -9,6 +9,7 @@ from wuji_core.admission.common import current_run, digest
 from wuji_core.contracts.envelopes import WorkerAssignment
 from wuji_core.contracts.sessions import (
     DeliveryReceipt, HumanInput, InputPayload, InputReceipt, NativeApprovalObservation,
+    PublishedNativeSessionV2,
 )
 from wuji_core.contracts import generated as wire
 from wuji_core.execution.sessions import document, equal, row, rows, work_row
@@ -116,11 +117,29 @@ class InputService:
             run = self.sessions.receiver(tx, assignment)
             work = work_row(tx, assignment.identity.work_item_id)
             published = self.sessions._load_in_transaction(tx, work)
+            native_v2 = isinstance(published, PublishedNativeSessionV2)
+            if native_v2:
+                state = strict_json_loads(
+                    published.object_bytes[
+                        published.manifest.native_state_ref.id
+                        + "@"
+                        + published.manifest.native_state_ref.version.root
+                    ]
+                )
+                owner_run_id = published.manifest.producer_identity.agent_run_id
+                boundary = published.manifest.boundary_kind
+                expected_contents = tuple(state["pending_contents"])
+                expected_bindings = tuple(state["call_bindings"])
+            else:
+                owner_run_id = published.manifest.owner_run_id
+                boundary = published.manifest.recovery_class.value
+                expected_contents = published.provider_state.pending_contents
+                expected_bindings = published.provider_state.call_bindings
             if (published.receipt.manifest_ref != observation.manifest_ref
-                    or published.manifest.owner_run_id != run["agent_run_id"]
-                    or published.manifest.recovery_class.value != "approval_boundary"
-                    or not equal(published.provider_state.pending_contents, observation.contents)
-                    or not equal(published.provider_state.call_bindings, observation.call_bindings)):
+                    or owner_run_id != run["agent_run_id"]
+                    or boundary not in {"approval_boundary", "approval_wait"}
+                    or not equal(expected_contents, observation.contents)
+                    or not equal(expected_bindings, observation.call_bindings)):
                 raise DomainError("INVALID_REFERENCE", 422)
             native_digest = digest(list(observation.contents))
             old = row(tx.connection.execute(
@@ -131,18 +150,34 @@ class InputService:
                 return InputReceipt.model_validate(strict_json_loads(old["receipt_json"]))
             self.sessions._current_writer(tx, work, run)
             self.sessions.require_current_root_writer(tx, published.manifest)
-            self.sessions._frontier(
-                tx,
-                published.history,
-                published.provider_state,
-                published.memory,
-                allow_pending=True,
-            )
+            if native_v2:
+                current_fence = self.sessions._operation_fence(
+                    tx,
+                    assignment,
+                    published.manifest.session_lineage,
+                    published.manifest.pending_approval_refs,
+                )
+                if current_fence.entries != published.operation_fence.entries:
+                    raise DomainError("OPERATION_UNKNOWN", 409)
+            else:
+                self.sessions._frontier(
+                    tx,
+                    published.history,
+                    published.provider_state,
+                    published.memory,
+                    allow_pending=True,
+                )
             if work["input_request_id"]:
                 prior = current_input(tx, work)
                 if prior["status"] == "pending":
                     raise DomainError("INVALID_WAIT", 409)
-            capability = self.sessions.capability(tx, published.history)
+            capability = (
+                self.sessions._native_capability(
+                    tx, published.dependencies.compatibility
+                )
+                if native_v2
+                else self.sessions.capability(tx, published.history)
+            )
             definition = strict_json_loads(tx.task["definition_json"])
             now = tx.connection.execute("SELECT clock_timestamp()").fetchone()[0]
             expires = min(now + timedelta(seconds=capability["approval_ttl_seconds"]),
@@ -152,17 +187,59 @@ class InputService:
                 "native_digest": native_digest, "receiver_subject": access.principal.subject,
                 "owner_run_id": run["agent_run_id"], "received_at": now.isoformat(),
                 "worker_observed_at": observation.observed_at.isoformat() if observation.observed_at else None}
-            level = max(self.sessions.artifacts.record(tx, ref)["access_level"] for ref in (
-                published.manifest.history_root, published.manifest.provider_state_ref, published.manifest.memory_manifest_ref))
+            roots = (
+                (
+                    published.manifest.native_state_ref,
+                    published.manifest.dependency_manifest_ref,
+                    published.manifest.operation_fence_ref,
+                )
+                if native_v2
+                else (
+                    published.manifest.history_root,
+                    published.manifest.provider_state_ref,
+                    published.manifest.memory_manifest_ref,
+                )
+            )
+            level = max(
+                self.sessions.artifacts.record(tx, ref)["access_level"]
+                for ref in roots
+            )
+            checkpoint_revision = (
+                published.manifest.checkpoint_revision
+                if native_v2
+                else published.manifest.checkpoint_revision.root
+            )
             tx.connection.execute(
                 "INSERT INTO vnext.input_request(tenant_id,project_id,task_id,input_request_id,work_item_id,wait_ref_json,status,session_id,session_revision,source_receipt_json,access_level) VALUES(%s,%s,%s,%s,%s,%s,'pending',%s,%s,%s,%s)",
                 (*tx.owner, input_id, work["work_item_id"], json_text({"kind": "native_approval", "source_receipt_id": source_id}),
-                 published.manifest.session_id, published.manifest.checkpoint_revision.root, json_text(source), level),
+                 published.manifest.session_id, checkpoint_revision, json_text(source), level),
             )
-            pending = {b.sdk_approval_id: b for b in published.history.frontier.pending_approvals}
+            pending = {
+                binding.sdk_approval_id: binding
+                for binding in observation.call_bindings
+            }
             approval_refs = []
             for content in observation.contents:
                 binding = pending[content["id"]]
+                if native_v2:
+                    call = row(tx.connection.execute(
+                        "SELECT * FROM vnext.tool_call WHERE tenant_id=%s AND project_id=%s "
+                        "AND task_id=%s AND tool_call_id=%s AND work_item_id=%s "
+                        "AND session_lineage=%s",
+                        (*tx.owner, binding.tool_call_id, work["work_item_id"],
+                         published.manifest.session_lineage),
+                    ))
+                    request = None if call is None else strict_json_loads(call["request_json"])
+                    if (
+                        call is None
+                        or call["status"] != "pending_approval"
+                        or call["latest_attempt_id"] is not None
+                        or request.get("sdk_content_id") != binding.sdk_content_id
+                        or request.get("sdk_approval_id") != binding.sdk_approval_id
+                        or request.get("provider_call_id") != binding.provider_call_id
+                        or request.get("arguments_digest") != binding.arguments_digest
+                    ):
+                        raise DomainError("SESSION_FRONTIER_MISMATCH", 409)
                 ref = str(uuid4())
                 approval_refs.append(ref)
                 tool = self.registry.tool(tx, binding.tool_definition_ref)
@@ -170,11 +247,15 @@ class InputService:
                     raise DomainError("INVALID_REFERENCE", 422)
                 tx.connection.execute(
                     "INSERT INTO vnext.approval_request(tenant_id,project_id,task_id,approval_ref,input_request_id,work_item_id,session_id,session_revision,manifest_ref,tool_call_id,content_json,binding_json,parameters_digest,tool_digest,scope_json,scope_digest,profile_digest,qualifications_json,expires_at,access_level) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
-                    (*tx.owner, ref, input_id, work["work_item_id"], published.manifest.session_id, published.manifest.checkpoint_revision.root,
+                    (*tx.owner, ref, input_id, work["work_item_id"], published.manifest.session_id, checkpoint_revision,
                      observation.manifest_ref, binding.tool_call_id, json_text(content), json_text(document(binding)), binding.arguments_digest,
                      digest(tool.model_dump(mode="json")), json_text(definition["task"]["authorization_scope"]),
                      digest(definition["task"]["authorization_scope"]),
-                     published.history.compatibility.profile_snapshot["digest"], json_text(list(capability["approver_subjects"])), expires, level),
+                     (
+                         published.dependencies.compatibility.profile_snapshot["digest"]
+                         if native_v2
+                         else published.history.compatibility.profile_snapshot["digest"]
+                     ), json_text(list(capability["approver_subjects"])), expires, level),
                 )
             receipt = InputReceipt(input_request_id=input_id, work_item_id=work["work_item_id"], manifest_ref=observation.manifest_ref,
                 status="pending", approval_refs=tuple(approval_refs), source_receipt_id=source_id)
@@ -202,7 +283,14 @@ class InputService:
         with self.uow.transaction(access, task_id, capability="control") as tx:
             work = work_row(tx, work_item_id)
             published = self.sessions._load_in_transaction(tx, work)
-            if published.receipt.manifest_ref != manifest_ref or published.manifest.recovery_class.value != "settled_boundary":
+            boundary = (
+                published.manifest.boundary_kind
+                if isinstance(published, PublishedNativeSessionV2)
+                else published.manifest.recovery_class.value
+            )
+            if published.receipt.manifest_ref != manifest_ref or boundary not in {
+                "settled_boundary", "run_return"
+            }:
                 raise DomainError("INVALID_REFERENCE", 422)
             old = row(tx.connection.execute("SELECT * FROM vnext.human_question WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND idempotency_key=%s", (*tx.owner, idempotency_key)))
             content_digest = digest({"question": question, "work_item_id": work_item_id, "manifest_ref": manifest_ref})
@@ -222,7 +310,14 @@ class InputService:
             work = work_row(tx, assignment.identity.work_item_id)
             published = self.sessions._load_in_transaction(tx, work)
             question = row(tx.connection.execute("SELECT * FROM vnext.human_question WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND question_ref=%s AND work_item_id=%s AND manifest_ref=%s", (*tx.owner, question_ref, work["work_item_id"], manifest_ref)))
-            if not question or published.receipt.manifest_ref != manifest_ref or published.manifest.recovery_class.value != "settled_boundary":
+            boundary = (
+                published.manifest.boundary_kind
+                if isinstance(published, PublishedNativeSessionV2)
+                else published.manifest.recovery_class.value
+            )
+            if not question or published.receipt.manifest_ref != manifest_ref or boundary not in {
+                "settled_boundary", "run_return"
+            }:
                 raise DomainError("INVALID_REFERENCE", 422)
             old = row(tx.connection.execute("SELECT * FROM vnext.input_source WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND manifest_ref=%s AND native_digest=%s", (*tx.owner, manifest_ref, question["input_digest"])))
             if old:
@@ -236,8 +331,13 @@ class InputService:
                 "manifest_ref": manifest_ref, "received_at": tx.connection.execute("SELECT clock_timestamp()").fetchone()[0].isoformat()}
             receipt = InputReceipt(input_request_id=input_id, work_item_id=work["work_item_id"], manifest_ref=manifest_ref,
                 status="pending", approval_refs=(), source_receipt_id=source_id)
+            checkpoint_revision = (
+                published.manifest.checkpoint_revision
+                if isinstance(published, PublishedNativeSessionV2)
+                else published.manifest.checkpoint_revision.root
+            )
             tx.connection.execute("INSERT INTO vnext.input_request(tenant_id,project_id,task_id,input_request_id,work_item_id,wait_ref_json,status,session_id,session_revision,source_receipt_json,access_level) VALUES(%s,%s,%s,%s,%s,%s,'pending',%s,%s,%s,%s)",
-                (*tx.owner, input_id, work["work_item_id"], json_text({"kind": "question", "question_ref": question_ref}), published.manifest.session_id, published.manifest.checkpoint_revision.root, json_text(source), question["access_level"]))
+                (*tx.owner, input_id, work["work_item_id"], json_text({"kind": "question", "question_ref": question_ref}), published.manifest.session_id, checkpoint_revision, json_text(source), question["access_level"]))
             tx.connection.execute("INSERT INTO vnext.input_source(tenant_id,project_id,task_id,source_receipt_id,input_request_id,manifest_ref,native_digest,source_json,receipt_json,access_level) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                 (*tx.owner, source_id, input_id, manifest_ref, question["input_digest"], json_text(source), json_text(document(receipt)), question["access_level"]))
             tx.connection.execute("UPDATE vnext.work_item SET input_request_id=%s,revision=revision+1 WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND work_item_id=%s", (input_id, *tx.owner, work["work_item_id"]))
@@ -255,7 +355,12 @@ class InputService:
             if value["status"] == "revoked" or work["desired_state"] == "cancel" or tx.task["desired_state"] in {"cancel", "finish"}:
                 raise DomainError("STALE_EXECUTION", 409)
             published = self.sessions._load_in_transaction(tx, work)
-            if work["input_request_id"] != input_request_id or str(value["session_revision"]) != published.manifest.checkpoint_revision.root:
+            checkpoint_revision = (
+                published.manifest.checkpoint_revision
+                if isinstance(published, PublishedNativeSessionV2)
+                else published.manifest.checkpoint_revision.root
+            )
+            if work["input_request_id"] != input_request_id or str(value["session_revision"]) != checkpoint_revision:
                 raise DomainError("STALE_EXECUTION", 409)
             old = tx.connection.execute("SELECT idempotency_key,payload_digest FROM vnext.input_answer WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND input_request_id=%s", (*tx.owner, input_request_id)).fetchone()
             if old and old != (idempotency_key, digest(document(payload))):

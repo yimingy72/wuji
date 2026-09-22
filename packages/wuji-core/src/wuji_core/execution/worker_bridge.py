@@ -553,6 +553,7 @@ class WorkerHostBridge:
             request.assignment,
             deliveries=[item.model_dump(mode="json") for item in request.deliveries],
             manifest_ref=request.manifest_ref,
+            channel=None if request.channel is None else request.channel.value,
         )
 
     def _records(self, access, assignment, manifest):
@@ -829,7 +830,9 @@ class WorkerHostBridge:
                     # a host without an artifact reader keeps the metadata-only
                     # context instead of pretending the bodies were delivered.
                     context_options["material"] = material
-                if body.get("schema_version") == "wuji.harness.problem.v1":
+                if body.get("schema_version") in {
+                    "wuji.harness.problem.v1", "wuji.harness.problem.v2"
+                }:
                     context_wire = self._problem_context(
                         access, assignment, manifest, records, body
                     )
@@ -851,7 +854,9 @@ class WorkerHostBridge:
                     tuple(context.record_refs) != manifest.refs
                     or context.snapshot_id != assignment.snapshot_id
                     or (
-                        body.get("schema_version") != "wuji.harness.problem.v1"
+                        body.get("schema_version") not in {
+                            "wuji.harness.problem.v1", "wuji.harness.problem.v2"
+                        }
                         and tuple(context.read_set) != manifest.refs
                     )
                     or not {
@@ -867,7 +872,8 @@ class WorkerHostBridge:
                 resolved = host.resolve(assignment, context, verified_principal=access.principal)
                 profile_body = resolved.get("profile", {}).get("body", {})
                 if profile_body.get("schema_version") in {
-                    "wuji.harness.session.v1", "wuji.harness.problem.v1"
+                    "wuji.harness.session.v1", "wuji.harness.problem.v1",
+                    "wuji.harness.problem.v2",
                 }:
                     step = "session_encode"
                     if self.session_resolve_encoder is None:

@@ -357,7 +357,7 @@ class ResultCommitter:
                                 strict_json_loads(value)["ref"]
                             ))
                             for (value,) in tx.connection.execute(
-                                "SELECT delivery_json FROM vnext.knowledge_delivery WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND agent_run_id=%s AND state='attached' AND delivery_json::jsonb->>'disclosure'='content'",
+                                "SELECT delivery_json FROM vnext.knowledge_delivery WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND agent_run_id=%s AND state IN ('attached','returned_to_framework') AND delivery_json::jsonb->>'disclosure'='content'",
                                 (*tx.owner, envelope.identity.agent_run_id),
                             ).fetchall()
                         }

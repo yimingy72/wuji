@@ -13,10 +13,13 @@ from wuji_core.contracts.sessions import (
     HumanInput,
     InputReceipt,
     NativeApprovalObservation,
+    NativeSessionBoundaryV2,
+    PublishedNativeSessionV2,
     PublishedSession,
     SessionCompatibility,
     SessionLimits,
     SessionReceipt,
+    StagedNativeSessionV2,
     StagedSessionObjects,
 )
 from wuji_core.http import canonical_json_bytes, strict_json_loads
@@ -32,6 +35,9 @@ INPUT_RECEIPT_VERSION = "wuji.worker.session.input-receipt.v1"
 HUMAN_INPUT_VERSION = "wuji.worker.session.human-input.v1"
 DELIVERY_RECEIPT_VERSION = "wuji.worker.session.delivery-receipt.v1"
 COMPATIBILITY_VERSION = "wuji.worker.session.compatibility.v1"
+NATIVE_BOUNDARY_VERSION = "wuji.worker.session.native-boundary.v2"
+NATIVE_STAGED_VERSION = "wuji.worker.session.native-staged.v2"
+NATIVE_PUBLISHED_VERSION = "wuji.worker.session.native-published.v2"
 
 
 def _ref_key(ref):
@@ -174,6 +180,20 @@ class SessionTransportCodec:
         return model.model_validate(payload)
 
     def encode_boundary(self, objects):
+        if isinstance(objects, NativeSessionBoundaryV2):
+            payload = objects.model_dump(
+                mode="python", exclude={"native_state", "dependency_files"}
+            )
+            payload["dependency_files"] = [
+                item.model_dump(mode="python", exclude={"data"})
+                for item in objects.dependency_files
+            ]
+            binaries = [self._binary("native_state", "state", objects.native_state)]
+            binaries.extend(
+                self._binary("native_dependency_file", item.key, item.data)
+                for item in objects.dependency_files
+            )
+            return self._payload(NATIVE_BOUNDARY_VERSION, payload, binaries)
         objects = BoundaryObjects.model_validate(objects)
         payload = {
             "history": objects.history.model_dump(mode="python"),
@@ -192,6 +212,30 @@ class SessionTransportCodec:
         return self._payload(BOUNDARY_VERSION, payload, binaries)
 
     def decode_boundary(self, value):
+        version = getattr(getattr(value, "schema_version", None), "value", None)
+        if version is None and isinstance(value, dict):
+            version = value.get("schema_version")
+        if version == NATIVE_BOUNDARY_VERSION:
+            payload, decoded = self._decode(
+                value, expected_version=NATIVE_BOUNDARY_VERSION
+            )
+            state = [data for slot, key, data in decoded if slot == "native_state" and key == "state"]
+            files = {
+                key: data for slot, key, data in decoded
+                if slot == "native_dependency_file"
+            }
+            items = payload.get("dependency_files")
+            if len(state) != 1 or not isinstance(items, list):
+                raise DomainError("INVALID_SCHEMA", 422)
+            for item in items:
+                if not isinstance(item, dict) or "data" in item or item.get("key") not in files:
+                    raise DomainError("INVALID_SCHEMA", 422)
+                item["data"] = files.pop(item["key"])
+            if files:
+                raise DomainError("INVALID_SCHEMA", 422)
+            return NativeSessionBoundaryV2.model_validate({
+                **payload, "native_state": state[0]
+            })
         payload, decoded = self._decode(value, expected_version=BOUNDARY_VERSION)
         binaries = {}
         for slot, key, data in decoded:
@@ -215,11 +259,22 @@ class SessionTransportCodec:
         return BoundaryObjects.model_validate(payload)
 
     def encode_staged(self, value):
+        if isinstance(value, StagedNativeSessionV2):
+            return self._encode_model(
+                value, model=StagedNativeSessionV2, version=NATIVE_STAGED_VERSION
+            )
         return self._encode_model(
             value, model=StagedSessionObjects, version=STAGED_VERSION
         )
 
     def decode_staged(self, value):
+        version = getattr(getattr(value, "schema_version", None), "value", None)
+        if version is None and isinstance(value, dict):
+            version = value.get("schema_version")
+        if version == NATIVE_STAGED_VERSION:
+            return self._decode_model(
+                value, model=StagedNativeSessionV2, version=NATIVE_STAGED_VERSION
+            )
         return self._decode_model(
             value, model=StagedSessionObjects, version=STAGED_VERSION
         )
@@ -296,7 +351,7 @@ class SessionTransportCodec:
             raise DomainError("CAPABILITY_UNAVAILABLE", 503) from None
         if schema_version is None:
             return resolved
-        if schema_version not in {"wuji.harness.session.v1", "wuji.harness.problem.v1"}:
+        if schema_version not in {"wuji.harness.session.v1", "wuji.harness.problem.v1", "wuji.harness.problem.v2"}:
             raise DomainError("CAPABILITY_UNAVAILABLE", 503)
         required = {
             "session_compatibility",
@@ -346,7 +401,7 @@ class SessionTransportCodec:
         if schema_version is None:
             wire.WorkerResolvedHost.model_validate(resolved)
             return resolved
-        if schema_version not in {"wuji.harness.session.v1", "wuji.harness.problem.v1"}:
+        if schema_version not in {"wuji.harness.session.v1", "wuji.harness.problem.v1", "wuji.harness.problem.v2"}:
             raise DomainError("CAPABILITY_UNAVAILABLE", 503)
         if len(canonical_json_bytes(resolved)) > self.maximum:
             raise DomainError("LIMIT_BLOCKED", 422)
@@ -385,6 +440,28 @@ class SessionTransportCodec:
         return expected
 
     def encode_published(self, value):
+        if isinstance(value, PublishedNativeSessionV2):
+            expected = {_ref_key(ref): ref for ref in value.object_refs}
+            roots = (
+                value.manifest.native_state_ref,
+                value.manifest.dependency_manifest_ref,
+                value.manifest.operation_fence_ref,
+            )
+            if (
+                len(expected) != len(value.object_refs)
+                or any(_ref_key(ref) not in expected for ref in roots)
+                or set(value.object_bytes) != set(expected)
+            ):
+                raise DomainError("INVALID_REFERENCE", 422)
+            for key, ref in expected.items():
+                if sha256(value.object_bytes[key]).hexdigest() != ref.sha256.root:
+                    raise DomainError("INPUT_DIGEST_CONFLICT", 409)
+            payload = value.model_dump(mode="python", exclude={"object_bytes"})
+            binaries = [
+                self._binary("published_object_bytes", key, value.object_bytes[key])
+                for key in sorted(value.object_bytes)
+            ]
+            return self._payload(NATIVE_PUBLISHED_VERSION, payload, binaries)
         value = PublishedSession.model_validate(value)
         self._published_closure(value)
         payload = {
@@ -407,6 +484,21 @@ class SessionTransportCodec:
         return self._payload(PUBLISHED_VERSION, payload, binaries)
 
     def decode_published(self, value):
+        version = getattr(getattr(value, "schema_version", None), "value", None)
+        if version is None and isinstance(value, dict):
+            version = value.get("schema_version")
+        if version == NATIVE_PUBLISHED_VERSION:
+            payload, decoded = self._decode(
+                value, expected_version=NATIVE_PUBLISHED_VERSION
+            )
+            binaries = {}
+            for slot, key, data in decoded:
+                if slot != "published_object_bytes" or key in binaries:
+                    raise DomainError("INVALID_SCHEMA", 422)
+                binaries[key] = data
+            return PublishedNativeSessionV2.model_validate({
+                **payload, "object_bytes": binaries
+            })
         payload, decoded = self._decode(value, expected_version=PUBLISHED_VERSION)
         if "object_bytes" in payload:
             raise DomainError("INVALID_SCHEMA", 422)

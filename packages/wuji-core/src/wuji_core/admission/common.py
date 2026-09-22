@@ -57,7 +57,9 @@ def model_function_capabilities(tx, registry, config, run, work):
         & set(config.runtime.allowed_tool_refs)
         & set(tx.run_binding.allowed_tool_refs)
     )
-    if body.get("schema_version") == "wuji.harness.problem.v1":
+    if body.get("schema_version") in {
+        "wuji.harness.problem.v1", "wuji.harness.problem.v2"
+    }:
         # current_run already binds this credential to the exact Task, Work,
         # Run epoch and immutable Task definition.  scheduler_assignment is
         # intentionally unreadable while request_purpose=model_request, so it

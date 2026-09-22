@@ -65,6 +65,43 @@ def test_session_boundary_transport_uses_explicit_binary_and_preserves_decimal()
     assert restored.provider_state.session_state["provider_decimal"] == Decimal("1.250")
 
 
+def test_native_v2_transport_keeps_opaque_state_and_fixed_dependencies():
+    from support.session_transport import compatibility
+    from wuji_core.contracts.sessions import BoundaryObject, NativeSessionBoundaryV2
+
+    state = canonical_json_bytes({
+        "schema_version": "wuji.maf-native-state.v2",
+        "session": {"session_id": "session-native", "state": {}},
+        "pending_contents": [],
+        "call_bindings": [],
+    })
+    original = NativeSessionBoundaryV2(
+        session_id="session-native",
+        session_lineage="lineage-native",
+        work_item_id="work-native",
+        compatibility=compatibility(),
+        native_state=state,
+        boundary_kind="run_return",
+        dependency_paths={"memory-a": "notes.md"},
+        dependency_files=(BoundaryObject(
+            key="memory-a", data=b"fixed note",
+            media_type="text/plain; charset=utf-8",
+        ),),
+    )
+    codec = session_transport_codec()
+
+    encoded = codec.encode_boundary(original)
+    restored = codec.decode_boundary(encoded)
+
+    assert encoded.schema_version.value == "wuji.worker.session.native-boundary.v2"
+    assert {item.slot.value for item in encoded.binaries} == {
+        "native_state", "native_dependency_file"
+    }
+    assert restored == original
+    assert "message_end" not in encoded.payload
+    assert "provider_state" not in encoded.payload
+
+
 def test_session_resolved_transport_keeps_an_explicit_zero_tool_set():
     resolved = session_resolved()
     resolved["tools"] = []

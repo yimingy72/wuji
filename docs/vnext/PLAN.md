@@ -8,6 +8,8 @@
 **Spec：**[SPEC.md](SPEC.md) `2.0-review`；接口枚举见 `contracts.json`，验收见 [ACCEPTANCE.md](ACCEPTANCE.md)。  
 **状态：**产品代码未实施，下面命令是未来步骤，不是本轮执行结果。
 
+**2026-09-22 Session 实施替代：**P08 的新主路径为 `problem.v2/native.v2`：正常返回或审批等待时固定原生 state/Memory/operation fence，保留旧 v1 reader/writer 兼容；不再在每次模型调用前补写工具结果或发布完整 checkpoint。原始结果先固定，知识以可信 `returned_to_framework` handoff 确认，结果接纳不依赖 checkpoint 成功。下方旧三 root/逐消息示例仅描述 legacy v1。
+
 ## 全局约束
 
 Agent可提出candidate_fact但不能自行写FactAssessment或伪造Observation。未验证Claim可驱动受控探索；权限/Goal判据独立。新运行链无Cairn/Pi依赖；保留历史但不自动续跑。所有操作未知先核对，Session恢复不等于副作用回滚。UI状态与布局无业务权威。当前任务停止与全局暂停分别保存，不允许自动复活。真实SDK/数据库/浏览器的通过证据不能用布尔自报或语法检查代替。任何收费、真实环境切换与数据删除另行批准。
@@ -422,6 +424,8 @@ def test_sdk_advertises_only_profile_tools(maf_invocation, published_profile, mo
 
 <a id="P08"></a>
 ## P08 · SessionManifest与指定调用审批
+
+`problem.v2` 的当前实现入口是 `NativeSessionV2Adapter`、`NativeCheckpointManifestV2` 与迁移 `vnext_0034_native_session_v2`；旧 `NativeSessionAdapter` 只服务 legacy v1。新路径恢复范围限 `run_return`/`approval_wait`，崩溃或 fence 后新增/未知外部操作必须核对，不能自动重放。
 
 **依赖：**P05, P06, P07。**验收：**AC-023, AC-035, AC-038, AC-039, AC-040, AC-041, AC-042, AC-043, AC-066。
 

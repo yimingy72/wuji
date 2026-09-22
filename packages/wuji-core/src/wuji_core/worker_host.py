@@ -107,7 +107,8 @@ class PlatformWorkerHost:
             memory_inputs = ()
             session_limits = None
             if trusted["body"].get("schema_version") in {
-                "wuji.harness.session.v1", "wuji.harness.problem.v1"
+                "wuji.harness.session.v1", "wuji.harness.problem.v1",
+                "wuji.harness.problem.v2",
             }:
                 if self.sessions is None or self.inputs is None or not callable(self.receiver_access):
                     raise DomainError("CAPABILITY_UNAVAILABLE", 503)
@@ -121,7 +122,15 @@ class PlatformWorkerHost:
                     if not recovery.resumable:
                         raise DomainError(recovery.reason_code or "STALE_EXECUTION", 409)
                     published = self.sessions._load_in_transaction(tx, work)
-                    memory_files = {f.path: published.object_bytes[f.ref.id + "@" + f.ref.version.root] for f in published.memory.files}
+                    memory_manifest = getattr(
+                        published, "dependencies", None
+                    ) or published.memory
+                    memory_files = {
+                        item.path: published.object_bytes[
+                            item.ref.id + "@" + item.ref.version.root
+                        ]
+                        for item in memory_manifest.files
+                    }
                     delivery = tx.connection.execute("SELECT d.delivery_id FROM vnext.input_delivery d JOIN vnext.input_request i USING(tenant_id,project_id,task_id,input_request_id) WHERE d.tenant_id=%s AND d.project_id=%s AND d.task_id=%s AND d.input_request_id=%s AND d.manifest_ref=%s AND i.status='resolved'", (*tx.owner, work["input_request_id"], recovery.manifest_ref)).fetchone()
                     resolved["delivery_id"] = delivery[0] if delivery else None
                 else:
@@ -488,19 +497,56 @@ class PlatformWorkerHost:
         profiles = [
             profile for ref, profile in self.profiles.items() if ref in refs
         ]
-        return len(profiles) == 1 and profiles[0]["body"].get("schema_version") == "wuji.harness.problem.v1"
+        return len(profiles) == 1 and profiles[0]["body"].get("schema_version") in {
+            "wuji.harness.problem.v1", "wuji.harness.problem.v2"
+        }
+
+    def _native_problem_profile(self, assignment):
+        refs = {item.root for item in assignment.profile_refs}
+        profiles = [profile for ref, profile in self.profiles.items() if ref in refs]
+        return (
+            len(profiles) == 1
+            and profiles[0]["body"].get("schema_version")
+            == "wuji.harness.problem.v2"
+            and profiles[0]["body"].get("session_codec")
+            == "wuji.session.native.v2"
+        )
 
     def _delivery_manifest(self, assignment, context):
         with self._result_transaction(assignment) as tx:
             rows = tx.connection.execute(
-                "SELECT delivery_json,state,attached_manifest_ref FROM vnext.knowledge_delivery "
+                "SELECT delivery_json,state,attached_manifest_ref,protocol_version,handoff_id,"
+                "handoff_channel,representation_digest FROM vnext.knowledge_delivery "
                 "WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND agent_run_id=%s "
                 "ORDER BY prepared_at,delivery_id",
                 (*tx.owner, assignment.identity.agent_run_id),
             ).fetchall()
-        if any(state != "attached" or manifest_ref is None for _body, state, manifest_ref in rows):
+        if self._native_problem_profile(assignment):
+            handoffs = [
+                {
+                    "handoff_id": handoff_id,
+                    "delivery": strict_json_loads(body),
+                    "representation_digest": representation_digest,
+                    "channel": channel,
+                }
+                for body, state, _manifest, protocol, handoff_id, channel, representation_digest in rows
+                if protocol == "v2" and state == "returned_to_framework"
+            ]
+            return {
+                "schema_version": "wuji.delivery-manifest.v2",
+                "initial_snapshot_id": context.snapshot_id,
+                "context_digest": context.input_digest,
+                "handoffs": handoffs,
+            }
+        if any(
+            state != "attached" or manifest_ref is None
+            for _body, state, manifest_ref, _protocol, _handoff, _channel, _digest in rows
+        ):
             raise DomainError("SESSION_PUBLISH_FAILED", 409)
-        deliveries = [strict_json_loads(body) for body, _state, _manifest in rows]
+        deliveries = [
+            strict_json_loads(body)
+            for body, _state, _manifest, _protocol, _handoff, _channel, _digest in rows
+        ]
         return {
             "schema_version": "wuji.delivery-manifest.v1",
             "initial_snapshot_id": context.snapshot_id,
@@ -665,7 +711,29 @@ class PlatformWorkerHost:
             tool_binding, tool_refs = self._tool_binding(
                 assignment, tool_receipts
             )
-            raw_ref = self._stage(assignment, raw_output, "text/plain; charset=utf-8")
+            if self._native_problem_profile(assignment):
+                raw_publication = "raw-result:" + submission_id
+                retained_raw = self._published_artifacts(
+                    assignment, raw_publication
+                )
+                if retained_raw:
+                    if (
+                        len(retained_raw) != 1
+                        or self.artifacts.checked_bytes(retained_raw[0]) != raw_output
+                    ):
+                        raise DomainError("INPUT_DIGEST_CONFLICT", 409)
+                    raw_ref = self._blob_ref(retained_raw[0])
+                else:
+                    raw_ref = self._stage(
+                        assignment, raw_output, "text/plain; charset=utf-8"
+                    )
+                    self._publish(
+                        assignment, raw_publication, "raw_result", (raw_ref,)
+                    )
+            else:
+                raw_ref = self._stage(
+                    assignment, raw_output, "text/plain; charset=utf-8"
+                )
             sdk_ref = self.archive_sdk(assignment, sdk_output)
             delivery_document = (
                 self._delivery_manifest(assignment, context)
@@ -681,9 +749,15 @@ class PlatformWorkerHost:
             )
             read_refs = {_key(ref) for ref in context.read_set}
             if delivery_document is not None:
+                delivered = (
+                    [item["delivery"] for item in delivery_document["handoffs"]]
+                    if delivery_document["schema_version"]
+                    == "wuji.delivery-manifest.v2"
+                    else delivery_document["deliveries"]
+                )
                 read_refs.update(
                     _key(KnowledgeRef.model_validate(item["ref"]))
-                    for item in delivery_document["deliveries"]
+                    for item in delivered
                     if item["disclosure"] == "content"
                 )
             observed = read_refs | tool_refs

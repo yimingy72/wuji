@@ -4,6 +4,8 @@
 **状态：设计与实施依据，未实施、未部署、未证明真实任务效果。**  
 **替代范围：**替代本包 `source/V1_SPEC.md`；不覆盖历史文件，不把新建议冒充原稿已有要求。配套：[Plan](PLAN.md)、[复审报告](REVIEW.md)、[验收合同](ACCEPTANCE.md)、[来源](SOURCES.md)、[改动记录](CHANGELOG.md)。
 
+**2026-09-22 Session 增量替代：**新发布的 `wuji.harness.problem.v2` 明确使用 `wuji.session.native.v2`。MAF 原生 Session/History/Provider 是新会话消息权威；Wuji 只固定原生 state、Memory 依赖、操作 fence、CAS 与当前恢复许可。S09 中逐消息坐标、每次模型调用前完整 checkpoint、Provider 文本重建及 knowledge `attached` 依赖仅保留给旧 v1 会话。v2 只在 `run_return`/`approval_wait` 发布恢复点；原始结果与 `returned_to_framework` handoff 独立留存，checkpoint 失败不得触发模型重跑。旧数据不原地升级，未知 codec 拒绝。
+
 本文保留用户已选路线：Wuji 自有 Blackboard / Scheduler，Python MAF Agent/Harness，基于 `@xyflow/react` 的 `TopologyFlowCanvas`，新系统不使用 Cairn Server/Dispatcher/黑板或 Pi/Claude Code CLI。现有独立身份、工具、主题、预算及运行环境在接口核验后可复用。“完全重构”不等于删除证据或重写所有独立业务模块。[U1/O1]
 
 本版最关键的修订不是降低真实性要求，而是分开 **谁提出断言、如何保存依据、谁按什么标准接纳、接纳到什么适用范围**。新名称和行为是本版设计决定 [D]；框架能力依据标为 [E]；旧文档陈述标为 [O]，各自见 SOURCES。文档中的示例仅使用离线材料和受控夹具。
@@ -367,6 +369,8 @@ ToolCall 是逻辑调用，ToolAttempt 是一次实际执行。工具 call ID �
 ## S09 · Session、上下文与审批
 
 ### 9.1 SessionManifest 是完整边界，不是最后一个 JSON 文件
+
+以下 `history_root/message_end/provider_state_ref` 合同适用于 legacy v1。新 `problem.v2/native.v2` 使用不透明原生 state、固定依赖与服务端操作 fence；不要求每个供应商请求映射消息坐标，也不解释 Provider 提示或压缩内部标记。
 
 manifest 包含 session_id、work_item_id、checkpoint_revision、owner_run/run_epoch、history_root+message_end、provider_state_ref、memory_manifest_ref、pending_operation_refs、profile/client/framework lock digest、saved_at、recovery_class。
 

@@ -455,7 +455,8 @@ class Scheduler:
             published = strict_json_loads(receiver["harness_profiles_json"])[kind]
             body = profile["body"]
             session_profile = body.get("schema_version") in {
-                "wuji.harness.session.v1", "wuji.harness.problem.v1"
+                "wuji.harness.session.v1", "wuji.harness.problem.v1",
+                "wuji.harness.problem.v2",
             }
             if session_profile:
                 self.registry.session_capability(tx, profile)
@@ -867,7 +868,8 @@ class Scheduler:
         previous_run_id = work["current_run_id"]
         if work["session_id"] is not None:
             if self.control.sessions is None or profile["body"].get("schema_version") not in {
-                "wuji.harness.session.v1", "wuji.harness.problem.v1"
+                "wuji.harness.session.v1", "wuji.harness.problem.v1",
+                "wuji.harness.problem.v2",
             }:
                 raise DomainError("worker_recovery_unavailable", 503)
             recovery = self.control.sessions.validate_recovery_in_transaction(tx, work)
@@ -889,15 +891,27 @@ class Scheduler:
             getattr(issuer, "bind_admitted_run", None)
         ):
             raise DomainError("credential_issuer_unavailable", 503)
-        manifest = (
-            self.snapshots._get(tx, published.history.snapshot_id)
-            if published is not None
+        if published is not None:
+            snapshot_id = getattr(
+                getattr(published, "history", None), "snapshot_id", None
+            )
+            if snapshot_id is None:
+                prior = tx.connection.execute(
+                    "SELECT assignment_json FROM vnext.scheduler_assignment WHERE tenant_id=%s "
+                    "AND project_id=%s AND task_id=%s AND agent_run_id=%s",
+                    (*tx.owner, published.manifest.producer_identity.agent_run_id),
+                ).fetchone()
+                if prior is None:
+                    raise DomainError("worker_recovery_unavailable", 503)
+                snapshot_id = strict_json_loads(prior[0])["snapshot_id"]
+            manifest = self.snapshots._get(tx, snapshot_id)
+        else:
             # A Run reads the Task's knowledge — claims, questions, observations
             # and the evidence those observations own. Sealed platform output
             # (raw model responses, session roots, result bindings) is a Run's
             # private working state, never board material: re-delivering it grew
             # every later context until a real session boundary refused the Run.
-            else creator(
+            manifest = creator(
                 tx,
                 query=SnapshotQuery(
                     entity_types=("claim", "intent", "observation"),
@@ -912,7 +926,6 @@ class Scheduler:
                 ),
                 reader_clearance=receiver["worker_clearance"],
             )
-        )
         if (manifest.tenant_id, manifest.project_id, manifest.task_id) != tx.owner:
             raise DomainError("INVALID_REFERENCE", 422)
         exact_key = WorkKey(

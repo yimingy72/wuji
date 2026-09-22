@@ -5,7 +5,10 @@ from uuid import uuid4
 
 from wuji_core.admission.common import current_run, digest
 from wuji_core.contracts.execution import ApprovalDecision, CommandReceipt
-from wuji_core.contracts.sessions import ApprovalBinding, ApprovalDeliveryDecision, ApprovalReceipt, InputPayload, NativeCallBinding
+from wuji_core.contracts.sessions import (
+    ApprovalBinding, ApprovalDeliveryDecision, ApprovalReceipt, InputPayload,
+    NativeCallBinding, PublishedNativeSessionV2,
+)
 from wuji_core.execution.inputs import current_input, locate, save_delivery
 from wuji_core.execution.sessions import document, equal, row, rows, work_row
 from wuji_core.http import strict_json_loads
@@ -42,14 +45,34 @@ class ApprovalService:
         ).fetchone():
             raise DomainError("STALE_EXECUTION", 409)
         published = self.sessions._load_in_transaction(tx, work)
+        native_v2 = isinstance(published, PublishedNativeSessionV2)
+        profile_digest = (
+            published.dependencies.compatibility.profile_snapshot["digest"]
+            if native_v2
+            else published.history.compatibility.profile_snapshot["digest"]
+        )
         if (published.receipt.manifest_ref != value["manifest_ref"]
-                or published.history.compatibility.profile_snapshot["digest"] != value["profile_digest"]):
+                or profile_digest != value["profile_digest"]):
             raise DomainError("STALE_EXECUTION", 409)
         binding = NativeCallBinding.model_validate(strict_json_loads(value["binding_json"]))
         definition = self.registry.tool(tx, binding.tool_definition_ref)
         if digest(definition.model_dump(mode="json")) != value["tool_digest"]:
             raise DomainError("STALE_EXECUTION", 409)
-        original = [b for b in published.history.frontier.pending_approvals if b.tool_call_id == value["tool_call_id"]]
+        if native_v2:
+            state = strict_json_loads(
+                published.object_bytes[
+                    published.manifest.native_state_ref.id
+                    + "@"
+                    + published.manifest.native_state_ref.version.root
+                ]
+            )
+            original = [
+                NativeCallBinding.model_validate(item)
+                for item in state["call_bindings"]
+                if item.get("tool_call_id") == value["tool_call_id"]
+            ]
+        else:
+            original = [b for b in published.history.frontier.pending_approvals if b.tool_call_id == value["tool_call_id"]]
         if len(original) != 1 or not equal(original[0], binding):
             raise DomainError("INVALID_REFERENCE", 422)
         return waiting, binding

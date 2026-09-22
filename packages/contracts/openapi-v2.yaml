@@ -2201,7 +2201,7 @@ components:
     WorkerKnowledgeAttachRequest:
       type: object
       additionalProperties: false
-      required: [assignment, deliveries, manifest_ref]
+      required: [assignment, deliveries]
       properties:
         assignment: {$ref: '#/components/schemas/WorkerAssignment'}
         deliveries:
@@ -2210,7 +2210,13 @@ components:
           maxItems: 256
           uniqueItems: true
           items: {$ref: '#/components/schemas/KnowledgeDeliveryAttachmentV1'}
-        manifest_ref: {type: string, minLength: 1, maxLength: 256}
+        manifest_ref:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 256}
+            - type: 'null'
+        channel:
+          type: string
+          enum: [initial_input, function_result]
     WorkerReceiver:
       type: object
       additionalProperties: false
@@ -2448,9 +2454,12 @@ components:
         - wuji.worker.session.human-input.v1
         - wuji.worker.session.delivery-receipt.v1
         - wuji.worker.session.compatibility.v1
+        - wuji.worker.session.native-boundary.v2
+        - wuji.worker.session.native-staged.v2
+        - wuji.worker.session.native-published.v2
     WorkerSessionBinarySlot:
       type: string
-      enum: [boundary_object_data, published_object_bytes, resolved_memory_file]
+      enum: [boundary_object_data, published_object_bytes, resolved_memory_file, native_state, native_dependency_file]
     WorkerSessionBinary:
       type: object
       additionalProperties: false
@@ -2487,7 +2496,10 @@ components:
       required: [assignment, manifest, expected_revision]
       properties:
         assignment: {$ref: '#/components/schemas/WorkerAssignment'}
-        manifest: {$ref: '#/components/schemas/SessionManifest'}
+        manifest:
+          oneOf:
+            - $ref: '#/components/schemas/SessionManifest'
+            - {type: object, additionalProperties: true}
         expected_revision: {$ref: '#/components/schemas/RevisionString'}
     WorkerLoadSessionRequest:
       type: object
@@ -2697,7 +2709,10 @@ components:
         max_context_bytes: {type: integer, minimum: 1, maximum: 16777216}
         max_output_tokens: {type: integer, minimum: 1, maximum: 1048576}
         capabilities: {$ref: '#/components/schemas/WorkerSessionHarnessCapabilities'}
-        schema_version: {type: string, const: wuji.harness.problem.v1}
+        schema_version: {type: string, enum: [wuji.harness.problem.v1, wuji.harness.problem.v2]}
+        session_codec:
+          type: string
+          enum: [wuji.session.native.v2]
         history_source_id: {type: string, pattern: '^[a-z][a-z0-9_]{0,63}$'}
         memory_mode: {type: string, enum: [disabled, pinned_context, work_memory]}
         memory_source_id: {type: string, pattern: '^[a-z][a-z0-9_]{0,63}$'}

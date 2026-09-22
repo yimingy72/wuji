@@ -82,7 +82,9 @@ def _planning_policy(tx):
     body = definition.get("worker_profiles", {}).get("reason", {}).get("body", {})
     return (
         body.get("planning_policy")
-        if body.get("schema_version") == "wuji.harness.problem.v1"
+        if body.get("schema_version") in {
+            "wuji.harness.problem.v1", "wuji.harness.problem.v2"
+        }
         else None
     )
 def _bump(tx, *, event_key, reason, event_seq=None):
@@ -597,7 +599,9 @@ class TriggerRepository:
         reason_profile = definition.get("worker_profiles", {}).get("reason", {}).get("body", {})
         window = (
             reason_profile.get("planning_policy", {}).get("no_progress_rounds")
-            if reason_profile.get("schema_version") == "wuji.harness.problem.v1"
+            if reason_profile.get("schema_version") in {
+                "wuji.harness.problem.v1", "wuji.harness.problem.v2"
+            }
             else limits.max_no_progress_rounds
         )
         if not window:

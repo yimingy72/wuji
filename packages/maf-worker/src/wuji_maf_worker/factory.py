@@ -7,7 +7,7 @@ from pathlib import Path
 import re
 import sys
 
-from agent_framework import ContextWindowCompactionStrategy, create_harness_agent
+from agent_framework import ContextWindowCompactionStrategy, TodoProvider, create_harness_agent
 from agent_framework.openai import OpenAIChatCompletionClient
 from openai import AsyncOpenAI
 
@@ -192,6 +192,14 @@ class ProblemHarnessProfile:
             snapshot.get("ref") != body.ref
             or str(snapshot.get("revision")) != body.revision.root
             or snapshot.get("digest") != sha256(canonical_json_bytes(snapshot["body"])).hexdigest()
+            or (
+                body.schema_version == "wuji.harness.problem.v2"
+                and body.session_codec != "wuji.session.native.v2"
+            )
+            or (
+                body.schema_version == "wuji.harness.problem.v1"
+                and body.session_codec is not None
+            )
         ):
             raise ValueError("Problem Profile snapshot mismatch")
         return cls(body=body, digest=snapshot["digest"])
@@ -229,10 +237,53 @@ class ProblemHarnessProfile:
     def memory_mode(self):
         return self.body.memory_mode.value
 
+    @property
+    def native_session(self):
+        return self.body.schema_version == "wuji.harness.problem.v2"
+
+
+@dataclass(frozen=True)
+class ResolvedHarnessOptions:
+    codec: str | None
+    work_kind: str
+    instructions: str
+    history_source_id: str | None
+    todo_enabled: bool
+    memory_mode: str
+    memory_source_id: str | None
+    compaction_enabled: bool
+    context_window: int | None
+    output_limit: int
+    tool_manifest: tuple
+    runtime_limits: dict
+
+
+def resolve_harness_options(profile, resolved):
+    problem = isinstance(profile, ProblemHarnessProfile)
+    session = isinstance(profile, SessionHarnessProfile) or problem
+    return ResolvedHarnessOptions(
+        codec=(
+            profile.session_codec
+            if problem and profile.native_session
+            else "wuji.session.legacy.v1" if session else None
+        ),
+        work_kind=profile.work_kind,
+        instructions=profile.instructions,
+        history_source_id=profile.history_source_id if session else None,
+        todo_enabled=problem and profile.work_kind == "explore",
+        memory_mode=profile.memory_mode if session else "disabled",
+        memory_source_id=profile.memory_source_id if session else None,
+        compaction_enabled=session and profile.compaction_enabled,
+        context_window=profile.max_context_window_tokens if problem else None,
+        output_limit=profile.max_output_tokens,
+        tool_manifest=tuple(profile.capability_manifest) if problem else (),
+        runtime_limits=dict(resolved["limits"]),
+    )
+
 
 def parse_profile(snapshot):
     schema_version = snapshot["body"].get("schema_version")
-    if schema_version == "wuji.harness.problem.v1":
+    if schema_version in {"wuji.harness.problem.v1", "wuji.harness.problem.v2"}:
         return ProblemHarnessProfile.from_snapshot(snapshot)
     if schema_version == "wuji.harness.session.v1":
         return SessionHarnessProfile.from_snapshot(snapshot)
@@ -244,6 +295,7 @@ def build_agent(*, resolved, profile, model_http, model_gate_url, run_credential
                 work_memory_provider=None, extra_middleware=(), environment_tool_count=0):
     """Build the same released public Harness for a fixed fresh/restored profile."""
     problem_profile = isinstance(profile, ProblemHarnessProfile)
+    options = resolve_harness_options(profile, resolved)
     if (
         sys.version_info[:3] != (3, 13, 15)
         or version("agent-framework-core") != "1.18.0"
@@ -252,7 +304,7 @@ def build_agent(*, resolved, profile, model_http, model_gate_url, run_credential
         != profile.lock_digest
     ):
         raise ValueError("installed MAF release/lock does not match published profile")
-    limits = resolved["limits"]
+    limits = options.runtime_limits
     if (
         limits["max_model_requests"] < 1
         or (environment_tool_count and limits["max_tool_calls"] < 1)
@@ -261,11 +313,18 @@ def build_agent(*, resolved, profile, model_http, model_gate_url, run_credential
         raise ValueError("published role limits do not match its tool profile")
     session_options = {}
     if isinstance(profile, SessionHarnessProfile) or problem_profile:
+        if history is None or history.source_id != profile.history_source_id:
+            raise ValueError("providers do not match the fixed Session combination")
         if (
-            history is None or history.source_id != profile.history_source_id
-            or history.compatibility.profile_snapshot != profile.snapshot()
-            or history.limits != profile.session_limits
-            or (memory_provider is not None) != (profile.memory_mode == "pinned_context")
+            not (problem_profile and profile.native_session)
+            and (
+                history.compatibility.profile_snapshot != profile.snapshot()
+                or history.limits != profile.session_limits
+            )
+        ):
+            raise ValueError("providers do not match the fixed Session combination")
+        if (
+            (memory_provider is not None) != (profile.memory_mode == "pinned_context")
             or (work_memory_provider is not None) != (profile.memory_mode == "work_memory")
             or profile.session_limits.max_object_bytes > limits["max_single_output_bytes"]
             or profile.session_limits.max_total_bytes > limits["max_total_output_bytes"]
@@ -310,7 +369,7 @@ def build_agent(*, resolved, profile, model_http, model_gate_url, run_credential
         http_client=model_http, max_retries=0, organization="", project="",
     )
     function_invocation = {"enabled": False}
-    if tools:
+    if tools or options.todo_enabled or options.memory_mode == "work_memory":
         max_function_calls = (
             profile.function_limits.total_per_work
             if problem_profile
@@ -330,14 +389,19 @@ def build_agent(*, resolved, profile, model_http, model_gate_url, run_credential
         function_invocation_configuration=function_invocation,
     )
     agent = create_harness_agent(
-        client, name="wuji-" + profile.work_kind,
-        harness_instructions="", agent_instructions=profile.instructions,
+        client, name="wuji-" + options.work_kind,
+        harness_instructions="", agent_instructions=options.instructions,
         tools=tools, middleware=[middleware, *extra_middleware],
-        max_context_window_tokens=(profile.max_context_window_tokens if problem_profile else None),
-        max_output_tokens=profile.max_output_tokens,
-        disable_compaction=not (isinstance(profile, SessionHarnessProfile) and profile.compaction_enabled),
-        disable_todo=not (problem_profile and profile.work_kind == "explore"),
-        todo_provider=(BoundedTodoProvider(source_id="problem_todo") if problem_profile and profile.work_kind == "explore" else None),
+        max_context_window_tokens=options.context_window,
+        max_output_tokens=options.output_limit,
+        disable_compaction=not options.compaction_enabled,
+        disable_todo=not options.todo_enabled,
+        todo_provider=(
+            (TodoProvider if problem_profile and profile.native_session else BoundedTodoProvider)(
+                source_id="problem_todo"
+            )
+            if options.todo_enabled else None
+        ),
         disable_mode=True,
         disable_file_memory=True, file_memory_store=None, file_access_store=None,
         skills_provider=None, skills_paths=None, shell_executor=None,

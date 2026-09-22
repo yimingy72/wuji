@@ -212,7 +212,11 @@ def register_session_capability(connection, *, tenant_id, capability):
     profile = capability.profile_snapshot
     body = profile["body"]
     if (profile["digest"] != sha256(canonical_json_bytes(body)).hexdigest()
-            or body["schema_version"] not in {"wuji.harness.session.v1", "wuji.harness.problem.v1"}
+            or body["schema_version"] not in {"wuji.harness.session.v1", "wuji.harness.problem.v1", "wuji.harness.problem.v2"}
+            or (body["schema_version"] == "wuji.harness.problem.v2"
+                and body.get("session_codec") != "wuji.session.native.v2")
+            or (body["schema_version"] != "wuji.harness.problem.v2"
+                and body.get("session_codec") is not None)
             or body["memory_mode"] != capability.memory_mode
             or body["lock_digest"] != capability.lock_digest
             or not all(isinstance(ref, str) and 1 <= len(ref) <= 2048 for ref in capability.evidence_refs)
@@ -684,7 +688,11 @@ class AdmissionRegistry:
             actual = definition["worker_profiles"][body["work_kind"]]
             if (canonical_json_bytes(actual) != canonical_json_bytes(profile_snapshot)
                     or profile_snapshot["digest"] != sha256(canonical_json_bytes(body)).hexdigest()
-                    or body["schema_version"] not in {"wuji.harness.session.v1", "wuji.harness.problem.v1"}
+                    or body["schema_version"] not in {"wuji.harness.session.v1", "wuji.harness.problem.v1", "wuji.harness.problem.v2"}
+                    or (body["schema_version"] == "wuji.harness.problem.v2"
+                        and body.get("session_codec") != "wuji.session.native.v2")
+                    or (body["schema_version"] != "wuji.harness.problem.v2"
+                        and body.get("session_codec") is not None)
                     or profile_snapshot["ref"] != body["ref"] or profile_snapshot["revision"] != body["revision"]
                     or body["lock_digest"] != config.runtime.lock_digest):
                 raise ValueError("unpublished Session profile")
@@ -695,7 +703,9 @@ class AdmissionRegistry:
             disabled = {name: False for name in ("todo", "mode", "file_memory", "file_access", "skills", "shell", "web_search", "background_agents", "outer_loop", "auto_approval", "mcp")}
             caps = {**disabled, "restoration": True, "compaction": body["compaction_enabled"],
                 "native_approval": True, "versioned_memory": body["memory_mode"] != "disabled"}
-            if body["schema_version"] == "wuji.harness.problem.v1":
+            if body["schema_version"] in {
+                "wuji.harness.problem.v1", "wuji.harness.problem.v2"
+            }:
                 caps.update(
                     todo=body["work_kind"] == "explore",
                     file_memory=body["memory_mode"] == "work_memory",

@@ -567,6 +567,11 @@ class CaptureSchemaVersion(RootModel[Literal['wuji.capture.v2']]):
     root: Literal['wuji.capture.v2']
 
 
+class Channel(StrEnum):
+    initial_input = 'initial_input'
+    function_result = 'function_result'
+
+
 class ChatCompletionChoice(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -1801,6 +1806,10 @@ class LogicalRequestId(RootModel[StrictStr]):
     root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
 
 
+class ManifestRef(RootModel[StrictStr]):
+    root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+
+
 class MaterialOmissionReason(StrEnum):
     not_delivered = 'not_delivered'
     source_unavailable = 'source_unavailable'
@@ -2063,7 +2072,8 @@ class ProblemHarnessProfileBody(BaseModel):
     max_context_bytes: Annotated[StrictInt, Field(ge=1, le=16777216)]
     max_output_tokens: Annotated[StrictInt, Field(ge=1, le=1048576)]
     capabilities: WorkerSessionHarnessCapabilities
-    schema_version: Literal['wuji.harness.problem.v1']
+    schema_version: SchemaVersion
+    session_codec: Literal['wuji.session.native.v2'] | None = None
     history_source_id: Annotated[StrictStr, Field(pattern='^[a-z][a-z0-9_]{0,63}$')]
     memory_mode: MemoryMode1
     memory_source_id: Annotated[StrictStr, Field(pattern='^[a-z][a-z0-9_]{0,63}$')]
@@ -2529,6 +2539,11 @@ class ScenarioKind(StrEnum):
     comprehensive = 'comprehensive'
     adversary_emulation = 'adversary_emulation'
     code_audit = 'code_audit'
+
+
+class SchemaVersion(StrEnum):
+    wuji_harness_problem_v1 = 'wuji.harness.problem.v1'
+    wuji_harness_problem_v2 = 'wuji.harness.problem.v2'
 
 
 class SdkApprovalId(RootModel[StrictStr]):
@@ -3506,7 +3521,8 @@ class WorkerKnowledgeAttachRequest(_JsonSchemaRuntimeValidationBase):
     deliveries: Annotated[
         list[KnowledgeDeliveryAttachmentV1], Field(max_length=256, min_length=1)
     ]
-    manifest_ref: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+    manifest_ref: ManifestRef | None = None
+    channel: Channel | None = None
 
 
 class WorkerKnowledgeListRequest(_JsonSchemaRuntimeValidationBase):
@@ -3567,7 +3583,7 @@ class WorkerPublishSessionRequest(BaseModel):
         extra='forbid',
     )
     assignment: WorkerAssignment
-    manifest: SessionManifest
+    manifest: SessionManifest | dict[str, Any]
     expected_revision: RevisionString
 
 
@@ -3625,6 +3641,8 @@ class WorkerSessionBinarySlot(StrEnum):
     boundary_object_data = 'boundary_object_data'
     published_object_bytes = 'published_object_bytes'
     resolved_memory_file = 'resolved_memory_file'
+    native_state = 'native_state'
+    native_dependency_file = 'native_dependency_file'
 
 
 class WorkerSessionHarnessCapabilities(BaseModel):
@@ -3726,6 +3744,9 @@ class WorkerSessionPayloadVersion(StrEnum):
     wuji_worker_session_human_input_v1 = 'wuji.worker.session.human-input.v1'
     wuji_worker_session_delivery_receipt_v1 = 'wuji.worker.session.delivery-receipt.v1'
     wuji_worker_session_compatibility_v1 = 'wuji.worker.session.compatibility.v1'
+    wuji_worker_session_native_boundary_v2 = 'wuji.worker.session.native-boundary.v2'
+    wuji_worker_session_native_staged_v2 = 'wuji.worker.session.native-staged.v2'
+    wuji_worker_session_native_published_v2 = 'wuji.worker.session.native-published.v2'
 
 
 class WorkerSessionResolvedHost(BaseModel):
