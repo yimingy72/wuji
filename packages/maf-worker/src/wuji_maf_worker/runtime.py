@@ -9,7 +9,7 @@ from typing import AsyncIterator, Protocol
 from urllib.parse import urlsplit
 
 import httpx
-from agent_framework import ChatMiddleware, Message
+from agent_framework import AgentSession, ChatMiddleware, Message
 from agent_framework.exceptions import ChatClientException
 
 from wuji_core.contracts.envelopes import RunIdentity, WorkerAssignment
@@ -96,15 +96,17 @@ class CheckpointBeforeModel(ChatMiddleware):
         await call_next()
 
 
-async def _settled_messages(history, session, messages):
-    """Persist the complete tool-result group before publishing its boundary."""
-    state = session.state.setdefault(history.source_id, {})
+async def _settled_boundary(history, session, messages):
+    """Build a complete checkpoint without mutating the running Session."""
+    boundary_session = AgentSession.from_dict(session.to_dict())
+    state = boundary_session.state.setdefault(history.source_id, {})
     await history.save_messages(
-        session.session_id,
+        boundary_session.session_id,
         [message for message in messages if message.role == "tool"],
         state=state,
     )
-    return await history.get_messages(session.session_id, state=state)
+    stored = await history.get_messages(boundary_session.session_id, state=state)
+    return boundary_session, stored
 
 
 class AgentRuntimePort(Protocol):
@@ -413,14 +415,16 @@ class MafRuntime:
             async def publish_boundary(session, *, response=None, settled=False,
                                        messages=None):
                 observed_at = datetime.now(timezone.utc)
-                stored = await (
-                    _settled_messages(history, session, messages)
-                    if settled and messages is not None
-                    else history.get_messages(
+                if settled and messages is not None:
+                    boundary_session, stored = await _settled_boundary(
+                        history, session, messages
+                    )
+                else:
+                    boundary_session = session
+                    stored = await history.get_messages(
                         session.session_id,
                         state=session.state.get(history.source_id),
                     )
-                )
                 history.observe_messages(
                     stored,
                     model_attempt_id=identity.attempt_id,
@@ -429,7 +433,7 @@ class MafRuntime:
                 )
                 objects = (
                     adapter.export_settled_boundary(
-                        session=session, messages=stored, history=history,
+                        session=boundary_session, messages=stored, history=history,
                         call_bindings=identity.export_bindings(),
                         tool_receipts=functions.receipts, memory=memory,
                         observed_at=observed_at,

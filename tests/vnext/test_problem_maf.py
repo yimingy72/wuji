@@ -16,7 +16,7 @@ from wuji_core.worker_host import PlatformWorkerHost
 from wuji_maf_worker.capability_manifest import build_capability_manifest
 from wuji_maf_worker.factory import ProblemHarnessProfile, build_agent
 from wuji_maf_worker.history import BoundedWorkMemoryProvider, HistoryArchive, WorkMemoryStore
-from wuji_maf_worker.runtime import _settled_messages
+from wuji_maf_worker.runtime import CheckpointBeforeModel, _settled_boundary
 from wuji_maf_worker.sessions import NativeSessionAdapter
 from wuji_maf_worker.tools import FunctionBudget, GateFunctions, ModelCallIdentity
 
@@ -197,14 +197,15 @@ def test_problem_checkpoint_persists_the_current_tool_result_group():
     async def settle():
         state = session.state.setdefault(history.source_id, {})
         await history.save_messages(session.session_id, [call], state=state)
-        return await _settled_messages(
+        return await _settled_boundary(
             history, session, [call, provider_context, result]
         )
 
-    stored = asyncio.run(settle())
+    boundary_session, stored = asyncio.run(settle())
 
     assert [item.to_dict() for item in stored] == [call.to_dict(), result.to_dict()]
-    assert session.state[history.source_id]["messages"][-1].contents[0].type == "function_result"
+    assert session.state[history.source_id]["messages"][-1].contents[0].type == "function_call"
+    assert boundary_session.state[history.source_id]["messages"][-1].contents[0].type == "function_result"
     binding = NativeCallBinding(
         model_attempt_id="attempt-1", message_id="model-attempt:attempt-1:choice:0",
         provider_call_id="provider-call-1", sdk_content_id="native-call-1",
@@ -231,7 +232,7 @@ def test_problem_checkpoint_persists_the_current_tool_result_group():
     boundary = NativeSessionAdapter(
         compatibility=compatibility, limits=profile.session_limits,
     ).export_settled_boundary(
-        session=session, messages=stored, history=history,
+        session=boundary_session, messages=stored, history=history,
         call_bindings=(binding,), tool_receipts=(receipt,),
         memory=WorkMemoryStore(
             limits=profile.session_limits,
@@ -258,6 +259,11 @@ def test_problem_harness_uses_native_todo_memory_and_host_knowledge_in_one_sessi
         memory_provider = BoundedWorkMemoryProvider(
             memory, source_id=profile.memory_source_id, scope="test-scope"
         )
+        checkpoints = []
+
+        async def checkpoint(session, messages):
+            checkpoints.append(await _settled_boundary(history, session, messages))
+
         requests = []
         responses = [
             _tool_stream(1, "todos_add", '{"todos":[{"title":"read material"}]}'),
@@ -322,6 +328,7 @@ def test_problem_harness_uses_native_todo_memory_and_host_knowledge_in_one_sessi
                 tools=functions.registered_knowledge_tools(), middleware=functions,
                 response_parser=identity.parse_response, history=history,
                 work_memory_provider=memory_provider, environment_tool_count=0,
+                extra_middleware=(CheckpointBeforeModel(checkpoint),),
             )
             session = agent.create_session()
             budget.bind(session)
@@ -341,5 +348,12 @@ def test_problem_harness_uses_native_todo_memory_and_host_knowledge_in_one_sessi
             "### Current todo list" not in message.get("content", "")
             for request in requests for message in request["messages"]
         )
+        assert len(checkpoints) == len(requests) - 1
+        for request in requests:
+            result_ids = [
+                message["tool_call_id"] for message in request["messages"]
+                if message["role"] == "tool"
+            ]
+            assert len(result_ids) == len(set(result_ids))
 
     asyncio.run(run())
