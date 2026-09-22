@@ -7,7 +7,7 @@ from pathlib import Path
 import re
 import sys
 
-from agent_framework import ContextWindowCompactionStrategy, TodoProvider, create_harness_agent
+from agent_framework import ContextWindowCompactionStrategy, create_harness_agent
 from agent_framework.openai import OpenAIChatCompletionClient
 from openai import AsyncOpenAI
 
@@ -15,6 +15,7 @@ from wuji_core.http import canonical_json_bytes
 from wuji_core.contracts.sessions import SessionLimits
 from wuji_core.contracts.knowledge import KnowledgeRef
 from wuji_core.contracts.generated import ProblemHarnessProfileBody
+from wuji_maf_worker.history import BoundedTodoProvider
 
 
 @dataclass(frozen=True)
@@ -336,7 +337,7 @@ def build_agent(*, resolved, profile, model_http, model_gate_url, run_credential
         max_output_tokens=profile.max_output_tokens,
         disable_compaction=not (isinstance(profile, SessionHarnessProfile) and profile.compaction_enabled),
         disable_todo=not (problem_profile and profile.work_kind == "explore"),
-        todo_provider=(TodoProvider(source_id="problem_todo") if problem_profile and profile.work_kind == "explore" else None),
+        todo_provider=(BoundedTodoProvider(source_id="problem_todo") if problem_profile and profile.work_kind == "explore" else None),
         disable_mode=True,
         disable_file_memory=True, file_memory_store=None, file_access_store=None,
         skills_provider=None, skills_paths=None, shell_executor=None,

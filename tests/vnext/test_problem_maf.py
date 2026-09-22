@@ -336,5 +336,10 @@ def test_problem_harness_uses_native_todo_memory_and_host_knowledge_in_one_sessi
         assert functions.knowledge_deliveries[0]["delivery_id"] == "delivery-1"
         assert len(identity.local_mapping) == 3
         assert all(request.get("tool_choice", "auto") != "required" for request in requests)
+        assert all(request["messages"][0]["content"] == profile.instructions for request in requests)
+        assert all(
+            "### Current todo list" not in message.get("content", "")
+            for request in requests for message in request["messages"]
+        )
 
     asyncio.run(run())

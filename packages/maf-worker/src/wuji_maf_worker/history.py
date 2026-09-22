@@ -6,7 +6,7 @@ The native provider owns history persistence; the platform owns publication.
 
 from hashlib import sha256
 
-from agent_framework import AgentFileStore, ContextProvider, FileMemoryProvider, FileStoreEntry, InMemoryHistoryProvider, Message
+from agent_framework import AgentFileStore, ContextProvider, FileMemoryProvider, FileStoreEntry, InMemoryHistoryProvider, Message, TodoProvider
 
 from wuji_core.http import canonical_json_bytes, strict_json_loads
 
@@ -241,9 +241,23 @@ class BoundedWorkMemoryProvider(FileMemoryProvider):
     """Native memory tools without injecting mutable note text into every turn."""
 
     async def before_run(self, *, agent, session, context, state):
+        instruction_count = len(context.instructions)
         await super().before_run(
             agent=agent, session=session, context=context, state=state
         )
+        del context.instructions[instruction_count:]
+        context.context_messages.pop(self.source_id, None)
+
+
+class BoundedTodoProvider(TodoProvider):
+    """Native Todo tools/state without untracked provider prompt material."""
+
+    async def before_run(self, *, agent, session, context, state):
+        instruction_count = len(context.instructions)
+        await super().before_run(
+            agent=agent, session=session, context=context, state=state
+        )
+        del context.instructions[instruction_count:]
         context.context_messages.pop(self.source_id, None)
 
 
