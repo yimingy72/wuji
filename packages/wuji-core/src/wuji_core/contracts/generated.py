@@ -289,6 +289,19 @@ class AgentRunRecord(BaseModel):
     identity: RunIdentity
     process_state: RunProcessState
     result_state: RunResultState
+    raw_result_state: Annotated[
+        RawResultState | None,
+        Field(
+            description='Visible fixed raw-result publication for this Run; absent on historical records.'
+        ),
+    ] = None
+    checkpoint_state: Annotated[
+        CheckpointState | None,
+        Field(description='Publication only, never an execution or recovery permit.'),
+    ] = None
+    checkpoint_ref: Annotated[StrictStr | None, Field(max_length=256, min_length=1)] = (
+        None
+    )
     model_mode: ModelMode
     created_at: AwareDatetime
     exited_at: AwareDatetime | None = None
@@ -650,6 +663,11 @@ class ChatToolDefinition(BaseModel):
     )
     type: Literal['function']
     function: Function
+
+
+class CheckpointState(StrEnum):
+    published = 'published'
+    not_recorded = 'not_recorded'
 
 
 class ClaimAssessmentView(BaseModel):
@@ -2156,6 +2174,11 @@ class PublicRationale(RootModel[StrictStr]):
 
 class PurgeId(RootModel[StrictStr]):
     root: Annotated[StrictStr, Field(max_length=256, min_length=1)]
+
+
+class RawResultState(StrEnum):
+    saved = 'saved'
+    not_recorded = 'not_recorded'
 
 
 class ReadinessCheck(BaseModel):

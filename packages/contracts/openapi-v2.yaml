@@ -3302,6 +3302,18 @@ components:
         identity: {$ref: '#/components/schemas/RunIdentity'}
         process_state: {$ref: '#/components/schemas/RunProcessState'}
         result_state: {$ref: '#/components/schemas/RunResultState'}
+        raw_result_state:
+          type: string
+          enum: [saved, not_recorded]
+          description: Visible fixed raw-result publication for this Run; absent on historical records.
+        checkpoint_state:
+          type: string
+          enum: [published, not_recorded]
+          description: Publication only, never an execution or recovery permit.
+        checkpoint_ref:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 256
         model_mode: {$ref: '#/components/schemas/ModelMode'}
         created_at: {type: string, format: date-time}
         exited_at:

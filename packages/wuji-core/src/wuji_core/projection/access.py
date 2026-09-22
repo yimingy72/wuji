@@ -41,6 +41,8 @@ _ROWS = {
     "criterion": ("goal_criterion", ("criterion_id", "revision")),
     "submission": ("result_submission", ("submission_id",)),
     "result_receipt": ("result_receipt", ("submission_id",)),
+    "publication": ("publication", ("publication_id",)),
+    "session": ("session_manifest", ("session_id", "revision")),
     "evidence": ("evidence_receipt", ("capture_id",)),
     "relation": ("entity_relation", (
         "source_type", "source_id", "source_revision", "relation",

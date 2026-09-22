@@ -5,10 +5,35 @@ import {
   selectedRecordRef,
 } from '../../apps/web/src/features/topology/record';
 import { snapshot } from './fixtures';
+import { summaryItems } from '../../apps/web/src/features/topology/panels/RecordPanel';
 
 const ref = { entity_type: 'intent', id: 'intent / 1', revision: '7' } as const;
 
 describe('record detail boundary', () => {
+  test('run detail separates saved text, rejected semantics and a published checkpoint', () => {
+    const items = summaryItems({
+      process_state: 'unknown', raw_result_state: 'saved', result_state: 'rejected',
+      checkpoint_state: 'published', checkpoint_ref: 'checkpoint-1',
+    }, 'agent_run');
+    expect(Object.fromEntries(items.map(item => [item.label, item.children]))).toEqual({
+      '执行状态': '待核对', '原文留存': '已保存', '语义接纳': '已拒绝',
+      '检查点': '已发布；恢复仍需平台核对当前权限和执行前沿', '检查点引用': 'checkpoint-1',
+    });
+  });
+
+  test.each([{}, { raw_result_state: 'not_recorded', checkpoint_state: 'not_recorded' }])(
+    'missing or unrecorded run facts do not imply failure or a completed stop: %j', facts => {
+      const items = summaryItems({ ...facts, process_state: 'stopping', result_state: 'accepted' }, 'agent_run');
+      expect(Object.fromEntries(items.map(item => [item.label, item.children]))).toEqual({
+        '执行状态': '停止中，尚未确认退出', '原文留存': '未记录',
+        '语义接纳': '已接纳', '检查点': '未记录',
+      });
+      expect(summaryItems({ state: 'cancelled' }, 'work_item')).toEqual([
+        { key: 'state', label: 'state', children: 'cancelled' },
+      ]);
+    },
+  );
+
   test('request path binds the exact revision and snapshot', () => {
     const url = new URL(
       recordRequestPath('task / 1', ref, 'snapshot / 3'),

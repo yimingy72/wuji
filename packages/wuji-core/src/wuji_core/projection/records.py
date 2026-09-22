@@ -154,9 +154,33 @@ class ProjectionRecords:
             "tenant_id", "project_id", "task_id", "work_item_id", "agent_run_id", "receiver_id",
         )}
         identity.update({key: str(value[key]) for key in ("execution_epoch", "run_epoch", "runtime_attempt")})
+        raw = tx.connection.execute(
+            "SELECT p.publication_id,a.entity_id,a.revision FROM vnext.publication p "
+            "JOIN vnext.publication_ref r USING(tenant_id,project_id,task_id,publication_id) "
+            "JOIN vnext.artifact a ON (a.tenant_id,a.project_id,a.task_id,a.entity_id,a.revision)="
+            "(r.tenant_id,r.project_id,r.task_id,r.artifact_id,r.artifact_revision) "
+            "WHERE p.tenant_id=%s AND p.project_id=%s AND p.task_id=%s AND p.kind='raw_result' "
+            "AND a.agent_run_id=%s AND a.state='sealed' AND NOT a.body_removed "
+            "ORDER BY p.publication_id LIMIT 1",
+            (*tx.owner, value["agent_run_id"]),
+        ).fetchone()
+        if raw:
+            requirements.require_row("publication", raw[0])
+            requirements.knowledge(exact_ref("artifact", raw[1], raw[2]))
+        checkpoint = tx.connection.execute(
+            "SELECT session_id,revision,manifest_ref FROM vnext.session_manifest "
+            "WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND owner_run_id=%s "
+            "AND manifest_ref IS NOT NULL ORDER BY revision DESC LIMIT 1",
+            (*tx.owner, value["agent_run_id"]),
+        ).fetchone()
+        if checkpoint:
+            requirements.require_row("session", checkpoint[0], checkpoint[1])
         payload = AgentRunRecord.model_validate(dict(
             identity=identity, process_state=value["process_state"], result_state=value["result_state"],
             model_mode=value["model_mode"], created_at=origin["created_at"], exited_at=value["exited_at"],
+            raw_result_state="saved" if raw else "not_recorded",
+            checkpoint_state="published" if checkpoint else "not_recorded",
+            checkpoint_ref=checkpoint[2] if checkpoint else None,
         ))
         return _view(exact_ref("agent_run", value["agent_run_id"], "1"), payload)
 

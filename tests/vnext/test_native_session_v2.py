@@ -10,6 +10,8 @@ from test_problem_maf import _profile
 from wuji_core.http import canonical_json_bytes
 from wuji_core.execution.sessions import work_row
 from wuji_core.persistence.uow import DomainError
+from wuji_core.projection.access import AccessRequirements
+from wuji_core.projection.records import ProjectionRecords
 from wuji_maf_worker.capability_manifest import build_capability_manifest
 from wuji_maf_worker.factory import ProblemHarnessProfile
 
@@ -126,5 +128,15 @@ def test_native_approval_checkpoint_is_published_and_read_back(
             old_recovery = case.sessions.validate_recovery_in_transaction(
                 tx, {**work, "session_revision": 1}
             )
+            requirements = AccessRequirements(tx)
+            record = ProjectionRecords(None)._run(
+                tx, requirements.run(resumed_assignment.identity.agent_run_id), requirements
+            )
+            assert record.record.root.raw_result_state.value == "saved"
+            assert record.record.root.checkpoint_state.value == "published"
+            assert record.record.root.checkpoint_ref == resumed.runtime.session_receipt.manifest_ref
+            assert {guard["kind"] for guard in requirements.guards.values()} >= {
+                "publication", "knowledge", "session",
+            }
         assert not old_recovery.resumable
         assert old_recovery.reason_code in {"OPERATION_UNKNOWN", "SESSION_FRONTIER_MISMATCH"}

@@ -2201,6 +2201,17 @@ export interface components {
             identity: components["schemas"]["RunIdentity"];
             process_state: components["schemas"]["RunProcessState"];
             result_state: components["schemas"]["RunResultState"];
+            /**
+             * @description Visible fixed raw-result publication for this Run; absent on historical records.
+             * @enum {string}
+             */
+            raw_result_state?: "saved" | "not_recorded";
+            /**
+             * @description Publication only, never an execution or recovery permit.
+             * @enum {string}
+             */
+            checkpoint_state?: "published" | "not_recorded";
+            checkpoint_ref?: string | null;
             model_mode: components["schemas"]["ModelMode"];
             /** Format: date-time */
             created_at: string;

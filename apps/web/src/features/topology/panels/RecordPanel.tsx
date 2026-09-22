@@ -58,16 +58,37 @@ function errorCopy(error: unknown): { title: string; description: string } {
   return { title: '记录读取失败', description: '当前节点详情暂时无法读取。' };
 }
 
-function summaryItems(record: Record<string, unknown>) {
+export function summaryItems(record: Record<string, unknown>, entityType: string) {
   const preferred = [
     'name', 'question', 'title', 'summary', 'scenario', 'acceptance_state',
     'desired_state', 'observed_state', 'state', 'result_state', 'created_at',
   ];
-  return preferred.flatMap((key) => {
+  const items = preferred.flatMap((key) => {
+    if (key === 'result_state' && entityType === 'agent_run') return [];
     const value = record[key];
     if (!['string', 'number', 'boolean'].includes(typeof value)) return [];
     return [{ key, label: key, children: String(value) }];
   });
+  if (entityType !== 'agent_run') return items;
+  const resultLabels: Record<string, string> = {
+    none: '尚无接纳记录', received: '已收到，待接纳', accepted: '已接纳',
+    rejected: '已拒绝', historical_only: '仅作历史留存', incomplete: '结果不完整',
+  };
+  const processLabels: Record<string, string> = {
+    registered: '已登记', starting: '启动中', running: '运行中',
+    stopping: '停止中，尚未确认退出', exited: '已退出', unknown: '待核对',
+  };
+  const checkpoint = record.checkpoint_state === 'published'
+    ? '已发布；恢复仍需平台核对当前权限和执行前沿'
+    : '未记录';
+  return [...items,
+    { key: 'process_state', label: '执行状态', children: processLabels[String(record.process_state)] ?? '未记录' },
+    { key: 'raw_result_state', label: '原文留存', children: record.raw_result_state === 'saved' ? '已保存' : '未记录' },
+    { key: 'result_state', label: '语义接纳', children: resultLabels[String(record.result_state)] ?? '未记录' },
+    { key: 'checkpoint_state', label: '检查点', children: checkpoint },
+    ...(record.checkpoint_state === 'published' && typeof record.checkpoint_ref === 'string'
+      ? [{ key: 'checkpoint_ref', label: '检查点引用', children: record.checkpoint_ref }] : []),
+  ];
 }
 
 export interface RecordPanelProps {
@@ -141,7 +162,7 @@ export function RecordPanel({ taskId, snapshotId, ref }: RecordPanelProps) {
         size="small"
         bordered
         column={1}
-        items={summaryItems(body)}
+        items={summaryItems(body, record.ref.entity_type)}
       />
       {record.assessment && (
         <section className={styles.recordAssessment}>
