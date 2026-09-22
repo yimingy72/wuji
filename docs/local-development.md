@@ -1,5 +1,7 @@
 # 本地工作台
 
+2026-09-22 状态：本文命令属于已退役的 W1/Cairn 开发环境，保留供历史复核。当前开发使用 `codex/vnext-maf`，从[开发线说明](development-line.md)、[vNext Plan](vnext/PLAN.md)和[首用执行计划](stages/first-use/plan.md)进入，部署装配位于 `ops/vnext/` 与 `scripts/vnext/`。不要用本文旧启动命令替代 vNext 服务。
+
 更新：2026-09-11。当前克隆包含0.5.0核心执行与W1有限评估，迁移头0008。建议首次阅读顺序：首次准备 → 核心闭环与W1环境 → W1有限Web评估。普通4180流程用于平台基础开发，不会仅因启动前端而启用Cairn/Pi/Kali。下文端口为预设，不表示服务当前正在运行。
 
 Phase 1A 功能已集成，完整验收当前为 partial：最近一次独立检查中 API 73/73、生命周期 6/6、Chrome 12/15 通过，3 个真实 Keycloak 回调场景仍待集中测试。实际结论见[阶段验收](stages/phase-1a/acceptance.md)和[待测清单](stages/phase-1a/deferred-tests.md)。

@@ -1,5 +1,7 @@
 # Wuji 自动化渗透平台架构
 
+2026-09-22 状态：本文为已退役 Cairn/Pi 路线的历史架构正文。当前开发线为 `codex/vnext-maf`，权威架构见 [vNext Spec](vnext/SPEC.md)及[实施决定](vnext/decision-register.md)；归档与工作树入口见[开发线说明](development-line.md)。下文的待评审、已确认和当前实现均保留原日期语义。
+
 实现对照：当前交付包括任务/模型配置、受控start、Cairn/Pi/共享Kali、调用账本、Artifact及有限验证/覆盖。本文的通用代理出网、对象存储、完整Finding/报告、暂停恢复和多集群等段落继续作为目标设计；W1实际Artifact为开发PVC，HTTP证据为客户端解码字节，不能据目标图推断生产能力已验收。
 
 - **版本**：Cairn 架构修订 / W1 交付对照（OpenAPI 0.5.0）

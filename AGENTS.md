@@ -1,5 +1,12 @@
 # Wuji 开发协作约定
 
+## 2026-09-22 当前工作区入口
+
+- 用户已确认舍弃 Cairn/Pi 路线，唯一开发主线为 `codex/vnext-maf`；旧 `codex/github-upload` 本地分支以 `archive/cairn-retired-2026-09-22` 归档，详见[开发线与历史归档](docs/development-line.md)。
+- 本机主目录仅保留 vNext 的 detached HEAD 快照；开发前用 `git worktree list` 定位已检出 `codex/vnext-maf` 的工作树，并在该目录实施。不要在主目录快照另开开发线或移动现有工作树；其他克隆按实际检出处理。
+- 下文旧 Cairn/Pi 产品约束和旧阶段记录仅用于解释历史。当前架构以 `docs/vnext/SPEC.md`、`PLAN.md`、实施决定及适用阶段验收为准，不把旧规则恢复为新核心要求。
+- 主目录快照不会自动跟随活动分支；状态、运行镜像和验收各核对自己的 SHA，不把文档整理算作业务通过。
+
 ## 2026-09-13 vNext v2 执行入口
 
 用户已明确要求按下载目录 `wuji_maf_redesign_v2` 的更新 Spec/Plan 进入重构。当前分支的新核心以 [v2 SPEC](docs/vnext/SPEC.md)、[v2 PLAN](docs/vnext/PLAN.md)及[实施决定](docs/vnext/decision-register.md)为依据，优先于下文旧 Cairn/Pi 目标约束；旧代码、部署与验收仍按原版本解释。新核心退出 Cairn/Pi，使用自有黑板/Scheduler、Python MAF 与 React Flow。开发和本地验证已授权，不重复询问是否开始；生产切换、停机、删除用户数据、收费目标模型及远端发布仍未授权。

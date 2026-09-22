@@ -1,5 +1,7 @@
 # Wuji 项目背景与有效文档索引
 
+2026-09-22 开发线收口：用户确认舍弃 Cairn/Pi，唯一开发主线为 `codex/vnext-maf`。旧 `codex/github-upload` 本地分支及其未提交内容已归档；主目录改为 vNext 快照，继续开发进入已存在的 vNext 工作树。具体标签、恢复方法和远端/部署边界见[开发线与历史归档](development-line.md)。下方 W1/Cairn 的“当前”措辞仅适用于原记录日期，不覆盖本条决定。
+
 2026-09-22 当前 Session 改造：活动开发线 `codex/vnext-maf` 新增 `wuji.harness.problem.v2` / `wuji.session.native.v2`，替代新问题流程中“每次模型调用前完整 checkpoint”的旧要求。新路径由 MAF 独占消息和 Provider 状态，Wuji 固定原生 state、Memory、操作 fence、CAS/恢复许可；原始结果与 knowledge handoff 独立。旧 v1 会话保持原 reader/writer，不自动转换；当前恢复保证限正常返回和审批等待边界。
 
 2026-09-19 最新部署补充：磁盘缓存阻塞已解除；用户将现场地址替换为 `http://39.102.208.182`，原地址不再访问。网关namespace隔离、平台守卫及正式工作台发布已实际执行，0029已应用，页面可登录；完整首用仍未放行。当前固定core代码 `af36be86`、后续部署代码 `a28c887`，见[部署证据](vnext/first-use/deployment-20260919/README.md)、[首用 Plan](stages/first-use/plan.md)及[当前验收日志](stages/first-use/acceptance.md)。
