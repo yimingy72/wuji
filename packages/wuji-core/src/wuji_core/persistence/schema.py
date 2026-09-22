@@ -117,8 +117,9 @@ from wuji_core.persistence.launch_fairness_schema import HEAD as LAUNCH_FAIR_HEA
 from wuji_core.persistence.problem_core_schema import HEAD as PROBLEM_CORE_HEAD, upgrade as upgrade_problem_core
 from wuji_core.persistence.task_goal_schema import HEAD as TASK_GOAL_HEAD, upgrade as upgrade_task_goals
 from wuji_core.persistence.native_session_schema import HEAD as NATIVE_SESSION_HEAD, upgrade as upgrade_native_sessions
+from wuji_core.persistence.native_approval_schema import HEAD as NATIVE_APPROVAL_HEAD, upgrade as upgrade_native_approvals
 
-HEAD = NATIVE_SESSION_HEAD
+HEAD = NATIVE_APPROVAL_HEAD
 
 OWNER = "tenant_id,project_id,task_id"
 SCOPE_COLUMNS = (
@@ -508,6 +509,7 @@ def migrate(connection, *, application_role: str) -> None:
                 PROBLEM_CORE_HEAD,
                 TASK_GOAL_HEAD,
                 NATIVE_SESSION_HEAD,
+                NATIVE_APPROVAL_HEAD,
             ]
             if not heads or heads != set(chain[: len(heads)]):
                 raise ValueError("unrecognized vnext migration head")
@@ -545,6 +547,7 @@ def migrate(connection, *, application_role: str) -> None:
                 upgrade_problem_core,
                 upgrade_task_goals,
                 upgrade_native_sessions,
+                upgrade_native_approvals,
             ]
             for upgrade in upgrades[len(heads) - 1 :]:
                 upgrade(connection, application_role)
@@ -679,3 +682,4 @@ def migrate(connection, *, application_role: str) -> None:
         upgrade_problem_core(connection, application_role)
         upgrade_task_goals(connection, application_role)
         upgrade_native_sessions(connection, application_role)
+        upgrade_native_approvals(connection, application_role)

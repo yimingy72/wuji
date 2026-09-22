@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { parse } from "yaml";
 
 import { NodeSupervisor } from "../../services/maf-supervisor/main.mjs";
+import { ControllerAdapter } from "../../services/maf-supervisor/controller-adapter.mjs";
 import { digest } from "../../services/maf-supervisor/protocol.mjs";
 import {
   assignmentFor,
@@ -19,6 +21,43 @@ const holdingChild = join(
   "support",
   "bridge-result-hold-child.mjs",
 );
+
+test("controller receipt parsing preserves every schema rejection code", async () => {
+  const schema = parse(await readFile(new URL("../../packages/contracts/openapi-v2.yaml", import.meta.url), "utf8"));
+  const directory = await mkdtemp(join(tmpdir(), "wuji-controller-rejection-"));
+  const assignment = assignmentFor("controller-rejection");
+  const adapter = new ControllerAdapter({
+    origin: "http://127.0.0.1:1", authorization: async () => "fixture",
+    receiver: { receiver_id: assignment.identity.receiver_id,
+      runtime_attempt: assignment.identity.runtime_attempt,
+      environment_ref: "fixture", pod_uid: "fixture" },
+  });
+  const receipt = {
+    submission_id: resultAck(assignment).submission_id,
+    status: "rejected", components: [], request_id: "fixture", code: null,
+  };
+  adapter.post = async () => structuredClone(receipt);
+  try {
+    await writeFile(join(directory, "result-request.json"), JSON.stringify({ assignment }), { mode: 0o600 });
+    for (const code of schema.components.schemas.ErrorCode.enum) {
+      receipt.code = code;
+      receipt.components = [{ status: "rejected", local_ref: "claim", request_id: "fixture", code }];
+      const settlement = await adapter.persistResults({ assignment, directory });
+      assert.deepEqual(settlement, { ...resultAck(assignment), receipt_digest: digest(receipt) }, code);
+      assert.equal(receipt.status, "rejected");
+    }
+    for (const invalid of ["NOT_A_SCHEMA_CODE", 42, {}]) {
+      receipt.code = invalid;
+      receipt.components = [];
+      await assert.rejects(adapter.persistResults({ assignment, directory }), { code: "INVALID_CONTROLLER_RESPONSE" });
+      receipt.code = null;
+      receipt.components = [{ status: "rejected", local_ref: "claim", request_id: "fixture", code: invalid }];
+      await assert.rejects(adapter.persistResults({ assignment, directory }), { code: "INVALID_CONTROLLER_RESPONSE" });
+    }
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
 
 function resultAck(assignment) {
   return {

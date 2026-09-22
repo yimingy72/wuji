@@ -168,6 +168,7 @@ def p08_candidate_case(
     max_context_window_tokens=8_192,
     max_output_tokens=2_048,
     session_max_total_bytes=65_536,
+    profile_transform=None,
 ):
     """One production Scheduler assignment through PG, Gates and released MAF."""
 
@@ -235,7 +236,7 @@ def p08_candidate_case(
                 compaction_enabled=compaction_enabled,
                 memory_inputs=tuple(memory_inputs),
             ).snapshot()
-        return result
+        return result if profile_transform is None else profile_transform(result)
 
     def prepare_profiles(control):
         inputs = []
@@ -301,7 +302,7 @@ def p08_candidate_case(
             profiles = scheduler.profiles
             task_config = control.scheduler_config
             profile_snapshot = profiles["explore"]
-            profile = factory.SessionHarnessProfile.from_snapshot(profile_snapshot)
+            profile = factory.parse_profile(profile_snapshot)
             now = datetime.now(timezone.utc)
             client_snapshot = registry_module.session_client_snapshot(task_config)
             runtime_snapshot = task_config.runtime.model_dump(mode="json")

@@ -22,10 +22,14 @@ const componentStatuses = new Set(['accepted_shared', 'accepted_for_check', 'rej
 const entityTypes = new Set(['origin', 'goal', 'observation', 'artifact', 'claim', 'intent',
   'work_item', 'agent_run', 'verification', 'completion_review', 'finding', 'report']);
 const errorCodes = new Set(['UNAUTHENTICATED', 'FORBIDDEN_COLLECTOR', 'FORBIDDEN_ASSESSOR',
-  'NOT_FOUND_OR_FORBIDDEN', 'STALE_VERSION', 'STALE_EXECUTION', 'STALE_INPUT',
+  'NOT_FOUND_OR_FORBIDDEN', 'STALE_VERSION', 'STALE_EXECUTION', 'STALE_INPUT', 'SESSION_FRONTIER_MISMATCH',
   'INPUT_DIGEST_CONFLICT', 'OPERATION_UNKNOWN', 'SNAPSHOT_EXPIRED', 'VIEW_EXPIRED',
-  'HISTORY_UNAVAILABLE', 'INVALID_REFERENCE', 'INVALID_WAIT', 'INVALID_SCHEMA',
-  'INVALID_SCHEMA_VERSION', 'LIMIT_BLOCKED', 'CAPABILITY_UNAVAILABLE']);
+  'HISTORY_UNAVAILABLE', 'INVALID_REFERENCE', 'MISSING_TOOL_EVIDENCE', 'INVALID_WAIT', 'INVALID_SCHEMA',
+  'INVALID_SCHEMA_VERSION', 'LIMIT_BLOCKED', 'CAPABILITY_UNAVAILABLE',
+  'COMPLETION_EPOCH_ABSENT', 'COMPLETION_PRECHECK_INCOMPLETE', 'COMPLETION_EPOCH_UNSETTLED',
+  'COMPLETION_NOT_CLOSED', 'DELIVERY_EXCHANGE_REQUIRED', 'DELIVERY_TOO_LARGE',
+  'DELIVERY_COMMIT_CORRUPT', 'FORBIDDEN_TARGET', 'CONTEXT_BUDGET_EXCEEDED',
+  'REPRESENTATION_LIMIT', 'UNSUPPORTED_MEDIA', 'WAIT_UNSATISFIABLE', 'SESSION_PUBLISH_FAILED']);
 const code = value => value === undefined || value === null || errorCodes.has(value);
 function knowledgeRef(value) {
   return keys(value, ['entity_type', 'id', 'revision']) && entityTypes.has(value.entity_type)

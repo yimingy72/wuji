@@ -169,6 +169,7 @@ class MafRuntime:
         self.input_receipt = None
         self.session_receipt = None
         self.session_checkpoint_error = None
+        self.knowledge_handoff_error = None
         self.delivery_receipt = None
         self._delivery = None
         self._delivery_id = None
@@ -789,13 +790,9 @@ class MafRuntime:
                                 raise ValueError("Host input receipt differs from the native boundary")
                             return self.input_receipt
                     self.raw_output = settled_messages[-1].text.encode("utf-8")
-                    self.sdk_output = archive_bytes()
-                    if len(self.raw_output) > limits["max_single_output_bytes"] or len(self.sdk_output) > limits["max_total_output_bytes"]:
+                    if len(self.raw_output) > limits["max_single_output_bytes"]:
                         raise ValueError("final SDK output exceeds published limits")
                     if native_v2:
-                        await confirm_native_handoffs(
-                            functions.knowledge_deliveries, "function_result"
-                        )
                         raw_ref = await asyncio.to_thread(
                             self._host.retain_final_output,
                             assignment,
@@ -803,6 +800,19 @@ class MafRuntime:
                         )
                         if raw_ref.sha256.root != sha256(self.raw_output).hexdigest():
                             raise ValueError("Host retained different final output bytes")
+                        try:
+                            await confirm_native_handoffs(
+                                functions.knowledge_deliveries, "function_result"
+                            )
+                        except Exception as error:
+                            # Unconfirmed references are still rejected by the
+                            # Host. Preserve raw and submit other valid components.
+                            self.knowledge_handoff_error = error
+                            print(json.dumps({
+                                "event": "knowledge_handoff_unavailable",
+                                "error_class": type(error).__name__,
+                                "code": getattr(error, "code", None),
+                            }, sort_keys=True), flush=True)
                         try:
                             _staged, self.session_receipt = await publish_boundary(
                                 session, response=final
@@ -817,6 +827,9 @@ class MafRuntime:
                                 "code": getattr(error, "code", None),
                                 "status": getattr(error, "status_code", None),
                             }, sort_keys=True), flush=True)
+                    self.sdk_output = archive_bytes()
+                    if len(self.sdk_output) > limits["max_total_output_bytes"]:
+                        raise ValueError("final SDK output exceeds published limits")
                     self.result = await asyncio.to_thread(
                         self._host.submit_result, assignment,
                         raw_output=self.raw_output, context=self._context,

@@ -456,7 +456,9 @@ class SessionTransportCodec:
             for key, ref in expected.items():
                 if sha256(value.object_bytes[key]).hexdigest() != ref.sha256.root:
                     raise DomainError("INPUT_DIGEST_CONFLICT", 409)
-            payload = value.model_dump(mode="python", exclude={"object_bytes"})
+            payload = _outer_document(
+                value.model_dump(mode="python", exclude={"object_bytes"})
+            )
             binaries = [
                 self._binary("published_object_bytes", key, value.object_bytes[key])
                 for key in sorted(value.object_bytes)

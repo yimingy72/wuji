@@ -2,6 +2,8 @@
 
 ## 2026-09-22 当前工作区入口
 
+- 用户本轮允许按需使用 `gpt-6-astra`、`reasoning_effort=low` 子代理；覆盖下方 2026-09-19 的旧模型限制。主代理继续负责架构与集成，不另建开发会话。
+
 - 用户已确认舍弃 Cairn/Pi 路线，唯一开发主线为 `codex/vnext-maf`；旧 `codex/github-upload` 本地分支以 `archive/cairn-retired-2026-09-22` 归档，详见[开发线与历史归档](docs/development-line.md)。
 - 本机主目录仅保留 vNext 的 detached HEAD 快照；开发前用 `git worktree list` 定位已检出 `codex/vnext-maf` 的工作树，并在该目录实施。不要在主目录快照另开开发线或移动现有工作树；其他克隆按实际检出处理。
 - 下文旧 Cairn/Pi 产品约束和旧阶段记录仅用于解释历史。当前架构以 `docs/vnext/SPEC.md`、`PLAN.md`、实施决定及适用阶段验收为准，不把旧规则恢复为新核心要求。

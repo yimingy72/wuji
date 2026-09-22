@@ -526,9 +526,9 @@ def test_real_rejection_http_restores_native_denial_without_execution(
         assert retired == (True, True)
         assert capacity and {state for (state,) in capacity} == {"released"}
         result_receipt = strict_json_loads(result[0])
-        assert result[1] == "accepted"
-        assert result_receipt["status"] == "accepted"
-        assert result_receipt["code"] is None
+        assert result[1] == "rejected"
+        assert result_receipt["status"] == "rejected"
+        assert result_receipt["code"] == "MISSING_TOOL_EVIDENCE"
         assert result_receipt["components"] == []
 
 
@@ -884,7 +884,8 @@ def test_p06_request_messages_bind_tool_result_to_earlier_native_position():
     )
 
 
-def test_session_manifest_uses_json_mode_for_canonical_saved_at_bytes():
+@pytest.mark.parametrize("native", [False, True])
+def test_session_manifest_uses_json_mode_for_canonical_saved_at_bytes(native):
     blob = {
         "id": "session-root-p08",
         "version": "1",
@@ -907,6 +908,23 @@ def test_session_manifest_uses_json_mode_for_canonical_saved_at_bytes():
             "saved_at": datetime(2026, 9, 13, tzinfo=timezone.utc),
         }
     )
+
+    if native:
+        from support.session_transport import assignment
+        from wuji_core.contracts.sessions import NativeCheckpointManifestV2
+
+        manifest = NativeCheckpointManifestV2(
+            session_id=manifest.session_id, session_lineage="lineage-native",
+            work_item_id=manifest.work_item_id, checkpoint_revision="1",
+            producer_identity=assignment().identity,
+            profile_ref="profile-native", profile_revision="1",
+            profile_digest="a" * 64, compatibility_ref="cap-native",
+            compatibility_digest="b" * 64, native_state_ref=blob,
+            dependency_manifest_ref={**blob, "id": "dependencies-native"},
+            operation_fence_ref={**blob, "id": "fence-native"},
+            boundary_kind="run_return", access_scope_ref="task:native",
+            publication_key="publish-native", saved_at=manifest.saved_at,
+        )
 
     body = document(manifest)
     encoded = canonical_json_bytes(body)

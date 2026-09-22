@@ -50,7 +50,7 @@ def ref_key(ref):
 
 
 def document(value):
-    if isinstance(value, (SessionManifest, SessionReceipt)):
+    if isinstance(value, (SessionManifest, NativeCheckpointManifestV2, SessionReceipt)):
         return value.model_dump(mode="json")
     if hasattr(value, "model_dump"):
         return value.model_dump(mode="python")
@@ -405,11 +405,14 @@ class SessionRepository:
             raise DomainError("CAPABILITY_UNAVAILABLE", 503)
         return capability
 
-    def _operation_fence(self, tx, assignment, session_lineage, pending=()):
+    def _operation_fence(
+        self, tx, assignment, session_lineage, pending=(), *, resume_manifest_ref=None
+    ):
         work_id = assignment.identity.work_item_id
         model_rows = rows(tx.connection.execute(
-            "SELECT m.model_attempt_id,m.send_state,m.response_state,m.billing_state,"
-            "m.local_state,m.inflight,m.input_digest FROM vnext.model_call m "
+            "SELECT m.model_attempt_id,m.send_state,m.response_state,"
+            "m.local_state,m.inflight,m.input_digest,m.response_available,m.upstream_status "
+            "FROM vnext.model_call m "
             "JOIN vnext.agent_run r USING(tenant_id,project_id,task_id,agent_run_id) "
             "WHERE m.tenant_id=%s AND m.project_id=%s AND m.task_id=%s "
             "AND r.work_item_id=%s ORDER BY m.model_attempt_id",
@@ -428,15 +431,21 @@ class SessionRepository:
             "SELECT d.delivery_id,d.status,d.input_request_id FROM vnext.input_delivery d "
             "JOIN vnext.input_request i USING(tenant_id,project_id,task_id,input_request_id) "
             "WHERE d.tenant_id=%s AND d.project_id=%s AND d.task_id=%s "
-            "AND i.work_item_id=%s ORDER BY d.delivery_id",
-            (*tx.owner, work_id),
+            "AND i.work_item_id=%s AND NOT (d.manifest_ref IS NOT DISTINCT FROM %s "
+            "AND d.status='pending' AND i.status='resolved') ORDER BY d.delivery_id",
+            (*tx.owner, work_id, resume_manifest_ref),
         ))
         entries = []
         for value in model_rows:
             state = "/".join(str(value[name]) for name in (
-                "send_state", "response_state", "billing_state", "local_state"
+                "send_state", "response_state", "local_state"
             ))
-            if value["inflight"] or state != "sent/complete/reported/ended":
+            # Billing reconciliation is not a new execution. The Gate retains
+            # its budget authority; the fence pins the completed response.
+            if (
+                value["inflight"] or state != "sent/complete/ended"
+                or not value["response_available"] or value["upstream_status"] != 200
+            ):
                 raise DomainError("OPERATION_UNKNOWN", 409)
             entries.append(OperationFenceEntryV2(
                 kind="model", operation_id=value["model_attempt_id"],
@@ -703,6 +712,7 @@ class SessionRepository:
                 != {item.sdk_approval_id for item in call_bindings}
                 or set(boundary.pending_approval_refs)
                 != {item.tool_call_id for item in call_bindings}
+                or (boundary.boundary_kind == "approval_wait") != bool(pending_contents)
             ):
                 raise ValueError("native approval binding changed")
         except (KeyError, TypeError, ValueError) as error:
@@ -1580,15 +1590,6 @@ class SessionRepository:
         ) as tx:
             run = self.receiver(tx, assignment)
             work = work_row(tx, manifest.work_item_id)
-            try:
-                self._current_writer(tx, work, run)
-            except DomainError as error:
-                print(json.dumps({
-                    "event": "native_session_publish_refused",
-                    "step": "current_writer",
-                    "code": error.code,
-                }, sort_keys=True), flush=True)
-                raise
             if manifest.saved_at > datetime.now(timezone.utc) or manifest.saved_at < run["started_at"]:
                 raise DomainError("INVALID_REFERENCE", 422)
             old = row(tx.connection.execute(
@@ -1606,6 +1607,7 @@ class SessionRepository:
                     tx, {**work, "session_id": manifest.session_id},
                     revision=old["revision"],
                 ).receipt
+            self._current_writer(tx, work, run)
             expected_parent = None
             if expected_revision:
                 parent = row(tx.connection.execute(
@@ -1666,6 +1668,10 @@ class SessionRepository:
             if (
                 fence != current_fence
                 or fence.producer_identity != manifest.producer_identity
+                or fence.session_lineage != manifest.session_lineage
+                or fence.pending_approval_refs != manifest.pending_approval_refs
+                or (manifest.boundary_kind == "approval_wait")
+                != bool(manifest.pending_approval_refs)
                 or manifest.access_scope_ref
                 != "task:" + assignment.identity.task_id
                 or dependencies.session_id != manifest.session_id
@@ -1957,6 +1963,9 @@ class SessionRepository:
                     ),
                     manifest.session_lineage,
                     manifest.pending_approval_refs,
+                    # The original wait's unconsumed decision is the next
+                    # input, not an action executed after this checkpoint.
+                    resume_manifest_ref=published.receipt.manifest_ref,
                 )
                 if fence.entries != published.operation_fence.entries:
                     raise DomainError("OPERATION_UNKNOWN", 409)

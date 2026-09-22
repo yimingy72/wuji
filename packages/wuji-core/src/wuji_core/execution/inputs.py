@@ -237,7 +237,10 @@ class InputService:
                         or request.get("sdk_content_id") != binding.sdk_content_id
                         or request.get("sdk_approval_id") != binding.sdk_approval_id
                         or request.get("provider_call_id") != binding.provider_call_id
-                        or request.get("arguments_digest") != binding.arguments_digest
+                        or digest(request.get("arguments")) != binding.arguments_digest
+                        or request.get("arguments") != strict_json_loads(binding.native_arguments)
+                        or request.get("message_id") != binding.message_id
+                        or request.get("tool_definition_ref") != binding.tool_definition_ref
                     ):
                         raise DomainError("SESSION_FRONTIER_MISMATCH", 409)
                 ref = str(uuid4())

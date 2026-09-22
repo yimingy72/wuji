@@ -1,4 +1,5 @@
 import asyncio
+import pytest
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from hashlib import sha256
@@ -381,8 +382,9 @@ def test_problem_harness_uses_native_todo_memory_and_host_knowledge_in_one_sessi
     asyncio.run(run())
 
 
-def test_native_final_is_submitted_before_a_failed_checkpoint(
-    monkeypatch, tmp_path
+@pytest.mark.parametrize("handoff_failure", [False, True])
+def test_native_final_is_retained_before_failed_auxiliary_publications(
+    monkeypatch, tmp_path, handoff_failure
 ):
     from support.identity_provider import TestIdentityProvider
     import wuji_maf_worker.runtime as runtime_module
@@ -457,9 +459,13 @@ def test_native_final_is_submitted_before_a_failed_checkpoint(
         async def close(self):
             return None
 
-    monkeypatch.setattr(
-        runtime_module, "build_agent", lambda **_kwargs: (Agent(), Native())
-    )
+    def build(**kwargs):
+        kwargs["middleware"].knowledge_deliveries.append({
+            "delivery_id": "delivered-content", "representation_digest": "b" * 64,
+        })
+        return Agent(), Native()
+
+    monkeypatch.setattr(runtime_module, "build_agent", build)
     calls = []
 
     class Host:
@@ -475,7 +481,9 @@ def test_native_final_is_submitted_before_a_failed_checkpoint(
             }
 
         def knowledge_attach(self, *_args, **_kwargs):
-            raise AssertionError("no knowledge was delivered")
+            calls.append(("handoff", None))
+            if handoff_failure:
+                raise ValueError("injected handoff failure")
 
         def submit_result(self, _assignment, **kwargs):
             calls.append(("submit", kwargs["raw_output"]))
@@ -527,10 +535,11 @@ def test_native_final_is_submitted_before_a_failed_checkpoint(
 
     events = asyncio.run(run())
 
-    assert [item[0] for item in calls] == ["retain", "stage", "submit"]
+    assert [item[0] for item in calls] == ["retain", "handoff", "stage", "submit"]
     assert calls[0][1] == payload.encode()
     assert events[0].kind == "result_receipt"
     assert isinstance(runtime.session_checkpoint_error, ValueError)
+    assert isinstance(runtime.knowledge_handoff_error, ValueError) == handoff_failure
 
 
 def test_native_delivery_manifest_ignores_unconfirmed_prepared_material():
@@ -675,7 +684,12 @@ def test_native_v2_restores_opaque_session_and_matching_memory():
         ),
     )
 
-    restored = adapter.restore_boundary(published)
+    from wuji_core.execution.session_bridge import SessionTransportCodec
+
+    codec = SessionTransportCodec(max_transport_bytes=1_048_576)
+    transmitted = codec.decode_published(codec.encode_published(published))
+    assert transmitted == published
+    restored = adapter.restore_boundary(transmitted)
 
     assert restored.session.state["problem_todo"]["items"][0]["title"] == "finish"
     assert restored.memory.snapshot_files() == {"notes.md": b"fixed note"}
