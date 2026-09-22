@@ -1,6 +1,7 @@
 """One hosted Worker assignment, independently consuming MAF's native stream."""
 
 import asyncio
+import json
 import ssl
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -810,6 +811,12 @@ class MafRuntime:
                             # The accepted raw/result is authoritative. A failed
                             # optional recovery point never re-runs the Agent.
                             self.session_checkpoint_error = error
+                            print(json.dumps({
+                                "event": "session_checkpoint_unavailable",
+                                "error_class": type(error).__name__,
+                                "code": getattr(error, "code", None),
+                                "status": getattr(error, "status_code", None),
+                            }, sort_keys=True), flush=True)
                     self.result = await asyncio.to_thread(
                         self._host.submit_result, assignment,
                         raw_output=self.raw_output, context=self._context,
