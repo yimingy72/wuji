@@ -686,20 +686,20 @@ The Task Pod only receives its own restricted runtime/TLS credentials.
                 AND payload_json::jsonb->>'execution_epoch'=%s
               ORDER BY event_seq DESC LIMIT 1
             ), task_commands AS (
-              SELECT created_at,row_number() OVER (ORDER BY event_seq) AS ordinal
-              FROM vnext.outbox,activation WHERE tenant_id=%s AND project_id=%s
-                AND task_id=%s AND event_seq>activation.event_seq
-                AND kind='control.applied'
-                AND payload_json::jsonb->'resource_ref'->>'entity_type'='task'
-                AND payload_json::jsonb->'resource_ref'->>'id'=%s
+              SELECT o.created_at,row_number() OVER (ORDER BY o.event_seq) AS ordinal
+              FROM vnext.outbox o,activation WHERE o.tenant_id=%s AND o.project_id=%s
+                AND o.task_id=%s AND o.event_seq>activation.event_seq
+                AND o.kind='control.applied'
+                AND o.payload_json::jsonb->'resource_ref'->>'entity_type'='task'
+                AND o.payload_json::jsonb->'resource_ref'->>'id'=%s
             ), revocations AS (
               SELECT created_at FROM task_commands WHERE ordinal=2
               UNION ALL
-              SELECT created_at FROM vnext.outbox,activation
-              WHERE tenant_id=%s AND project_id=%s AND task_id=%s
-                AND event_seq>activation.event_seq
-                AND kind='completion.control_applied'
-                AND payload_json::jsonb->>'action'='quiesce'
+              SELECT o.created_at FROM vnext.outbox o,activation
+              WHERE o.tenant_id=%s AND o.project_id=%s AND o.task_id=%s
+                AND o.event_seq>activation.event_seq
+                AND o.kind='completion.control_applied'
+                AND o.payload_json::jsonb->>'action'='quiesce'
             ) SELECT min(created_at) FROM revocations""",
             (
                 *tx.owner, str(self.config.execution_epoch),

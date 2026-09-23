@@ -438,7 +438,10 @@ class WorkspaceBundleService:
             )
             refs.append((relative_path, ref, len(raw)))
 
-        expected = arguments.expected_base_publication_id
+        expected = (
+            None if arguments.expected_base_publication_id is None
+            else arguments.expected_base_publication_id.root
+        )
         with self.uow.transaction(
             permit.access, permit.identity.task_id, capability="model_output"
         ) as tx:
