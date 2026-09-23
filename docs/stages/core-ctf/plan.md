@@ -31,6 +31,8 @@ flowchart LR
 
 本表记录原分工。原三个Sol/xhigh代理因额度中断后，由两名GPT-6 Sol/high代理分别接Runtime/前端和公共合同/黑板/F3后端；机制driver由主代理接续。共享PG仍单槽，旧失败与未测项保留。
 
+2026-09-23最新执行队列：用户要求主代理只做架构、分工、审查，所有开发与测试交子代理。Core后端子代理接Launch失败修复、Reason-first与内存修正、统一本地提交、固定镜像构建、独立`wuji-core-ctf`更新及机制driver实测；前端子代理冻结UI/BFF并在新镜像部署后做F4浏览器验证。此前主代理完成的driver/renderer和首次真实运行仍按原实际执行者记录；旧`wuji-vnext-test`保持不变。
+
 | 当前负责人 | 当前切片 | 收口后的连续任务 | 状态边界 |
 | --- | --- | --- | --- |
 | A1：通用执行 | M1主链局部通过；新core配置、独立执行许可及Task证书、Launch装配 | 复用实际执行链的Core CTF机制入口，与Runtime清理接线 | 完整Task尚未验收，不因Kali接口存在就称Task停止通过 |

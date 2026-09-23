@@ -25,12 +25,14 @@ import {
   createTask,
   listTasks,
   materialPath,
+  readLaunch,
   readReadiness,
   readTask,
   readTaskOverview,
   readTaskOptions,
   type ReadinessCheck,
   type ReadinessReport,
+  type LaunchView,
   type TaskCreate,
   type TaskOptions,
   type TaskOverviewV1,
@@ -252,17 +254,20 @@ interface TaskWorkspaceProps {
   readonly session: WorkbenchSession;
   readonly onSessionExpired: () => void;
   readonly onTaskUpdated: (task: TaskView) => void;
+  readonly onLaunchUpdated: (taskId: string, launch: LaunchView) => void;
 }
 
-function TaskWorkspace({ taskId, session, onSessionExpired, onTaskUpdated }: TaskWorkspaceProps) {
+function TaskWorkspace({ taskId, session, onSessionExpired, onTaskUpdated, onLaunchUpdated }: TaskWorkspaceProps) {
   const [task, setTask] = useState<TaskView | null>(null);
   const [overview, setOverview] = useState<TaskOverviewV1 | null>(null);
+  const [launch, setLaunch] = useState<LaunchView | null>(null);
   const [readiness, setReadiness] = useState<ReadinessReport | null>(null);
   const [selection, setSelection] = useState<TopologySelection | null>(null);
   const [snapshot, setSnapshot] = useState<TopologySnapshotInput | null>(null);
   const [problemSnapshotId, setProblemSnapshotId] = useState<string | null>(null);
   const [viewChoice, setViewChoice] = useState<ViewChoice>({ mode: 'live', snapshotId: null });
   const [activeTab, setActiveTab] = useState('overview');
+  const [completionOpen, setCompletionOpen] = useState(false);
   const [notice, setNotice] = useState<CommandNotice | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [overviewError, setOverviewError] = useState<string | null>(null);
@@ -303,10 +308,17 @@ function TaskWorkspace({ taskId, session, onSessionExpired, onTaskUpdated }: Tas
       if (reason instanceof ApiRequestError && reason.status === 401) onSessionExpired();
       setOverviewError(errorMessage(reason));
     });
+    void readLaunch(taskId, controller.signal).then((nextLaunch) => {
+      if (controller.signal.aborted || generation.current !== currentGeneration) return;
+      setLaunch(nextLaunch);
+      onLaunchUpdated(taskId, nextLaunch);
+    }).catch((reason: unknown) => {
+      if (!controller.signal.aborted && reason instanceof ApiRequestError && reason.status === 401) onSessionExpired();
+    });
     return () => {
       controller.abort();
     };
-  }, [taskId, refresh, statusRefresh, onSessionExpired, onTaskUpdated]);
+  }, [taskId, refresh, statusRefresh, onSessionExpired, onTaskUpdated, onLaunchUpdated]);
 
   useEffect(() => () => readinessActive.current?.abort(), [taskId]);
 
@@ -332,7 +344,7 @@ function TaskWorkspace({ taskId, session, onSessionExpired, onTaskUpdated }: Tas
     setViewChoice({ mode: 'live', snapshotId: null });
     setActiveTab('findings');
   }, []);
-  const label = taskStatusLabel(task, null);
+  const label = taskStatusLabel(task, launch);
   const allowed = task?.allowed_actions ?? [];
 
   const refreshCurrent = () => setRefresh((value) => value + 1);
@@ -389,7 +401,7 @@ function TaskWorkspace({ taskId, session, onSessionExpired, onTaskUpdated }: Tas
         <div className={styles.taskTitle}>
           <span>{scenarioLabels[task.scenario]}</span>
           <h1>{task.name}</h1>
-          <p>{overview?.runtime.state === 'stopped' && task.observed_state !== 'closed' ? task.observed_state === 'paused' ? '已暂停，执行环境已停止' : '执行已停止，结果结算中' : overview?.status_message ?? '正在读取任务概览'}</p>
+          <p>{launch?.phase_status === 'failed' && overview?.runtime.state !== 'running' ? '执行环境准备失败，尚未开始工作' : overview?.runtime.state === 'stopped' && task.observed_state !== 'closed' ? task.observed_state === 'paused' ? '已暂停，执行环境已停止' : '执行已停止，结果结算中' : overview?.status_message ?? '正在读取任务概览'}</p>
         </div>
         <div className={styles.taskMeta} data-testid="task-status">
           <Tag color={statusColor(label)}>{label}</Tag>
@@ -408,7 +420,7 @@ function TaskWorkspace({ taskId, session, onSessionExpired, onTaskUpdated }: Tas
           {overviewError && <Alert showIcon type="warning" title="概览暂时不可用" description={overviewError} action={<Button onClick={refreshCurrent}>重试</Button>} />}
           {overview ? <TaskOverviewPanel overview={overview} taskId={task.task_id} onSelectRef={openRecord} onSessionExpired={onSessionExpired} /> : !overviewError && <Spin description="正在读取概览" />}
           <section className={styles.sectionCard}><header><div><span>需要你的处理</span><h2>输入与审批</h2></div></header><InputPanel taskId={task.task_id} csrfToken={session.csrf_token} refreshKey={refresh} onChanged={refreshCurrent} onSessionExpired={onSessionExpired} /></section>
-          <section className={styles.sectionCard}><header><div><span>任务结论</span><h2>完成条件</h2></div></header><CompletionPanel taskId={task.task_id} onChanged={refreshCurrent} /></section>
+          <details className={styles.technical} onToggle={(event) => setCompletionOpen(event.currentTarget.open)}><summary>完成审核详情</summary>{completionOpen && <CompletionPanel taskId={task.task_id} onChanged={refreshCurrent} />}</details>
         </div> },
         { key: 'activity', label: '活动', children: <TaskActivityPanel taskId={task.task_id} onSelectRef={openRecord} onSessionExpired={onSessionExpired} /> },
         { key: 'workspace', label: '工作区', children: overview ? <TaskWorkspacePanel taskId={task.task_id} overview={overview} /> : <Alert showIcon type="warning" title="工作区暂时不可用" description={overviewError ?? '正在读取工作区能力'} /> },
@@ -559,6 +571,7 @@ function TaskCreatePanel({ session, options, optionsError, onCreated, onClose, o
 export function FirstUseWorkbench({ session, onSessionExpired, onLogout }: FirstUseWorkbenchProps) {
   const [search, setSearch] = useSearchParams();
   const [tasks, setTasks] = useState<TaskView[]>([]);
+  const [launchByTask, setLaunchByTask] = useState<Record<string, LaunchView>>({});
   const [cursor, setCursor] = useState<string | null>(null);
   const [taskCursor, setTaskCursor] = useState<string | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
@@ -577,6 +590,9 @@ export function FirstUseWorkbench({ session, onSessionExpired, onLogout }: First
   const selectedTask = tasks.find((task) => task.task_id === selectedTaskId) ?? null;
   const updateTask = useCallback((nextTask: TaskView) => {
     setTasks((current) => current.map((task) => task.task_id === nextTask.task_id ? nextTask : task));
+  }, []);
+  const updateLaunch = useCallback((taskId: string, nextLaunch: LaunchView) => {
+    setLaunchByTask((current) => ({ ...current, [taskId]: nextLaunch }));
   }, []);
   const selectTask = (taskId: string) => {
     if (!tasks.some((task) => task.task_id === taskId)) return;
@@ -666,11 +682,11 @@ export function FirstUseWorkbench({ session, onSessionExpired, onLogout }: First
       <div className={styles.body}>
         <aside className={styles.directory} aria-label="任务目录" data-testid="task-list">
           <div className={styles.directoryHeader}><div><strong>我的任务</strong></div><Button type="primary" onClick={() => setCreateOpen(true)} data-testid="new-task">新建任务</Button></div>
-          {loading && tasks.length === 0 ? <div className={styles.directoryEmpty}><Spin description="正在读取 Task 目录" /></div> : tasks.length === 0 ? <div className={styles.directoryEmpty}><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="当前没有可访问的 Task" /><Button type="primary" onClick={() => setCreateOpen(true)}>创建首个 Task</Button></div> : <div className={styles.taskList}>{tasks.map((task) => { const label = taskStatusLabel(task, null); return <button className={`${styles.taskItem} ${selectedTaskId === task.task_id ? styles.taskItemActive : ''}`} type="button" key={task.task_id} onClick={() => selectTask(task.task_id)}><strong>{task.name}</strong><span className={styles.taskItemMeta}><Tag color={statusColor(label)}>{label}</Tag><span>{scenarioLabels[task.scenario]}</span></span></button>; })}</div>}
+          {loading && tasks.length === 0 ? <div className={styles.directoryEmpty}><Spin description="正在读取 Task 目录" /></div> : tasks.length === 0 ? <div className={styles.directoryEmpty}><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="当前没有可访问的 Task" /><Button type="primary" onClick={() => setCreateOpen(true)}>创建首个 Task</Button></div> : <div className={styles.taskList}>{tasks.map((task) => { const label = taskStatusLabel(task, launchByTask[task.task_id] ?? null); return <button className={`${styles.taskItem} ${selectedTaskId === task.task_id ? styles.taskItemActive : ''}`} type="button" key={task.task_id} onClick={() => selectTask(task.task_id)}><strong>{task.name}</strong><span className={styles.taskItemMeta}><Tag color={statusColor(label)}>{label}</Tag><span>{scenarioLabels[task.scenario]}</span></span></button>; })}</div>}
           <div className={styles.directoryFooter}><Button size="small" icon={<ReloadOutlined />} onClick={refreshList}>刷新目录</Button>{cursor && <Button size="small" onClick={() => setTaskCursor(cursor)}>加载更多</Button>}</div>
         </aside>
         <main className={styles.detail} aria-label="Task 详情">
-          {createOpen ? <TaskCreatePanel session={session} options={options} optionsError={optionsError} onCreated={openCreated} onClose={() => setCreateOpen(false)} onSessionExpired={onSessionExpired} /> : selectedTask ? <TaskWorkspace key={selectedTask.task_id} taskId={selectedTask.task_id} session={session} onSessionExpired={onSessionExpired} onTaskUpdated={updateTask} /> : <div className={styles.detailBody}><Empty description="从左侧选择一个 Task，或新建首个 Task" /></div>}
+          {createOpen ? <TaskCreatePanel session={session} options={options} optionsError={optionsError} onCreated={openCreated} onClose={() => setCreateOpen(false)} onSessionExpired={onSessionExpired} /> : selectedTask ? <TaskWorkspace key={selectedTask.task_id} taskId={selectedTask.task_id} session={session} onSessionExpired={onSessionExpired} onTaskUpdated={updateTask} onLaunchUpdated={updateLaunch} /> : <div className={styles.detailBody}><Empty description="从左侧选择一个 Task，或新建首个 Task" /></div>}
         </main>
       </div>
     </div>

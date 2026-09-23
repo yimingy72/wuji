@@ -193,7 +193,10 @@ def test_core_profiles_and_binding_select_native_mcp_and_v2_kali():
     )
     runtime_config = task_launch.attempt_config(binding)
     assert runtime_config.template_version == "core-ctf-v1"
+    assert runtime_config.agent_resources.memory_request == "512Mi"
+    assert runtime_config.agent_resources.memory_limit == "1Gi"
     assert runtime_config.capture_policy.pcap_segment_bytes == 64_000_000
+    assert task_launch.initial_intent_document(value, frozen) is None
     assert set(task_launch.task_service_names(
         "task-core", template_version="core-ctf-v1"
     )) == {"agent", "kali", "capture"}

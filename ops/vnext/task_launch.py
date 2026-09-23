@@ -1174,12 +1174,15 @@ def fixture_intent_document(definition_lines):
 def initial_intent_document(config, definition_lines):
     """The single starting Intent for a launched Task, or ``None``.
 
-    A workspace-only mechanism Task keeps its fixture read.  A mechanism Task
+    Core CTF starts with Reason. A workspace-only legacy mechanism Task keeps
+    its fixture read. A mechanism Task
     frozen with trusted HTTP fixture origins is Reason-first, just like a real
     Task, so it cannot mislabel an HTTP entry as ``workspace:``.  A real Task
     admits nothing here unless the deployment published an explicit seed.
     """
 
+    if config.get("template_version") == "core-ctf-v1":
+        return None
     mode = definition_lines.get("evaluation_mode")
     if mode == "real_model":
         seed = definition_lines.get("seed_intent")
@@ -2369,8 +2372,8 @@ def binding_document(config, task_id, *, agent_image, kali_image, prepared, extr
         "kali_receipts_enabled": True,
         "agent_resources": extra.get(
             "agent_resources",
-            {"cpu_request": "100m", "memory_request": "128Mi",
-             "cpu_limit": "1", "memory_limit": "512Mi"},
+            {"cpu_request": "100m", "memory_request": "512Mi" if config.get("template_version") == "core-ctf-v1" else "128Mi",
+             "cpu_limit": "1", "memory_limit": "1Gi" if config.get("template_version") == "core-ctf-v1" else "512Mi"},
         ),
         "kali_resources": extra.get(
             "kali_resources",

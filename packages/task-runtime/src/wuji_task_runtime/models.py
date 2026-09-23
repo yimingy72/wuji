@@ -8,7 +8,7 @@ import re
 import math
 from dataclasses import asdict, dataclass
 from datetime import datetime
-from decimal import InvalidOperation
+from decimal import Decimal, InvalidOperation
 from typing import Literal
 from uuid import UUID
 
@@ -117,6 +117,11 @@ class CapturePolicy:
             raise InvalidRuntimeConfig("pcap_segment_bytes must be a whole tcpdump decimal megabyte")
         for name in ("drain_timeout_seconds", "seal_timeout_seconds"):
             value = getattr(self, name)
+            if isinstance(value, Decimal):
+                if not value.is_finite():
+                    raise InvalidRuntimeConfig(f"{name} must be a finite positive number")
+                value = float(value)
+                object.__setattr__(self, name, value)
             if isinstance(value, bool) or not isinstance(value, (int, float)):
                 raise InvalidRuntimeConfig(f"{name} must be a finite positive number")
             if not math.isfinite(value) or not 0 < value <= 300:

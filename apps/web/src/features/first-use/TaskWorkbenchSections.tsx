@@ -74,7 +74,7 @@ export function TaskOverviewPanel({ overview, taskId, onSelectRef, onSessionExpi
     </section>
     <section className={styles.sectionCard}>
       <header><div><span>执行环境</span><h2>{overview.runtime.state === 'stopped' ? '执行已停止' : overview.runtime.state === 'stopping' ? '正在停止执行' : overview.runtime.state === 'running' ? '执行中' : overview.runtime.state === 'unknown' ? '正在核对执行状态' : '尚未启动'}</h2></div></header>
-      <span>运行批次 {overview.runtime.runtime_attempt} · 已确认容器 {Object.keys(overview.runtime.containers).length}/4</span>
+      <span>运行批次 {overview.runtime.runtime_attempt} · 已确认容器 {Object.values(overview.runtime.containers).filter((state) => state === 'terminated' || state === 'not_started').length}/4</span>
       {overview.runtime.state === 'stopped' && <Tag color="green">外部容器终态已核对</Tag>}
     </section>
   </div>;

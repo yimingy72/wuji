@@ -34,7 +34,7 @@ from wuji_core.admission.mechanism_fixture import (  # noqa: E402
     FIRST_USE_FIXTURE_ORIGIN,
     mechanism_http_origins,
 )
-from wuji_core.http import canonical_json_bytes  # noqa: E402
+from wuji_core.http import canonical_json_bytes, strict_json_loads  # noqa: E402
 from wuji_core.http.auth import Principal  # noqa: E402
 from wuji_core.persistence.uow import AccessContext, DomainError  # noqa: E402
 from wuji_maf_worker.factory import HarnessProfile  # noqa: E402
@@ -1194,9 +1194,20 @@ def test_core_runtime_document_adds_capture_without_widening_legacy():
             "seal_timeout_seconds": 60.0,
         },
     }
+    core["capture_policy"] = strict_json_loads(
+        canonical_json_bytes(core["capture_policy"])
+    )
     parsed = task_launch.attempt_config(core)
     assert parsed.template_version == "core-ctf-v1"
     assert parsed.capture_resources.memory_limit == "256Mi"
+    assert parsed.capture_policy.drain_timeout_seconds == 30.0
+
+
+def test_core_template_starts_with_reason_without_legacy_fixture_intent():
+    assert task_launch.initial_intent_document(
+        {"template_version": "core-ctf-v1"},
+        {"evaluation_mode": "mechanism_synthetic"},
+    ) is None
 
 
 def test_the_started_task_points_its_own_executor_at_its_own_kali_service():

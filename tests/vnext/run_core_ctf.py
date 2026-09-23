@@ -525,6 +525,9 @@ def _wait_chain(
     last = None
     while time.monotonic() < deadline:
         task = browser.json("GET", f"/api/v2/tasks/{_q(task_id)}")
+        launch = browser.json("GET", f"/api/v2/tasks/{_q(task_id)}/launch")
+        if launch.get("phase_status") == "failed":
+            raise RunFailure("Task launch failed at " + str(launch.get("phase")))
         state = (task["desired_state"], task["observed_state"], task["version"])
         if state != last:
             _event(events, "task_progress", desired_state=state[0], observed_state=state[1], version=state[2])
