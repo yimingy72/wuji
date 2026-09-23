@@ -429,6 +429,14 @@ def test_capture_item_index_is_incremental_and_keeps_late_gap(tmp_path):
         "op": "record", "exchange_id": "exchange-a", "stage": "gap",
         "metadata": {"reason": "late_gap", "completeness": "partial"},
     })
+    writer.handle({
+        "op": "record", "exchange_id": "exchange-b", "stage": "request",
+        "metadata": {"method": "GET"}, "body_base64": encode(b""),
+    })
+    writer.handle({
+        "op": "record", "exchange_id": "exchange-b", "stage": "response",
+        "metadata": {"status_code": 200}, "body_base64": encode(b"second"),
+    })
     pcap = root / "pcap"
     pcap.mkdir(parents=True)
     (pcap / "capture.pcap").write_bytes(b"closed")
@@ -438,14 +446,35 @@ def test_capture_item_index_is_incremental_and_keeps_late_gap(tmp_path):
         root, maximum_items=10, maximum_session_bytes=1024 * 1024,
         maximum_chunk_bytes=4,
     )
-    store.refresh(sealed=False, pcap_stats={"dropped_by_kernel": 0})
-    assert [item["kind"] for item in store.page(after=0, limit=10)["items"]] == [
-        "http_exchange", "gap", "pcap_segment",
+    def refresh_bounded(*, sealed):
+        finished = threading.Event()
+        errors = []
+
+        def refresh():
+            try:
+                store.refresh(sealed=sealed, pcap_stats={"dropped_by_kernel": 0})
+            except BaseException as error:
+                errors.append(error)
+            finally:
+                finished.set()
+
+        threading.Thread(target=refresh, daemon=True).start()
+        assert finished.wait(2), "capture item refresh did not advance its writer cursor"
+        if errors:
+            raise errors[0]
+
+    refresh_bounded(sealed=False)
+    items = store.page(after=0, limit=10)["items"]
+    assert [item["kind"] for item in items] == [
+        "http_exchange", "gap", "http_exchange", "pcap_segment",
+    ]
+    assert [item["metadata"].get("exchange_id") for item in items[:3]] == [
+        "exchange-a", "exchange-a", "exchange-b",
     ]
     metadata, body = store.read_part(1, "response_body", offset=0, length=4)
     assert body == b"resp" and metadata["length"] == len(b"response")
     lines = (root / "control" / "items.ndjson").read_text().splitlines()
-    store.refresh(sealed=False, pcap_stats={"dropped_by_kernel": 0})
+    refresh_bounded(sealed=False)
     assert (root / "control" / "items.ndjson").read_text().splitlines() == lines
 
     manifest = {
@@ -454,8 +483,8 @@ def test_capture_item_index_is_incremental_and_keeps_late_gap(tmp_path):
         "reasons": [],
     }
     (root / "manifest.json").write_text(json.dumps(manifest))
-    store.refresh(sealed=True, pcap_stats={"dropped_by_kernel": 0})
-    assert [item["kind"] for item in store.page(after=3, limit=10)["items"]] == [
+    refresh_bounded(sealed=True)
+    assert [item["kind"] for item in store.page(after=4, limit=10)["items"]] == [
         "pcap_segment", "manifest",
     ]
 

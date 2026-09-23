@@ -110,10 +110,10 @@ class CaptureItemStore:
                         parts.append(_file_part(self.root, path, name, media))
                 metadata = final_metadata
                 summary = {"exchange_id": str(exchange_id)}
-                for key, maximum in (("method", 32), ("url", 2048)):
-                    value = request_metadata.get(key)
+                for field, maximum in (("method", 32), ("url", 2048)):
+                    value = request_metadata.get(field)
                     if isinstance(value, str):
-                        summary[key] = value[:maximum]
+                        summary[field] = value[:maximum]
                 status_code = final_metadata.get("status_code")
                 if type(status_code) is int:
                     summary["status_code"] = status_code
