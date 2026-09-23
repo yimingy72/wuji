@@ -85,13 +85,28 @@ def test_renderer_builds_an_independent_empty_arm64_platform(tmp_path, monkeypat
         x509.SubjectAlternativeName
     ).value.get_values_for_type(x509.DNSName)
     assert "postgres.core-fixture.svc" in sans
-
     for filename in ("bootstrap-job.json", "catalog-job.json"):
         pod = _items(output / filename)[0]["spec"]["template"]["spec"]
         assert pod["nodeSelector"] == {"kubernetes.io/arch": "arm64"}
         assert pod["automountServiceAccountToken"] is False
 
     objects = _items(output / "platform.json")
+    client_secret = _named(objects, "Secret", "core-capture-runtime")
+    client = x509.load_pem_x509_certificate(
+        base64.b64decode(client_secret["data"]["tls.crt"])
+    )
+    ca = x509.load_pem_x509_certificate(
+        base64.b64decode(client_secret["data"]["ca.crt"])
+    )
+    assert client.extensions.get_extension_for_class(
+        x509.AuthorityKeyIdentifier
+    ).value.key_identifier == x509.SubjectKeyIdentifier.from_public_key(ca.public_key()).digest
+    assert client.extensions.get_extension_for_class(
+        x509.SubjectKeyIdentifier
+    ).value.digest == x509.SubjectKeyIdentifier.from_public_key(client.public_key()).digest
+    assert client.extensions.get_extension_for_class(
+        x509.KeyUsage
+    ).value.digital_signature is True
     runtime_config = _named(objects, "ConfigMap", "runtime-config")
     runtime = json.loads(runtime_config["data"]["deployment.json"])
     assert runtime["task_ids"] == []

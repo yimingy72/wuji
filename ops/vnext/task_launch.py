@@ -1681,6 +1681,8 @@ def core_attempt_tls_material(
             .not_valid_before(now - timedelta(minutes=1))
             .not_valid_after(now + timedelta(days=7))
             .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
+            .add_extension(x509.SubjectKeyIdentifier.from_public_key(leaf_key.public_key()), critical=False)
+            .add_extension(x509.AuthorityKeyIdentifier.from_issuer_public_key(ca.public_key()), critical=False)
             .add_extension(
                 x509.SubjectAlternativeName([
                     x509.DNSName(name) for name in dns_names

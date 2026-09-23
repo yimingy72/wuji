@@ -286,6 +286,14 @@ def test_core_attempt_issues_exact_task_server_leaves_without_ca_or_client_key()
     }
     assert material["capture-client-ca.crt"] == ca_bytes
     assert fingerprints["capture_client_sha256"] == client.fingerprint(hashes.SHA256()).hex()
+    for role in ("task-kali", "capture-tls"):
+        leaf = x509.load_pem_x509_certificate(material[role + ".crt"])
+        assert leaf.extensions.get_extension_for_class(
+            x509.SubjectKeyIdentifier
+        ).value.digest == x509.SubjectKeyIdentifier.from_public_key(leaf.public_key()).digest
+        assert leaf.extensions.get_extension_for_class(
+            x509.AuthorityKeyIdentifier
+        ).value.key_identifier == x509.SubjectKeyIdentifier.from_public_key(ca.public_key()).digest
     kali = x509.load_pem_x509_certificate(material["task-kali.crt"])
     sans = set(kali.extensions.get_extension_for_class(
         x509.SubjectAlternativeName

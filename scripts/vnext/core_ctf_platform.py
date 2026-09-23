@@ -138,6 +138,14 @@ def _client_certificate(ca_directory):
         .not_valid_before(now - timedelta(minutes=1))
         .not_valid_after(now + timedelta(days=7))
         .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
+        .add_extension(x509.SubjectKeyIdentifier.from_public_key(key.public_key()), critical=False)
+        .add_extension(x509.AuthorityKeyIdentifier.from_issuer_public_key(ca.public_key()), critical=False)
+        .add_extension(x509.KeyUsage(
+            digital_signature=True, key_encipherment=False,
+            content_commitment=False, data_encipherment=False,
+            key_agreement=False, key_cert_sign=False, crl_sign=False,
+            encipher_only=None, decipher_only=None,
+        ), critical=True)
         .add_extension(x509.ExtendedKeyUsage([ExtendedKeyUsageOID.CLIENT_AUTH]), critical=False)
         .sign(ca_key, hashes.SHA256())
     )
