@@ -23,6 +23,7 @@ from wuji_core.blackboard.notifications import (
     KnowledgeNoticeService,
 )
 from wuji_core.execution.control import ExecutionObservation
+from wuji_core.execution.worker_bridge import WorkerHostBridge
 from wuji_core.http import canonical_json_bytes, strict_json_loads
 from wuji_core.persistence.snapshots import SnapshotQuery
 from wuji_core.persistence.uow import DomainError
@@ -548,6 +549,15 @@ def test_board_publish_is_atomic_idempotent_and_other_run_reads_notice_content(
         _start(case, explore, 1)
         explore_worker = worker_credential(case, explore)
         reason_worker = worker_credential(case, reason)
+        bridge = object.__new__(WorkerHostBridge)
+        bridge.uow, bridge.registry = case.control.uow, case.registry
+        reason_limits = bridge._knowledge_limits(reason_worker.access, reason)
+        assert reason_limits["max_reads"] > 0
+        with pytest.raises(DomainError, match="CAPABILITY_UNAVAILABLE"):
+            bridge._knowledge_limits(
+                reason_worker.access,
+                reason.model_copy(update={"profile_refs": [wire.ProfileRef.model_validate("wrong-profile")]}),
+            )
         notices = KnowledgeNoticeService(case.control.uow, registry=case.registry)
         initial_notices = notices.list(
             reason_worker.access, reason, cursor=None, limit=16
@@ -677,6 +687,7 @@ def test_board_publish_is_atomic_idempotent_and_other_run_reads_notice_content(
                 "fields": ["text", "basis_refs", "limitations", "kind"],
             },
             native_occurrence="notice-content-read",
+            limits=reason_limits,
         )
         assert "live finding" in content.text
         after = notices.list(

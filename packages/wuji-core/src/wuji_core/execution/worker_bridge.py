@@ -693,7 +693,7 @@ class WorkerHostBridge:
             current_run(tx, config)
             definition = strict_json_loads(tx.task["definition_json"])
             profile = definition["worker_profiles"][assignment.work_kind.value]
-        if profile["ref"] not in assignment.profile_refs:
+        if profile["ref"] not in {ref.root for ref in assignment.profile_refs}:
             raise DomainError("CAPABILITY_UNAVAILABLE", 503)
         body = profile["body"]
         policy = body["context_policy"]
