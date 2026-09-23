@@ -713,6 +713,7 @@ def test_core_reason_waits_on_the_delivered_canonical_intent(marker, finished_a)
         }],
         related=[marker + " is active"],
         results=([peer.CORE_WORK_A + " finished"] if finished_a else []),
+        assets=([core_asset()] if marker == peer.CORE_WORK_A else []),
     )
     request_body = core_request(role="reason", context=context)
     read = peer.decision(request_body)

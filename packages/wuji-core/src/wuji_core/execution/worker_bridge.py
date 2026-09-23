@@ -1255,6 +1255,7 @@ class WorkerHostBridge:
         }
         if v4:
             semantic.update(
+                snapshot_id=manifest.snapshot_id,
                 workspace_binding=workspace_binding.model_dump(mode="json"),
                 execution_environment=execution_environment.model_dump(mode="json"),
                 published_asset_index=[

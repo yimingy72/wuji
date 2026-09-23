@@ -43,7 +43,7 @@ from wuji_core.evidence.workspace_transfer import WorkspaceTransferHandler
 from wuji_core.execution.pod_runtime import TaskPodLease
 from wuji_core.execution.worker_bridge import WorkerHostBridge
 from wuji_core.execution.workspace_gate import WorkspaceToolGate
-from wuji_core.http import canonical_json_bytes
+from wuji_core.http import canonical_json_bytes, strict_json_loads
 from wuji_core.http.auth import TokenVerifier
 from wuji_core.http.native_mcp import MCP_INVOCATION_META, create_native_mcp_app
 from wuji_core.persistence.snapshots import SnapshotQuery
@@ -672,6 +672,7 @@ def test_workspace_bundle_a_to_b_fixed_version_materialize_and_cas(
             case.profiles["explore"]["body"],
         )
         assert context_b.schema_version.root == "wuji.worker-context.v4"
+        assert strict_json_loads(context_b.text)["snapshot_id"] == manifest_b.snapshot_id
         assert context_b.workspace_binding.runtime_attempt == assignment_b.identity.runtime_attempt
         assert [item.publication_id for item in context_b.published_asset_index] == [
             published_v1.publication_id.root

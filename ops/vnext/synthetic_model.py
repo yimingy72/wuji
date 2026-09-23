@@ -477,7 +477,7 @@ def core_reason_decision(request, messages, context):
     active_b = any(CORE_WORK_B in item for item in summaries)
     finished_b = any(CORE_WORK_B in item for item in results)
     active_a = any(CORE_WORK_A in item for item in summaries)
-    finished_a = any(CORE_WORK_A in item for item in results) or bool(script_assets)
+    finished_a = any(CORE_WORK_A in item for item in results)
 
     claim_deliveries = [
         item for item in deliveries if item.get("ref", {}).get("entity_type") == "claim"
