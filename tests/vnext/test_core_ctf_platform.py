@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import sys
 
+import pytest
 from cryptography import x509
 
 
@@ -42,7 +43,7 @@ def test_renderer_builds_an_independent_empty_arm64_platform(tmp_path, monkeypat
     images = {
         role: {
             "reference": f"registry.invalid/wuji-{role}@sha256:{digest}",
-            "source_revision": "source-fixture",
+            "source_revision": "a" * 40,
         }
         for role in platform.ROLES
     }
@@ -59,6 +60,11 @@ def test_renderer_builds_an_independent_empty_arm64_platform(tmp_path, monkeypat
     )
 
     public = json.loads((output / "public.json").read_bytes())
+    image_manifest = json.loads((output / "images.json").read_bytes())
+    assert image_manifest["source_revision"] == "a" * 40
+    assert image_manifest["image_source_revisions"] == {
+        role: "a" * 40 for role in platform.BUSINESS_ROLES
+    }
     assert public["task_count"] == 0
     assert public["web_url"] == "http://127.0.0.1:44181/"
     assert public["apply_order"] == [
@@ -164,3 +170,50 @@ def test_renderer_builds_an_independent_empty_arm64_platform(tmp_path, monkeypat
     credential_data = _named(objects, "Secret", "core-web-credentials")["data"]
     assert base64.b64decode(credential_data["password.json"]) == credential.read_bytes()
     assert set(credential_data) == {"identity.key", "session.key", "password.json"}
+
+
+def test_role_image_sources_allow_mixed_sha_and_reject_missing_or_conflicting_map(tmp_path):
+    runner = platform._load("core_ctf_run_config_check", "tests/vnext/run_core_ctf.py")
+    sources = {
+        role: format(index + 1, "x") * 40
+        for index, role in enumerate(platform.BUSINESS_ROLES)
+    }
+    inventory = {
+        role: {
+            "reference": f"registry.invalid/{role}@sha256:{'a' * 64}",
+            "source_revision": sources[role],
+        }
+        for role in platform.BUSINESS_ROLES
+    }
+    inventory["postgres"] = {"reference": f"registry.invalid/postgres@sha256:{'b' * 64}"}
+    assert platform._image_source_revisions(inventory) == sources
+    with pytest.raises(ValueError, match="source SHA"):
+        platform._image_source_revisions({**inventory, "capture": inventory["capture"]["reference"]})
+
+    directory = tmp_path / "configuration"
+    directory.mkdir()
+    (directory / "public.json").write_text(json.dumps({
+        "mode": "mechanism_synthetic", "task_count": 0,
+        "project_id": "project", "web_url": "http://127.0.0.1:44181/",
+        "start_url": "http://target.invalid/answer.json",
+    }))
+    manifest = {
+        "images": {role: item["reference"] for role, item in inventory.items()},
+        "source_revision": sources["platform"],
+        "image_source_revisions": sources,
+    }
+    path = directory / "images.json"
+    config = {"configuration_directory": directory, "expected_source_revision": sources["platform"]}
+    path.write_text(json.dumps(manifest))
+    assert runner.prepared_configuration(config)[1]["image_source_revisions"] == sources
+    path.write_text(json.dumps({key: value for key, value in manifest.items() if key != "image_source_revisions"}))
+    assert runner.prepared_configuration(config)[1]["image_source_revisions"] == {
+        role: sources["platform"] for role in platform.BUSINESS_ROLES
+    }
+    for invalid in (
+        {**sources, "platform": "f" * 40},
+        {role: source for role, source in sources.items() if role != "capture"},
+    ):
+        path.write_text(json.dumps({**manifest, "image_source_revisions": invalid}))
+        with pytest.raises(ValueError, match="source revisions are inconsistent"):
+            runner.prepared_configuration(config)

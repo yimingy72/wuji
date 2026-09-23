@@ -520,14 +520,17 @@ def test_board_publish_is_atomic_idempotent_and_other_run_reads_notice_content(
         seed_intent=False,
     ) as case:
         _register_problem_capabilities(case, db_environment)
-        with db_environment.migration_connection() as connection:
-            connection.execute(
-                """UPDATE vnext.scheduler_state
-                SET pending_since=clock_timestamp()-interval '1 second'
-                WHERE tenant_id=%s AND project_id=%s AND task_id=%s""",
-                OWNER,
-            )
         reason_receipt = case.scheduler.tick(limit=1)
+        if not reason_receipt.assignments:
+            with db_environment.migration_connection() as connection:
+                changed = connection.execute(
+                    """UPDATE vnext.scheduler_state
+                    SET pending_since=clock_timestamp()-interval '1 second'
+                    WHERE tenant_id=%s AND project_id=%s AND task_id=%s""",
+                    OWNER,
+                )
+                assert changed.rowcount == 1
+            reason_receipt = case.scheduler.tick(limit=1)
         reason = next(
             item
             for item in reason_receipt.assignments

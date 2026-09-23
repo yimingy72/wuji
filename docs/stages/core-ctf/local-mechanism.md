@@ -4,7 +4,7 @@
 
 ## 1. 固定源码与输入
 
-在检出`codex/vnext-maf`的工作树操作。先核对`git status`、提交SHA和镜像源码标签；业务镜像必须来自同一固定源码。准备私有ignored目录和密码摘要：
+在检出`codex/vnext-maf`的工作树操作。先核对`git status`、提交SHA和每个业务镜像的实际源码标签；未变角色可复用此前已验证的镜像。准备私有ignored目录和密码摘要：
 
 ```sh
 mkdir -p work/core-ctf/local-run
@@ -13,7 +13,7 @@ chmod 700 work/core-ctf/local-run
   --username operator --output "$PWD/work/core-ctf/local-run/password.json"
 ```
 
-该命令通过隐藏输入读取密码。不要复用参考平台账号凭据。`images.json`包含`platform/agent/kali/capture/web/postgres`六项，每项是`{"reference":"仓库@sha256:完整摘要","source_revision":"实际源码SHA"}`；PostgreSQL不要求业务源码SHA。platform/agent/kali使用`ops/vnext/images/Dockerfile`对应target，capture使用`Dockerfile.capture`，web使用`apps/web/Dockerfile`。本地工具二进制缓存只用于相同版本uv/Node，不复用旧业务层冒称新代码。
+该命令通过隐藏输入读取密码。不要复用参考平台账号凭据。输入`images.json`包含`platform/agent/kali/capture/web/postgres`六项；前五项各为`{"reference":"仓库@sha256:完整摘要","source_revision":"该镜像实际完整源码SHA"}`，PostgreSQL只需固定digest引用。不同业务角色的源码SHA可以不同，缺失或非法SHA拒绝渲染。渲染后的`configuration/images.json`另含五角色`image_source_revisions`，并保留等于platform来源的`source_revision`兼容字段。platform/agent/kali使用`ops/vnext/images/Dockerfile`对应target，capture使用`Dockerfile.capture`，web使用`apps/web/Dockerfile`。本地工具二进制缓存只用于相同版本uv/Node，不复用旧业务层冒称新代码。
 
 ## 2. 渲染并检查
 
@@ -58,7 +58,7 @@ kubectl --context docker-desktop -n wuji-core-ctf get pods
   "run_id": "core-mechanism-unique-id",
   "configuration_directory": "/绝对工作树/work/core-ctf/local-run/configuration",
   "evidence_directory": "/绝对工作树/work/core-ctf/local-run/evidence",
-  "expected_source_revision": "实际源码SHA",
+  "expected_source_revision": "platform镜像实际完整源码SHA",
   "username": "operator",
   "password": "仅私有运行文件填写",
   "timeout_seconds": 600,
@@ -86,5 +86,7 @@ kubectl --context docker-desktop -n wuji-core-ctf get pods
 ```
 
 入口核对创建后零执行，再显式启动。保存A/B发布manifest、脚本、真实命令日志、HTTP各part、最终PCAP/manifest和四容器外部终态。`Task.closed`和capture sealed均不单独充当容器退出证据；取消后的执行停止与业务结果结算分别记录。失败保留`failure.json`与原始请求响应，不重复未知命令。
+
+运行前按platform来源核对`expected_source_revision`；driver同时校验五角色来源表与platform兼容字段一致。旧的仅有单个`source_revision`的配置清单仍按五角色同源读取。结果与固定输入证据保存实际五角色版本组合，不能以单个总SHA代表所有镜像。
 
 浏览器在同一真实环境检查登录、两个并存会话、任务切换、活动筛选、共享版本、命令/HTTP/PCAP下钻及停止状态，截图写入证据目录`screenshots/`。仅运行脚本、只看Pod Ready或通过纯逻辑测试都不算完整验收。真实模型与外部题目另需有效授权，本入口没有自动切换真实模式。

@@ -47,8 +47,10 @@ web_helpers = _load("core_ctf_web_helpers", "ops/vnext/kubernetes/web.py")
 gateway = _load("core_ctf_gateway", "services/wuji-web-gateway/main.py")
 
 IMAGE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]*@sha256:[a-f0-9]{64}$")
+SOURCE_REVISION = re.compile(r"(?:[a-f0-9]{40}|[a-f0-9]{64})\Z")
 NAMESPACE = re.compile(r"^[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?$")
 ROLES = ("platform", "agent", "kali", "capture", "postgres", "web")
+BUSINESS_ROLES = ("platform", "agent", "kali", "capture", "web")
 LABELS = {
     "app.kubernetes.io/managed-by": "wuji-core-ctf-deployment",
     "wuji.dev/environment": "local-core-ctf",
@@ -71,6 +73,17 @@ def _image(value):
     if not isinstance(value, str) or not IMAGE.fullmatch(value):
         raise ValueError("every Core CTF image must be an immutable digest reference")
     return value
+
+
+def _image_source_revisions(inventory):
+    revisions = {}
+    for role in BUSINESS_ROLES:
+        entry = inventory.get(role)
+        revision = entry.get("source_revision") if isinstance(entry, dict) else None
+        if not isinstance(revision, str) or not SOURCE_REVISION.fullmatch(revision):
+            raise ValueError(f"Core CTF {role} image requires its full source SHA")
+        revisions[role] = revision
+    return revisions
 
 
 def _metadata(name, namespace):
@@ -210,13 +223,7 @@ def render(
     if output.exists():
         raise ValueError("configuration already exists; preserve its private identity")
     images = {role: _image(inventory.get(role)) for role in ROLES}
-    source_revisions = {
-        inventory[role].get("source_revision")
-        for role in ("platform", "agent", "kali", "capture", "web")
-        if isinstance(inventory[role], dict)
-    }
-    if len(source_revisions - {None}) > 1:
-        raise ValueError("Core CTF business images mix source revisions")
+    source_revisions = _image_source_revisions(inventory)
     output.mkdir(parents=True, mode=0o700)
     tls = state / "tls"
     k8s_helpers.certificates(
@@ -596,7 +603,11 @@ def render(
     _json(output / "bootstrap-job.json", {"apiVersion": "v1", "kind": "List", "items": [bootstrap_job]})
     _json(output / "catalog-job.json", {"apiVersion": "v1", "kind": "List", "items": [catalog_job]})
     _json(output / "platform.json", {"apiVersion": "v1", "kind": "List", "items": platform_objects})
-    _json(output / "images.json", {"images": images, "source_revision": next(iter(source_revisions - {None}), None)})
+    _json(output / "images.json", {
+        "images": images,
+        "source_revision": source_revisions["platform"],
+        "image_source_revisions": source_revisions,
+    })
     _json(output / "public.json", {
         "namespace": namespace, "tenant_id": tenant, "project_id": project,
         "mode": "mechanism_synthetic", "task_count": 0,

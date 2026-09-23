@@ -719,7 +719,7 @@ def test_workspace_bundle_a_to_b_fixed_version_materialize_and_cas(
         )
         assert published_v2.asset_id == published_v1.asset_id
         assert published_v2.asset_revision.root == "2"
-        assert published_v2.parent_publication_id == published_v1.publication_id
+        assert published_v2.parent_publication_id.root == published_v1.publication_id.root
 
         stale = _request(
             worker_a,
@@ -736,7 +736,7 @@ def test_workspace_bundle_a_to_b_fixed_version_materialize_and_cas(
             )
         )
         assert conflict.status.value == "publication_conflict"
-        assert conflict.current_publication_id == published_v2.publication_id
+        assert conflict.current_publication_id.root == published_v2.publication_id.root
 
         with case.control.uow.transaction(worker_b.access, TASK) as tx:
             old_members = tx.connection.execute(

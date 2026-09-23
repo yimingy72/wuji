@@ -1,12 +1,12 @@
 # Wuji 项目背景与有效文档索引
 
-2026-09-23协作更新：用户明确继续本阶段，并指定后续新开子代理使用GPT-6 Sol/high。原Sol/xhigh代理因额度中断，已由两名新代理接续；主代理接机制driver、集成与本地验收。历史模型/测试记录不改写，详见[本阶段Plan](stages/core-ctf/plan.md)。
+2026-09-23协作更新：用户明确继续本阶段，并指定后续新开子代理使用GPT-6 Sol/high。原Sol/xhigh代理因额度中断，已由两名新代理接续。用户随后进一步明确全部开发、测试、独立Core部署与机制driver由子代理执行，主代理只负责架构、分工和质量审查；主代理此前亲自做过的renderer/driver/首次实际运行仍按当时执行者保留，不追溯改写。详见[本阶段Plan](stages/core-ctf/plan.md)。
 
 2026-09-23 Core CTF采集实施补核：原包选择由dumpcap候选改为固定Linux tcpdump及同一采集句柄统计，保留tshark离线解析与mitmproxy明文采集。原因是dumpcap独立-S统计不代表写文件句柄的丢包状态；具体依据/未验证项见[阶段裁定](stages/core-ctf/review.md)，当前接口与执行方向见[Spec§4](stages/core-ctf/spec.md)。这是实现选型调整，不取消HTTPS明文、不支持连接失败或Task停止要求。代码仍在活动工作树实施，未切换现有运行实例。
 
 2026-09-22 前端与开发体验追加：Astra/low已按用户要求只读浏览参考平台的任务、时间线、工作区与黑板；观察与未覆盖项见ignored研究`work/research/frontend-reference/review.md`。用户要求整体改善Wuji界面，并选普通账号密码登录、保持会话、多浏览器并存。已整合到[Core CTF Spec§10](stages/core-ctf/spec.md)、[Plan M5/F1—F4](stages/core-ctf/plan.md)和C08验收；Sol/xhigh实施登录切片，尚未部署/完整验收。参考平台账号密码不入文档或Git。
 
-2026-09-22 最新核心阶段：用户要求先做核心，组织多租户扩展后置；已选Kali直接root、平台密钥/权威日志外置与Task级停止，脚本副本修改及版本CAS发布。D-NET已选受支持HTTP(S)明文、不支持连接明确失败、原始扫描后置。用户要求补齐全局框架后实施；Astra/high已追加Task→Work→调度→MAF上下文→结果回流审查，Sol/xhigh正在开发核心切片。Explore并发由Task配置，不固定2；一个活动Reason可多轮运行；运行中发现立即共享并在其他Agent下一模型安全边界通知。成果入口：[Spec](stages/core-ctf/spec.md)、[Plan](stages/core-ctf/plan.md)、[实施指令](stages/core-ctf/implementation-instructions.md)、[验收](stages/core-ctf/acceptance.md)、[裁定](stages/core-ctf/review.md)。状态in-progress，运行验收not_run；此条替代旧draft/网络待决/固定2及双UID候选，不覆盖历史实测。
+2026-09-22 最新核心阶段：用户要求先做核心，组织多租户扩展后置；已选Kali直接root、平台密钥/权威日志外置与Task级停止，脚本副本修改及版本CAS发布。D-NET已选受支持HTTP(S)明文、不支持连接明确失败、原始扫描后置。用户要求补齐全局框架后实施；Astra/high已追加Task→Work→调度→MAF上下文→结果回流审查，Sol/xhigh已开展核心切片。Explore并发由Task配置，不固定2；一个活动Reason可多轮运行；运行中发现立即共享并在其他Agent下一模型安全边界通知。成果入口：[Spec](stages/core-ctf/spec.md)、[Plan](stages/core-ctf/plan.md)、[实施指令](stages/core-ctf/implementation-instructions.md)、[验收](stages/core-ctf/acceptance.md)、[裁定](stages/core-ctf/review.md)。阶段仍in-progress；2026-09-23已有独立Core真实机制失败运行，完整C01—C08未accepted，具体结果见验收。此条替代旧draft/网络待决/固定2及双UID候选，不覆盖历史实测。
 
 2026-09-22 用户后续方向：通用 Kali 命令执行与独立流量采集优先，未授权站点自动拦截暂不作为前置；HTTPS URL、请求体和响应正文必须明文留存。Cairn 固定版本提示词/调度、MAF 原生 MCP 与 Pi 对照已核对，最新候选见[审阅稿第 11 节](vnext/agent-collaboration-audit-2026-09-22.md)。租户隔离、预算和停止控制继续保留；MCP、抓包、代理及三容器候选均尚未实施，不将旧专用 HTTP 工具或新建议当作已交付。
 

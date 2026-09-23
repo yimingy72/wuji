@@ -45,9 +45,11 @@ from wuji_core.http import canonical_json_bytes, strict_json_loads  # noqa: E402
 
 
 IMAGE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]*@sha256:[a-f0-9]{64}$")
+SOURCE_REVISION = re.compile(r"(?:[a-f0-9]{40}|[a-f0-9]{64})\Z")
 IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 DIGEST = re.compile(r"^[a-f0-9]{64}$")
 IMAGE_ROLES = {"platform", "web", "agent", "kali", "capture", "postgres"}
+BUSINESS_IMAGE_ROLES = {"platform", "web", "agent", "kali", "capture"}
 RUN_KEYS = {
     "schema_version", "mode", "run_id", "configuration_directory",
     "evidence_directory", "expected_source_revision", "username", "password",
@@ -170,12 +172,35 @@ def prepared_configuration(config: dict) -> tuple[dict, dict]:
         or not isinstance(public.get("start_url"), str)
         or not isinstance(public.get("web_url"), str)
         or not isinstance(images, dict)
-        or set(images) != {"images", "source_revision"}
+        or set(images) not in (
+            {"images", "source_revision"},
+            {"images", "source_revision", "image_source_revisions"},
+        )
+        or not isinstance(images.get("source_revision"), str)
+        or not SOURCE_REVISION.fullmatch(images["source_revision"])
         or images["source_revision"] != config["expected_source_revision"]
+        or not isinstance(images.get("images"), dict)
         or set(images["images"]) != IMAGE_ROLES
-        or any(not IMAGE.fullmatch(value) for value in images["images"].values())
+        or any(
+            not isinstance(value, str) or not IMAGE.fullmatch(value)
+            for value in images["images"].values()
+        )
     ):
         raise ValueError("prepared Core CTF public/image configuration is inconsistent")
+    sources = images.get("image_source_revisions")
+    if sources is None and "image_source_revisions" not in images:
+        sources = {role: images["source_revision"] for role in BUSINESS_IMAGE_ROLES}
+    if (
+        not isinstance(sources, dict)
+        or set(sources) != BUSINESS_IMAGE_ROLES
+        or any(
+            not isinstance(revision, str) or not SOURCE_REVISION.fullmatch(revision)
+            for revision in sources.values()
+        )
+        or sources["platform"] != images["source_revision"]
+    ):
+        raise ValueError("prepared Core CTF image source revisions are inconsistent")
+    images = {**images, "image_source_revisions": sources}
     web = urlsplit(public["web_url"])
     if web.scheme != "http" or web.hostname not in {"localhost", "127.0.0.1", "::1"}:
         raise ValueError("password BFF must be an explicit loopback HTTP origin")
@@ -696,6 +721,7 @@ def run(config: dict, public: dict, images: dict) -> dict:
         "task": config["task"],
         "public": public,
         "images": images,
+        "image_source_revisions": images["image_source_revisions"],
     }
     _json(evidence / "fixed-input.json", fixed)
     browser = Browser(public["web_url"], journal)
@@ -767,6 +793,7 @@ def run(config: dict, public: dict, images: dict) -> dict:
             "mode": "mechanism",
             "task_id": task_id,
             "source_revision": config["expected_source_revision"],
+            "image_source_revisions": images["image_source_revisions"],
             "images": images["images"],
             "reason_a_b": {
                 key: chain[key] for key in (
@@ -824,6 +851,7 @@ def run(config: dict, public: dict, images: dict) -> dict:
             "mode": "mechanism",
             "task_id": task_id,
             "error": type(error).__name__,
+            "image_source_revisions": images["image_source_revisions"],
             "goal_completion_asserted": False,
         })
         raise
@@ -851,6 +879,7 @@ def main() -> None:
             "mode": config["mode"],
             "namespace": public["namespace"],
             "source_revision": images["source_revision"],
+            "image_source_revisions": images["image_source_revisions"],
         }, sort_keys=True))
         return
     try:
