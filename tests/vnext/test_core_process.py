@@ -936,7 +936,7 @@ async def _check_process_mcp_gate_records_and_seals_command_log(
         )
         assignment = _assignment()
         assignment["identity"] = IDENTITY
-        assignment["tool_definition_refs"] = ["kali_exec-v1"]
+        assignment["tool_definition_refs"] = ["kali_exec-v1", "kali_read-v1"]
         metadata = {
             MCP_INVOCATION_META: {
                 "assignment": assignment,
@@ -952,7 +952,7 @@ async def _check_process_mcp_gate_records_and_seals_command_log(
         tool = MCPStreamableHTTPTool(
             name="wuji-native",
             url="http://localhost:8000/internal/v2/mcp",
-            allowed_tools=["kali_exec"],
+            allowed_tools=["kali_exec", "kali_read"],
             load_tools=True,
             load_prompts=False,
             terminate_on_close=False,
@@ -987,6 +987,33 @@ async def _check_process_mcp_gate_records_and_seals_command_log(
                     await asyncio.sleep(0.05)
                 else:
                     raise AssertionError("process receipt was not finalized")
+
+                read_request = ToolCallRequest.model_validate({
+                    "session_lineage": SESSION_LINEAGE,
+                    "message_id": "message-process-read",
+                    "provider_call_id": "provider-process-read",
+                    "tool_definition_ref": "kali_read-v1",
+                    "arguments": {
+                        "handle": receipt.tool_attempt_id.root,
+                        "cursor": {"stdout_offset": 0, "stderr_offset": 0},
+                        "max_bytes": 512,
+                        "wait_ms": 1000,
+                    },
+                    "sdk_content_id": "occurrence-process-read",
+                    "sdk_approval_id": None,
+                    "approval_ref": None,
+                })
+                read = await tool.session.call_tool(
+                    "kali_read",
+                    arguments=read_request.arguments,
+                    meta={MCP_INVOCATION_META: {
+                        "assignment": assignment,
+                        "native_occurrence": "occurrence-process-read",
+                        "tool_request": read_request.model_dump(mode="json"),
+                    }},
+                )
+                assert not read.isError, read.content
+                assert read.structuredContent["handle"] == receipt.tool_attempt_id.root
 
         assert receipt.evidence_receipt.status.value == "accepted"
         assert receipt.result_ref is not None

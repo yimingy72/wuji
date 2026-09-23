@@ -224,9 +224,15 @@ def parent_process(tx, *, handle, work_item_id):
             """SELECT p.*,a.work_item_id,a.execution_epoch,a.runtime_attempt,
             a.receiver_id,a.environment_ref,t.tool_call_id
             FROM vnext.process_execution p
-            JOIN vnext.tool_attempt x USING(tenant_id,project_id,task_id,tool_attempt_id)
-            JOIN vnext.agent_run a USING(tenant_id,project_id,task_id,agent_run_id)
-            JOIN vnext.tool_call t USING(tenant_id,project_id,task_id,tool_call_id)
+            JOIN vnext.tool_attempt x ON
+              (x.tenant_id,x.project_id,x.task_id,x.tool_attempt_id,x.agent_run_id)=
+              (p.tenant_id,p.project_id,p.task_id,p.tool_attempt_id,p.agent_run_id)
+            JOIN vnext.agent_run a ON
+              (a.tenant_id,a.project_id,a.task_id,a.agent_run_id)=
+              (p.tenant_id,p.project_id,p.task_id,p.agent_run_id)
+            JOIN vnext.tool_call t ON
+              (t.tenant_id,t.project_id,t.task_id,t.tool_call_id)=
+              (x.tenant_id,x.project_id,x.task_id,x.tool_call_id)
             WHERE p.tenant_id=%s AND p.project_id=%s AND p.task_id=%s
             AND p.tool_attempt_id=%s""",
             (*tx.owner, handle),
