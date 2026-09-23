@@ -485,6 +485,40 @@ def core_reason_decision(request, messages, context):
     b_claim = next((item for item in claim_deliveries if CORE_WORK_B in item.get("text", "")), None)
     a_claim = next((item for item in claim_deliveries if CORE_WORK_A in item.get("text", "")), None)
 
+    def wait_for(marker, rationale):
+        intent_indexes = [
+            item for item in indexes
+            if item["ref"].get("entity_type") == "intent"
+        ]
+        for item in intent_indexes:
+            ref = item["ref"]
+            key = ("intent", ref["id"], str(ref["revision"]))
+            if key not in delivered:
+                return tool_step(request, "knowledge_read", "call-core-reason-intent-" + str(len(deliveries) + 1), {
+                    "snapshot_id": context["snapshot_id"],
+                    "ref": ref,
+                    "selector": {"kind": "record_fields", "fields": ["question"]},
+                })
+        matches = [
+            item["ref"] for item in deliveries
+            if item.get("ref", {}).get("entity_type") == "intent"
+            and marker in item.get("text", "")
+        ]
+        if len(matches) != 1:
+            raise ValueError("active Core work has no unique delivered Intent")
+        return {
+            "kind": "payload",
+            "document": core_v3(decision={
+                "decision": "wait",
+                "wait_refs": [{
+                    "ref": matches[0], "predicate": "work_settled",
+                    "predicate_version": "1",
+                }],
+                "public_rationale": rationale,
+                "basis_refs": [],
+            }),
+        }
+
     if not finished_a and not active_a:
         url = core_start_url(context, instructions_of(messages))
         intent = {
@@ -575,22 +609,10 @@ def core_reason_decision(request, messages, context):
         }
 
     if active_b:
-        return {
-            "kind": "payload",
-            "document": core_v3(decision={
-                "decision": "wait", "wait_refs": [],
-                "public_rationale": "Work B is already active.", "basis_refs": [],
-            }),
-        }
+        return wait_for(CORE_WORK_B, "Work B is already active.")
 
     if not finished_a:
-        return {
-            "kind": "payload",
-            "document": core_v3(decision={
-                "decision": "wait", "wait_refs": [],
-                "public_rationale": "Work A is already active.", "basis_refs": [],
-            }),
-        }
+        return wait_for(CORE_WORK_A, "Work A is already active.")
     if a_claim is None or not script_assets:
         raise ValueError("Work A completed without its Claim and script publication")
 

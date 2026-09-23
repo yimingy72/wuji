@@ -13,6 +13,8 @@ from types import SimpleNamespace
 
 import pytest
 
+from wuji_core.contracts.envelopes import AgentPayloadV3
+
 
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location(
@@ -696,6 +698,35 @@ def test_core_reason_reads_claim_and_manifest_before_grounded_work_b():
     assert "publication-script-v1" in proposal["question"]
     assert proposal["basis_refs"] == [reference("claim", "claim-work-a")]
     assert all(ref["entity_type"] != "artifact" for ref in proposal["basis_refs"])
+
+
+@pytest.mark.parametrize("marker,finished_a", [
+    (peer.CORE_WORK_A, False), (peer.CORE_WORK_B, True),
+])
+def test_core_reason_waits_on_the_delivered_canonical_intent(marker, finished_a):
+    intent_ref = reference("intent", "intent-" + marker.lower())
+    context = core_context(
+        question="choose the next necessary work",
+        indexes=[{
+            "ref": intent_ref, "material_type": "intent",
+            "available_selectors": ["record_fields"],
+        }],
+        related=[marker + " is active"],
+        results=([peer.CORE_WORK_A + " finished"] if finished_a else []),
+    )
+    request_body = core_request(role="reason", context=context)
+    read = peer.decision(request_body)
+    assert read["name"] == "knowledge_read"
+    assert json.loads(read["arguments"])["ref"] == intent_ref
+    complete_tool(request_body, read, knowledge_delivery(
+        intent_ref, json.dumps({"question": marker + ": fixed work"}),
+    ))
+
+    result = peer.decision(request_body)["document"]
+    AgentPayloadV3.model_validate(result).for_work_kind("reason")
+    assert result["reason_decision"]["wait_refs"] == [{
+        "ref": intent_ref, "predicate": "work_settled", "predicate_version": "1",
+    }]
 
 
 def test_core_explore_a_waits_for_running_process_then_publishes_board_before_result():
