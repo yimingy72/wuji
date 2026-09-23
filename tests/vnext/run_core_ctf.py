@@ -563,6 +563,8 @@ def _wait_chain(
         if chain is not None:
             chain["task"] = task
             return chain
+        if task["desired_state"] == "cancel":
+            raise RunFailure("Task cancelled before the mechanism chain was verified")
         time.sleep(poll)
     raise RunFailure("mechanism chain did not complete before the deadline")
 
