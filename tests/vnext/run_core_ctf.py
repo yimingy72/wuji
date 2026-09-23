@@ -608,6 +608,22 @@ def _runtime_stopped(runtime: dict, task_id: str) -> bool:
     return len(epochs) == 1 and None not in epochs
 
 
+def _matching_capture_sessions(sessions: dict | None, runtime: dict, task_id: str) -> list[dict]:
+    documents = runtime.get("terminal_observations") or []
+    if sessions is None or not documents:
+        return []
+    binding = documents[0].get("binding") or {}
+    return [
+        item for item in sessions.get("sessions") or []
+        if item.get("binding") == {
+            "task_id": task_id,
+            "runtime_attempt": runtime.get("runtime_attempt"),
+            "execution_epoch": binding.get("execution_epoch"),
+            "pod_uid": runtime.get("pod_uid"),
+        }
+    ]
+
+
 def _cancel_and_stop(
     browser: Browser,
     task_id: str,
@@ -616,7 +632,8 @@ def _cancel_and_stop(
     deadline: float,
     poll: float,
     events: Path,
-) -> tuple[dict, dict, dict]:
+    require_capture_seal: bool = True,
+) -> tuple[dict, dict | None, dict]:
     task = browser.json("GET", f"/api/v2/tasks/{_q(task_id)}")
     if task["observed_state"] == "closed" and task["desired_state"] != "cancel":
         raise RunFailure("Task closed before the required cancel command")
@@ -630,24 +647,27 @@ def _cancel_and_stop(
         task = browser.json("GET", f"/api/v2/tasks/{_q(task_id)}")
         overview = browser.json("GET", f"/api/v2/tasks/{_q(task_id)}/overview")
         runtime = overview.get("runtime") or {}
-        sessions = browser.json(
-            "GET", f"/api/v2/tasks/{_q(task_id)}/capture-sessions"
-        )
-        current = [
-            item for item in sessions.get("sessions") or []
-            if item.get("binding", {}).get("runtime_attempt") == runtime.get("runtime_attempt")
-        ]
-        if (
-            task["desired_state"] == "cancel"
-            and _runtime_stopped(runtime, task_id)
-            and current
-            and all(item.get("state") == "sealed" for item in current)
-            and all(item.get("binding", {}).get("pod_uid") == runtime["pod_uid"] for item in current)
-        ):
+        if task["desired_state"] == "cancel" and _runtime_stopped(runtime, task_id):
+            try:
+                sessions = browser.json(
+                    "GET", f"/api/v2/tasks/{_q(task_id)}/capture-sessions"
+                )
+            except RunFailure as error:
+                if require_capture_seal:
+                    raise
+                sessions = None
+                _event(events, "capture_inventory_unavailable", task_id=task_id, error=type(error).__name__)
+            current = _matching_capture_sessions(sessions, runtime, task_id)
+            if require_capture_seal and (
+                not current or any(item.get("state") != "sealed" for item in current)
+            ):
+                time.sleep(poll)
+                continue
             _event(events, "external_runtime_stopped", task_id=task_id, pod_uid=runtime["pod_uid"])
             return task, sessions, overview
         time.sleep(poll)
-    raise RunFailure("external container termination and capture seal were not observed before the deadline")
+    requirement = " and capture seal" if require_capture_seal else ""
+    raise RunFailure("external container termination" + requirement + " was not observed before the deadline")
 
 
 def _save_evidence(browser, task_id, chain, sessions, overview, evidence):
@@ -830,17 +850,38 @@ def run(config: dict, public: dict, images: dict) -> dict:
         _json(evidence / "result.json", result)
         return result
     except BaseException as error:
+        cleanup = None
         if task_id is not None:
             try:
-                _cancel_and_stop(
+                stopped, cleanup_sessions, cleanup_overview = _cancel_and_stop(
                     browser,
                     task_id,
                     config["run_id"] + ":cancel",
                     deadline=max(deadline, time.monotonic() + 120),
                     poll=float(config["poll_seconds"]),
                     events=events,
+                    require_capture_seal=False,
                 )
+                current = _matching_capture_sessions(
+                    cleanup_sessions, cleanup_overview["runtime"], task_id
+                )
+                cleanup = {
+                    "status": "external_stopped",
+                    "desired_state": stopped["desired_state"],
+                    "observed_state": stopped["observed_state"],
+                    "runtime": cleanup_overview["runtime"],
+                    "capture": {
+                        "status": (
+                            "unavailable" if cleanup_sessions is None else
+                            "missing" if not current else
+                            "sealed" if all(item.get("state") == "sealed" for item in current)
+                            else "incomplete"
+                        ),
+                        "sessions": current,
+                    },
+                }
             except BaseException as cleanup_error:
+                cleanup = {"status": "incomplete", "error": type(cleanup_error).__name__}
                 _event(
                     events, "cleanup_incomplete", task_id=task_id,
                     error=type(cleanup_error).__name__,
@@ -851,6 +892,7 @@ def run(config: dict, public: dict, images: dict) -> dict:
             "mode": "mechanism",
             "task_id": task_id,
             "error": type(error).__name__,
+            "cleanup": cleanup,
             "image_source_revisions": images["image_source_revisions"],
             "goal_completion_asserted": False,
         })
