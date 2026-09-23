@@ -74,7 +74,7 @@ def namespace(raw, *, create=False):
     return json.loads(data)
 
 
-def certificates(directory):
+def certificates(directory, *, namespace_name=NAMESPACE, services=None):
     from cryptography import x509
     from cryptography.hazmat.primitives import hashes, serialization
     from cryptography.hazmat.primitives.asymmetric import rsa
@@ -99,35 +99,47 @@ def certificates(directory):
     save(directory / "ca.key", key.private_bytes(serialization.Encoding.PEM,
         serialization.PrivateFormat.PKCS8, serialization.NoEncryption()))
     save(directory / "ca.crt", ca.public_bytes(serialization.Encoding.PEM))
-    for service in ("runtime", "api", "gates", "postgres", "task-agent", "task-kali"):
-        _write_leaf(directory, service, ca_certificate=ca, ca_key=key, now=now)
+    for service in services or (
+        "runtime", "api", "gates", "postgres", "task-agent", "task-kali"
+    ):
+        _write_leaf(
+            directory,
+            service,
+            ca_certificate=ca,
+            ca_key=key,
+            now=now,
+            namespace_name=namespace_name,
+        )
 
 
 TASK_SERVICES = ("task-agent", "task-kali")
 
 
-def service_dns(service):
+def service_dns(service, *, namespace_name=NAMESPACE):
     """The SANs one published Service name must satisfy.
 
     A Task Pod is reached through its own Service (`task-agent-<task prefix>`),
     so the two Task services also cover one wildcard label inside the namespace.
     """
 
-    dns = [service, f"{service}.{NAMESPACE}", f"{service}.{NAMESPACE}.svc",
-           f"{service}.{NAMESPACE}.svc.cluster.local"]
+    dns = [service, f"{service}.{namespace_name}", f"{service}.{namespace_name}.svc",
+           f"{service}.{namespace_name}.svc.cluster.local"]
     if service in TASK_SERVICES:
-        dns += [f"*.{NAMESPACE}.svc", f"*.{NAMESPACE}.svc.cluster.local"]
+        dns += [f"*.{namespace_name}.svc", f"*.{namespace_name}.svc.cluster.local"]
     return dns
 
 
-def _write_leaf(directory, service, *, ca_certificate, ca_key, now):
+def _write_leaf(
+    directory, service, *, ca_certificate, ca_key, now,
+    namespace_name=NAMESPACE,
+):
     from cryptography import x509
     from cryptography.hazmat.primitives import hashes, serialization
     from cryptography.hazmat.primitives.asymmetric import rsa
     from cryptography.x509.oid import NameOID
 
     leaf_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    dns = service_dns(service)
+    dns = service_dns(service, namespace_name=namespace_name)
     leaf = (x509.CertificateBuilder().subject_name(x509.Name([
             x509.NameAttribute(NameOID.COMMON_NAME, dns[2])]))
         .issuer_name(ca_certificate.subject).public_key(leaf_key.public_key())

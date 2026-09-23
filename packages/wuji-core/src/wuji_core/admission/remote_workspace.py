@@ -11,17 +11,29 @@ import asyncio
 import base64
 import binascii
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 from hmac import compare_digest
 import math
+import re
 import ssl
 from urllib.parse import quote, urlsplit
+from uuid import uuid4
 
 import httpx
+from joserfc import jwt
+from joserfc.errors import JoseError
+from joserfc.jwk import RSAKey
+from joserfc.jwt import JWTClaimsRegistry
 
 from wuji_core.admission.common import digest
 from wuji_core.admission.tools import ToolExecutionReceipt, ToolPermit
 from wuji_core.contracts import generated as wire
+from wuji_core.execution.processes import (
+    ExecutorActionPermitV1,
+    ExecutorShutdownPermitV1,
+    validate_process_reply,
+)
 from wuji_core.http import canonical_json_bytes, strict_json_loads
 from wuji_core.persistence.uow import DomainError
 
@@ -38,11 +50,21 @@ class ExecutorDeploymentBinding:
     environment_ref: str
     collector_subject: str
     gate_subject: str
+    tls_certificate_sha256: str | None = None
 
     def __post_init__(self):
+        required = {
+            key: value for key, value in vars(self).items()
+            if key != "tls_certificate_sha256"
+        }
         if any(not isinstance(value, str) or not 1 <= len(value) <= 256
-               for value in vars(self).values()):
+               for value in required.values()):
             raise ValueError("a complete fixed executor deployment binding is required")
+        if (
+            self.tls_certificate_sha256 is not None
+            and not re.fullmatch(r"[a-f0-9]{64}", self.tls_certificate_sha256)
+        ):
+            raise ValueError("an exact executor TLS certificate fingerprint is required")
         if self.collector_subject == self.gate_subject:
             raise ValueError("Gate and collector must have distinct service subjects")
 
@@ -72,7 +94,7 @@ class RemoteExecutorTransportError(OSError):
 
 
 class _HttpsJsonEndpoint:
-    def __init__(self, *, binding, base_url, ca_file, bearer_token,
+    def __init__(self, *, binding, base_url, ca_file, bearer_token=None,
                  timeout_seconds=45.0, max_request_bytes=1048576,
                  max_response_bytes=2097152):
         target = urlsplit(base_url)
@@ -99,11 +121,13 @@ class _HttpsJsonEndpoint:
         self.max_request_bytes = max_request_bytes
         self.max_response_bytes = max_response_bytes
 
-    def _request(self, path, payload):
+    def _request(self, path, payload, *, bearer_token=None):
         body = canonical_json_bytes(payload)
         if len(body) > self.max_request_bytes:
             raise DomainError("LIMIT_BLOCKED", 429)
-        token = self._bearer_token() if callable(self._bearer_token) else self._bearer_token
+        token = bearer_token
+        if token is None:
+            token = self._bearer_token() if callable(self._bearer_token) else self._bearer_token
         if (not isinstance(token, str) or not token or not token.isascii()
                 or any(c.isspace() or ord(c) < 33 or ord(c) == 127 for c in token)):
             raise RemoteExecutorTransportError("Executor transport credential is unavailable")
@@ -163,8 +187,8 @@ class _HttpsJsonEndpoint:
         except httpx.HTTPError as error:
             raise RemoteExecutorTransportError("Executor HTTPS request was not confirmed") from error
 
-    async def apost(self, path, payload):
-        url, body, headers = self._request(path, payload)
+    async def apost(self, path, payload, *, bearer_token=None):
+        url, body, headers = self._request(path, payload, bearer_token=bearer_token)
         try:
             async with asyncio.timeout(self.timeout_seconds):
                 transport = httpx.AsyncHTTPTransport(verify=self._tls, retries=0, trust_env=False)
@@ -181,6 +205,297 @@ class _HttpsJsonEndpoint:
                         return self._response(response.status_code, result)
         except (httpx.HTTPError, TimeoutError) as error:
             raise RemoteExecutorTransportError("Executor HTTPS request was not confirmed") from error
+
+
+class ExecutorActionSigner:
+    """Issue one short-lived RS256 permit for one exact Kali side effect."""
+
+    def __init__(self, *, private_key_pem, kid, issuer, audience, subject, ttl_seconds=30):
+        try:
+            self._key = RSAKey.import_key(private_key_pem)
+        except (JoseError, TypeError, ValueError) as error:
+            raise ValueError("an RSA action signing key is required") from error
+        if any(not isinstance(value, str) or not value for value in (kid, issuer, audience, subject)):
+            raise ValueError("fixed action permit identity is required")
+        if not 0 < float(ttl_seconds) <= 60:
+            raise ValueError("action permit lifetime must be bounded")
+        self.kid, self.issuer, self.audience = kid, issuer, audience
+        self.subject, self.ttl_seconds = subject, float(ttl_seconds)
+
+    def issue(
+        self, permit, *, action, parent_handle=None, arguments_digest=None,
+        allow_expired=False,
+    ):
+        if not isinstance(permit, ToolPermit) or permit.tool_attempt_id is None:
+            raise DomainError("NOT_FOUND_OR_FORBIDDEN")
+        now = datetime.now(timezone.utc).replace(microsecond=0)
+        expires = now + timedelta(seconds=self.ttl_seconds)
+        if not allow_expired:
+            expires = min(
+                permit.expires_at.astimezone(timezone.utc).replace(microsecond=0),
+                expires,
+            )
+        if expires <= now:
+            raise DomainError("STALE_EXECUTION", 409)
+        identity = permit.identity.model_dump(mode="json")
+        document = ExecutorActionPermitV1.model_validate(
+            {
+                "schema_version": "wuji.executor-action-permit.v1",
+                "issuer": self.issuer,
+                "audience": self.audience,
+                **identity,
+                "executor_ref": permit.executor_ref,
+                "action": action,
+                "tool_call_id": permit.tool_call_id,
+                "tool_attempt_id": permit.tool_attempt_id,
+                "parent_handle": parent_handle,
+                "arguments_digest": arguments_digest or permit.arguments_digest,
+                "issued_at": now,
+                "expires_at": expires,
+                "jti": str(uuid4()),
+            }
+        )
+        claims = {
+            "iss": self.issuer,
+            "aud": self.audience,
+            "sub": self.subject,
+            "iat": int(now.timestamp()),
+            "nbf": int(now.timestamp()),
+            "exp": int(expires.timestamp()),
+            "jti": document.jti,
+            "tenant_id": document.tenant_id,
+            "roles": ["executor_action"],
+            "permit": document.model_dump(mode="json"),
+        }
+        try:
+            token = jwt.encode(
+                {"alg": "RS256", "kid": self.kid}, claims, self._key
+            )
+        except (JoseError, TypeError, ValueError) as error:
+            raise DomainError("CAPABILITY_UNAVAILABLE", 503) from error
+        return token, document
+
+    def issue_shutdown(
+        self, binding, *, execution_epoch, runtime_attempt, reason
+    ):
+        if not isinstance(binding, ExecutorDeploymentBinding):
+            raise ValueError("a fixed executor binding is required")
+        now = datetime.now(timezone.utc).replace(microsecond=0)
+        expires = now + timedelta(seconds=self.ttl_seconds)
+        document = ExecutorShutdownPermitV1.model_validate(
+            {
+                "schema_version": "wuji.executor-shutdown-permit.v1",
+                "issuer": self.issuer,
+                "audience": self.audience,
+                "tenant_id": binding.tenant_id,
+                "project_id": binding.project_id,
+                "task_id": binding.task_id,
+                "execution_epoch": str(execution_epoch),
+                "runtime_attempt": str(runtime_attempt),
+                "receiver_id": binding.receiver_id,
+                "executor_ref": binding.executor_ref,
+                "action": "shutdown",
+                "reason": reason,
+                "issued_at": now,
+                "expires_at": expires,
+                "jti": str(uuid4()),
+            }
+        )
+        claims = {
+            "iss": self.issuer,
+            "aud": self.audience,
+            "sub": self.subject,
+            "iat": int(now.timestamp()),
+            "nbf": int(now.timestamp()),
+            "exp": int(expires.timestamp()),
+            "jti": document.jti,
+            "tenant_id": document.tenant_id,
+            "roles": ["executor_action"],
+            "permit": document.model_dump(mode="json"),
+        }
+        return (
+            jwt.encode(
+                {"alg": "RS256", "kid": self.kid}, claims, self._key
+            ),
+            document,
+        )
+
+
+class ExecutorActionVerifier:
+    """Verify the action bearer and recover only its bounded permit document."""
+
+    def __init__(self, *, public_key_pem, issuer, audience, subject, binding):
+        try:
+            self._key = RSAKey.import_key(public_key_pem)
+        except (JoseError, TypeError, ValueError) as error:
+            raise ValueError("an RSA action public key is required") from error
+        if (
+            not isinstance(binding, ExecutorDeploymentBinding)
+            or any(
+                not isinstance(value, str) or not value
+                for value in (issuer, audience, subject)
+            )
+        ):
+            raise ValueError("a fixed executor binding is required")
+        self.issuer, self.audience, self.subject = issuer, audience, subject
+        self.binding = binding
+
+    def _claims(self, token):
+        try:
+            decoded = jwt.decode(token, self._key, algorithms=["RS256"])
+            JWTClaimsRegistry(
+                leeway=5,
+                iss={"essential": True, "value": self.issuer},
+                aud={"essential": True, "value": self.audience},
+                sub={"essential": True, "value": self.subject},
+                iat={"essential": True},
+                nbf={"essential": True},
+                exp={"essential": True},
+                jti={"essential": True},
+                tenant_id={"essential": True, "value": self.binding.tenant_id},
+                roles={"essential": True},
+                permit={"essential": True},
+            ).validate(decoded.claims)
+            if decoded.claims["roles"] != ["executor_action"]:
+                raise ValueError("wrong action role")
+            return decoded.claims
+        except (JoseError, KeyError, TypeError, ValueError) as error:
+            raise DomainError("NOT_FOUND_OR_FORBIDDEN") from error
+
+    def verify(self, token):
+        try:
+            claims = self._claims(token)
+            permit = ExecutorActionPermitV1.model_validate(claims["permit"])
+            if (
+                permit.issuer != self.issuer
+                or permit.audience != self.audience
+                or permit.jti != claims["jti"]
+                or int(permit.issued_at.timestamp()) != claims["iat"]
+                or int(permit.expires_at.timestamp()) != claims["exp"]
+                or (permit.tenant_id, permit.project_id, permit.task_id)
+                != self.binding.owner
+                or permit.receiver_id != self.binding.receiver_id
+                or permit.executor_ref != self.binding.executor_ref
+            ):
+                raise ValueError("action permit binding mismatch")
+            return permit
+        except (JoseError, KeyError, TypeError, ValueError) as error:
+            raise DomainError("NOT_FOUND_OR_FORBIDDEN") from error
+
+    def verify_shutdown(self, token):
+        try:
+            claims = self._claims(token)
+            permit = ExecutorShutdownPermitV1.model_validate(claims["permit"])
+            if (
+                permit.issuer != self.issuer
+                or permit.audience != self.audience
+                or permit.jti != claims["jti"]
+                or int(permit.issued_at.timestamp()) != claims["iat"]
+                or int(permit.expires_at.timestamp()) != claims["exp"]
+                or (permit.tenant_id, permit.project_id, permit.task_id)
+                != self.binding.owner
+                or permit.receiver_id != self.binding.receiver_id
+                or permit.executor_ref != self.binding.executor_ref
+            ):
+                raise ValueError("shutdown permit binding mismatch")
+            return permit
+        except (JoseError, KeyError, TypeError, ValueError) as error:
+            raise DomainError("NOT_FOUND_OR_FORBIDDEN") from error
+
+
+class RemoteProcessExecutor(_HttpsJsonEndpoint):
+    """Send only a one-action bearer and arguments to the Task's Kali endpoint."""
+
+    def __init__(self, *, signer, max_output_bytes=16 * 1024 * 1024, **kwargs):
+        super().__init__(**kwargs)
+        if (
+            not isinstance(signer, ExecutorActionSigner)
+            or type(max_output_bytes) is not int
+            or max_output_bytes < 1
+        ):
+            raise ValueError("a fixed action permit signer is required")
+        self.signer = signer
+        self.max_output_bytes = max_output_bytes
+
+    async def invoke(self, permit, *, action, parent_handle=None):
+        self.binding.require_permit(permit)
+        token, action_permit = self.signer.issue(
+            permit, action=action, parent_handle=parent_handle
+        )
+        result = await self.apost(
+            "/internal/v2/process/" + action,
+            {"arguments": permit.arguments},
+            bearer_token=token,
+        )
+        return validate_process_reply(
+            result,
+            handle=(permit.tool_attempt_id if action == "exec" else parent_handle),
+        )
+
+    async def query_process(self, permit, *, cursor, max_bytes):
+        arguments = {
+            "handle": permit.tool_attempt_id,
+            "cursor": cursor,
+            "max_bytes": max_bytes,
+            "wait_ms": 0,
+        }
+        token, action_permit = self.signer.issue(
+            permit,
+            action="query",
+            parent_handle=permit.tool_attempt_id,
+            arguments_digest=digest(arguments),
+            allow_expired=True,
+        )
+        result = await self.apost(
+            "/internal/v2/process/query",
+            {"arguments": arguments},
+            bearer_token=token,
+        )
+        return validate_process_reply(result, handle=permit.tool_attempt_id)
+
+    async def shutdown(
+        self, *, execution_epoch, runtime_attempt, reason="task cleanup"
+    ):
+        token, permit = self.signer.issue_shutdown(
+            self.binding,
+            execution_epoch=execution_epoch,
+            runtime_attempt=runtime_attempt,
+            reason=reason,
+        )
+        result = await self.apost(
+            "/internal/v2/process-control/shutdown", {}, bearer_token=token
+        )
+        expected = {
+            "status": "accepted",
+            "task_id": self.binding.task_id,
+            "runtime_attempt": str(runtime_attempt),
+            "request_id": permit.jti,
+        }
+        if result != expected:
+            raise RemoteExecutorTransportError("shutdown acknowledgement is invalid")
+        return result
+
+    async def drain(
+        self, *, execution_epoch, runtime_attempt, reason="task cleanup"
+    ):
+        token, permit = self.signer.issue_shutdown(
+            self.binding,
+            execution_epoch=execution_epoch,
+            runtime_attempt=runtime_attempt,
+            reason=reason,
+        )
+        result = await self.apost(
+            "/internal/v2/process-control/drain", {}, bearer_token=token
+        )
+        expected = {
+            "status": "drained",
+            "task_id": self.binding.task_id,
+            "runtime_attempt": str(runtime_attempt),
+            "request_id": permit.jti,
+        }
+        if result != expected:
+            raise RemoteExecutorTransportError("drain acknowledgement is invalid")
+        return result
 
 
 def restore_transport_permit(document, *, permit_digest, request_id, binding):

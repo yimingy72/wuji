@@ -4,13 +4,40 @@ import pytest
 
 from wuji_task_runtime.errors import OwnershipError
 from wuji_task_runtime.manifest import build_task_pod, verify_pod_ownership, verify_resource_ownership
-from wuji_task_runtime.models import LABEL_TASK
+from wuji_task_runtime.models import CapturePolicy, LABEL_TASK
 
 
 def observed(config):
     pod = build_task_pod(config)
     pod["metadata"].update(uid="pod-uid", resourceVersion="7")
     return pod
+
+
+def core_config(config):
+    return replace(
+        config,
+        template_version="core-ctf-v1",
+        expose_pod_identity=True,
+        kali_receipts_enabled=True,
+        capture_image="example.invalid/capture@sha256:" + "e" * 64,
+        capture_resources=replace(
+            config.agent_resources,
+            cpu_request="50m",
+            memory_request="64Mi",
+            cpu_limit="500m",
+            memory_limit="256Mi",
+        ),
+        capture_policy=CapturePolicy(
+            max_request_body_bytes=8_388_608,
+            max_response_body_bytes=8_388_608,
+            pcap_segment_bytes=64_000_000,
+            max_session_bytes=1_073_741_824,
+            max_items=10_000,
+            part_read_chunk_bytes=1_048_576,
+            drain_timeout_seconds=5.0,
+            seal_timeout_seconds=10.0,
+        ),
+    )
 
 
 def test_two_containers_and_isolated_credentials(config):
@@ -28,6 +55,48 @@ def test_two_containers_and_isolated_credentials(config):
         assert container["securityContext"]["capabilities"] == {"drop": ["ALL"], "add": []}
         assert container["securityContext"]["readOnlyRootFilesystem"] is True
     assert pod["spec"]["automountServiceAccountToken"] is False
+
+
+def test_legacy_template_digest_is_unchanged(config):
+    assert config.template_digest == "b3f43c62f657444d5a7b87f622b3ed904304b08ff1307fe5833efcf858444bda"
+
+
+def test_core_ctf_template_has_trusted_init_and_isolated_capture(config):
+    config = core_config(config)
+    pod = build_task_pod(config)
+    assert [item["name"] for item in pod["spec"]["initContainers"]] == ["task-network-init"]
+    assert [item["name"] for item in pod["spec"]["containers"]] == ["agent", "kali", "capture"]
+    init = pod["spec"]["initContainers"][0]
+    assert init["securityContext"]["capabilities"] == {
+        "drop": ["ALL"], "add": ["CHOWN", "FOWNER", "NET_ADMIN"],
+    }
+    script = init["command"][2]
+    assert "--uid-owner 0" in script
+    assert "--sport 8444 -m conntrack --ctstate ESTABLISHED --ctdir REPLY" in script
+    assert "-d 127.0.0.1 --dport 8080" in script
+    assert "ip6tables-restore" in script and "::1" not in script
+
+    containers = {item["name"]: item for item in pod["spec"]["containers"]}
+    kali, capture = containers["kali"], containers["capture"]
+    assert kali["securityContext"]["runAsUser"] == 0
+    assert kali["securityContext"]["capabilities"] == {"drop": ["ALL"], "add": []}
+    assert capture["securityContext"]["runAsUser"] == 10004
+    assert capture["securityContext"]["capabilities"] == {"drop": ["ALL"], "add": ["NET_RAW"]}
+    assert capture["securityContext"]["allowPrivilegeEscalation"] is True
+    kali_mounts = {item["name"]: item for item in kali["volumeMounts"]}
+    capture_mounts = {item["name"]: item for item in capture["volumeMounts"]}
+    assert "capture-evidence" not in kali_mounts and "capture-auth" not in kali_mounts
+    assert capture_mounts["capture-evidence"]["mountPath"] == "/var/lib/wuji-capture"
+    assert capture_mounts["capture-auth"]["mountPath"] == "/run/wuji/capture-credentials"
+    assert kali_mounts["capture-ca-public"]["readOnly"] is True
+    env = {item["name"]: item.get("value") for item in kali["env"]}
+    assert env["HTTP_PROXY"] == "http://127.0.0.1:8080"
+    assert env["REQUESTS_CA_BUNDLE"] == "/run/wuji/capture-ca/ca-bundle.pem"
+    assert "NO_PROXY" not in env
+    capture_env = {item["name"]: item.get("value") for item in capture["env"]}
+    assert capture_env["WUJI_CAPTURE_MAX_REQUEST_BODY_BYTES"] == "8388608"
+    assert capture_env["WUJI_CAPTURE_PCAP_SEGMENT_BYTES"] == "64000000"
+    verify_pod_ownership(observed(config), config, expected_uid="pod-uid")
 
 
 def test_owned_pod_reuses_with_defaults_and_list_reordering(config):

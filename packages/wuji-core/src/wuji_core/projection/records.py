@@ -75,12 +75,32 @@ class ProjectionRecords:
                 size_bytes=str(value["size_bytes"]), created_at=value["created_at"],
             ))
         elif kind == "observation":
-            receipt_row = requirements.require_row("evidence", value["capture_id"])
-            receipt = EvidenceReceipt.model_validate(strict_json_loads(receipt_row["receipt_json"]))
+            if value.get("capture_session_id") is None:
+                receipt_row = requirements.require_row("evidence", value["capture_id"])
+                artifact_refs = EvidenceReceipt.model_validate(
+                    strict_json_loads(receipt_row["receipt_json"])
+                ).artifact_refs
+            else:
+                artifact_refs = [
+                    {"id": identifier, "version": str(revision), "sha256": digest}
+                    for identifier, revision, digest in tx.connection.execute(
+                        """SELECT a.entity_id,a.revision,a.sha256
+                        FROM vnext.observation_artifact o JOIN vnext.artifact a ON
+                          (a.tenant_id,a.project_id,a.task_id,a.entity_id,a.revision)=
+                          (o.tenant_id,o.project_id,o.task_id,o.artifact_id,
+                           o.artifact_revision)
+                        WHERE o.tenant_id=%s AND o.project_id=%s AND o.task_id=%s
+                          AND o.observation_id=%s AND o.observation_revision=%s
+                        ORDER BY o.ordinal""",
+                        (*tx.owner, ref.id, ref.revision.root),
+                    ).fetchall()
+                ]
             payload = ObservationRecord.model_validate(dict(
                 observation_id=ref.id, revision=ref.revision.root, task_id=tx.owner[2],
                 capture_id=value["capture_id"], tool_attempt_id=value["tool_attempt_id"],
-                collector_ref=value["collector_ref"], artifact_refs=receipt.artifact_refs,
+                capture_session_id=value.get("capture_session_id"),
+                capture_item_seq=value.get("capture_item_seq"),
+                collector_ref=value["collector_ref"], artifact_refs=artifact_refs,
                 capture_layer=value["capture_layer"], observed_at=value["observed_at"],
                 received_at=value["received_at"], environment_ref=value["environment_ref"],
                 conditions=strict_json_loads(value["conditions_json"]),

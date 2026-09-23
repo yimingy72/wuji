@@ -56,6 +56,72 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v2/tasks/{task_id}/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read the bounded current task overview from canonical records */
+        get: operations["getTaskOverviewV2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/tasks/{task_id}/command-inventory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getTaskCommandInventoryV1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/tasks/{task_id}/publications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getTaskPublicationsV1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/tasks/{task_id}/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read bounded canonical task activity; cursor and after_cursor are mutually exclusive */
+        get: operations["getTaskActivityV2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v2/tasks/{task_id}/readiness": {
         parameters: {
             query?: never;
@@ -355,6 +421,57 @@ export interface paths {
         };
         /** Read a safe bounded representation of authorized captured bytes */
         get: operations["getArtifactMaterialV2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/tasks/{task_id}/capture-sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List authorized Runtime capture sessions for a Task */
+        get: operations["listRuntimeCaptureSessionsV2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/tasks/{task_id}/capture-sessions/{capture_session_id}/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Page through authorized Runtime capture items */
+        get: operations["listRuntimeCaptureItemsV2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/tasks/{task_id}/capture-sessions/{capture_session_id}/items/{item_seq}/parts/{part}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download one authorized sealed Runtime capture part */
+        get: operations["downloadRuntimeCapturePartV2"];
         put?: never;
         post?: never;
         delete?: never;
@@ -887,6 +1004,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/internal/v2/worker-host/board-publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publish one current-Run Claim and prepare its exact content delivery */
+        post: operations["publishWorkerBoardClaimV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/v2/worker-host/knowledge-notices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** List bounded relevant metadata updates for one current Work */
+        post: operations["listWorkerKnowledgeNoticesV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/internal/v2/worker-host/archive-sdk": {
         parameters: {
             query?: never;
@@ -1192,6 +1343,8 @@ export interface components {
         /** @enum {string} */
         WorkerContextV3SchemaVersion: "wuji.worker-context.v3";
         /** @enum {string} */
+        WorkerContextV4SchemaVersion: "wuji.worker-context.v4";
+        /** @enum {string} */
         ExplorationViewSchemaVersion: "wuji.exploration-view.v1";
         /** @enum {string} */
         KnowledgeDeliverySchemaVersion: "wuji.knowledge-delivery.v1";
@@ -1477,6 +1630,140 @@ export interface components {
             conditions: string[];
             completeness: components["schemas"]["CaptureCompleteness"];
         };
+        CapturePolicyV1: {
+            max_request_body_bytes: number;
+            max_response_body_bytes: number;
+            pcap_segment_bytes: number;
+            /** Format: int64 */
+            max_session_bytes: number;
+            max_items: number;
+            part_read_chunk_bytes: number;
+            drain_timeout_seconds: number;
+            seal_timeout_seconds: number;
+        };
+        RuntimeCaptureBindingV1: {
+            task_id: string;
+            runtime_attempt: components["schemas"]["RevisionString"];
+            execution_epoch: components["schemas"]["RevisionString"];
+            pod_uid: string;
+        };
+        RuntimeCaptureSessionV1: {
+            /** @constant */
+            schema_version: "wuji.runtime-capture-session.v1";
+            capture_session_id: string;
+            binding: components["schemas"]["RuntimeCaptureBindingV1"];
+            collector_ref: string;
+            environment_ref: string;
+            evidence_origin: components["schemas"]["EvidenceOrigin"];
+            capture_layer: string;
+            /** @enum {string} */
+            state: "ready" | "draining" | "sealed" | "failed";
+            status_digest: components["schemas"]["Sha256Digest"];
+            policy: components["schemas"]["CapturePolicyV1"];
+            policy_digest: components["schemas"]["Sha256Digest"];
+            /** Format: date-time */
+            started_at: string;
+        };
+        RuntimeCaptureStatusV1: {
+            /** @constant */
+            schema_version: "wuji.runtime-capture-status.v1";
+            binding: components["schemas"]["RuntimeCaptureBindingV1"];
+            collector_ref: string;
+            environment_ref: string;
+            evidence_origin: components["schemas"]["EvidenceOrigin"];
+            capture_layer: string;
+            /** @enum {string} */
+            state: "ready" | "draining" | "sealed" | "failed";
+            status_digest: components["schemas"]["Sha256Digest"];
+            /** Format: date-time */
+            started_at: string;
+        };
+        RuntimeCapturePartV1: {
+            part: string;
+            media_type: string;
+            /** Format: int64 */
+            length: number;
+            sha256: components["schemas"]["Sha256Digest"];
+        };
+        RuntimeCaptureEnvelopeV1: {
+            /** @constant */
+            schema_version: "wuji.runtime-capture-envelope.v1";
+            capture_session_id: string;
+            binding: components["schemas"]["RuntimeCaptureBindingV1"];
+            collector_ref: string;
+            item_seq: number;
+            /** @enum {string} */
+            kind: "http_exchange" | "pcap_segment" | "gap" | "manifest";
+            completeness: components["schemas"]["CaptureCompleteness"];
+            /** Format: date-time */
+            observed_at: string;
+            parts: components["schemas"]["RuntimeCapturePartV1"][];
+            metadata: {
+                [key: string]: unknown;
+            };
+            conditions: string[];
+            item_digest: components["schemas"]["Sha256Digest"];
+        };
+        RuntimeCaptureReceiptV1: {
+            /** @constant */
+            schema_version: "wuji.runtime-capture-receipt.v1";
+            capture_session_id: string;
+            item_seq: number;
+            item_digest: components["schemas"]["Sha256Digest"];
+            /** @enum {string} */
+            status: "accepted" | "historical_only";
+            observation_ref: components["schemas"]["KnowledgeRef"];
+            artifact_refs: components["schemas"]["BlobRef"][];
+            request_id: string;
+        };
+        RuntimeCaptureItemViewV1: {
+            envelope: components["schemas"]["RuntimeCaptureEnvelopeV1"];
+            observation_ref: components["schemas"]["KnowledgeRef"];
+            artifact_refs: components["schemas"]["BlobRef"][];
+            /** Format: date-time */
+            received_at: string;
+        };
+        RuntimeCaptureItemPageV1: {
+            /** @constant */
+            schema_version: "wuji.runtime-capture-items.v1";
+            capture_session_id: string;
+            items: components["schemas"]["RuntimeCaptureItemViewV1"][];
+            next_item_seq: number | null;
+        };
+        RuntimeCaptureSessionPageV1: {
+            /** @constant */
+            schema_version: "wuji.runtime-capture-sessions.v1";
+            sessions: components["schemas"]["RuntimeCaptureSessionV1"][];
+        };
+        RuntimeTerminalObservationV1: {
+            /** @constant */
+            schema_version: "wuji.runtime-terminal-observation.v1";
+            capture_session_id: string | null;
+            binding: components["schemas"]["RuntimeCaptureBindingV1"];
+            controller_ref: string;
+            container_name: string;
+            /** @enum {string} */
+            state: "terminated" | "not_started";
+            container_id: string | null;
+            exit_code: number | null;
+            signal: number | null;
+            reason: string | null;
+            started_at: string | null;
+            finished_at: string | null;
+            /** Format: date-time */
+            observed_at: string;
+            source_digest: components["schemas"]["Sha256Digest"];
+        };
+        RuntimeTerminalObservationReceiptV1: {
+            /** @constant */
+            schema_version: "wuji.runtime-terminal-observation-receipt.v1";
+            terminal_observation_id: string;
+            capture_session_id: string | null;
+            container_name: string;
+            source_digest: components["schemas"]["Sha256Digest"];
+            /** Format: date-time */
+            observed_at: string;
+        };
         SessionManifest: {
             session_id: string;
             work_item_id: string;
@@ -1571,6 +1858,161 @@ export interface components {
             /** @enum {string} */
             channel?: "initial_input" | "function_result";
         };
+        WorkerBoardPublishRequest: {
+            assignment: components["schemas"]["WorkerAssignment"];
+            native_occurrence: string;
+            claim: components["schemas"]["ClaimProposal"];
+        };
+        BoardPublishResultV1: {
+            /** @constant */
+            schema_version: "wuji.board-publish-result.v1";
+            receipt: components["schemas"]["ComponentReceipt"];
+            claim: components["schemas"]["ClaimRecord"];
+            delivery: components["schemas"]["KnowledgeDeliveryV1"];
+        };
+        WorkspaceSourceFileV1: {
+            relative_path: string;
+        };
+        WorkspaceEntrypointV1: {
+            relative_path: string;
+            interpreter_argv: string[];
+        };
+        WorkspaceDependencyV1: {
+            description: string;
+            lockfile_path: string | null;
+        };
+        WorkspacePublishArgumentsV1: {
+            purpose: string;
+            files: components["schemas"]["WorkspaceSourceFileV1"][];
+            entrypoint: components["schemas"]["WorkspaceEntrypointV1"];
+            inputs_description: string;
+            outputs_description: string;
+            dependencies: components["schemas"]["WorkspaceDependencyV1"][];
+            validation_statement: string;
+            limitations: string[];
+            expected_base_publication_id: string | null;
+        };
+        WorkspaceMaterializeArgumentsV1: {
+            publication_id: string;
+            manifest_ref: components["schemas"]["BlobRef"];
+        };
+        WorkspaceExportRequestV1: {
+            files: components["schemas"]["WorkspaceSourceFileV1"][];
+        };
+        WorkspaceTransferFileV1: {
+            relative_path: string;
+            data_base64: string;
+            byte_length: number;
+            sha256: components["schemas"]["Sha256Digest"];
+        };
+        WorkspaceExportReplyV1: {
+            /** @constant */
+            schema_version: "wuji.workspace-export.v1";
+            environment_ref: string;
+            image_digest: components["schemas"]["Sha256Digest"];
+            files: components["schemas"]["WorkspaceTransferFileV1"][];
+        };
+        WorkspaceImportRequestV1: {
+            publication_id: string;
+            manifest_digest: components["schemas"]["Sha256Digest"];
+            files: components["schemas"]["WorkspaceTransferFileV1"][];
+        };
+        WorkspaceMaterializedFileV1: {
+            relative_path: string;
+            destination_path: string;
+            byte_length: number;
+            sha256: components["schemas"]["Sha256Digest"];
+        };
+        WorkspaceImportReplyV1: {
+            /** @constant */
+            schema_version: "wuji.workspace-import.v1";
+            /** @constant */
+            assurance: "executor_reported";
+            imports_root: string;
+            files: components["schemas"]["WorkspaceMaterializedFileV1"][];
+        };
+        WorkspaceBundleFileV1: {
+            relative_path: string;
+            ref: components["schemas"]["BlobRef"];
+            sha256: components["schemas"]["Sha256Digest"];
+            bytes: number;
+        };
+        WorkspaceValidationStatementV1: {
+            author_report: string;
+            platform_checks: string[];
+        };
+        WorkspaceBundleManifestV1: {
+            /** @constant */
+            schema_version: "wuji.workspace-bundle.v1";
+            asset_id: string;
+            asset_revision: components["schemas"]["RevisionString"];
+            parent_publication_id: string | null;
+            purpose: string;
+            producer_work_ref: string;
+            environment_ref: string;
+            image_digest: components["schemas"]["Sha256Digest"];
+            files: components["schemas"]["WorkspaceBundleFileV1"][];
+            entrypoint: components["schemas"]["WorkspaceEntrypointV1"];
+            inputs_description: string;
+            outputs_description: string;
+            dependencies: components["schemas"]["WorkspaceDependencyV1"][];
+            validation_statement: components["schemas"]["WorkspaceValidationStatementV1"];
+            limitations: string[];
+        };
+        /** @enum {string} */
+        WorkspacePublishStatus: "published" | "publication_conflict" | "head_unavailable";
+        WorkspacePublishResultV1: {
+            /** @constant */
+            schema_version: "wuji.workspace-publish-result.v1";
+            status: components["schemas"]["WorkspacePublishStatus"];
+            publication_id: string | null;
+            manifest_ref: components["schemas"]["BlobRef"] | null;
+            asset_id: string | null;
+            asset_revision: components["schemas"]["RevisionString"] | null;
+            parent_publication_id: string | null;
+            current_publication_id: string | null;
+            delivery: components["schemas"]["KnowledgeDeliveryV1"] | null;
+        };
+        WorkspaceMaterializeResultV1: {
+            /** @constant */
+            schema_version: "wuji.workspace-materialize-result.v1";
+            publication_id: string;
+            manifest_ref: components["schemas"]["BlobRef"];
+            /** @constant */
+            source_assurance: "platform_sealed";
+            /** @constant */
+            destination_assurance: "executor_reported";
+            imports_root: string;
+            files: components["schemas"]["WorkspaceMaterializedFileV1"][];
+        };
+        /** @enum {string} */
+        KnowledgeNoticeCategory: "claim_published" | "claim_revised" | "workspace_published" | "work_result_updated" | "assessment_updated" | "input_resolved";
+        KnowledgeNoticeMetadataV1: {
+            claim_kind: components["schemas"]["ClaimKind"] | null;
+            assertion_role: components["schemas"]["AssertionRole"] | null;
+            effective_outcome: components["schemas"]["WorkResultOutcome"] | null;
+            publication_id: string | null;
+            asset_id: string | null;
+            asset_revision: components["schemas"]["RevisionString"] | null;
+        };
+        KnowledgeNoticeV1: {
+            category: components["schemas"]["KnowledgeNoticeCategory"];
+            ref: components["schemas"]["KnowledgeRef"];
+            snapshot_id: string;
+            source_work_ref: string | null;
+            metadata: components["schemas"]["KnowledgeNoticeMetadataV1"];
+        };
+        KnowledgeNoticesPageV1: {
+            /** @constant */
+            schema_version: "wuji.knowledge-notices.v1";
+            next_cursor: string;
+            notices: components["schemas"]["KnowledgeNoticeV1"][];
+        };
+        WorkerKnowledgeNoticesRequest: {
+            assignment: components["schemas"]["WorkerAssignment"];
+            cursor: string | null;
+            limit: number;
+        };
         WorkerReceiver: {
             receiver_id: string;
             runtime_attempt: components["schemas"]["RevisionString"];
@@ -1633,6 +2075,43 @@ export interface components {
             session_id: string | null;
             native_occurrence: string | null;
         };
+        ProcessCursorV1: {
+            /** Format: int64 */
+            stdout_offset: number;
+            /** Format: int64 */
+            stderr_offset: number;
+        };
+        ProcessOutputChunkV1: {
+            /** Format: int64 */
+            offset: number;
+            /** Format: int64 */
+            next_offset: number;
+            data_base64: string;
+            text: string | null;
+            byte_length: number;
+            sha256: components["schemas"]["Sha256Digest"];
+        };
+        ProcessReplyV1: {
+            /** @constant */
+            schema_version: "wuji.process-reply.v1";
+            handle: string;
+            /** @enum {string} */
+            state: "prepared" | "running" | "stopping" | "exited" | "unknown";
+            /** @constant */
+            assurance: "executor_reported";
+            started_at: string | null;
+            finished_at: string | null;
+            exit_code: number | null;
+            signal: number | null;
+            stdout: components["schemas"]["ProcessOutputChunkV1"] | null;
+            stderr: components["schemas"]["ProcessOutputChunkV1"] | null;
+            cursor: components["schemas"]["ProcessCursorV1"];
+            next_cursor: components["schemas"]["ProcessCursorV1"];
+            has_more: boolean;
+            /** @enum {string} */
+            output_completeness: "complete" | "partial" | "unknown";
+            reason_code: string | null;
+        };
         KnowledgeIndexItemV1: {
             ref: components["schemas"]["KnowledgeRef"];
             material_type: string;
@@ -1656,6 +2135,24 @@ export interface components {
             unresolved_items: string[];
             committed_todo_summary: string[];
         };
+        WorkBriefV2: {
+            task_goal: string;
+            goal_criterion_refs: components["schemas"]["GoalCriterionRef"][];
+            authorization_summary: string[];
+            capability_refs: string[];
+            capability_gaps: string[];
+            question: string;
+            expected_output: string;
+            planning: components["schemas"]["IntentPlanningV3"] | null;
+            canonical_work_ref: string | null;
+            related_claim_refs: components["schemas"]["KnowledgeRef"][];
+            counterevidence_refs: components["schemas"]["KnowledgeRef"][];
+            attempt_summaries: string[];
+            unresolved_items: string[];
+            committed_todo_summary: string[];
+            related_work_summaries: string[];
+            predecessor_result_summaries: string[];
+        };
         WorkerContextV3: {
             schema_version: components["schemas"]["WorkerContextV3SchemaVersion"];
             snapshot_id: string;
@@ -1664,6 +2161,62 @@ export interface components {
             brief: components["schemas"]["WorkBriefV1"];
             knowledge_index: components["schemas"]["KnowledgeIndexItemV1"][];
             initial_deliveries: components["schemas"]["KnowledgeDeliveryV1"][];
+            text: string;
+            input_digest: components["schemas"]["Sha256Digest"];
+        };
+        WorkspaceBindingV1: {
+            task_id: string;
+            runtime_attempt: components["schemas"]["RevisionString"];
+            work_item_id: string;
+            session_id: string | null;
+            cwd: string;
+            inputs_path: string;
+            work_path: string;
+            imports_path: string;
+            shared_path: string;
+            workspace_generation: string;
+            recovery_available: boolean;
+            recovery_reason: string | null;
+        };
+        ExecutionEnvironmentV1: {
+            environment_ref: string;
+            image_digest: components["schemas"]["Sha256Digest"];
+            os_name: string;
+            architecture: string;
+            installed_capabilities: string[];
+            shell: string;
+            interpreters: string[];
+            process_limits: {
+                [key: string]: unknown;
+            };
+            network_capture_mode: string;
+            unsupported: string[];
+        };
+        PublishedAssetIndexEntryV1: {
+            publication_id: string;
+            asset_id: string;
+            asset_revision: components["schemas"]["RevisionString"];
+            parent_publication_id: string | null;
+            manifest_ref: components["schemas"]["BlobRef"];
+            purpose: string;
+            entrypoint: components["schemas"]["WorkspaceEntrypointV1"];
+            environment_ref: string;
+            image_digest: components["schemas"]["Sha256Digest"];
+            validation_statement: components["schemas"]["WorkspaceValidationStatementV1"];
+            file_count: number;
+            total_bytes: number;
+        };
+        WorkerContextV4: {
+            schema_version: components["schemas"]["WorkerContextV4SchemaVersion"];
+            snapshot_id: string;
+            read_set: components["schemas"]["KnowledgeRef"][];
+            record_refs: components["schemas"]["KnowledgeRef"][];
+            brief: components["schemas"]["WorkBriefV2"];
+            knowledge_index: components["schemas"]["KnowledgeIndexItemV1"][];
+            initial_deliveries: components["schemas"]["KnowledgeDeliveryV1"][];
+            workspace_binding: components["schemas"]["WorkspaceBindingV1"];
+            execution_environment: components["schemas"]["ExecutionEnvironmentV1"];
+            published_asset_index: components["schemas"]["PublishedAssetIndexEntryV1"][];
             text: string;
             input_digest: components["schemas"]["Sha256Digest"];
         };
@@ -1843,6 +2396,16 @@ export interface components {
             total_per_work: number;
             total_per_task: number;
         };
+        ProblemExecutionEnvironmentV1: {
+            image_digest: components["schemas"]["Sha256Digest"];
+            os_name: string;
+            architecture: string;
+            installed_capabilities: string[];
+            shell: string;
+            interpreters: string[];
+            network_capture_mode: string;
+            unsupported: string[];
+        };
         ProblemHarnessProfileBody: {
             ref: string;
             revision: components["schemas"]["RevisionString"];
@@ -1876,6 +2439,9 @@ export interface components {
             /** @constant */
             tool_choice_policy: "auto";
             completion_mode: components["schemas"]["CompletionMode"];
+            /** @enum {string} */
+            context_contract?: "wuji.worker-context.v3" | "wuji.worker-context.v4";
+            execution_environment?: components["schemas"]["ProblemExecutionEnvironmentV1"];
         };
         WorkerHarnessProfile: {
             ref: string;
@@ -1894,7 +2460,7 @@ export interface components {
             };
             executor_ref: string;
             approval_required: boolean;
-            allowed_target_kinds: ("workspace_read" | "http_target")[];
+            allowed_target_kinds: ("workspace_read" | "http_target" | "process" | "workspace_bundle")[];
         };
         WorkerResolvedHost: {
             profile: components["schemas"]["WorkerHarnessProfile"];
@@ -1917,7 +2483,7 @@ export interface components {
             memory_files: components["schemas"]["WorkerSessionBinary"][];
         };
         WorkerResolvedContext: {
-            context: components["schemas"]["WorkerContext"] | components["schemas"]["WorkerContextV3"];
+            context: components["schemas"]["WorkerContext"] | components["schemas"]["WorkerContextV3"] | components["schemas"]["WorkerContextV4"];
             resolved: components["schemas"]["WorkerResolvedHost"] | components["schemas"]["WorkerSessionResolvedHost"];
             assignment_digest: components["schemas"]["Sha256Digest"];
         };
@@ -1933,7 +2499,7 @@ export interface components {
         };
         WorkerSubmitRequest: {
             assignment: components["schemas"]["WorkerAssignment"];
-            context: components["schemas"]["WorkerContext"] | components["schemas"]["WorkerContextV3"];
+            context: components["schemas"]["WorkerContext"] | components["schemas"]["WorkerContextV3"] | components["schemas"]["WorkerContextV4"];
             raw_output_base64: string;
             sdk_output_base64: string;
             raw_digest: components["schemas"]["Sha256Digest"];
@@ -2019,6 +2585,177 @@ export interface components {
             /** @enum {string} */
             currency: "USD";
         };
+        /** @enum {string} */
+        TaskCriterionJudgmentStatus: "met" | "not_met" | "unknown" | "not_applicable" | "missing";
+        /** @enum {string} */
+        TaskCriterionJudgmentApplicability: "current" | "stale" | "disputed" | "retracted" | "missing";
+        TaskCriterionOverviewV1: {
+            criterion_id: string;
+            object: string;
+            condition: string;
+            required: boolean;
+            judgment_status: components["schemas"]["TaskCriterionJudgmentStatus"];
+            judgment_applicability: components["schemas"]["TaskCriterionJudgmentApplicability"];
+        };
+        TaskGoalOverviewV1: {
+            text: string;
+            criteria: components["schemas"]["TaskCriterionOverviewV1"][];
+        };
+        TaskWorkSummaryV1: {
+            work_item_id: string;
+            kind: components["schemas"]["WorkKind"];
+            state: components["schemas"]["WorkState"];
+            question: string | null;
+            result_summary: string | null;
+            blocked_reason: string | null;
+            terminal_reason: string | null;
+            run_process_state: components["schemas"]["RunProcessState"] | null;
+            updated_at: string | null;
+        };
+        TaskFindingSummaryV1: {
+            claim_ref: components["schemas"]["KnowledgeRef"];
+            text: string;
+            kind: components["schemas"]["ClaimKind"];
+            grounding_state: components["schemas"]["GroundingState"];
+            evidence_state: components["schemas"]["EvidenceState"];
+            applicability_state: components["schemas"]["ApplicabilityState"];
+            supporting_refs: components["schemas"]["KnowledgeRef"][];
+            opposing_refs: components["schemas"]["KnowledgeRef"][];
+            /** Format: date-time */
+            updated_at: string;
+        };
+        /** @enum {string} */
+        ArtifactProvenance: "capture" | "model_output" | "import";
+        TaskArtifactSummaryV1: {
+            artifact_ref: components["schemas"]["BlobRef"];
+            state: components["schemas"]["ArtifactState"];
+            media_type: string;
+            size_bytes: components["schemas"]["RevisionString"];
+            completeness: components["schemas"]["CaptureCompleteness"];
+            provenance: components["schemas"]["ArtifactProvenance"];
+            /** Format: date-time */
+            created_at: string;
+            source_work_item_id: string | null;
+            download_available: boolean;
+        };
+        TaskWorkspaceCapabilitiesV1: {
+            work_files: boolean;
+            shared_versions: boolean;
+            command_output: boolean;
+        };
+        /** @enum {string} */
+        LaunchPhase: "not_requested" | "prepare" | "activate" | "wire" | "capability" | "ready";
+        TaskTechnicalDetailsV1: {
+            definition_digest: components["schemas"]["Sha256Digest"];
+            control_version: components["schemas"]["RevisionString"];
+            execution_epoch: components["schemas"]["RevisionString"];
+            runtime_attempt: components["schemas"]["RevisionString"];
+            schema_version: string;
+            latest_launch_operation_id: string | null;
+            latest_launch_phase: components["schemas"]["LaunchPhase"] | null;
+            latest_launch_reason_code: string | null;
+        };
+        TaskOverviewV1: {
+            /** @constant */
+            schema_version: "wuji.task-overview.v1";
+            task_id: string;
+            /** Format: date-time */
+            observed_at: string;
+            status_message: string;
+            goal: components["schemas"]["TaskGoalOverviewV1"];
+            budget: components["schemas"]["MoneyBudget"];
+            current_work: components["schemas"]["TaskWorkSummaryV1"][];
+            latest_findings: components["schemas"]["TaskFindingSummaryV1"][];
+            artifacts: components["schemas"]["TaskArtifactSummaryV1"][];
+            workspace_capabilities: components["schemas"]["TaskWorkspaceCapabilitiesV1"];
+            runtime: components["schemas"]["TaskRuntimeOverviewV1"];
+            technical: components["schemas"]["TaskTechnicalDetailsV1"];
+        };
+        TaskRuntimeOverviewV1: {
+            /** @enum {string} */
+            state: "not_started" | "running" | "stopping" | "stopped" | "unknown";
+            runtime_attempt: components["schemas"]["RevisionString"];
+            pod_uid: string | null;
+            containers: {
+                /** @constant */
+                "task-network-init"?: "terminated";
+                /** @enum {string} */
+                agent?: "terminated" | "not_started";
+                /** @enum {string} */
+                kali?: "terminated" | "not_started";
+                /** @enum {string} */
+                capture?: "terminated" | "not_started";
+            };
+            terminal_observation_ids: string[];
+            terminal_observations: components["schemas"]["RuntimeTerminalObservationV1"][];
+        };
+        TaskCommandInventoryV1: {
+            /** @constant */
+            schema_version: "wuji.command-inventory.v1";
+            items: components["schemas"]["TaskCommandItemV1"][];
+            next_after: string | null;
+        };
+        TaskCommandItemV1: {
+            work_item_id: string;
+            exec_id: string;
+            command: string;
+            /** @enum {string} */
+            state: "prepared" | "running" | "stopping" | "exited" | "unknown";
+            exit_code: number | null;
+            /** @enum {string} */
+            output_completeness: "complete" | "partial" | "unknown";
+            output_refs: components["schemas"]["BlobRef"][];
+            /** @constant */
+            assurance: "executor_reported";
+        };
+        TaskPublicationPageV1: {
+            /** @constant */
+            schema_version: "wuji.task-publications.v1";
+            items: components["schemas"]["TaskPublicationItemV1"][];
+            next_after: string | null;
+        };
+        TaskPublicationItemV1: {
+            publication_id: string;
+            asset_id: string;
+            asset_revision: components["schemas"]["RevisionString"];
+            producer_work_item_id: string;
+            producer_run_id: string;
+            manifest_ref: components["schemas"]["BlobRef"];
+            /** Format: date-time */
+            created_at: string;
+            download_url: string;
+        };
+        /** @enum {string} */
+        TaskActivityCategory: "task" | "work" | "finding" | "evidence" | "input" | "completion" | "tool";
+        /** @enum {string} */
+        TaskActivityImportance: "key" | "detail";
+        /** @enum {string} */
+        TaskActivityStatus: "pending" | "running" | "succeeded" | "failed" | "blocked" | "stopped" | "info";
+        TaskActivityItemV1: {
+            activity_id: string;
+            event_cursor: string;
+            /** Format: date-time */
+            occurred_at: string;
+            category: components["schemas"]["TaskActivityCategory"];
+            importance: components["schemas"]["TaskActivityImportance"];
+            status: components["schemas"]["TaskActivityStatus"];
+            summary: string;
+            work_item_id: string | null;
+            source_ref: string | null;
+            reason: string | null;
+            evidence_refs: components["schemas"]["KnowledgeRef"][];
+            step_count: number;
+        };
+        TaskActivityPageV1: {
+            /** @constant */
+            schema_version: "wuji.task-activity.v1";
+            task_id: string;
+            /** Format: date-time */
+            observed_at: string;
+            latest_cursor: string;
+            items: components["schemas"]["TaskActivityItemV1"][];
+            next_cursor: string | null;
+        };
         TaskCreate: {
             schema_version: components["schemas"]["ApiSchemaVersion"];
             project_id: string;
@@ -2034,6 +2771,8 @@ export interface components {
             external_analysis_approved?: boolean;
             model_profile_ref: string;
             runtime_profile_ref: string;
+            /** @description Task-selected Explore concurrency. When omitted, the published RuntimeProfile default applies. */
+            explore_concurrency?: number;
             budget: components["schemas"]["MoneyBudget"];
         };
         TaskView: {
@@ -2063,6 +2802,8 @@ export interface components {
             digest: string;
             capabilities: string[];
             real_model_allowed: boolean;
+            /** @description Published RuntimeProfile ceiling and default for Task Explore concurrency. Null or absent means this option does not expose that runtime capability; model profiles do not use it. */
+            max_explore_concurrency?: number | null;
         };
         ReadinessCheck: {
             id: string;
@@ -2165,7 +2906,9 @@ export interface components {
             revision: components["schemas"]["RevisionString"];
             task_id: string;
             capture_id: string;
-            tool_attempt_id: string;
+            tool_attempt_id?: string | null;
+            capture_session_id?: string | null;
+            capture_item_seq?: number | null;
             collector_ref: string;
             artifact_refs: components["schemas"]["BlobRef"][];
             capture_layer: string;
@@ -3119,6 +3862,118 @@ export interface operations {
             404: components["responses"]["NotFoundOrForbidden"];
         };
     };
+    getTaskOverviewV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: components["parameters"]["TaskId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Canonical task overview without model-generated summaries */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskOverviewV1"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFoundOrForbidden"];
+        };
+    };
+    getTaskCommandInventoryV1: {
+        parameters: {
+            query?: {
+                limit?: number;
+                after?: string;
+            };
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Bounded Task command inventory */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskCommandInventoryV1"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFoundOrForbidden"];
+        };
+    };
+    getTaskPublicationsV1: {
+        parameters: {
+            query?: {
+                limit?: number;
+                after?: string;
+            };
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Bounded immutable workspace publications */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskPublicationPageV1"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFoundOrForbidden"];
+        };
+    };
+    getTaskActivityV2: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description Opaque task/filter-bound cursor for older history */
+                cursor?: string;
+                /** @description Opaque task/filter-bound cursor for newer incremental events */
+                after_cursor?: string;
+                importance?: "key" | "all";
+                category?: components["schemas"]["TaskActivityCategory"];
+                work_item_id?: string;
+            };
+            header?: never;
+            path: {
+                task_id: components["parameters"]["TaskId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Authorized canonical activity page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskActivityPageV1"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFoundOrForbidden"];
+            422: components["responses"]["InvalidSchema"];
+        };
+    };
     getTaskReadinessV2: {
         parameters: {
             query?: never;
@@ -3631,6 +4486,88 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ModelMaterialV2"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFoundOrForbidden"];
+            422: components["responses"]["InvalidSchema"];
+        };
+    };
+    listRuntimeCaptureSessionsV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: components["parameters"]["TaskId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Bounded capture session inventory */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuntimeCaptureSessionPageV1"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFoundOrForbidden"];
+        };
+    };
+    listRuntimeCaptureItemsV2: {
+        parameters: {
+            query?: {
+                after?: number;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                task_id: components["parameters"]["TaskId"];
+                capture_session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Bounded capture item page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuntimeCaptureItemPageV1"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFoundOrForbidden"];
+            422: components["responses"]["InvalidSchema"];
+        };
+    };
+    downloadRuntimeCapturePartV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: components["parameters"]["TaskId"];
+                capture_session_id: string;
+                item_seq: number;
+                part: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Exact sealed capture part bytes */
+            200: {
+                headers: {
+                    Digest?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
                 };
             };
             401: components["responses"]["Unauthenticated"];
@@ -4617,6 +5554,66 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["InvalidSchema"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    publishWorkerBoardClaimV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkerBoardPublishRequest"];
+            };
+        };
+        responses: {
+            /** @description Canonical Claim and prepared delivery */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BoardPublishResultV1"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidSchema"];
+            429: components["responses"]["LimitBlocked"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    listWorkerKnowledgeNoticesV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkerKnowledgeNoticesRequest"];
+            };
+        };
+        responses: {
+            /** @description Relevant fixed-reference notice page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeNoticesPageV1"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidSchema"];
+            429: components["responses"]["LimitBlocked"];
             503: components["responses"]["Unavailable"];
         };
     };

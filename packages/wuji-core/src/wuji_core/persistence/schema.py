@@ -118,8 +118,13 @@ from wuji_core.persistence.problem_core_schema import HEAD as PROBLEM_CORE_HEAD,
 from wuji_core.persistence.task_goal_schema import HEAD as TASK_GOAL_HEAD, upgrade as upgrade_task_goals
 from wuji_core.persistence.native_session_schema import HEAD as NATIVE_SESSION_HEAD, upgrade as upgrade_native_sessions
 from wuji_core.persistence.native_approval_schema import HEAD as NATIVE_APPROVAL_HEAD, upgrade as upgrade_native_approvals
+from wuji_core.persistence.task_explore_concurrency_schema import HEAD as TASK_EXPLORE_CONCURRENCY_HEAD, upgrade as upgrade_task_explore_concurrency
+from wuji_core.persistence.core_process_schema import HEAD as CORE_PROCESS_HEAD, upgrade as upgrade_core_process
+from wuji_core.persistence.workspace_bundle_schema import HEAD as WORKSPACE_BUNDLE_HEAD, upgrade as upgrade_workspace_bundles
+from wuji_core.persistence.runtime_capture_schema import HEAD as RUNTIME_CAPTURE_HEAD, upgrade as upgrade_runtime_capture
+from wuji_core.persistence.project_access_schema import HEAD as PROJECT_ACCESS_HEAD, upgrade as upgrade_project_access
 
-HEAD = NATIVE_APPROVAL_HEAD
+HEAD = PROJECT_ACCESS_HEAD
 
 OWNER = "tenant_id,project_id,task_id"
 SCOPE_COLUMNS = (
@@ -510,6 +515,11 @@ def migrate(connection, *, application_role: str) -> None:
                 TASK_GOAL_HEAD,
                 NATIVE_SESSION_HEAD,
                 NATIVE_APPROVAL_HEAD,
+                TASK_EXPLORE_CONCURRENCY_HEAD,
+                CORE_PROCESS_HEAD,
+                WORKSPACE_BUNDLE_HEAD,
+                RUNTIME_CAPTURE_HEAD,
+                PROJECT_ACCESS_HEAD,
             ]
             if not heads or heads != set(chain[: len(heads)]):
                 raise ValueError("unrecognized vnext migration head")
@@ -548,6 +558,11 @@ def migrate(connection, *, application_role: str) -> None:
                 upgrade_task_goals,
                 upgrade_native_sessions,
                 upgrade_native_approvals,
+                upgrade_task_explore_concurrency,
+                upgrade_core_process,
+                upgrade_workspace_bundles,
+                upgrade_runtime_capture,
+                upgrade_project_access,
             ]
             for upgrade in upgrades[len(heads) - 1 :]:
                 upgrade(connection, application_role)
@@ -683,3 +698,8 @@ def migrate(connection, *, application_role: str) -> None:
         upgrade_task_goals(connection, application_role)
         upgrade_native_sessions(connection, application_role)
         upgrade_native_approvals(connection, application_role)
+        upgrade_task_explore_concurrency(connection, application_role)
+        upgrade_core_process(connection, application_role)
+        upgrade_workspace_bundles(connection, application_role)
+        upgrade_runtime_capture(connection, application_role)
+        upgrade_project_access(connection, application_role)

@@ -328,6 +328,32 @@ class RemoteWorkerHost:
         })
         return self._request("knowledge-attach", request)
 
+    def board_publish(self, assignment, *, native_occurrence, claim):
+        assignment = self._bind(assignment)
+        request = wire.WorkerBoardPublishRequest.model_validate(
+            {
+                "assignment": document(assignment),
+                "native_occurrence": native_occurrence,
+                "claim": document(claim),
+            }
+        )
+        return wire.BoardPublishResultV1.model_validate(
+            self._request("board-publish", request)
+        )
+
+    def knowledge_notices(self, assignment, *, cursor=None, limit=16):
+        assignment = self._bind(assignment)
+        request = wire.WorkerKnowledgeNoticesRequest.model_validate(
+            {
+                "assignment": document(assignment),
+                "cursor": cursor,
+                "limit": limit,
+            }
+        )
+        return wire.KnowledgeNoticesPageV1.model_validate(
+            self._request("knowledge-notices", request)
+        )
+
     def _session_exchange(self, assignment, action, payload, decode):
         if payload.assignment != assignment:
             raise HostTransportError("Session request assignment changed")

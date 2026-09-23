@@ -2,6 +2,7 @@
 
 import json
 from hashlib import sha256
+from urllib.parse import urlsplit
 
 from deployment_common import Deployment, load_settings, read_file, token
 from wuji_core.contracts.knowledge import KnowledgeRef
@@ -16,6 +17,7 @@ from wuji_core.worker_host import PlatformWorkerHost
 from wuji_maf_worker.context import ContextLimits, ContextRelation, build_context_bundle
 from wuji_core.http import canonical_json_bytes, strict_json_loads
 from wuji_maf_worker.factory import parse_profile
+from wuji_task_runtime import ProcessCleanupClient
 
 
 def build_context(*, records, read_set, snapshot_id, max_records, max_bytes, relations,
@@ -82,11 +84,11 @@ def _supervisor_transport(settings, deployment):
         url = entry.get("supervisor_url")
         if isinstance(task_id, str) and task_id and isinstance(url, str) and url:
             by_task[task_id] = SupervisorHttpTransport(url, **common)
-    if not by_task:
-        if default is None:
-            raise ValueError("fixed runtime receiver endpoint required")
-        return TaskSupervisorTransport(default=default)
-    return TaskSupervisorTransport(default=default, by_task=by_task)
+    return TaskSupervisorTransport(
+        default=default,
+        by_task=by_task,
+        allow_empty=default is None and not by_task,
+    )
 
 
 class RuntimeConfiguration:
@@ -111,7 +113,7 @@ class RuntimeConfiguration:
                         or set(latest.task_ids) != {entry["task_config"]["task_id"] for entry in entries}):
             raise ValueError("Task discovery does not match published runtime bindings")
         profiles = strict_json_loads(read_file(latest.profiles_file))
-        if not isinstance(profiles, list) or not profiles or len(profiles) > 4096:
+        if not isinstance(profiles, list) or len(profiles) > 4096:
             raise ValueError("bounded published profile list required")
         digest = sha256(canonical_json_bytes([latest.model_dump(), profiles])).hexdigest()
         if digest == self.accepted_digest:
@@ -149,11 +151,16 @@ class RuntimeConfiguration:
 
 def build_runtime():
     settings = load_settings("runtime")
-    if not all((settings.supervisor_url, settings.receiver_token_file,
-                settings.host_origin, settings.model_gate_url, settings.tool_gate_url,
-                settings.task_ids)) or settings.session_transport is not True:
+    if not all((settings.receiver_token_file, settings.host_origin,
+                settings.model_gate_url, settings.tool_gate_url)) or settings.session_transport is not True:
         raise ValueError("fixed runtime receiver/endpoints/Task discovery required")
     deployment = Deployment(settings)
+    gate = urlsplit(settings.tool_gate_url)
+    deployment.process_cleanup = ProcessCleanupClient(
+        f"{gate.scheme}://{gate.netloc}",
+        ca_file=settings.ca_file,
+        bearer_token=lambda: token(settings.service_token_file),
+    )
     supervisor_transport = _supervisor_transport(settings, deployment)
     configuration = RuntimeConfiguration(deployment, supervisor_transport)
     receiver_access = deployment.access(settings.receiver_token_file)

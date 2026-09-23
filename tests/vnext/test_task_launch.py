@@ -521,6 +521,69 @@ def test_published_session_bounds_follow_the_admission_limits():
     assert capped_limits["max_total_bytes"] == 262144
 
 
+def test_task_context_carries_required_entry_budget_and_actual_explore_limit():
+    task_launch = _load_launch_module()
+    definition = {
+        "task": {
+            "scenario": "ctf",
+            "goal": {
+                "text": "Verify the authorized challenge endpoint.",
+                "criteria": [{
+                    "criterion_id": "flag-proof",
+                    "object": "authorized challenge",
+                    "condition": "evidence supports the submitted answer",
+                    "evidence_requirements": ["sealed HTTP bytes"],
+                    "allowed_methods": ["deterministic"],
+                    "responsible_party": "operator",
+                    "required": True,
+                }],
+            },
+            "authorization_scope": [{
+                "host": "challenge.invalid", "protocol": "https", "port": 443,
+            }],
+            "authorization_expires_at": "2026-12-31T00:00:00Z",
+            "budget": {"amount": "2.50", "currency": "USD"},
+            "explore_concurrency": 2,
+        },
+        "start_points": ["https://challenge.invalid/level?id=7&mode=proof"],
+        "runtime_profile": {
+            "task_run_limits": {"explore": 4, "reason": 1},
+            "max_pending_operations": 6,
+            "max_inflight_tools": 2,
+            "max_inflight_model_requests": 1,
+            "limits": {
+                "max_work_items": 8,
+                "max_reason_runs": 3,
+                "max_model_requests": 16,
+                "max_tool_calls": 24,
+                "max_attempts_per_work": 2,
+                "max_elapsed_seconds": 900,
+                "max_single_output_bytes": 32768,
+                "max_total_output_bytes": 131072,
+                "repair_attempts": 0,
+            },
+        },
+    }
+
+    context = task_launch.task_context_block(definition, "explore")
+    assert "goal: Verify the authorized challenge endpoint." in context
+    assert "required: true" in context
+    assert "amount budget: 2.50 USD" in context
+    assert "https://challenge.invalid/level?id=7&mode=proof" in context
+    assert "Task Explore concurrency: 2" in context
+    assert "pending operations 6" in context
+
+    definition["task"]["explore_concurrency"] = 5
+    with pytest.raises(DomainError) as excess:
+        task_launch.task_context_block(definition, "explore")
+    assert excess.value.code == "INVALID_REFERENCE"
+
+    definition["runtime_profile"].pop("task_run_limits")
+    with pytest.raises(DomainError) as legacy:
+        task_launch.task_context_block(definition, "explore")
+    assert legacy.value.code == "INVALID_REFERENCE"
+
+
 def test_minted_operator_bearer_binds_the_deployment_identity(tmp_path):
     from cryptography.hazmat.primitives import serialization
     from cryptography.hazmat.primitives.asymmetric import rsa
@@ -1089,6 +1152,51 @@ def test_each_task_publishes_its_own_service_pair():
         assert all(character.isalnum() or character == "-" for character in name)
     with pytest.raises(DomainError):
         task_launch.task_service_names("---")
+
+
+def test_core_runtime_document_adds_capture_without_widening_legacy():
+    binding = {
+        "tenant_id": "tenant-fixture",
+        "task_id": "task-fixture",
+        "namespace": "wuji-vnext-test",
+        "runtime_attempt": 1,
+        "execution_epoch": 2,
+        "scope_digest": "a" * 64,
+        "config_digest": "b" * 64,
+        "agent_image": "registry.invalid/agent@sha256:" + "c" * 64,
+        "kali_image": "registry.invalid/kali@sha256:" + "d" * 64,
+        "agent_resources": {"cpu_request": "100m", "memory_request": "128Mi",
+                            "cpu_limit": "1", "memory_limit": "512Mi"},
+        "kali_resources": {"cpu_request": "100m", "memory_request": "128Mi",
+                           "cpu_limit": "1", "memory_limit": "512Mi"},
+        "tmp_size_limit": "128Mi",
+        "pod_deadline_seconds": 600,
+        "expose_pod_identity": True,
+        "kali_receipts_enabled": True,
+    }
+    legacy = task_launch.runtime_config_document(binding)
+    assert "template_version" not in legacy and "capture_image" not in legacy
+
+    core = {
+        **binding,
+        "template_version": "core-ctf-v1",
+        "capture_image": "registry.invalid/capture@sha256:" + "e" * 64,
+        "capture_resources": {"cpu_request": "50m", "memory_request": "64Mi",
+                              "cpu_limit": "500m", "memory_limit": "256Mi"},
+        "capture_policy": {
+            "max_request_body_bytes": 1048576,
+            "max_response_body_bytes": 1048576,
+            "pcap_segment_bytes": 64000000,
+            "max_session_bytes": 536870912,
+            "max_items": 100000,
+            "part_read_chunk_bytes": 1048576,
+            "drain_timeout_seconds": 30.0,
+            "seal_timeout_seconds": 60.0,
+        },
+    }
+    parsed = task_launch.attempt_config(core)
+    assert parsed.template_version == "core-ctf-v1"
+    assert parsed.capture_resources.memory_limit == "256Mi"
 
 
 def test_the_started_task_points_its_own_executor_at_its_own_kali_service():

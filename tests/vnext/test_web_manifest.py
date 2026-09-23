@@ -92,6 +92,7 @@ def test_web_manifest_can_attach_the_local_browser_session_gateway():
         "apiBaseUrl": "",
         "authEntrypoint": "/auth/login",
         "mode": "vnext-readonly",
+        "authMode": "local_single_operator",
         "tenantId": "tenant-fixture",
         "projectId": "project-fixture",
         "taskId": "task-fixture",
@@ -108,3 +109,64 @@ def test_web_manifest_can_attach_the_local_browser_session_gateway():
     volumes = {item["name"]: item for item in deployment["spec"]["template"]["spec"]["volumes"]}
     assert volumes["gateway-credentials"]["secret"]["secretName"] == "wuji-web-gateway-credentials"
     assert not any(item["kind"] == "Secret" for item in manifests)
+
+
+def test_web_manifest_password_mode_uses_loopback_http_and_a_persistent_session_mount():
+    manifests = build_web_manifests(
+        IMAGE,
+        auth_entrypoint="/auth/login",
+        gateway_image=GATEWAY_IMAGE,
+        gateway_api_base_url="https://api.wuji-vnext-test.svc:8443",
+        gateway_auth_mode="local_password",
+        identity_issuer="https://identity.wuji-vnext-test.invalid",
+        identity_audience="wuji-vnext-deployment",
+        tenant_id="tenant-fixture",
+        project_id="project-fixture",
+        allowed_origins=("http://127.0.0.1:44180",),
+    )
+    assert [item["kind"] for item in manifests] == [
+        "ConfigMap", "ConfigMap", "PersistentVolumeClaim", "Deployment", "Service"
+    ]
+    config_maps = {
+        item["metadata"]["name"]: item
+        for item in manifests
+        if item["kind"] == "ConfigMap"
+    }
+    browser = json.loads(
+        config_maps["wuji-web-config"]["data"]["config.js"]
+        .removeprefix("window.__WUJI_CONFIG__ = ").rstrip(";\n")
+    )
+    gateway = json.loads(
+        config_maps["wuji-web-gateway-config"]["data"]["web-gateway.json"]
+    )
+    assert browser["authMode"] == "local_password"
+    assert gateway["mode"] == "local_password"
+    assert gateway["password_credential_file"] == "/run/wuji/web/password.json"
+    assert gateway["session_db_file"] == "/var/lib/wuji/web/sessions.sqlite3"
+    assert gateway["session_ttl_seconds"] == 28_800
+    assert gateway["secure_cookie"] is False
+    assert "local_access_token_file" not in gateway
+    deployment = _by_kind(manifests)["Deployment"]
+    pod = deployment["spec"]["template"]["spec"]
+    gateway_container = next(
+        item for item in pod["containers"] if item["name"] == "gateway"
+    )
+    assert any(
+        mount["mountPath"] == "/var/lib/wuji/web"
+        for mount in gateway_container["volumeMounts"]
+    )
+    assert any(
+        volume["name"] == "web-session-state"
+        and volume["persistentVolumeClaim"]["claimName"] == "wuji-web-session-state"
+        for volume in pod["volumes"]
+    )
+    assert pod["securityContext"]["fsGroup"] == 10000
+    assert pod["securityContext"]["fsGroupChangePolicy"] == "OnRootMismatch"
+    assert gateway_container["securityContext"]["runAsUser"] == 10003
+    assert gateway_container["securityContext"]["runAsGroup"] == 10000
+    claim = _by_kind(manifests)["PersistentVolumeClaim"]
+    assert "ownerReferences" not in claim["metadata"]
+    assert claim["spec"] == {
+        "accessModes": ["ReadWriteOnce"],
+        "resources": {"requests": {"storage": "64Mi"}},
+    }

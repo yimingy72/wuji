@@ -244,7 +244,11 @@ class TaskService:
         document = task.model_dump(mode="json")
         # Optional first-use fields must not change an older client's replay
         # digest when that client never supplied them.
-        for optional in ("entry_points", "external_analysis_approved"):
+        for optional in (
+            "entry_points",
+            "external_analysis_approved",
+            "explore_concurrency",
+        ):
             if document.get(optional) is None:
                 document.pop(optional, None)
         key = self._key(idempotency_key)

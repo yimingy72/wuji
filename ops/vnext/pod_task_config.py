@@ -9,6 +9,7 @@ can be verified without the deployment-only Kubernetes client.
 
 ENTRY_KEYS = frozenset({"task_config", "receiver"})
 ENTRY_KEYS_WITH_ENDPOINT = ENTRY_KEYS | {"service_names", "supervisor_url"}
+ENTRY_KEYS_CORE = ENTRY_KEYS_WITH_ENDPOINT | {"capture_registration"}
 
 
 def task_entries(config):
@@ -26,13 +27,14 @@ def task_entries(config):
         if "task_config" not in config or "receiver" not in config:
             raise ValueError("runtime pod configuration carries no Task")
         raw = [{"task_config": config["task_config"], "receiver": config["receiver"]}]
-    if not isinstance(raw, list) or not raw or len(raw) > 64:
-        raise ValueError("a bounded non-empty Task list is required")
+    if not isinstance(raw, list) or len(raw) > 64:
+        raise ValueError("a bounded Task list is required")
     entries, seen = [], set()
     for item in raw:
         if not isinstance(item, dict) or frozenset(item) not in {
             ENTRY_KEYS,
             ENTRY_KEYS_WITH_ENDPOINT,
+            ENTRY_KEYS_CORE,
         }:
             raise ValueError("each Task entry carries exactly one config and receiver")
         values = item["task_config"]
@@ -41,8 +43,22 @@ def task_entries(config):
             raise ValueError("each Task entry needs its own Task identifier")
         if not isinstance(item["receiver"], dict):
             raise ValueError("each Task entry needs its own receiver")
-        entry_service_names(item, {"agent": "task-agent", "kali": "task-kali"})
+        names = entry_service_names(item, {"agent": "task-agent", "kali": "task-kali"})
         task_supervisor_url(item)
+        registration = item.get("capture_registration")
+        if registration is not None:
+            if (
+                set(names) != {"agent", "kali", "capture"}
+                or not isinstance(registration, dict)
+                or set(registration) != {"collector_ref", "evidence_origin", "capture_layer"}
+                or registration.get("evidence_origin") not in {"live_capture", "fixture_capture"}
+                or any(
+                    not isinstance(registration.get(key), str)
+                    or not 1 <= len(registration[key]) <= 256
+                    for key in ("collector_ref", "capture_layer")
+                )
+            ):
+                raise ValueError("core capture registration is invalid")
         seen.add(task_id)
         entries.append((task_id, values, item["receiver"]))
     return entries
@@ -69,7 +85,7 @@ def entry_service_names(entry, default):
         return dict(default)
     if (
         not isinstance(names, dict)
-        or set(names) != {"agent", "kali"}
+        or set(names) not in ({"agent", "kali"}, {"agent", "kali", "capture"})
         or any(
             not isinstance(value, str)
             or not 1 <= len(value) <= 63

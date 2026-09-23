@@ -47,6 +47,43 @@ from wuji_core.execution.dependencies import intent_current, intent_record
 from wuji_core.blackboard.result_state import mark_missing_output
 
 
+def require_runtime_terminal(tx):
+    """Core Tasks close only after the current environment's external exit.
+
+    Run settlement cannot prove that a root command left no background process.
+    This reads trusted persisted observations inside the caller's Task lock.
+    """
+    definition = strict_json_loads(tx.task["definition_json"])
+    if (
+        tx.task["activated_at"] is None
+        or definition.get("runtime_profile", {}).get("capture_policy") is None
+    ):
+        return
+    bindings = tx.connection.execute(
+        """SELECT DISTINCT execution_epoch,pod_uid
+        FROM vnext.runtime_terminal_observation WHERE tenant_id=%s
+          AND project_id=%s AND task_id=%s AND runtime_attempt=%s""",
+        (*tx.owner, tx.task["runtime_attempt"]),
+    ).fetchall()
+    if len(bindings) != 1:
+        raise DomainError("OPERATION_UNKNOWN", 409)
+    execution_epoch, pod_uid = bindings[0]
+    receiver = tx.connection.execute(
+        """SELECT pod_uid FROM vnext.scheduler_receiver WHERE tenant_id=%s
+          AND project_id=%s AND task_id=%s AND runtime_attempt=%s""",
+        (*tx.owner, tx.task["runtime_attempt"]),
+    ).fetchone()
+    if receiver is not None and receiver[0] != pod_uid:
+        raise DomainError("OPERATION_UNKNOWN", 409)
+    from wuji_core.evidence.runtime_capture import terminal_container_states
+
+    if terminal_container_states(
+        tx, runtime_attempt=tx.task["runtime_attempt"],
+        execution_epoch=execution_epoch, pod_uid=pod_uid,
+    ) is None:
+        raise DomainError("OPERATION_UNKNOWN", 409)
+
+
 @dataclass(frozen=True)
 class ControlCommandContext:
     access: AccessContext
@@ -1034,6 +1071,7 @@ class ControlService:
                     close_trigger=None,
                 )
             elif action == "close":
+                require_runtime_terminal(tx)
                 runs = _rows(
                     tx.connection.execute(
                         "SELECT * FROM vnext.agent_run WHERE tenant_id=%s AND project_id=%s AND task_id=%s ORDER BY agent_run_id",
@@ -1130,6 +1168,20 @@ class ControlService:
             return receipt
 
     def _settle(self, tx, work, run):
+        initial_state = work["state"]
+
+        def publish_terminal_transition():
+            if initial_state not in TERMINAL and work["state"] in TERMINAL:
+                tx.semantic_event(
+                    "work.settled",
+                    {
+                        "work_item_id": work["work_item_id"],
+                        "agent_run_id": run["agent_run_id"],
+                        "state": work["state"],
+                        "terminal_reason": work["terminal_reason"],
+                    },
+                )
+
         if (
             work["state"] in TERMINAL
             or run["process_state"] != "exited"
@@ -1156,6 +1208,7 @@ class ControlService:
             return
         if work["desired_state"] == "cancel" or _causes(tx, work["work_item_id"]):
             self._stop(tx, work, work["terminal_reason"] or "control_stop")
+            publish_terminal_transition()
             return
         native_process = (
             strict_json_loads(run["process_identity_json"])
@@ -1170,6 +1223,7 @@ class ControlService:
                 _update_work(
                     tx, work, state="failed", terminal_reason="process_failure"
                 )
+            publish_terminal_transition()
             return
         if can_settle_done(
             result_accepted(tx, run["agent_run_id"]),
@@ -1179,6 +1233,7 @@ class ControlService:
             if work["state"] in {"leased", "stopping"}:
                 _update_work(tx, work, state="reconciling")
             _update_work(tx, work, state="done", blocked_reason=None)
+            publish_terminal_transition()
             return
         waiting = _input(tx, work)
         if (
@@ -1211,6 +1266,7 @@ class ControlService:
                     state="failed",
                     terminal_reason="environment_stopped_before_observation",
                 )
+            publish_terminal_transition()
             return
         state = mark_missing_output(tx, run["agent_run_id"])
         source = (
@@ -1241,3 +1297,4 @@ class ControlService:
                 state="reconciling",
                 blocked_reason="result_or_boundary_pending",
             )
+        publish_terminal_transition()

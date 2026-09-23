@@ -218,6 +218,7 @@ def test_task_creation_persists_a_non_running_task_with_only_creator_access(
             assert sha256(stored[0].encode()).hexdigest() == stored[1]
             assert stored[2:] == ("pause", "ready")
             assert definition["task"]["name"] == "Created fixture task"
+            assert "explore_concurrency" not in definition["task"]
             assert definition["start_points"] == ["https://fixture.invalid:443"]
             assert definition["model_profile"] == model_profile().model_dump(mode="json")
             assert definition["runtime_profile"] == runtime_profile().model_dump(mode="json")
@@ -267,6 +268,64 @@ def test_task_creation_replays_the_same_key_and_rejects_a_different_body(
                 (OWNER[1], OWNER[2]),
             ).fetchone()
             assert created == (1,)
+
+
+def test_task_explore_concurrency_uses_the_frozen_runtime_ceiling(
+    db_environment, audit_directory
+):
+    with creation_case(db_environment, audit_directory) as case:
+        legacy = create(
+            case,
+            body=payload(explore_concurrency=1),
+            key="legacy-runtime-concurrency",
+        )
+        assert legacy.status_code == 422, legacy.text
+        assert legacy.json()["code"] == "INVALID_REFERENCE"
+
+        with db_environment.migration_connection() as connection:
+            connection.execute(
+                """UPDATE vnext.published_profile
+                SET document_json=jsonb_set(
+                  document_json::jsonb,'{task_run_limits}',
+                  '{"explore":3,"reason":1}'::jsonb
+                )::text
+                WHERE tenant_id=%s AND kind='runtime' AND ref='fixture-runtime-v1'""",
+                (OWNER[0],),
+            )
+
+        options = case.client.get(
+            f"/api/v2/projects/{OWNER[1]}/task-options",
+            headers={"Authorization": "Bearer " + case.operator},
+        )
+        assert options.status_code == 200, options.text
+        option_document = options.json()
+        assert option_document["model_profiles"][0].get("max_explore_concurrency") is None
+        assert option_document["runtime_profiles"][0]["max_explore_concurrency"] == 3
+
+        accepted = create(
+            case,
+            body=payload(explore_concurrency=2),
+            key="bounded-runtime-concurrency",
+        )
+        assert accepted.status_code == 201, accepted.text
+        with db_environment.migration_connection() as connection:
+            definition = json.loads(connection.execute(
+                "SELECT definition_json FROM vnext.task WHERE task_id=%s",
+                (accepted.json()["task_id"],),
+            ).fetchone()[0])
+        assert definition["task"]["explore_concurrency"] == 2
+        assert definition["runtime_profile"]["task_run_limits"] == {
+            "explore": 3,
+            "reason": 1,
+        }
+
+        rejected = create(
+            case,
+            body=payload(explore_concurrency=4),
+            key="excess-runtime-concurrency",
+        )
+        assert rejected.status_code == 422, rejected.text
+        assert rejected.json()["code"] == "INVALID_REFERENCE"
 
 
 def test_task_creation_requires_project_control_permission_and_auth(

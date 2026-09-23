@@ -28,6 +28,7 @@ from wuji_core.blackboard.relations import actor, resolve, batch_order
 from wuji_core.blackboard.claims import receipt
 from wuji_core.blackboard.fact_view import inputs_current
 from wuji_core.blackboard.result_state import project_submission
+from wuji_core.blackboard.work_results import project_work_result
 
 
 class ResultCommitter:
@@ -411,9 +412,27 @@ class ResultCommitter:
                         for _, p in entries
                     ]
                     if isinstance(payload, AgentPayloadV3) and payload.work_result is not None:
+                        def valid_canonical(ref):
+                            if ref_key(ref) not in delivered:
+                                return False
+                            try:
+                                resolve(tx, ref)
+                            except DomainError:
+                                return False
+                            return True
+
+                        projection = project_work_result(
+                            payload.work_result,
+                            local=local,
+                            valid_canonical=valid_canonical,
+                        )
                         tx.connection.execute(
                             "UPDATE vnext.result_submission SET work_result_json=%s WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND submission_id=%s",
-                            (json_text(payload.work_result.model_dump(mode="json")), *tx.owner, submission_id),
+                            (
+                                json_text(projection.model_dump(mode="json")),
+                                *tx.owner,
+                                submission_id,
+                            ),
                         )
             status = "rejected" if code else disposition
             final = ResultReceipt.model_validate(

@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import pytest
+from pydantic import ValidationError
+
 from support.p03 import access
 from test_task_creation import (
     OWNER,
@@ -10,7 +13,13 @@ from test_task_creation import (
     model_profile,
     runtime_profile,
 )
-from wuji_core.admission.registry import publish_task_admission
+from wuji_core.admission.registry import (
+    RuntimeProfile,
+    TaskRunLimits,
+    configuration_digest,
+    publish_task_admission,
+)
+from wuji_core.http import canonical_json_bytes
 from wuji_core.contracts.execution import TaskCommand
 from wuji_core.execution.control import ControlService
 from wuji_core.execution.control_api import ControlAPI
@@ -27,6 +36,33 @@ def admission_config() -> dict:
         "runtime": runtime.model_dump(mode="json"),
         "allowed_tool_refs": list(runtime.allowed_tool_refs),
     }
+
+
+def test_runtime_run_limits_are_bounded_without_changing_legacy_profile_bytes():
+    legacy = runtime_profile()
+    old_bytes = canonical_json_bytes(legacy.model_dump(mode="json"))
+    reparsed = RuntimeProfile.model_validate_json(old_bytes)
+
+    assert reparsed.task_run_limits is None
+    assert canonical_json_bytes(reparsed.model_dump(mode="json")) == old_bytes
+    assert configuration_digest(reparsed.model_dump(mode="json")) == (
+        configuration_digest(legacy.model_dump(mode="json"))
+    )
+
+    configured = legacy.model_copy(
+        update={"task_run_limits": TaskRunLimits(explore=4, reason=1)}
+    )
+    assert configured.model_dump(mode="json")["task_run_limits"] == {
+        "explore": 4,
+        "reason": 1,
+    }
+    for invalid in (
+        {"explore": 0, "reason": 1},
+        {"explore": 257, "reason": 1},
+        {"explore": 4, "reason": 2},
+    ):
+        with pytest.raises(ValidationError):
+            TaskRunLimits.model_validate(invalid)
 
 
 def publish(connection, task_id: str) -> None:

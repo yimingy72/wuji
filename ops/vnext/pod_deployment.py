@@ -12,10 +12,14 @@ from pathlib import Path
 
 from deployment_common import token
 from pod_task_config import entry_service_names, start_eligible_task_ids, task_entries
-from wuji_core.execution.pod_runtime import PodReceiverRegistration, VNextPodRuntime
+from wuji_core.evidence.runtime_capture import RuntimeCaptureService
+from wuji_core.execution.pod_runtime import (
+    PodCaptureRegistration, PodReceiverRegistration, VNextPodRuntime,
+)
 from wuji_core.persistence.uow import DomainError
 from wuji_task_runtime.kubernetes_client import KubernetesPodClient
-from wuji_task_runtime.models import ContainerResources, TaskRuntimeConfig
+from wuji_task_runtime.capture_client import CaptureControlClient
+from wuji_task_runtime.models import CapturePolicy, ContainerResources, TaskRuntimeConfig
 
 
 class TrustedConfigFile:
@@ -58,7 +62,7 @@ class PodEnvironment:
     def __init__(self, deployment, config):
         self.deployment, self.config = deployment, config
         self.runtimes: dict[str, VNextPodRuntime] = {}
-        self._entries: dict[str, tuple[dict, dict]] = {}
+        self._entries: dict[str, tuple[dict, dict, dict | None]] = {}
         self.connections: dict[str, object] = {}
         self.observations: dict[str, object] = {}
         self.failures: dict[str, str] = {}
@@ -75,21 +79,71 @@ class PodEnvironment:
                 )
         self.connection = self.api = None
         self._config_file = None
+        self.capture_client_config = config.get("capture_client")
 
     @staticmethod
     def _normalise(values):
         values = deepcopy(values)
         for role in ("agent", "kali"):
             values[role + "_resources"] = ContainerResources(**values[role + "_resources"])
+        if values.get("capture_resources") is not None:
+            values["capture_resources"] = ContainerResources(**values["capture_resources"])
+        if values.get("capture_policy") is not None:
+            values["capture_policy"] = CapturePolicy(**values["capture_policy"])
         return values
 
     def _add_entry(self, task_id, values, receiver, entry):
-        if values.get("namespace") != "wuji-vnext-test" or values.get("expose_pod_identity") is not True:
-            raise ValueError("isolated namespace and real Downward API identity required")
+        if values.get("expose_pod_identity") is not True:
+            raise ValueError("real Downward API identity required")
+        if (
+            values.get("template_version", "legacy-v1") == "legacy-v1"
+            and values.get("namespace") != "wuji-vnext-test"
+        ):
+            raise ValueError("legacy Tasks require the fixed isolated namespace")
         if values.get("task_id") != task_id or not isinstance(receiver, dict):
             raise ValueError("Task entry identity is invalid")
         values = self._normalise(values)
         config = TaskRuntimeConfig(**values)
+        capture_client = capture_registration = capture_ingest = collector_access = None
+        process_shutdown = None
+        if config.template_version == "core-ctf-v1":
+            client = self.capture_client_config
+            if (
+                not isinstance(client, dict)
+                or set(client) != {
+                    "ca_file", "certificate_file", "private_key_file",
+                    "collector_token_file",
+                }
+                or any(
+                    not isinstance(client[key], str) or not Path(client[key]).is_absolute()
+                    for key in client
+                )
+            ):
+                raise ValueError("core capture client configuration is invalid")
+            registration = entry.get("capture_registration")
+            if not isinstance(registration, dict):
+                raise ValueError("core capture registration is required")
+            names = entry_service_names(entry, self.service_names)
+            capture_client = CaptureControlClient(
+                f"https://{names['capture']}.{config.namespace}.svc:8445",
+                ca_file=client["ca_file"],
+                certificate_file=client["certificate_file"],
+                private_key_file=client["private_key_file"],
+                expected_binding={
+                    "task_id": str(config.task_id),
+                    "runtime_attempt": config.runtime_attempt,
+                    "execution_epoch": config.execution_epoch,
+                    "pod_uid": None,
+                },
+                maximum_chunk_bytes=config.capture_policy.part_read_chunk_bytes,
+            )
+            capture_registration = PodCaptureRegistration(**registration)
+            capture_ingest = RuntimeCaptureService(
+                self.deployment.uow, artifacts=self.deployment.artifacts
+            )
+            collector_access = self.deployment.access(client["collector_token_file"])
+            cleanup = getattr(self.deployment, "process_cleanup", None)
+            process_shutdown = getattr(cleanup, "cleanup", None)
         connection = self.deployment.connect()
         try:
             runtime = VNextPodRuntime(
@@ -99,6 +153,12 @@ class PodEnvironment:
                 control=self.deployment.control,
                 pods=self._pods,
                 receiver=PodReceiverRegistration(**receiver),
+                artifacts=self.deployment.artifacts,
+                capture_client=capture_client,
+                capture_registration=capture_registration,
+                capture_ingest_service=capture_ingest,
+                capture_collector_access=collector_access,
+                process_shutdown=process_shutdown,
             )
             runtime.__enter__()
         except BaseException:
@@ -106,7 +166,9 @@ class PodEnvironment:
             raise
         self.connections[task_id] = connection
         self.runtimes[task_id] = runtime
-        self._entries[task_id] = (values, deepcopy(receiver))
+        self._entries[task_id] = (
+            values, deepcopy(receiver), deepcopy(entry.get("capture_registration"))
+        )
         self.entry_service_names[task_id] = entry_service_names(
             entry, self.service_names
         )
@@ -119,9 +181,11 @@ class PodEnvironment:
         the existing runtime objects remain untouched on refusal.
         """
 
+        if config.get("capture_client") != getattr(self, "capture_client_config", None):
+            raise DomainError("INPUT_DIGEST_CONFLICT", 409)
         entries = task_entries(config)
         incoming = {}
-        if config.get("tasks"):
+        if "tasks" in config:
             for task_id, values, receiver in entries:
                 item = next(
                     item for item in config["tasks"]
@@ -138,10 +202,17 @@ class PodEnvironment:
             if task_id not in self.runtimes:
                 self._add_entry(task_id, values, receiver, item)
                 continue
-            old_values, old_receiver = self._entries[task_id]
+            stored = self._entries[task_id]
+            old_values, old_receiver = stored[:2]
+            old_capture = stored[2] if len(stored) == 3 else None
             current = self.runtimes[task_id].config
             new_values = self._normalise(values)
-            if old_values == new_values and old_receiver == receiver and self.entry_service_names[task_id] == entry_service_names(item, self.service_names):
+            if (
+                old_values == new_values
+                and old_receiver == receiver
+                and old_capture == item.get("capture_registration")
+                and self.entry_service_names[task_id] == entry_service_names(item, self.service_names)
+            ):
                 continue
             if (
                 new_values.get("runtime_attempt") != current.runtime_attempt + 1
@@ -247,7 +318,7 @@ class PodEnvironment:
                     # Each Task may publish its own Service names; two live Task
                     # Pods can never share one Service without cross-Task starts.
                     names = self.entry_service_names.get(task_id, self.service_names)
-                    for service_name in (names["agent"], names["kali"]):
+                    for service_name in names.values():
                         if self._endpoint_uids(runtime.config.namespace, service_name) != {observation.pod_uid}:
                             raise ValueError("Service targets do not match the observed Task Pod UID")
             except Exception as error:

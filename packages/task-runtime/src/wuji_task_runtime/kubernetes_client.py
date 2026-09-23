@@ -82,6 +82,28 @@ class KubernetesPodClient:
     def create_pod(self, namespace: str, body: dict) -> dict:
         return self._pod_dict(self._call("create-pod", self.api.create_namespaced_pod, namespace=namespace, body=body, write=True))
 
+    def patch_pod_deadline(
+        self, namespace: str, name: str, *, uid: str, resource_version: str,
+        active_deadline_seconds: int,
+    ) -> dict:
+        if type(active_deadline_seconds) is not int or active_deadline_seconds < 1:
+            raise ValueError("active deadline must be a positive integer")
+        body = [
+            {"op": "test", "path": "/metadata/uid", "value": uid},
+            {"op": "test", "path": "/metadata/resourceVersion", "value": resource_version},
+            {"op": "replace", "path": "/spec/activeDeadlineSeconds",
+             "value": active_deadline_seconds},
+        ]
+        return self._pod_dict(self._call(
+            "patch-pod-deadline",
+            self.api.patch_namespaced_pod,
+            namespace=namespace,
+            name=name,
+            body=body,
+            _content_type="application/json-patch+json",
+            write=True,
+        ))
+
     def delete_pod(self, namespace: str, name: str, *, uid: str, resource_version: str) -> bool:
         body = client.V1DeleteOptions(preconditions=client.V1Preconditions(uid=uid, resource_version=resource_version))
         result = self._call(

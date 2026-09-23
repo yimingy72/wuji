@@ -88,7 +88,7 @@ class EvidenceService:
                 record = self.artifacts.record(tx, ref, lock=True)
                 if (
                     record["state"] != "sealed"
-                    or record["provenance"] != "capture"
+                    or record["provenance"] not in {"capture", "import"}
                     or record["tool_attempt_id"] != envelope.tool_attempt_id
                     or record["environment_ref"] != attempt["environment_ref"]
                     or record["capture_layer"] != envelope.capture_layer

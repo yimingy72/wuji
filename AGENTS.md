@@ -2,7 +2,11 @@
 
 ## 2026-09-22 当前工作区入口
 
-- 用户本轮允许按需使用 `gpt-6-astra`、`reasoning_effort=low` 子代理；覆盖下方 2026-09-19 的旧模型限制。主代理继续负责架构与集成，不另建开发会话。
+- 用户2026-09-23最新指定：后续新开的子代理统一使用 `gpt-6-sol`、`reasoning_effort=high`，覆盖下方旧模型限制。已在运行的三个Sol/xhigh开发代理完成当前切片，不为换模型重跑已通过检查；主代理继续负责整体方向、集成和质量。
+
+- 用户2026-09-22最新分工：架构讨论/审查子代理使用 `gpt-6-astra`、`reasoning_effort=high`；统一总体与详细方案后，代码开发子代理使用 `gpt-5.6-sol`、`reasoning_effort=xhigh`。用户另明确指定参考平台前端实地调研使用 `gpt-6-astra/low`，此为该调研特例。覆盖下方旧模型限制。主代理负责整体方向、公共合同、集成与质量，不另建开发会话。
+
+- 下一阶段先做Core CTF核心，组织多租户扩展后置，保留现有Task归属/预算/停止及数据兼容；用户已选Kali直接root、平台权威外置、共享脚本副本修改及版本CAS发布。用户已授权本会话补齐全局方案后连续本地开发，无需再次询问开工；[Spec/Plan/实施指令](docs/stages/core-ctf/spec.md)含Task→Work→调度→上下文→结果回流合同。D-NET已选受支持HTTP(S)明文、不支持连接明确失败、原始扫描后置；Explore并发由Task配置，不固定2，运行中发现立即共享。生产切换、付费模型调用和远端发布仍需原有明确授权。应用当前为Default，不声称已切换Plan模式。
 
 - 用户已确认舍弃 Cairn/Pi 路线，唯一开发主线为 `codex/vnext-maf`；旧 `codex/github-upload` 本地分支以 `archive/cairn-retired-2026-09-22` 归档，详见[开发线与历史归档](docs/development-line.md)。
 - 本机主目录仅保留 vNext 的 detached HEAD 快照；开发前用 `git worktree list` 定位已检出 `codex/vnext-maf` 的工作树，并在该目录实施。不要在主目录快照另开开发线或移动现有工作树；其他克隆按实际检出处理。

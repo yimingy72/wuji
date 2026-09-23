@@ -1,5 +1,17 @@
 # Wuji 项目背景与有效文档索引
 
+2026-09-23协作更新：用户明确继续本阶段，并指定后续新开子代理使用GPT-6 Sol/high。原Sol/xhigh代理因额度中断，已由两名新代理接续；主代理接机制driver、集成与本地验收。历史模型/测试记录不改写，详见[本阶段Plan](stages/core-ctf/plan.md)。
+
+2026-09-23 Core CTF采集实施补核：原包选择由dumpcap候选改为固定Linux tcpdump及同一采集句柄统计，保留tshark离线解析与mitmproxy明文采集。原因是dumpcap独立-S统计不代表写文件句柄的丢包状态；具体依据/未验证项见[阶段裁定](stages/core-ctf/review.md)，当前接口与执行方向见[Spec§4](stages/core-ctf/spec.md)。这是实现选型调整，不取消HTTPS明文、不支持连接失败或Task停止要求。代码仍在活动工作树实施，未切换现有运行实例。
+
+2026-09-22 前端与开发体验追加：Astra/low已按用户要求只读浏览参考平台的任务、时间线、工作区与黑板；观察与未覆盖项见ignored研究`work/research/frontend-reference/review.md`。用户要求整体改善Wuji界面，并选普通账号密码登录、保持会话、多浏览器并存。已整合到[Core CTF Spec§10](stages/core-ctf/spec.md)、[Plan M5/F1—F4](stages/core-ctf/plan.md)和C08验收；Sol/xhigh实施登录切片，尚未部署/完整验收。参考平台账号密码不入文档或Git。
+
+2026-09-22 最新核心阶段：用户要求先做核心，组织多租户扩展后置；已选Kali直接root、平台密钥/权威日志外置与Task级停止，脚本副本修改及版本CAS发布。D-NET已选受支持HTTP(S)明文、不支持连接明确失败、原始扫描后置。用户要求补齐全局框架后实施；Astra/high已追加Task→Work→调度→MAF上下文→结果回流审查，Sol/xhigh正在开发核心切片。Explore并发由Task配置，不固定2；一个活动Reason可多轮运行；运行中发现立即共享并在其他Agent下一模型安全边界通知。成果入口：[Spec](stages/core-ctf/spec.md)、[Plan](stages/core-ctf/plan.md)、[实施指令](stages/core-ctf/implementation-instructions.md)、[验收](stages/core-ctf/acceptance.md)、[裁定](stages/core-ctf/review.md)。状态in-progress，运行验收not_run；此条替代旧draft/网络待决/固定2及双UID候选，不覆盖历史实测。
+
+2026-09-22 用户后续方向：通用 Kali 命令执行与独立流量采集优先，未授权站点自动拦截暂不作为前置；HTTPS URL、请求体和响应正文必须明文留存。Cairn 固定版本提示词/调度、MAF 原生 MCP 与 Pi 对照已核对，最新候选见[审阅稿第 11 节](vnext/agent-collaboration-audit-2026-09-22.md)。租户隔离、预算和停止控制继续保留；MCP、抓包、代理及三容器候选均尚未实施，不将旧专用 HTTP 工具或新建议当作已交付。
+
+2026-09-22 Agent 协作审阅：[源码审阅与精简候选方案](vnext/agent-collaboration-audit-2026-09-22.md)按用户确认的多人、多项目、租户隔离和并发任务需求，对照工具/流量采集、黑板共享、MAF 接入及现有验收。源码截面 `cfd3479`；本轮没有新性能、真实模型或目标测试。候选方案为 review-draft，不覆盖已批准合同，不代表通用执行工具或出口改造已实施。
+
 2026-09-22 开发线收口：用户确认舍弃 Cairn/Pi，唯一开发主线为 `codex/vnext-maf`。旧 `codex/github-upload` 本地分支及其未提交内容已归档；主目录改为 vNext 快照，继续开发进入已存在的 vNext 工作树。具体标签、恢复方法和远端/部署边界见[开发线与历史归档](development-line.md)。下方 W1/Cairn 的“当前”措辞仅适用于原记录日期，不覆盖本条决定。
 
 2026-09-22 当前 Session 改造：活动开发线 `codex/vnext-maf` 新增 `wuji.harness.problem.v2` / `wuji.session.native.v2`，替代新问题流程中“每次模型调用前完整 checkpoint”的旧要求。新路径由 MAF 独占消息和 Provider 状态，Wuji 固定原生 state、Memory、操作 fence、CAS/恢复许可；原始结果与 knowledge handoff 独立。旧 v1 会话保持原 reader/writer，不自动转换；当前恢复保证限正常返回和审批等待边界。

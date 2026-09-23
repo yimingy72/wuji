@@ -24,9 +24,15 @@ class LaunchSettings(BaseModel):
     schema_version: str = "wuji.launch-deployment.v1"
     owner_config_file: str
     service_token_file: str
-    namespace: str = "wuji-vnext-test"
+    namespace: str = Field(
+        default="wuji-vnext-test",
+        pattern=r"^[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?$",
+    )
     agent_image: str = Field(pattern=r"^.+@sha256:[a-f0-9]{64}$")
     kali_image: str = Field(pattern=r"^.+@sha256:[a-f0-9]{64}$")
+    capture_image: str | None = Field(
+        default=None, pattern=r"^.+@sha256:[a-f0-9]{64}$"
+    )
     runtime_origin: str
     gate_url: str
     evidence_ref: str = Field(min_length=1, max_length=256)
@@ -34,6 +40,11 @@ class LaunchSettings(BaseModel):
     kali_auth_dir: str = "/run/wuji/task-kali-auth"
     deployment_auth_dir: str = "/run/wuji/deployment-signing"
     gates_auth_dir: str = "/run/wuji/gates-credentials"
+    capture_ca_cert_file: str = "/run/wuji/capture-ca/ca.crt"
+    capture_ca_key_file: str = "/run/wuji/capture-ca/ca.key"
+    capture_runtime_client_cert_file: str = "/run/wuji/capture-runtime-client/tls.crt"
+    capture_runtime_client_key_file: str = "/run/wuji/capture-runtime-client/tls.key"
+    capture_runtime_collector_token_file: str = "/run/wuji/capture-runtime-client/collector.token"
     signing_key_file: str = "/run/wuji/deployment-signing/signing.key"
     gateway_url: str | None = None
     gateway_management_key_file: str | None = None
@@ -59,11 +70,23 @@ def build_launch_worker():
 
     path = os.environ.get("WUJI_LAUNCH_CONFIG", "/config/launch.json")
     settings = LaunchSettings.model_validate(strict_json_loads(read_file(path)))
-    if settings.schema_version != "wuji.launch-deployment.v1" or settings.namespace != "wuji-vnext-test":
+    if settings.schema_version != "wuji.launch-deployment.v1":
         raise ValueError("an isolated launch deployment is required")
     owner = strict_json_loads(read_file(settings.owner_config_file))
     if not isinstance(owner, dict) or len(owner.get("owner", [])) != 3:
         raise ValueError("a published owner template is required")
+    if owner.get("template_version") == "core-ctf-v1":
+        if owner.get("namespace") != settings.namespace or settings.capture_image is None:
+            raise ValueError("core CTF launch must bind its explicit namespace and capture image")
+        for field in (
+            "capture_ca_cert_file", "capture_ca_key_file",
+            "capture_runtime_client_cert_file", "capture_runtime_client_key_file",
+            "capture_runtime_collector_token_file",
+        ):
+            if not Path(getattr(settings, field)).is_absolute():
+                raise ValueError("core capture credentials require absolute paths")
+    elif settings.namespace != "wuji-vnext-test":
+        raise ValueError("the legacy launch namespace is fixed")
     verifier = TokenVerifier(public_key_pem=read_file(owner["public_key_file"]),
                              issuer=owner["identity"]["issuer"], audience=owner["identity"]["audience"])
     access = AccessContext(verifier.verify(token(settings.service_token_file)), "launch-worker")

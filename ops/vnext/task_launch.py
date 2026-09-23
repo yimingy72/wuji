@@ -79,7 +79,7 @@ EVALUATION_MODES = ("mechanism_synthetic", "real_model")
 # Reason reads already stored material and proposes work; Report renders.
 ROLE_TARGET_KINDS = {
     "reason": frozenset(),
-    "explore": frozenset({"http_target"}),
+    "explore": frozenset({"http_target", "process", "workspace_bundle"}),
     "report": frozenset(),
 }
 WORKSPACE_KINDS = frozenset({"workspace_read"})
@@ -106,7 +106,7 @@ GRANT_CATALOG = {
 SERVICE_NAMES = {"agent": "task-agent", "kali": "task-kali"}
 
 
-def task_service_names(task_id):
+def task_service_names(task_id, *, template_version="legacy-v1"):
     """Per-Task Service names; one Service per live Task Pod.
 
     Two Tasks that share the fixed names would deliver one Task's Assignment to
@@ -119,7 +119,21 @@ def task_service_names(task_id):
     prefix = "".join(character for character in task_id.lower() if character.isalnum())[:12]
     if not prefix:
         raise DomainError("INVALID_REFERENCE", 422)
-    return {"agent": "task-agent-" + prefix, "kali": "task-kali-" + prefix}
+    names = {"agent": "task-agent-" + prefix, "kali": "task-kali-" + prefix}
+    if template_version == "core-ctf-v1":
+        names["capture"] = "task-capture-" + prefix
+    elif template_version != "legacy-v1":
+        raise DomainError("INVALID_REFERENCE", 422)
+    return names
+
+
+def immutable_image_digest(image):
+    match = re.fullmatch(r".+@sha256:([a-f0-9]{64})", image or "")
+    if match is None:
+        raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+    return match.group(1)
+
+
 def configured_evaluation_mode(config):
     """The one trusted source of this deployment's evaluation mode."""
 
@@ -188,12 +202,17 @@ def published_tool_routes(config, definition):
     """Frozen built-in adapter route for every tool this Task may receive."""
 
     allowed = set(definition["runtime_profile"]["allowed_tool_refs"])
+    kinds_by_ref = published_tool_kinds(config)
+    if allowed - set(kinds_by_ref):
+        raise DomainError("CAPABILITY_UNAVAILABLE", 503)
     routes = {}
     for tool in deployment_tools(config):
         ref = tool.get("ref") if isinstance(tool, dict) else None
         if ref not in allowed:
             continue
         kinds = tool.get("allowed_target_kinds")
+        if kinds in (["process"], ["workspace_bundle"]):
+            continue
         revision = tool.get("revision")
         executor_ref = tool.get("executor_ref")
         if (
@@ -209,7 +228,11 @@ def published_tool_routes(config, definition):
             "executor_ref": executor_ref,
             "kind": kinds[0],
         }
-    if set(routes) != allowed:
+    expected = {
+        ref for ref in allowed
+        if list(kinds_by_ref[ref]) in (["workspace_read"], ["http_target"])
+    }
+    if set(routes) != expected:
         raise DomainError("CAPABILITY_UNAVAILABLE", 503)
     return routes
 
@@ -276,6 +299,31 @@ ROLE_DUTIES = {
 }
 
 
+def task_explore_concurrency(definition):
+    """Return the Task's frozen Explore limit without widening a legacy profile."""
+
+    task = definition.get("task")
+    runtime = definition.get("runtime_profile")
+    if not isinstance(task, dict) or not isinstance(runtime, dict):
+        raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+    requested = task.get("explore_concurrency")
+    role_limits = runtime.get("task_run_limits")
+    published = role_limits.get("explore") if isinstance(role_limits, dict) else None
+    if requested is None:
+        if published is None:
+            return None
+        requested = published
+    if (
+        type(requested) is not int
+        or not 1 <= requested <= 256
+        or type(published) is not int
+        or not 1 <= published <= 256
+        or requested > published
+    ):
+        raise DomainError("INVALID_REFERENCE", 422)
+    return requested
+
+
 def task_context_block(definition, kind):
     """The bounded Task context a role has to be able to read.
 
@@ -305,6 +353,9 @@ def task_context_block(definition, kind):
             + " | evidence: " + ", ".join(map(str, criterion["evidence_requirements"]))
             + " | allowed methods: " + ", ".join(map(str, criterion["allowed_methods"]))
             + " | responsible: " + str(criterion["responsible_party"])
+            + " | required: "
+            + (str(criterion["required"]).lower()
+               if isinstance(criterion.get("required"), bool) else "not published")
         )
     scope = task.get("authorization_scope") or []
     lines.append(
@@ -317,13 +368,30 @@ def task_context_block(definition, kind):
     lines.append("authorization expires: " + str(task["authorization_expires_at"]))
     budget = task["budget"]
     lines.append("amount budget: " + str(budget["amount"]) + " " + str(budget["currency"]))
+    hard_limits = [
+        "work items " + str(limits["max_work_items"]),
+        "reason runs " + str(limits["max_reason_runs"]),
+        "model requests " + str(limits["max_model_requests"]),
+        "tool calls " + str(limits["max_tool_calls"]),
+        "work attempts " + str(limits["max_attempts_per_work"]),
+        "elapsed seconds " + str(limits["max_elapsed_seconds"]),
+        "single output bytes " + str(limits["max_single_output_bytes"]),
+        "total output bytes " + str(limits["max_total_output_bytes"]),
+        "repair attempts " + str(limits["repair_attempts"]),
+    ]
+    for label, field in (
+        ("pending operations", "max_pending_operations"),
+        ("inflight tools per run", "max_inflight_tools"),
+        ("inflight model requests per run", "max_inflight_model_requests"),
+    ):
+        if field in runtime:
+            hard_limits.append(label + " " + str(runtime[field]))
+    lines.append("hard limits: " + ", ".join(hard_limits))
+    explore_concurrency = task_explore_concurrency(definition)
     lines.append(
-        "hard limits: work items " + str(limits["max_work_items"])
-        + ", reason runs " + str(limits["max_reason_runs"])
-        + ", model requests " + str(limits["max_model_requests"])
-        + ", tool calls " + str(limits["max_tool_calls"])
-        + ", work attempts " + str(limits["max_attempts_per_work"])
-        + ", elapsed seconds " + str(limits["max_elapsed_seconds"])
+        "Task Explore concurrency: "
+        + (str(explore_concurrency) if explore_concurrency is not None else
+           "not published by this legacy RuntimeProfile")
     )
     lines.append(
         "start points: " + ", ".join(map(str, definition.get("start_points") or []))
@@ -617,6 +685,14 @@ def published_session_profiles(config, definition):
         kind: role_tool_refs(config, definition, kind)
         for kind in deployment_profiles(config)
     }
+    core_ctf = config.get("template_version") == "core-ctf-v1"
+    if core_ctf and (
+        set(config.get("function_limits", ())) != {"reason", "explore"}
+        or not isinstance(config.get("execution_environment"), dict)
+        or runtime.get("process_limits") is None
+        or runtime.get("capture_policy") is None
+    ):
+        raise DomainError("CAPABILITY_UNAVAILABLE", 503)
     # A published boundary carries the complete native message list plus its
     # operation frontier, so one Session object must at least cover the largest
     # single artifact the admission profile already allows a Run to produce.
@@ -647,16 +723,49 @@ def published_session_profiles(config, definition):
     published = {}
     for kind, profile in deployment_profiles(config).items():
         if config.get("problem_core_enabled") and kind in {"reason", "explore"}:
-            function_limits = {
-                "session_state_per_work": 16 if kind == "explore" else 0,
-                "knowledge_read_per_work": 8,
-                "environment_action_per_work": limits["max_tool_calls"] if kind == "explore" else 0,
-                "total_per_work": 24,
-                "total_per_task": min(24, limits["max_model_requests"]),
-            }
+            function_limits = (
+                dict(config["function_limits"][kind])
+                if core_ctf
+                else {
+                    "session_state_per_work": 16 if kind == "explore" else 0,
+                    "knowledge_read_per_work": 8,
+                    "environment_action_per_work": (
+                        limits["max_tool_calls"] if kind == "explore" else 0
+                    ),
+                    "total_per_work": 24,
+                    "total_per_task": min(24, limits["max_model_requests"]),
+                }
+            )
             environment = [
                 tool for tool in config["tools"] if tool["ref"] in role_refs[kind]
             ]
+            knowledge_names = (
+                None
+                if core_ctf and kind == "explore"
+                else (
+                    "knowledge_list",
+                    "knowledge_read",
+                    *( ("knowledge_refresh",) if kind == "explore" else () ),
+                )
+            )
+            capability_manifest = build_capability_manifest(
+                environment_tools=environment,
+                include_todo=kind == "explore",
+                include_memory=kind == "explore",
+                include_knowledge=True,
+                knowledge_names=knowledge_names,
+                session_limit=function_limits["session_state_per_work"],
+                knowledge_limit=function_limits["knowledge_read_per_work"],
+                environment_limit=function_limits["environment_action_per_work"],
+            )
+            native_mcp = core_ctf and (
+                any(item["name"] == "board_publish" for item in capability_manifest)
+                or any(
+                    tool.get("allowed_target_kinds")
+                    in (["process"], ["workspace_bundle"])
+                    for tool in environment
+                )
+            )
             body = {
                 "ref": f"harness.{kind}.problem.candidate",
                 "revision": "1",
@@ -675,31 +784,27 @@ def published_session_profiles(config, definition):
                     "skills": False, "shell": False, "web_search": False,
                     "background_agents": False, "outer_loop": False,
                     "auto_approval": False, "compaction": True,
-                    "restoration": True, "mcp": False,
+                    "restoration": True, "mcp": native_mcp,
                     "native_approval": True,
                     "versioned_memory": kind == "explore",
                 },
                 "context_policy": {
                     "policy_revision": "1", "initial_brief_bytes": 16384,
                     "index_limit": 64, "default_read_bytes": 8192,
-                    "max_read_bytes": 16384, "max_delivered_bytes": 32768,
-                    "max_refreshes": 2, "renderer_version": "wuji-http-renderer.v2",
+                    "max_read_bytes": 16384,
+                    "max_delivered_bytes": (
+                        16384 * function_limits["knowledge_read_per_work"]
+                        if core_ctf else 32768
+                    ),
+                    "max_refreshes": (
+                        function_limits["knowledge_read_per_work"]
+                        if core_ctf and kind == "explore" else 0
+                        if core_ctf else 2
+                    ),
+                    "renderer_version": "wuji-http-renderer.v2",
                     "redaction_policy_ref": "wuji-redaction.v1",
                 },
-                "capability_manifest": build_capability_manifest(
-                    environment_tools=environment,
-                    include_todo=kind == "explore",
-                    include_memory=kind == "explore",
-                    include_knowledge=True,
-                    knowledge_names=(
-                        None
-                        if kind == "explore"
-                        else ("knowledge_list", "knowledge_read")
-                    ),
-                    session_limit=function_limits["session_state_per_work"],
-                    knowledge_limit=function_limits["knowledge_read_per_work"],
-                    environment_limit=function_limits["environment_action_per_work"],
-                ),
+                "capability_manifest": capability_manifest,
                 "planning_policy": {
                     "policy_revision": "1", "reason_proposal_limit": 3,
                     "explore_proposal_limit": 2, "coalesce_milliseconds": 500,
@@ -714,6 +819,11 @@ def published_session_profiles(config, definition):
                 "tool_choice_policy": "auto",
                 "completion_mode": "review_then_close",
             }
+            if core_ctf:
+                body.update(
+                    context_contract="wuji.worker-context.v4",
+                    execution_environment=config["execution_environment"],
+                )
             candidate = ProblemHarnessProfileBody.model_validate(body).model_dump(
                 mode="json", exclude_none=True
             )
@@ -764,6 +874,7 @@ def finalise_definition(connection, *, owner, config):
     definition = strict_json_loads(raw)
     if sha256(raw.encode()).hexdigest() != digest:
         raise DomainError("INPUT_DIGEST_CONFLICT", 409)
+    task_explore_concurrency(definition)
     mode = configured_evaluation_mode(config)
     stored_mode = definition.get("evaluation_mode")
     stored_profiles = definition.get("worker_profiles")
@@ -1172,7 +1283,7 @@ def activate(config, *, task_id, version, reason, base_url, signing_key_file=Non
     return {"request": payload, "response": response.json()}
 
 
-def merge_gates_executors(executors, expected, *, base_url=None):
+def merge_gates_executors(executors, expected, *, base_url=None, transport=None):
     """Merge this Task's executor entry into the deployment's published list.
 
     One entry exists per Task. Deployment-level binding fields (for example the
@@ -1201,6 +1312,17 @@ def merge_gates_executors(executors, expected, *, base_url=None):
         if entry_binding.get("task_id") != expected["task_id"]:
             continue
         replaced = True
+        if transport is not None:
+            desired = {
+                "binding": dict(merged_binding),
+                "base_url": base_url,
+                **transport,
+            }
+            if canonical_json_bytes(entry) != canonical_json_bytes(desired):
+                entry.clear()
+                entry.update(desired)
+                changed = True
+            continue
         if any(entry_binding.get(key) != value for key, value in merged_binding.items()):
             changed = True
             entry_binding.update(merged_binding)
@@ -1209,18 +1331,46 @@ def merge_gates_executors(executors, expected, *, base_url=None):
             entry["base_url"] = base_url
     if not replaced:
         template = executors[0]
-        executors.append({
-            "binding": dict(merged_binding),
-            "base_url": base_url if base_url is not None else template.get("base_url"),
-            "gate_token_file": template.get("gate_token_file"),
-            "collector_token_file": template.get("collector_token_file"),
-        })
+        executors.append(
+            {
+                "binding": dict(merged_binding),
+                "base_url": base_url,
+                **transport,
+            }
+            if transport is not None
+            else {
+                "binding": dict(merged_binding),
+                "base_url": base_url if base_url is not None else template.get("base_url"),
+                "gate_token_file": template.get("gate_token_file"),
+                "collector_token_file": template.get("collector_token_file"),
+            }
+        )
         changed = True
     return "replaced" if changed else "unchanged"
 
 
+def gate_executor_entry(binding, *, base_url):
+    identity = {
+        "tenant_id": binding["tenant_id"],
+        "project_id": binding["project_id"],
+        "task_id": binding["task_id"],
+        "executor_ref": binding["executor_ref"],
+        "receiver_id": binding["receiver_id"],
+        "environment_ref": binding["environment_ref"],
+        "collector_subject": binding["collector_subject"],
+        "gate_subject": binding["gate_subject"],
+    }
+    transport = {"collector_token_file": "/run/wuji/credentials/collector.token"}
+    if binding.get("template_version") == "core-ctf-v1":
+        identity["tls_certificate_sha256"] = binding["kali_tls_sha256"]
+        transport["action"] = dict(binding["executor_action"])
+    else:
+        transport["gate_token_file"] = "/run/wuji/credentials/service.token"
+    return {"binding": identity, "base_url": base_url, **transport}
+
+
 def runtime_config_document(binding):
-    return {
+    document = {
         "tenant_id": binding["tenant_id"],
         "task_id": binding["task_id"],
         "namespace": binding["namespace"],
@@ -1237,17 +1387,36 @@ def runtime_config_document(binding):
         "expose_pod_identity": binding["expose_pod_identity"],
         "kali_receipts_enabled": binding["kali_receipts_enabled"],
     }
+    if binding.get("template_version") == "core-ctf-v1":
+        document.update({
+            "template_version": "core-ctf-v1",
+            "capture_image": binding["capture_image"],
+            "capture_resources": binding["capture_resources"],
+            "capture_policy": binding["capture_policy"],
+        })
+    return document
 
 
 def attempt_config(binding):
-    from wuji_task_runtime.models import ContainerResources, TaskRuntimeConfig
+    from wuji_task_runtime.models import (
+        CapturePolicy,
+        ContainerResources,
+        TaskRuntimeConfig,
+    )
 
     values = runtime_config_document(binding)
+    resources = {
+        "agent_resources": ContainerResources(**values["agent_resources"]),
+        "kali_resources": ContainerResources(**values["kali_resources"]),
+    }
+    if values.get("capture_resources") is not None:
+        resources["capture_resources"] = ContainerResources(**values["capture_resources"])
+    if values.get("capture_policy") is not None:
+        resources["capture_policy"] = CapturePolicy(**values["capture_policy"])
     return TaskRuntimeConfig(
         **{
             **values,
-            "agent_resources": ContainerResources(**values["agent_resources"]),
-            "kali_resources": ContainerResources(**values["kali_resources"]),
+            **resources,
         }
     )
 
@@ -1310,16 +1479,21 @@ def requirement_material(config, *, agent_auth_dir, kali_auth_dir, deployment_au
     kali = Path(kali_auth_dir)
     deployment = Path(deployment_auth_dir)
     gates = Path(gates_auth_dir)
-    return {
+    core_ctf = config.get("template_version") == "core-ctf-v1"
+    material = {
         "ca.crt": _read_bytes(config["ca_file"]),
         "identity.pub": _read_bytes(config["public_key_file"]),
         "receiver.token": _read_bytes(deployment / "receiver.token", 16384),
-        "collector.token": _read_bytes(gates / "collector.token", 16384),
         "task-agent.crt": _read_bytes(agent / "tls.crt", 65536),
         "task-agent.key": _read_bytes(agent / "tls.key", 65536),
-        "task-kali.crt": _read_bytes(kali / "tls.crt", 65536),
-        "task-kali.key": _read_bytes(kali / "tls.key", 65536),
     }
+    if not core_ctf:
+        material.update({
+            "collector.token": _read_bytes(gates / "collector.token", 16384),
+            "task-kali.crt": _read_bytes(kali / "tls.crt", 65536),
+            "task-kali.key": _read_bytes(kali / "tls.key", 65536),
+        })
+    return material
 
 
 def task_objects(binding, material, *, namespace):
@@ -1344,28 +1518,51 @@ def task_objects(binding, material, *, namespace):
         "private_key_file": "/run/wuji/credentials/tls.key",
         "port": 8443,
     }
-    kali = {
-        "schema_version": "wuji.kali.deployment.v1",
-        "binding": {
-            "tenant_id": binding["tenant_id"],
-            "project_id": binding["project_id"],
-            "task_id": binding["task_id"],
-            "executor_ref": binding["executor_ref"],
-            "receiver_id": binding["receiver_id"],
-            "environment_ref": binding["environment_ref"],
-            "collector_subject": "collector",
-            "gate_subject": "gate",
-        },
-        "tool_routes": binding["tool_routes"],
-        "platform_url": binding["gate_url"],
-        "ca_file": "/config/ca.crt",
-        "collector_token_file": "/run/wuji/credentials/collector.token",
-        "public_key_file": "/config/identity.pub",
-        "issuer": binding["issuer"],
-        "audience": binding["audience"],
-        "root": "/workspace",
-        "receipt_root": "/var/lib/wuji/kali-receipts",
+    core_ctf = binding.get("template_version") == "core-ctf-v1"
+    executor_binding = {
+        "tenant_id": binding["tenant_id"],
+        "project_id": binding["project_id"],
+        "task_id": binding["task_id"],
+        "executor_ref": binding["executor_ref"],
+        "receiver_id": binding["receiver_id"],
+        "environment_ref": binding["environment_ref"],
+        "collector_subject": binding["collector_subject"],
+        "gate_subject": binding["gate_subject"],
     }
+    if core_ctf:
+        executor_binding["tls_certificate_sha256"] = binding["kali_tls_sha256"]
+    kali = (
+        {
+            "schema_version": "wuji.kali.deployment.v2",
+            "binding": executor_binding,
+            "public_key_file": "/config/identity.pub",
+            "issuer": binding["executor_action"]["issuer"],
+            "audience": binding["executor_action"]["audience"],
+            "root": "/workspace",
+            "receipt_root": "/var/lib/wuji/kali-receipts",
+            "action_subject": binding["executor_action"]["subject"],
+            "process_limits": {
+                "max_active_execs": binding["process_limits"]["max_active_execs"],
+                "max_output_bytes": binding["executor_action"]["max_output_bytes"],
+                "stop_grace_seconds": binding["process_limits"]["stop_grace_seconds"],
+            },
+            "image_digest": binding["executor_action"]["image_digest"],
+        }
+        if core_ctf
+        else {
+            "schema_version": "wuji.kali.deployment.v1",
+            "binding": executor_binding,
+            "tool_routes": binding["tool_routes"],
+            "platform_url": binding["gate_url"],
+            "ca_file": "/config/ca.crt",
+            "collector_token_file": "/run/wuji/credentials/collector.token",
+            "public_key_file": "/config/identity.pub",
+            "issuer": binding["issuer"],
+            "audience": binding["audience"],
+            "root": "/workspace",
+            "receipt_root": "/var/lib/wuji/kali-receipts",
+        }
+    )
     objects = [
         {"apiVersion": "v1", "kind": "ConfigMap",
          "metadata": {"name": names["agent_config"], **metadata},
@@ -1386,16 +1583,31 @@ def task_objects(binding, material, *, namespace):
         {"apiVersion": "v1", "kind": "Secret",
          "metadata": {"name": names["kali_auth"], **metadata},
          "type": "Opaque",
-         "data": {"collector.token": _base64(material["collector.token"]),
+         "data": {**({} if core_ctf else {
+                      "collector.token": _base64(material["collector.token"])}),
                   "tls.crt": _base64(material["task-kali.crt"]),
                   "tls.key": _base64(material["task-kali.key"])}},
     ]
+    if core_ctf:
+        objects.append(
+            {"apiVersion": "v1", "kind": "Secret",
+             "metadata": {"name": names["capture_auth"], **metadata},
+             "type": "Opaque", "data": {
+                 "tls.crt": _base64(material["capture-tls.crt"]),
+                 "tls.key": _base64(material["capture-tls.key"]),
+                 "client-ca.crt": _base64(material["capture-client-ca.crt"]),
+                 "client.sha256": _base64(material["capture-client.sha256"]),
+             }}
+        )
     objects += [
         {"apiVersion": "v1", "kind": "PersistentVolumeClaim",
          "metadata": {"name": names[key], **metadata},
          "spec": {"accessModes": ["ReadWriteOnce"],
                   "resources": {"requests": {"storage": "1Gi"}}}}
-        for key in ("agent_state", "kali_work", "kali_receipts")
+        for key in (
+            "agent_state", "kali_work", "kali_receipts",
+            *(("capture_evidence",) if core_ctf else ()),
+        )
     ]
     return config, objects
 
@@ -1404,6 +1616,179 @@ def _base64(value):
     import base64
 
     return base64.b64encode(value).decode()
+
+
+def core_attempt_tls_material(
+    binding, *, ca_certificate, ca_private_key, runtime_client_certificate
+):
+    """Issue exact per-attempt server leaves; no signing key enters the Task Pod."""
+
+    from cryptography import x509
+    from cryptography.exceptions import InvalidSignature
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
+
+    try:
+        ca = x509.load_pem_x509_certificate(ca_certificate)
+        key = serialization.load_pem_private_key(ca_private_key, password=None)
+        client = x509.load_pem_x509_certificate(runtime_client_certificate)
+        if (
+            not ca.extensions.get_extension_for_class(x509.BasicConstraints).value.ca
+            or key.public_key().public_bytes(
+                serialization.Encoding.DER,
+                serialization.PublicFormat.SubjectPublicKeyInfo,
+            )
+            != ca.public_key().public_bytes(
+                serialization.Encoding.DER,
+                serialization.PublicFormat.SubjectPublicKeyInfo,
+            )
+        ):
+            raise ValueError("capture CA key mismatch")
+        client.verify_directly_issued_by(ca)
+        usages = client.extensions.get_extension_for_class(x509.ExtendedKeyUsage).value
+        if ExtendedKeyUsageOID.CLIENT_AUTH not in usages:
+            raise ValueError("runtime capture identity is not client-auth only")
+    except (InvalidSignature, TypeError, ValueError, x509.ExtensionNotFound) as error:
+        raise DomainError("CAPABILITY_UNAVAILABLE", 503) from error
+
+    names = task_service_names(
+        binding["task_id"], template_version="core-ctf-v1"
+    )
+    now = datetime.now(timezone.utc)
+
+    def issue(service):
+        dns_names = [
+            service,
+            f"{service}.{binding['namespace']}",
+            f"{service}.{binding['namespace']}.svc",
+            f"{service}.{binding['namespace']}.svc.cluster.local",
+        ]
+        leaf_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        leaf = (
+            x509.CertificateBuilder()
+            .subject_name(x509.Name([
+                x509.NameAttribute(NameOID.COMMON_NAME, dns_names[2])
+            ]))
+            .issuer_name(ca.subject)
+            .public_key(leaf_key.public_key())
+            .serial_number(x509.random_serial_number())
+            .not_valid_before(now - timedelta(minutes=1))
+            .not_valid_after(now + timedelta(days=7))
+            .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
+            .add_extension(
+                x509.SubjectAlternativeName([
+                    x509.DNSName(name) for name in dns_names
+                ]),
+                critical=False,
+            )
+            .add_extension(
+                x509.ExtendedKeyUsage([ExtendedKeyUsageOID.SERVER_AUTH]),
+                critical=False,
+            )
+            .add_extension(
+                x509.KeyUsage(
+                    digital_signature=True, key_encipherment=True,
+                    content_commitment=False, data_encipherment=False,
+                    key_agreement=False, key_cert_sign=False, crl_sign=False,
+                    encipher_only=None, decipher_only=None,
+                ),
+                critical=True,
+            )
+            .sign(key, hashes.SHA256())
+        )
+        return (
+            leaf.public_bytes(serialization.Encoding.PEM),
+            leaf_key.private_bytes(
+                serialization.Encoding.PEM,
+                serialization.PrivateFormat.PKCS8,
+                serialization.NoEncryption(),
+            ),
+        )
+
+    kali_cert, kali_key = issue(names["kali"])
+    capture_cert, capture_key = issue(names["capture"])
+    material = {
+        "task-kali.crt": kali_cert,
+        "task-kali.key": kali_key,
+        "capture-tls.crt": capture_cert,
+        "capture-tls.key": capture_key,
+        "capture-client-ca.crt": ca_certificate,
+        "capture-client.sha256": client.fingerprint(hashes.SHA256()).hex().encode(),
+    }
+    return material, validate_core_attempt_tls_material(
+        binding,
+        material,
+        ca_certificate=ca_certificate,
+        runtime_client_certificate=runtime_client_certificate,
+    )
+
+
+def validate_core_attempt_tls_material(
+    binding, material, *, ca_certificate, runtime_client_certificate
+):
+    from cryptography import x509
+    from cryptography.exceptions import InvalidSignature
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.x509.oid import ExtendedKeyUsageOID
+
+    try:
+        ca = x509.load_pem_x509_certificate(ca_certificate)
+        client = x509.load_pem_x509_certificate(runtime_client_certificate)
+        client.verify_directly_issued_by(ca)
+        client_usages = client.extensions.get_extension_for_class(
+            x509.ExtendedKeyUsage
+        ).value
+        if ExtendedKeyUsageOID.CLIENT_AUTH not in client_usages:
+            raise ValueError("runtime capture identity is not client-auth")
+        expected_client = client.fingerprint(hashes.SHA256()).hex()
+        if material["capture-client-ca.crt"] != ca_certificate:
+            raise ValueError("capture client CA changed")
+        if material["capture-client.sha256"].decode().strip() != expected_client:
+            raise ValueError("capture runtime client changed")
+        names = task_service_names(
+            binding["task_id"], template_version="core-ctf-v1"
+        )
+        fingerprints = {"capture_client_sha256": expected_client}
+        for role, service, certificate_key, private_key in (
+            ("kali", names["kali"], "task-kali.crt", "task-kali.key"),
+            ("capture", names["capture"], "capture-tls.crt", "capture-tls.key"),
+        ):
+            certificate = x509.load_pem_x509_certificate(material[certificate_key])
+            key = serialization.load_pem_private_key(material[private_key], password=None)
+            certificate.verify_directly_issued_by(ca)
+            if certificate.public_key().public_bytes(
+                serialization.Encoding.DER,
+                serialization.PublicFormat.SubjectPublicKeyInfo,
+            ) != key.public_key().public_bytes(
+                serialization.Encoding.DER,
+                serialization.PublicFormat.SubjectPublicKeyInfo,
+            ):
+                raise ValueError("server certificate key mismatch")
+            sans = set(
+                certificate.extensions.get_extension_for_class(
+                    x509.SubjectAlternativeName
+                ).value.get_values_for_type(x509.DNSName)
+            )
+            expected = {
+                service,
+                f"{service}.{binding['namespace']}",
+                f"{service}.{binding['namespace']}.svc",
+                f"{service}.{binding['namespace']}.svc.cluster.local",
+            }
+            usages = certificate.extensions.get_extension_for_class(
+                x509.ExtendedKeyUsage
+            ).value
+            if sans != expected or ExtendedKeyUsageOID.SERVER_AUTH not in usages:
+                raise ValueError("server certificate binding mismatch")
+            fingerprints[role + "_tls_sha256"] = certificate.fingerprint(
+                hashes.SHA256()
+            ).hex()
+        return fingerprints
+    except (
+        InvalidSignature, KeyError, TypeError, ValueError, x509.ExtensionNotFound
+    ) as error:
+        raise DomainError("INPUT_DIGEST_CONFLICT", 409) from error
 
 
 def initializer_job(binding, *, namespace, image, materials=()):
@@ -1656,12 +2041,21 @@ def wire(binding, *, config, namespace, agent_auth_dir, kali_auth_dir, deploymen
         if status.failed or time.monotonic() > deadline:
             raise DomainError("WORKSPACE_INIT_FAILED", 500)
         time.sleep(2)
-    names = task_service_names(binding["task_id"])
-    for role, port in (("agent", 8443), ("kali", 8444)):
+    template_version = binding.get("template_version", "legacy-v1")
+    names = task_service_names(
+        binding["task_id"], template_version=template_version
+    )
+    roles = [("agent", 8443), ("kali", 8444)]
+    if template_version == "core-ctf-v1":
+        roles.append(("capture", 8445))
+    for role, port in roles:
         # The fixed pair stays for single-Task deployments; the per-Task pair is
         # what lets two live Task Pods each answer their own deliveries.
-        actions[SERVICE_NAMES[role]] = replace_service_selector(
-            core, SERVICE_NAMES[role], task_config.identity_labels, namespace=namespace)
+        if role in SERVICE_NAMES:
+            actions[SERVICE_NAMES[role]] = replace_service_selector(
+                core, SERVICE_NAMES[role], task_config.identity_labels,
+                namespace=namespace,
+            )
         actions[names[role]] = ensure_task_service(
             core, names[role], task_config.identity_labels, port, namespace=namespace)
 
@@ -1701,13 +2095,20 @@ def wire(binding, *, config, namespace, agent_auth_dir, kali_auth_dir, deploymen
         # Several Tasks may share one runtime host: this attempt replaces only
         # its own entry, and every other Task keeps its published binding.
         merged, replaced = [], False
-        names = task_service_names(binding["task_id"])
+        names = task_service_names(
+            binding["task_id"],
+            template_version=binding.get("template_version", "legacy-v1"),
+        )
         published = {
             "task_config": expected_task,
             "receiver": expected_receiver,
             "service_names": names,
             "supervisor_url": f"https://{names['agent']}.{namespace}.svc:8443",
         }
+        if binding.get("template_version") == "core-ctf-v1":
+            published["capture_registration"] = dict(
+                binding["capture_registration"]
+            )
         for entry in tasks:
             if not isinstance(entry, dict) or not isinstance(entry.get("task_config"), dict):
                 raise DomainError("INVALID_REFERENCE", 422)
@@ -1749,15 +2150,23 @@ def wire(binding, *, config, namespace, agent_auth_dir, kali_auth_dir, deploymen
         executors = document.get("executors")
         if not isinstance(executors, list):
             raise DomainError("INVALID_REFERENCE", 422)
-        names = task_service_names(binding["task_id"])
-        return merge_gates_executors(executors, {
-            "tenant_id": binding["tenant_id"],
-            "project_id": binding["project_id"],
-            "task_id": binding["task_id"],
-            "executor_ref": binding["executor_ref"],
-            "receiver_id": binding["receiver_id"],
-            "environment_ref": binding["environment_ref"],
-        }, base_url=f"https://{names['kali']}.{namespace}.svc:8444")
+        names = task_service_names(
+            binding["task_id"],
+            template_version=binding.get("template_version", "legacy-v1"),
+        )
+        entry = gate_executor_entry(
+            binding,
+            base_url=f"https://{names['kali']}.{namespace}.svc:8444",
+        )
+        return merge_gates_executors(
+            executors,
+            entry["binding"],
+            base_url=entry["base_url"],
+            transport={
+                key: value for key, value in entry.items()
+                if key not in {"binding", "base_url"}
+            },
+        )
 
     actions["gates-config"] = patch_deployment_json(core, "gates-config", gates_update,
                                                     namespace=namespace)
@@ -1782,7 +2191,8 @@ def wire(binding, *, config, namespace, agent_auth_dir, kali_auth_dir, deploymen
         if pod is not None:
             statuses = pod.status.container_statuses or []
             ready = [item for item in statuses if item.ready is True]
-            if pod.status.phase == "Running" and len(ready) == 2:
+            expected_ready = 3 if task_config.template_version == "core-ctf-v1" else 2
+            if pod.status.phase == "Running" and len(ready) == expected_ready:
                 break
             if pod.status.phase in {"Failed", "Succeeded"}:
                 raise DomainError("POD_TERMINATED", 409)
@@ -1917,9 +2327,11 @@ def publish_capabilities(connection, *, config, binding):
 def binding_document(config, task_id, *, agent_image, kali_image, prepared, extra):
     owner = (config["owner"][0], config["owner"][1], task_id)
     definition = prepared["definition"]
+    runtime = definition["runtime_profile"]
     attempt = prepared["runtime_attempt"]
     receiver_id, environment_ref = receiver_ids(task_id, attempt)
-    return {
+    worker_profiles = published_session_profiles(config, definition)
+    document = {
         "schema_version": SCHEMA_VERSION,
         "tenant_id": owner[0],
         "project_id": owner[1],
@@ -1936,13 +2348,15 @@ def binding_document(config, task_id, *, agent_image, kali_image, prepared, extr
         "receiver_id": receiver_id,
         "environment_ref": environment_ref,
         "executor_ref": extra["executor_ref"],
+        "collector_subject": config["executor"]["collector_subject"],
+        "gate_subject": "gate",
         "agent_image": agent_image,
         "kali_image": kali_image,
         "profiles": {
             profile["ref"]: [kind]
-            for kind, profile in published_session_profiles(config, definition).items()
+            for kind, profile in worker_profiles.items()
         },
-        "worker_profiles": published_session_profiles(config, definition),
+        "worker_profiles": worker_profiles,
         "tool_routes": published_tool_routes(config, definition),
         "issuer": config["identity"]["issuer"],
         "audience": config["identity"]["audience"],
@@ -1965,6 +2379,48 @@ def binding_document(config, task_id, *, agent_image, kali_image, prepared, extr
         ),
         "evidence_ref": extra["evidence_ref"],
     }
+    if config.get("template_version") == "core-ctf-v1":
+        action = config.get("executor_action")
+        environment = config.get("execution_environment")
+        capture_image = extra.get("capture_image")
+        kali_digest = immutable_image_digest(kali_image)
+        immutable_image_digest(capture_image)
+        if (
+            config.get("namespace") != extra["namespace"]
+            or not isinstance(action, dict)
+            or set(action) != {
+                "signing_key_ref", "kid", "subject", "audience",
+                "max_output_bytes",
+            }
+            or not isinstance(environment, dict)
+            or environment.get("image_digest") != kali_digest
+            or runtime.get("process_limits") is None
+            or runtime.get("capture_policy") is None
+            or action["max_output_bytes"] != runtime["limits"]["max_single_output_bytes"]
+            or action["subject"] == config["executor"]["collector_subject"]
+            or action["audience"] == config["identity"]["audience"]
+            or config.get("capture_registration") != {
+                "collector_ref": config["executor"]["collector_subject"],
+                "evidence_origin": "live_capture",
+                "capture_layer": "task_netns_http_pcap",
+            }
+        ):
+            raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+        document.update({
+            "template_version": "core-ctf-v1",
+            "capture_image": capture_image,
+            "capture_resources": config["capture_resources"],
+            "capture_policy": runtime["capture_policy"],
+            "process_limits": runtime["process_limits"],
+            "capture_registration": dict(config["capture_registration"]),
+            "executor_action": {
+                **action,
+                "issuer": config["identity"]["issuer"],
+                "image_digest": kali_digest,
+            },
+            "gate_subject": action["subject"],
+        })
+    return document
 
 
 def refreshed_binding(connection, binding):

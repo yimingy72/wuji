@@ -11,24 +11,30 @@ import argparse
 import json
 import re
 from typing import Any
+from urllib.parse import urlsplit
 
 NAMESPACE = "wuji-vnext-test"
 SERVICE_NAME = "wuji-web"
 IMAGE_REFERENCE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]*@sha256:[0-9a-f]{64}$")
 LOCAL_ACCESS_URL = "http://127.0.0.1:44180/"
+SESSION_CLAIM_NAME = "wuji-web-session-state"
+DNS_LABEL = re.compile(r"^[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?$")
 
 
-def _metadata(name: str, *, labels: dict[str, str] | None = None) -> dict[str, Any]:
+def _local_http_origin(value: str) -> bool:
+    parsed = urlsplit(value)
+    return parsed.scheme == "http" and parsed.hostname in {
+        "localhost", "127.0.0.1", "::1"
+    }
+
+
+def _metadata(
+    name: str, *, namespace: str, labels: dict[str, str]
+) -> dict[str, Any]:
     return {
         "name": name,
-        "namespace": NAMESPACE,
-        "labels": {
-            "app.kubernetes.io/part-of": "wuji-vnext",
-            "app.kubernetes.io/component": "web",
-            "app.kubernetes.io/managed-by": "wuji-vnext-deployment",
-            "wuji.dev/environment": "local-test",
-            **(labels or {}),
-        },
+        "namespace": namespace,
+        "labels": dict(labels),
     }
 
 
@@ -43,6 +49,7 @@ def _runtime_config(
     auth_entrypoint: str,
     *,
     mode: str = "",
+    auth_mode: str = "",
     tenant_id: str = "",
     project_id: str = "",
     task_id: str = "",
@@ -54,6 +61,7 @@ def _runtime_config(
     if mode:
         document.update(
             mode=mode,
+            authMode=auth_mode,
             tenantId=tenant_id,
             projectId=project_id,
             taskId=task_id,
@@ -71,6 +79,7 @@ def build_web_manifests(
     gateway_api_base_url: str = "",
     gateway_secret_name: str = "wuji-web-gateway-credentials",
     gateway_ca_config_map: str = "api-config",
+    gateway_auth_mode: str = "local_single_operator",
     identity_issuer: str = "",
     identity_audience: str = "",
     tenant_id: str = "",
@@ -78,11 +87,36 @@ def build_web_manifests(
     task_id: str = "",
     display_name: str = "Local test operator",
     allowed_origins: tuple[str, ...] = (),
+    namespace: str = NAMESPACE,
+    service_name: str = SERVICE_NAME,
+    session_claim_name: str = SESSION_CLAIM_NAME,
+    architecture: str = "arm64",
+    service_port: int = 44180,
+    deployment_labels: dict[str, str] | None = None,
 ) -> list[dict[str, Any]]:
     """Return the ConfigMaps, Deployment and Service for the isolated web."""
 
     image = _validate_image(image)
-    labels = {"app.kubernetes.io/name": SERVICE_NAME, "wuji.dev/service": "web"}
+    if (
+        not DNS_LABEL.fullmatch(namespace)
+        or not DNS_LABEL.fullmatch(service_name)
+        or not DNS_LABEL.fullmatch(session_claim_name)
+        or architecture not in {"amd64", "arm64"}
+        or type(service_port) is not int
+        or not 1024 <= service_port <= 65535
+    ):
+        raise ValueError("web deployment identity is invalid")
+    labels = {
+        "app.kubernetes.io/part-of": "wuji-vnext",
+        "app.kubernetes.io/component": "web",
+        "app.kubernetes.io/managed-by": "wuji-vnext-deployment",
+        "wuji.dev/environment": "local-test",
+        **(deployment_labels or {}),
+        "app.kubernetes.io/name": service_name,
+        "wuji.dev/service": "web",
+    }
+    web_config_name = service_name + "-config"
+    gateway_config_name = service_name + "-gateway-config"
     gateway_enabled = gateway_image is not None
     if gateway_enabled:
         gateway_image = _validate_image(gateway_image)
@@ -99,22 +133,33 @@ def build_web_manifests(
             raise ValueError("gateway deployment requires fixed identity and project bindings")
         if api_base_url or auth_entrypoint != "/auth/login":
             raise ValueError("read-only gateway uses same-origin API and fixed login path")
+        if gateway_auth_mode not in {"local_single_operator", "local_password"}:
+            raise ValueError("gateway authentication mode is unsupported")
+        password_local_http = all(_local_http_origin(origin) for origin in allowed_origins)
+        password_https = all(origin.startswith("https://") for origin in allowed_origins)
+        if gateway_auth_mode == "local_password" and not (
+            password_local_http or password_https
+        ):
+            raise ValueError(
+                "local password gateway requires HTTPS or explicit loopback HTTP origins"
+            )
 
     web_config = {
             "apiVersion": "v1",
             "kind": "ConfigMap",
-            "metadata": _metadata("wuji-web-config", labels=labels),
+            "metadata": _metadata(web_config_name, namespace=namespace, labels=labels),
             "data": {"config.js": _runtime_config(
                 api_base_url,
                 auth_entrypoint,
                 mode="vnext-readonly" if gateway_enabled else "",
+                auth_mode=gateway_auth_mode if gateway_enabled else "",
                 tenant_id=tenant_id,
                 project_id=project_id,
                 task_id=task_id,
             )},
         }
     pod_spec = {
-        "nodeSelector": {"kubernetes.io/arch": "arm64"},
+        "nodeSelector": {"kubernetes.io/arch": architecture},
         "automountServiceAccountToken": False,
         "securityContext": {
             "runAsNonRoot": True,
@@ -147,7 +192,7 @@ def build_web_manifests(
         ],
         "volumes": [
             {"name": "tmp", "emptyDir": {"sizeLimit": "64Mi"}},
-            {"name": "web-config", "configMap": {"name": "wuji-web-config", "items": [{"key": "config.js", "path": "config.js"}]}},
+            {"name": "web-config", "configMap": {"name": web_config_name, "items": [{"key": "config.js", "path": "config.js"}]}},
         ],
     }
     documents = [web_config]
@@ -156,12 +201,11 @@ def build_web_manifests(
         pod_spec["containers"][0]["securityContext"]["runAsGroup"] = 10000
         gateway_settings = {
             "schema_version": "wuji.web-gateway.v2",
-            "mode": "local_single_operator",
+            "mode": gateway_auth_mode,
             "api_base_url": gateway_api_base_url,
             "ca_file": "/config/api-ca.crt",
             "signing_key_file": "/run/wuji/web/identity.key",
             "session_key_file": "/run/wuji/web/session.key",
-            "local_access_token_file": "/run/wuji/web/access.token",
             "issuer": identity_issuer,
             "audience": identity_audience,
             "subject": "operator",
@@ -171,14 +215,21 @@ def build_web_manifests(
             "roles": ["operator"],
             "display_name": display_name,
             "allowed_origins": list(allowed_origins),
-            "session_ttl_seconds": 1800,
+            "session_ttl_seconds": 28_800 if gateway_auth_mode == "local_password" else 1800,
             "max_response_bytes": 2_097_152,
-            "secure_cookie": False,
+            "secure_cookie": all(origin.startswith("https://") for origin in allowed_origins),
         }
+        if gateway_auth_mode == "local_password":
+            gateway_settings.update(
+                password_credential_file="/run/wuji/web/password.json",
+                session_db_file="/var/lib/wuji/web/sessions.sqlite3",
+            )
+        else:
+            gateway_settings["local_access_token_file"] = "/run/wuji/web/access.token"
         documents.append({
             "apiVersion": "v1",
             "kind": "ConfigMap",
-            "metadata": _metadata("wuji-web-gateway-config", labels=labels),
+            "metadata": _metadata(gateway_config_name, namespace=namespace, labels=labels),
             "data": {"web-gateway.json": json.dumps(gateway_settings, ensure_ascii=False, separators=(",", ":"))},
         })
         pod_spec["containers"].append({
@@ -220,16 +271,38 @@ def build_web_manifests(
             ],
         })
         pod_spec["volumes"].extend([
-            {"name": "gateway-config", "configMap": {"name": "wuji-web-gateway-config"}},
+            {"name": "gateway-config", "configMap": {"name": gateway_config_name}},
             {"name": "api-ca", "configMap": {"name": gateway_ca_config_map, "items": [{"key": "ca.crt", "path": "ca.crt"}]}},
             {"name": "gateway-credentials", "secret": {"secretName": gateway_secret_name, "defaultMode": 288}},
         ])
+        if gateway_auth_mode == "local_password":
+            pod_spec["securityContext"]["fsGroupChangePolicy"] = "OnRootMismatch"
+            pod_spec["containers"][-1]["volumeMounts"].append(
+                {"name": "web-session-state", "mountPath": "/var/lib/wuji/web"}
+            )
+            pod_spec["volumes"].append(
+                {
+                    "name": "web-session-state",
+                    "persistentVolumeClaim": {"claimName": session_claim_name},
+                }
+            )
+            documents.append({
+                "apiVersion": "v1",
+                "kind": "PersistentVolumeClaim",
+                "metadata": _metadata(
+                    session_claim_name, namespace=namespace, labels=labels
+                ),
+                "spec": {
+                    "accessModes": ["ReadWriteOnce"],
+                    "resources": {"requests": {"storage": "64Mi"}},
+                },
+            })
 
     documents.extend([
         {
             "apiVersion": "apps/v1",
             "kind": "Deployment",
-            "metadata": _metadata(SERVICE_NAME, labels=labels),
+            "metadata": _metadata(service_name, namespace=namespace, labels=labels),
             "spec": {
                 "replicas": 1,
                 "strategy": {"type": "Recreate"},
@@ -244,13 +317,15 @@ def build_web_manifests(
             "apiVersion": "v1",
             "kind": "Service",
             "metadata": {
-                **_metadata(SERVICE_NAME, labels=labels),
-                "annotations": {"wuji.dev/local-access": LOCAL_ACCESS_URL},
+                **_metadata(service_name, namespace=namespace, labels=labels),
+                "annotations": {
+                    "wuji.dev/local-access": f"http://127.0.0.1:{service_port}/"
+                },
             },
             "spec": {
                 "type": "LoadBalancer",
                 "selector": labels,
-                "ports": [{"name": "http", "port": 44180, "targetPort": "http"}],
+                "ports": [{"name": "http", "port": service_port, "targetPort": "http"}],
             },
         },
     ])
@@ -268,6 +343,11 @@ def main() -> None:
     parser.add_argument("--auth-entrypoint", default="")
     parser.add_argument("--gateway-image")
     parser.add_argument("--gateway-api-base-url", default="")
+    parser.add_argument(
+        "--gateway-auth-mode",
+        choices=("local_password", "local_single_operator"),
+        default="local_password",
+    )
     parser.add_argument("--identity-issuer", default="")
     parser.add_argument("--identity-audience", default="")
     parser.add_argument("--tenant-id", default="")
@@ -275,6 +355,11 @@ def main() -> None:
     parser.add_argument("--task-id", default="")
     parser.add_argument("--display-name", default="Local test operator")
     parser.add_argument("--allowed-origin", action="append", default=[])
+    parser.add_argument("--namespace", default=NAMESPACE)
+    parser.add_argument("--service-name", default=SERVICE_NAME)
+    parser.add_argument("--session-claim-name", default=SESSION_CLAIM_NAME)
+    parser.add_argument("--architecture", choices=("amd64", "arm64"), default="arm64")
+    parser.add_argument("--service-port", type=int, default=44180)
     args = parser.parse_args()
     print(render_json_documents(build_web_manifests(
         args.image,
@@ -282,6 +367,7 @@ def main() -> None:
         auth_entrypoint=args.auth_entrypoint,
         gateway_image=args.gateway_image,
         gateway_api_base_url=args.gateway_api_base_url,
+        gateway_auth_mode=args.gateway_auth_mode,
         identity_issuer=args.identity_issuer,
         identity_audience=args.identity_audience,
         tenant_id=args.tenant_id,
@@ -289,6 +375,11 @@ def main() -> None:
         task_id=args.task_id,
         display_name=args.display_name,
         allowed_origins=tuple(args.allowed_origin),
+        namespace=args.namespace,
+        service_name=args.service_name,
+        session_claim_name=args.session_claim_name,
+        architecture=args.architecture,
+        service_port=args.service_port,
     )), end="")
 
 

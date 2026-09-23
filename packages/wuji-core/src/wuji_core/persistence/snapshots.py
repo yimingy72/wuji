@@ -9,6 +9,7 @@ from psycopg import sql
 
 from wuji_core.contracts.knowledge import KnowledgeRef
 from wuji_core.contracts.execution import GoalCriterionRef
+from wuji_core.blackboard.work_results import read_work_result
 from wuji_core.http.json_boundary import strict_json_loads
 from wuji_core.persistence.uow import DomainError, json_text, row
 
@@ -26,10 +27,11 @@ class SnapshotQuery:
     entity_types: tuple[str, ...] = ("artifact", "observation", "claim", "intent")
     max_references: int = 1000
     required_refs: tuple[tuple[str, str, str], ...] = ()
+    capture_http_limit: int | None = None
 
     def __post_init__(self):
         if (
-            not self.entity_types
+            (not self.entity_types and not self.required_refs)
             or len(self.entity_types) > 4
             or len(set(self.entity_types)) != len(self.entity_types)
             or any(
@@ -40,6 +42,13 @@ class SnapshotQuery:
             or not 1 <= self.max_references <= 5000
             or len(self.required_refs) > 64
             or len(set(self.required_refs)) != len(self.required_refs)
+            or (
+                self.capture_http_limit is not None
+                and (
+                    isinstance(self.capture_http_limit, bool)
+                    or not 1 <= self.capture_http_limit <= 64
+                )
+            )
             or any(
                 not isinstance(item, tuple)
                 or len(item) != 3
@@ -55,11 +64,36 @@ class SnapshotQuery:
             raise ValueError("invalid bounded snapshot query")
 
     def payload(self):
-        return {
+        value = {
             "entity_types": sorted(self.entity_types),
             "max_references": self.max_references,
             "required_refs": [list(item) for item in sorted(self.required_refs)],
         }
+        if self.capture_http_limit is not None:
+            value["capture_http_limit"] = self.capture_http_limit
+        return value
+
+    @classmethod
+    def from_payload(cls, value):
+        if not isinstance(value, dict) or set(value) not in (
+            {"entity_types", "max_references", "required_refs"},
+            {
+                "entity_types",
+                "max_references",
+                "required_refs",
+                "capture_http_limit",
+            },
+        ):
+            raise ValueError("invalid bounded snapshot query")
+        try:
+            return cls(
+                entity_types=tuple(value["entity_types"]),
+                max_references=value["max_references"],
+                required_refs=tuple(tuple(item) for item in value["required_refs"]),
+                capture_http_limit=value.get("capture_http_limit"),
+            )
+        except (KeyError, TypeError, ValueError) as error:
+            raise ValueError("invalid bounded snapshot query") from error
 
 
 @dataclass(frozen=True)
@@ -68,6 +102,7 @@ class SnapshotManifest:
     tenant_id: str
     project_id: str
     task_id: str
+    query: SnapshotQuery
     query_digest: str
     access_digest: str
     created_at: datetime
@@ -156,14 +191,28 @@ class SnapshotRepository:
     def _create(self, tx, query):
         task_id = tx.owner[2]
         refs = {}
-        initial = tx.connection.execute(
-            """SELECT DISTINCT ON(r.entity_type,r.entity_id) r.entity_type,r.entity_id,r.revision,r.access_level
-            FROM vnext.entity_revision_registry r WHERE r.entity_type=ANY(%s)
-            AND (r.entity_type<>'artifact' OR EXISTS(SELECT 1 FROM vnext.artifact a WHERE
-            (a.tenant_id,a.project_id,a.task_id,a.entity_id,a.revision)=(r.tenant_id,r.project_id,r.task_id,r.entity_id,r.revision) AND a.state='sealed'))
-            ORDER BY r.entity_type,r.entity_id,r.revision DESC LIMIT %s""",
-            (list(query.entity_types), query.max_references + 1),
-        ).fetchall()
+        bounded_capture = query.capture_http_limit is not None
+        initial_types = (
+            [kind for kind in query.entity_types if kind in {"claim", "intent"}]
+            if bounded_capture
+            else list(query.entity_types)
+        )
+        initial = (
+            []
+            if not initial_types
+            else tx.connection.execute(
+                """SELECT DISTINCT ON(r.entity_type,r.entity_id)
+                r.entity_type,r.entity_id,r.revision,r.access_level
+                FROM vnext.entity_revision_registry r WHERE r.entity_type=ANY(%s)
+                AND (r.entity_type<>'artifact' OR EXISTS(
+                  SELECT 1 FROM vnext.artifact a WHERE
+                  (a.tenant_id,a.project_id,a.task_id,a.entity_id,a.revision)=
+                  (r.tenant_id,r.project_id,r.task_id,r.entity_id,r.revision)
+                  AND a.state='sealed'))
+                ORDER BY r.entity_type,r.entity_id,r.revision DESC LIMIT %s""",
+                (initial_types, query.max_references + 1),
+            ).fetchall()
+        )
         for kind, entity_id, revision, level in initial:
             refs[(kind, entity_id, str(revision))] = level
         for kind, entity_id, revision in query.required_refs:
@@ -183,6 +232,18 @@ class SnapshotRepository:
             if item is None:
                 raise DomainError("required_snapshot_input_unavailable", 503)
             refs[(kind, entity_id, revision)] = item["access_level"]
+        if bounded_capture and "observation" in query.entity_types:
+            # Existing tool/input evidence and newly settled command logs are
+            # stable board material. Runtime packet inventory is selected
+            # separately below and may never evict these references.
+            for entity_id, revision, level in tx.connection.execute(
+                """SELECT entity_id,revision,access_level FROM vnext.observation
+                WHERE tenant_id=%s AND project_id=%s AND task_id=%s
+                  AND capture_session_id IS NULL
+                ORDER BY observed_at,entity_id LIMIT %s""",
+                (*tx.owner, query.max_references + 1),
+            ).fetchall():
+                refs[("observation", entity_id, str(revision))] = level
         # Close over fixed dependency references, not over newer revisions.
         todo = list(refs)
         relations = []
@@ -245,24 +306,166 @@ class SnapshotRepository:
                 if (t, i, v) not in refs:
                     refs[(t, i, v)] = level
                     todo.append((t, i, v))
+        workspace_assets_included = 0
+        workspace_assets_omitted = 0
+        if bounded_capture:
+            workspace_asset_total = tx.connection.execute(
+                """SELECT count(DISTINCT asset_id) FROM vnext.publication
+                WHERE tenant_id=%s AND project_id=%s AND task_id=%s
+                  AND kind='workspace_bundle.v1'""",
+                tx.owner,
+            ).fetchone()[0]
+            workspace = tx.connection.execute(
+                """SELECT DISTINCT ON(p.asset_id) p.manifest_artifact_id,
+                p.manifest_artifact_revision,a.access_level
+                FROM vnext.publication p JOIN vnext.artifact a ON
+                  (a.tenant_id,a.project_id,a.task_id,a.entity_id,a.revision)=
+                  (p.tenant_id,p.project_id,p.task_id,p.manifest_artifact_id,
+                   p.manifest_artifact_revision)
+                WHERE p.tenant_id=%s AND p.project_id=%s AND p.task_id=%s
+                  AND p.kind='workspace_bundle.v1' AND a.state='sealed'
+                ORDER BY p.asset_id,p.asset_revision DESC LIMIT 64""",
+                tx.owner,
+            ).fetchall()
+            for entity_id, revision, level in workspace:
+                key = ("artifact", entity_id, str(revision))
+                if key in refs:
+                    workspace_assets_included += 1
+                elif len(refs) < query.max_references:
+                    refs[key] = level
+                    workspace_assets_included += 1
+            workspace_assets_omitted = max(
+                0, int(workspace_asset_total) - workspace_assets_included
+            )
+
+            candidates = tx.connection.execute(
+                """SELECT o.entity_id,o.revision,o.access_level
+                FROM vnext.capture_item i JOIN vnext.observation o ON
+                  (o.tenant_id,o.project_id,o.task_id,o.entity_id,o.revision)=
+                  (i.tenant_id,i.project_id,i.task_id,i.observation_id,
+                   i.observation_revision)
+                WHERE i.tenant_id=%s AND i.project_id=%s AND i.task_id=%s
+                  AND i.kind='http_exchange'
+                ORDER BY i.observed_at DESC,i.capture_session_id DESC,i.item_seq DESC
+                LIMIT %s""",
+                (*tx.owner, query.capture_http_limit),
+            ).fetchall()
+            for entity_id, revision, level in candidates:
+                observation = ("observation", entity_id, str(revision))
+                attached = [
+                    ("artifact", artifact_id, str(artifact_revision), artifact_level)
+                    for artifact_id, artifact_revision, artifact_level in tx.connection.execute(
+                        """SELECT o.artifact_id,o.artifact_revision,o.access_level
+                        FROM vnext.observation_artifact o JOIN vnext.artifact a ON
+                          (a.tenant_id,a.project_id,a.task_id,a.entity_id,a.revision)=
+                          (o.tenant_id,o.project_id,o.task_id,o.artifact_id,
+                           o.artifact_revision)
+                        WHERE o.tenant_id=%s AND o.project_id=%s AND o.task_id=%s
+                          AND o.observation_id=%s AND o.observation_revision=%s
+                          AND a.state='sealed' ORDER BY o.ordinal""",
+                        (*tx.owner, entity_id, revision),
+                    ).fetchall()
+                ]
+                additions = [
+                    item for item in [(observation[0], observation[1], observation[2], level), *attached]
+                    if item[:3] not in refs
+                ]
+                if len(refs) + len(additions) > query.max_references:
+                    continue
+                for kind, identifier, item_revision, item_level in additions:
+                    refs[(kind, identifier, item_revision)] = item_level
+        required_only = not query.entity_types
+        task_state = {
+            "board_revision": str(tx.task["board_revision"]),
+            "execution_epoch": str(tx.task["execution_epoch"]),
+            "execution_allowed": tx.task["execution_allowed"],
+        }
+        if not required_only:
+            task_state["notification_event_seq"] = str(
+                tx.connection.execute(
+                    "SELECT COALESCE(max(event_seq),0) FROM vnext.outbox "
+                    "WHERE tenant_id=%s AND project_id=%s AND task_id=%s",
+                    tx.owner,
+                ).fetchone()[0]
+            )
         states = {
-            "task": {
-                "board_revision": str(tx.task["board_revision"]),
-                "execution_epoch": str(tx.task["execution_epoch"]),
-                "execution_allowed": tx.task["execution_allowed"],
-            },
+            "context_projection_version": "wuji.snapshot-work-context.v1",
+            "task": task_state,
             "work_items": {},
             "agent_runs": {},
+            "tool_attempts": [],
+            "tool_attempts_omitted": False,
         }
-        works = tx.connection.execute(
-            "SELECT work_item_id,state,revision FROM vnext.work_item ORDER BY work_item_id LIMIT %s",
-            (query.max_references + 1,),
+        if bounded_capture:
+            latest_capture = tx.connection.execute(
+                """SELECT capture_session_id,item_seq FROM vnext.capture_item
+                WHERE tenant_id=%s AND project_id=%s AND task_id=%s
+                  AND kind='http_exchange'
+                ORDER BY observed_at DESC,capture_session_id DESC,item_seq DESC LIMIT 1""",
+                tx.owner,
+            ).fetchone()
+            observation_ids = [
+                entity_id for kind, entity_id, _revision in refs
+                if kind == "observation"
+            ]
+            included_http = (
+                0
+                if not observation_ids
+                else tx.connection.execute(
+                    """SELECT count(*) FROM vnext.capture_item WHERE tenant_id=%s
+                    AND project_id=%s AND task_id=%s AND kind='http_exchange'
+                    AND observation_id=ANY(%s)""",
+                    (*tx.owner, observation_ids),
+                ).fetchone()[0]
+            )
+            total_http = tx.connection.execute(
+                """SELECT count(*) FROM vnext.capture_item WHERE tenant_id=%s
+                AND project_id=%s AND task_id=%s AND kind='http_exchange'""",
+                tx.owner,
+            ).fetchone()[0]
+            states["capture_inventory"] = {
+                "capture_session_id": None if latest_capture is None else latest_capture[0],
+                "latest_item_seq": None if latest_capture is None else str(latest_capture[1]),
+                "included_http_observations": int(included_http),
+                "omitted_http_count": max(0, int(total_http) - int(included_http)),
+                "raw_inventory_omitted": True,
+            }
+            states["workspace_assets"] = {
+                "included_latest_manifests": workspace_assets_included,
+                "omitted_latest_manifests": workspace_assets_omitted,
+            }
+        works = [] if required_only else tx.connection.execute(
+            """SELECT w.work_item_id,w.state,w.revision,w.kind,w.terminal_reason,
+            i.entity_id,i.revision,i.question,i.expected_output,i.planning_json,
+            i.access_level
+            FROM vnext.work_item w LEFT JOIN vnext.intent_revision i ON
+              (i.tenant_id,i.project_id,i.task_id,i.entity_id,i.revision)=
+              (w.tenant_id,w.project_id,w.task_id,w.intent_id,w.intent_revision)
+            WHERE w.tenant_id=%s AND w.project_id=%s AND w.task_id=%s
+            ORDER BY w.work_item_id LIMIT %s""",
+            (*tx.owner, query.max_references + 1),
         ).fetchall()
-        runs = tx.connection.execute(
-            "SELECT agent_run_id,process_state,model_mode,run_epoch FROM vnext.agent_run ORDER BY agent_run_id LIMIT %s",
-            (query.max_references + 1,),
+        runs = [] if required_only else tx.connection.execute(
+            """SELECT a.agent_run_id,a.work_item_id,a.process_state,a.model_mode,
+            a.run_epoch,a.started_at,a.result_state,r.work_result_json,r.access_level
+            FROM vnext.agent_run a LEFT JOIN vnext.result_submission r ON
+              (r.tenant_id,r.project_id,r.task_id,r.submission_id)=
+              (a.tenant_id,a.project_id,a.task_id,a.result_submission_id)
+            WHERE a.tenant_id=%s AND a.project_id=%s AND a.task_id=%s
+            ORDER BY a.agent_run_id LIMIT %s""",
+            (*tx.owner, query.max_references + 1),
         ).fetchall()
-        dependencies = [
+        attempts = [] if required_only else tx.connection.execute(
+            """SELECT c.work_item_id,a.agent_run_id,a.tool_attempt_id,
+            c.tool_definition_version,a.status,c.access_level
+            FROM vnext.tool_attempt a JOIN vnext.tool_call c
+              USING(tenant_id,project_id,task_id,tool_call_id)
+            WHERE a.tenant_id=%s AND a.project_id=%s AND a.task_id=%s
+              AND c.work_item_id IS NOT NULL
+            ORDER BY a.started_at DESC NULLS LAST,a.tool_attempt_id DESC LIMIT 65""",
+            tx.owner,
+        ).fetchall()
+        dependencies = [] if required_only else [
             {
                 "work_item_id": w,
                 "predecessor_id": p,
@@ -282,24 +485,98 @@ class SnapshotRepository:
         ]
         if max(len(works), len(runs), len(dependencies)) > query.max_references:
             raise DomainError("LIMIT_BLOCKED", 422)
-        states["work_items"] = {
-            i: {"state": s, "revision": str(v)} for i, s, v in works
-        }
-        states["agent_runs"] = {
-            i: {"process_state": s, "model_mode": m, "run_epoch": str(v)}
-            for i, s, m, v in runs
-        }
+        state_levels = []
+        for (
+            work_id,
+            state,
+            revision,
+            kind,
+            terminal_reason,
+            intent_id,
+            intent_revision,
+            question,
+            expected_output,
+            planning_json,
+            intent_level,
+        ) in works:
+            frozen = {
+                "state": state,
+                "revision": str(revision),
+                "kind": kind,
+                "terminal_reason": terminal_reason,
+                "intent": None,
+            }
+            if intent_id is not None:
+                state_levels.append(intent_level)
+                frozen["intent"] = {
+                    "ref": _ref("intent", intent_id, intent_revision).model_dump(
+                        mode="json"
+                    ),
+                    "question": question,
+                    "expected_output": expected_output,
+                    "planning": (
+                        None
+                        if planning_json is None
+                        else strict_json_loads(planning_json)
+                    ),
+                }
+            states["work_items"][work_id] = frozen
+        for (
+            run_id,
+            work_id,
+            process_state,
+            model_mode,
+            run_epoch,
+            started_at,
+            result_state,
+            work_result_json,
+            result_level,
+        ) in runs:
+            if work_result_json is not None:
+                state_levels.append(result_level)
+            states["agent_runs"][run_id] = {
+                "work_item_id": work_id,
+                "process_state": process_state,
+                "model_mode": model_mode,
+                "run_epoch": str(run_epoch),
+                "started_at": (
+                    None
+                    if started_at is None
+                    else started_at.astimezone(timezone.utc).isoformat()
+                ),
+                "result_state": result_state,
+                "work_result": (
+                    None
+                    if work_result_json is None
+                    else read_work_result(work_result_json).model_dump(mode="json")
+                ),
+            }
+        states["tool_attempts_omitted"] = len(attempts) > 64
+        states["tool_attempts"] = [
+            {
+                "work_item_id": work_id,
+                "agent_run_id": run_id,
+                "tool_attempt_id": attempt_id,
+                "tool_definition_version": tool,
+                "status": status or "unknown",
+            }
+            for work_id, run_id, attempt_id, tool, status, attempt_level in attempts[:64]
+        ]
+        state_levels.extend(
+            attempt_level for *_summary, attempt_level in attempts[:64]
+        )
         # A completion review the Reason asked for is part of the material the
         # next Reason must be able to read: its gaps are the feedback that
         # decides whether the loop continues, waits or blocks.
-        review = tx.connection.execute(
-            "SELECT payload_json FROM vnext.outbox WHERE tenant_id=%s AND project_id=%s"
-            " AND task_id=%s AND kind='completion.reviewed'"
-            " ORDER BY event_seq DESC LIMIT 1",
-            tx.owner,
-        ).fetchone()
-        if review is not None:
-            states["completion_review"] = strict_json_loads(review[0])
+        if not required_only:
+            review = tx.connection.execute(
+                "SELECT payload_json FROM vnext.outbox WHERE tenant_id=%s AND project_id=%s"
+                " AND task_id=%s AND kind='completion.reviewed'"
+                " ORDER BY event_seq DESC LIMIT 1",
+                tx.owner,
+            ).fetchone()
+            if review is not None:
+                states["completion_review"] = strict_json_loads(review[0])
         # Freeze P04 assessment policy/outcome in the same RR manifest transaction.
         from wuji_core.blackboard.fact_view import aggregate
 
@@ -328,7 +605,7 @@ class SnapshotRepository:
         query_json = json_text(query.payload())
         query_digest = hashlib.sha256(query_json.encode()).hexdigest()
         access_digest = _access_digest(tx)
-        level = max(refs.values(), default=0)
+        level = max([*refs.values(), *state_levels], default=0)
         ordered = sorted(refs, key=lambda key: (key[0], key[1], int(key[2])))
         tx.connection.execute(
             "INSERT INTO vnext.publication(tenant_id,project_id,task_id,publication_id,kind,access_level) VALUES (%s,%s,%s,%s,'snapshot',%s)",
@@ -370,6 +647,7 @@ class SnapshotRepository:
         return SnapshotManifest(
             snapshot_id,
             *tx.owner,
+            query,
             query_digest,
             access_digest,
             now,
@@ -408,6 +686,7 @@ class SnapshotRepository:
         return SnapshotManifest(
             snapshot_id,
             *tx.owner,
+            SnapshotQuery.from_payload(strict_json_loads(saved["query_json"])),
             saved["query_digest"],
             saved["access_digest"],
             saved["created_at"],

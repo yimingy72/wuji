@@ -8,6 +8,7 @@ import importlib.util
 import json
 from pathlib import Path
 import sys
+from types import SimpleNamespace
 
 import pytest
 
@@ -115,6 +116,26 @@ def test_wire_adds_one_task_without_rollout_or_dropping_existing_task():
     assert old_profile in json.loads(store.documents["runtime-config"]["data"]["profiles.json"])
 
 
+def test_first_task_executor_and_profiles_merge_into_empty_platform_config():
+    entry = task_entry("task-a")
+    runtime = {"task_ids": [], "pod_runtime": {"tasks": []}}
+    gates = {"executors": []}
+    profiles = [{
+        "ref": "harness.explore.task.a",
+        "revision": "1",
+        "body": {"lock_digest": LOCK},
+    }]
+
+    assert adapter.merge_runtime_document(runtime, entry) == "replaced"
+    assert adapter.merge_gate_document(gates, gate_entry("task-a")) == "replaced"
+    action, merged = adapter.merge_profiles([], profiles)
+
+    assert runtime["task_ids"] == ["task-a"]
+    assert runtime["pod_runtime"]["tasks"] == [entry]
+    assert gates["executors"] == [gate_entry("task-a")]
+    assert (action, merged) == ("replaced", profiles)
+
+
 def test_same_task_digest_conflict_and_secret_input_fail_closed():
     store, _ = make_store()
     with pytest.raises(adapter.LaunchAdapterError) as error:
@@ -179,3 +200,32 @@ def test_a2_launch_worker_input_contract_uses_revision_strings_and_phase_observe
     })
     assert capability["status"] == "ready"
     assert capability["external_ref"] == "op-b"
+
+
+def test_core_pod_readiness_requires_agent_kali_and_capture():
+    class Core:
+        def __init__(self, ready):
+            self.ready = ready
+
+        def read_namespaced_pod(self, _name, _namespace):
+            return SimpleNamespace(
+                metadata=SimpleNamespace(uid="pod-core"),
+                status=SimpleNamespace(
+                    phase="Running",
+                    container_statuses=[
+                        SimpleNamespace(ready=index < self.ready)
+                        for index in range(3)
+                    ],
+                ),
+            )
+
+    provisioner = object.__new__(adapter.ProductionLaunchProvisioner)
+    config = SimpleNamespace(
+        pod_name="task-core-a1", template_version="core-ctf-v1"
+    )
+    provisioner.options = {"core_api": Core(2), "namespace": "core-isolated"}
+    assert provisioner._pod_observation(config)["status"] == "pending"
+    provisioner.options["core_api"] = Core(3)
+    assert provisioner._pod_observation(config) == {
+        "status": "ready", "pod_uid": "pod-core"
+    }

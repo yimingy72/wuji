@@ -177,9 +177,11 @@ class TaskSupervisorTransport:
     single-Task deployment configures.
     """
 
-    def __init__(self, *, default=None, by_task=None, max_tasks=64):
+    def __init__(self, *, default=None, by_task=None, max_tasks=64, allow_empty=False):
         by_task = dict(by_task or {})
-        if default is None and not by_task:
+        if type(allow_empty) is not bool:
+            raise ValueError("allow_empty must be explicit")
+        if default is None and not by_task and not allow_empty:
             raise ValueError("at least one supervisor endpoint is required")
         if not 1 <= max_tasks <= 1024 or len(by_task) > max_tasks:
             raise ValueError("bounded Task endpoint list required")
@@ -193,10 +195,16 @@ class TaskSupervisorTransport:
                 raise ValueError("a real supervisor transport is required")
         self.default, self.by_task = default, by_task
         self.max_tasks = max_tasks
+        self.allow_empty = allow_empty
 
     def replace_routes(self, by_task):
         """Atomically publish a validated routing snapshot; in-flight reads retain theirs."""
-        checked = TaskSupervisorTransport(default=self.default, by_task=by_task, max_tasks=self.max_tasks)
+        checked = TaskSupervisorTransport(
+            default=self.default,
+            by_task=by_task,
+            max_tasks=self.max_tasks,
+            allow_empty=self.allow_empty,
+        )
         if not set(self.by_task) <= set(checked.by_task):
             raise ValueError("existing Task routes cannot disappear during refresh")
         self.by_task = checked.by_task

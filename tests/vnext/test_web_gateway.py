@@ -7,6 +7,7 @@ from pathlib import Path
 import sys
 
 import httpx
+import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from joserfc import jwt
@@ -137,6 +138,186 @@ def settings(tmp_path: Path):
             "secure_cookie": False,
         }
     ), public
+
+
+def password_settings(tmp_path: Path):
+    config, public = settings(tmp_path)
+    credential = tmp_path / "password.json"
+    password_script = ROOT / "scripts/vnext/set_web_password.py"
+    spec = importlib.util.spec_from_file_location("vnext_web_password", password_script)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    module.write_credential(
+        credential,
+        module.credential_document(
+            "developer", "correct horse battery staple", salt=b"s" * 16
+        ),
+    )
+    document = config.model_dump(mode="json")
+    document.update(
+        mode="local_password",
+        local_access_token_file=None,
+        password_credential_file=str(credential),
+        session_db_file=str(tmp_path / "sessions.sqlite3"),
+        session_ttl_seconds=28_800,
+        allowed_origins=["https://wuji.local"],
+        secure_cookie=True,
+    )
+    return gateway_module.GatewaySettings.model_validate(document), public
+
+
+def test_password_login_supports_independent_browser_sessions_and_logout(tmp_path):
+    config, _public = password_settings(tmp_path)
+    app = gateway_module.create_gateway(
+        config, client=FakeClient(FakeResponse(200, b"{}"))
+    )
+
+    async def run():
+        transport = httpx.ASGITransport(app=app)
+        async with (
+            httpx.AsyncClient(transport=transport, base_url="https://wuji.local") as first,
+            httpx.AsyncClient(transport=transport, base_url="https://wuji.local") as second,
+        ):
+            origin = {"Origin": "https://wuji.local"}
+            wrong_user = await first.post(
+                "/auth/login",
+                headers=origin,
+                json={"username": "unknown", "password": "correct horse battery staple"},
+            )
+            wrong_password = await first.post(
+                "/auth/login",
+                headers=origin,
+                json={"username": "developer", "password": "wrong password"},
+            )
+            first_login = await first.post(
+                "/auth/login",
+                headers=origin,
+                json={"username": "developer", "password": "correct horse battery staple"},
+            )
+            second_login = await second.post(
+                "/auth/login",
+                headers=origin,
+                json={"username": "developer", "password": "correct horse battery staple"},
+            )
+            before = await asyncio.gather(
+                first.get("/auth/session"), second.get("/auth/session")
+            )
+            logout = await first.post("/auth/logout", headers=origin)
+            after = await asyncio.gather(
+                first.get("/auth/session"), second.get("/auth/session")
+            )
+            return wrong_user, wrong_password, first_login, second_login, before, logout, after
+
+    wrong_user, wrong_password, first_login, second_login, before, logout, after = asyncio.run(run())
+    assert wrong_user.status_code == wrong_password.status_code == 401
+    assert wrong_user.json()["message"] == wrong_password.json()["message"]
+    assert first_login.status_code == second_login.status_code == 200
+    assert first_login.json()["mode"] == "local_password"
+    assert "HttpOnly" in first_login.headers["set-cookie"]
+    assert "Secure" in first_login.headers["set-cookie"]
+    assert "SameSite=strict" in first_login.headers["set-cookie"]
+    assert [response.status_code for response in before] == [200, 200]
+    assert logout.status_code == 204
+    assert [response.status_code for response in after] == [401, 200]
+
+
+def test_password_session_and_revocation_survive_gateway_rebuild(tmp_path):
+    config, _public = password_settings(tmp_path)
+
+    async def login():
+        app = gateway_module.create_gateway(
+            config, client=FakeClient(FakeResponse(200, b"{}"))
+        )
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="https://wuji.local"
+        ) as client:
+            response = await client.post(
+                "/auth/login",
+                headers={"Origin": "https://wuji.local"},
+                json={"username": "developer", "password": "correct horse battery staple"},
+            )
+            return response.headers["set-cookie"].split(";", 1)[0]
+
+    cookie = asyncio.run(login())
+
+    async def rebuild_and_logout():
+        app = gateway_module.create_gateway(
+            config, client=FakeClient(FakeResponse(200, b"{}"))
+        )
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="https://wuji.local"
+        ) as client:
+            current = await client.get("/auth/session", headers={"Cookie": cookie})
+            logout = await client.post(
+                "/auth/logout",
+                headers={"Cookie": cookie, "Origin": "https://wuji.local"},
+            )
+            return current, logout
+
+    current, logout = asyncio.run(rebuild_and_logout())
+    assert current.status_code == 200
+    assert logout.status_code == 204
+
+    async def verify_revoked():
+        app = gateway_module.create_gateway(
+            config, client=FakeClient(FakeResponse(200, b"{}"))
+        )
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="https://wuji.local"
+        ) as client:
+            return await client.get("/auth/session", headers={"Cookie": cookie})
+
+    assert asyncio.run(verify_revoked()).status_code == 401
+
+
+def test_password_mode_allows_only_loopback_http_or_secure_https(tmp_path):
+    config, _public = password_settings(tmp_path)
+    document = config.model_dump(mode="json")
+
+    local = {
+        **document,
+        "allowed_origins": ["http://127.0.0.1:44180"],
+        "secure_cookie": False,
+    }
+    assert gateway_module.GatewaySettings.model_validate(local).secure_cookie is False
+
+    with pytest.raises(ValueError, match="loopback HTTP"):
+        gateway_module.GatewaySettings.model_validate({
+            **document,
+            "allowed_origins": ["http://devbox.example:44180"],
+            "secure_cookie": False,
+        })
+    with pytest.raises(ValueError, match="loopback HTTP"):
+        gateway_module.GatewaySettings.model_validate({
+            **document,
+            "allowed_origins": ["https://wuji.local"],
+            "secure_cookie": False,
+        })
+
+
+def test_legacy_login_still_replaces_the_previous_browser_session(tmp_path):
+    config, _public = settings(tmp_path)
+    app = gateway_module.create_gateway(
+        config, client=FakeClient(FakeResponse(200, b"{}"))
+    )
+
+    async def run():
+        transport = httpx.ASGITransport(app=app)
+        async with (
+            httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1:44180") as first,
+            httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1:44180") as second,
+        ):
+            first_login = await _login(first)
+            old_cookie = first_login.headers["set-cookie"].split(";", 1)[0]
+            second_login = await _login(second)
+            old_session = await second.get("/auth/session", headers={"Cookie": old_cookie})
+            current_session = await second.get("/auth/session")
+            return first_login, second_login, old_session, current_session
+
+    first_login, second_login, old_session, current_session = asyncio.run(run())
+    assert first_login.status_code == second_login.status_code == 200
+    assert old_session.status_code == 401
+    assert current_session.status_code == 200
 
 
 def test_browser_login_uses_an_httponly_same_site_cookie(tmp_path):
@@ -309,6 +490,42 @@ def _login(client):
             gateway_module.LOCAL_ACCESS_HEADER: "b" * 32,
         },
     )
+
+
+def test_capture_inventory_routes_and_dedicated_part_bound(tmp_path, monkeypatch):
+    config, _public = settings(tmp_path)
+    fake = FakeClient(FakeResponse(200, b"{}", {"content-type": "application/octet-stream"}))
+    app = gateway_module.create_gateway(config, client=fake)
+    limits = []
+    original = gateway_module._bounded_response_body
+
+    async def bounded(response, maximum):
+        limits.append(maximum)
+        return await original(response, maximum)
+
+    monkeypatch.setattr(gateway_module, "_bounded_response_body", bounded)
+
+    async def run():
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://127.0.0.1:44180"
+        ) as client:
+            await _login(client)
+            base = "/api/v2/tasks/task-fixture"
+            responses = [
+                await client.get(base + "/command-inventory?limit=25"),
+                await client.get(base + "/publications?limit=25"),
+                await client.get(base + "/capture-sessions"),
+                await client.get(base + "/capture-sessions/session-1/items?after=0&limit=25"),
+                await client.get(base + "/capture-sessions/session-1/items/1/parts/pcap"),
+                await client.get("/api/v2/artifacts/artifact-1/content?version=1"),
+                await client.get(base + "/capture-sessions/session-1/items/1/parts/pcap?limit=1"),
+            ]
+            return responses
+
+    responses = asyncio.run(run())
+    assert [response.status_code for response in responses] == [200] * 6 + [422]
+    assert limits == [config.max_response_bytes] * 4 + [67_108_864] * 2
+    assert len(fake.requests) == 6
 
 
 def test_the_view_stream_is_allowed_only_after_its_task_published_it(tmp_path):

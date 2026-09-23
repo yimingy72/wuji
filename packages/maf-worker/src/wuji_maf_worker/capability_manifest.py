@@ -7,6 +7,7 @@ from hashlib import sha256
 from agent_framework import AgentSession, SessionContext, TodoProvider
 
 from wuji_core.contracts.sessions import SessionLimits
+from wuji_core.contracts.native_tools import BOARD_PUBLISH_SCHEMA
 from wuji_core.http import canonical_json_bytes
 from wuji_maf_worker.history import BoundedWorkMemoryProvider, VersionedMemoryStore
 
@@ -57,6 +58,8 @@ KNOWLEDGE_SCHEMAS = {
         },
     },
 }
+
+NATIVE_MCP_SCHEMAS = {"board_publish": BOARD_PUBLISH_SCHEMA}
 
 
 def _digest(schema):
@@ -109,10 +112,11 @@ def build_capability_manifest(*, environment_tools=(), include_todo, include_mem
             "required_permissions": ["session_writer"],
         })
     if include_knowledge:
-        selected = set(KNOWLEDGE_SCHEMAS if knowledge_names is None else knowledge_names)
-        if not selected <= set(KNOWLEDGE_SCHEMAS):
+        available = {**KNOWLEDGE_SCHEMAS, **NATIVE_MCP_SCHEMAS}
+        selected = set(available if knowledge_names is None else knowledge_names)
+        if not selected <= set(available):
             raise ValueError("unknown knowledge capability")
-        for name, schema in KNOWLEDGE_SCHEMAS.items():
+        for name, schema in available.items():
             if name not in selected:
                 continue
             entries.append({

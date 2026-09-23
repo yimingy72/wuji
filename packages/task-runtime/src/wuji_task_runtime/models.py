@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import math
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from decimal import InvalidOperation
@@ -92,6 +93,37 @@ class ContainerResources:
 
 
 @dataclass(frozen=True, slots=True)
+class CapturePolicy:
+    max_request_body_bytes: int
+    max_response_body_bytes: int
+    pcap_segment_bytes: int
+    max_session_bytes: int
+    max_items: int
+    part_read_chunk_bytes: int
+    drain_timeout_seconds: float
+    seal_timeout_seconds: float
+
+    def __post_init__(self) -> None:
+        for name, maximum in (
+            ("max_request_body_bytes", 8_388_608),
+            ("max_response_body_bytes", 8_388_608),
+            ("pcap_segment_bytes", 67_108_864),
+            ("max_session_bytes", 1_099_511_627_776),
+            ("max_items", 1_000_000),
+            ("part_read_chunk_bytes", 8_388_608),
+        ):
+            _positive_integer(getattr(self, name), name, maximum)
+        if self.pcap_segment_bytes % 1_000_000:
+            raise InvalidRuntimeConfig("pcap_segment_bytes must be a whole tcpdump decimal megabyte")
+        for name in ("drain_timeout_seconds", "seal_timeout_seconds"):
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise InvalidRuntimeConfig(f"{name} must be a finite positive number")
+            if not math.isfinite(value) or not 0 < value <= 300:
+                raise InvalidRuntimeConfig(f"{name} must be at most 300 seconds")
+
+
+@dataclass(frozen=True, slots=True)
 class TaskRuntimeConfig:
     tenant_id: UUID | str
     task_id: UUID | str
@@ -108,6 +140,10 @@ class TaskRuntimeConfig:
     pod_deadline_seconds: int
     expose_pod_identity: bool = False
     kali_receipts_enabled: bool = False
+    template_version: Literal["legacy-v1", "core-ctf-v1"] = "legacy-v1"
+    capture_image: str | None = None
+    capture_resources: ContainerResources | None = None
+    capture_policy: CapturePolicy | None = None
 
     def __post_init__(self) -> None:
         _identity(self.tenant_id, "tenant_id")
@@ -116,6 +152,8 @@ class TaskRuntimeConfig:
             raise InvalidRuntimeConfig("expose_pod_identity must be a boolean")
         if type(self.kali_receipts_enabled) is not bool:
             raise InvalidRuntimeConfig("kali_receipts_enabled must be a boolean")
+        if self.template_version not in {"legacy-v1", "core-ctf-v1"}:
+            raise InvalidRuntimeConfig("template_version is not supported")
         if not isinstance(self.namespace, str) or not _DNS_LABEL.fullmatch(self.namespace):
             raise InvalidRuntimeConfig("namespace must be a DNS label")
         _positive_integer(self.runtime_attempt, "runtime_attempt")
@@ -129,6 +167,20 @@ class TaskRuntimeConfig:
                 raise InvalidRuntimeConfig(f"{role}_image must use an immutable sha256 reference")
             if not isinstance(getattr(self, f"{role}_resources"), ContainerResources):
                 raise InvalidRuntimeConfig(f"{role}_resources must be ContainerResources")
+        if self.template_version == "legacy-v1":
+            if (
+                self.capture_image is not None
+                or self.capture_resources is not None
+                or self.capture_policy is not None
+            ):
+                raise InvalidRuntimeConfig("legacy-v1 cannot configure capture")
+        else:
+            if not isinstance(self.capture_image, str) or not _IMAGE.fullmatch(self.capture_image):
+                raise InvalidRuntimeConfig("capture_image must use an immutable sha256 reference")
+            if not isinstance(self.capture_resources, ContainerResources):
+                raise InvalidRuntimeConfig("capture_resources must be ContainerResources")
+            if not isinstance(self.capture_policy, CapturePolicy):
+                raise InvalidRuntimeConfig("capture_policy must be CapturePolicy")
         _quantity(self.tmp_size_limit, "tmp_size_limit")
 
     @property
@@ -157,6 +209,8 @@ class TaskRuntimeConfig:
                 ("agent_auth", "agent-auth"), ("kali_auth", "kali-auth"),
                 ("agent_state", "agent-state"), ("kali_work", "kali-work"),
                 ("kali_receipts", "kali-receipts"),
+                ("capture_auth", "capture-auth"),
+                ("capture_evidence", "capture-evidence"),
             )
         }
 
@@ -179,6 +233,14 @@ class TaskRuntimeConfig:
             value.pop("expose_pod_identity")
         if not self.kali_receipts_enabled:
             value.pop("kali_receipts_enabled")
+        if self.template_version == "legacy-v1":
+            # These fields did not exist in the original two-container
+            # serialization. Omitting their defaults keeps every old digest
+            # stable while giving the new template an explicit version.
+            value.pop("template_version")
+            value.pop("capture_image")
+            value.pop("capture_resources")
+            value.pop("capture_policy")
         encoded = json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
         return hashlib.sha256(encoded).hexdigest()
 

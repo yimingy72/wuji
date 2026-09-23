@@ -16,6 +16,7 @@ from agent_framework import (
     FileMemoryProvider,
     InMemoryHistoryProvider,
     Message,
+    MCPStreamableHTTPTool,
 )
 from agent_framework.exceptions import ChatClientException
 
@@ -39,6 +40,7 @@ from wuji_maf_worker.history import (
     VersionedMemoryStore,
     WorkMemoryStore,
 )
+from wuji_maf_worker.notifications import KnowledgeNoticeProvider
 from wuji_maf_worker.sessions import NativeSessionAdapter, NativeSessionV2Adapter
 from wuji_maf_worker.tools import FunctionBudget, GateFunctions, ModelCallIdentity
 
@@ -139,6 +141,8 @@ class WorkerHostPort(Protocol):
     def knowledge_read(self, assignment, *, snapshot_id, ref, selector, native_occurrence): ...
     def knowledge_refresh(self, assignment, *, snapshot_id, native_occurrence): ...
     def knowledge_attach(self, assignment, *, deliveries, manifest_ref=None, channel=None): ...
+    def board_publish(self, assignment, *, native_occurrence, claim): ...
+    def knowledge_notices(self, assignment, *, cursor=None, limit=16): ...
 
 
 class MafRuntime:
@@ -163,6 +167,10 @@ class MafRuntime:
         self._ssl_context = ssl_context
         self._token_verifier = token_verifier
         self._model_url, self._tool_url = model_gate_url, tool_gate_url
+        tool_origin = urlsplit(tool_gate_url)
+        self._mcp_url = (
+            f"{tool_origin.scheme}://{tool_origin.netloc}/internal/v2/mcp"
+        )
         self._assignment = None
         self._task = None
         self.result = None
@@ -285,6 +293,15 @@ class MafRuntime:
             or len(self._context.text.encode()) > profile.max_context_bytes
         ):
             raise ValueError("context does not match the frozen input/profile")
+        if problem_profile:
+            expected_context = str(
+                profile.context_contract or "wuji.worker-context.v3"
+            )
+            if (
+                self._context.wire is None
+                or self._context.wire.get("schema_version") != expected_context
+            ):
+                raise ValueError("problem context contract differs from its Profile")
         limits = resolved["limits"]
         identity = ModelCallIdentity(
             resolved["tools"],
@@ -348,6 +365,15 @@ class MafRuntime:
                         != assignment.identity.work_item_id
                         or published.manifest.session_lineage
                         != resolved["session_lineage"]
+                        or (
+                            str(
+                                profile.context_contract
+                                or "wuji.worker-context.v3"
+                            )
+                            == "wuji.worker-context.v4"
+                            and published.manifest.producer_identity.runtime_attempt
+                            != assignment.identity.runtime_attempt
+                        )
                     ):
                         raise ValueError("restored native Session differs from its assignment")
                 elif (
@@ -452,6 +478,47 @@ class MafRuntime:
                 assignment=assignment if problem_profile else None,
             )
             self.tool_receipts = functions.receipts
+            tool_definitions = {item["name"]: item for item in resolved["tools"]}
+            capabilities = (
+                {
+                    item.name: item.model_dump(mode="json")
+                    for item in profile.capability_manifest
+                }
+                if problem_profile
+                else {}
+            )
+            mcp_names = {
+                name
+                for name, capability in capabilities.items()
+                if name == "board_publish"
+                or capability["category"] == "environment_action"
+                and tool_definitions.get(name, {}).get("allowed_target_kinds")
+                in (["process"], ["workspace_bundle"])
+            }
+            mcp_tool = (
+                MCPStreamableHTTPTool(
+                    name="wuji-native",
+                    url=self._mcp_url,
+                    allowed_tools=sorted(mcp_names),
+                    load_tools=True,
+                    load_prompts=False,
+                    parse_tool_results=functions.parse_mcp_result,
+                    request_timeout=max(
+                        1, int(float(resolved["request_timeout_seconds"]))
+                    ),
+                    approval_mode="never_require",
+                    terminate_on_close=False,
+                    http_client=tool_http,
+                    header_provider=lambda _kwargs: {
+                        "Authorization": "Bearer " + self._credential
+                    },
+                    max_host_payload_size_bytes=limits[
+                        "max_single_output_bytes"
+                    ],
+                )
+                if mcp_names
+                else None
+            )
             current_revision = [
                 0 if restored is None
                 else int(restored.published.receipt.checkpoint_revision)
@@ -470,6 +537,7 @@ class MafRuntime:
             async def confirm_native_handoffs(deliveries, channel):
                 if not native_v2:
                     return
+                attached_deliveries.update(functions.confirmed_delivery_ids)
                 pending = [
                     item for item in deliveries
                     if item["delivery_id"] not in attached_deliveries
@@ -678,15 +746,30 @@ class MafRuntime:
             )
             environment_tools = functions.registered_tools()
             knowledge_tools = functions.registered_knowledge_tools()
+            notification_provider = (
+                KnowledgeNoticeProvider(host=self._host, assignment=assignment)
+                if native_v2
+                and callable(getattr(self._host, "knowledge_notices", None))
+                else None
+            )
             agent, native = build_agent(
                 resolved=resolved, profile=profile, model_http=model_http,
                 model_gate_url=self._model_url, run_credential=self._credential,
-                tools=[*environment_tools, *knowledge_tools], middleware=functions,
+                tools=[
+                    *environment_tools,
+                    *knowledge_tools,
+                    *(() if mcp_tool is None else (mcp_tool,)),
+                ], middleware=functions,
                 response_parser=identity.parse_response,
                 history=history, memory_provider=memory_provider,
                 work_memory_provider=work_memory_provider,
+                notification_provider=notification_provider,
                 extra_middleware=(() if checkpoint is None else (checkpoint,)),
-                environment_tool_count=len(environment_tools),
+                environment_tool_count=len(environment_tools) + sum(
+                    1
+                    for name in mcp_names
+                    if capabilities[name]["category"] == "environment_action"
+                ),
             )
             try:
                 async with asyncio.timeout(limits["max_elapsed_seconds"]):
@@ -846,3 +929,5 @@ class MafRuntime:
                 raise
             finally:
                 await native.close()
+                if mcp_tool is not None and mcp_tool.is_connected:
+                    await mcp_tool.close()

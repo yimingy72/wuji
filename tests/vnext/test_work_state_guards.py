@@ -18,6 +18,7 @@ from support.p03 import access
 from wuji_core.contracts.execution import TaskCommand, WorkCommand, WorkDependency
 from wuji_core.http import canonical_json_bytes
 from wuji_core.persistence.uow import DomainError
+from wuji_core.scheduling.triggers import TriggerRepository
 from test_knowledge_admission import (
     case,
     captured,
@@ -649,6 +650,40 @@ def test_waiting_input_survives_pause_and_published_resume(
                 "session-manifest-fixture@1",
                 {"kind": "question", "text": "fixture answer"},
             )
+        scheduler = access("scheduler-fixture", role="scheduler")
+        with c.uow.transaction(scheduler, TASK, capability="admit") as tx:
+            repository = TriggerRepository()
+            before = repository.read(tx)
+            event_seq = tx.connection.execute(
+                "SELECT max(event_seq) FROM vnext.outbox WHERE tenant_id=%s"
+                " AND project_id=%s AND task_id=%s AND kind='input.resolved'",
+                OWNER,
+            ).fetchone()[0]
+            generation = repository.record(tx, event_seq=event_seq)
+            after = repository.read(tx)
+            assert generation is not None
+            assert after.trigger_generation > before.trigger_generation
+            assert tx.connection.execute(
+                "SELECT count(*) FROM vnext.scheduler_progress"
+                " WHERE tenant_id=%s AND project_id=%s AND task_id=%s",
+                OWNER,
+            ).fetchone() == (1,)
+
+            tx.semantic_event(
+                "input.resolved",
+                {
+                    "input_request_id": "missing-input",
+                    "work_item_id": "work-fixture",
+                    "delivery_id": "missing-delivery",
+                },
+            )
+            invalid_seq = tx.connection.execute(
+                "SELECT max(event_seq) FROM vnext.outbox WHERE tenant_id=%s"
+                " AND project_id=%s AND task_id=%s AND kind='input.resolved'",
+                OWNER,
+            ).fetchone()[0]
+            assert repository.record(tx, event_seq=invalid_seq) is None
+            assert repository.read(tx).trigger_generation == after.trigger_generation
         c.control.refresh(OBSERVER, TASK, "work-fixture")
         assert c.control.read_work(OPERATOR, TASK, "work-fixture")["state"] == "ready"
         assert c.control.dispatchable(OPERATOR, TASK, "work-fixture")

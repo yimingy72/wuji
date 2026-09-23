@@ -16,6 +16,8 @@ from wuji_core.http.completion import create_completion_router
 from wuji_core.http.delivery import create_delivery_router
 from wuji_core.http.evidence import create_artifact_router
 from wuji_core.evidence.material import ArtifactMaterialService
+from wuji_core.evidence.runtime_capture import RuntimeCaptureService
+from wuji_core.http.capture import create_capture_router
 from wuji_core.http.material import create_material_router
 from wuji_core.http.retention import create_retention_router
 from wuji_core.http.layouts import create_layout_router
@@ -41,6 +43,7 @@ def build_api():
     )
     deliveries = ReportDeliveryService(deployment.uow)
     retention = RetentionService(deployment.uow, artifacts=deployment.artifacts)
+    capture = RuntimeCaptureService(deployment.uow, artifacts=deployment.artifacts)
     return create_app(
         token_verifier=deployment.verifier,
         routers=[
@@ -56,6 +59,7 @@ def build_api():
             create_retention_router(retention),
             create_artifact_router(deployment.artifacts),
             create_material_router(ArtifactMaterialService(deployment.artifacts)),
+            create_capture_router(capture),
         ],
         json_limits=JsonBoundaryLimits(max_body_bytes=settings.max_transport_bytes),
     )

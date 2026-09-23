@@ -1,18 +1,35 @@
-.board { display: grid; gap: 10px; }
+.board { display: grid; gap: 12px; }
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
 .summary { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.column { display: grid; align-content: start; gap: 8px; }
-.column h3, .relations h3 { margin: 0; font-size: 11px; }
-.card { display: grid; gap: 8px; padding: 11px; border: 1px solid var(--line); border-radius: 5px; background: var(--node); }
-.title { height: auto; padding: 0; color: var(--text); font-weight: 600; text-align: left; white-space: normal; }
-.card dl { display: grid; gap: 5px; margin: 0; }
-.card dl div { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 7px; }
-.card dt, .refs > span, .attempts > span { color: var(--muted); font-size: 9px; }
-.card dd, .card p { margin: 0; overflow-wrap: anywhere; font-size: 10px; line-height: 1.5; }
-.refs, .attempts { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; }
-.refs button { max-width: 100%; overflow: hidden; text-overflow: ellipsis; font: 9px/1.4 var(--mono); }
-.refs em, .attempts em { color: var(--muted); font-size: 9px; }
-.relations { display: grid; gap: 5px; padding: 9px; border: 1px dashed var(--line); border-radius: 4px; }
-.relations code { overflow-wrap: anywhere; color: var(--muted); font: 9px/1.45 var(--mono); }
+.masterDetail { min-width: 0; display: grid; grid-template-columns: minmax(260px, .78fr) minmax(0, 1.22fr); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--surface); }
+.list { min-width: 0; max-height: 560px; overflow: auto; border-right: 1px solid var(--line); }
+.listItem { width: 100%; min-width: 0; display: grid; gap: 6px; padding: 12px 14px; color: var(--text); text-align: left; border: 0; border-bottom: 1px solid var(--line); background: transparent; cursor: pointer; }
+.listItem:hover, .listItem:focus-visible, .selected { background: var(--selected); }
+.selected { box-shadow: inset 3px 0 0 var(--accent); }
+.itemHeading { min-width: 0; display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.itemHeading strong { min-width: 0; overflow-wrap: anywhere; font-size: 11px; line-height: 1.55; }
+.clamp { display: -webkit-box; overflow: hidden; color: var(--muted); font-size: 10px; line-height: 1.55; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.listItem small { color: var(--muted); font: 9px/1.4 var(--mono); }
+.detail { min-width: 0; min-height: 300px; display: grid; align-content: start; gap: 13px; padding: 18px; }
+.detail header { display: grid; justify-items: start; gap: 8px; }
+.detail h3 { margin: 0; overflow-wrap: anywhere; font-size: 14px; line-height: 1.55; }
+.detail p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.65; }
+.detail dl { margin: 0; display: grid; gap: 8px; }
+.detail dl div { display: grid; grid-template-columns: 78px minmax(0, 1fr); gap: 10px; }
+.detail dt, .refs > span { color: var(--muted); font-size: 9px; }
+.detail dd { margin: 0; overflow-wrap: anywhere; font-size: 10px; }
+.detail details summary, .dataDetails summary { cursor: pointer; font-size: 10px; font-weight: 600; }
+.refs { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.refs em { color: var(--muted); font-size: 10px; }
+.steps { margin: 10px 0 0; padding: 0; display: grid; gap: 6px; list-style: none; }
+.steps li { display: flex; align-items: flex-start; gap: 7px; color: var(--muted); font-size: 10px; }
+.relations { margin-top: 10px; display: grid; gap: 5px; padding: 10px; background: var(--queue); }
+.relations code { overflow-wrap: anywhere; color: var(--muted); font: 9px/1.5 var(--mono); }
+.dataDetails { color: var(--muted); font-size: 10px; }
+.dataDetails code { display: block; margin-top: 6px; font: 9px/1.4 var(--mono); }
+.dataDetails p { margin: 6px 0 0; }
 
-@media (max-width: 760px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 900px) {
+  .masterDetail { grid-template-columns: minmax(0, 1fr); }
+  .list { max-height: 360px; border-right: 0; border-bottom: 1px solid var(--line); }
+}

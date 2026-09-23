@@ -1,0 +1,27 @@
+[project]
+name = "wuji-capture"
+version = "0.1.0"
+requires-python = "==3.13.15"
+dependencies = [
+  "mitmproxy==12.2.3",
+]
+
+[dependency-groups]
+dev = [
+  "pytest==9.1.1",
+]
+
+[build-system]
+requires = ["hatchling==1.29.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/wuji_capture"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+# The capture process has its own lock and image. It does not inherit the MAF
+# worker's Python environment.
+[tool.uv.workspace]
+members = []

@@ -3,6 +3,7 @@
 from contextlib import contextmanager
 import os
 from pathlib import Path
+import re
 import ssl
 
 import psycopg
@@ -35,9 +36,11 @@ class Settings(BaseModel):
     service_token_file: str
     ca_file: str
     artifact_root: str = "/var/lib/wuji/platform/artifacts"
+    artifact_max_bytes: int = Field(default=8 * 1024 * 1024, ge=1, le=67_108_864)
     journal_path: str = "/var/lib/wuji/platform/dispatch.sqlite3"
     spool_directory: str = "/var/lib/wuji/platform/intake"
     profiles_file: str
+    worker_lock_digest: str | None = None
     secret_refs: dict[str, str] = Field(default_factory=dict)
     task_model_key_ref: str | None = None
     task_model_keys_directory: str | None = None
@@ -94,7 +97,9 @@ class Deployment:
         )
         self.uow = UnitOfWork(self.connection)
         self.registry = AdmissionRegistry(self.uow)
-        self.artifacts = ArtifactStore(self.uow, settings.artifact_root)
+        self.artifacts = ArtifactStore(
+            self.uow, settings.artifact_root, max_bytes=settings.artifact_max_bytes
+        )
         self.claims = ClaimService(self.uow)
         self.assessments = AssessmentService(self.uow, self.artifacts)
         self.ledger = FactLedger(self.uow)
@@ -107,12 +112,20 @@ class Deployment:
 
         self.completion = CompletionService(self.uow, control=self.control)
         self.profiles = strict_json_loads(read_file(settings.profiles_file))
-        if not isinstance(self.profiles, list) or not self.profiles:
-            raise ValueError("fixed published harness profiles are required")
+        if not isinstance(self.profiles, list):
+            raise ValueError("published harness profiles must be a list")
         digests = {p["body"]["lock_digest"] for p in self.profiles}
-        if len(digests) != 1:
+        if len(digests) > 1:
             raise ValueError("one fixed Worker lock required")
-        self.lock_digest = digests.pop()
+        published = None if not digests else digests.pop()
+        configured = settings.worker_lock_digest
+        if configured is not None and not re.fullmatch(r"[a-f0-9]{64}", configured):
+            raise ValueError("worker_lock_digest must be a SHA-256 digest")
+        if published is not None and configured not in {None, published}:
+            raise ValueError("published profiles differ from the configured Worker lock")
+        self.lock_digest = published or configured
+        if self.lock_digest is None:
+            raise ValueError("an empty profile catalog requires worker_lock_digest")
 
     def access(self, path=None):
         return AccessContext(self.verifier.verify(token(path or self.settings.service_token_file)), "deployment")

@@ -15,6 +15,7 @@ import json
 from uuid import uuid4
 
 from support.p06 import ENVIRONMENT, TASK
+from support.p03 import access
 from support.p09 import (
     POD_UID,
     SCHEDULER,
@@ -264,6 +265,105 @@ def test_a_committed_claim_reaches_the_next_reason_read_set(
             ).fetchone()[0]
         assert replayed_material == len(material)
         assert work_count == len(before_work_items)
+
+
+def test_incremental_and_final_claim_content_counts_as_progress_once(
+    db_environment, tmp_path, audit_directory
+):
+    with scheduler_case(
+        db_environment, tmp_path, audit_directory, max_work_items=8, capacity=4
+    ) as case:
+        first = case.scheduler.tick(limit=2)
+        explore = explore_assignment(first)
+        credential = worker_credential(case, explore)
+        collector = access("collector-fixture", role="collector")
+        incremental_artifact = case.control.store.stage(
+            collector,
+            TASK,
+            "incremental-progress-attempt",
+            b"new incremental evidence\n",
+            "text/plain",
+            conditions=("isolated incremental fixture",),
+            provenance="capture",
+            access_level=1,
+        )
+        case.control.store.seal(collector, TASK, incremental_artifact)
+        incremental = {
+            "client_ref": "incremental-shared-fact",
+            "kind": "observation-summary",
+            "assertion_role": "candidate_fact",
+            "text": "The incremental read found version one.",
+            "structured_assertion": {"version": "1"},
+            "basis_refs": [
+                {
+                    "entity_type": "artifact",
+                    "id": incremental_artifact.id,
+                    "revision": incremental_artifact.version.root,
+                }
+            ],
+            "limitations": ["isolated fixture"],
+        }
+        shared = case.control.claims.propose(
+            access("reader-fixture", role="human"),
+            TASK,
+            incremental,
+            idempotency_key="incremental-shared-fact",
+        )
+        assert shared.canonical_ref is not None
+        case.scheduler.tick(limit=4)
+
+        unsupported = case.control.claims.propose(
+            access("reader-fixture", role="human"),
+            TASK,
+            {
+                "client_ref": "unsupported-model-assertion",
+                "kind": "observation-summary",
+                "assertion_role": "candidate_fact",
+                "text": "A model-only assertion has no observable new basis.",
+                "structured_assertion": {"version": "2"},
+                "basis_refs": [],
+                "limitations": ["model assertion only"],
+            },
+            idempotency_key="unsupported-model-assertion",
+        )
+        assert unsupported.canonical_ref is not None
+        case.scheduler.tick(limit=4)
+
+        final = {
+            **incremental,
+            "client_ref": "final-rephrased-fact",
+            "text": "Version 1 was found by the completed read.",
+        }
+        credential, receipt = _submit(
+            case,
+            explore,
+            {
+                "schema_version": "wuji.agent-payload.v2",
+                "claims": [final],
+                "intent_proposals": [],
+                "limitations": ["same structured fact as the incremental share"],
+            },
+            "incremental-final-dedup",
+        )
+        assert receipt.status.value == "accepted"
+        _close_and_exit(case, explore, credential)
+        case.scheduler.tick(limit=4)
+
+        with db_environment.migration_connection() as connection:
+            claims = connection.execute(
+                "SELECT count(*) FROM vnext.claim_revision WHERE task_id=%s"
+                " AND structured_json::jsonb=%s::jsonb",
+                (TASK, json.dumps({"version": "1"})),
+            ).fetchone()[0]
+            progress = connection.execute(
+                "SELECT count(*) FROM vnext.scheduler_progress"
+                " WHERE task_id=%s AND category='material'",
+                (TASK,),
+            ).fetchone()[0]
+        assert claims == 2
+        # The fixture seed and the new Artifact basis each count once. Neither
+        # an unsupported model assertion nor the final rephrasing adds a third.
+        assert progress == 2
 
 
 def test_a_new_claim_reaches_the_next_reason_read_set(
@@ -869,10 +969,49 @@ def test_a_published_window_stops_the_loop_once_and_new_material_releases_it(
                 (TASK,),
             ).fetchone()
         assert released == (0, None), released
-        assert any(
-            item.work_kind.value == "reason"
-            for item in case.scheduler.tick(limit=4).assignments
+        released_tick = case.scheduler.tick(limit=4)
+        released_reason = next(
+            item
+            for item in released_tick.assignments
+            if item.work_kind.value == "reason"
         )
+
+        # The prior completion request belongs to the prior progress window.
+        # Reaching the bounded condition in this later generation publishes one
+        # new request, while replaying that generation remains idempotent.
+        with case.control.uow.transaction(SCHEDULER, TASK, capability="admit") as tx:
+            repository = TriggerRepository(artifacts=case.control.store)
+            generation = tx.connection.execute(
+                "SELECT processing_generation FROM vnext.scheduler_reason_lease"
+                " WHERE work_item_id=%s",
+                (released_reason.identity.work_item_id,),
+            ).fetchone()[0]
+            tx.connection.execute(
+                "UPDATE vnext.scheduler_state SET no_progress_count=2"
+                " WHERE tenant_id=%s AND project_id=%s AND task_id=%s",
+                tx.owner,
+            )
+            value = {
+                "work_item_id": released_reason.identity.work_item_id,
+                "processing_generation": generation,
+            }
+            repository._stop_on_no_progress(tx, value=value)
+            repository._stop_on_no_progress(tx, value=value)
+        with db_environment.migration_connection() as connection:
+            second_window_requests = connection.execute(
+                "SELECT payload_json FROM vnext.outbox WHERE task_id=%s"
+                " AND kind='reason.completion_requested'"
+                " AND payload_json::jsonb->>'reason'='no_progress_window'"
+                " ORDER BY event_seq",
+                (TASK,),
+            ).fetchall()
+        assert len(second_window_requests) == 2
+        assert len(
+            {
+                json.loads(payload)["processing_generation"]
+                for (payload,) in second_window_requests
+            }
+        ) == 2
 
 
 def test_a_real_wait_and_live_work_do_not_count_as_no_progress(

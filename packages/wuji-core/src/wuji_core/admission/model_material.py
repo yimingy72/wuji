@@ -437,6 +437,158 @@ def render_http_exchange_v2(
     )
 
 
+def render_runtime_http_part_v1(
+    source_id: str,
+    *,
+    part: str,
+    artifact_ref: BlobRef | dict,
+    artifact_record: Mapping[str, object],
+    raw: bytes,
+    metadata_raw: bytes | None = None,
+    max_source_bytes: int = 8 * 1024 * 1024,
+    max_representation_bytes: int = DEFAULT_REPRESENTATION_BYTES,
+) -> ModelMaterialV2:
+    """Render one sealed Task-runtime HTTP part without exposing raw headers."""
+
+    if not isinstance(source_id, str) or not source_id:
+        raise ValueError("a canonical capture source id is required")
+    try:
+        ref = BlobRef.model_validate(artifact_ref)
+    except ValueError:
+        return omitted_model_material(source_id, "source_digest_mismatch")
+    source = _source(ref, artifact_record)
+
+    def omitted(reason):
+        return omitted_model_material(source_id, reason, source=source)
+
+    if artifact_record.get("state") != "sealed":
+        return omitted("source_not_sealed")
+    if (
+        type(artifact_record.get("size_bytes")) is not int
+        or artifact_record["size_bytes"] > max_source_bytes
+        or len(raw) > max_source_bytes
+    ):
+        return omitted("representation_limit")
+    if not _source_digest_ok(ref, artifact_record, raw):
+        return omitted("source_digest_mismatch")
+
+    from wuji_core.http import strict_json_loads
+
+    def metadata(value):
+        try:
+            document = strict_json_loads(value)
+        except (UnicodeDecodeError, ValueError, RecursionError, TypeError):
+            return None
+        if (
+            not isinstance(document, dict)
+            or document.get("schema_version") != "wuji.http-capture-record.v1"
+            or not isinstance(document.get("metadata"), dict)
+        ):
+            return None
+        return document["metadata"]
+
+    def capture_headers(value):
+        if not isinstance(value, list):
+            return None
+        normalized = {}
+        for pair in value:
+            if (
+                not isinstance(pair, list)
+                or len(pair) != 2
+                or not all(isinstance(item, str) for item in pair)
+            ):
+                return None
+            name, header_value = pair
+            key = name.lower()
+            if (
+                not name
+                or "\r" in name
+                or "\n" in name
+                or "\r" in header_value
+                or "\n" in header_value
+            ):
+                return None
+            if key in normalized:
+                normalized[key] += ", " + header_value
+            else:
+                normalized[key] = header_value
+        headers, redacted, error = _headers(normalized)
+        return None if error else (headers, redacted)
+
+    meta = metadata(raw if part.endswith("_metadata") else metadata_raw)
+    if meta is None:
+        return omitted("unsupported_schema")
+    selected = capture_headers(meta.get("headers"))
+    if selected is None:
+        return omitted("unsupported_schema")
+    headers, redacted = selected
+
+    if part == "request_metadata":
+        method, url = meta.get("method"), meta.get("url")
+        if not isinstance(method, str) or not method or not isinstance(url, str):
+            return omitted("unsupported_schema")
+        url, changed = _safe_location(url)
+        lines = [
+            "schema_version: wuji.runtime-http-part.v1",
+            f"request.method: {method}",
+            f"request.url: {url}",
+            "request.headers:",
+            *(f"{key}: {value}" for key, value in headers.items()),
+        ]
+        redacted = redacted or changed
+    elif part == "response_metadata":
+        status = meta.get("status_code")
+        if type(status) is not int or not 100 <= status <= 599:
+            return omitted("unsupported_schema")
+        lines = [
+            "schema_version: wuji.runtime-http-part.v1",
+            f"response.status: {status}",
+            "response.headers:",
+            *(f"{key}: {value}" for key, value in headers.items()),
+        ]
+    elif part in {"request_body", "response_body"}:
+        content_type = headers.get("content-type", "")
+        if raw and (not content_type or not _TEXT_MEDIA.match(content_type)):
+            return omitted("unsupported_media")
+        try:
+            body = raw.decode(_charset(content_type or "text/plain; charset=utf-8"))
+        except UnicodeDecodeError:
+            return omitted("invalid_encoding")
+        except LookupError:
+            return omitted("unsupported_charset")
+        body, changed = _redact_body(body)
+        lines = [
+            "schema_version: wuji.runtime-http-part.v1",
+            part + ":",
+            body,
+        ]
+        redacted = redacted or changed
+    else:
+        return omitted("unsupported_media")
+
+    rendered, truncated = _bounded_prefix("\n".join(lines), max_representation_bytes)
+    encoded = rendered.encode("utf-8")
+    return ModelMaterialV2.model_validate(
+        {
+            "schema_version": MODEL_MATERIAL_SCHEMA,
+            "tool_call_id": source_id,
+            "status": "delivered",
+            "source": source,
+            "representation": {
+                "renderer_version": HTTP_RENDERER_VERSION,
+                "media_type": REPRESENTATION_MEDIA_TYPE,
+                "encoding": "utf-8",
+                "text": rendered,
+                "byte_length": len(encoded),
+                "representation_sha256": sha256(encoded).hexdigest(),
+                "truncated": truncated,
+                "redaction_applied": redacted,
+            },
+            "omission_reason": None,
+        }
+    )
+
+
 def validate_model_material_v2(
     value: object,
     *,

@@ -33,6 +33,7 @@ class Pods:
         self.others = []
         self.created = []
         self.deleted = []
+        self.deadlines = []
         self.read_error = None
 
     def read_pod(self, namespace, name):
@@ -56,6 +57,14 @@ class Pods:
         self.deleted.append((name, uid, resource_version))
         self.pod["metadata"]["deletionTimestamp"] = "2026-09-11T00:00:00Z"
         return True
+
+    def patch_pod_deadline(
+        self, namespace, name, *, uid, resource_version, active_deadline_seconds,
+    ):
+        self.deadlines.append((name, uid, resource_version, active_deadline_seconds))
+        self.pod["spec"]["activeDeadlineSeconds"] = active_deadline_seconds
+        self.pod["metadata"]["resourceVersion"] = str(int(resource_version) + 1)
+        return deepcopy(self.pod)
 
 
 def setup(config):
@@ -147,3 +156,75 @@ def test_create_conflict_reuses_only_matching_object(config):
     result = controller.ensure(config)
     assert result.pod_uid == "owned-uid" and result.state == "provisioning"
     assert len(pods.created) == 1
+
+
+def test_core_ctf_local_readiness_waits_for_capture_registration(config):
+    from wuji_task_runtime import CapturePolicy
+
+    config = replace(
+        config,
+        template_version="core-ctf-v1",
+        expose_pod_identity=True,
+        kali_receipts_enabled=True,
+        capture_image="example.invalid/capture@sha256:" + "e" * 64,
+        capture_resources=replace(config.agent_resources),
+        capture_policy=CapturePolicy(
+            8_388_608, 8_388_608, 64_000_000, 1_073_741_824,
+            10_000, 1_048_576, 5.0, 10.0,
+        ),
+    )
+    pods, _, controller = setup(config)
+    controller.ensure(config)
+    pods.pod["status"] = {
+        "phase": "Running",
+        "conditions": [{"type": "Ready", "status": "True"}],
+        "initContainerStatuses": [{
+            "name": "task-network-init",
+            "state": {"terminated": {"exitCode": 0}},
+        }],
+        "containerStatuses": [
+            {"name": name, "ready": True, "state": {"running": {}}}
+            for name in ("agent", "kali", "capture")
+        ],
+    }
+    result = controller.ensure(config)
+    assert result.state == "provisioning"
+    assert result.reason == "capture_registration_pending"
+    pods.pod["status"]["initContainerStatuses"][0]["state"]["terminated"]["exitCode"] = 1
+    failed = controller.ensure(config)
+    assert failed.state == "stopping" and failed.code == "capture_enforcement_unavailable"
+
+
+def test_core_stop_shortens_deadline_and_requires_observed_terminal(config):
+    from wuji_task_runtime import CapturePolicy
+
+    config = replace(
+        config,
+        template_version="core-ctf-v1",
+        expose_pod_identity=True,
+        kali_receipts_enabled=True,
+        capture_image="example.invalid/capture@sha256:" + "e" * 64,
+        capture_resources=replace(config.agent_resources),
+        capture_policy=CapturePolicy(
+            8_388_608, 8_388_608, 64_000_000, 1_073_741_824,
+            10_000, 1_048_576, 5.0, 10.0,
+        ),
+    )
+    pods, _, controller = setup(config)
+    controller.ensure(config)
+    result = controller.stop(config, "owned-uid")
+    assert result.state == "stopping"
+    assert pods.deadlines == [(config.pod_name, "owned-uid", "7", 1)]
+    pods.pod["status"] = {
+        "phase": "Failed",
+        "initContainerStatuses": [{
+            "name": "task-network-init", "state": {"terminated": {"exitCode": 0}},
+        }],
+        "containerStatuses": [
+            {"name": name, "state": {"terminated": {"exitCode": 0}}}
+            for name in ("agent", "kali", "capture")
+        ],
+    }
+    assert controller.stop(config, "owned-uid").state == "stopped"
+    assert controller.delete_terminal(config, "owned-uid").state == "stopped"
+    assert pods.deleted == [(config.pod_name, "owned-uid", "8")]

@@ -6,8 +6,8 @@ from wuji_core.contracts.generated import (
     ExplorationInsightV1,
     ExplorationProblemV1,
     ExplorationRelationV1,
-    WorkResultV3,
 )
+from wuji_core.blackboard.work_results import read_work_result
 from wuji_core.contracts.knowledge import ClaimRecord, IntentRecord
 from wuji_core.http.json_boundary import canonical_json_bytes, strict_json_loads
 from wuji_core.persistence.uow import row
@@ -79,7 +79,7 @@ def _metadata(tx, intent_records):
                     "source_ref": "knowledge_delivery:" + delivery[0],
                 })
         work_result = (
-            WorkResultV3.model_validate(strict_json_loads(value["work_result_json"]))
+            read_work_result(value["work_result_json"]).effective_result()
             if value["work_result_json"] is not None
             else None
         )

@@ -23,7 +23,7 @@ from wuji_core.admission.model_material import (
     omitted_model_material,
     render_http_exchange_v2,
 )
-from wuji_core.http import strict_json_loads
+from wuji_core.http import canonical_json_bytes, strict_json_loads
 from wuji_core.http.auth import Principal
 from wuji_core.persistence.uow import AccessContext, DomainError, row, json_text
 from wuji_core.admission.registry import TaskAdmissionConfig, RuntimeProfile
@@ -37,6 +37,12 @@ from wuji_core.admission.common import (
     model_function_capabilities,
 )
 from wuji_core.admission.ledger import tool_receipt
+from wuji_core.execution.processes import (
+    PROCESS_TOOL_SCHEMAS,
+    parent_process,
+    process_action,
+    validate_process_arguments,
+)
 
 
 def _string_rule(rule, allowed, *, minimum=None, maximum=None):
@@ -62,13 +68,49 @@ def _string_rule(rule, allowed, *, minimum=None, maximum=None):
     return rule
 
 
-def validate_input_schema(schema):
+def _process_schema(name, schema):
+    expected = PROCESS_TOOL_SCHEMAS.get(name)
+    if expected is None or not isinstance(schema, dict):
+        raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+
+    def without_annotations(value):
+        if isinstance(value, dict):
+            return {
+                key: without_annotations(item)
+                for key, item in value.items()
+                if key not in {"description", "title", "$schema"}
+            }
+        if isinstance(value, list):
+            return [without_annotations(item) for item in value]
+        return value
+
+    if canonical_json_bytes(without_annotations(schema)) != canonical_json_bytes(expected):
+        raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+    return schema
+
+
+def validate_input_schema(schema, *, process_name=None, workspace_name=None):
     """Two deliberately finite published schemas, not a JSON-Schema engine.
 
     A workspace read takes exactly ``{"path"}``; a target tool takes exactly
     ``{"url", "method"}`` with a bounded URL and a read-only method enum.
     """
 
+    if process_name is not None:
+        return _process_schema(process_name, schema)
+    if workspace_name is not None:
+        from wuji_core.evidence.workspace_bundles import (
+            MATERIALIZE_SCHEMA,
+            PUBLISH_SCHEMA,
+        )
+
+        expected = {
+            "workspace_publish": PUBLISH_SCHEMA,
+            "workspace_materialize": MATERIALIZE_SCHEMA,
+        }.get(workspace_name)
+        if expected is None or digest(schema) != digest(expected):
+            raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+        return schema
     if (
         not isinstance(schema, dict)
         or schema.get("type") != "object"
@@ -113,17 +155,22 @@ def tool_kind(definition):
     """One tool serves exactly one target kind; a flag cannot widen it."""
 
     kinds = list(getattr(definition, "allowed_target_kinds", []) or [])
-    if kinds not in (["workspace_read"], ["http_target"]):
+    if kinds not in (
+        ["workspace_read"],
+        ["http_target"],
+        ["process"],
+        ["workspace_bundle"],
+    ):
         raise DomainError("CAPABILITY_UNAVAILABLE", 503)
     return kinds[0]
 
 
 def capture_condition(kind):
-    return (
-        "registered workspace read"
-        if kind == "workspace_read"
-        else "registered http target exchange"
-    )
+    return {
+        "workspace_read": "registered workspace read",
+        "http_target": "registered http target exchange",
+        "process": "executor-reported command output",
+    }[kind]
 
 
 def task_definition(tx):
@@ -241,7 +288,7 @@ class PreparedToolCall:
     executor: object
     config: TaskAdmissionConfig
     run: dict
-    target: str | None = None
+    target: object | None = None
 
 
 class ToolExecutorPort(Protocol):
@@ -383,11 +430,45 @@ class ToolAdmission:
         executor = self.registry.executor(tx, definition.executor_ref)
         if definition.ref not in executor.allowed_tool_refs or executor.receiver_id != run["receiver_id"] or executor.environment_ref != run["environment_ref"]:
             raise DomainError("CAPABILITY_UNAVAILABLE", 503)
-        kind = tool_kind(definition)
-        target = None
+        action = process_action(definition)
+        if action is not None:
+            if executor.protocol != "process.v1" or config.runtime.process_limits is None:
+                raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+            arguments = validate_process_arguments(
+                action, request.arguments, config.runtime
+            )
+            request = request.model_copy(update={"arguments": arguments})
+            parent = (
+                None
+                if action == "exec"
+                else parent_process(
+                    tx,
+                    handle=arguments["handle"],
+                    work_item_id=work["work_item_id"],
+                )
+            )
+            target = parent
+            kind = "process"
+        else:
+            kind = tool_kind(definition)
+            if kind == "workspace_bundle":
+                from wuji_core.evidence.workspace_bundles import (
+                    MATERIALIZE_SCHEMA,
+                    PUBLISH_SCHEMA,
+                )
+
+                expected = {
+                    "workspace_publish": PUBLISH_SCHEMA,
+                    "workspace_materialize": MATERIALIZE_SCHEMA,
+                }.get(definition.name)
+                if expected is None or digest(definition.input_schema) != digest(expected):
+                    raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+            arguments = request.arguments
+            parent = None
+            target = None
         if kind == "workspace_read":
             _arguments(definition, request.arguments)
-        else:
+        elif kind == "http_target":
             require_http_target_role(tx, work)
             # The platform, never the model or the tool, decides whether this
             # concrete target is inside the Task's approved scope.
@@ -403,6 +484,12 @@ class ToolAdmission:
                 raise DomainError("NOT_FOUND_OR_FORBIDDEN")
             if call["input_digest"] != call_digest:
                 raise DomainError("INPUT_DIGEST_CONFLICT", 409)
+            expected_parent = None if parent is None else parent["tool_attempt_id"]
+            if (
+                call.get("process_action") != action
+                or call.get("parent_process_attempt_id") != expected_parent
+            ):
+                raise DomainError("INPUT_DIGEST_CONFLICT", 409)
             if request.message_id.startswith("model-attempt:") and request.message_id.endswith(":choice:0"):
                 model_id = request.message_id[len("model-attempt:"):-len(":choice:0")]
                 origin = tx.connection.execute("SELECT agent_run_id FROM vnext.model_call WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND model_attempt_id=%s", (*tx.owner, model_id)).fetchone()
@@ -413,11 +500,12 @@ class ToolAdmission:
                     if transfer is None:
                         raise DomainError("STALE_EXECUTION", 409)
         else:
-            pending = tx.connection.execute("SELECT count(*) FROM vnext.tool_call WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND status NOT IN ('complete','cancelled','failed')", tx.owner).fetchone()[0]
-            if pending >= config.runtime.max_pending_operations:
-                raise DomainError("LIMIT_BLOCKED", 429)
+            if action is None:
+                pending = tx.connection.execute("SELECT count(*) FROM vnext.tool_call WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND status NOT IN ('complete','cancelled','failed')", tx.owner).fetchone()[0]
+                if pending >= config.runtime.max_pending_operations:
+                    raise DomainError("LIMIT_BLOCKED", 429)
             call_id = str(uuid4())
-            tx.connection.execute("INSERT INTO vnext.tool_call(tenant_id,project_id,task_id,tool_call_id,session_lineage,message_id,provider_call_id,tool_definition_version,work_item_id,input_digest,request_json,status,access_level) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", (*tx.owner, call_id, *values, work["work_item_id"], call_digest, json_text(request.model_dump(mode="python")), "pending_approval" if definition.approval_required else "admitted", tx.permissions["clearance"]))
+            tx.connection.execute("INSERT INTO vnext.tool_call(tenant_id,project_id,task_id,tool_call_id,session_lineage,message_id,provider_call_id,tool_definition_version,work_item_id,input_digest,request_json,status,access_level,process_action,parent_process_attempt_id) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", (*tx.owner, call_id, *values, work["work_item_id"], call_digest, json_text(request.model_dump(mode="python")), "pending_approval" if definition.approval_required else "admitted", tx.permissions["clearance"], action, None if parent is None else parent["tool_attempt_id"]))
             call = _call(tx, call_id)
             audit(tx, "tool.proposed", {"tool_call_id": call_id, "tool_definition_ref": definition.ref})
         return PreparedToolCall(call, request, definition, executor, config, run, target)
@@ -446,6 +534,15 @@ class ToolAdmission:
 
     def _new_attempt(self, tx, prepared, *, retry_request_id=None):
         config, run = prepared.config, prepared.run
+        action = process_action(prepared.definition)
+        if action is not None:
+            return self._new_process_attempt(
+                tx, prepared, action=action, retry_request_id=retry_request_id
+            )
+        if tool_kind(prepared.definition) == "workspace_bundle":
+            return self._new_workspace_attempt(
+                tx, prepared, retry_request_id=retry_request_id
+            )
         # The RuntimeProfile operation limit is per Run, like the model budget:
         # two Runs of one Task are independent work and must not spend each
         # other's slot. Cross-Run coordination belongs to the resource lock below.
@@ -500,6 +597,210 @@ class ToolAdmission:
         audit(tx, "tool.admitted", {"tool_call_id": permit.tool_call_id, "tool_attempt_id": attempt_id})
         return permit
 
+    def _new_workspace_attempt(self, tx, prepared, *, retry_request_id=None):
+        config, run = prepared.config, prepared.run
+        active = tx.connection.execute(
+            "SELECT count(*) FROM vnext.tool_attempt WHERE tenant_id=%s AND "
+            "project_id=%s AND task_id=%s AND agent_run_id=%s AND status IS NOT NULL "
+            "AND status NOT IN ('complete','cancelled','failed')",
+            (*tx.owner, run["agent_run_id"]),
+        ).fetchone()[0]
+        if active >= config.runtime.max_inflight_tools:
+            raise DomainError("LIMIT_BLOCKED", 429)
+        count = tx.connection.execute(
+            "SELECT count(*) FROM vnext.tool_attempt WHERE tenant_id=%s AND "
+            "project_id=%s AND task_id=%s AND tool_call_id=%s",
+            (*tx.owner, prepared.call["tool_call_id"]),
+        ).fetchone()[0]
+        if count >= config.runtime.limits.max_attempts_per_work:
+            raise DomainError("LIMIT_BLOCKED", 429)
+        consume_attempt(tx, model=False, maximum=config.runtime.limits.max_tool_calls)
+        attempt_id = str(uuid4())
+        permit = ToolPermit(
+            prepared.call["tool_call_id"],
+            attempt_id,
+            tx.run_binding.identity,
+            prepared.executor.ref,
+            prepared.definition.ref,
+            prepared.request.arguments,
+            digest(prepared.request.arguments),
+            (),
+            min(
+                tx.run_binding.expires_at,
+                datetime.now(timezone.utc)
+                + timedelta(seconds=config.runtime.total_timeout_seconds),
+            ),
+            str(uuid4()),
+            tx.access,
+            config.runtime,
+        )
+        tx.connection.execute(
+            """INSERT INTO vnext.tool_attempt(tenant_id,project_id,task_id,
+            tool_attempt_id,tool_call_id,agent_run_id,evidence_origin,capture_layer,
+            receipt_json,status,permit_json,retry_request_id)
+            VALUES(%s,%s,%s,%s,%s,%s,%s,%s,'{}','admitted',%s,%s)""",
+            (
+                *tx.owner,
+                attempt_id,
+                permit.tool_call_id,
+                run["agent_run_id"],
+                prepared.executor.evidence_origin,
+                prepared.executor.capture_layer,
+                json_text(permit.stored()),
+                retry_request_id,
+            ),
+        )
+        tx.connection.execute(
+            "UPDATE vnext.tool_call SET latest_attempt_id=%s,status='admitted' "
+            "WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND tool_call_id=%s",
+            (attempt_id, *tx.owner, permit.tool_call_id),
+        )
+        _settlement(tx, run["agent_run_id"])
+        tx.semantic_event(
+            "workspace.action_requested",
+            {
+                "tool_call_id": permit.tool_call_id,
+                "tool_attempt_id": attempt_id,
+                "tool_name": prepared.definition.name,
+            },
+        )
+        audit(
+            tx,
+            "workspace.action_admitted",
+            {"tool_attempt_id": attempt_id, "tool_name": prepared.definition.name},
+        )
+        return permit
+
+    def _new_process_attempt(
+        self, tx, prepared, *, action, retry_request_id=None
+    ):
+        config, run = prepared.config, prepared.run
+        limits = config.runtime.process_limits
+        if limits is None:
+            raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+        count = tx.connection.execute(
+            "SELECT count(*) FROM vnext.tool_attempt WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND tool_call_id=%s",
+            (*tx.owner, prepared.call["tool_call_id"]),
+        ).fetchone()[0]
+        if count >= config.runtime.limits.max_attempts_per_work:
+            raise DomainError("LIMIT_BLOCKED", 429)
+        if action == "exec":
+            active = tx.connection.execute(
+                "SELECT count(*) FROM vnext.process_execution WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND state<>'exited'",
+                tx.owner,
+            ).fetchone()[0]
+            if active >= limits.max_active_execs:
+                raise DomainError("LIMIT_BLOCKED", 429)
+        consume_attempt(
+            tx, model=False, maximum=config.runtime.limits.max_tool_calls
+        )
+        attempt_id = str(uuid4())
+        resource_keys = (
+            ("process:" + attempt_id,) if action == "exec" else ()
+        )
+        permit = ToolPermit(
+            prepared.call["tool_call_id"],
+            attempt_id,
+            tx.run_binding.identity,
+            prepared.executor.ref,
+            prepared.definition.ref,
+            prepared.request.arguments,
+            digest(prepared.request.arguments),
+            resource_keys,
+            min(
+                tx.run_binding.expires_at,
+                datetime.now(timezone.utc)
+                + timedelta(
+                    seconds=(
+                        prepared.request.arguments["timeout_seconds"]
+                        if action == "exec"
+                        else config.runtime.idle_timeout_seconds
+                    )
+                ),
+            ),
+            str(uuid4()),
+            tx.access,
+            config.runtime,
+        )
+        parent_id = (
+            None
+            if prepared.target is None
+            else prepared.target["tool_attempt_id"]
+        )
+        tx.connection.execute(
+            """INSERT INTO vnext.tool_attempt(tenant_id,project_id,task_id,
+            tool_attempt_id,tool_call_id,agent_run_id,evidence_origin,capture_layer,
+            receipt_json,status,permit_json,retry_request_id,process_action,
+            parent_process_attempt_id)
+            VALUES(%s,%s,%s,%s,%s,%s,%s,%s,'{}','admitted',%s,%s,%s,%s)""",
+            (
+                *tx.owner,
+                attempt_id,
+                permit.tool_call_id,
+                run["agent_run_id"],
+                prepared.executor.evidence_origin,
+                prepared.executor.capture_layer,
+                json_text(permit.stored()),
+                retry_request_id,
+                action,
+                parent_id,
+            ),
+        )
+        if action == "exec":
+            tx.connection.execute(
+                "INSERT INTO vnext.collector_binding(tenant_id,project_id,task_id,tool_attempt_id,subject,can_settle) VALUES(%s,%s,%s,%s,%s,true)",
+                (*tx.owner, attempt_id, prepared.executor.collector_subject),
+            )
+            timeout = prepared.request.arguments.get("timeout_seconds")
+            timeout = (
+                config.runtime.total_timeout_seconds
+                if timeout is None
+                else float(timeout)
+            )
+            deadline = datetime.now(timezone.utc) + timedelta(seconds=timeout)
+            tx.connection.execute(
+                """INSERT INTO vnext.process_execution(tenant_id,project_id,task_id,
+                tool_attempt_id,agent_run_id,state,deadline)
+                VALUES(%s,%s,%s,%s,%s,'prepared',%s)""",
+                (*tx.owner, attempt_id, run["agent_run_id"], deadline),
+            )
+            for key in resource_keys:
+                tx.connection.execute(
+                    "INSERT INTO vnext.tool_resource_claim(tenant_id,project_id,task_id,resource_key,tool_attempt_id) VALUES(%s,%s,%s,%s,%s)",
+                    (*tx.owner, key, attempt_id),
+                )
+                tx.connection.execute(
+                    "INSERT INTO vnext.resource_reservation(tenant_id,project_id,task_id,resource_key,agent_run_id,state,source_receipt_json) VALUES(%s,%s,%s,%s,%s,'reserved',%s)",
+                    (
+                        *tx.owner,
+                        key,
+                        run["agent_run_id"],
+                        json_text(
+                            {"producer": "core_process", "tool_attempt_id": attempt_id}
+                        ),
+                    ),
+                )
+        tx.connection.execute(
+            "UPDATE vnext.tool_call SET latest_attempt_id=%s,status='admitted' WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND tool_call_id=%s",
+            (attempt_id, *tx.owner, permit.tool_call_id),
+        )
+        _settlement(tx, run["agent_run_id"])
+        tx.semantic_event(
+            "process.action_requested",
+            {
+                "tool_call_id": permit.tool_call_id,
+                "tool_attempt_id": attempt_id,
+                "process_action": action,
+                "parent_handle": parent_id,
+            },
+        )
+        audit(
+            tx,
+            "process.action_admitted",
+            {"tool_attempt_id": attempt_id, "process_action": action},
+        )
+        return permit
+
     def check_execution(self, permit, *, receiver_id):
         with self.uow.transaction(permit.access, permit.identity.task_id, capability="tool_request") as tx:
             config = self.registry.config(tx)
@@ -508,7 +809,8 @@ class ToolAdmission:
             stored = strict_json_loads(actual["permit_json"])
             executor = self.registry.executor(tx, permit.executor_ref)
             definition = self.registry.tool(tx, permit.tool_definition_ref)
-            if tool_kind(definition) == "http_target":
+            kind = tool_kind(definition)
+            if kind == "http_target":
                 require_http_target_role(tx, work)
             if not compare_digest(stored["execution_token"], permit.execution_token) or digest(stored) != digest(permit.stored()) or receiver_id != executor.receiver_id or run["agent_run_id"] != permit.identity.agent_run_id or executor.environment_ref != run["environment_ref"] or datetime.now(timezone.utc) >= permit.expires_at or actual["status"] != "admitted":
                 raise DomainError("STALE_EXECUTION", 409)
@@ -854,9 +1156,11 @@ class ToolGate:
         if existing_capture:
             envelope = CaptureEnvelope.model_validate(strict_json_loads(existing_capture))
         else:
-            ref = self.artifacts.stage(collector, permit.identity.task_id, permit.tool_attempt_id, bytes(attempt["output"]), attempt["output_media_type"], completeness=attempt["output_completeness"], conditions=(condition,), access_level=level)
+            provenance = "import" if tool_kind(definition) == "process" else "capture"
+            ref = self.artifacts.stage(collector, permit.identity.task_id, permit.tool_attempt_id, bytes(attempt["output"]), attempt["output_media_type"], completeness=attempt["output_completeness"], conditions=(condition,), provenance=provenance, access_level=level)
             self.artifacts.seal(collector, permit.identity.task_id, ref)
-            envelope = CaptureEnvelope.model_validate({"schema_version": "wuji.capture.v2", "capture_id": permit.tool_attempt_id, "identity": permit.identity.model_dump(mode="json"), "tool_call_id": permit.tool_call_id, "tool_attempt_id": permit.tool_attempt_id, "artifact_refs": [ref.model_dump(mode="json")], "capture_layer": executor.capture_layer, "observed_at": saved["exited_at"] or saved["started_at"], "received_at": saved["exited_at"] or saved["started_at"], "evidence_origin": executor.evidence_origin, "conditions": [condition], "completeness": attempt["output_completeness"]})
+            observed_at = saved.get("exited_at") or saved.get("finished_at") or saved["started_at"]
+            envelope = CaptureEnvelope.model_validate({"schema_version": "wuji.capture.v2", "capture_id": permit.tool_attempt_id, "identity": permit.identity.model_dump(mode="json"), "tool_call_id": permit.tool_call_id, "tool_attempt_id": permit.tool_attempt_id, "artifact_refs": [ref.model_dump(mode="json")], "capture_layer": executor.capture_layer, "observed_at": observed_at, "received_at": observed_at, "evidence_origin": executor.evidence_origin, "conditions": [condition], "completeness": attempt["output_completeness"]})
             # Freeze the exact ingest envelope before sending it to EvidenceService.
             with self.admission.uow.transaction(access, permit.identity.task_id, capability="tool_settle") as tx:
                 current = _attempt(tx, permit.tool_attempt_id)

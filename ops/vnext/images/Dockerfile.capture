@@ -1,0 +1,59 @@
+ARG PYTHON_IMAGE=python:3.13.15-slim-bookworm
+ARG LIBPCAP_VERSION=1.10.5
+ARG LIBPCAP_SHA256=84fa89ac6d303028c1c5b754abff77224f45eca0a94eb1a34ff0aa9ceece3925
+ARG TCPDUMP_VERSION=4.99.5
+ARG TCPDUMP_SHA256=d76395ab82d659d526291b013eee200201380930793531515abfc6e77b4f2ee5
+
+FROM ${PYTHON_IMAGE} AS pcap-build
+ARG LIBPCAP_VERSION LIBPCAP_SHA256 TCPDUMP_VERSION TCPDUMP_SHA256
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential ca-certificates curl flex bison pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /build
+RUN curl -fsSLo libpcap.tar.xz "https://www.tcpdump.org/release/libpcap-${LIBPCAP_VERSION}.tar.xz" \
+    && echo "${LIBPCAP_SHA256}  libpcap.tar.xz" | sha256sum -c - \
+    && mkdir libpcap && tar -xJf libpcap.tar.xz -C libpcap --strip-components=1 \
+    && cd libpcap \
+    && ./configure --prefix=/opt/tcpdump --disable-shared --without-libnl \
+    && make -j2 && make install
+RUN curl -fsSLo tcpdump.tar.xz "https://www.tcpdump.org/release/tcpdump-${TCPDUMP_VERSION}.tar.xz" \
+    && echo "${TCPDUMP_SHA256}  tcpdump.tar.xz" | sha256sum -c - \
+    && mkdir tcpdump && tar -xJf tcpdump.tar.xz -C tcpdump --strip-components=1 \
+    && cd tcpdump \
+    && PKG_CONFIG_PATH=/opt/tcpdump/lib/pkgconfig ./configure --prefix=/opt/tcpdump --without-crypto \
+    && make -j2 && make install \
+    && /opt/tcpdump/bin/tcpdump --version | grep -F "tcpdump version ${TCPDUMP_VERSION}" \
+    && /opt/tcpdump/bin/tcpdump --version | grep -F "libpcap version ${LIBPCAP_VERSION}"
+
+FROM ${PYTHON_IMAGE} AS python-deps
+ENV UV_PYTHON_DOWNLOADS=never UV_LINK_MODE=copy \
+    PYTHONDONTWRITEBYTECODE=1 PYTHONNOUSERSITE=1 PYTHONUNBUFFERED=1
+WORKDIR /opt/wuji
+COPY services/wuji-capture/pyproject.toml services/wuji-capture/uv.lock /opt/wuji/services/wuji-capture/
+COPY services/wuji-capture/src /opt/wuji/services/wuji-capture/src
+RUN python -m pip install --no-cache-dir uv==0.12.11 \
+    && uv sync --project /opt/wuji/services/wuji-capture --frozen --no-dev --python /usr/local/bin/python \
+    && /opt/wuji/services/wuji-capture/.venv/bin/python -c \
+      "import sys; from importlib.metadata import version; assert sys.version_info[:3] == (3,13,15); assert version('mitmproxy') == '12.2.3'"
+
+FROM ${PYTHON_IMAGE}
+COPY --from=pcap-build /opt/tcpdump /opt/tcpdump
+COPY --from=python-deps /opt/wuji/services/wuji-capture /opt/wuji/services/wuji-capture
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates iptables libcap2-bin \
+    && rm -rf /var/lib/apt/lists/* \
+    && setcap cap_net_raw=ep /opt/tcpdump/bin/tcpdump \
+    && test "$(getcap /opt/tcpdump/bin/tcpdump)" = "/opt/tcpdump/bin/tcpdump cap_net_raw=ep" \
+    && /opt/wuji/services/wuji-capture/.venv/bin/python -c \
+      "from importlib.metadata import version; assert version('mitmproxy') == '12.2.3'" \
+    && useradd --system --uid 10004 --no-create-home --shell /usr/sbin/nologin wuji-capture \
+    && mkdir -p /var/lib/wuji-capture /run/wuji-capture \
+    && chown 10004:10004 /var/lib/wuji-capture /run/wuji-capture \
+    && chmod 0700 /var/lib/wuji-capture /run/wuji-capture
+ENV PATH=/opt/wuji/services/wuji-capture/.venv/bin:/opt/tcpdump/bin:$PATH \
+    WUJI_CAPTURE_ROOT=/var/lib/wuji-capture \
+    WUJI_CAPTURE_RUNTIME=/run/wuji-capture \
+    WUJI_CAPTURE_TCPDUMP_BIN=/opt/tcpdump/bin/tcpdump
+EXPOSE 8080 8085
+# The Task template supplies only the packet-capture capabilities required by
+# tcpdump. The proxy/writer receive no platform or model credential.
+ENTRYPOINT ["python", "-m", "wuji_capture.supervisor"]

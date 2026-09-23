@@ -249,6 +249,34 @@ class TriggerRepository:
             return producer is not None and (
                 producer["agent_run_id"] is None or producer["kind"] != "reason"
             )
+        if kind == "input.resolved":
+            resolved = tx.connection.execute(
+                """SELECT 1 FROM vnext.input_request i
+                JOIN vnext.input_delivery d USING(tenant_id,project_id,task_id,input_request_id)
+                WHERE i.tenant_id=%s AND i.project_id=%s AND i.task_id=%s
+                AND i.input_request_id=%s AND i.work_item_id=%s AND i.status='resolved'
+                AND d.delivery_id=%s""",
+                (
+                    *tx.owner,
+                    payload.get("input_request_id"),
+                    payload.get("work_item_id"),
+                    payload.get("delivery_id"),
+                ),
+            ).fetchone()
+            return bool(resolved)
+        if kind == "work.settled":
+            work = row(
+                tx.connection.execute(
+                    "SELECT kind,state FROM vnext.work_item WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND work_item_id=%s",
+                    (*tx.owner, payload.get("work_item_id")),
+                )
+            )
+            return bool(
+                work
+                and work["kind"] != "reason"
+                and work["state"] in {"done", "failed", "cancelled"}
+                and work["state"] == payload.get("state")
+            )
         if kind == "completion.reviewed":
             # Only a review that still has a gap asks the Reason for another
             # look; a ready review waits for the operator's quiesce decision.
@@ -260,11 +288,24 @@ class TriggerRepository:
                     (*tx.owner, payload.get("work_item_id")),
                 )
             )
-            return bool(
-                work
-                and work["kind"] != "reason"
-                and work["state"] in {"done", "failed", "cancelled", "ready"}
-            )
+            if not work or work["kind"] == "reason":
+                return False
+            if kind == "work.reconciled" and work["state"] in {
+                "done",
+                "failed",
+                "cancelled",
+            }:
+                # New producers emit the canonical terminal event in _settle.
+                # Keep historical reconcile events relevant only when no such
+                # event exists for that Work.
+                settled = tx.connection.execute(
+                    """SELECT 1 FROM vnext.outbox WHERE tenant_id=%s AND project_id=%s
+                    AND task_id=%s AND kind='work.settled'
+                    AND payload_json::jsonb->>'work_item_id'=%s LIMIT 1""",
+                    (*tx.owner, payload.get("work_item_id")),
+                ).fetchone()
+                return not bool(settled)
+            return work["state"] in {"done", "failed", "cancelled", "ready"}
         # These names are emitted by platform producers, not Agent role text.
         # Tokens, heartbeat, layout, control acknowledgements and proposed starts
         # are deliberately absent. Future producers need explicit registration.
@@ -291,60 +332,145 @@ class TriggerRepository:
                 tx.owner,
             )
 
+    @staticmethod
+    def _content_fingerprints(tx, ref):
+        """Return sealed non-model content digests behind one evidence ref."""
+
+        kind, entity_id, revision = (
+            ref.get("entity_type"),
+            ref.get("id"),
+            ref.get("revision"),
+        )
+        if kind == "artifact":
+            records = tx.connection.execute(
+                """SELECT sha256,size_bytes,provenance FROM vnext.artifact
+                WHERE tenant_id=%s AND project_id=%s AND task_id=%s
+                  AND entity_id=%s AND revision=%s AND state='sealed'
+                  AND NOT body_removed""",
+                (*tx.owner, entity_id, revision),
+            ).fetchall()
+        elif kind == "observation":
+            if tx.connection.execute(
+                """SELECT 1 FROM vnext.observation WHERE tenant_id=%s
+                AND project_id=%s AND task_id=%s AND entity_id=%s
+                AND revision=%s""",
+                (*tx.owner, entity_id, revision),
+            ).fetchone() is None:
+                return set()
+            records = tx.connection.execute(
+                """SELECT a.sha256,a.size_bytes,a.provenance
+                FROM vnext.observation_artifact o JOIN vnext.artifact a ON
+                  (a.tenant_id,a.project_id,a.task_id,a.entity_id,a.revision)=
+                  (o.tenant_id,o.project_id,o.task_id,o.artifact_id,
+                   o.artifact_revision)
+                WHERE o.tenant_id=%s AND o.project_id=%s AND o.task_id=%s
+                  AND o.observation_id=%s AND o.observation_revision=%s
+                  AND a.state='sealed' AND NOT a.body_removed""",
+                (*tx.owner, entity_id, revision),
+            ).fetchall()
+        else:
+            return set()
+        return {
+            (digest_value, int(size))
+            for digest_value, size, provenance in records
+            if provenance != "model_output"
+        }
+
+    def _content_material(self, tx, *, refs, event_seq):
+        fingerprints = set()
+        for ref in refs:
+            fingerprints.update(self._content_fingerprints(tx, ref))
+        for digest_value, size in sorted(fingerprints):
+            key = "material:" + sha256(
+                canonical_json_bytes(
+                    {
+                        "external_content": {
+                            "sha256": digest_value,
+                            "size_bytes": size,
+                        }
+                    }
+                )
+            ).hexdigest()
+            self._material(tx, key=key, event_seq=event_seq)
+
     def _progress(self, tx, event, payload):
         """Record verified new material for the bounded no-progress check.
 
-        Two producers count: a sealed Observation with content, provenance and
-        environment (``evidence_ingested``), and an accepted non-Reason result
-        whose components actually became canonical knowledge. The fingerprint is
-        the accepted canonical references themselves, so replaying one result or
-        renaming a ToolAttempt never looks like new knowledge.
+        Two producers count: sealed external content behind an accepted
+        Observation, and an accepted non-Reason result whose Claim basis reaches
+        that content. Keys use byte fingerprints, so model output, rephrasing,
+        new IDs for the same bytes and duplicate Claim paths cannot extend the
+        loop.
         """
 
         if event["kind"] == "result_committed":
             self._result_material(tx, event, payload)
+            return
+        if event["kind"] == "claim_shared":
+            self._claim_material(
+                tx, event_seq=event["event_seq"], ref=payload.get("canonical_ref")
+            )
+            return
+        if event["kind"] == "input.resolved":
+            delivery = row(
+                tx.connection.execute(
+                    """SELECT input_request_id,payload_digest FROM vnext.input_delivery
+                    WHERE tenant_id=%s AND project_id=%s AND task_id=%s
+                    AND delivery_id=%s AND input_request_id=%s""",
+                    (
+                        *tx.owner,
+                        payload.get("delivery_id"),
+                        payload.get("input_request_id"),
+                    ),
+                )
+            )
+            if delivery:
+                key = "material:" + sha256(
+                    canonical_json_bytes(
+                        {
+                            "input_request_id": delivery["input_request_id"],
+                            "payload_digest": delivery["payload_digest"],
+                        }
+                    )
+                ).hexdigest()
+                self._material(tx, key=key, event_seq=event["event_seq"])
             return
         if event["kind"] != "evidence_ingested":
             return
         ref = payload.get("observation_ref")
         if not ref:
             return
-        observation = row(
+        self._content_material(tx, refs=[ref], event_seq=event["event_seq"])
+
+    def _claim_material(self, tx, *, event_seq, ref):
+        """Count a Claim's new evidence basis once, independent of its ID/text."""
+
+        if not ref or ref.get("entity_type") != "claim":
+            return
+        claim = row(
             tx.connection.execute(
-                "SELECT * FROM vnext.observation WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND entity_id=%s AND revision=%s",
-                (*tx.owner, ref["id"], ref["revision"]),
+                """SELECT basis_json FROM vnext.claim_revision
+                WHERE tenant_id=%s AND project_id=%s
+                AND task_id=%s AND entity_id=%s AND revision=%s""",
+                (*tx.owner, ref.get("id"), ref.get("revision")),
             )
         )
-        if not observation:
+        if claim is None:
             return
-        source = {
-            k: observation[k]
-            for k in (
-                "environment_ref",
-                "conditions_json",
-                "evidence_origin",
-                "capture_layer",
-                "completeness",
-            )
-        }
-        artifacts = rows(
-            tx.connection.execute(
-                """SELECT a.sha256,a.size_bytes,a.provenance FROM vnext.observation_artifact o
-            JOIN vnext.artifact a ON (a.tenant_id,a.project_id,a.task_id,a.entity_id,a.revision)=
-            (o.tenant_id,o.project_id,o.task_id,o.artifact_id,o.artifact_revision)
-            WHERE o.tenant_id=%s AND o.project_id=%s AND o.task_id=%s AND o.observation_id=%s
-            AND o.observation_revision=%s AND a.state='sealed' ORDER BY o.ordinal""",
-                (*tx.owner, ref["id"], ref["revision"]),
-            )
-        )
-        if not artifacts:
+        basis = [
+            value
+            for value in strict_json_loads(claim["basis_json"])
+            if value["entity_type"] in {"artifact", "observation"}
+        ]
+        if not basis:
+            # Model prose and structured assertions without a new evidence basis
+            # still wake Reason, but are not observable progress. We deliberately
+            # do not guess semantic novelty here.
             return
-        source["artifacts"] = artifacts
-        key = "material:" + sha256(canonical_json_bytes(source)).hexdigest()
-        self._material(tx, key=key, event_seq=event["event_seq"])
+        self._content_material(tx, refs=basis, event_seq=event_seq)
 
     def _result_material(self, tx, event, payload):
-        """One material row per accepted result, keyed by its canonical refs."""
+        """Apply the same per-Claim evidence rule to accepted final output."""
 
         result = row(
             tx.connection.execute(
@@ -361,28 +487,10 @@ class TriggerRepository:
         receipt = strict_json_loads(result["receipt_json"])
         if receipt.get("status") != "accepted":
             return
-        canonical = sorted(
-            (
-                claim["kind"], claim["assertion_role"], claim["text"],
-                claim["structured_json"], claim["basis_json"],
-            )
-            for component in receipt.get("components", [])
-            if component.get("canonical_ref") and not component.get("code")
-            and component["canonical_ref"]["entity_type"] == "claim"
-            for claim in [row(tx.connection.execute(
-                "SELECT kind,assertion_role,text,structured_json,basis_json FROM vnext.claim_revision "
-                "WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND entity_id=%s AND revision=%s",
-                (*tx.owner, component["canonical_ref"]["id"],
-                 component["canonical_ref"]["revision"]),
-            ))]
-            if claim is not None
-        )
-        if not canonical:
-            return
-        key = "material:" + sha256(
-            canonical_json_bytes({"accepted_claim_content": canonical})
-        ).hexdigest()
-        self._material(tx, key=key, event_seq=event["event_seq"])
+        for component in receipt.get("components", []):
+            ref = component.get("canonical_ref")
+            if ref and not component.get("code") and ref["entity_type"] == "claim":
+                self._claim_material(tx, event_seq=event["event_seq"], ref=ref)
 
     def begin_reason(self, tx, *, work_item_id, snapshot_id):
         state = state_row(tx)
@@ -615,8 +723,9 @@ class TriggerRepository:
         already = tx.connection.execute(
             """SELECT 1 FROM vnext.outbox WHERE tenant_id=%s AND project_id=%s AND task_id=%s
             AND kind='reason.completion_requested'
-            AND payload_json::jsonb->>'reason'='no_progress_window' LIMIT 1""",
-            tx.owner,
+            AND payload_json::jsonb->>'reason'='no_progress_window'
+            AND payload_json::jsonb->>'processing_generation'=%s LIMIT 1""",
+            (*tx.owner, str(value["processing_generation"])),
         ).fetchone()
         if already:
             return

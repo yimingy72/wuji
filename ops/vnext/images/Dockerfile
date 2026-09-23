@@ -1,7 +1,7 @@
 ARG PYTHON_IMAGE=python:3.13.15-slim-bookworm
 ARG NODE_IMAGE=node:24.20.0-bookworm-slim
 ARG UV_IMAGE=ghcr.io/astral-sh/uv:0.12.11
-ARG KALI_IMAGE=kalilinux/kali-rolling:latest
+ARG KALI_IMAGE=kalilinux/kali-rolling@sha256:30399bd65187e06525008dd13eecc2b3439d26a82b2c6b0ba32dee72bd843117
 FROM ${NODE_IMAGE} AS node
 FROM ${UV_IMAGE} AS uv
 FROM ${PYTHON_IMAGE} AS base
@@ -41,7 +41,7 @@ COPY ops/vnext/deployment_common.py /opt/wuji/ops/vnext/deployment_common.py
 COPY ops/vnext/gate_deployment.py ops/vnext/kali_deployment.py ops/vnext/pod_deployment.py /opt/wuji/ops/vnext/
 COPY ops/vnext/pod_task_config.py /opt/wuji/ops/vnext/pod_task_config.py
 COPY ops/vnext/launch_adapter.py ops/vnext/task_model_keys.py /opt/wuji/ops/vnext/
-COPY ops/vnext/bootstrap.py ops/vnext/synthetic_model.py ops/vnext/task_launch.py /opt/wuji/ops/vnext/
+COPY ops/vnext/bootstrap.py ops/vnext/core_ctf_bootstrap.py ops/vnext/core_ctf_catalog.py ops/vnext/synthetic_model.py ops/vnext/task_launch.py /opt/wuji/ops/vnext/
 COPY ops/vnext/kubernetes/task-owner-rbac.json /opt/wuji/ops/vnext/kubernetes/task-owner-rbac.json
 COPY services/wuji-kali-executor /opt/wuji/services/wuji-kali-executor
 RUN chmod -R a+rX /opt/wuji
@@ -55,16 +55,20 @@ ENTRYPOINT ["python", "/opt/wuji/services/wuji-runtime/main.py", "--factory", "d
 FROM ${KALI_IMAGE} AS kali
 RUN find /etc/apt -type f -exec sed -i 's|http://http.kali.org/kali|http://kali.download/kali|' {} + \
     && apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates libbz2-1.0 libexpat1 libffi8 liblzma5 libsqlite3-0 libssl3t64 zlib1g \
+    bash ca-certificates curl file jq unzip xxd \
+    libbz2-1.0 libexpat1 libffi8 liblzma5 libsqlite3-0 libssl3t64 zlib1g \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=platform /usr/local /usr/local
 COPY --from=platform /opt/wuji /opt/wuji
 ENV PATH=/opt/wuji/ops/vnext/.venv/bin:$PATH PYTHONPATH=/opt/wuji/ops/vnext \
     PYTHONDONTWRITEBYTECODE=1 PYTHONNOUSERSITE=1 PYTHONUNBUFFERED=1 \
     WUJI_DEPLOYMENT_CONFIG=/config/kali.json
-RUN mkdir -p /workspace /var/lib/wuji/kali-receipts \
+RUN command -v bash && command -v curl && command -v file && command -v jq \
+    && command -v unzip && command -v xxd \
+    && python -c "import requests, urllib.request" \
+    && mkdir -p /workspace /var/lib/wuji/kali-receipts \
     && chown -R 10002:10000 /workspace /var/lib/wuji/kali-receipts
 WORKDIR /opt/wuji
-USER 10002:10000
+USER 0:0
 EXPOSE 8444
 ENTRYPOINT ["python", "-m", "uvicorn", "kali_deployment:build_kali", "--factory", "--host", "0.0.0.0", "--port", "8444", "--ssl-certfile", "/run/wuji/credentials/tls.crt", "--ssl-keyfile", "/run/wuji/credentials/tls.key", "--no-access-log"]

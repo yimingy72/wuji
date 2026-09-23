@@ -79,6 +79,15 @@ def test_the_router_requires_real_transports():
         TaskSupervisorTransport(by_task={"": RecordingTransport("x")})
 
 
+def test_an_explicit_empty_router_can_receive_its_first_task_later():
+    router = TaskSupervisorTransport(allow_empty=True)
+    first = RecordingTransport("first")
+
+    router.replace_routes({"task-a": first})
+
+    assert router.query("operation-1", task_id="task-a") == {"transport": "first"}
+
+
 def test_a_task_id_is_never_sent_to_the_wrong_transport():
     calls = []
 

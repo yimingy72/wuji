@@ -519,3 +519,397 @@ def test_synthetic_first_use_f2_follows_each_material_variant(variant, guide):
     )
     question = step["document"]["intent_proposals"][0]["question"]
     assert FIRST_USE_ORIGIN + "/f2/" + variant + "/" + guide in question
+
+
+CORE_URL = "https://challenge.core.invalid/start?case=mechanism"
+CORE_TOOLS = [
+    "knowledge_read", "kali_exec", "kali_read", "workspace_publish",
+    "workspace_materialize", "board_publish",
+]
+
+
+def core_context(*, question, indexes=(), assets=(), related=(), results=()):
+    return {
+        "schema_version": peer.WORK_BRIEF_V2_SCHEMA,
+        "snapshot_id": "snapshot-core",
+        "brief": {
+            "task_goal": "Recover the authorized answer from " + CORE_URL,
+            "authorization_summary": ["https://challenge.core.invalid:443"],
+            "question": question,
+            "related_work_summaries": list(related),
+            "predecessor_result_summaries": list(results),
+        },
+        "knowledge_index": list(indexes),
+        "initial_deliveries": [],
+        "workspace_binding": {"work_path": "/workspace/work/work-core"},
+        "published_asset_index": list(assets),
+    }
+
+
+def core_request(*, role, context):
+    return {
+        "model": peer.CORE_CTF_ALIAS,
+        "stream": True,
+        "messages": [
+            {
+                "role": "system",
+                "contents": [{
+                    "type": "text",
+                    "text": "your duty as " + role + ": fixed core mechanism",
+                }],
+            },
+            {
+                "role": "user",
+                "contents": [{"type": "text", "text": json.dumps(context)}],
+            },
+        ],
+        "tools": [
+            {"function": {"name": name, "parameters": {"type": "object"}}}
+            for name in CORE_TOOLS
+        ],
+    }
+
+
+def complete_tool(request_body, step, result):
+    request_body["messages"].extend([
+        {
+            "role": "assistant",
+            "tool_calls": [{
+                "id": step["call_id"], "type": "function",
+                "function": {"name": step["name"], "arguments": step["arguments"]},
+            }],
+        },
+        {
+            "role": "tool",
+            "contents": [{
+                "type": "function_result", "call_id": step["call_id"],
+                "result": json.dumps(result),
+            }],
+        },
+    ])
+
+
+def process_reply(*, state, handle="process-core", cursor=0, exit_code=None):
+    return {
+        "schema_version": "wuji.process-reply.v1",
+        "handle": handle,
+        "state": state,
+        "exit_code": exit_code,
+        "next_cursor": {"stdout_offset": cursor, "stderr_offset": 0},
+    }
+
+
+def core_asset():
+    return {
+        "publication_id": "publication-script-v1",
+        "manifest_ref": {"id": "manifest-script", "version": "1", "sha256": "a" * 64},
+        "entrypoint": {
+            "relative_path": peer.CORE_SCRIPT,
+            "interpreter_argv": ["/opt/wuji/ops/vnext/.venv/bin/python"],
+        },
+    }
+
+
+def core_result_asset():
+    return {
+        "publication_id": "publication-result-v1",
+        "manifest_ref": {
+            "id": "manifest-result", "version": "1", "sha256": "b" * 64
+        },
+        "entrypoint": {
+            "relative_path": peer.CORE_RESULT,
+            "interpreter_argv": ["/bin/cat"],
+        },
+    }
+
+
+def claim_index(identifier):
+    return {
+        "ref": reference("claim", identifier),
+        "material_type": "claim",
+        "available_selectors": ["record_fields"],
+    }
+
+
+def material_index(identifier, media_type):
+    return {
+        "ref": reference("artifact", identifier),
+        "material_type": media_type,
+        "available_selectors": ["record_fields", "text_range"],
+    }
+
+
+def knowledge_delivery(ref, text):
+    return {
+        "schema_version": "wuji.knowledge-delivery.v1",
+        "ref": ref,
+        "text": text,
+    }
+
+
+def test_core_reason_reads_claim_and_manifest_before_grounded_work_b():
+    initial = core_request(
+        role="reason",
+        context=core_context(question="choose the next necessary work"),
+    )
+    first = peer.decision(initial)
+    proposal = first["document"]["intent_proposals"][0]
+    assert peer.CORE_WORK_A in proposal["question"]
+    assert CORE_URL in proposal["question"]
+    assert proposal["basis_refs"] == []
+
+    context = core_context(
+        question="choose the next necessary work",
+        indexes=[claim_index("claim-work-a")],
+        assets=[core_asset()],
+        results=[peer.CORE_WORK_A + " published a reusable fixed script."],
+    )
+    request_body = core_request(role="reason", context=context)
+    read_claim = peer.decision(request_body)
+    assert read_claim["name"] == "knowledge_read"
+    assert json.loads(read_claim["arguments"])["ref"] == reference("claim", "claim-work-a")
+    complete_tool(
+        request_body,
+        read_claim,
+        knowledge_delivery(
+            reference("claim", "claim-work-a"),
+            json.dumps({"text": peer.CORE_WORK_A + " published publication-script-v1."}),
+        ),
+    )
+
+    read_manifest = peer.decision(request_body)
+    manifest_ref = reference("artifact", "manifest-script")
+    assert read_manifest["name"] == "knowledge_read"
+    assert json.loads(read_manifest["arguments"])["ref"] == manifest_ref
+    complete_tool(
+        request_body,
+        read_manifest,
+        knowledge_delivery(
+            manifest_ref,
+            json.dumps({"workspace_bundle_manifest": {"schema_version": "wuji.workspace-bundle.v1"}}),
+        ),
+    )
+
+    grounded = peer.decision(request_body)["document"]
+    proposal = grounded["intent_proposals"][0]
+    assert peer.CORE_WORK_B in proposal["question"]
+    assert "publication-script-v1" in proposal["question"]
+    assert proposal["basis_refs"] == [reference("claim", "claim-work-a")]
+    assert all(ref["entity_type"] != "artifact" for ref in proposal["basis_refs"])
+
+
+def test_core_explore_a_waits_for_running_process_then_publishes_board_before_result():
+    context = core_context(
+        question=peer.CORE_WORK_A + ": fetch " + CORE_URL,
+    )
+    request_body = core_request(role="explore", context=context)
+
+    execute = peer.decision(request_body)
+    assert execute["name"] == "kali_exec"
+    command = json.loads(execute["arguments"])["command"]
+    assert "base64 -d" in command and peer.CORE_SCRIPT in command
+    complete_tool(request_body, execute, process_reply(state="running", cursor=0))
+
+    read = peer.decision(request_body)
+    assert read["name"] == "kali_read"
+    assert json.loads(read["arguments"])["wait_ms"] == 1000
+    complete_tool(request_body, read, process_reply(state="exited", cursor=128, exit_code=0))
+
+    publish = peer.decision(request_body)
+    assert publish["name"] == "workspace_publish"
+    assert json.loads(publish["arguments"])["files"] == [{"relative_path": peer.CORE_SCRIPT}]
+    publication = {
+        "schema_version": "wuji.workspace-publish-result.v1",
+        "status": "published",
+        "publication_id": "publication-script-v1",
+        "manifest_ref": {"id": "manifest-script", "version": "1", "sha256": "a" * 64},
+    }
+    complete_tool(request_body, publish, publication)
+
+    board = peer.decision(request_body)
+    assert board["name"] == "board_publish"
+    board_arguments = json.loads(board["arguments"])
+    assert board_arguments["basis_refs"] == [reference("artifact", "manifest-script")]
+    complete_tool(request_body, board, {
+        "schema_version": "wuji.board-publish-result.v1",
+        "receipt": {"canonical_ref": reference("claim", "claim-work-a")},
+    })
+
+    final = peer.decision(request_body)
+    assert final["kind"] == "payload"
+    assert final["document"]["work_result"]["answer_basis_refs"] == [
+        reference("claim", "claim-work-a")
+    ]
+
+
+def test_core_explore_b_materializes_fixed_script_and_publishes_result():
+    context = core_context(
+        question=(
+            peer.CORE_WORK_B + ": materialize publication publication-script-v1 and run it against "
+            + CORE_URL
+        ),
+        assets=[core_asset()],
+    )
+    request_body = core_request(role="explore", context=context)
+
+    materialize = peer.decision(request_body)
+    assert materialize["name"] == "workspace_materialize"
+    assert json.loads(materialize["arguments"])["publication_id"] == "publication-script-v1"
+    complete_tool(request_body, materialize, {
+        "schema_version": "wuji.workspace-materialize-result.v1",
+        "publication_id": "publication-script-v1",
+        "files": [{
+            "relative_path": peer.CORE_SCRIPT,
+            "destination_path": "/workspace/work/work-core/imports/publication-script-v1/src/fetch.py",
+        }],
+    })
+
+    execute = peer.decision(request_body)
+    assert execute["name"] == "kali_exec"
+    command = json.loads(execute["arguments"])["command"]
+    assert "/imports/publication-script-v1/src/fetch.py" in command
+    assert CORE_URL in command
+    complete_tool(request_body, execute, process_reply(state="exited", cursor=256, exit_code=0))
+
+    publish = peer.decision(request_body)
+    assert publish["name"] == "workspace_publish"
+    assert json.loads(publish["arguments"])["files"] == [{"relative_path": peer.CORE_RESULT}]
+    complete_tool(request_body, publish, {
+        "schema_version": "wuji.workspace-publish-result.v1",
+        "status": "published",
+        "publication_id": "publication-result-v1",
+        "manifest_ref": {"id": "manifest-result", "version": "1", "sha256": "b" * 64},
+    })
+
+    board = peer.decision(request_body)
+    assert board["name"] == "board_publish"
+    assert peer.CORE_WORK_B in json.loads(board["arguments"])["text"]
+    complete_tool(request_body, board, {
+        "schema_version": "wuji.board-publish-result.v1",
+        "receipt": {"canonical_ref": reference("claim", "claim-work-b")},
+    })
+    final = peer.decision(request_body)["document"]
+    assert peer.CORE_WORK_B in final["work_result"]["summary"]
+    assert final["work_result"]["answer_basis_refs"] == [reference("claim", "claim-work-b")]
+
+
+def test_core_final_reason_reads_work_b_claim_before_completion():
+    body = json.dumps({"answer": "core-mechanism-ok"}).encode()
+    result = json.dumps({
+        "body_base64": __import__("base64").b64encode(body).decode(),
+        "length": len(body),
+        "status": 200,
+        "url": CORE_URL,
+    }, sort_keys=True).encode() + b"\n"
+    result_digest = sha256(result).hexdigest()
+    context = core_context(
+        question="choose the next necessary work",
+        indexes=[
+            claim_index("claim-work-a"), claim_index("claim-work-b"),
+            material_index("command-work-b", peer.CORE_COMMAND_LOG),
+            material_index("capture-work-b", peer.CORE_HTTP_EXCHANGE),
+        ],
+        assets=[core_asset(), core_result_asset()],
+        results=[
+            peer.CORE_WORK_A + " published a reusable fixed script.",
+            peer.CORE_WORK_B + " materialized that version and published its sealed result.",
+        ],
+    )
+    request_body = core_request(role="reason", context=context)
+    first = peer.decision(request_body)
+    complete_tool(
+        request_body,
+        first,
+        knowledge_delivery(reference("claim", "claim-work-a"), peer.CORE_WORK_A + " result"),
+    )
+    second = peer.decision(request_body)
+    complete_tool(
+        request_body,
+        second,
+        knowledge_delivery(reference("claim", "claim-work-b"), peer.CORE_WORK_B + " result"),
+    )
+    manifest = peer.decision(request_body)
+    complete_tool(request_body, manifest, knowledge_delivery(
+        reference("artifact", "manifest-result"),
+        json.dumps({"workspace_bundle_manifest": {
+            "files": [{
+                "relative_path": peer.CORE_RESULT,
+                "ref": {"id": "result-json", "version": "1", "sha256": result_digest},
+            }],
+        }}),
+    ))
+    command = peer.decision(request_body)
+    assert json.loads(command["arguments"])["ref"] == reference("artifact", "command-work-b")
+    complete_tool(request_body, command, knowledge_delivery(
+        reference("artifact", "command-work-b"),
+        json.dumps({
+            "schema_version": "wuji.command-log.v1",
+            "command": "python imported/src/fetch.py | tee " + peer.CORE_RESULT,
+            "stdout_base64": __import__("base64").b64encode(result).decode(),
+            "stdout_sha256": result_digest,
+            "truncated": False,
+        }),
+    ))
+    capture = peer.decision(request_body)
+    assert json.loads(capture["arguments"])["ref"] == reference("artifact", "capture-work-b")
+    complete_tool(request_body, capture, knowledge_delivery(
+        reference("artifact", "capture-work-b"),
+        "schema_version: wuji.http-exchange.v1\nresponse.status: 200\n"
+        "response.headers:\ncontent-type: application/json\nresponse.body:\n"
+        + body.decode(),
+    ))
+    final = peer.decision(request_body)["document"]
+    assert final["reason_decision"]["decision"] == "propose_completion"
+    assert final["reason_decision"]["basis_refs"] == [
+        reference("claim", "claim-work-b"),
+        reference("artifact", "command-work-b"),
+        reference("artifact", "capture-work-b"),
+    ]
+    assert "body SHA-256 " + sha256(body).hexdigest() in final["reason_decision"][
+        "public_rationale"
+    ]
+
+
+def test_core_final_reason_rejects_a_capture_that_disagrees_with_the_result():
+    body = b'{"answer":"expected"}'
+    result = json.dumps({
+        "body_base64": __import__("base64").b64encode(body).decode(),
+        "length": len(body), "status": 200, "url": CORE_URL,
+    }, sort_keys=True).encode() + b"\n"
+    digest = sha256(result).hexdigest()
+    context = core_context(
+        question="choose the next necessary work",
+        indexes=[
+            claim_index("claim-work-a"), claim_index("claim-work-b"),
+            material_index("command-work-b", peer.CORE_COMMAND_LOG),
+            material_index("capture-work-b", peer.CORE_HTTP_EXCHANGE),
+        ],
+        assets=[core_asset(), core_result_asset()],
+        results=[peer.CORE_WORK_A, peer.CORE_WORK_B],
+    )
+    request_body = core_request(role="reason", context=context)
+    deliveries = [
+        (reference("claim", "claim-work-a"), peer.CORE_WORK_A),
+        (reference("claim", "claim-work-b"), peer.CORE_WORK_B),
+        (reference("artifact", "manifest-result"), json.dumps({
+            "workspace_bundle_manifest": {"files": [{
+                "relative_path": peer.CORE_RESULT,
+                "ref": {"id": "result-json", "version": "1", "sha256": digest},
+            }]}
+        })),
+        (reference("artifact", "command-work-b"), json.dumps({
+            "schema_version": "wuji.command-log.v1",
+            "command": "tee " + peer.CORE_RESULT,
+            "stdout_base64": __import__("base64").b64encode(result).decode(),
+            "stdout_sha256": digest,
+            "truncated": False,
+        })),
+        (reference("artifact", "capture-work-b"),
+         "schema_version: wuji.http-exchange.v1\nresponse.status: 503\n"
+         "response.headers:\nresponse.body:\nwrong"),
+    ]
+    for ref, text in deliveries:
+        step = peer.decision(request_body)
+        complete_tool(request_body, step, knowledge_delivery(ref, text))
+    with pytest.raises(ValueError, match="does not match sealed capture"):
+        peer.decision(request_body)

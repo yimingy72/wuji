@@ -13,6 +13,19 @@ export type CommandReceipt = components['schemas']['CommandReceipt'];
 export type ModelMaterialV2 = components['schemas']['ModelMaterialV2'];
 export type ReadinessCheck = components['schemas']['ReadinessCheck'];
 export type TaskProfileOption = components['schemas']['TaskProfileOption'];
+export type TaskOverviewV1 = components['schemas']['TaskOverviewV1'];
+export type RuntimeCaptureSessionPageV1 = components['schemas']['RuntimeCaptureSessionPageV1'];
+export type RuntimeCaptureItemPageV1 = components['schemas']['RuntimeCaptureItemPageV1'];
+
+export type CommandInventoryItem = components['schemas']['TaskCommandItemV1'];
+export type PublicationInventoryItem = components['schemas']['TaskPublicationItemV1'];
+export interface InventoryPage<T> {
+  readonly schema_version: string;
+  readonly items: readonly T[];
+  readonly next_after: string | null;
+}
+export type TaskActivityPageV1 = components['schemas']['TaskActivityPageV1'];
+export type TaskActivityItemV1 = components['schemas']['TaskActivityItemV1'];
 export type ExplorationViewV1 = components['schemas']['ExplorationViewV1'];
 export type TaskInputListV1 = components['schemas']['TaskInputListV1'];
 export type InputAnswerReceiptV1 = components['schemas']['InputAnswerReceiptV1'];
@@ -89,7 +102,12 @@ function isTaskProfileOption(value: unknown): value is TaskProfileOption {
     && isString(value.digest)
     && Array.isArray(value.capabilities)
     && value.capabilities.every(isString)
-    && typeof value.real_model_allowed === 'boolean';
+    && typeof value.real_model_allowed === 'boolean'
+    && (value.max_explore_concurrency === undefined
+      || value.max_explore_concurrency === null
+      || (Number.isInteger(value.max_explore_concurrency)
+        && Number(value.max_explore_concurrency) >= 1
+        && Number(value.max_explore_concurrency) <= 256));
 }
 
 function isReadinessCheck(value: unknown): value is ReadinessCheck {
@@ -113,6 +131,66 @@ function isTaskOptions(value: unknown): value is TaskOptions {
     && value.runtime_profiles.every(isTaskProfileOption)
     && Array.isArray(value.missing)
     && value.missing.every(isReadinessCheck);
+}
+
+function isTaskOverview(value: unknown): value is TaskOverviewV1 {
+  if (!isRecord(value) || value.schema_version !== 'wuji.task-overview.v1' || !isString(value.task_id) || !isString(value.observed_at) || typeof value.status_message !== 'string') return false;
+  if (!isRecord(value.goal) || !isString(value.goal.text) || !Array.isArray(value.goal.criteria)) return false;
+  if (!value.goal.criteria.every((criterion) => isRecord(criterion)
+    && isString(criterion.criterion_id) && isString(criterion.object) && isString(criterion.condition)
+    && typeof criterion.required === 'boolean'
+    && ['met', 'not_met', 'unknown', 'not_applicable', 'missing'].includes(String(criterion.judgment_status))
+    && ['current', 'stale', 'disputed', 'retracted', 'missing'].includes(String(criterion.judgment_applicability)))) return false;
+  if (!isRecord(value.budget) || !isString(value.budget.amount) || value.budget.currency !== 'USD') return false;
+  if (!Array.isArray(value.current_work) || !value.current_work.every((work) => isRecord(work)
+    && isString(work.work_item_id) && ['reason', 'explore', 'report'].includes(String(work.kind))
+    && isString(work.state) && isNullableString(work.question) && isNullableString(work.result_summary)
+    && isNullableString(work.blocked_reason) && isNullableString(work.terminal_reason)
+    && isNullableString(work.run_process_state) && isNullableString(work.updated_at))) return false;
+  if (!Array.isArray(value.latest_findings) || !value.latest_findings.every((finding) => isRecord(finding)
+    && isKnowledgeRef(finding.claim_ref) && isString(finding.text) && isString(finding.kind)
+    && isString(finding.grounding_state) && isString(finding.evidence_state) && isString(finding.applicability_state)
+    && Array.isArray(finding.supporting_refs) && finding.supporting_refs.every(isKnowledgeRef)
+    && Array.isArray(finding.opposing_refs) && finding.opposing_refs.every(isKnowledgeRef)
+    && isString(finding.updated_at))) return false;
+  if (!Array.isArray(value.artifacts) || !value.artifacts.every((artifact) => isRecord(artifact)
+    && isBlobRef(artifact.artifact_ref) && isString(artifact.state) && isString(artifact.media_type)
+    && isString(artifact.size_bytes) && isString(artifact.completeness) && isString(artifact.provenance)
+    && isString(artifact.created_at) && isNullableString(artifact.source_work_item_id)
+    && typeof artifact.download_available === 'boolean')) return false;
+  if (!isRecord(value.runtime)
+    || !['not_started', 'running', 'stopping', 'stopped', 'unknown'].includes(String(value.runtime.state))
+    || !isString(value.runtime.runtime_attempt)
+    || !isNullableString(value.runtime.pod_uid)
+    || !isRecord(value.runtime.containers)
+    || !Array.isArray(value.runtime.terminal_observation_ids)
+    || !value.runtime.terminal_observation_ids.every(isString)
+    || !Array.isArray(value.runtime.terminal_observations)) return false;
+  return isRecord(value.workspace_capabilities)
+    && typeof value.workspace_capabilities.work_files === 'boolean'
+    && typeof value.workspace_capabilities.shared_versions === 'boolean'
+    && typeof value.workspace_capabilities.command_output === 'boolean'
+    && isRecord(value.technical) && isString(value.technical.definition_digest)
+    && isString(value.technical.control_version) && isString(value.technical.execution_epoch)
+    && isString(value.technical.runtime_attempt) && isString(value.technical.schema_version)
+    && isNullableString(value.technical.latest_launch_operation_id)
+    && isNullableString(value.technical.latest_launch_phase)
+    && isNullableString(value.technical.latest_launch_reason_code);
+}
+
+function isTaskActivityPage(value: unknown): value is TaskActivityPageV1 {
+  return isRecord(value) && value.schema_version === 'wuji.task-activity.v1'
+    && isString(value.task_id) && isString(value.observed_at) && isString(value.latest_cursor)
+    && isNullableString(value.next_cursor) && Array.isArray(value.items)
+    && value.items.every((item) => isRecord(item) && isString(item.activity_id)
+      && isString(item.event_cursor) && isString(item.occurred_at)
+      && ['task', 'work', 'finding', 'evidence', 'input', 'completion', 'tool'].includes(String(item.category))
+      && (item.importance === 'key' || item.importance === 'detail')
+      && ['pending', 'running', 'succeeded', 'failed', 'blocked', 'stopped', 'info'].includes(String(item.status))
+      && isString(item.summary) && isNullableString(item.work_item_id)
+      && isNullableString(item.source_ref) && isNullableString(item.reason)
+      && Array.isArray(item.evidence_refs) && item.evidence_refs.every(isKnowledgeRef)
+      && Number.isInteger(item.step_count) && Number(item.step_count) >= 0);
 }
 
 function isReadinessReport(value: unknown): value is ReadinessReport {
@@ -301,6 +379,15 @@ export async function beginLocalWorkbenchSession(path: string, accessCode: strin
   return normalizeSession(value);
 }
 
+export async function beginPasswordWorkbenchSession(path: string, username: string, password: string, signal: AbortSignal): Promise<WorkbenchSession> {
+  const value = await requestJson(path, isWorkbenchSession, signal, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  });
+  return normalizeSession(value);
+}
+
 function normalizeSession(value: RawWorkbenchSession): WorkbenchSession {
   return {
     authenticated: true,
@@ -336,6 +423,99 @@ export function readTaskOptions(projectId: string, signal: AbortSignal): Promise
 
 export function readTask(taskId: string, signal: AbortSignal): Promise<TaskView> {
   return requestJson(`/api/v2/tasks/${encoded(taskId)}`, isTaskView, signal);
+}
+
+export function readTaskOverview(taskId: string, signal: AbortSignal): Promise<TaskOverviewV1> {
+  return requestJson(`/api/v2/tasks/${encoded(taskId)}/overview`, isTaskOverview, signal);
+}
+
+function isInventoryPage<T>(value: unknown, schemaVersion: string, itemValid: (item: unknown) => item is T): value is InventoryPage<T> {
+  return isRecord(value) && value.schema_version === schemaVersion && Array.isArray(value.items)
+    && value.items.every(itemValid) && isNullableString(value.next_after);
+}
+
+function isCommandInventoryItem(value: unknown): value is CommandInventoryItem {
+  return isRecord(value) && isString(value.work_item_id) && isString(value.exec_id)
+    && typeof value.command === 'string' && isString(value.state)
+    && (value.exit_code === null || Number.isInteger(value.exit_code))
+    && isString(value.output_completeness) && Array.isArray(value.output_refs)
+    && value.output_refs.every(isBlobRef) && value.assurance === 'executor_reported';
+}
+
+function isPublicationInventoryItem(value: unknown): value is PublicationInventoryItem {
+  return isRecord(value) && isString(value.publication_id) && isString(value.asset_id)
+    && isString(value.asset_revision) && isString(value.producer_work_item_id)
+    && isString(value.producer_run_id) && isBlobRef(value.manifest_ref)
+    && isString(value.created_at) && isString(value.download_url);
+}
+
+function inventoryPath(taskId: string, kind: 'command-inventory' | 'publications', after: string | null): string {
+  const query = new URLSearchParams({ limit: '25' });
+  if (after) query.set('after', after);
+  return `/api/v2/tasks/${encoded(taskId)}/${kind}?${query}`;
+}
+
+export function readCommandInventory(taskId: string, after: string | null, signal: AbortSignal): Promise<InventoryPage<CommandInventoryItem>> {
+  return requestJson(inventoryPath(taskId, 'command-inventory', after), (value): value is InventoryPage<CommandInventoryItem> => isInventoryPage(value, 'wuji.command-inventory.v1', isCommandInventoryItem), signal);
+}
+
+export function readPublications(taskId: string, after: string | null, signal: AbortSignal): Promise<InventoryPage<PublicationInventoryItem>> {
+  return requestJson(inventoryPath(taskId, 'publications', after), (value): value is InventoryPage<PublicationInventoryItem> => isInventoryPage(value, 'wuji.task-publications.v1', isPublicationInventoryItem), signal);
+}
+
+function isCaptureSessionPage(value: unknown): value is RuntimeCaptureSessionPageV1 {
+  return isRecord(value) && value.schema_version === 'wuji.runtime-capture-sessions.v1'
+    && Array.isArray(value.sessions) && value.sessions.every((session) => isRecord(session)
+      && isString(session.capture_session_id) && isRecord(session.binding)
+      && isString(session.binding.task_id) && isString(session.binding.pod_uid)
+      && ['ready', 'draining', 'sealed', 'failed'].includes(String(session.state)));
+}
+
+function isCaptureItemPage(value: unknown): value is RuntimeCaptureItemPageV1 {
+  return isRecord(value) && value.schema_version === 'wuji.runtime-capture-items.v1'
+    && isString(value.capture_session_id) && Array.isArray(value.items)
+    && value.items.every((item) => isRecord(item) && isRecord(item.envelope)
+      && Number.isInteger(item.envelope.item_seq)
+      && ['http_exchange', 'pcap_segment', 'gap', 'manifest'].includes(String(item.envelope.kind))
+      && Array.isArray(item.envelope.parts) && item.envelope.parts.every((part) => isRecord(part)
+        && isString(part.part) && isString(part.media_type) && Number.isInteger(part.length)))
+    && (value.next_item_seq === null || Number.isInteger(value.next_item_seq));
+}
+
+export function readCaptureSessions(taskId: string, signal: AbortSignal): Promise<RuntimeCaptureSessionPageV1> {
+  return requestJson(`/api/v2/tasks/${encoded(taskId)}/capture-sessions`, isCaptureSessionPage, signal);
+}
+
+export function readCaptureItems(taskId: string, sessionId: string, after: number, signal: AbortSignal): Promise<RuntimeCaptureItemPageV1> {
+  return requestJson(`/api/v2/tasks/${encoded(taskId)}/capture-sessions/${encoded(sessionId)}/items?after=${after}&limit=25`, isCaptureItemPage, signal);
+}
+
+export async function downloadCapturePart(taskId: string, sessionId: string, itemSeq: number, part: string, signal: AbortSignal): Promise<Blob> {
+  const path = `/api/v2/tasks/${encoded(taskId)}/capture-sessions/${encoded(sessionId)}/items/${itemSeq}/parts/${encoded(part)}`;
+  const response = await fetch(apiUrl(path), { credentials: 'include', headers: { Accept: 'application/octet-stream' }, signal });
+  if (!response.ok) throw errorFromResponse(response, await readPayload(response));
+  return response.blob();
+}
+
+export interface TaskActivityQuery {
+  readonly cursor?: string | null;
+  readonly afterCursor?: string | null;
+  readonly importance?: 'key' | 'all';
+  readonly category?: TaskActivityItemV1['category'] | null;
+  readonly workItemId?: string | null;
+  readonly limit?: number;
+}
+
+export function readTaskActivity(taskId: string, query: TaskActivityQuery, signal: AbortSignal): Promise<TaskActivityPageV1> {
+  const params = new URLSearchParams({
+    limit: String(query.limit ?? 20),
+    importance: query.importance ?? 'key',
+  });
+  if (query.cursor) params.set('cursor', query.cursor);
+  if (query.afterCursor) params.set('after_cursor', query.afterCursor);
+  if (query.category) params.set('category', query.category);
+  if (query.workItemId) params.set('work_item_id', query.workItemId);
+  return requestJson(`/api/v2/tasks/${encoded(taskId)}/activity?${params.toString()}`, isTaskActivityPage, signal);
 }
 
 export function readReadiness(taskId: string, signal: AbortSignal): Promise<ReadinessReport> {

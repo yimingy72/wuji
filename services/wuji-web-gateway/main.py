@@ -1,9 +1,10 @@
 """Bounded same-origin browser gateway for the local vNext workbench.
 
-The gateway has one deliberately narrow authentication mode in this release:
-``local_single_operator``.  A reusable deployment-scoped local access secret
-is exchanged for one server-side, revocable HttpOnly session.  The browser never
-chooses the upstream subject, tenant, project, role, task, or bearer token.
+The gateway has two deliberately narrow local authentication modes.
+``local_single_operator`` preserves the original deployment access-code flow;
+``local_password`` verifies one fixed development operator from a private scrypt
+credential file and persists independently revocable browser sessions in SQLite.
+The browser never chooses the upstream subject, tenant, project, role, task, or bearer token.
 The upstream API remains the authority for Task/RLS authorization; this
 process only constrains the public entry point and the forwarded contract.
 """
@@ -14,7 +15,7 @@ import argparse
 import asyncio
 import base64
 import binascii
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, contextmanager
 from datetime import datetime, timezone
 import hashlib
 import hmac
@@ -22,6 +23,7 @@ import os
 from pathlib import Path
 import re
 import secrets
+import sqlite3
 import ssl
 import time
 from typing import Literal
@@ -49,6 +51,12 @@ from wuji_core.http import canonical_json_bytes, strict_json_loads
 COOKIE_NAME = "wuji_vnext_session"
 LOCAL_ACCESS_HEADER = "x-wuji-local-access"
 NO_STORE = {"Cache-Control": "no-store"}
+PASSWORD_SCHEMA = "wuji.local-password.v1"
+PASSWORD_SCRYPT_N = 1 << 14
+PASSWORD_SCRYPT_R = 8
+PASSWORD_SCRYPT_P = 1
+PASSWORD_SCRYPT_DKLEN = 32
+_USERNAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._@-]{0,127}$")
 _IDENTIFIER = r"[A-Za-z0-9][A-Za-z0-9._:-]{0,255}"
 _TASK_ID = _IDENTIFIER
 _PROJECT_ID = _IDENTIFIER
@@ -58,6 +66,16 @@ _ARTIFACT_ID = _IDENTIFIER
 _VIEW_ID = _IDENTIFIER
 _RECORD_TYPE = _IDENTIFIER
 _RECORD_ID = _IDENTIFIER
+_CAPTURE_ID = _IDENTIFIER
+_CAPTURE_PART = r"[a-z][a-z0-9_.-]{0,127}"
+_MAX_DOWNLOAD_BYTES = 67_108_864
+
+
+def _local_http_origin(value: str) -> bool:
+    parsed = urlsplit(value)
+    return parsed.scheme == "http" and parsed.hostname in {
+        "localhost", "127.0.0.1", "::1"
+    }
 
 _GET_ROUTES = (
     ("task_list", re.compile(r"^/api/v2/tasks$")),
@@ -66,6 +84,13 @@ _GET_ROUTES = (
         re.compile(rf"^/api/v2/projects/(?P<project_id>{_PROJECT_ID})/task-options$"),
     ),
     ("task_get", re.compile(rf"^/api/v2/tasks/(?P<task_id>{_TASK_ID})$")),
+    ("task_overview", re.compile(rf"^/api/v2/tasks/(?P<task_id>{_TASK_ID})/overview$")),
+    ("command_inventory", re.compile(rf"^/api/v2/tasks/(?P<task_id>{_TASK_ID})/command-inventory$")),
+    ("publications", re.compile(rf"^/api/v2/tasks/(?P<task_id>{_TASK_ID})/publications$")),
+    ("capture_sessions", re.compile(rf"^/api/v2/tasks/(?P<task_id>{_TASK_ID})/capture-sessions$")),
+    ("capture_items", re.compile(rf"^/api/v2/tasks/(?P<task_id>{_TASK_ID})/capture-sessions/(?P<capture_session_id>{_CAPTURE_ID})/items$")),
+    ("capture_part", re.compile(rf"^/api/v2/tasks/(?P<task_id>{_TASK_ID})/capture-sessions/(?P<capture_session_id>{_CAPTURE_ID})/items/(?P<item_seq>[1-9][0-9]*)/parts/(?P<part>{_CAPTURE_PART})$")),
+    ("task_activity", re.compile(rf"^/api/v2/tasks/(?P<task_id>{_TASK_ID})/activity$")),
     (
         "task_readiness",
         re.compile(rf"^/api/v2/tasks/(?P<task_id>{_TASK_ID})/readiness$"),
@@ -164,12 +189,14 @@ class GatewaySettings(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     schema_version: Literal["wuji.web-gateway.v2"]
-    mode: Literal["local_single_operator"]
+    mode: Literal["local_single_operator", "local_password"]
     api_base_url: str
     ca_file: str
     signing_key_file: str
     session_key_file: str
-    local_access_token_file: str
+    local_access_token_file: str | None = None
+    password_credential_file: str | None = None
+    session_db_file: str | None = None
     issuer: str
     audience: str
     subject: str
@@ -181,10 +208,9 @@ class GatewaySettings(BaseModel):
     roles: list[str] = Field(min_length=1, max_length=16)
     display_name: str = Field(min_length=1, max_length=128)
     allowed_origins: list[str] = Field(min_length=1, max_length=8)
-    session_ttl_seconds: int = Field(default=1800, ge=300, le=7200)
+    session_ttl_seconds: int = Field(default=1800, ge=300, le=86400)
     max_request_bytes: int = Field(default=1_048_576, ge=32_768, le=8_388_608)
-    # 2 MiB is above the published 32 KiB model material bound and remains a
-    # hard upper bound for artifact content and JSON responses.
+    # JSON responses remain bounded separately from dedicated file downloads.
     max_response_bytes: int = Field(default=2_097_152, ge=32_768, le=8_388_608)
     max_stream_bytes: int = Field(default=4_194_304, ge=32_768, le=16_777_216)
     secure_cookie: bool = False
@@ -194,12 +220,15 @@ class GatewaySettings(BaseModel):
         api = urlsplit(self.api_base_url)
         if api.scheme != "https" or not api.hostname or api.path not in {"", "/"}:
             raise ValueError("gateway API origin must be an HTTPS origin")
-        for path in (
-            self.ca_file,
-            self.signing_key_file,
-            self.session_key_file,
-            self.local_access_token_file,
-        ):
+        if self.mode == "local_single_operator":
+            if self.local_access_token_file is None:
+                raise ValueError("local access credential is required")
+            mode_paths = (self.local_access_token_file,)
+        else:
+            if self.password_credential_file is None or self.session_db_file is None:
+                raise ValueError("password credential and session database are required")
+            mode_paths = (self.password_credential_file, self.session_db_file)
+        for path in (self.ca_file, self.signing_key_file, self.session_key_file, *mode_paths):
             if not Path(path).is_absolute():
                 raise ValueError("gateway file paths must be absolute")
         if len(set(self.roles)) != len(self.roles) or any(
@@ -227,6 +256,13 @@ class GatewaySettings(BaseModel):
             origins.append(value.rstrip("/"))
         self.api_base_url = self.api_base_url.rstrip("/")
         self.allowed_origins = list(dict.fromkeys(origins))
+        if self.mode == "local_password":
+            local_http = all(_local_http_origin(origin) for origin in self.allowed_origins)
+            https = all(origin.startswith("https://") for origin in self.allowed_origins)
+            if not ((local_http and not self.secure_cookie) or (https and self.secure_cookie)):
+                raise ValueError(
+                    "local password mode requires HTTPS or an explicit loopback HTTP origin"
+                )
         return self
 
 
@@ -261,12 +297,56 @@ def _b64decode(value: str) -> bytes:
 class SessionCodec:
     """Signed, active-session registry with explicit revocation."""
 
-    def __init__(self, key: bytes, *, ttl_seconds: int) -> None:
+    def __init__(self, key: bytes, *, ttl_seconds: int, database_file: str | None = None) -> None:
         if len(key) < 32:
             raise ValueError("browser session key must be at least 32 bytes")
         self._key = key
         self._ttl_seconds = ttl_seconds
         self._active: dict[str, dict[str, object]] = {}
+        self._database_file = database_file
+        if database_file is not None:
+            path = Path(database_file)
+            if not path.parent.is_dir():
+                raise ValueError("browser session database parent is unavailable")
+            with self._database() as connection:
+                connection.execute(
+                    "CREATE TABLE IF NOT EXISTS browser_session("
+                    "sid TEXT PRIMARY KEY,iat INTEGER NOT NULL,exp INTEGER NOT NULL)"
+                )
+            os.chmod(path, 0o600)
+
+    @contextmanager
+    def _database(self):
+        if self._database_file is None:
+            raise RuntimeError("persistent browser sessions are not configured")
+        connection = sqlite3.connect(self._database_file, timeout=5.0)
+        try:
+            connection.execute("PRAGMA busy_timeout=5000")
+            with connection:
+                yield connection
+        finally:
+            connection.close()
+
+    def _store(self, payload: dict[str, object]) -> None:
+        if self._database_file is None:
+            self._active[str(payload["sid"])] = payload
+            return
+        with self._database() as connection:
+            connection.execute("DELETE FROM browser_session WHERE exp<=?", (int(time.time()),))
+            connection.execute(
+                "INSERT INTO browser_session(sid,iat,exp) VALUES(?,?,?)",
+                (str(payload["sid"]), int(payload["iat"]), int(payload["exp"])),
+            )
+
+    def _stored(self, payload: dict[str, object]) -> bool:
+        if self._database_file is None:
+            return self._active.get(str(payload["sid"])) == payload
+        with self._database() as connection:
+            found = connection.execute(
+                "SELECT iat,exp FROM browser_session WHERE sid=?",
+                (str(payload["sid"]),),
+            ).fetchone()
+        return found == (int(payload["iat"]), int(payload["exp"]))
 
     def issue(self) -> tuple[str, dict[str, object]]:
         now = int(time.time())
@@ -277,7 +357,7 @@ class SessionCodec:
         }
         body = canonical_json_bytes(payload)
         signature = hmac.digest(self._key, body, hashlib.sha256)
-        self._active[str(payload["sid"])] = payload
+        self._store(payload)
         return f"{_b64encode(body)}.{_b64encode(signature)}", payload
 
     def verify(self, token: str | None) -> dict[str, object] | None:
@@ -305,22 +385,33 @@ class SessionCodec:
             or payload["exp"] <= int(time.time())
             or payload["exp"] - payload["iat"] != self._ttl_seconds
         ):
-            self._active.pop(str(payload.get("sid")), None)
+            self.revoke(payload)
             return None
-        active = self._active.get(payload["sid"])
-        if active != payload:
+        if not self._stored(payload):
             return None
         return payload
 
     def revoke(self, payload: dict[str, object]) -> None:
         sid = payload.get("sid")
         if isinstance(sid, str):
-            self._active.pop(sid, None)
+            if self._database_file is None:
+                self._active.pop(sid, None)
+            else:
+                with self._database() as connection:
+                    connection.execute("DELETE FROM browser_session WHERE sid=?", (sid,))
 
     def revoke_all(self) -> list[dict[str, object]]:
         """Rotate the single local-operator session and return old bindings."""
-        previous = list(self._active.values())
-        self._active.clear()
+        if self._database_file is None:
+            previous = list(self._active.values())
+            self._active.clear()
+            return previous
+        with self._database() as connection:
+            previous = [
+                {"sid": row[0], "iat": row[1], "exp": row[2]}
+                for row in connection.execute("SELECT sid,iat,exp FROM browser_session")
+            ]
+            connection.execute("DELETE FROM browser_session")
         return previous
 
 
@@ -338,6 +429,57 @@ class DeploymentAccessCredential:
             return False
         raw = candidate.encode("utf-8", errors="strict")
         return hmac.compare_digest(raw, self._token)
+
+
+class PasswordLogin(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    username: str = Field(min_length=1, max_length=128)
+    password: str = Field(min_length=1, max_length=1024)
+
+
+class PasswordCredential:
+    """One fixed local operator credential with a bounded scrypt verifier."""
+
+    def __init__(self, path: str) -> None:
+        document = strict_json_loads(_read(path, 16_384))
+        if not isinstance(document, dict) or set(document) != {
+            "schema_version", "username", "salt", "digest"
+        } or document.get("schema_version") != PASSWORD_SCHEMA:
+            raise ValueError("local password credential has an invalid shape")
+        username = document.get("username")
+        if not isinstance(username, str) or _USERNAME.fullmatch(username) is None:
+            raise ValueError("local password username is invalid")
+        try:
+            salt = _b64decode(document["salt"])
+            digest = _b64decode(document["digest"])
+        except (KeyError, TypeError, ValueError) as error:
+            raise ValueError("local password credential encoding is invalid") from error
+        if len(salt) != 16 or len(digest) != PASSWORD_SCRYPT_DKLEN:
+            raise ValueError("local password credential size is invalid")
+        self._username = username.encode("utf-8")
+        self._salt = salt
+        self._digest = digest
+
+    def matches(self, username: str, password: str) -> bool:
+        try:
+            username_bytes = username.encode("utf-8")
+            password_bytes = password.encode("utf-8")
+        except UnicodeEncodeError:
+            return False
+        if not 1 <= len(password_bytes) <= 4096:
+            return False
+        candidate = hashlib.scrypt(
+            password_bytes,
+            salt=self._salt,
+            n=PASSWORD_SCRYPT_N,
+            r=PASSWORD_SCRYPT_R,
+            p=PASSWORD_SCRYPT_P,
+            dklen=PASSWORD_SCRYPT_DKLEN,
+        )
+        username_matches = hmac.compare_digest(username_bytes, self._username)
+        password_matches = hmac.compare_digest(candidate, self._digest)
+        return username_matches and password_matches
 
 
 class ViewLedger:
@@ -610,8 +752,20 @@ class BrowserGateway:
         self.sessions = SessionCodec(
             _read(settings.session_key_file, 4096),
             ttl_seconds=settings.session_ttl_seconds,
+            database_file=(
+                settings.session_db_file if settings.mode == "local_password" else None
+            ),
         )
-        self.local_access = DeploymentAccessCredential(settings.local_access_token_file)
+        self.local_access = (
+            DeploymentAccessCredential(settings.local_access_token_file)
+            if settings.mode == "local_single_operator" and settings.local_access_token_file
+            else None
+        )
+        self.password = (
+            PasswordCredential(settings.password_credential_file)
+            if settings.mode == "local_password" and settings.password_credential_file
+            else None
+        )
         self._signing_key = RSAKey.import_key(_read(settings.signing_key_file, 65_536))
         self._owned_client = client is None
         self.views = ViewLedger()
@@ -777,7 +931,11 @@ class BrowserGateway:
                 method, url, headers=headers, content=body
             )
             upstream = await self.client.send(upstream_request, stream=True)
-            content = await _bounded_response_body(upstream, self.settings.max_response_bytes)
+            content = await _bounded_response_body(
+                upstream,
+                _MAX_DOWNLOAD_BYTES if download and not expect_json
+                else self.settings.max_response_bytes,
+            )
         except (httpx.HTTPError, OSError, TimeoutError):
             if mutation:
                 return _problem(
@@ -821,6 +979,13 @@ def _query_for_route(request: Request, name: str):
         "task_list": {"project_id", "limit", "cursor"},
         "task_options": set(),
         "task_get": set(),
+        "task_overview": set(),
+        "command_inventory": {"limit", "after"},
+        "publications": {"limit", "after"},
+        "capture_sessions": set(),
+        "capture_items": {"after", "limit"},
+        "capture_part": set(),
+        "task_activity": {"limit", "cursor", "after_cursor", "importance", "category", "work_item_id"},
         "task_readiness": set(),
         "task_launch": set(),
         "topology": {"mode", "snapshot_id", "cursor", "node_limit", "edge_limit"},
@@ -949,24 +1114,41 @@ def create_gateway(settings: GatewaySettings, *, client=None) -> FastAPI:
             return _problem(403, "FORBIDDEN", "Browser origin is not allowed.")
         if gateway.reject_browser_bearer(request):
             return _problem(400, "INVALID_SCHEMA", "Use the browser session protocol.")
-        access_token, valid_header = _one_header(request, LOCAL_ACCESS_HEADER)
-        if not valid_header:
-            return _problem(
-                401,
-                "UNAUTHENTICATED",
-                "The local entry credential is invalid.",
-            )
-        body, complete = await _bounded_request_body(request, 4096)
-        if not complete or body:
-            return _problem(422, "INVALID_SCHEMA", "Login does not accept a request body.")
-        if not gateway.local_access.matches(access_token):
-            return _problem(
-                401,
-                "UNAUTHENTICATED",
-                "The local entry credential is invalid.",
-            )
-        for previous in gateway.sessions.revoke_all():
-            gateway.views.forget_session(previous)
+        if settings.mode == "local_single_operator":
+            access_token, valid_header = _one_header(request, LOCAL_ACCESS_HEADER)
+            body, complete = await _bounded_request_body(request, 4096)
+            if (
+                not valid_header
+                or not complete
+                or body
+                or gateway.local_access is None
+                or not gateway.local_access.matches(access_token)
+            ):
+                return _problem(
+                    401,
+                    "UNAUTHENTICATED",
+                    "The local entry credential is invalid.",
+                )
+            for previous in gateway.sessions.revoke_all():
+                gateway.views.forget_session(previous)
+        else:
+            body, error = await _validated_json(request, PasswordLogin, 4096)
+            if error is not None:
+                return error
+            try:
+                credentials = PasswordLogin.model_validate(strict_json_loads(body))
+            except (TypeError, ValueError, ValidationError):
+                credentials = None
+            if (
+                credentials is None
+                or gateway.password is None
+                or not gateway.password.matches(credentials.username, credentials.password)
+            ):
+                return _problem(
+                    401,
+                    "UNAUTHENTICATED",
+                    "The username or password is invalid.",
+                )
         token, payload = gateway.sessions.issue()
         response = JSONResponse(gateway.public_session(payload), headers=NO_STORE)
         response.set_cookie(
@@ -1122,8 +1304,8 @@ def create_gateway(settings: GatewaySettings, *, client=None) -> FastAPI:
             payload,
             method="GET",
             path=path,
-            expect_json=name != "artifact_content",
-            download=name == "artifact_content",
+            expect_json=name not in {"artifact_content", "capture_part"},
+            download=name in {"artifact_content", "capture_part"},
         )
         if name == "topology" and response.status_code == 200:
             gateway.remember_topology(payload, path, response.body)

@@ -447,7 +447,8 @@ def configure(root, state, images):
         return obj
     base={"schema_version":"wuji.deployment.v1","database_file":"/run/wuji/credentials/database.json",
         "public_key_file":"/config/identity.pub","issuer":issuer,"audience":audience,
-        "service_token_file":"/run/wuji/credentials/service.token","ca_file":"/config/ca.crt","profiles_file":"/config/profiles.json"}
+        "service_token_file":"/run/wuji/credentials/service.token","ca_file":"/config/ca.crt",
+        "profiles_file":"/config/profiles.json","artifact_max_bytes":67_108_864}
     for name,subject,dbuser in (("runtime","pod-controller","wuji_pod"),("api","operator","wuji_app"),("scheduler","scheduler","wuji_app"),("gates","gate","wuji_app")):
         settings={**base,"role":name}
         credentials={"service.token":tokens[subject],"database.json":canonical_json_bytes({**db,"user":dbuser,"password":passwords[dbuser]})}

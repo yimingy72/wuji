@@ -517,10 +517,23 @@ class Scheduler:
                 kinds = list(tool.allowed_target_kinds)
                 if (
                     (tool.approval_required and not session_profile)
-                    or kinds not in (["workspace_read"], ["http_target"])
+                    or kind != "explore"
+                    or kinds not in (
+                        ["workspace_read"],
+                        ["http_target"],
+                        ["process"],
+                        ["workspace_bundle"],
+                    )
                     or (
                         kinds == ["http_target"]
                         and not http_target_allowed(definition, kind)
+                    )
+                    or (
+                        kinds == ["process"]
+                        and (
+                            executor.protocol != "process.v1"
+                            or config.runtime.process_limits is None
+                        )
                     )
                     or tool.name in names
                     or ref not in executor.allowed_tool_refs
@@ -814,6 +827,56 @@ class Scheduler:
             ).fetchone()[0]
             if reasons >= limits.max_reason_runs:
                 raise DomainError("max_reason_runs", 429)
+        run_limits = config.runtime.task_run_limits
+        if run_limits is not None and work["kind"] in {"explore", "reason"}:
+            definition = strict_json_loads(tx.task["definition_json"])
+            configured = definition.get("task", {}).get("explore_concurrency")
+            if configured is not None and (
+                type(configured) is not int
+                or configured < 1
+                or configured > run_limits.explore
+            ):
+                raise DomainError("worker_profile_unavailable", 503)
+            role_limit = (
+                run_limits.reason
+                if work["kind"] == "reason"
+                else configured or run_limits.explore
+            )
+            active = tx.connection.execute(
+                """SELECT count(*) FROM vnext.work_item w
+                WHERE w.tenant_id=%s AND w.project_id=%s AND w.task_id=%s
+                AND w.kind=%s AND w.work_item_id<>%s AND (
+                  w.state IN ('leased','running','stopping','reconciling')
+                  OR EXISTS(
+                    SELECT 1 FROM vnext.agent_run a
+                    WHERE (a.tenant_id,a.project_id,a.task_id,a.work_item_id)=
+                      (w.tenant_id,w.project_id,w.task_id,w.work_item_id)
+                    AND (
+                      (w.current_run_id=a.agent_run_id AND a.stop_kind IS NULL)
+                      OR EXISTS(
+                        SELECT 1 FROM vnext.run_operation_settlement s
+                        WHERE (s.tenant_id,s.project_id,s.task_id,s.agent_run_id)=
+                          (a.tenant_id,a.project_id,a.task_id,a.agent_run_id)
+                        AND s.status<>'settled')
+                      OR EXISTS(
+                        SELECT 1 FROM vnext.resource_reservation r
+                        WHERE (r.tenant_id,r.project_id,r.task_id,r.agent_run_id)=
+                          (a.tenant_id,a.project_id,a.task_id,a.agent_run_id)
+                        AND r.state<>'released')
+                      OR (a.stop_kind IS NOT NULL AND a.stop_kind<>'not_started' AND
+                        NOT EXISTS(
+                        SELECT 1 FROM vnext.run_operation_settlement s
+                        WHERE (s.tenant_id,s.project_id,s.task_id,s.agent_run_id)=
+                          (a.tenant_id,a.project_id,a.task_id,a.agent_run_id)
+                        AND s.status='settled')
+                    )
+                  )
+                )
+                )""",
+                (*tx.owner, work["kind"], work["work_item_id"]),
+            ).fetchone()[0]
+            if active >= role_limit:
+                raise DomainError("capacity_unavailable", 409)
         return count
 
     def _admit(self, tx, proposal, now):
@@ -915,6 +978,12 @@ class Scheduler:
                 tx,
                 query=SnapshotQuery(
                     entity_types=("claim", "intent", "observation"),
+                    capture_http_limit=(
+                        64
+                        if profile["body"].get("context_contract")
+                        == "wuji.worker-context.v4"
+                        else None
+                    ),
                     required_refs=tuple(
                         (
                             item["ref"]["entity_type"],

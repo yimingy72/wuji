@@ -723,6 +723,99 @@ def test_capacity_is_rechecked_for_each_selected_work(
         ]
 
 
+@pytest.mark.parametrize(
+    ("profile_limit", "task_limit", "expected_explores"),
+    [(2, 2, 2), (4, 4, 4)],
+)
+def test_task_role_limits_bound_explore_without_hard_coding_two(
+    db_environment,
+    tmp_path,
+    audit_directory,
+    profile_limit: int,
+    task_limit: int,
+    expected_explores: int,
+) -> None:
+    with scheduler_case(
+        db_environment,
+        tmp_path,
+        audit_directory,
+        capacity=8,
+        max_work_items=12,
+        task_run_limits={"explore": profile_limit, "reason": 1},
+        explore_concurrency=task_limit,
+    ) as case:
+        for index in range(4):
+            publish_additional_intent(case, f"role-limit-{index}")
+
+        receipt = case.scheduler.tick(limit=8)
+        kinds = [assignment.work_kind.value for assignment in receipt.assignments]
+
+        assert kinds.count("reason") == 1
+        assert kinds.count("explore") == expected_explores
+        if expected_explores < 5:
+            assert any(code == "capacity_unavailable" for _, _, code in receipt.blocked)
+
+
+def test_exited_worker_keeps_its_role_slot_until_parent_operations_settle(
+    db_environment, tmp_path, audit_directory
+) -> None:
+    with scheduler_case(
+        db_environment,
+        tmp_path,
+        audit_directory,
+        capacity=4,
+        max_work_items=8,
+        task_run_limits={"explore": 1, "reason": 1},
+        explore_concurrency=1,
+    ) as case:
+        first = case.scheduler.tick(limit=2)
+        explore = explore_assignment(first)
+        observed_process_failure(case, explore, settle_operations=False)
+        publish_additional_intent(case, "after-unsettled-exit")
+
+        receipt = case.scheduler.tick(limit=4)
+
+        assert not any(
+            assignment.work_kind.value == "explore"
+            for assignment in receipt.assignments
+        )
+        assert any(code == "capacity_unavailable" for _, _, code in receipt.blocked)
+        with case.control.env.migration_connection() as connection:
+            work_state = connection.execute(
+                "SELECT state,blocked_reason FROM vnext.work_item WHERE task_id=%s"
+                " AND work_item_id=%s",
+                (TASK, explore.identity.work_item_id),
+            ).fetchone()
+            shared_released = connection.execute(
+                "SELECT bool_and(state='released') FROM vnext.capacity_reservation"
+                " WHERE task_id=%s AND agent_run_id=%s",
+                (TASK, explore.identity.agent_run_id),
+            ).fetchone()[0]
+        assert work_state == ("reconciling", "operations_unsettled")
+        assert shared_released is True
+
+
+def test_profile_rejects_a_task_explore_limit_above_its_published_bound(
+    db_environment, tmp_path, audit_directory
+) -> None:
+    with scheduler_case(
+        db_environment,
+        tmp_path,
+        audit_directory,
+        capacity=8,
+        max_work_items=8,
+        task_run_limits={"explore": 2, "reason": 1},
+        definition_task_run_limits={"explore": 3, "reason": 1},
+        explore_concurrency=3,
+    ) as case:
+        receipt = case.scheduler.tick(limit=4)
+
+        assert receipt.assignments == ()
+        assert any(
+            code == "worker_profile_unavailable" for _, _, code in receipt.blocked
+        )
+
+
 def test_p09_fairness_migration_upgrades_0010_and_reapplies_once(
     db_environment,
 ) -> None:
@@ -898,7 +991,9 @@ def test_persisted_work_cursor_advances_past_more_than_limit_blocked_candidates(
         assert runnable_work_id in admitted_work_ids
 
 
-def observed_process_failure(case, assignment, *, exit_code: int = 1):
+def observed_process_failure(
+    case, assignment, *, exit_code: int = 1, settle_operations: bool = True
+):
     """Take the scheduler's own Run through the real P05 exit path.
 
     Only the two facts a Supervisor owns before an exit receipt can exist are
@@ -909,25 +1004,38 @@ def observed_process_failure(case, assignment, *, exit_code: int = 1):
 
     identity = assignment.identity
     with case.control.env.migration_connection() as connection:
-        connection.execute(
-            """INSERT INTO vnext.run_operation_settlement(tenant_id,project_id,task_id,agent_run_id,status,source_receipt_json)
-            VALUES(%s,%s,%s,%s,'settled',%s)""",
-            (
-                *OWNER,
-                identity.agent_run_id,
-                json_text(
-                    {
-                        "producer": "p09-reason-retry-fixture",
-                        "open_operations": {
-                            "model_calls": 0,
-                            "resource_reservations": 0,
-                            "tool_attempts": 0,
-                        },
-                        "status": "settled",
-                    }
+        if settle_operations:
+            connection.execute(
+                """INSERT INTO vnext.run_operation_settlement(tenant_id,project_id,task_id,agent_run_id,status,source_receipt_json)
+                VALUES(%s,%s,%s,%s,'settled',%s)""",
+                (
+                    *OWNER,
+                    identity.agent_run_id,
+                    json_text(
+                        {
+                            "producer": "p09-reason-retry-fixture",
+                            "open_operations": {
+                                "model_calls": 0,
+                                "resource_reservations": 0,
+                                "tool_attempts": 0,
+                            },
+                            "status": "settled",
+                        }
+                    ),
                 ),
-            ),
-        )
+            )
+        else:
+            connection.execute(
+                """INSERT INTO vnext.resource_reservation(
+                tenant_id,project_id,task_id,resource_key,agent_run_id,state,source_receipt_json)
+                VALUES(%s,%s,%s,%s,%s,'unknown',%s)""",
+                (
+                    *OWNER,
+                    "unsettled-parent:" + identity.agent_run_id,
+                    identity.agent_run_id,
+                    json_text({"producer": "p09-unsettled-parent-fixture"}),
+                ),
+            )
         environment_ref, pod_uid, operation_id = connection.execute(
             """SELECT environment_ref,pod_uid,start_operation_id FROM vnext.agent_run
             WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND agent_run_id=%s""",
@@ -959,6 +1067,65 @@ def observed_process_failure(case, assignment, *, exit_code: int = 1):
         }
     )
     return case.control.control.record_observation(OBSERVER, observation)
+
+
+def test_failed_explore_emits_one_terminal_trigger_but_reason_failure_is_excluded(
+    db_environment, tmp_path, audit_directory
+) -> None:
+    with scheduler_case(
+        db_environment,
+        tmp_path,
+        audit_directory,
+        capacity=4,
+        max_work_items=8,
+        reason_retry_attempts=1,
+    ) as case:
+        first = case.scheduler.tick(limit=2)
+        explore = explore_assignment(first)
+        reason = next(
+            assignment
+            for assignment in first.assignments
+            if assignment.work_kind.value == "reason"
+        )
+        with case.control.env.migration_connection() as connection:
+            processing_generation = connection.execute(
+                "SELECT processing_generation FROM vnext.scheduler_reason_lease"
+                " WHERE work_item_id=%s",
+                (reason.identity.work_item_id,),
+            ).fetchone()[0]
+
+        observed_process_failure(case, explore)
+        case.scheduler.tick(limit=4)
+        with case.control.env.migration_connection() as connection:
+            explore_events = connection.execute(
+                """SELECT t.generation FROM vnext.outbox o
+                JOIN vnext.scheduler_trigger t USING(tenant_id,project_id,task_id,event_seq)
+                WHERE o.task_id=%s AND o.kind='work.settled'
+                AND o.payload_json::jsonb->>'work_item_id'=%s""",
+                (TASK, explore.identity.work_item_id),
+            ).fetchall()
+            execution_generations = connection.execute(
+                """SELECT t.generation FROM vnext.outbox o
+                JOIN vnext.scheduler_trigger t USING(tenant_id,project_id,task_id,event_seq)
+                WHERE o.task_id=%s AND o.kind='execution.observed'
+                AND o.payload_json::jsonb->>'agent_run_id'=%s""",
+                (TASK, explore.identity.agent_run_id),
+            ).fetchall()
+        assert len(explore_events) == 1
+        assert explore_events[0][0] > processing_generation
+        assert execution_generations == [(None,)]
+
+        observed_process_failure(case, reason)
+        case.scheduler.tick(limit=4, now=datetime.now(UTC) - timedelta(seconds=5))
+        with case.control.env.migration_connection() as connection:
+            reason_events = connection.execute(
+                """SELECT t.generation FROM vnext.outbox o
+                JOIN vnext.scheduler_trigger t USING(tenant_id,project_id,task_id,event_seq)
+                WHERE o.task_id=%s AND o.kind='work.settled'
+                AND o.payload_json::jsonb->>'work_item_id'=%s""",
+                (TASK, reason.identity.work_item_id),
+            ).fetchall()
+        assert reason_events == [(None,)]
 
 
 def scheduler_state(case):

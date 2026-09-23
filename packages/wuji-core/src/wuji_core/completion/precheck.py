@@ -229,6 +229,9 @@ class CompletionService:
         moment = datetime.now(timezone.utc)
         deadline = moment + timedelta(seconds=deadline_seconds)
         with self.uow.transaction(access, task_id, capability="control") as tx:
+            from wuji_core.execution.control import require_runtime_terminal
+
+            require_runtime_terminal(tx)
             review = self.review_in_transaction(tx)
             self._require_expected_basis(review, expected_review_digest)
             # A Goal-satisfied close may only follow a complete review. A *forced*

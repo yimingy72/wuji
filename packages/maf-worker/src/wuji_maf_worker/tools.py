@@ -511,6 +511,10 @@ def _refusal_failure(refusal):
 
 
 class GateFunctions(FunctionMiddleware):
+    MCP_INVOCATION_META = "wuji.dev/invocation"
+    MCP_RESULT_META = "wuji.dev/result"
+    MCP_CONTENT_META = "_wuji_mcp_result"
+
     def __init__(self, *, definitions, identity, lineage, client, url,
                  native_approval=False, material_representation="v1",
                  budget=None, host=None, assignment=None):
@@ -526,9 +530,11 @@ class GateFunctions(FunctionMiddleware):
         self._local_invocation = ContextVar("wuji_local_invocation", default=None)
         self.budget, self.host, self.assignment = budget, host, assignment
         self.knowledge_deliveries = []
+        self.confirmed_delivery_ids = set()
 
     async def process(self, context, call_next):
-        token = capability = None
+        token = capability = request = None
+        remote_name = None
         try:
             name = context.function.name
             capability = self.identity.capability_manifest.get(name)
@@ -539,10 +545,31 @@ class GateFunctions(FunctionMiddleware):
                 self.budget.consume(
                     category=capability["category"], occurrence=occurrence
                 )
-                token = self._local_invocation.set({
-                    "name": name, "occurrence": occurrence,
-                    "category": capability["category"],
-                })
+                remote_name = (context.function.additional_properties or {}).get(
+                    "_mcp_remote_name"
+                )
+                if remote_name is None:
+                    token = self._local_invocation.set({
+                        "name": name, "occurrence": occurrence,
+                        "category": capability["category"],
+                    })
+                elif remote_name == "board_publish" and name == remote_name:
+                    meta = dict(context.kwargs.get("_meta") or {})
+                    if self.MCP_INVOCATION_META in meta or self.assignment is None:
+                        raise ValueError("reserved MCP invocation metadata already exists")
+                    arguments = context.arguments
+                    if hasattr(arguments, "model_dump"):
+                        arguments = arguments.model_dump(mode="python")
+                    meta[self.MCP_INVOCATION_META] = {
+                        "assignment": self.assignment.model_dump(mode="json"),
+                        "native_occurrence": occurrence,
+                        "arguments_digest": sha256(
+                            canonical_json_bytes(dict(arguments))
+                        ).hexdigest(),
+                    }
+                    context.kwargs["_meta"] = meta
+                else:
+                    raise ValueError("local capability used an unfrozen MCP function")
             else:
                 definition = self.definitions[name]
                 request = self.identity.bind(context, definition, self.lineage)
@@ -551,8 +578,34 @@ class GateFunctions(FunctionMiddleware):
                         category="environment_action",
                         occurrence=context.metadata["function_call_occurrence_id"],
                     )
-                token = self._invocation.set(request)
+                remote_name = (context.function.additional_properties or {}).get(
+                    "_mcp_remote_name"
+                )
+                if definition["allowed_target_kinds"] in (
+                    ["process"], ["workspace_bundle"]
+                ):
+                    if remote_name != name:
+                        raise ValueError("environment tool is not the frozen MCP function")
+                    meta = dict(context.kwargs.get("_meta") or {})
+                    if self.MCP_INVOCATION_META in meta or self.assignment is None:
+                        raise ValueError("reserved MCP invocation metadata already exists")
+                    meta[self.MCP_INVOCATION_META] = {
+                        "assignment": self.assignment.model_dump(mode="json"),
+                        "native_occurrence": context.metadata[
+                            "function_call_occurrence_id"
+                        ],
+                        "tool_request": request.model_dump(mode="json"),
+                    }
+                    context.kwargs["_meta"] = meta
+                else:
+                    if remote_name is not None:
+                        raise ValueError("legacy HTTP tool cannot use the MCP transport")
+                    token = self._invocation.set(request)
             await call_next()
+            if remote_name is not None:
+                await self._record_mcp_result(
+                    context, name=name, request=request
+                )
         except ToolGateRefused as refusal:
             # Keep the escape, but name the refusing predicate so the child's
             # bounded exit signal is not an opaque MiddlewareFailure.
@@ -567,6 +620,84 @@ class GateFunctions(FunctionMiddleware):
                     self._local_invocation.reset(token)
                 else:
                     self._invocation.reset(token)
+
+    def parse_mcp_result(self, result):
+        if result.isError:
+            refusal = ToolGateRefused("Native MCP tool was refused")
+            meta = dict(result.meta or {}).get(self.MCP_RESULT_META, {})
+            if isinstance(meta, dict) and isinstance(meta.get("code"), str):
+                refusal.code = meta["code"]
+            raise refusal
+        document = result.structuredContent
+        if not isinstance(document, dict):
+            texts = [item.text for item in result.content if item.type == "text"]
+            if len(texts) != 1:
+                raise ValueError("native MCP result lacks one structured document")
+            document = strict_json_loads(texts[0])
+        return [
+            Content.from_text(
+                canonical_json_bytes(document).decode(),
+                additional_properties={
+                    self.MCP_CONTENT_META: dict(result.meta or {})
+                },
+            )
+        ]
+
+    async def _record_mcp_result(self, context, *, name, request):
+        contents = context.result
+        if isinstance(contents, Content):
+            contents = [contents]
+        if not isinstance(contents, list) or len(contents) != 1:
+            raise ValueError("native MCP result did not reach FunctionMiddleware")
+        properties = contents[0].additional_properties or {}
+        outer = properties.get(self.MCP_CONTENT_META)
+        meta = None if not isinstance(outer, dict) else outer.get(self.MCP_RESULT_META)
+        if not isinstance(meta, dict):
+            raise ValueError("native MCP result metadata is absent")
+        if request is not None:
+            receipt_value = (
+                meta.get("action_receipt")
+                if meta.get("kind") == "process"
+                else meta.get("tool_receipt")
+            )
+            if receipt_value is None:
+                raise ValueError("native MCP result lacks its canonical Tool receipt")
+            receipt = ToolCallReceipt.model_validate(receipt_value)
+            self.identity.record_receipt(request, receipt)
+            # A process parent receipt is settlement metadata. Its Observation
+            # and Artifact refs become readable only after snapshot refresh and
+            # an explicit knowledge_read delivery.
+            delivered = None if meta.get("kind") == "process" else receipt_value
+            if delivered is not None:
+                final = ToolCallReceipt.model_validate(delivered)
+                if (
+                    final.status.value == "complete"
+                    and final.evidence_receipt is not None
+                    and final.evidence_receipt.status.value == "accepted"
+                    and all(
+                        existing.tool_call_id != final.tool_call_id
+                        for existing in self.receipts
+                    )
+                ):
+                    self.receipts.append(final)
+        delivery = meta.get("delivery")
+        if delivery is not None:
+            if self.host is None or self.assignment is None:
+                raise ValueError("native MCP delivery has no Host binding")
+            handoff = {
+                "delivery_id": delivery["delivery_id"],
+                "representation_digest": delivery["representation_digest"],
+            }
+            await asyncio.to_thread(
+                self.host.knowledge_attach,
+                self.assignment,
+                deliveries=[handoff],
+                manifest_ref=None,
+                channel="function_result",
+            )
+            self.confirmed_delivery_ids.add(handoff["delivery_id"])
+            if handoff not in self.knowledge_deliveries:
+                self.knowledge_deliveries.append(handoff)
 
     def registered_knowledge_tools(self):
         if self.host is None or self.assignment is None:
@@ -668,6 +799,10 @@ class GateFunctions(FunctionMiddleware):
     def registered_tools(self):
         result = []
         for definition in self.definitions.values():
+            if definition["allowed_target_kinds"] in (
+                ["process"], ["workspace_bundle"]
+            ):
+                continue
             if definition["allowed_target_kinds"] not in (
                 ["workspace_read"],
                 ["http_target"],

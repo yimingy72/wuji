@@ -150,6 +150,8 @@ def test_problem_catalog_publishes_exact_native_and_host_capabilities():
     assert categories["knowledge_read"] == "knowledge_read"
     assert categories["knowledge_refresh"] == "knowledge_read"
     assert categories["http_target_get"] == "environment_action"
+    assert "board_publish" not in categories
+    assert explore["body"]["capabilities"]["mcp"] is False
 
 
 @pytest.mark.parametrize("methods", [[], ["POST"], ["GET", "POST"]])

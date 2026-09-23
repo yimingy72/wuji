@@ -175,38 +175,64 @@ def _configure_scheduler(
     repair_attempts: int = 1,
     max_no_progress_rounds: int | None = None,
     max_reason_runs: int = 2,
+    task_run_limits: dict[str, int] | None = None,
+    definition_task_run_limits: dict[str, int] | None = None,
+    explore_concurrency: int | None = None,
+    component_registrar=None,
+    admission_config=None,
 ) -> None:
     registry = __import__(
         "wuji_core.admission.registry", fromlist=["TaskAdmissionConfig"]
     )
     lock_digest = _lock_digest()
-    config = task_admission_config(
-        registry,
-        gateway_url=gateway_url,
-        max_model_requests=8,
-        max_tool_calls=8,
-        max_total_output_bytes=max_total_output_bytes,
-        allowed_tool_refs=[TOOL_REF],
-    )
-    config = config.model_copy(
-        update={
-            "runtime": config.runtime.model_copy(
-                update={
-                    "lock_digest": lock_digest,
-                    "limits": config.runtime.limits.model_copy(
-                        update={
-                            "max_work_items": max_work_items,
-                            "max_reason_runs": max_reason_runs,
-                            "max_single_output_bytes": max_single_output_bytes,
-                            "reason_retry_attempts": reason_retry_attempts,
-                            "repair_attempts": repair_attempts,
-                            "max_no_progress_rounds": max_no_progress_rounds,
-                        }
-                    ),
-                }
-            )
+    tool_refs = sorted(
+        {
+            ref
+            for profile in profiles.values()
+            for ref in profile["body"]["tool_definition_refs"]
         }
     )
+    if admission_config is None:
+        config = task_admission_config(
+            registry,
+            gateway_url=gateway_url,
+            max_model_requests=8,
+            max_tool_calls=8,
+            max_total_output_bytes=max_total_output_bytes,
+            allowed_tool_refs=tool_refs,
+        )
+        config = config.model_copy(
+            update={
+                "runtime": config.runtime.model_copy(
+                    update={
+                        "lock_digest": lock_digest,
+                        "task_run_limits": (
+                            None
+                            if task_run_limits is None
+                            else registry.TaskRunLimits.model_validate(task_run_limits)
+                        ),
+                        "limits": config.runtime.limits.model_copy(
+                            update={
+                                "max_work_items": max_work_items,
+                                "max_reason_runs": max_reason_runs,
+                                "max_single_output_bytes": max_single_output_bytes,
+                                "reason_retry_attempts": reason_retry_attempts,
+                                "repair_attempts": repair_attempts,
+                                "max_no_progress_rounds": max_no_progress_rounds,
+                            }
+                        ),
+                    }
+                )
+            }
+        )
+    else:
+        config = registry.TaskAdmissionConfig.model_validate(admission_config)
+        if (
+            config.runtime.lock_digest != lock_digest
+            or set(config.allowed_tool_refs) != set(tool_refs)
+            or set(config.runtime.allowed_tool_refs) != set(tool_refs)
+        ):
+            raise AssertionError("the supplied admission config differs from its profiles")
     with case.env.migration_connection() as connection:
         definition = strict_json_loads(
             connection.execute(
@@ -215,6 +241,16 @@ def _configure_scheduler(
         )
         definition["lock_digest"] = lock_digest
         definition["worker_profiles"] = profiles
+        if admission_config is not None:
+            definition["model_profile"] = config.model.model_dump(mode="json")
+            definition["runtime_profile"] = config.runtime.model_dump(mode="json")
+            definition["task"]["model_profile_ref"] = config.model.ref
+            definition["task"]["runtime_profile_ref"] = config.runtime.ref
+        frozen_run_limits = definition_task_run_limits or task_run_limits
+        if frozen_run_limits is not None:
+            definition["runtime_profile"]["task_run_limits"] = frozen_run_limits
+        if explore_concurrency is not None:
+            definition["task"]["explore_concurrency"] = explore_concurrency
         if evaluation_mode is not None:
             definition["evaluation_mode"] = evaluation_mode
         body = canonical_json_bytes(definition).decode("utf-8")
@@ -226,19 +262,23 @@ def _configure_scheduler(
             "UPDATE vnext.capacity_pool SET capacity=%s WHERE pool_key IN ('platform','tenant-fixture')",
             (capacity,),
         )
+        model_pool = "model:" + config.model.ref
         connection.execute(
-            "INSERT INTO vnext.capacity_pool(pool_key,tier,tenant_id,capacity,published_ref) VALUES('model:fixture-model-v1','model',NULL,%s,'fixture-capacity-v1')",
-            (capacity,),
+            "INSERT INTO vnext.capacity_pool(pool_key,tier,tenant_id,capacity,published_ref) VALUES(%s,'model',NULL,%s,'fixture-capacity-v1')",
+            (model_pool, capacity),
         )
         connection.execute(
-            "INSERT INTO vnext.task_capacity_pool(tenant_id,project_id,task_id,pool_key) VALUES(%s,%s,%s,'model:fixture-model-v1')",
-            OWNER,
+            "INSERT INTO vnext.task_capacity_pool(tenant_id,project_id,task_id,pool_key) VALUES(%s,%s,%s,%s)",
+            (*OWNER, model_pool),
         )
-        register_workspace_components(
-            registry,
-            connection,
-            approval_required=approval_required,
-        )
+        if TOOL_REF in tool_refs:
+            register_workspace_components(
+                registry,
+                connection,
+                approval_required=approval_required,
+            )
+        if component_registrar is not None:
+            component_registrar(registry, connection)
         registry.register_task_config(connection, owner=OWNER, config=config)
         connection.execute(
             """INSERT INTO vnext.scheduler_identity_template(
@@ -280,8 +320,9 @@ def _configure_scheduler(
     case.scheduler_config = config
 
 
-def _publish_intent(case, *, access_level: int):
-    command(case, "start")
+def _publish_intent(case, *, access_level: int, start=True):
+    if start:
+        command(case, "start")
     artifact = case.store.stage(
         access("collector-fixture", role="collector"),
         TASK,
@@ -348,7 +389,13 @@ def scheduler_case(
     repair_attempts: int = 1,
     max_no_progress_rounds: int | None = None,
     max_reason_runs: int = 2,
+    task_run_limits: dict[str, int] | None = None,
+    definition_task_run_limits: dict[str, int] | None = None,
+    explore_concurrency: int | None = None,
     completion=None,
+    component_registrar=None,
+    admission_config=None,
+    seed_intent=True,
 ):
     keys = SchedulerKeys.generate()
     with control_case(environment, tmp_path, audit_directory) as control:
@@ -372,10 +419,19 @@ def scheduler_case(
             repair_attempts=repair_attempts,
             max_no_progress_rounds=max_no_progress_rounds,
             max_reason_runs=max_reason_runs,
+            task_run_limits=task_run_limits,
+            definition_task_run_limits=definition_task_run_limits,
+            explore_concurrency=explore_concurrency,
+            component_registrar=component_registrar,
+            admission_config=admission_config,
         )
-        artifact_ref, claim_ref, intent_ref = _publish_intent(
-            control, access_level=input_access_level
-        )
+        if seed_intent:
+            artifact_ref, claim_ref, intent_ref = _publish_intent(
+                control, access_level=input_access_level
+            )
+        else:
+            command(control, "start")
+            artifact_ref = claim_ref = intent_ref = None
         issuer = RunCredentialIssuer(
             signing_key_resolver=keys.signing,
             encryption_key_resolver=keys.encryption,

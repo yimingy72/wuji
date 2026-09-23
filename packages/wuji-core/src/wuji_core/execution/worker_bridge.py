@@ -17,12 +17,14 @@ from threading import RLock
 
 from wuji_core.admission.common import current_run
 from wuji_core.blackboard.knowledge_reads import KnowledgeReadService
+from wuji_core.blackboard.notifications import BoardPublishService, KnowledgeNoticeService
+from wuji_core.blackboard.work_results import read_work_result
 from wuji_core.admission.model_material import (
     HTTP_EXCHANGE_MEDIA_TYPE,
     render_http_exchange_v2,
 )
 from wuji_core.contracts import generated as wire
-from wuji_core.contracts.envelopes import WorkerAssignment
+from wuji_core.contracts.envelopes import BlobRef, WorkerAssignment
 from wuji_core.contracts.knowledge import KnowledgeRef
 from wuji_core.execution.control import ExecutionObservation
 from wuji_core.execution.dispatch_outbox import ReceiverAuthorizer
@@ -73,16 +75,33 @@ class HostContext:
 
     @classmethod
     def from_wire(cls, value):
-        if isinstance(value, wire.WorkerContextV3) or (
-            isinstance(value, dict) and value.get("schema_version") == "wuji.worker-context.v3"
+        if isinstance(value, (wire.WorkerContextV3, wire.WorkerContextV4)) or (
+            isinstance(value, dict)
+            and value.get("schema_version")
+            in {"wuji.worker-context.v3", "wuji.worker-context.v4"}
         ):
-            value = wire.WorkerContextV3.model_validate(value)
+            is_v4 = isinstance(value, wire.WorkerContextV4) or (
+                isinstance(value, dict)
+                and value.get("schema_version") == "wuji.worker-context.v4"
+            )
+            contract = (
+                wire.WorkerContextV4
+                if is_v4
+                else wire.WorkerContextV3
+            )
+            value = contract.model_validate(value)
         else:
             value = wire.WorkerContext.model_validate(value)
         if sha256(value.text.encode()).hexdigest() != value.input_digest.root:
             raise DomainError("INPUT_DIGEST_CONFLICT", 409)
         return cls(value.snapshot_id, tuple(value.read_set), tuple(value.record_refs),
                    value.text, value.input_digest.root, document(value))
+
+
+@dataclass(frozen=True)
+class ProblemRecordSummary:
+    ref: KnowledgeRef
+    assessment: object | None
 
 
 class PrivateIntake:
@@ -252,6 +271,153 @@ def inline_material(*, artifacts, artifact_rows, references, context_bytes,
     return InlineMaterial(bodies=bodies, reasons=reasons)
 
 
+def snapshot_work_brief(manifest, current_work_id):
+    """Render bounded attempt/result context from one immutable snapshot."""
+
+    states = manifest.states
+    work_items = states.get("work_items", {})
+    visible_refs = {
+        (ref.entity_type.value, ref.id, ref.revision.root) for ref in manifest.refs
+    }
+    latest = {}
+    for run in states.get("agent_runs", {}).values():
+        work_id, result = run.get("work_item_id"), run.get("work_result")
+        if work_id is None or result is None:
+            continue
+        epoch = int(run.get("run_epoch", "0"))
+        if work_id not in latest or epoch > latest[work_id][0]:
+            latest[work_id] = (
+                epoch,
+                run.get("started_at") or "",
+                read_work_result(result),
+            )
+
+    attempts, unresolved, gaps = [], [], []
+
+    def add(target, text, maximum):
+        text = str(text)[:maximum]
+        if text and text not in target:
+            target.append(text)
+
+    active_states = {
+        "ready",
+        "leased",
+        "running",
+        "waiting_input",
+        "blocked",
+        "stopping",
+        "suspended",
+        "reconciling",
+    }
+    for work_id, work in work_items.items():
+        intent = work.get("intent")
+        if (
+            work_id != current_work_id
+            and work.get("state") in active_states
+            and isinstance(intent, dict)
+            and intent.get("question")
+        ):
+            add(
+                attempts,
+                f"Work {work_id} · 正在进行({work['state']}) · {intent['question']}",
+                2048,
+            )
+
+    ordered_results = sorted(
+        latest.items(), key=lambda item: item[1][1], reverse=True
+    )
+    ordered_results.sort(key=lambda item: item[0] != current_work_id)
+    for work_id, (_epoch, _started_at, result) in ordered_results:
+        refs = [
+            ref
+            for ref in result.canonical_refs
+            if (ref.entity_type.value, ref.id, ref.revision.root) in visible_refs
+        ]
+        ref_text = ", ".join(
+            f"{ref.entity_type.value}:{ref.id}@{ref.revision.root}" for ref in refs
+        )
+        suffix = "" if not ref_text else " · refs " + ref_text
+        if result.invalid_refs:
+            suffix += f" · invalid_refs {len(result.invalid_refs)}"
+        add(
+            attempts,
+            f"Work {work_id} · 结果 {result.effective_outcome.value} · "
+            f"{result.summary}{suffix}",
+            2048,
+        )
+        for item in result.unresolved_items:
+            add(unresolved, f"Work {work_id}: {item.root}", 1024)
+        for item in result.capability_gaps:
+            add(gaps, f"Work {work_id}: {item.root}", 1024)
+        if result.invalid_refs:
+            add(
+                unresolved,
+                f"Work {work_id}: {len(result.invalid_refs)} 个结果依据未被接纳",
+                1024,
+            )
+
+    for attempt in states.get("tool_attempts", ()):
+        if attempt.get("work_item_id") == current_work_id:
+            add(
+                attempts,
+                f"Work {current_work_id} · 环境工具 "
+                f"{attempt.get('tool_definition_version', 'unknown')} · "
+                f"{attempt.get('status', 'unknown')} · source tool_attempt:"
+                f"{attempt.get('tool_attempt_id', 'unknown')}",
+                2048,
+            )
+    return attempts[:64], unresolved[:32], gaps[:32]
+
+
+def snapshot_work_groups(manifest, current_work_id):
+    active, results = [], []
+    work_items = manifest.states.get("work_items", {})
+    active_states = {
+        "ready",
+        "leased",
+        "running",
+        "waiting_input",
+        "blocked",
+        "stopping",
+        "suspended",
+        "reconciling",
+    }
+    for work_id, work in work_items.items():
+        intent = work.get("intent")
+        if (
+            work_id != current_work_id
+            and work.get("state") in active_states
+            and isinstance(intent, dict)
+            and intent.get("question")
+        ):
+            active.append(
+                f"Work {work_id} · {work['state']} · {intent['question']}"[:2048]
+            )
+    latest = {}
+    for run in manifest.states.get("agent_runs", {}).values():
+        value = run.get("work_result")
+        work_id = run.get("work_item_id")
+        if value is None or work_id is None:
+            continue
+        epoch = int(run.get("run_epoch", "0"))
+        if work_id not in latest or epoch > latest[work_id][0]:
+            latest[work_id] = (epoch, read_work_result(value))
+    for work_id, (_epoch, result) in sorted(latest.items()):
+        refs = ", ".join(
+            f"{ref.entity_type.value}:{ref.id}@{ref.revision.root}"
+            for ref in result.canonical_refs
+            if ref in manifest.refs
+        )
+        suffix = "" if not refs else " · refs " + refs
+        results.append(
+            (
+                f"Work {work_id} · {result.effective_outcome.value} · "
+                f"{result.summary}{suffix}"
+            )[:2048]
+        )
+    return active[:64], results[:64]
+
+
 class WorkerHostBridge:
     def __init__(self, uow, *, registry, credentials, receiver_access, host_factory,
                  context_builder, ledger, retained_results, child_config, spool_directory,
@@ -277,6 +443,14 @@ class WorkerHostBridge:
             if artifacts is None
             else KnowledgeReadService(uow, ledger=ledger, artifacts=artifacts)
         )
+        self._board_publisher = (
+            None
+            if self.knowledge_reads is None
+            else BoardPublishService(
+                uow, registry=registry, knowledge_reads=self.knowledge_reads
+            )
+        )
+        self._notice_reader = KnowledgeNoticeService(uow, registry=registry)
         allowed = {"public_key_pem", "issuer", "audience", "host_origin", "model_gate_url",
                    "tool_gate_url", "wait_timeout_seconds", "transport_timeout_seconds",
                    "max_transport_bytes"}
@@ -511,6 +685,25 @@ class WorkerHostBridge:
             raise DomainError("CAPABILITY_UNAVAILABLE", 503)
         return self.knowledge_reads
 
+    def _knowledge_limits(self, access, assignment):
+        with self.uow.transaction(
+            access, assignment.identity.task_id, capability="model_request"
+        ) as tx:
+            config = self.registry.config(tx)
+            current_run(tx, config)
+            definition = strict_json_loads(tx.task["definition_json"])
+            profile = definition["worker_profiles"][assignment.work_kind.value]
+        if profile["ref"] not in assignment.profile_refs:
+            raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+        body = profile["body"]
+        policy = body["context_policy"]
+        return {
+            "max_read_bytes": policy["max_read_bytes"],
+            "max_delivered_bytes": policy["max_delivered_bytes"],
+            "max_reads": body["function_limits"]["knowledge_read_per_work"],
+            "max_refreshes": policy["max_refreshes"],
+        }
+
     def knowledge_list(self, access, payload):
         request = wire.WorkerKnowledgeListRequest.model_validate(payload)
         service = self._knowledge(access, request.assignment)
@@ -533,6 +726,7 @@ class WorkerHostBridge:
             ref=request.ref,
             selector=request.selector,
             native_occurrence=request.native_occurrence,
+            limits=self._knowledge_limits(access, request.assignment),
         )
 
     def knowledge_refresh(self, access, payload):
@@ -543,6 +737,7 @@ class WorkerHostBridge:
             request.assignment,
             snapshot_id=request.snapshot_id,
             native_occurrence=request.native_occurrence,
+            limits=self._knowledge_limits(access, request.assignment),
         )
 
     def knowledge_attach(self, access, payload):
@@ -554,6 +749,28 @@ class WorkerHostBridge:
             deliveries=[item.model_dump(mode="json") for item in request.deliveries],
             manifest_ref=request.manifest_ref,
             channel=None if request.channel is None else request.channel.value,
+        )
+
+    def board_publish(self, access, payload):
+        request = wire.WorkerBoardPublishRequest.model_validate(payload)
+        self.current_worker_host(access, request.assignment)
+        if self._board_publisher is None:
+            raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+        return self._board_publisher.publish(
+            access,
+            request.assignment,
+            native_occurrence=request.native_occurrence,
+            claim=request.claim,
+        )
+
+    def knowledge_notices(self, access, payload):
+        request = wire.WorkerKnowledgeNoticesRequest.model_validate(payload)
+        self.current_worker_host(access, request.assignment)
+        return self._notice_reader.list(
+            access,
+            request.assignment,
+            cursor=None if request.cursor is None else request.cursor.root,
+            limit=request.limit,
         )
 
     def _records(self, access, assignment, manifest):
@@ -613,6 +830,8 @@ class WorkerHostBridge:
                     "task_id": assignment.identity.task_id,
                     **{key: value[key] for key in ("capture_id", "tool_attempt_id", "collector_ref",
                         "capture_layer", "observed_at", "received_at", "environment_ref", "completeness", "evidence_origin")},
+                    "capture_session_id": value.get("capture_session_id"),
+                    "capture_item_seq": value.get("capture_item_seq"),
                     "conditions": strict_json_loads(value["conditions_json"]),
                     "artifact_refs": [{"id": aid, "version": str(rev), "sha256": digest}
                                       for aid, rev, digest in attached],
@@ -621,6 +840,40 @@ class WorkerHostBridge:
                 raise DomainError("INVALID_REFERENCE", 422)
             records.append(wire.RecordView.model_validate({"ref": ref, "display_kind": kind, "record": payload}))
         return records, artifact_rows
+
+    def _problem_records(self, access, assignment, manifest):
+        """Only metadata used by WorkBrief; Artifact bytes stay on-demand."""
+        frozen = manifest.states.get("claim_assessments")
+        if isinstance(frozen, dict):
+            return [
+                ProblemRecordSummary(
+                    ref,
+                    (
+                        None
+                        if frozen.get(ref.id + "@" + ref.revision.root) is None
+                        else wire.ClaimAssessmentView.model_validate(
+                            frozen[ref.id + "@" + ref.revision.root]
+                        )
+                    ),
+                )
+                for ref in manifest.refs
+                if ref.entity_type.value == "claim"
+            ]
+        # Historical snapshots did not freeze assessment state. Resolve only
+        # Claims needed by the brief; Intent content comes from the frozen Work.
+        return [
+            ProblemRecordSummary(ref, value.assessment)
+            for ref in manifest.refs
+            if ref.entity_type.value == "claim"
+            for value in [
+                self.ledger.read(
+                    access,
+                    assignment.identity.task_id,
+                    ref,
+                    snapshot_id=manifest.snapshot_id,
+                )
+            ]
+        ]
 
     def _inline_material(self, assignment, manifest, artifact_rows, *, body, limits):
         references = {
@@ -635,44 +888,265 @@ class WorkerHostBridge:
             material_representation=body.get("material_representation", "v1"),
         )
 
+    def _published_asset_index(self, access, assignment, manifest):
+        if self.artifacts is None:
+            raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+        visible = {
+            (ref.id, ref.revision.root)
+            for ref in manifest.refs
+            if ref.entity_type.value == "artifact"
+        }
+        if not visible:
+            return []
+        records = []
+        with self.uow.transaction(access, assignment.identity.task_id) as tx:
+            ordered = sorted(visible)
+            cursor = tx.connection.execute(
+                """SELECT p.publication_id,p.asset_id,p.asset_revision,
+                p.parent_publication_id,p.manifest_artifact_id,
+                p.manifest_artifact_revision,a.*
+                FROM vnext.publication p JOIN vnext.artifact a ON
+                  (a.tenant_id,a.project_id,a.task_id,a.entity_id,a.revision)=
+                  (p.tenant_id,p.project_id,p.task_id,
+                   p.manifest_artifact_id,p.manifest_artifact_revision)
+                WHERE p.tenant_id=%s AND p.project_id=%s AND p.task_id=%s
+                  AND p.kind='workspace_bundle.v1'
+                  AND (p.manifest_artifact_id,p.manifest_artifact_revision) IN (
+                    SELECT * FROM unnest(%s::text[],%s::numeric[]))""",
+                (
+                    *tx.owner,
+                    [item[0] for item in ordered],
+                    [item[1] for item in ordered],
+                ),
+            )
+            names = [column.name for column in cursor.description]
+            publications = [
+                dict(zip(names, value)) for value in cursor.fetchall()
+            ]
+            publication_ids = [item["publication_id"] for item in publications]
+            members = {}
+            if publication_ids:
+                for publication_id, member_id, member_revision in tx.connection.execute(
+                    """SELECT publication_id,artifact_id,artifact_revision
+                    FROM vnext.publication_ref WHERE tenant_id=%s
+                      AND project_id=%s AND task_id=%s
+                      AND publication_id=ANY(%s)""",
+                    (*tx.owner, publication_ids),
+                ).fetchall():
+                    members.setdefault(publication_id, set()).add(
+                        (member_id, str(member_revision))
+                    )
+            records = [
+                (item, members.get(item["publication_id"], set()))
+                for item in publications
+            ]
+        selected = {}
+        for record, members in records:
+            ref = BlobRef.model_validate(
+                {
+                    "id": record["entity_id"],
+                    "version": str(record["revision"]),
+                    "sha256": record["sha256"],
+                }
+            )
+            if (
+                record["state"] != "sealed"
+                or record["media_type"]
+                != "application/vnd.wuji.workspace-bundle+json"
+            ):
+                raise DomainError("INVALID_REFERENCE", 422)
+            value = wire.WorkspaceBundleManifestV1.model_validate(
+                strict_json_loads(self.artifacts.checked_bytes(record))
+            )
+            if (
+                value.asset_id != record["asset_id"]
+                or value.asset_revision.root != str(record["asset_revision"])
+                or value.parent_publication_id
+                != record["parent_publication_id"]
+                or (ref.id, ref.version.root) not in members
+                or any(
+                    (item.ref.id, item.ref.version.root) not in members
+                    for item in value.files
+                )
+            ):
+                raise DomainError("INVALID_REFERENCE", 422)
+            current = selected.get(value.asset_id)
+            candidate = (
+                int(value.asset_revision.root),
+                wire.PublishedAssetIndexEntryV1.model_validate(
+                    {
+                        "publication_id": record["publication_id"],
+                        "asset_id": value.asset_id,
+                        "asset_revision": value.asset_revision,
+                        "parent_publication_id": value.parent_publication_id,
+                        "manifest_ref": ref,
+                        "purpose": value.purpose,
+                        "entrypoint": value.entrypoint,
+                        "environment_ref": value.environment_ref,
+                        "image_digest": value.image_digest,
+                        "validation_statement": value.validation_statement,
+                        "file_count": len(value.files),
+                        "total_bytes": sum(item.bytes for item in value.files),
+                    }
+                ),
+            )
+            if current is None or candidate[0] > current[0]:
+                selected[value.asset_id] = candidate
+        return [selected[key][1] for key in sorted(selected)]
+
+    def _workspace_context(self, tx, assignment, body, definition):
+        environment = body.get("execution_environment")
+        if body.get("context_contract") != "wuji.worker-context.v4" or not isinstance(
+            environment, dict
+        ):
+            raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+        work = row(
+            tx.connection.execute(
+                "SELECT session_id FROM vnext.work_item WHERE tenant_id=%s "
+                "AND project_id=%s AND task_id=%s AND work_item_id=%s",
+                (*tx.owner, assignment.identity.work_item_id),
+            )
+        )
+        if work is None:
+            raise DomainError("STALE_EXECUTION", 409)
+        run = row(
+            tx.connection.execute(
+                "SELECT * FROM vnext.agent_run WHERE tenant_id=%s AND project_id=%s "
+                "AND task_id=%s AND agent_run_id=%s",
+                (*tx.owner, assignment.identity.agent_run_id),
+            )
+        )
+        if run is None or any(
+            str(run[key]) != str(value)
+            for key, value in assignment.identity.model_dump(mode="json").items()
+        ):
+            raise DomainError("STALE_EXECUTION", 409)
+        recovery_available, recovery_reason = True, None
+        if assignment.session_manifest_ref is not None:
+            previous = tx.connection.execute(
+                """SELECT p.runtime_attempt FROM vnext.session_holder h
+                JOIN vnext.agent_run p ON
+                  (p.tenant_id,p.project_id,p.task_id,p.agent_run_id)=
+                  (h.tenant_id,h.project_id,h.task_id,h.previous_run_id)
+                WHERE h.tenant_id=%s AND h.project_id=%s AND h.task_id=%s
+                  AND h.agent_run_id=%s""",
+                (*tx.owner, assignment.identity.agent_run_id),
+            ).fetchone()
+            recovery_available = previous is not None and str(previous[0]) == str(
+                assignment.identity.runtime_attempt.root
+            )
+            if not recovery_available:
+                recovery_reason = "workspace_generation_changed"
+        image_digest = environment["image_digest"]
+        generation = (
+            assignment.identity.runtime_attempt.root + ":" + image_digest[:16]
+        )
+        root = "/workspace"
+        work_path = root + "/work/" + assignment.identity.work_item_id
+        binding = wire.WorkspaceBindingV1.model_validate(
+            {
+                "task_id": assignment.identity.task_id,
+                "runtime_attempt": assignment.identity.runtime_attempt,
+                "work_item_id": assignment.identity.work_item_id,
+                "session_id": work["session_id"],
+                "cwd": work_path,
+                "inputs_path": root + "/inputs",
+                "work_path": work_path,
+                "imports_path": work_path + "/imports",
+                "shared_path": root + "/shared",
+                "workspace_generation": generation,
+                "recovery_available": recovery_available,
+                "recovery_reason": recovery_reason,
+            }
+        )
+        execution = wire.ExecutionEnvironmentV1.model_validate(
+            {
+                "environment_ref": run["environment_ref"],
+                **environment,
+                "process_limits": definition["runtime_profile"].get(
+                    "process_limits"
+                )
+                or {},
+            }
+        )
+        return binding, execution
+
     def _problem_context(self, access, assignment, manifest, records, body):
         if self.knowledge_reads is None:
             raise DomainError("CAPABILITY_UNAVAILABLE", 503)
         with self.uow.transaction(access, assignment.identity.task_id) as tx:
             definition = strict_json_loads(tx.task["definition_json"])
             task = wire.TaskCreate.model_validate(definition["task"])
-            work = row(tx.connection.execute(
-                "SELECT * FROM vnext.work_item WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND work_item_id=%s",
-                (*tx.owner, assignment.identity.work_item_id),
-            ))
-            if work is None:
+            frozen_work = manifest.states.get("work_items", {}).get(
+                assignment.identity.work_item_id
+            )
+            if frozen_work is None:
                 raise DomainError("STALE_EXECUTION", 409)
             planning = None
-            if work["intent_id"] is not None:
-                intent = row(tx.connection.execute(
-                    "SELECT * FROM vnext.intent_revision WHERE tenant_id=%s AND project_id=%s AND task_id=%s AND entity_id=%s AND revision=%s",
-                    (*tx.owner, work["intent_id"], work["intent_revision"]),
-                ))
-                if intent is None:
-                    raise DomainError("INVALID_REFERENCE", 422)
-                planning = (
-                    None if intent["planning_json"] is None
-                    else wire.IntentPlanningV3.model_validate(
-                        strict_json_loads(intent["planning_json"])
-                    ).model_dump(mode="json")
-                )
-                question, expected_output = intent["question"], intent["expected_output"]
-                intent_ref = KnowledgeRef.model_validate({
-                    "entity_type": "intent", "id": intent["entity_id"],
-                    "revision": str(intent["revision"]),
-                })
+            frozen_intent = frozen_work.get("intent")
+            if isinstance(frozen_intent, dict):
+                intent_ref = KnowledgeRef.model_validate(frozen_intent["ref"])
+                question = frozen_intent["question"]
+                expected_output = frozen_intent["expected_output"]
+                planning = frozen_intent.get("planning")
             elif assignment.work_kind.value == "reason":
                 question = "根据当前目标差距、问题和已交付材料选择下一项必要工作"
                 expected_output = "少量有依据的问题、明确等待、完成评审请求或具体阻断"
                 intent_ref = None
+            elif "intent" not in frozen_work:
+                # Legacy manifests did not freeze Work→Intent metadata. The
+                # immutable binding selects one exact snapshot record; attempts
+                # and results still never fall through to live queries.
+                binding = row(
+                    tx.connection.execute(
+                        "SELECT intent_id,intent_revision FROM vnext.work_item "
+                        "WHERE tenant_id=%s AND project_id=%s AND task_id=%s "
+                        "AND work_item_id=%s",
+                        (*tx.owner, assignment.identity.work_item_id),
+                    )
+                )
+                if binding is None or binding["intent_id"] is None:
+                    raise DomainError("INVALID_REFERENCE", 422)
+                fixed_ref = KnowledgeRef.model_validate(
+                    {
+                        "entity_type": "intent",
+                        "id": binding["intent_id"],
+                        "revision": str(binding["intent_revision"]),
+                    }
+                )
+                if fixed_ref not in manifest.refs:
+                    raise DomainError("INVALID_REFERENCE", 422)
+                intent = row(
+                    tx.connection.execute(
+                        "SELECT question,expected_output,planning_json FROM "
+                        "vnext.intent_revision WHERE tenant_id=%s AND "
+                        "project_id=%s AND task_id=%s AND entity_id=%s AND "
+                        "revision=%s",
+                        (*tx.owner, fixed_ref.id, fixed_ref.revision.root),
+                    )
+                )
+                if intent is None:
+                    raise DomainError("INVALID_REFERENCE", 422)
+                intent_ref = fixed_ref
+                question, expected_output = (
+                    intent["question"],
+                    intent["expected_output"],
+                )
+                planning = (
+                    None
+                    if intent["planning_json"] is None
+                    else strict_json_loads(intent["planning_json"])
+                )
             else:
                 raise DomainError("INVALID_REFERENCE", 422)
-            claim_refs = [record.ref for record in records if record.ref.entity_type.value == "claim"]
+            # The complete set remains available through knowledge_list. The
+            # brief carries a bounded prefix so one large board cannot invalidate
+            # the WorkBrief contract before the model can page it.
+            claim_refs = [
+                record.ref
+                for record in records
+                if record.ref.entity_type.value == "claim"
+            ][:256]
             counterevidence = [
                 record.ref for record in records
                 if record.ref.entity_type.value == "claim" and record.assessment is not None
@@ -680,27 +1154,30 @@ class WorkerHostBridge:
                     record.assessment.evidence_state.value == "contradicted"
                     or record.assessment.applicability_state.value in {"disputed", "retracted"}
                 )
-            ]
-            attempts = [
-                f"环境工具 {tool} · {status or 'unknown'}"
-                for tool, status in tx.connection.execute(
-                    """SELECT c.tool_definition_version,a.status FROM vnext.tool_attempt a
-                    JOIN vnext.tool_call c USING(tenant_id,project_id,task_id,tool_call_id)
-                    WHERE a.tenant_id=%s AND a.project_id=%s AND a.task_id=%s
-                    AND c.work_item_id=%s ORDER BY a.tool_attempt_id LIMIT 64""",
-                    (*tx.owner, assignment.identity.work_item_id),
-                ).fetchall()
-            ]
+            ][:256]
             review = manifest.states.get("completion_review")
             unresolved = [] if not isinstance(review, dict) else [
                 str(reason)[:1024] for reason in review.get("reasons", ())[:32]
             ]
+            v4 = body.get("context_contract") == "wuji.worker-context.v4"
+            workspace_binding = execution_environment = None
+            if v4:
+                workspace_binding, execution_environment = self._workspace_context(
+                    tx, assignment, body, definition
+                )
+        attempts, result_unresolved, result_gaps = snapshot_work_brief(
+            manifest, assignment.identity.work_item_id
+        )
+        related_work, predecessor_results = snapshot_work_groups(
+            manifest, assignment.identity.work_item_id
+        )
+        unresolved = list(dict.fromkeys([*unresolved, *result_unresolved]))[:32]
         capability_refs = sorted({
             item["source_ref"] for item in body["capability_manifest"]
         })
         required = set(() if planning is None else planning["required_capability_refs"])
-        gaps = sorted(required - set(capability_refs))
-        brief = wire.WorkBriefV1.model_validate({
+        gaps = list(dict.fromkeys([*sorted(required - set(capability_refs)), *result_gaps]))[:32]
+        brief_value = {
             "task_goal": task.goal.text,
             "goal_criterion_refs": [
                 {"criterion_id": criterion.criterion_id, "revision": "1"}
@@ -721,8 +1198,22 @@ class WorkerHostBridge:
             "attempt_summaries": attempts,
             "unresolved_items": unresolved,
             "committed_todo_summary": [],
-        })
+        }
+        if v4:
+            brief_value.update(
+                related_work_summaries=related_work,
+                predecessor_result_summaries=predecessor_results,
+            )
+        brief = (
+            wire.WorkBriefV2 if v4 else wire.WorkBriefV1
+        ).model_validate(brief_value)
         policy = body["context_policy"]
+        knowledge_limits = {
+            "max_read_bytes": policy["max_read_bytes"],
+            "max_delivered_bytes": policy["max_delivered_bytes"],
+            "max_reads": body["function_limits"]["knowledge_read_per_work"],
+            "max_refreshes": policy["max_refreshes"],
+        }
         if len(canonical_json_bytes(brief.model_dump(mode="json"))) > policy["initial_brief_bytes"]:
             raise DomainError("CONTEXT_BUDGET_EXCEEDED", 422)
         index, cursor = [], None
@@ -749,13 +1240,27 @@ class WorkerHostBridge:
                 native_occurrence=None,
                 delivery_kind="initial_context",
                 idempotency_key="initial:" + manifest.snapshot_id + ":" + intent_ref.id + "@" + intent_ref.revision.root,
+                limits=knowledge_limits,
             ))
+        published_assets = (
+            self._published_asset_index(access, assignment, manifest) if v4 else []
+        )
         semantic = {
-            "schema_version": "wuji.work-brief.v1",
+            "schema_version": (
+                "wuji.work-brief.v2" if v4 else "wuji.work-brief.v1"
+            ),
             "brief": brief.model_dump(mode="json"),
             "knowledge_index": [item.model_dump(mode="json") for item in index],
             "initial_deliveries": [item.model_dump(mode="json") for item in initial],
         }
+        if v4:
+            semantic.update(
+                workspace_binding=workspace_binding.model_dump(mode="json"),
+                execution_environment=execution_environment.model_dump(mode="json"),
+                published_asset_index=[
+                    item.model_dump(mode="json") for item in published_assets
+                ],
+            )
         text = canonical_json_bytes(semantic).decode("utf-8")
         while len(text.encode()) > min(body["max_context_bytes"], 16_777_216) and index:
             index.pop()
@@ -763,8 +1268,10 @@ class WorkerHostBridge:
             text = canonical_json_bytes(semantic).decode("utf-8")
         if len(text.encode()) > min(body["max_context_bytes"], 16_777_216):
             raise DomainError("CONTEXT_BUDGET_EXCEEDED", 422)
-        return wire.WorkerContextV3.model_validate({
-            "schema_version": "wuji.worker-context.v3",
+        context = {
+            "schema_version": (
+                "wuji.worker-context.v4" if v4 else "wuji.worker-context.v3"
+            ),
             "snapshot_id": manifest.snapshot_id,
             "read_set": [item.ref for item in initial],
             "record_refs": list(manifest.refs),
@@ -773,7 +1280,16 @@ class WorkerHostBridge:
             "initial_deliveries": initial,
             "text": text,
             "input_digest": sha256(text.encode()).hexdigest(),
-        })
+        }
+        if v4:
+            context.update(
+                workspace_binding=workspace_binding,
+                execution_environment=execution_environment,
+                published_asset_index=published_assets,
+            )
+        return (wire.WorkerContextV4 if v4 else wire.WorkerContextV3).model_validate(
+            context
+        )
 
     def _resolve_refused(self, step, error):
         """Emit the bounded predicate that refused one Host context build.
@@ -813,50 +1329,67 @@ class WorkerHostBridge:
                     if host.profiles.get(profile["ref"]) != profile:
                         raise DomainError("CAPABILITY_UNAVAILABLE", 503)
                 body = profile["body"]
+                problem_context = body.get("schema_version") in {
+                    "wuji.harness.problem.v1",
+                    "wuji.harness.problem.v2",
+                }
+                stored_context = self.intake.read(assignment, "context")
+                if stored_context is not None:
+                    # A completed resolve is immutable private intake. Replays,
+                    # including native Session recovery from a legacy snapshot,
+                    # reuse its exact bytes instead of changing the input digest.
+                    context_wire = stored_context
+                    context = HostContext.from_wire(context_wire)
+                else:
+                    context = None
                 step = "record_limit"
                 if len(manifest.refs) > min(body["max_context_records"], 5000):
                     raise DomainError("LIMIT_BLOCKED", 422)
-                step = "read_records"
-                records, artifact_rows = self._records(access, assignment, manifest)
-                step = "context_build"
-                published_limits = config.runtime.limits.model_dump(mode="json")
-                material = self._inline_material(
-                    assignment, manifest, artifact_rows, body=body,
-                    limits=published_limits,
-                )
-                context_options = {"states": manifest.states}
-                if material is not None:
-                    # Only the deployment's own builder accepts inline material;
-                    # a host without an artifact reader keeps the metadata-only
-                    # context instead of pretending the bodies were delivered.
-                    context_options["material"] = material
-                if body.get("schema_version") in {
-                    "wuji.harness.problem.v1", "wuji.harness.problem.v2"
-                }:
-                    context_wire = self._problem_context(
-                        access, assignment, manifest, records, body
-                    )
-                    context = HostContext.from_wire(context_wire)
-                else:
-                    context = self.context_builder(
-                        records=records, read_set=manifest.refs,
-                        snapshot_id=manifest.snapshot_id, max_records=body["max_context_records"],
-                        max_bytes=min(body["max_context_bytes"], 16777216), relations=manifest.relations,
-                        **context_options,
-                    )
-                    context_wire = wire.WorkerContext.model_validate({
-                        "snapshot_id": context.snapshot_id, "read_set": list(context.read_set),
-                        "record_refs": list(context.record_refs), "text": context.text,
-                        "input_digest": context.input_digest,
-                    })
+                if context is None:
+                    if problem_context:
+                        step = "read_problem_metadata"
+                        records = self._problem_records(access, assignment, manifest)
+                        step = "context_build"
+                        context_wire = self._problem_context(
+                            access, assignment, manifest, records, body
+                        )
+                        context = HostContext.from_wire(context_wire)
+                    else:
+                        step = "read_records"
+                        records, artifact_rows = self._records(
+                            access, assignment, manifest
+                        )
+                        step = "context_build"
+                        published_limits = config.runtime.limits.model_dump(mode="json")
+                        material = self._inline_material(
+                            assignment,
+                            manifest,
+                            artifact_rows,
+                            body=body,
+                            limits=published_limits,
+                        )
+                        context_options = {"states": manifest.states}
+                        if material is not None:
+                            # Only the deployment's own builder accepts inline
+                            # material; metadata-only remains honest otherwise.
+                            context_options["material"] = material
+                        context = self.context_builder(
+                            records=records, read_set=manifest.refs,
+                            snapshot_id=manifest.snapshot_id, max_records=body["max_context_records"],
+                            max_bytes=min(body["max_context_bytes"], 16777216), relations=manifest.relations,
+                            **context_options,
+                        )
+                        context_wire = wire.WorkerContext.model_validate({
+                            "snapshot_id": context.snapshot_id, "read_set": list(context.read_set),
+                            "record_refs": list(context.record_refs), "text": context.text,
+                            "input_digest": context.input_digest,
+                        })
                 step = "context_binding"
                 if (
                     tuple(context.record_refs) != manifest.refs
                     or context.snapshot_id != assignment.snapshot_id
                     or (
-                        body.get("schema_version") not in {
-                            "wuji.harness.problem.v1", "wuji.harness.problem.v2"
-                        }
+                        not problem_context
                         and tuple(context.read_set) != manifest.refs
                     )
                     or not {

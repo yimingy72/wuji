@@ -9,6 +9,7 @@ from types import SimpleNamespace
 from wuji_core.admission.model_material import (
     HTTP_EXCHANGE_MEDIA_TYPE,
     render_http_exchange_v2,
+    render_runtime_http_part_v1,
     validate_model_material_v2,
 )
 from wuji_core.contracts.admission import ToolCallReceipt
@@ -273,6 +274,46 @@ def test_redirect_credentials_and_body_secrets_are_redacted_without_changing_sou
     assert all(secret not in packet.representation.text for secret in (
         "fixture-user", "fixture-password", "fixture-secret", "fixture-api-key", "token=fixture",
     ))
+    assert packet.source.artifact_sha256 == sha256(raw).hexdigest()
+
+
+def test_runtime_capture_body_uses_sealed_metadata_and_redacts_credentials():
+    raw = b'password=fixture-secret&message=visible'
+    metadata = json.dumps(
+        {
+            "schema_version": "wuji.http-capture-record.v1",
+            "exchange_id": "exchange-fixture",
+            "stage": "response",
+            "metadata": {
+                "status_code": 200,
+                "headers": [
+                    ["Content-Type", "application/x-www-form-urlencoded"],
+                    ["Set-Cookie", "session=must-not-render"],
+                ],
+            },
+            "body_length": len(raw),
+            "body_sha256": sha256(raw).hexdigest(),
+            "record_digest": "0" * 64,
+            "persisted_at": "2026-09-23T00:00:00Z",
+        },
+        separators=(",", ":"),
+    ).encode()
+    ref, record = artifact(raw, media_type="application/octet-stream")
+
+    packet = render_runtime_http_part_v1(
+        "capture:session:1:response_body",
+        part="response_body",
+        artifact_ref=ref,
+        artifact_record=record,
+        raw=raw,
+        metadata_raw=metadata,
+    )
+
+    assert packet.status.value == "delivered"
+    assert packet.representation.redaction_applied is True
+    assert "message=visible" in packet.representation.text
+    assert "fixture-secret" not in packet.representation.text
+    assert "must-not-render" not in packet.representation.text
     assert packet.source.artifact_sha256 == sha256(raw).hexdigest()
 
 

@@ -93,6 +93,57 @@ paths:
               schema: {$ref: '#/components/schemas/TaskView'}
         '401': {$ref: '#/components/responses/Unauthenticated'}
         '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
+  /api/v2/tasks/{task_id}/overview:
+    get:
+      operationId: getTaskOverviewV2
+      summary: Read the bounded current task overview from canonical records
+      tags: [Tasks]
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      responses:
+        '200': {description: Canonical task overview without model-generated summaries, content: {application/json: {schema: {$ref: '#/components/schemas/TaskOverviewV1'}}}}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
+  /api/v2/tasks/{task_id}/command-inventory:
+    get:
+      operationId: getTaskCommandInventoryV1
+      parameters:
+        - {name: task_id, in: path, required: true, schema: {type: string}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 50}}
+        - {name: after, in: query, schema: {type: string, minLength: 1, maxLength: 256}}
+      responses:
+        '200': {description: Bounded Task command inventory, content: {application/json: {schema: {$ref: '#/components/schemas/TaskCommandInventoryV1'}}}}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
+  /api/v2/tasks/{task_id}/publications:
+    get:
+      operationId: getTaskPublicationsV1
+      parameters:
+        - {name: task_id, in: path, required: true, schema: {type: string}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 50}}
+        - {name: after, in: query, schema: {type: string, minLength: 1, maxLength: 256}}
+      responses:
+        '200': {description: Bounded immutable workspace publications, content: {application/json: {schema: {$ref: '#/components/schemas/TaskPublicationPageV1'}}}}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
+  /api/v2/tasks/{task_id}/activity:
+    get:
+      operationId: getTaskActivityV2
+      summary: Read bounded canonical task activity; cursor and after_cursor are mutually exclusive
+      tags: [Tasks]
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+        - {name: limit, in: query, required: false, schema: {type: integer, minimum: 1, maximum: 100, default: 20}}
+        - {name: cursor, in: query, required: false, schema: {type: string, minLength: 1, maxLength: 4096}, description: Opaque task/filter-bound cursor for older history}
+        - {name: after_cursor, in: query, required: false, schema: {type: string, minLength: 1, maxLength: 4096}, description: Opaque task/filter-bound cursor for newer incremental events}
+        - {name: importance, in: query, required: false, schema: {type: string, enum: [key, all], default: key}}
+        - {name: category, in: query, required: false, schema: {$ref: '#/components/schemas/TaskActivityCategory'}}
+        - {name: work_item_id, in: query, required: false, schema: {type: string, minLength: 1, maxLength: 256}}
+      responses:
+        '200': {description: Authorized canonical activity page, content: {application/json: {schema: {$ref: '#/components/schemas/TaskActivityPageV1'}}}}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
   /api/v2/tasks/{task_id}/readiness:
     get:
       operationId: getTaskReadinessV2
@@ -457,6 +508,53 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ModelMaterialV2'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+  /api/v2/tasks/{task_id}/capture-sessions:
+    get:
+      operationId: listRuntimeCaptureSessionsV2
+      summary: List authorized Runtime capture sessions for a Task
+      tags: [Knowledge]
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      responses:
+        '200': {description: Bounded capture session inventory, content: {application/json: {schema: {$ref: '#/components/schemas/RuntimeCaptureSessionPageV1'}}}}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
+  /api/v2/tasks/{task_id}/capture-sessions/{capture_session_id}/items:
+    get:
+      operationId: listRuntimeCaptureItemsV2
+      summary: Page through authorized Runtime capture items
+      tags: [Knowledge]
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+        - {name: capture_session_id, in: path, required: true, schema: {type: string, minLength: 1, maxLength: 256}}
+        - {name: after, in: query, required: false, schema: {type: integer, minimum: 0, maximum: 1000000, default: 0}}
+        - {name: limit, in: query, required: false, schema: {type: integer, minimum: 1, maximum: 100, default: 50}}
+      responses:
+        '200': {description: Bounded capture item page, content: {application/json: {schema: {$ref: '#/components/schemas/RuntimeCaptureItemPageV1'}}}}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+  /api/v2/tasks/{task_id}/capture-sessions/{capture_session_id}/items/{item_seq}/parts/{part}:
+    get:
+      operationId: downloadRuntimeCapturePartV2
+      summary: Download one authorized sealed Runtime capture part
+      tags: [Knowledge]
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+        - {name: capture_session_id, in: path, required: true, schema: {type: string, minLength: 1, maxLength: 256}}
+        - {name: item_seq, in: path, required: true, schema: {type: integer, minimum: 1, maximum: 1000000}}
+        - {name: part, in: path, required: true, schema: {type: string, pattern: '^[a-z][a-z0-9_.-]{0,127}$'}}
+      responses:
+        '200':
+          description: Exact sealed capture part bytes
+          headers:
+            Digest: {schema: {type: string}}
+          content:
+            application/octet-stream:
+              schema: {type: string, format: binary}
         '401': {$ref: '#/components/responses/Unauthenticated'}
         '404': {$ref: '#/components/responses/NotFoundOrForbidden'}
         '422': {$ref: '#/components/responses/InvalidSchema'}
@@ -997,6 +1095,34 @@ paths:
         '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/InvalidSchema'}
         '503': {$ref: '#/components/responses/Unavailable'}
+  /internal/v2/worker-host/board-publish:
+    post:
+      operationId: publishWorkerBoardClaimV2
+      summary: Publish one current-Run Claim and prepare its exact content delivery
+      tags: [Internal]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/WorkerBoardPublishRequest'}}}}
+      responses:
+        '200': {description: Canonical Claim and prepared delivery, content: {application/json: {schema: {$ref: '#/components/schemas/BoardPublishResultV1'}}}}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+        '429': {$ref: '#/components/responses/LimitBlocked'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /internal/v2/worker-host/knowledge-notices:
+    post:
+      operationId: listWorkerKnowledgeNoticesV2
+      summary: List bounded relevant metadata updates for one current Work
+      tags: [Internal]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/WorkerKnowledgeNoticesRequest'}}}}
+      responses:
+        '200': {description: Relevant fixed-reference notice page, content: {application/json: {schema: {$ref: '#/components/schemas/KnowledgeNoticesPageV1'}}}}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/InvalidSchema'}
+        '429': {$ref: '#/components/responses/LimitBlocked'}
+        '503': {$ref: '#/components/responses/Unavailable'}
   /internal/v2/worker-host/archive-sdk:
     post:
       operationId: archiveWorkerSdkV2
@@ -1495,6 +1621,9 @@ components:
     WorkerContextV3SchemaVersion:
       type: string
       enum: [wuji.worker-context.v3]
+    WorkerContextV4SchemaVersion:
+      type: string
+      enum: [wuji.worker-context.v4]
     ExplorationViewSchemaVersion:
       type: string
       enum: [wuji.exploration-view.v1]
@@ -2047,7 +2176,7 @@ components:
         tool_attempt_id: {type: string, minLength: 1, maxLength: 256}
         artifact_refs:
           type: array
-          minItems: 1
+          minItems: 0
           maxItems: 256
           items: {$ref: '#/components/schemas/BlobRef'}
         capture_layer: {type: string, minLength: 1, maxLength: 256}
@@ -2059,6 +2188,201 @@ components:
           maxItems: 128
           items: {type: string, minLength: 1, maxLength: 8192}
         completeness: {$ref: '#/components/schemas/CaptureCompleteness'}
+    CapturePolicyV1:
+      type: object
+      additionalProperties: false
+      required: [max_request_body_bytes, max_response_body_bytes, pcap_segment_bytes, max_session_bytes, max_items, part_read_chunk_bytes, drain_timeout_seconds, seal_timeout_seconds]
+      properties:
+        max_request_body_bytes: {type: integer, minimum: 1, maximum: 8388608}
+        max_response_body_bytes: {type: integer, minimum: 1, maximum: 8388608}
+        pcap_segment_bytes: {type: integer, minimum: 1000000, maximum: 67108864, multipleOf: 1000000}
+        max_session_bytes: {type: integer, format: int64, minimum: 1, maximum: 1099511627776}
+        max_items: {type: integer, minimum: 1, maximum: 1000000}
+        part_read_chunk_bytes: {type: integer, minimum: 1, maximum: 8388608}
+        drain_timeout_seconds: {type: number, exclusiveMinimum: 0, maximum: 300}
+        seal_timeout_seconds: {type: number, exclusiveMinimum: 0, maximum: 300}
+    RuntimeCaptureBindingV1:
+      type: object
+      additionalProperties: false
+      required: [task_id, runtime_attempt, execution_epoch, pod_uid]
+      properties:
+        task_id: {type: string, minLength: 1, maxLength: 256}
+        runtime_attempt: {$ref: '#/components/schemas/RevisionString'}
+        execution_epoch: {$ref: '#/components/schemas/RevisionString'}
+        pod_uid: {type: string, minLength: 1, maxLength: 256}
+    RuntimeCaptureSessionV1:
+      type: object
+      additionalProperties: false
+      required: [schema_version, capture_session_id, binding, collector_ref, environment_ref, evidence_origin, capture_layer, state, status_digest, policy, policy_digest, started_at]
+      properties:
+        schema_version: {type: string, const: wuji.runtime-capture-session.v1}
+        capture_session_id: {type: string, minLength: 1, maxLength: 256}
+        binding: {$ref: '#/components/schemas/RuntimeCaptureBindingV1'}
+        collector_ref: {type: string, minLength: 1, maxLength: 256}
+        environment_ref: {type: string, minLength: 1, maxLength: 256}
+        evidence_origin: {$ref: '#/components/schemas/EvidenceOrigin'}
+        capture_layer: {type: string, minLength: 1, maxLength: 256}
+        state: {type: string, enum: [ready, draining, sealed, failed]}
+        status_digest: {$ref: '#/components/schemas/Sha256Digest'}
+        policy: {$ref: '#/components/schemas/CapturePolicyV1'}
+        policy_digest: {$ref: '#/components/schemas/Sha256Digest'}
+        started_at: {type: string, format: date-time}
+    RuntimeCaptureStatusV1:
+      type: object
+      additionalProperties: false
+      required: [schema_version, binding, collector_ref, environment_ref, evidence_origin, capture_layer, state, status_digest, started_at]
+      properties:
+        schema_version: {type: string, const: wuji.runtime-capture-status.v1}
+        binding: {$ref: '#/components/schemas/RuntimeCaptureBindingV1'}
+        collector_ref: {type: string, minLength: 1, maxLength: 256}
+        environment_ref: {type: string, minLength: 1, maxLength: 256}
+        evidence_origin: {$ref: '#/components/schemas/EvidenceOrigin'}
+        capture_layer: {type: string, minLength: 1, maxLength: 256}
+        state: {type: string, enum: [ready, draining, sealed, failed]}
+        status_digest: {$ref: '#/components/schemas/Sha256Digest'}
+        started_at: {type: string, format: date-time}
+    RuntimeCapturePartV1:
+      type: object
+      additionalProperties: false
+      required: [part, media_type, length, sha256]
+      properties:
+        part: {type: string, pattern: '^[a-z][a-z0-9_.-]{0,127}$'}
+        media_type: {type: string, minLength: 1, maxLength: 256}
+        length: {type: integer, format: int64, minimum: 0, maximum: 67108864}
+        sha256: {$ref: '#/components/schemas/Sha256Digest'}
+    RuntimeCaptureEnvelopeV1:
+      type: object
+      additionalProperties: false
+      required: [schema_version, capture_session_id, binding, collector_ref, item_seq, kind, completeness, observed_at, parts, metadata, conditions, item_digest]
+      properties:
+        schema_version: {type: string, const: wuji.runtime-capture-envelope.v1}
+        capture_session_id: {type: string, minLength: 1, maxLength: 256}
+        binding: {$ref: '#/components/schemas/RuntimeCaptureBindingV1'}
+        collector_ref: {type: string, minLength: 1, maxLength: 256}
+        item_seq: {type: integer, minimum: 1, maximum: 1000000}
+        kind: {type: string, enum: [http_exchange, pcap_segment, gap, manifest]}
+        completeness: {$ref: '#/components/schemas/CaptureCompleteness'}
+        observed_at: {type: string, format: date-time}
+        parts:
+          type: array
+          minItems: 1
+          maxItems: 16
+          uniqueItems: true
+          items: {$ref: '#/components/schemas/RuntimeCapturePartV1'}
+        metadata: {type: object, additionalProperties: true}
+        conditions:
+          type: array
+          maxItems: 128
+          uniqueItems: true
+          items: {type: string, minLength: 1, maxLength: 8192}
+        item_digest: {$ref: '#/components/schemas/Sha256Digest'}
+    RuntimeCaptureReceiptV1:
+      type: object
+      additionalProperties: false
+      required: [schema_version, capture_session_id, item_seq, item_digest, status, observation_ref, artifact_refs, request_id]
+      properties:
+        schema_version: {type: string, const: wuji.runtime-capture-receipt.v1}
+        capture_session_id: {type: string, minLength: 1, maxLength: 256}
+        item_seq: {type: integer, minimum: 1, maximum: 1000000}
+        item_digest: {$ref: '#/components/schemas/Sha256Digest'}
+        status: {type: string, enum: [accepted, historical_only]}
+        observation_ref: {$ref: '#/components/schemas/KnowledgeRef'}
+        artifact_refs:
+          type: array
+          maxItems: 16
+          items: {$ref: '#/components/schemas/BlobRef'}
+        request_id: {type: string, minLength: 1, maxLength: 256}
+    RuntimeCaptureItemViewV1:
+      type: object
+      additionalProperties: false
+      required: [envelope, observation_ref, artifact_refs, received_at]
+      properties:
+        envelope: {$ref: '#/components/schemas/RuntimeCaptureEnvelopeV1'}
+        observation_ref: {$ref: '#/components/schemas/KnowledgeRef'}
+        artifact_refs:
+          type: array
+          maxItems: 16
+          items: {$ref: '#/components/schemas/BlobRef'}
+        received_at: {type: string, format: date-time}
+    RuntimeCaptureItemPageV1:
+      type: object
+      additionalProperties: false
+      required: [schema_version, capture_session_id, items, next_item_seq]
+      properties:
+        schema_version: {type: string, const: wuji.runtime-capture-items.v1}
+        capture_session_id: {type: string, minLength: 1, maxLength: 256}
+        items:
+          type: array
+          maxItems: 100
+          items: {$ref: '#/components/schemas/RuntimeCaptureItemViewV1'}
+        next_item_seq:
+          oneOf:
+            - {type: integer, minimum: 1, maximum: 1000000}
+            - {type: 'null'}
+    RuntimeCaptureSessionPageV1:
+      type: object
+      additionalProperties: false
+      required: [schema_version, sessions]
+      properties:
+        schema_version: {type: string, const: wuji.runtime-capture-sessions.v1}
+        sessions:
+          type: array
+          maxItems: 100
+          items: {$ref: '#/components/schemas/RuntimeCaptureSessionV1'}
+    RuntimeTerminalObservationV1:
+      type: object
+      additionalProperties: false
+      required: [schema_version, capture_session_id, binding, controller_ref, container_name, state, container_id, exit_code, signal, reason, started_at, finished_at, observed_at, source_digest]
+      properties:
+        schema_version: {type: string, const: wuji.runtime-terminal-observation.v1}
+        capture_session_id:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 256}
+            - {type: 'null'}
+        binding: {$ref: '#/components/schemas/RuntimeCaptureBindingV1'}
+        controller_ref: {type: string, minLength: 1, maxLength: 256}
+        container_name: {type: string, pattern: '^[a-z][a-z0-9-]{0,62}$'}
+        state: {type: string, enum: [terminated, not_started]}
+        container_id:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 512}
+            - {type: 'null'}
+        exit_code:
+          oneOf:
+            - {type: integer, minimum: -2147483648, maximum: 2147483647}
+            - {type: 'null'}
+        signal:
+          oneOf:
+            - {type: integer, minimum: 1, maximum: 127}
+            - {type: 'null'}
+        reason:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 1024}
+            - {type: 'null'}
+        started_at:
+          oneOf:
+            - {type: string, format: date-time}
+            - {type: 'null'}
+        finished_at:
+          oneOf:
+            - {type: string, format: date-time}
+            - {type: 'null'}
+        observed_at: {type: string, format: date-time}
+        source_digest: {$ref: '#/components/schemas/Sha256Digest'}
+    RuntimeTerminalObservationReceiptV1:
+      type: object
+      additionalProperties: false
+      required: [schema_version, terminal_observation_id, capture_session_id, container_name, source_digest, observed_at]
+      properties:
+        schema_version: {type: string, const: wuji.runtime-terminal-observation-receipt.v1}
+        terminal_observation_id: {type: string, minLength: 1, maxLength: 256}
+        capture_session_id:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 256}
+            - {type: 'null'}
+        container_name: {type: string, pattern: '^[a-z][a-z0-9-]{0,62}$'}
+        source_digest: {$ref: '#/components/schemas/Sha256Digest'}
+        observed_at: {type: string, format: date-time}
     SessionManifest:
       type: object
       additionalProperties: false
@@ -2230,6 +2554,329 @@ components:
         channel:
           type: string
           enum: [initial_input, function_result]
+    WorkerBoardPublishRequest:
+      type: object
+      additionalProperties: false
+      required: [assignment, native_occurrence, claim]
+      properties:
+        assignment: {$ref: '#/components/schemas/WorkerAssignment'}
+        native_occurrence: {type: string, minLength: 1, maxLength: 1024}
+        claim: {$ref: '#/components/schemas/ClaimProposal'}
+    BoardPublishResultV1:
+      type: object
+      additionalProperties: false
+      required: [schema_version, receipt, claim, delivery]
+      properties:
+        schema_version: {type: string, const: wuji.board-publish-result.v1}
+        receipt: {$ref: '#/components/schemas/ComponentReceipt'}
+        claim: {$ref: '#/components/schemas/ClaimRecord'}
+        delivery: {$ref: '#/components/schemas/KnowledgeDeliveryV1'}
+    WorkspaceSourceFileV1:
+      type: object
+      additionalProperties: false
+      required: [relative_path]
+      properties:
+        relative_path: {type: string, minLength: 1, maxLength: 256, pattern: '^[A-Za-z0-9][A-Za-z0-9._/-]{0,255}$'}
+    WorkspaceEntrypointV1:
+      type: object
+      additionalProperties: false
+      required: [relative_path, interpreter_argv]
+      properties:
+        relative_path: {type: string, minLength: 1, maxLength: 256, pattern: '^[A-Za-z0-9][A-Za-z0-9._/-]{0,255}$'}
+        interpreter_argv:
+          type: array
+          minItems: 1
+          maxItems: 16
+          items: {type: string, minLength: 1, maxLength: 256}
+    WorkspaceDependencyV1:
+      type: object
+      additionalProperties: false
+      required: [description, lockfile_path]
+      properties:
+        description: {type: string, minLength: 1, maxLength: 1024}
+        lockfile_path:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 256, pattern: '^[A-Za-z0-9][A-Za-z0-9._/-]{0,255}$'}
+            - {type: 'null'}
+    WorkspacePublishArgumentsV1:
+      type: object
+      additionalProperties: false
+      required: [purpose, files, entrypoint, inputs_description, outputs_description, dependencies, validation_statement, limitations, expected_base_publication_id]
+      properties:
+        purpose: {type: string, minLength: 1, maxLength: 2048}
+        files:
+          type: array
+          minItems: 1
+          maxItems: 32
+          uniqueItems: true
+          items: {$ref: '#/components/schemas/WorkspaceSourceFileV1'}
+        entrypoint: {$ref: '#/components/schemas/WorkspaceEntrypointV1'}
+        inputs_description: {type: string, minLength: 1, maxLength: 2048}
+        outputs_description: {type: string, minLength: 1, maxLength: 2048}
+        dependencies:
+          type: array
+          maxItems: 32
+          uniqueItems: true
+          items: {$ref: '#/components/schemas/WorkspaceDependencyV1'}
+        validation_statement: {type: string, minLength: 1, maxLength: 2048}
+        limitations:
+          type: array
+          maxItems: 32
+          uniqueItems: true
+          items: {type: string, minLength: 1, maxLength: 1024}
+        expected_base_publication_id:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 256}
+            - {type: 'null'}
+    WorkspaceMaterializeArgumentsV1:
+      type: object
+      additionalProperties: false
+      required: [publication_id, manifest_ref]
+      properties:
+        publication_id: {type: string, minLength: 1, maxLength: 256}
+        manifest_ref: {$ref: '#/components/schemas/BlobRef'}
+    WorkspaceExportRequestV1:
+      type: object
+      additionalProperties: false
+      required: [files]
+      properties:
+        files:
+          type: array
+          minItems: 1
+          maxItems: 32
+          uniqueItems: true
+          items: {$ref: '#/components/schemas/WorkspaceSourceFileV1'}
+    WorkspaceTransferFileV1:
+      type: object
+      additionalProperties: false
+      required: [relative_path, data_base64, byte_length, sha256]
+      properties:
+        relative_path: {type: string, minLength: 1, maxLength: 256, pattern: '^[A-Za-z0-9][A-Za-z0-9._/-]{0,255}$'}
+        data_base64: {type: string, maxLength: 11184812}
+        byte_length: {type: integer, minimum: 0, maximum: 8388608}
+        sha256: {$ref: '#/components/schemas/Sha256Digest'}
+    WorkspaceExportReplyV1:
+      type: object
+      additionalProperties: false
+      required: [schema_version, environment_ref, image_digest, files]
+      properties:
+        schema_version: {type: string, const: wuji.workspace-export.v1}
+        environment_ref: {type: string, minLength: 1, maxLength: 256}
+        image_digest: {$ref: '#/components/schemas/Sha256Digest'}
+        files:
+          type: array
+          minItems: 1
+          maxItems: 32
+          items: {$ref: '#/components/schemas/WorkspaceTransferFileV1'}
+    WorkspaceImportRequestV1:
+      type: object
+      additionalProperties: false
+      required: [publication_id, manifest_digest, files]
+      properties:
+        publication_id: {type: string, minLength: 1, maxLength: 256}
+        manifest_digest: {$ref: '#/components/schemas/Sha256Digest'}
+        files:
+          type: array
+          minItems: 1
+          maxItems: 32
+          items: {$ref: '#/components/schemas/WorkspaceTransferFileV1'}
+    WorkspaceMaterializedFileV1:
+      type: object
+      additionalProperties: false
+      required: [relative_path, destination_path, byte_length, sha256]
+      properties:
+        relative_path: {type: string, minLength: 1, maxLength: 256, pattern: '^[A-Za-z0-9][A-Za-z0-9._/-]{0,255}$'}
+        destination_path: {type: string, minLength: 1, maxLength: 4096}
+        byte_length: {type: integer, minimum: 0, maximum: 8388608}
+        sha256: {$ref: '#/components/schemas/Sha256Digest'}
+    WorkspaceImportReplyV1:
+      type: object
+      additionalProperties: false
+      required: [schema_version, assurance, imports_root, files]
+      properties:
+        schema_version: {type: string, const: wuji.workspace-import.v1}
+        assurance: {type: string, const: executor_reported}
+        imports_root: {type: string, minLength: 1, maxLength: 4096}
+        files:
+          type: array
+          minItems: 1
+          maxItems: 32
+          items: {$ref: '#/components/schemas/WorkspaceMaterializedFileV1'}
+    WorkspaceBundleFileV1:
+      type: object
+      additionalProperties: false
+      required: [relative_path, ref, sha256, bytes]
+      properties:
+        relative_path: {type: string, minLength: 1, maxLength: 256, pattern: '^[A-Za-z0-9][A-Za-z0-9._/-]{0,255}$'}
+        ref: {$ref: '#/components/schemas/BlobRef'}
+        sha256: {$ref: '#/components/schemas/Sha256Digest'}
+        bytes: {type: integer, minimum: 0, maximum: 8388608}
+    WorkspaceValidationStatementV1:
+      type: object
+      additionalProperties: false
+      required: [author_report, platform_checks]
+      properties:
+        author_report: {type: string, minLength: 1, maxLength: 2048}
+        platform_checks:
+          type: array
+          minItems: 1
+          maxItems: 16
+          uniqueItems: true
+          items: {type: string, minLength: 1, maxLength: 256}
+    WorkspaceBundleManifestV1:
+      type: object
+      additionalProperties: false
+      required: [schema_version, asset_id, asset_revision, parent_publication_id, purpose, producer_work_ref, environment_ref, image_digest, files, entrypoint, inputs_description, outputs_description, dependencies, validation_statement, limitations]
+      properties:
+        schema_version: {type: string, const: wuji.workspace-bundle.v1}
+        asset_id: {type: string, minLength: 1, maxLength: 256}
+        asset_revision: {$ref: '#/components/schemas/RevisionString'}
+        parent_publication_id:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 256}
+            - {type: 'null'}
+        purpose: {type: string, minLength: 1, maxLength: 2048}
+        producer_work_ref: {type: string, minLength: 1, maxLength: 256}
+        environment_ref: {type: string, minLength: 1, maxLength: 256}
+        image_digest: {$ref: '#/components/schemas/Sha256Digest'}
+        files:
+          type: array
+          minItems: 1
+          maxItems: 32
+          items: {$ref: '#/components/schemas/WorkspaceBundleFileV1'}
+        entrypoint: {$ref: '#/components/schemas/WorkspaceEntrypointV1'}
+        inputs_description: {type: string, minLength: 1, maxLength: 2048}
+        outputs_description: {type: string, minLength: 1, maxLength: 2048}
+        dependencies:
+          type: array
+          maxItems: 32
+          items: {$ref: '#/components/schemas/WorkspaceDependencyV1'}
+        validation_statement: {$ref: '#/components/schemas/WorkspaceValidationStatementV1'}
+        limitations:
+          type: array
+          maxItems: 32
+          items: {type: string, minLength: 1, maxLength: 1024}
+    WorkspacePublishStatus:
+      type: string
+      enum: [published, publication_conflict, head_unavailable]
+    WorkspacePublishResultV1:
+      type: object
+      additionalProperties: false
+      required: [schema_version, status, publication_id, manifest_ref, asset_id, asset_revision, parent_publication_id, current_publication_id, delivery]
+      properties:
+        schema_version: {type: string, const: wuji.workspace-publish-result.v1}
+        status: {$ref: '#/components/schemas/WorkspacePublishStatus'}
+        publication_id:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 256}
+            - {type: 'null'}
+        manifest_ref:
+          oneOf:
+            - {$ref: '#/components/schemas/BlobRef'}
+            - {type: 'null'}
+        asset_id:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 256}
+            - {type: 'null'}
+        asset_revision:
+          oneOf:
+            - {$ref: '#/components/schemas/RevisionString'}
+            - {type: 'null'}
+        parent_publication_id:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 256}
+            - {type: 'null'}
+        current_publication_id:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 256}
+            - {type: 'null'}
+        delivery:
+          oneOf:
+            - {$ref: '#/components/schemas/KnowledgeDeliveryV1'}
+            - {type: 'null'}
+    WorkspaceMaterializeResultV1:
+      type: object
+      additionalProperties: false
+      required: [schema_version, publication_id, manifest_ref, source_assurance, destination_assurance, imports_root, files]
+      properties:
+        schema_version: {type: string, const: wuji.workspace-materialize-result.v1}
+        publication_id: {type: string, minLength: 1, maxLength: 256}
+        manifest_ref: {$ref: '#/components/schemas/BlobRef'}
+        source_assurance: {type: string, const: platform_sealed}
+        destination_assurance: {type: string, const: executor_reported}
+        imports_root: {type: string, minLength: 1, maxLength: 4096}
+        files:
+          type: array
+          minItems: 1
+          maxItems: 32
+          items: {$ref: '#/components/schemas/WorkspaceMaterializedFileV1'}
+    KnowledgeNoticeCategory:
+      type: string
+      enum: [claim_published, claim_revised, workspace_published, work_result_updated, assessment_updated, input_resolved]
+    KnowledgeNoticeMetadataV1:
+      type: object
+      additionalProperties: false
+      required: [claim_kind, assertion_role, effective_outcome, publication_id, asset_id, asset_revision]
+      properties:
+        claim_kind:
+          oneOf:
+            - {$ref: '#/components/schemas/ClaimKind'}
+            - {type: 'null'}
+        assertion_role:
+          oneOf:
+            - {$ref: '#/components/schemas/AssertionRole'}
+            - {type: 'null'}
+        effective_outcome:
+          oneOf:
+            - {$ref: '#/components/schemas/WorkResultOutcome'}
+            - {type: 'null'}
+        publication_id:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 256}
+            - {type: 'null'}
+        asset_id:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 256}
+            - {type: 'null'}
+        asset_revision:
+          oneOf:
+            - {$ref: '#/components/schemas/RevisionString'}
+            - {type: 'null'}
+    KnowledgeNoticeV1:
+      type: object
+      additionalProperties: false
+      required: [category, ref, snapshot_id, source_work_ref, metadata]
+      properties:
+        category: {$ref: '#/components/schemas/KnowledgeNoticeCategory'}
+        ref: {$ref: '#/components/schemas/KnowledgeRef'}
+        snapshot_id: {type: string, minLength: 1, maxLength: 256}
+        source_work_ref:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 256}
+            - {type: 'null'}
+        metadata: {$ref: '#/components/schemas/KnowledgeNoticeMetadataV1'}
+    KnowledgeNoticesPageV1:
+      type: object
+      additionalProperties: false
+      required: [schema_version, next_cursor, notices]
+      properties:
+        schema_version: {type: string, const: wuji.knowledge-notices.v1}
+        next_cursor: {type: string, minLength: 1, maxLength: 256}
+        notices:
+          type: array
+          maxItems: 16
+          items: {$ref: '#/components/schemas/KnowledgeNoticeV1'}
+    WorkerKnowledgeNoticesRequest:
+      type: object
+      additionalProperties: false
+      required: [assignment, cursor, limit]
+      properties:
+        assignment: {$ref: '#/components/schemas/WorkerAssignment'}
+        cursor:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 256}
+            - {type: 'null'}
+        limit: {type: integer, minimum: 1, maximum: 16}
     WorkerReceiver:
       type: object
       additionalProperties: false
@@ -2349,6 +2996,68 @@ components:
           oneOf:
             - {type: string, minLength: 1, maxLength: 1024}
             - {type: 'null'}
+    ProcessCursorV1:
+      type: object
+      additionalProperties: false
+      required: [stdout_offset, stderr_offset]
+      properties:
+        stdout_offset: {type: integer, format: int64, minimum: 0}
+        stderr_offset: {type: integer, format: int64, minimum: 0}
+    ProcessOutputChunkV1:
+      type: object
+      additionalProperties: false
+      required: [offset, next_offset, data_base64, text, byte_length, sha256]
+      properties:
+        offset: {type: integer, format: int64, minimum: 0}
+        next_offset: {type: integer, format: int64, minimum: 0}
+        data_base64: {type: string, maxLength: 22369624}
+        text:
+          oneOf:
+            - {type: string, maxLength: 16777216}
+            - {type: 'null'}
+        byte_length: {type: integer, minimum: 0, maximum: 16777216}
+        sha256: {$ref: '#/components/schemas/Sha256Digest'}
+    ProcessReplyV1:
+      type: object
+      additionalProperties: false
+      required: [schema_version, handle, state, assurance, started_at, finished_at, exit_code, signal, stdout, stderr, cursor, next_cursor, has_more, output_completeness, reason_code]
+      properties:
+        schema_version: {type: string, const: wuji.process-reply.v1}
+        handle: {type: string, minLength: 1, maxLength: 256}
+        state: {type: string, enum: [prepared, running, stopping, exited, unknown]}
+        assurance: {type: string, const: executor_reported}
+        started_at:
+          oneOf:
+            - {type: string, format: date-time}
+            - {type: 'null'}
+        finished_at:
+          oneOf:
+            - {type: string, format: date-time}
+            - {type: 'null'}
+        exit_code:
+          oneOf:
+            - {type: integer, minimum: -2147483648, maximum: 2147483647}
+            - {type: 'null'}
+        signal:
+          oneOf:
+            - {type: integer, minimum: 1, maximum: 127}
+            - {type: 'null'}
+        stdout:
+          oneOf:
+            - {$ref: '#/components/schemas/ProcessOutputChunkV1'}
+            - {type: 'null'}
+        stderr:
+          oneOf:
+            - {$ref: '#/components/schemas/ProcessOutputChunkV1'}
+            - {type: 'null'}
+        cursor: {$ref: '#/components/schemas/ProcessCursorV1'}
+        next_cursor: {$ref: '#/components/schemas/ProcessCursorV1'}
+        has_more: {type: boolean}
+        output_completeness: {type: string, enum: [complete, partial, unknown]}
+        reason_code:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 256}
+            - {type: 'null'}
     KnowledgeIndexItemV1:
       type: object
       additionalProperties: false
@@ -2418,6 +3127,68 @@ components:
           type: array
           maxItems: 16
           items: {type: string, minLength: 1, maxLength: 512}
+    WorkBriefV2:
+      type: object
+      additionalProperties: false
+      required: [task_goal, goal_criterion_refs, authorization_summary, capability_refs, capability_gaps, question, expected_output, planning, canonical_work_ref, related_claim_refs, counterevidence_refs, attempt_summaries, unresolved_items, committed_todo_summary, related_work_summaries, predecessor_result_summaries]
+      properties:
+        task_goal: {type: string, minLength: 1, maxLength: 32768}
+        goal_criterion_refs:
+          type: array
+          maxItems: 256
+          items: {$ref: '#/components/schemas/GoalCriterionRef'}
+        authorization_summary:
+          type: array
+          minItems: 1
+          maxItems: 128
+          items: {type: string, minLength: 1, maxLength: 2048}
+        capability_refs:
+          type: array
+          maxItems: 64
+          uniqueItems: true
+          items: {type: string, minLength: 1, maxLength: 256}
+        capability_gaps:
+          type: array
+          maxItems: 32
+          items: {type: string, minLength: 1, maxLength: 1024}
+        question: {type: string, minLength: 1, maxLength: 32768}
+        expected_output: {type: string, minLength: 1, maxLength: 32768}
+        planning:
+          oneOf:
+            - $ref: '#/components/schemas/IntentPlanningV3'
+            - type: 'null'
+        canonical_work_ref:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 256}
+            - {type: 'null'}
+        related_claim_refs:
+          type: array
+          maxItems: 256
+          items: {$ref: '#/components/schemas/KnowledgeRef'}
+        counterevidence_refs:
+          type: array
+          maxItems: 256
+          items: {$ref: '#/components/schemas/KnowledgeRef'}
+        attempt_summaries:
+          type: array
+          maxItems: 64
+          items: {type: string, minLength: 1, maxLength: 2048}
+        unresolved_items:
+          type: array
+          maxItems: 32
+          items: {type: string, minLength: 1, maxLength: 1024}
+        committed_todo_summary:
+          type: array
+          maxItems: 16
+          items: {type: string, minLength: 1, maxLength: 512}
+        related_work_summaries:
+          type: array
+          maxItems: 64
+          items: {type: string, minLength: 1, maxLength: 2048}
+        predecessor_result_summaries:
+          type: array
+          maxItems: 64
+          items: {type: string, minLength: 1, maxLength: 2048}
     WorkerContextV3:
       type: object
       additionalProperties: false
@@ -2442,6 +3213,108 @@ components:
           type: array
           maxItems: 256
           items: {$ref: '#/components/schemas/KnowledgeDeliveryV1'}
+        text: {type: string, maxLength: 16777216}
+        input_digest: {$ref: '#/components/schemas/Sha256Digest'}
+    WorkspaceBindingV1:
+      type: object
+      additionalProperties: false
+      required: [task_id, runtime_attempt, work_item_id, session_id, cwd, inputs_path, work_path, imports_path, shared_path, workspace_generation, recovery_available, recovery_reason]
+      properties:
+        task_id: {type: string, minLength: 1, maxLength: 256}
+        runtime_attempt: {$ref: '#/components/schemas/RevisionString'}
+        work_item_id: {type: string, minLength: 1, maxLength: 256}
+        session_id:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 256}
+            - {type: 'null'}
+        cwd: {type: string, minLength: 1, maxLength: 4096}
+        inputs_path: {type: string, minLength: 1, maxLength: 4096}
+        work_path: {type: string, minLength: 1, maxLength: 4096}
+        imports_path: {type: string, minLength: 1, maxLength: 4096}
+        shared_path: {type: string, minLength: 1, maxLength: 4096}
+        workspace_generation: {type: string, minLength: 1, maxLength: 256}
+        recovery_available: {type: boolean}
+        recovery_reason:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 256}
+            - {type: 'null'}
+    ExecutionEnvironmentV1:
+      type: object
+      additionalProperties: false
+      required: [environment_ref, image_digest, os_name, architecture, installed_capabilities, shell, interpreters, process_limits, network_capture_mode, unsupported]
+      properties:
+        environment_ref: {type: string, minLength: 1, maxLength: 256}
+        image_digest: {$ref: '#/components/schemas/Sha256Digest'}
+        os_name: {type: string, minLength: 1, maxLength: 256}
+        architecture: {type: string, minLength: 1, maxLength: 256}
+        installed_capabilities:
+          type: array
+          maxItems: 256
+          uniqueItems: true
+          items: {type: string, minLength: 1, maxLength: 256}
+        shell: {type: string, minLength: 1, maxLength: 4096}
+        interpreters:
+          type: array
+          maxItems: 64
+          uniqueItems: true
+          items: {type: string, minLength: 1, maxLength: 4096}
+        process_limits: {type: object, additionalProperties: true}
+        network_capture_mode: {type: string, minLength: 1, maxLength: 256}
+        unsupported:
+          type: array
+          maxItems: 64
+          uniqueItems: true
+          items: {type: string, minLength: 1, maxLength: 512}
+    PublishedAssetIndexEntryV1:
+      type: object
+      additionalProperties: false
+      required: [publication_id, asset_id, asset_revision, parent_publication_id, manifest_ref, purpose, entrypoint, environment_ref, image_digest, validation_statement, file_count, total_bytes]
+      properties:
+        publication_id: {type: string, minLength: 1, maxLength: 256}
+        asset_id: {type: string, minLength: 1, maxLength: 256}
+        asset_revision: {$ref: '#/components/schemas/RevisionString'}
+        parent_publication_id:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 256}
+            - {type: 'null'}
+        manifest_ref: {$ref: '#/components/schemas/BlobRef'}
+        purpose: {type: string, minLength: 1, maxLength: 2048}
+        entrypoint: {$ref: '#/components/schemas/WorkspaceEntrypointV1'}
+        environment_ref: {type: string, minLength: 1, maxLength: 256}
+        image_digest: {$ref: '#/components/schemas/Sha256Digest'}
+        validation_statement: {$ref: '#/components/schemas/WorkspaceValidationStatementV1'}
+        file_count: {type: integer, minimum: 1, maximum: 32}
+        total_bytes: {type: integer, minimum: 0, maximum: 268435456}
+    WorkerContextV4:
+      type: object
+      additionalProperties: false
+      required: [schema_version, snapshot_id, read_set, record_refs, brief, knowledge_index, initial_deliveries, workspace_binding, execution_environment, published_asset_index, text, input_digest]
+      properties:
+        schema_version: {$ref: '#/components/schemas/WorkerContextV4SchemaVersion'}
+        snapshot_id: {type: string, minLength: 1, maxLength: 256}
+        read_set:
+          type: array
+          maxItems: 4096
+          items: {$ref: '#/components/schemas/KnowledgeRef'}
+        record_refs:
+          type: array
+          maxItems: 5000
+          items: {$ref: '#/components/schemas/KnowledgeRef'}
+        brief: {$ref: '#/components/schemas/WorkBriefV2'}
+        knowledge_index:
+          type: array
+          maxItems: 5000
+          items: {$ref: '#/components/schemas/KnowledgeIndexItemV1'}
+        initial_deliveries:
+          type: array
+          maxItems: 256
+          items: {$ref: '#/components/schemas/KnowledgeDeliveryV1'}
+        workspace_binding: {$ref: '#/components/schemas/WorkspaceBindingV1'}
+        execution_environment: {$ref: '#/components/schemas/ExecutionEnvironmentV1'}
+        published_asset_index:
+          type: array
+          maxItems: 256
+          items: {$ref: '#/components/schemas/PublishedAssetIndexEntryV1'}
         text: {type: string, maxLength: 16777216}
         input_digest: {$ref: '#/components/schemas/Sha256Digest'}
     WorkerSessionLimits:
@@ -2703,6 +3576,31 @@ components:
         environment_action_per_work: {type: integer, minimum: 0, maximum: 1000000}
         total_per_work: {type: integer, minimum: 0, maximum: 1000000}
         total_per_task: {type: integer, minimum: 0, maximum: 1000000}
+    ProblemExecutionEnvironmentV1:
+      type: object
+      additionalProperties: false
+      required: [image_digest, os_name, architecture, installed_capabilities, shell, interpreters, network_capture_mode, unsupported]
+      properties:
+        image_digest: {$ref: '#/components/schemas/Sha256Digest'}
+        os_name: {type: string, minLength: 1, maxLength: 256}
+        architecture: {type: string, minLength: 1, maxLength: 256}
+        installed_capabilities:
+          type: array
+          maxItems: 256
+          uniqueItems: true
+          items: {type: string, minLength: 1, maxLength: 256}
+        shell: {type: string, minLength: 1, maxLength: 4096}
+        interpreters:
+          type: array
+          maxItems: 64
+          uniqueItems: true
+          items: {type: string, minLength: 1, maxLength: 4096}
+        network_capture_mode: {type: string, minLength: 1, maxLength: 256}
+        unsupported:
+          type: array
+          maxItems: 64
+          uniqueItems: true
+          items: {type: string, minLength: 1, maxLength: 512}
     ProblemHarnessProfileBody:
       type: object
       additionalProperties: false
@@ -2745,6 +3643,8 @@ components:
         function_limits: {$ref: '#/components/schemas/ProblemFunctionLimitsV1'}
         tool_choice_policy: {type: string, const: auto}
         completion_mode: {$ref: '#/components/schemas/CompletionMode'}
+        context_contract: {type: string, enum: [wuji.worker-context.v3, wuji.worker-context.v4]}
+        execution_environment: {$ref: '#/components/schemas/ProblemExecutionEnvironmentV1'}
     WorkerHarnessProfile:
       type: object
       additionalProperties: false
@@ -2773,8 +3673,8 @@ components:
         allowed_target_kinds:
           type: array
           minItems: 1
-          maxItems: 2
-          items: {type: string, enum: [workspace_read, http_target]}
+          maxItems: 4
+          items: {type: string, enum: [workspace_read, http_target, process, workspace_bundle]}
     WorkerResolvedHost:
       type: object
       additionalProperties: false
@@ -2822,6 +3722,7 @@ components:
           oneOf:
             - {$ref: '#/components/schemas/WorkerContext'}
             - {$ref: '#/components/schemas/WorkerContextV3'}
+            - {$ref: '#/components/schemas/WorkerContextV4'}
         resolved:
           oneOf:
             - {$ref: '#/components/schemas/WorkerResolvedHost'}
@@ -2853,6 +3754,7 @@ components:
           oneOf:
             - {$ref: '#/components/schemas/WorkerContext'}
             - {$ref: '#/components/schemas/WorkerContextV3'}
+            - {$ref: '#/components/schemas/WorkerContextV4'}
         raw_output_base64: {type: string, minLength: 1, maxLength: 22369624}
         sdk_output_base64: {type: string, minLength: 1, maxLength: 22369624}
         raw_digest: {$ref: '#/components/schemas/Sha256Digest'}
@@ -3006,6 +3908,307 @@ components:
       properties:
         amount: {$ref: '#/components/schemas/DecimalString'}
         currency: {type: string, enum: [USD]}
+    TaskCriterionJudgmentStatus:
+      type: string
+      enum: [met, not_met, unknown, not_applicable, missing]
+    TaskCriterionJudgmentApplicability:
+      type: string
+      enum: [current, stale, disputed, retracted, missing]
+    TaskCriterionOverviewV1:
+      type: object
+      additionalProperties: false
+      required: [criterion_id, object, condition, required, judgment_status, judgment_applicability]
+      properties:
+        criterion_id: {type: string, minLength: 1, maxLength: 256}
+        object: {type: string, minLength: 1, maxLength: 8192}
+        condition: {type: string, minLength: 1, maxLength: 8192}
+        required: {type: boolean}
+        judgment_status: {$ref: '#/components/schemas/TaskCriterionJudgmentStatus'}
+        judgment_applicability: {$ref: '#/components/schemas/TaskCriterionJudgmentApplicability'}
+    TaskGoalOverviewV1:
+      type: object
+      additionalProperties: false
+      required: [text, criteria]
+      properties:
+        text: {type: string, minLength: 1, maxLength: 65536}
+        criteria:
+          type: array
+          minItems: 1
+          maxItems: 256
+          items: {$ref: '#/components/schemas/TaskCriterionOverviewV1'}
+    TaskWorkSummaryV1:
+      type: object
+      additionalProperties: false
+      required: [work_item_id, kind, state, question, result_summary, blocked_reason, terminal_reason, run_process_state, updated_at]
+      properties:
+        work_item_id: {type: string, minLength: 1, maxLength: 256}
+        kind: {$ref: '#/components/schemas/WorkKind'}
+        state: {$ref: '#/components/schemas/WorkState'}
+        question:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 32768}
+            - {type: 'null'}
+        result_summary:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 4096}
+            - {type: 'null'}
+        blocked_reason:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 1024}
+            - {type: 'null'}
+        terminal_reason:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 1024}
+            - {type: 'null'}
+        run_process_state:
+          oneOf:
+            - {$ref: '#/components/schemas/RunProcessState'}
+            - {type: 'null'}
+        updated_at:
+          oneOf:
+            - {type: string, format: date-time}
+            - {type: 'null'}
+    TaskFindingSummaryV1:
+      type: object
+      additionalProperties: false
+      required: [claim_ref, text, kind, grounding_state, evidence_state, applicability_state, supporting_refs, opposing_refs, updated_at]
+      properties:
+        claim_ref: {$ref: '#/components/schemas/KnowledgeRef'}
+        text: {type: string, minLength: 1, maxLength: 32768}
+        kind: {$ref: '#/components/schemas/ClaimKind'}
+        grounding_state: {$ref: '#/components/schemas/GroundingState'}
+        evidence_state: {$ref: '#/components/schemas/EvidenceState'}
+        applicability_state: {$ref: '#/components/schemas/ApplicabilityState'}
+        supporting_refs:
+          type: array
+          maxItems: 32
+          items: {$ref: '#/components/schemas/KnowledgeRef'}
+        opposing_refs:
+          type: array
+          maxItems: 32
+          items: {$ref: '#/components/schemas/KnowledgeRef'}
+        updated_at: {type: string, format: date-time}
+    ArtifactProvenance:
+      type: string
+      enum: [capture, model_output, import]
+    TaskArtifactSummaryV1:
+      type: object
+      additionalProperties: false
+      required: [artifact_ref, state, media_type, size_bytes, completeness, provenance, created_at, source_work_item_id, download_available]
+      properties:
+        artifact_ref: {$ref: '#/components/schemas/BlobRef'}
+        state: {$ref: '#/components/schemas/ArtifactState'}
+        media_type: {type: string, minLength: 1, maxLength: 256}
+        size_bytes: {$ref: '#/components/schemas/RevisionString'}
+        completeness: {$ref: '#/components/schemas/CaptureCompleteness'}
+        provenance: {$ref: '#/components/schemas/ArtifactProvenance'}
+        created_at: {type: string, format: date-time}
+        source_work_item_id:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 256}
+            - {type: 'null'}
+        download_available: {type: boolean}
+    TaskWorkspaceCapabilitiesV1:
+      type: object
+      additionalProperties: false
+      required: [work_files, shared_versions, command_output]
+      properties:
+        work_files: {type: boolean}
+        shared_versions: {type: boolean}
+        command_output: {type: boolean}
+    LaunchPhase:
+      type: string
+      enum: [not_requested, prepare, activate, wire, capability, ready]
+    TaskTechnicalDetailsV1:
+      type: object
+      additionalProperties: false
+      required: [definition_digest, control_version, execution_epoch, runtime_attempt, schema_version, latest_launch_operation_id, latest_launch_phase, latest_launch_reason_code]
+      properties:
+        definition_digest: {$ref: '#/components/schemas/Sha256Digest'}
+        control_version: {$ref: '#/components/schemas/RevisionString'}
+        execution_epoch: {$ref: '#/components/schemas/RevisionString'}
+        runtime_attempt: {$ref: '#/components/schemas/RevisionString'}
+        schema_version: {type: string, minLength: 1, maxLength: 256}
+        latest_launch_operation_id:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 256}
+            - {type: 'null'}
+        latest_launch_phase:
+          oneOf:
+            - {$ref: '#/components/schemas/LaunchPhase'}
+            - {type: 'null'}
+        latest_launch_reason_code:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 256}
+            - {type: 'null'}
+    TaskOverviewV1:
+      type: object
+      additionalProperties: false
+      required: [schema_version, task_id, observed_at, status_message, goal, budget, current_work, latest_findings, artifacts, workspace_capabilities, runtime, technical]
+      properties:
+        schema_version: {type: string, const: wuji.task-overview.v1}
+        task_id: {type: string, minLength: 1, maxLength: 256}
+        observed_at: {type: string, format: date-time}
+        status_message: {type: string, maxLength: 512}
+        goal: {$ref: '#/components/schemas/TaskGoalOverviewV1'}
+        budget: {$ref: '#/components/schemas/MoneyBudget'}
+        current_work:
+          type: array
+          maxItems: 5
+          items: {$ref: '#/components/schemas/TaskWorkSummaryV1'}
+        latest_findings:
+          type: array
+          maxItems: 5
+          items: {$ref: '#/components/schemas/TaskFindingSummaryV1'}
+        artifacts:
+          type: array
+          maxItems: 100
+          items: {$ref: '#/components/schemas/TaskArtifactSummaryV1'}
+        workspace_capabilities: {$ref: '#/components/schemas/TaskWorkspaceCapabilitiesV1'}
+        runtime: {$ref: '#/components/schemas/TaskRuntimeOverviewV1'}
+        technical: {$ref: '#/components/schemas/TaskTechnicalDetailsV1'}
+    TaskRuntimeOverviewV1:
+      type: object
+      additionalProperties: false
+      required: [state, runtime_attempt, pod_uid, containers, terminal_observation_ids, terminal_observations]
+      properties:
+        state: {type: string, enum: [not_started, running, stopping, stopped, unknown]}
+        runtime_attempt: {$ref: '#/components/schemas/RevisionString'}
+        pod_uid:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 256}
+            - {type: 'null'}
+        containers:
+          type: object
+          additionalProperties: false
+          properties:
+            task-network-init: {type: string, const: terminated}
+            agent: {type: string, enum: [terminated, not_started]}
+            kali: {type: string, enum: [terminated, not_started]}
+            capture: {type: string, enum: [terminated, not_started]}
+        terminal_observation_ids:
+          type: array
+          maxItems: 4
+          items: {type: string, minLength: 1, maxLength: 256}
+        terminal_observations:
+          type: array
+          maxItems: 4
+          items: {$ref: '#/components/schemas/RuntimeTerminalObservationV1'}
+    TaskCommandInventoryV1:
+      type: object
+      additionalProperties: false
+      required: [schema_version, items, next_after]
+      properties:
+        schema_version: {type: string, const: wuji.command-inventory.v1}
+        items:
+          type: array
+          maxItems: 100
+          items: {$ref: '#/components/schemas/TaskCommandItemV1'}
+        next_after:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 256}
+            - {type: 'null'}
+    TaskCommandItemV1:
+      type: object
+      additionalProperties: false
+      required: [work_item_id, exec_id, command, state, exit_code, output_completeness, output_refs, assurance]
+      properties:
+        work_item_id: {type: string, minLength: 1, maxLength: 256}
+        exec_id: {type: string, minLength: 1, maxLength: 256}
+        command: {type: string, minLength: 1, maxLength: 1024}
+        state: {type: string, enum: [prepared, running, stopping, exited, unknown]}
+        exit_code:
+          oneOf:
+            - {type: integer, minimum: -2147483648, maximum: 2147483647}
+            - {type: 'null'}
+        output_completeness: {type: string, enum: [complete, partial, unknown]}
+        output_refs:
+          type: array
+          maxItems: 16
+          items: {$ref: '#/components/schemas/BlobRef'}
+        assurance: {type: string, const: executor_reported}
+    TaskPublicationPageV1:
+      type: object
+      additionalProperties: false
+      required: [schema_version, items, next_after]
+      properties:
+        schema_version: {type: string, const: wuji.task-publications.v1}
+        items:
+          type: array
+          maxItems: 100
+          items: {$ref: '#/components/schemas/TaskPublicationItemV1'}
+        next_after:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 256}
+            - {type: 'null'}
+    TaskPublicationItemV1:
+      type: object
+      additionalProperties: false
+      required: [publication_id, asset_id, asset_revision, producer_work_item_id, producer_run_id, manifest_ref, created_at, download_url]
+      properties:
+        publication_id: {type: string, minLength: 1, maxLength: 256}
+        asset_id: {type: string, minLength: 1, maxLength: 256}
+        asset_revision: {$ref: '#/components/schemas/RevisionString'}
+        producer_work_item_id: {type: string, minLength: 1, maxLength: 256}
+        producer_run_id: {type: string, minLength: 1, maxLength: 256}
+        manifest_ref: {$ref: '#/components/schemas/BlobRef'}
+        created_at: {type: string, format: date-time}
+        download_url: {type: string, minLength: 1, maxLength: 1024}
+    TaskActivityCategory:
+      type: string
+      enum: [task, work, finding, evidence, input, completion, tool]
+    TaskActivityImportance:
+      type: string
+      enum: [key, detail]
+    TaskActivityStatus:
+      type: string
+      enum: [pending, running, succeeded, failed, blocked, stopped, info]
+    TaskActivityItemV1:
+      type: object
+      additionalProperties: false
+      required: [activity_id, event_cursor, occurred_at, category, importance, status, summary, work_item_id, source_ref, reason, evidence_refs, step_count]
+      properties:
+        activity_id: {type: string, minLength: 1, maxLength: 256}
+        event_cursor: {type: string, minLength: 1, maxLength: 4096}
+        occurred_at: {type: string, format: date-time}
+        category: {$ref: '#/components/schemas/TaskActivityCategory'}
+        importance: {$ref: '#/components/schemas/TaskActivityImportance'}
+        status: {$ref: '#/components/schemas/TaskActivityStatus'}
+        summary: {type: string, minLength: 1, maxLength: 1024}
+        work_item_id:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 256}
+            - {type: 'null'}
+        source_ref:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 1024}
+            - {type: 'null'}
+        reason:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 2048}
+            - {type: 'null'}
+        evidence_refs:
+          type: array
+          maxItems: 32
+          items: {$ref: '#/components/schemas/KnowledgeRef'}
+        step_count: {type: integer, minimum: 0, maximum: 1000000}
+    TaskActivityPageV1:
+      type: object
+      additionalProperties: false
+      required: [schema_version, task_id, observed_at, latest_cursor, items, next_cursor]
+      properties:
+        schema_version: {type: string, const: wuji.task-activity.v1}
+        task_id: {type: string, minLength: 1, maxLength: 256}
+        observed_at: {type: string, format: date-time}
+        latest_cursor: {type: string, minLength: 1, maxLength: 4096}
+        items:
+          type: array
+          maxItems: 100
+          items: {$ref: '#/components/schemas/TaskActivityItemV1'}
+        next_cursor:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 4096}
+            - {type: 'null'}
     TaskCreate:
       type: object
       additionalProperties: false
@@ -3034,6 +4237,11 @@ components:
           description: Creator confirmation that the authorized task material may be sent to the selected external model. Missing approval never permits external analysis.
         model_profile_ref: {type: string, minLength: 1, maxLength: 256}
         runtime_profile_ref: {type: string, minLength: 1, maxLength: 256}
+        explore_concurrency:
+          type: integer
+          minimum: 1
+          maximum: 256
+          description: Task-selected Explore concurrency. When omitted, the published RuntimeProfile default applies.
         budget: {$ref: '#/components/schemas/MoneyBudget'}
     TaskView:
       type: object
@@ -3088,6 +4296,11 @@ components:
         digest: {type: string, pattern: '^[a-f0-9]{64}$'}
         capabilities: {type: array, maxItems: 128, uniqueItems: true, items: {type: string, minLength: 1, maxLength: 128}}
         real_model_allowed: {type: boolean}
+        max_explore_concurrency:
+          description: Published RuntimeProfile ceiling and default for Task Explore concurrency. Null or absent means this option does not expose that runtime capability; model profiles do not use it.
+          oneOf:
+            - {type: integer, minimum: 1, maximum: 256}
+            - {type: 'null'}
     ReadinessCheck:
       type: object
       additionalProperties: false
@@ -3247,13 +4460,24 @@ components:
     ObservationRecord:
       type: object
       additionalProperties: false
-      required: [observation_id, revision, task_id, capture_id, tool_attempt_id, collector_ref, artifact_refs, capture_layer, observed_at, received_at, environment_ref, conditions, completeness, evidence_origin]
+      required: [observation_id, revision, task_id, capture_id, collector_ref, artifact_refs, capture_layer, observed_at, received_at, environment_ref, conditions, completeness, evidence_origin]
       properties:
         observation_id: {type: string, minLength: 1}
         revision: {$ref: '#/components/schemas/RevisionString'}
         task_id: {type: string, minLength: 1}
         capture_id: {type: string, minLength: 1}
-        tool_attempt_id: {type: string, minLength: 1}
+        tool_attempt_id:
+          oneOf:
+            - {type: string, minLength: 1}
+            - {type: 'null'}
+        capture_session_id:
+          oneOf:
+            - {type: string, minLength: 1, maxLength: 256}
+            - {type: 'null'}
+        capture_item_seq:
+          oneOf:
+            - {type: integer, minimum: 1, maximum: 1000000}
+            - {type: 'null'}
         collector_ref: {type: string, minLength: 1}
         artifact_refs:
           type: array

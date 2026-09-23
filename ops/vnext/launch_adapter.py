@@ -13,6 +13,7 @@ roll a shared Deployment or interrupt another Task.
 
 from __future__ import annotations
 
+import base64
 from dataclasses import dataclass
 from hashlib import sha256
 import json
@@ -270,7 +271,7 @@ def merge_runtime_document(document: dict, entry: Mapping[str, Any]) -> str:
         if not isinstance(legacy, dict) or not isinstance(receiver, dict):
             raise LaunchAdapterError("RUNTIME_CONFIG_UNAVAILABLE", 503)
         tasks = [{"task_config": legacy, "receiver": receiver}]
-    if not isinstance(tasks, list) or not tasks or len(tasks) > 64:
+    if not isinstance(tasks, list) or len(tasks) > 64:
         raise LaunchAdapterError("RUNTIME_CONFIG_UNAVAILABLE", 503)
     task = _task_id(entry)
     changed, found = False, False
@@ -322,7 +323,7 @@ def merge_gate_document(document: dict, entry: Mapping[str, Any]) -> str:
     if any(not isinstance(binding.get(key), str) or not binding[key] for key in owner_keys):
         raise LaunchAdapterError("INVALID_SCHEMA", 422)
     executors = document.get("executors")
-    if not isinstance(executors, list) or not executors or len(executors) > 256:
+    if not isinstance(executors, list) or len(executors) > 256:
         raise LaunchAdapterError("RUNTIME_CONFIG_UNAVAILABLE", 503)
     key = tuple(binding[key] for key in owner_keys)
     changed, found = False, False
@@ -369,7 +370,7 @@ def merge_gate_document(document: dict, entry: Mapping[str, Any]) -> str:
 def merge_profiles(document: list, incoming: list) -> tuple[str, list]:
     """Append same-lock profiles; never silently retire a live profile."""
 
-    if not isinstance(document, list) or not document or not isinstance(incoming, list) or not incoming:
+    if not isinstance(document, list) or not isinstance(incoming, list) or not incoming:
         raise LaunchAdapterError("RUNTIME_CONFIG_UNAVAILABLE", 503)
     locks = {(item.get("body") or {}).get("lock_digest") for item in incoming}
     if len(locks) != 1 or None in locks:
@@ -506,6 +507,13 @@ class ProductionLaunchProvisioner:
             "agent_auth_dir", "kali_auth_dir", "deployment_auth_dir", "gates_auth_dir",
             "runtime_origin", "gate_url", "evidence_ref",
         }
+        if config.get("template_version") == "core-ctf-v1":
+            required |= {
+                "capture_ca_cert_file", "capture_ca_key_file",
+                "capture_runtime_client_cert_file",
+                "capture_runtime_client_key_file",
+                "capture_runtime_collector_token_file",
+            }
         if not isinstance(config, Mapping) or not isinstance(options, Mapping) or not required <= set(options):
             raise ValueError("trusted production launch configuration is incomplete")
         if not isinstance(config.get("owner"), list) or len(config["owner"]) != 3:
@@ -522,6 +530,126 @@ class ProductionLaunchProvisioner:
 
     def _owner(self, task_id):
         return self.config["owner"][0], self.config["owner"][1], task_id
+
+    def _core_tls_material(self, binding, *, create, allow_missing=False):
+        if binding.get("template_version") != "core-ctf-v1":
+            return {}
+        task_launch = self._task_launch()
+        core, namespace = self.options["core_api"], self.options["namespace"]
+        runtime_config = task_launch.attempt_config(binding)
+        names = runtime_config.resource_names
+
+        def secret(name):
+            try:
+                value = core.read_namespaced_secret(name, namespace)
+            except Exception as error:
+                if getattr(error, "status", None) == 404:
+                    return None
+                raise LaunchAdapterError("RUNTIME_CONFIG_UNKNOWN", 503) from error
+            metadata = getattr(value, "metadata", None)
+            labels = getattr(metadata, "labels", None) or {}
+            annotations = getattr(metadata, "annotations", None) or {}
+            if (
+                getattr(metadata, "name", None) != name
+                or getattr(metadata, "namespace", None) != namespace
+                or any(
+                    labels.get(key) != expected
+                    for key, expected in runtime_config.identity_labels.items()
+                )
+                or any(
+                    annotations.get(key) != expected
+                    for key, expected in runtime_config.ownership_annotations.items()
+                )
+            ):
+                raise LaunchAdapterError("INPUT_DIGEST_CONFLICT", 409)
+            data = getattr(value, "data", None)
+            if not isinstance(data, dict):
+                raise LaunchAdapterError("RUNTIME_CONFIG_UNKNOWN", 503)
+            try:
+                return {
+                    key: base64.b64decode(item, validate=True)
+                    for key, item in data.items()
+                }
+            except (TypeError, ValueError) as error:
+                raise LaunchAdapterError("RUNTIME_CONFIG_UNKNOWN", 503) from error
+
+        kali, capture = secret(names["kali_auth"]), secret(names["capture_auth"])
+        ca_certificate = task_launch._read_bytes(
+            self.options["capture_ca_cert_file"], 65536
+        )
+        runtime_client = task_launch._read_bytes(
+            self.options["capture_runtime_client_cert_file"], 65536
+        )
+        if kali is None and capture is None:
+            if not create:
+                if allow_missing:
+                    return {}
+                raise LaunchAdapterError("RUNTIME_CONFIG_UNKNOWN", 503)
+            material, fingerprints = task_launch.core_attempt_tls_material(
+                binding,
+                ca_certificate=ca_certificate,
+                ca_private_key=task_launch._read_bytes(
+                    self.options["capture_ca_key_file"], 65536
+                ),
+                runtime_client_certificate=runtime_client,
+            )
+        else:
+            if not create and (kali is None or capture is None):
+                if allow_missing:
+                    return {}
+                raise LaunchAdapterError("RUNTIME_CONFIG_UNKNOWN", 503)
+            if kali is not None and set(kali) != {"tls.crt", "tls.key"}:
+                raise LaunchAdapterError("INPUT_DIGEST_CONFLICT", 409)
+            if capture is not None and set(capture) != {
+                "tls.crt", "tls.key", "client-ca.crt", "client.sha256"
+            }:
+                raise LaunchAdapterError("INPUT_DIGEST_CONFLICT", 409)
+            if kali is None or capture is None:
+                generated, _ = task_launch.core_attempt_tls_material(
+                    binding,
+                    ca_certificate=ca_certificate,
+                    ca_private_key=task_launch._read_bytes(
+                        self.options["capture_ca_key_file"], 65536
+                    ),
+                    runtime_client_certificate=runtime_client,
+                )
+            else:
+                generated = {}
+            material = {
+                "task-kali.crt": (
+                    generated["task-kali.crt"] if kali is None else kali["tls.crt"]
+                ),
+                "task-kali.key": (
+                    generated["task-kali.key"] if kali is None else kali["tls.key"]
+                ),
+                "capture-tls.crt": (
+                    generated["capture-tls.crt"]
+                    if capture is None else capture["tls.crt"]
+                ),
+                "capture-tls.key": (
+                    generated["capture-tls.key"]
+                    if capture is None else capture["tls.key"]
+                ),
+                "capture-client-ca.crt": (
+                    generated["capture-client-ca.crt"]
+                    if capture is None else capture["client-ca.crt"]
+                ),
+                "capture-client.sha256": (
+                    generated["capture-client.sha256"]
+                    if capture is None else capture["client.sha256"]
+                ),
+            }
+            try:
+                fingerprints = task_launch.validate_core_attempt_tls_material(
+                    binding,
+                    material,
+                    ca_certificate=ca_certificate,
+                    runtime_client_certificate=runtime_client,
+                )
+            except Exception as error:
+                raise LaunchAdapterError("INPUT_DIGEST_CONFLICT", 409) from error
+        binding.update(fingerprints)
+        return material
 
     def _row(self, connection, task_id):
         task_launch = self._task_launch()
@@ -566,6 +694,7 @@ class ProductionLaunchProvisioner:
                 "gate_url": self.options["gate_url"],
                 "namespace": self.options["namespace"],
                 "evidence_ref": self.options["evidence_ref"],
+                "capture_image": self.options.get("capture_image"),
                 "pod_deadline_seconds": prepared["definition"]["runtime_profile"]["limits"]["max_elapsed_seconds"],
             },
         )
@@ -580,6 +709,7 @@ class ProductionLaunchProvisioner:
             raise LaunchAdapterError("INPUT_DIGEST_CONFLICT", 409)
         if pod_uid is not None:
             binding["pod_uid"] = pod_uid
+        self._core_tls_material(binding, create=False, allow_missing=True)
         return binding
 
     def prepare(self, request):
@@ -652,6 +782,7 @@ class ProductionLaunchProvisioner:
                     "gate_url": self.options["gate_url"],
                     "namespace": self.options["namespace"],
                     "evidence_ref": self.options["evidence_ref"],
+                    "capture_image": self.options.get("capture_image"),
                     "pod_deadline_seconds": prepared["definition"]["runtime_profile"]["limits"]["max_elapsed_seconds"],
                 },
             )
@@ -688,6 +819,7 @@ class ProductionLaunchProvisioner:
             deployment_auth_dir=self.options["deployment_auth_dir"],
             gates_auth_dir=self.options["gates_auth_dir"],
         )
+        material.update(self._core_tls_material(binding, create=True))
         _, objects = task_launch.task_objects(binding, material, namespace=namespace)
         actions = {}
         for body in objects:
@@ -714,9 +846,15 @@ class ProductionLaunchProvisioner:
             if status.failed or time.monotonic() > deadline:
                 raise LaunchAdapterError("WORKSPACE_INIT_FAILED", 503)
             time.sleep(2)
-        names = task_launch.task_service_names(binding["task_id"])
+        template_version = binding.get("template_version", "legacy-v1")
+        names = task_launch.task_service_names(
+            binding["task_id"], template_version=template_version
+        )
         config = task_launch.attempt_config(binding)
-        for role, port in (("agent", 8443), ("kali", 8444)):
+        roles = [("agent", 8443), ("kali", 8444)]
+        if template_version == "core-ctf-v1":
+            roles.append(("capture", 8445))
+        for role, port in roles:
             try:
                 existing = core.read_namespaced_service(names[role], namespace)
                 selector = getattr(getattr(existing, "spec", None), "selector", None) or {}
@@ -735,7 +873,10 @@ class ProductionLaunchProvisioner:
 
     def _update_configmaps(self, request, binding, *, write=True):
         task_launch = self._task_launch()
-        names = task_launch.task_service_names(request.task_id)
+        names = task_launch.task_service_names(
+            request.task_id,
+            template_version=binding.get("template_version", "legacy-v1"),
+        )
         runtime_entry = {
             "task_config": task_launch.runtime_config_document(binding),
             "receiver": {
@@ -747,23 +888,41 @@ class ProductionLaunchProvisioner:
             "service_names": names,
             "supervisor_url": f"https://{names['agent']}.{self.options['namespace']}.svc:8443",
         }
-        gate_entry = {
-            "binding": {
-                "tenant_id": binding["tenant_id"], "project_id": binding["project_id"],
-                "task_id": binding["task_id"], "executor_ref": binding["executor_ref"],
-                "receiver_id": binding["receiver_id"], "environment_ref": binding["environment_ref"],
-                "collector_subject": self.config["executor"]["collector_subject"],
-                "gate_subject": "gate",
-            },
-            "base_url": f"https://{names['kali']}.{self.options['namespace']}.svc:8444",
-            "gate_token_file": "/run/wuji/credentials/service.token",
-            "collector_token_file": "/run/wuji/credentials/collector.token",
-        }
+        core_ctf = binding.get("template_version") == "core-ctf-v1"
+        if core_ctf:
+            runtime_entry["capture_registration"] = dict(
+                binding["capture_registration"]
+            )
+        gate_entry = task_launch.gate_executor_entry(
+            binding,
+            base_url=f"https://{names['kali']}.{self.options['namespace']}.svc:8444",
+        )
         runtime, gates = _replaceable(self.store.read("runtime-config")), _replaceable(self.store.read("gates-config"))
         runtime_doc = _json(runtime["data"].get("deployment.json"))
         gates_doc = _json(gates["data"].get("deployment.json"))
         profiles_doc = _json(runtime["data"].get("profiles.json"))
+        capture_client_action = "unchanged"
+        if core_ctf:
+            pod_runtime = runtime_doc.get("pod_runtime")
+            if not isinstance(pod_runtime, dict):
+                raise LaunchAdapterError("RUNTIME_CONFIG_UNAVAILABLE", 503)
+            capture_client = {
+                "ca_file": self.options["capture_ca_cert_file"],
+                "certificate_file": self.options["capture_runtime_client_cert_file"],
+                "private_key_file": self.options["capture_runtime_client_key_file"],
+                "collector_token_file": self.options[
+                    "capture_runtime_collector_token_file"
+                ],
+            }
+            current = pod_runtime.get("capture_client")
+            if current is None:
+                pod_runtime["capture_client"] = capture_client
+                capture_client_action = "replaced"
+            elif _canonical(current) != _canonical(capture_client):
+                raise LaunchAdapterError("INPUT_DIGEST_CONFLICT", 409)
         runtime_action = merge_runtime_document(runtime_doc, runtime_entry)
+        if capture_client_action == "replaced":
+            runtime_action = "replaced"
         profile_action, profiles_doc = merge_profiles(profiles_doc, list(binding["worker_profiles"].values()))
         gate_action = merge_gate_document(gates_doc, gate_entry)
         runtime["data"]["deployment.json"] = _canonical(runtime_doc).decode()
@@ -774,7 +933,14 @@ class ProductionLaunchProvisioner:
                 self.store.replace("runtime-config", runtime)
             if gate_action != "unchanged":
                 self.store.replace("gates-config", gates)
-        return {"runtime": runtime_action, "profiles": profile_action, "gates": gate_action}
+        result = {
+            "runtime": runtime_action,
+            "profiles": profile_action,
+            "gates": gate_action,
+        }
+        if core_ctf:
+            result["capture_client"] = capture_client_action
+        return result
 
     def _wire_complete(self, request, binding):
         """A Pod alone does not prove the separate configuration writes landed."""
@@ -784,7 +950,10 @@ class ProductionLaunchProvisioner:
                 return False
             task_launch = self._task_launch()
             config = task_launch.attempt_config(binding)
-            for name in task_launch.task_service_names(binding["task_id"]).values():
+            for name in task_launch.task_service_names(
+                binding["task_id"],
+                template_version=binding.get("template_version", "legacy-v1"),
+            ).values():
                 service = self.options["core_api"].read_namespaced_service(name, self.options["namespace"])
                 if service.spec.selector != config.identity_labels:
                     return False
@@ -806,7 +975,8 @@ class ProductionLaunchProvisioner:
         status = getattr(pod, "status", None)
         phase = getattr(status, "phase", None)
         ready = sum(1 for item in (getattr(status, "container_statuses", None) or []) if item.ready is True)
-        if phase == "Running" and ready == 2:
+        expected_ready = 3 if config.template_version == "core-ctf-v1" else 2
+        if phase == "Running" and ready == expected_ready:
             return {"status": "ready", "pod_uid": uid}
         if phase in {"Failed", "Succeeded"}:
             return {"status": "failed", "pod_uid": uid}

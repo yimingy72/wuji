@@ -21,11 +21,20 @@ from wuji_core.persistence.uow import DomainError, json_text, row
 RECORD_RENDERER = "wuji-record-renderer.v1"
 TEXT_RENDERER = "wuji-text-renderer.v1"
 REDACTION_POLICY = "wuji-redaction.v1"
+WORKSPACE_BUNDLE_MEDIA_TYPE = "application/vnd.wuji.workspace-bundle+json"
+COMMAND_LOG_MEDIA_TYPE = "application/vnd.wuji.command-log+json"
 FIELD_WHITELISTS = {
     "claim": {"text", "limitations", "kind", "assertion_role", "basis_refs", "assessment"},
     "intent": {"question", "expected_output", "basis_refs", "acceptance_state", "planning"},
     "observation": {"capture_id", "completeness", "conditions", "observed_at", "environment_ref", "evidence_origin"},
-    "artifact": {"media_type", "size_bytes", "completeness", "sha256", "state"},
+    "artifact": {
+        "media_type",
+        "size_bytes",
+        "completeness",
+        "sha256",
+        "state",
+        "workspace_bundle_manifest",
+    },
 }
 
 
@@ -74,6 +83,27 @@ class KnowledgeReadService:
         self.max_delivered_bytes = max_delivered_bytes
         self.max_reads, self.max_refreshes = max_reads, max_refreshes
 
+    def _limits(self, limits):
+        if limits is None:
+            return {
+                "max_read_bytes": self.max_read_bytes,
+                "max_delivered_bytes": self.max_delivered_bytes,
+                "max_reads": self.max_reads,
+                "max_refreshes": self.max_refreshes,
+            }
+        if not isinstance(limits, dict) or set(limits) != {
+            "max_read_bytes", "max_delivered_bytes", "max_reads", "max_refreshes"
+        }:
+            raise DomainError("INVALID_SCHEMA", 422)
+        if (
+            any(type(value) is not int or value < 0 for value in limits.values())
+            or not 1 <= limits["max_read_bytes"] <= 16_384
+            or not 1 <= limits["max_delivered_bytes"] <= 1_048_576
+            or limits["max_refreshes"] > 32
+        ):
+            raise DomainError("INVALID_SCHEMA", 422)
+        return limits
+
     @staticmethod
     def _cursor(snapshot_id, offset):
         digest = sha256(f"{snapshot_id}:{offset}".encode()).hexdigest()[:16]
@@ -114,14 +144,33 @@ class KnowledgeReadService:
                 "environment_ref": raw["environment_ref"],
                 "evidence_origin": raw["evidence_origin"],
             }
-        return {key: raw[key] for key in FIELD_WHITELISTS["artifact"]}
+        result = {
+            key: raw[key]
+            for key in FIELD_WHITELISTS["artifact"]
+            if key != "workspace_bundle_manifest"
+        }
+        if raw["media_type"] == WORKSPACE_BUNDLE_MEDIA_TYPE:
+            if raw["state"] != "sealed":
+                raise DomainError("INVALID_REFERENCE", 422)
+            manifest = wire.WorkspaceBundleManifestV1.model_validate(
+                strict_json_loads(self.artifacts.checked_bytes(raw))
+            )
+            result["workspace_bundle_manifest"] = manifest.model_dump(mode="json")
+        else:
+            result["workspace_bundle_manifest"] = None
+        return result
 
     def _index(self, ref, raw):
         kind = ref.entity_type.value
         selectors = ["record_fields"]
-        if kind == "artifact" and raw["state"] == "sealed" and (
-            raw["media_type"] == HTTP_EXCHANGE_MEDIA_TYPE
-            or raw["media_type"].startswith("text/")
+        if (
+            kind == "artifact"
+            and raw["state"] == "sealed"
+            and (
+                raw["media_type"]
+                in {HTTP_EXCHANGE_MEDIA_TYPE, COMMAND_LOG_MEDIA_TYPE}
+                or raw["media_type"].startswith("text/")
+            )
         ):
             selectors.append("text_range")
         return wire.KnowledgeIndexItemV1.model_validate({
@@ -170,7 +219,7 @@ class KnowledgeReadService:
         return work
 
     def _persist(self, tx, assignment, *, native_occurrence, request, delivery, access_level,
-                 idempotency_key=None):
+                 idempotency_key=None, limits=None):
         self._identity(tx, assignment)
         request_digest = sha256(canonical_json_bytes(request)).hexdigest()
         suffix = native_occurrence if native_occurrence is not None else idempotency_key
@@ -186,14 +235,19 @@ class KnowledgeReadService:
                 raise DomainError("INPUT_DIGEST_CONFLICT", 409)
             return wire.KnowledgeDeliveryV1.model_validate(strict_json_loads(existing["delivery_json"]))
         kind = delivery["kind"]
-        limit = self.max_refreshes if kind == "refresh" else self.max_reads
+        limits = self._limits(limits)
+        limit = limits["max_refreshes"] if kind == "refresh" else limits["max_reads"]
         count, delivered = tx.connection.execute(
             "SELECT count(*),COALESCE(sum((delivery_json::jsonb->>'byte_length')::integer),0) "
             "FROM vnext.knowledge_delivery WHERE tenant_id=%s AND project_id=%s AND task_id=%s "
             "AND work_item_id=%s AND kind=%s",
             (*tx.owner, assignment.identity.work_item_id, kind),
         ).fetchone()
-        if count >= limit or kind != "refresh" and delivered + delivery["byte_length"] > self.max_delivered_bytes:
+        if (
+            count >= limit
+            or kind != "refresh"
+            and delivered + delivery["byte_length"] > limits["max_delivered_bytes"]
+        ):
             raise DomainError("LIMIT_BLOCKED", 429)
         checked = wire.KnowledgeDeliveryV1.model_validate(delivery)
         tx.connection.execute(
@@ -211,7 +265,8 @@ class KnowledgeReadService:
         return checked
 
     def read(self, access, assignment, *, snapshot_id, ref, selector, native_occurrence,
-             delivery_kind="knowledge_tool", idempotency_key=None):
+             delivery_kind="knowledge_tool", idempotency_key=None, limits=None):
+        limits = self._limits(limits)
         if delivery_kind not in {"knowledge_tool", "initial_context"}:
             raise DomainError("INVALID_SCHEMA", 422)
         if delivery_kind == "knowledge_tool" and not native_occurrence:
@@ -236,6 +291,11 @@ class KnowledgeReadService:
             if isinstance(selector, wire.RecordFieldsSelectorV1):
                 requested = [item.root for item in selector.fields]
                 if not requested or not set(requested) <= FIELD_WHITELISTS[kind]:
+                    raise DomainError("INVALID_REFERENCE", 422)
+                if (
+                    "workspace_bundle_manifest" in requested
+                    and raw.get("media_type") != WORKSPACE_BUNDLE_MEDIA_TYPE
+                ):
                     raise DomainError("INVALID_REFERENCE", 422)
                 complete = self._record(tx, manifest, ref, raw)
                 source_digest = sha256(canonical_json_bytes(complete)).hexdigest()
@@ -264,11 +324,27 @@ class KnowledgeReadService:
                         )
                         raise DomainError(code, 422)
                     safe, redaction, renderer = full.text, full.redaction_applied, HTTP_RENDERER_VERSION
+                elif raw["media_type"] == COMMAND_LOG_MEDIA_TYPE:
+                    try:
+                        command_log = strict_json_loads(data)
+                    except (UnicodeDecodeError, ValueError, RecursionError):
+                        raise DomainError("INVALID_REFERENCE", 422) from None
+                    if (
+                        not isinstance(command_log, dict)
+                        or command_log.get("schema_version") != "wuji.command-log.v1"
+                    ):
+                        raise DomainError("INVALID_REFERENCE", 422)
+                    safe, redaction = render_text_artifact_v1(
+                        data, "text/plain; charset=utf-8"
+                    )
+                    renderer = TEXT_RENDERER
                 else:
                     safe, redaction = render_text_artifact_v1(data, raw["media_type"])
                     renderer = TEXT_RENDERER
                 source_digest = raw["sha256"]
-                text, actual_end = _bounded_range(safe, selector.start, selector.end, self.max_read_bytes)
+                text, actual_end = _bounded_range(
+                    safe, selector.start, selector.end, limits["max_read_bytes"]
+                )
                 actual_selector = {"kind": "text_range", "start": selector.start, "end": actual_end}
                 has_more = actual_end < len(safe)
             encoded = text.encode("utf-8")
@@ -300,19 +376,21 @@ class KnowledgeReadService:
             return self._persist(
                 tx, assignment, native_occurrence=native_occurrence,
                 request=request, delivery=delivery, access_level=raw["access_level"],
-                idempotency_key=idempotency_key,
+                idempotency_key=idempotency_key, limits=limits,
             )
 
-    def refresh(self, access, assignment, *, snapshot_id, native_occurrence):
+    def refresh(self, access, assignment, *, snapshot_id, native_occurrence, limits=None):
+        limits = self._limits(limits)
         old = self.snapshots.get(assignment.identity.task_id, access, snapshot_id)
         fresh = self.snapshots.create(
             assignment.identity.task_id,
             access,
-            query=SnapshotQuery(max_references=max(1000, len(old.refs))),
+            query=old.query,
         )
-        old_refs, fresh_refs = set(old.refs), set(fresh.refs)
-        added = sorted(fresh_refs - old_refs, key=_ref_key)
-        removed = sorted(old_refs - fresh_refs, key=_ref_key)
+        old_refs = {_ref_key(ref): ref for ref in old.refs}
+        fresh_refs = {_ref_key(ref): ref for ref in fresh.refs}
+        added = [fresh_refs[key] for key in sorted(fresh_refs.keys() - old_refs.keys())]
+        removed = [old_refs[key] for key in sorted(old_refs.keys() - fresh_refs.keys())]
         result = {
             "schema_version": "wuji.knowledge-refresh.v1",
             "previous_snapshot_id": snapshot_id,
@@ -352,7 +430,7 @@ class KnowledgeReadService:
                     "work_item_id": assignment.identity.work_item_id,
                     "agent_run_id": assignment.identity.agent_run_id,
                     "session_id": None, "native_occurrence": native_occurrence,
-                })
+                }, limits=limits)
         return wire.KnowledgeRefreshResultV1.model_validate({
             **result, "delivery_id": delivery.delivery_id,
             "representation_digest": delivery.representation_digest,

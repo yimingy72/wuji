@@ -366,6 +366,142 @@ class ArtifactStore:
             retained=None,
         )
 
+    def stage_runtime_capture(
+        self,
+        access,
+        task_id,
+        capture_session_id,
+        data: bytes,
+        media_type: str,
+        *,
+        completeness,
+        conditions=(),
+        access_level=0,
+        lease_owner,
+    ):
+        """Stage one exact part pulled by the trusted Task Runtime."""
+
+        from wuji_core.evidence.runtime_capture import (
+            bound_capture_session,
+            capture_session_disposition,
+            require_runtime_collector,
+        )
+
+        require_runtime_collector(access)
+        if not isinstance(data, bytes) or len(data) > self.max_bytes:
+            raise DomainError("LIMIT_BLOCKED", 422)
+        if (
+            not isinstance(media_type, str)
+            or not 1 <= len(media_type) <= 256
+            or "\r" in media_type
+            or "\n" in media_type
+            or completeness not in {"complete", "partial", "unknown"}
+            or len(conditions) > 128
+            or any(
+                not isinstance(item, str) or not 1 <= len(item) <= 8192
+                for item in conditions
+            )
+            or type(access_level) is not int
+            or access_level < 0
+            or not isinstance(lease_owner, str)
+            or not 1 <= len(lease_owner) <= 256
+        ):
+            raise DomainError("INVALID_SCHEMA", 422)
+        digest = hashlib.sha256(data).hexdigest()
+        existing = None
+        with self.uow.transaction(access, task_id, capability="evidence") as tx:
+            session = bound_capture_session(tx, capture_session_id, lock=True)
+            capture_session_disposition(tx, session)
+            if access_level != session["access_level"]:
+                raise DomainError("INVALID_REFERENCE", 422)
+            cursor = tx.connection.execute(
+                """SELECT a.* FROM vnext.artifact_lease l JOIN vnext.artifact a ON
+                  (a.tenant_id,a.project_id,a.task_id,a.entity_id,a.revision)=
+                  (l.tenant_id,l.project_id,l.task_id,l.artifact_id,
+                   l.artifact_revision)
+                WHERE a.tenant_id=%s AND a.project_id=%s AND a.task_id=%s
+                  AND a.capture_session_id=%s AND l.lease_owner=%s
+                  AND a.state<>'tombstoned' FOR UPDATE OF a""",
+                (*tx.owner, capture_session_id, lease_owner),
+            )
+            matches = [dict(zip((column.name for column in cursor.description), value))
+                       for value in cursor.fetchall()]
+            if len(matches) > 1:
+                raise DomainError("INPUT_DIGEST_CONFLICT", 409)
+            existing = matches[0] if matches else None
+            if existing is not None:
+                if (
+                    existing["sha256"] != digest
+                    or existing["size_bytes"] != len(data)
+                    or existing["media_type"] != media_type
+                    or existing["completeness"] != completeness
+                    or strict_json_loads(existing["conditions_json"])
+                    != list(conditions)
+                    or existing["access_level"] != access_level
+                ):
+                    raise DomainError("INPUT_DIGEST_CONFLICT", 409)
+                ref = BlobRef.model_validate(
+                    {
+                        "id": existing["entity_id"],
+                        "version": str(existing["revision"]),
+                        "sha256": existing["sha256"],
+                    }
+                )
+                tx.connection.execute(
+                    """UPDATE vnext.artifact_lease SET
+                    expires_at=clock_timestamp()+interval '5 minutes'
+                    WHERE tenant_id=%s AND project_id=%s AND task_id=%s
+                      AND artifact_id=%s AND artifact_revision=%s
+                      AND lease_owner=%s""",
+                    (*tx.owner, ref.id, ref.version.root, lease_owner),
+                )
+            else:
+                ref = BlobRef.model_validate(
+                    {"id": str(uuid4()), "version": "1", "sha256": digest}
+                )
+                storage_key = uuid4()
+                tx.connection.execute(
+                    """INSERT INTO vnext.artifact(tenant_id,project_id,task_id,
+                    entity_id,revision,state,storage_key,sha256,size_bytes,media_type,
+                    capture_session_id,provenance,evidence_origin,capture_layer,
+                    environment_ref,completeness,conditions_json,access_level)
+                    VALUES(%s,%s,%s,%s,1,'staged',%s,%s,%s,%s,%s,'capture',
+                    %s,%s,%s,%s,%s,%s)""",
+                    (
+                        *tx.owner,
+                        ref.id,
+                        storage_key,
+                        ref.sha256.root,
+                        len(data),
+                        media_type,
+                        capture_session_id,
+                        session["evidence_origin"],
+                        session["capture_layer"],
+                        session["environment_ref"],
+                        completeness,
+                        json_text(list(conditions)),
+                        access_level,
+                    ),
+                )
+                tx.connection.execute(
+                    """INSERT INTO vnext.artifact_lease(tenant_id,project_id,task_id,
+                    artifact_id,artifact_revision,lease_owner,expires_at,access_level)
+                    VALUES(%s,%s,%s,%s,1,%s,
+                    clock_timestamp()+interval '5 minutes',%s)""",
+                    (*tx.owner, ref.id, lease_owner, access_level),
+                )
+        with self.uow.transaction(access, task_id, capability="evidence") as tx:
+            session = bound_capture_session(tx, capture_session_id)
+            capture_session_disposition(tx, session)
+            record = self.record(tx, ref, lock=True)
+            try:
+                self.checked_bytes(record)
+            except DomainError:
+                if record["state"] != "staged":
+                    raise
+                self.backend.put(record["storage_key"], data)
+        return ref
+
     def stage_retained_output(
         self,
         access,
@@ -475,6 +611,11 @@ class ArtifactStore:
             if record["agent_run_id"] is not None:
                 bound_run(tx, record["agent_run_id"])
                 return "model_output"
+            if record.get("capture_session_id") is not None:
+                from wuji_core.evidence.runtime_capture import require_runtime_collector
+
+                require_runtime_collector(access)
+                return "evidence"
         require_collector(access)
         return "evidence"
 
@@ -483,6 +624,15 @@ class ArtifactStore:
             run = bound_run(tx, record["agent_run_id"])
             if disposition:
                 run_disposition(tx, run)
+        elif record.get("capture_session_id") is not None:
+            from wuji_core.evidence.runtime_capture import (
+                bound_capture_session,
+                capture_session_disposition,
+            )
+
+            session = bound_capture_session(tx, record["capture_session_id"])
+            if disposition:
+                capture_session_disposition(tx, session)
         else:
             attempt = bound_attempt(tx, record["tool_attempt_id"])
             if disposition:

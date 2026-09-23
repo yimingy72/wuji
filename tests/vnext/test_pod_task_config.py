@@ -48,11 +48,14 @@ def test_the_single_task_shape_stays_readable():
     assert [entry[0] for entry in pod_task_config.task_entries(config)] == ["only"]
 
 
+def test_an_explicit_empty_task_list_is_the_empty_platform_state():
+    assert pod_task_config.task_entries({"tasks": []}) == []
+
+
 @pytest.mark.parametrize(
     "config",
     [
         {},
-        {"tasks": []},
         {"tasks": [{"task_config": {"task_id": "a"}, "receiver": {}}] * 65},
         {"tasks": [{"task_config": {"task_id": "a"}, "receiver": {}}, {"task_config": {"task_id": "a"}, "receiver": {}}]},
         {"tasks": [{"task_config": {"task_id": "a"}, "receiver": {}, "extra": 1}]},

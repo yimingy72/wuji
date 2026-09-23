@@ -1,6 +1,7 @@
 export interface WebRuntimeConfig {
   readonly apiBaseUrl: string;
   readonly authEntrypoint: string;
+  readonly authMode: string;
   readonly mode: string;
   readonly tenantId: string;
   readonly projectId: string;
@@ -16,6 +17,7 @@ declare global {
 const buildConfig: Partial<WebRuntimeConfig> = {
   apiBaseUrl: import.meta.env.VITE_WUJI_API_BASE_URL,
   authEntrypoint: import.meta.env.VITE_WUJI_AUTH_ENTRYPOINT,
+  authMode: import.meta.env.VITE_WUJI_AUTH_MODE,
   mode: import.meta.env.VITE_WUJI_MODE,
   tenantId: import.meta.env.VITE_WUJI_TENANT_ID,
   projectId: import.meta.env.VITE_WUJI_PROJECT_ID,
@@ -31,6 +33,7 @@ function value(name: keyof WebRuntimeConfig): string {
 export const webConfig: WebRuntimeConfig = {
   apiBaseUrl: value('apiBaseUrl'),
   authEntrypoint: value('authEntrypoint'),
+  authMode: value('authMode') || 'local_single_operator',
   mode: value('mode'),
   tenantId: value('tenantId'),
   projectId: value('projectId'),

@@ -8,7 +8,8 @@ from wuji_core.http import canonical_json_bytes, strict_json_loads
 from wuji_core.persistence import schema
 from wuji_maf_worker.factory import ProblemHarnessProfile, parse_profile
 from support.p03 import access
-from test_knowledge_admission import IDENTITY, TASK, case
+from test_knowledge_admission import IDENTITY, TASK, case, proposal
+from wuji_core.execution.worker_bridge import snapshot_work_brief
 from wuji_core.persistence.snapshots import SnapshotRepository
 
 
@@ -156,17 +157,24 @@ def test_problem_core_migration_chain_reaches_the_current_head(db_environment):
         ).fetchone() is None
 
 
-def test_v3_result_persists_content_outcome_without_changing_work_state(
+def test_v3_result_projects_accepted_local_refs_without_changing_work_state(
     db_environment, tmp_path, audit_directory
 ):
     with case(db_environment, tmp_path, audit_directory) as c:
         worker = access("worker-fixture", role="worker")
         payload = {
             "schema_version": "wuji.agent-payload.v3",
-            "claims": [], "intent_proposals": [], "reason_decision": None,
+            "claims": [
+                {**proposal(basis=[]), "client_ref": "accepted-result-basis"}
+            ],
+            "intent_proposals": [], "reason_decision": None,
             "work_result": {
                 "outcome": "answered", "summary": "The fixed problem is answered.",
-                "answer_basis_refs": [], "unresolved_items": [], "capability_gaps": [],
+                "answer_basis_refs": [
+                    {"client_ref": "accepted-result-basis"},
+                    {"client_ref": "missing-result-basis"},
+                ],
+                "unresolved_items": [], "capability_gaps": [],
             },
             "input_acknowledgements": [],
         }
@@ -206,5 +214,19 @@ def test_v3_result_persists_content_outcome_without_changing_work_state(
                 "JOIN vnext.work_item w USING(tenant_id,project_id,task_id,work_item_id) "
                 "WHERE s.submission_id='problem-result-v3'"
             ).fetchone()
-        assert strict_json_loads(result)["outcome"] == "answered"
+        projected = strict_json_loads(result)
+        assert projected["schema_version"] == "wuji.work-result-projection.v1"
+        assert projected["declared_outcome"] == "answered"
+        assert projected["effective_outcome"] == "inconclusive"
+        assert projected["canonical_refs"][0]["entity_type"] == "claim"
+        assert projected["invalid_refs"] == [
+            {"client_ref": "missing-result-basis"}
+        ]
         assert work_state != "done", "content outcome must not forge execution settlement"
+        following = SnapshotRepository(c.uow).create(TASK, worker)
+        frozen = snapshot_work_brief(following, "later-work")
+        assert any(
+            "结果 inconclusive" in item and "invalid_refs 1" in item
+            for item in frozen[0]
+        )
+        assert following.states["task"]["notification_event_seq"].isdecimal()

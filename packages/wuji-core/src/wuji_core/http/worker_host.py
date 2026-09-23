@@ -8,6 +8,7 @@ from starlette.concurrency import run_in_threadpool
 from wuji_core.contracts.generated import (
     ReceiverBridgeRequest, WorkerArchiveRequest, WorkerBridgeRequest,
     WorkerRetainFinalRequest, WorkerSubmitRequest,
+    WorkerBoardPublishRequest, WorkerKnowledgeNoticesRequest,
     WorkerKnowledgeAttachRequest, WorkerKnowledgeListRequest,
     WorkerKnowledgeReadRequest, WorkerKnowledgeRefreshRequest,
 )
@@ -91,5 +92,15 @@ def create_worker_host_router(bridge):
     @router.post("/internal/v2/worker-host/knowledge-attach")
     async def knowledge_attach(request: Request, payload: WorkerKnowledgeAttachRequest):
         return await invoke(request, bridge.knowledge_attach, payload)
+
+    @router.post("/internal/v2/worker-host/board-publish")
+    async def board_publish(request: Request, payload: WorkerBoardPublishRequest):
+        return await invoke(request, bridge.board_publish, payload)
+
+    @router.post("/internal/v2/worker-host/knowledge-notices")
+    async def knowledge_notices(
+        request: Request, payload: WorkerKnowledgeNoticesRequest
+    ):
+        return await invoke(request, bridge.knowledge_notices, payload)
 
     return router

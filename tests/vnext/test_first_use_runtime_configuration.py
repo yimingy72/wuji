@@ -8,11 +8,13 @@ import sys
 from types import SimpleNamespace
 
 import pytest
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "ops/vnext"))
 
-from deployment_common import Settings
+from deployment_common import Deployment, Settings
 from wuji_core.execution.dispatch_outbox import TaskSupervisorTransport
 from wuji_core.persistence.uow import DomainError
 from wuji_maf_worker.factory import HarnessProfile
@@ -30,6 +32,42 @@ class Transport:
     def query(self, *args, **kwargs): pass
     def start(self, *args, **kwargs): pass
     def control(self, *args, **kwargs): pass
+
+
+def test_empty_profile_catalog_uses_the_explicit_worker_lock(tmp_path):
+    k8s = module("scripts/vnext/k8s.py", "empty_profile_catalog_k8s")
+    tls = tmp_path / "tls"
+    k8s.certificates(tls, services=())
+    public_key = tmp_path / "identity.pub"
+    public_key.write_bytes(
+        rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        .public_key()
+        .public_bytes(
+            serialization.Encoding.PEM,
+            serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
+    )
+    profiles = tmp_path / "profiles.json"
+    profiles.write_text("[]")
+    settings = Settings(
+        role="runtime",
+        database_file="/fixture/database.json",
+        public_key_file=str(public_key),
+        issuer="https://identity.invalid",
+        audience="fixture",
+        service_token_file="/fixture/service.token",
+        ca_file=str(tls / "ca.crt"),
+        artifact_root=str(tmp_path / "artifacts"),
+        profiles_file=str(profiles),
+        worker_lock_digest="a" * 64,
+    )
+
+    deployment = Deployment(settings)
+
+    assert deployment.profiles == []
+    assert deployment.lock_digest == "a" * 64
+    with pytest.raises(ValueError, match="empty profile catalog"):
+        Deployment(settings.model_copy(update={"worker_lock_digest": None}))
 
 
 def test_tasks_routes_and_profiles_refresh_together_and_conflicts_preserve_old_state(tmp_path, monkeypatch):

@@ -7,7 +7,14 @@ import re
 from typing import Literal
 from urllib.parse import urlsplit
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
+from pydantic import (
+    AwareDatetime,
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictInt,
+    model_validator,
+)
 
 from wuji_core.contracts.execution import ExecutionLimits
 from wuji_core.contracts.envelopes import RunIdentity
@@ -42,6 +49,35 @@ class ModelProfile(Published):
         return self
 
 
+class TaskRunLimits(Configuration):
+    explore: StrictInt = Field(ge=1, le=256)
+    reason: Literal[1]
+
+
+class ProcessLimits(Configuration):
+    max_active_execs: StrictInt = Field(ge=1, le=64)
+    max_read_wait_milliseconds: StrictInt = Field(ge=0, le=30000)
+    max_input_bytes: StrictInt = Field(ge=1, le=1048576)
+    stop_grace_seconds: float = Field(gt=0, le=60, allow_inf_nan=False)
+
+
+class CapturePolicyV1(Configuration):
+    max_request_body_bytes: StrictInt = Field(ge=1, le=8_388_608)
+    max_response_body_bytes: StrictInt = Field(ge=1, le=8_388_608)
+    pcap_segment_bytes: StrictInt = Field(ge=1, le=67_108_864)
+    max_session_bytes: StrictInt = Field(ge=1, le=1_099_511_627_776)
+    max_items: StrictInt = Field(ge=1, le=1_000_000)
+    part_read_chunk_bytes: StrictInt = Field(ge=1, le=8_388_608)
+    drain_timeout_seconds: float = Field(gt=0, le=300, allow_inf_nan=False)
+    seal_timeout_seconds: float = Field(gt=0, le=300, allow_inf_nan=False)
+
+    @model_validator(mode="after")
+    def tcpdump_segment(self):
+        if self.pcap_segment_bytes % 1_000_000:
+            raise ValueError("pcap segment must be a whole tcpdump decimal megabyte")
+        return self
+
+
 class RuntimeProfile(Published):
     lock_digest: str = Field(pattern=r"^[a-f0-9]{64}$")
     limits: ExecutionLimits
@@ -53,6 +89,15 @@ class RuntimeProfile(Published):
     max_inflight_tools: int = Field(gt=0, le=1000000)
     max_inflight_model_requests: Literal[1]
     allowed_tool_refs: list[str] = Field(max_length=256)
+    task_run_limits: TaskRunLimits | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    process_limits: ProcessLimits | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    capture_policy: CapturePolicyV1 | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
     @model_validator(mode="after")
     def bounded(self):
@@ -72,7 +117,9 @@ class ToolDefinition(Published):
     input_schema: dict
     executor_ref: str = Field(min_length=1, max_length=256)
     approval_required: bool
-    allowed_target_kinds: list[Literal["workspace_read", "http_target"]] = Field(min_length=1, max_length=2)
+    allowed_target_kinds: list[
+        Literal["workspace_read", "http_target", "process", "workspace_bundle"]
+    ] = Field(min_length=1, max_length=3)
 
 
 class ExecutorRegistration(Configuration):
@@ -80,9 +127,23 @@ class ExecutorRegistration(Configuration):
     receiver_id: str
     environment_ref: str
     collector_subject: str
-    evidence_origin: Literal["fixture_capture", "live_capture"]
+    evidence_origin: Literal[
+        "fixture_capture", "live_capture", "imported_unverified"
+    ]
     capture_layer: str
     allowed_tool_refs: list[str] = Field(max_length=256)
+    protocol: Literal["process.v1"] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+
+    @model_validator(mode="after")
+    def execution_protocol(self):
+        if self.protocol == "process.v1" and (
+            self.evidence_origin != "imported_unverified"
+            or self.capture_layer != "executor_reported_command_output"
+        ):
+            raise ValueError("process executor output must remain imported/unverified")
+        return self
 
 
 class RunCredentialBinding(Configuration):
@@ -183,6 +244,43 @@ def verified_session_capability_ref(profile_digest):
     return "session-capability-verified-" + profile_digest
 
 
+def expected_session_capabilities(body, native_tool_kinds=()):
+    disabled = {
+        name: False for name in (
+            "todo", "mode", "file_memory", "file_access", "skills", "shell",
+            "web_search", "background_agents", "outer_loop", "auto_approval", "mcp",
+        )
+    }
+    caps = {
+        **disabled,
+        "restoration": True,
+        "compaction": body["compaction_enabled"],
+        "native_approval": True,
+        "versioned_memory": body["memory_mode"] != "disabled",
+    }
+    if body["schema_version"] in {
+        "wuji.harness.problem.v1", "wuji.harness.problem.v2"
+    }:
+        manifest_names = {
+            item.get("name") for item in body.get("capability_manifest", ())
+            if isinstance(item, dict)
+        }
+        native_tool_kinds = {tuple(value) for value in native_tool_kinds}
+        caps.update(
+            todo=body["work_kind"] == "explore",
+            file_memory=body["memory_mode"] == "work_memory",
+            mcp=(
+                body["schema_version"] == "wuji.harness.problem.v2"
+                and (
+                    "board_publish" in manifest_names
+                    or ("process",) in native_tool_kinds
+                    or ("workspace_bundle",) in native_tool_kinds
+                )
+            ),
+        )
+    return caps
+
+
 def _storage_document(value):
     if isinstance(value, datetime):
         return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
@@ -271,8 +369,17 @@ def _mechanism_candidate_tool_allowed(definition, work_kind, target_kinds, evide
     fixture_http = bool(mechanism_http_origins(definition))
     workspace = target_kinds == ["workspace_read"]
     http_fixture = fixture_http and work_kind == "explore" and target_kinds == ["http_target"]
+    runtime = definition.get("runtime_profile")
+    core_native = (
+        work_kind == "explore"
+        and isinstance(runtime, dict)
+        and runtime.get("process_limits") is not None
+        and runtime.get("capture_policy") is not None
+        and target_kinds in (["process"], ["workspace_bundle"])
+        and evidence_origin == "imported_unverified"
+    )
     origins = {"fixture_capture", "live_capture"} if fixture_http else {"fixture_capture"}
-    return (workspace or http_fixture) and evidence_origin in origins
+    return core_native or (workspace or http_fixture) and evidence_origin in origins
 
 
 def _validate_mechanism_candidate(connection, *, capability, run_binding):
@@ -638,10 +745,20 @@ def register_tool_definition(connection, *, tenant_id, definition):
     # One published kind per tool: a workspace read touches the Task's own
     # files, a target tool may only reach the exact assets the Task approved.
     # Anything else (including a tool that claims both) is not published.
-    if definition.allowed_target_kinds not in (["workspace_read"], ["http_target"]):
+    if definition.allowed_target_kinds not in (
+        ["workspace_read"], ["http_target"], ["process"], ["workspace_bundle"]
+    ):
         raise DomainError("CAPABILITY_UNAVAILABLE", 503)
     from wuji_core.admission.tools import validate_input_schema
-    validate_input_schema(definition.input_schema)
+    validate_input_schema(
+        definition.input_schema,
+        process_name=definition.name
+        if definition.allowed_target_kinds == ["process"]
+        else None,
+        workspace_name=definition.name
+        if definition.allowed_target_kinds == ["workspace_bundle"]
+        else None,
+    )
     _insert_fixed(connection, "tool_definition", ("tenant_id", "ref"), (tenant_id, definition.ref), definition)
 
 
@@ -700,16 +817,15 @@ class AdmissionRegistry:
                 "SELECT document_json,digest FROM vnext.session_capability WHERE tenant_id=%s AND profile_digest=%s AND NOT revoked",
                 (tx.owner[0], profile_snapshot["digest"]),
             ).fetchall()
-            disabled = {name: False for name in ("todo", "mode", "file_memory", "file_access", "skills", "shell", "web_search", "background_agents", "outer_loop", "auto_approval", "mcp")}
-            caps = {**disabled, "restoration": True, "compaction": body["compaction_enabled"],
-                "native_approval": True, "versioned_memory": body["memory_mode"] != "disabled"}
-            if body["schema_version"] in {
-                "wuji.harness.problem.v1", "wuji.harness.problem.v2"
-            }:
-                caps.update(
-                    todo=body["work_kind"] == "explore",
-                    file_memory=body["memory_mode"] == "work_memory",
-                )
+            native_kinds = (
+                [
+                    self.tool(tx, ref).allowed_target_kinds
+                    for ref in body.get("tool_definition_refs", ())
+                ]
+                if body["schema_version"] == "wuji.harness.problem.v2"
+                else []
+            )
+            caps = expected_session_capabilities(body, native_kinds)
             matches = []
             for raw, stored_digest in stored_records:
                 record = SessionCapabilityRegistration.model_validate(strict_json_loads(raw))

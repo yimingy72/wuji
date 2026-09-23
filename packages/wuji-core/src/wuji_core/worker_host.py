@@ -462,11 +462,23 @@ class PlatformWorkerHost:
             binding["relations_digest"] = sha256(
                 canonical_json_bytes(rendered["relations"])
             ).hexdigest()
-        elif rendered["schema_version"] == "wuji.work-brief.v1":
+        elif rendered["schema_version"] in {
+            "wuji.work-brief.v1",
+            "wuji.work-brief.v2",
+        }:
             for name in ("brief", "knowledge_index", "initial_deliveries"):
                 binding[name + "_digest"] = sha256(
                     canonical_json_bytes(rendered[name])
                 ).hexdigest()
+            for name in (
+                "workspace_binding",
+                "execution_environment",
+                "published_asset_index",
+            ):
+                if name in rendered:
+                    binding[name + "_digest"] = sha256(
+                        canonical_json_bytes(rendered[name])
+                    ).hexdigest()
         else:
             raise DomainError("INVALID_SCHEMA", 422)
         return binding

@@ -7,11 +7,14 @@ attempt, and only a guarded next attempt may replace it.
 """
 
 from hashlib import sha256
+import asyncio
+from contextlib import AsyncExitStack
 import json
 import re
 from threading import RLock
 from pathlib import Path
 import time
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -19,14 +22,23 @@ from deployment_common import Deployment, Settings, load_settings, token
 from wuji_core.admission.ledger import AdmissionLedger
 from wuji_core.admission.models import HttpxModelTransport, ModelAdmission, ModelGate
 from wuji_core.admission.remote_workspace import (
-    ExecutorDeploymentBinding, ExecutorPermitAuthority, RemoteWorkspaceExecutor,
+    ExecutorActionSigner, ExecutorDeploymentBinding, ExecutorPermitAuthority,
+    RemoteProcessExecutor, RemoteWorkspaceExecutor,
 )
 from wuji_core.admission.tools import ToolAdmission, ToolCapabilityResolver, ToolGate
 from wuji_core.evidence.observations import EvidenceService
+from wuji_core.evidence.workspace_bundles import WorkspaceBundleService
+from wuji_core.evidence.workspace_transfer import WorkspaceTransferExecutor
+from wuji_core.blackboard.knowledge_reads import KnowledgeReadService
+from wuji_core.blackboard.notifications import BoardPublishService
+from wuji_core.execution.process_gate import ProcessToolGate
+from wuji_core.execution.workspace_gate import WorkspaceToolGate
 from wuji_core.http import JsonBoundaryLimits, create_app
 from wuji_core.http.executor_host import create_executor_host_router
 from wuji_core.http.model_gate import create_model_router
+from wuji_core.http.process_cleanup import create_process_cleanup_router
 from wuji_core.http.tool_gate import create_tool_router
+from wuji_core.http.native_mcp import create_native_mcp_app
 from wuji_core.persistence.uow import DomainError
 
 
@@ -119,18 +131,109 @@ class TrustedGateConfig:
 def _gate_bindings(deployment, settings):
     bindings, executors, collectors = [], {}, {}
     for entry in settings.executors:
+        action = entry.get("action")
+        expected = {
+            "binding",
+            "base_url",
+            "collector_token_file",
+        } | ({"gate_token_file"} if action is None else {"action"})
+        if set(entry) != expected:
+            raise ValueError("fixed executor transport configuration required")
         binding = ExecutorDeploymentBinding(**entry["binding"])
         key = _binding_key(binding)
         if key in executors:
             raise ValueError("duplicate deployment executor")
         bindings.append(binding)
-        executors[key] = RemoteWorkspaceExecutor(
-            binding=binding, base_url=entry["base_url"], ca_file=settings.ca_file,
-            bearer_token=lambda path=entry["gate_token_file"]: token(path))
+        if action is None:
+            executors[key] = RemoteWorkspaceExecutor(
+                binding=binding,
+                base_url=entry["base_url"],
+                ca_file=settings.ca_file,
+                bearer_token=lambda path=entry["gate_token_file"]: token(path),
+            )
+        else:
+            required = {
+                "signing_key_ref", "kid", "issuer", "audience", "subject",
+                "image_digest", "max_output_bytes",
+            }
+            if set(action) != required:
+                raise ValueError("fixed executor action configuration required")
+            if action["audience"] == settings.audience:
+                raise ValueError("executor actions require a separate audience")
+            signer = ExecutorActionSigner(
+                private_key_pem=deployment.secret(action["signing_key_ref"]),
+                kid=action["kid"], issuer=action["issuer"],
+                audience=action["audience"], subject=action["subject"],
+            )
+            process = RemoteProcessExecutor(
+                binding=binding, base_url=entry["base_url"],
+                ca_file=settings.ca_file, signer=signer,
+                max_output_bytes=action["max_output_bytes"],
+            )
+            workspace = WorkspaceTransferExecutor(
+                binding=binding, base_url=entry["base_url"],
+                ca_file=settings.ca_file, signer=signer,
+                image_digest=action["image_digest"],
+                max_request_bytes=64 * 1024 * 1024,
+                max_response_bytes=64 * 1024 * 1024,
+            )
+            executors[key] = ExecutorMux(process, workspace)
         collectors[key] = deployment.access(entry["collector_token_file"])
-    if not bindings:
-        raise ValueError("a real remote Kali executor is required")
     return bindings, executors, collectors
+
+
+class ExecutorMux:
+    def __init__(self, process, workspace):
+        self.process, self.workspace = process, workspace
+        self.max_output_bytes = process.max_output_bytes
+
+    async def invoke(self, permit, *, action, parent_handle=None):
+        return await self.process.invoke(
+            permit, action=action, parent_handle=parent_handle
+        )
+
+    async def query_process(self, permit, *, cursor, max_bytes):
+        return await self.process.query_process(
+            permit, cursor=cursor, max_bytes=max_bytes
+        )
+
+    async def shutdown(self, **kwargs):
+        return await self.process.shutdown(**kwargs)
+
+    async def drain(self, **kwargs):
+        return await self.process.drain(**kwargs)
+
+    async def export(self, permit, request):
+        return await self.workspace.export(permit, request)
+
+    async def import_publication(self, permit, request):
+        return await self.workspace.import_publication(permit, request)
+
+
+class WorkspaceTransferDispatch:
+    def __init__(self, gate):
+        self.gate = gate
+
+    def _executor(self, permit):
+        key = (
+            permit.identity.tenant_id,
+            permit.identity.project_id,
+            permit.identity.task_id,
+            permit.executor_ref,
+        )
+        executor = self.gate.executors.get(key)
+        if executor is None or not all(
+            callable(getattr(executor, name, None))
+            for name in ("export", "import_publication")
+        ):
+            raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+        return executor
+
+    async def export(self, permit, request):
+        return await self._executor(permit).export(permit, request)
+
+    async def import_publication(self, permit, request):
+        return await self._executor(permit).import_publication(permit, request)
 
 
 class GateBindingRefresher:
@@ -265,6 +368,26 @@ def build_gates():
     refresher = GateBindingRefresher(deployment, settings)
     refreshing_tools = RefreshingToolGate(tools, refresher, authority)
     refreshing_authority = RefreshingExecutorAuthority(authority, refresher, tools)
+    refresh = lambda: refresher.refresh(tools, authority)
+    knowledge_reads = KnowledgeReadService(
+        deployment.uow, ledger=deployment.ledger, artifacts=deployment.artifacts
+    )
+    process_tools = ProcessToolGate(tools, refresh=refresh)
+    workspace_service = WorkspaceBundleService(
+        deployment.uow,
+        registry=deployment.registry,
+        artifacts=deployment.artifacts,
+        knowledge_reads=knowledge_reads,
+        transfer=WorkspaceTransferDispatch(tools),
+    )
+    workspace_tools = WorkspaceToolGate(
+        tools, workspace_service, refresh=refresh
+    )
+    board_publisher = BoardPublishService(
+        deployment.uow,
+        registry=deployment.registry,
+        knowledge_reads=knowledge_reads,
+    )
     client = httpx.AsyncClient(verify=deployment.tls, trust_env=False,
         follow_redirects=False, transport=httpx.AsyncHTTPTransport(verify=deployment.tls, retries=0))
     keys = KeyResolver(deployment)
@@ -274,19 +397,66 @@ def build_gates():
     app = create_app(token_verifier=deployment.verifier, routers=[
         create_model_router(models), create_tool_router(refreshing_tools),
         create_executor_host_router(refreshing_authority),
+        create_process_cleanup_router(process_tools),
     ], json_limits=JsonBoundaryLimits(max_body_bytes=settings.max_transport_bytes))
+    mcp_origin = urlsplit(settings.tool_gate_url or "")
+    if (
+        mcp_origin.scheme not in {"http", "https"}
+        or not mcp_origin.hostname
+        or mcp_origin.username
+        or mcp_origin.password
+        or mcp_origin.query
+        or mcp_origin.fragment
+        or mcp_origin.path.rstrip("/") != "/internal/v2/tool-calls"
+    ):
+        raise ValueError("a fixed native MCP Gate origin is required")
+    mcp_origin_url = mcp_origin._replace(path="", query="", fragment="").geturl().rstrip("/")
+    native_mcp = create_native_mcp_app(
+        token_verifier=deployment.verifier,
+        process_gate=process_tools,
+        board_publisher=board_publisher,
+        workspace_gate=workspace_tools,
+        allowed_hosts=[mcp_origin.netloc],
+        allowed_origins=[mcp_origin_url],
+        json_limits=JsonBoundaryLimits(max_body_bytes=settings.max_transport_bytes),
+    )
 
     # ASGI wrapper closes the only pooled upstream HTTP client at service exit.
     async def application(scope, receive, send):
+        if scope["type"] == "http":
+            if scope.get("path", "").rstrip("/") == "/internal/v2/mcp":
+                return await native_mcp.app(scope, receive, send)
+            return await app(scope, receive, send)
         if scope["type"] != "lifespan":
             return await app(scope, receive, send)
-        while True:
-            message = await receive()
-            if message["type"] == "lifespan.startup":
-                await send({"type": "lifespan.startup.complete"})
-            elif message["type"] == "lifespan.shutdown":
-                await client.aclose()
-                keys.close()
-                await send({"type": "lifespan.shutdown.complete"})
-                return
+        async with AsyncExitStack() as stack:
+            await stack.enter_async_context(
+                native_mcp.starlette.router.lifespan_context(native_mcp.starlette)
+            )
+
+            async def reconcile():
+                while True:
+                    try:
+                        await process_tools.reconcile_registered(limit=32)
+                    except Exception:
+                        pass
+                    await asyncio.sleep(1)
+
+            reconciliation = asyncio.create_task(reconcile())
+            try:
+                while True:
+                    message = await receive()
+                    if message["type"] == "lifespan.startup":
+                        await send({"type": "lifespan.startup.complete"})
+                    elif message["type"] == "lifespan.shutdown":
+                        await client.aclose()
+                        keys.close()
+                        await send({"type": "lifespan.shutdown.complete"})
+                        return
+            finally:
+                reconciliation.cancel()
+                try:
+                    await reconciliation
+                except asyncio.CancelledError:
+                    pass
     return application

@@ -200,6 +200,11 @@ class ProblemHarnessProfile:
                 body.schema_version == "wuji.harness.problem.v1"
                 and body.session_codec is not None
             )
+            or (
+                str(body.context_contract or "wuji.worker-context.v3")
+                == "wuji.worker-context.v4"
+            )
+            != (body.execution_environment is not None)
         ):
             raise ValueError("Problem Profile snapshot mismatch")
         return cls(body=body, digest=snapshot["digest"])
@@ -292,7 +297,8 @@ def parse_profile(snapshot):
 
 def build_agent(*, resolved, profile, model_http, model_gate_url, run_credential,
                 tools, middleware, response_parser, history=None, memory_provider=None,
-                work_memory_provider=None, extra_middleware=(), environment_tool_count=0):
+                work_memory_provider=None, notification_provider=None,
+                extra_middleware=(), environment_tool_count=0):
     """Build the same released public Harness for a fixed fresh/restored profile."""
     problem_profile = isinstance(profile, ProblemHarnessProfile)
     options = resolve_harness_options(profile, resolved)
@@ -348,6 +354,10 @@ def build_agent(*, resolved, profile, model_http, model_gate_url, run_credential
             if work_memory_provider.source_id != profile.memory_source_id:
                 raise ValueError("work memory source differs from the fixed profile")
             session_options["context_providers"].append(work_memory_provider)
+        if notification_provider is not None:
+            if not (problem_profile and profile.native_session):
+                raise ValueError("knowledge notices require the native problem Session")
+            session_options["context_providers"].append(notification_provider)
         if profile.compaction_enabled:
             # These public strategies use native token/annotation processing,
             # never a hidden summarization client or another Agent loop.
@@ -362,7 +372,12 @@ def build_agent(*, resolved, profile, model_http, model_gate_url, run_credential
                 "before_compaction_strategy": ContextWindowCompactionStrategy(**strategy_options),
                 "after_compaction_strategy": ContextWindowCompactionStrategy(**strategy_options),
             })
-    elif history is not None or memory_provider is not None or work_memory_provider is not None:
+    elif (
+        history is not None
+        or memory_provider is not None
+        or work_memory_provider is not None
+        or notification_provider is not None
+    ):
         raise ValueError("M1 does not accept Session providers")
     native = AsyncOpenAI(
         api_key=run_credential, base_url=model_gate_url.rstrip("/") + "/",
