@@ -15,6 +15,7 @@ from wuji_core.execution.pod_runtime import TaskPodLease
 from wuji_core.http import canonical_json_bytes, strict_json_loads
 from wuji_core.http.auth import Principal
 from wuji_core.persistence.uow import AccessContext, DomainError, UnitOfWork
+from wuji_core.projection.snapshots import ProjectionRepository
 
 
 def _with_digest(model, payload, digest):
@@ -164,6 +165,9 @@ def test_runtime_capture_gap_reuses_staged_part_and_terminal_without_session(
                 replay = capture.ingest_item(collector, envelope, {"gap": gap})
                 assert receipt == replay
                 assert receipt.artifact_refs == [staged]
+                assert ProjectionRepository(uow).exploration_view(
+                    TASK, case.access
+                ).schema_version.root == "wuji.exploration-view.v1"
                 assert capture.read_part(
                     collector,
                     TASK,

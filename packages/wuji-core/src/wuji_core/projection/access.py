@@ -6,6 +6,7 @@ from psycopg import sql
 
 from wuji_core.blackboard.fact_view import require_complete_assessments
 from wuji_core.blackboard.relations import resolve
+from wuji_core.contracts.generated import RuntimeCaptureEnvelopeV1
 from wuji_core.contracts.envelopes import EvidenceReceipt
 from wuji_core.contracts.knowledge import KnowledgeRef
 from wuji_core.http.json_boundary import strict_json_loads
@@ -44,6 +45,8 @@ _ROWS = {
     "publication": ("publication", ("publication_id",)),
     "session": ("session_manifest", ("session_id", "revision")),
     "evidence": ("evidence_receipt", ("capture_id",)),
+    "capture_session": ("capture_session", ("capture_session_id",)),
+    "capture_item": ("capture_item", ("capture_session_id", "item_seq")),
     "relation": ("entity_relation", (
         "source_type", "source_id", "source_revision", "relation",
         "target_type", "target_id", "target_revision",
@@ -133,14 +136,47 @@ class AccessRequirements:
                     if (t, i, str(v)) != key:
                         self.knowledge(basis, depth=depth + 1)
             elif kind == "observation":
-                receipt_row = self.require_row("evidence", value["capture_id"])
-                receipt = EvidenceReceipt.model_validate(strict_json_loads(receipt_row["receipt_json"]))
-                if receipt.observation_ref != ref:
-                    raise DomainError("CAPABILITY_UNAVAILABLE", 503)
-                for blob in receipt.artifact_refs:
-                    self.require_row("observation_artifact", ref.id, ref.revision.root, blob.id, blob.version.root)
-                    artifact = self.knowledge(dict(entity_type="artifact", id=blob.id, revision=blob.version.root), depth=depth + 1)
-                    if artifact["sha256"] != blob.sha256.root:
+                session_id = value.get("capture_session_id")
+                if session_id is None:
+                    receipt_row = self.require_row("evidence", value["capture_id"])
+                    receipt = EvidenceReceipt.model_validate(strict_json_loads(receipt_row["receipt_json"]))
+                    if receipt.observation_ref != ref:
+                        raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+                    expected = [(blob.id, blob.version.root, blob.sha256.root, None) for blob in receipt.artifact_refs]
+                else:
+                    session = self.require_row("capture_session", session_id)
+                    item = self.require_row("capture_item", session_id, value["capture_item_seq"])
+                    envelope = RuntimeCaptureEnvelopeV1.model_validate(strict_json_loads(item["envelope_json"]))
+                    if (
+                        item["observation_id"] != ref.id
+                        or str(item["observation_revision"]) != ref.revision.root
+                        or value["capture_id"] != session_id + ":" + str(item["item_seq"])
+                        or envelope.capture_session_id != session_id
+                        or envelope.item_seq != item["item_seq"]
+                        or envelope.item_digest.root != item["item_digest"]
+                        or envelope.collector_ref != value["collector_ref"]
+                        or envelope.binding.task_id != self.tx.owner[2]
+                        or envelope.binding.pod_uid != session["pod_uid"]
+                        or envelope.binding.runtime_attempt.root != str(session["runtime_attempt"])
+                        or envelope.binding.execution_epoch.root != str(session["execution_epoch"])
+                    ):
+                        raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+                    links = self.tx.connection.execute(
+                        """SELECT ordinal,artifact_id,artifact_revision FROM vnext.observation_artifact
+                        WHERE tenant_id=%s AND project_id=%s AND task_id=%s
+                        AND observation_id=%s AND observation_revision=%s ORDER BY ordinal""",
+                        (*self.tx.owner, ref.id, ref.revision.root),
+                    ).fetchall()
+                    if len(links) != len(envelope.parts) or any(ordinal != index for index, (ordinal, *_rest) in enumerate(links)):
+                        raise DomainError("CAPABILITY_UNAVAILABLE", 503)
+                    expected = [
+                        (artifact_id, str(revision), part.sha256.root, part.length)
+                        for (_ordinal, artifact_id, revision), part in zip(links, envelope.parts)
+                    ]
+                for artifact_id, revision, digest, length in expected:
+                    self.require_row("observation_artifact", ref.id, ref.revision.root, artifact_id, revision)
+                    artifact = self.knowledge(dict(entity_type="artifact", id=artifact_id, revision=revision), depth=depth + 1)
+                    if artifact["sha256"] != digest or (length is not None and artifact["size_bytes"] != length):
                         raise DomainError("CAPABILITY_UNAVAILABLE", 503)
             self._knowledge[key] = value
             return value
