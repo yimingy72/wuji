@@ -939,7 +939,9 @@ The Task Pod only receives its own restricted runtime/TLS credentials.
                             "permit_revoked_before_Pod_identity_was_observed",
                             "pod_terminal_unconfirmed",
                         )
-                    verify_pod_ownership(pod, self.config)
+                    verify_pod_ownership(
+                        pod, self.config, allow_shortened_deadline=True
+                    )
                     revoked_uid = pod["metadata"]["uid"]
                 if revoked_uid is not None:
                     stopped = self.stop(pod_uid=revoked_uid)

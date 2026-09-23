@@ -412,7 +412,7 @@ def _normalized_spec(spec: dict) -> dict:
 
 def verify_pod_ownership(
     pod: dict, config: TaskRuntimeConfig, *, require_template: bool = True,
-    expected_uid: str | None = None,
+    expected_uid: str | None = None, allow_shortened_deadline: bool = False,
 ) -> None:
     verify_resource_ownership(pod, config)
     metadata = pod.get("metadata") or {}
@@ -427,5 +427,13 @@ def verify_pod_ownership(
         annotations = metadata.get("annotations") or {}
         if any(annotations.get(key) != value for key, value in config.annotations.items()):
             raise OwnershipError("Pod execution/template binding does not match")
-        if _normalized_spec(pod.get("spec") or {}) != _normalized_spec(build_task_pod(config)["spec"]):
+        observed_spec = _normalized_spec(pod.get("spec") or {})
+        expected_spec = _normalized_spec(build_task_pod(config)["spec"])
+        if (
+            allow_shortened_deadline
+            and config.template_version == "core-ctf-v1"
+            and observed_spec.get("activeDeadlineSeconds") == 1
+        ):
+            observed_spec["activeDeadlineSeconds"] = expected_spec["activeDeadlineSeconds"]
+        if observed_spec != expected_spec:
             raise OwnershipError("Pod managed template does not match")

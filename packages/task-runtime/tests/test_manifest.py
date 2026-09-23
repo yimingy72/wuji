@@ -135,6 +135,22 @@ def test_core_pod_accepts_kubernetes_omission_of_zero_probe_delay(config):
         verify_pod_ownership(pod, core, expected_uid="pod-uid")
 
 
+def test_revoked_core_pod_only_allows_platform_shortened_deadline(config):
+    core = core_config(config)
+    pod = observed(core)
+    pod["spec"]["activeDeadlineSeconds"] = 1
+    with pytest.raises(OwnershipError):
+        verify_pod_ownership(pod, core, expected_uid="pod-uid")
+    verify_pod_ownership(
+        pod, core, expected_uid="pod-uid", allow_shortened_deadline=True
+    )
+    pod["spec"]["containers"][0]["image"] = core.kali_image
+    with pytest.raises(OwnershipError):
+        verify_pod_ownership(
+            pod, core, expected_uid="pod-uid", allow_shortened_deadline=True
+        )
+
+
 @pytest.mark.parametrize("change", ["image", "privilege", "task", "secret", "env", "extra-container"])
 def test_drift_is_rejected(config, change):
     pod = observed(config)
