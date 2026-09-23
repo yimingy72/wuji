@@ -33,7 +33,7 @@ C08增加用户最新前端与登录要求：账号密码登录；两个浏览�
 
 ## 3. 最小命令入口（实施后才成立）
 
-这些是Plan拟新增文件对应的执行指令，当前未运行、文件不一定存在：
+这些是Plan拟新增文件对应的早期示例；机制driver后来已实际运行，前两条文件名不作为当前检查入口。实际b18命令与退出码见§7及原始报告：
 
 ```sh
 ./scripts/vnext/uv.sh run --frozen pytest tests/vnext/test_core_process.py tests/vnext/test_workspace_bundle.py -q
@@ -59,29 +59,29 @@ C01—C07及C08机制链的关键项通过，才可称本阶段核心开发交�
 
 以下为2026-09-23早期代码开发截面：当时基准HEAD为`3682eda`，改动未提交或部署。后续真实部署与验收以§7为准，不把旧状态冒称当前。
 
-| 切片 | 当前结果 | 实际检查/证据 |
+| 切片 | 当时结果（2026-09-23早期） | 当时检查/证据及后续边界 |
 | --- | --- | --- |
 | Task并发配置与CTF入口 | 代码已写；0036追加迁移、旧payload省略语义、冻结instructions及UI字段 | 定向PG3项、context1项、合同生成检查、Web build通过；`work/core-ctf-test-evidence/task-configuration/`。未做运行库升级/浏览器走查 |
 | WorkResult与后继上下文 | 代码已写；有效引用投影、snapshot冻结与ACL、Brief消费、旧context重放 | 纯逻辑3项；最终PG1项通过，`work/core-ctf-test-evidence/context-results/db-work-result-snapshot-final.txt`。尚未做真实双Agent/MCP交接 |
 | 调度容量与触发 | 代码已写；配置上限、终态/input触发与无进展窗口 | 主代理最终角色/未结算槽3实例通过，`work/core-ctf-test-evidence/scheduler-slice/main-final-role-check.txt`；其他定向结果与失败历史在同目录 |
-| 增量Claim增强用例 | 待测 | 最新测试在未登记collector attempt的夹具设置处`FORBIDDEN_COLLECTOR`，未进入增量逻辑；`main-final-claim-check.txt`。不扩回归，后续真实board_publish联合用例覆盖；模型产物不应计外部新证据的静态关注也待收口 |
-| 密码登录 | 代码已写，尚未部署或设置实际用户凭据 | 登录/多浏览器/单会话退出/重建及旧模式等7项、CLI1项和Web build通过；loopback HTTP与持久PVC的集成修正3项通过。原始记录`work/core-ctf-test-evidence/local-password/`；不替代C08浏览器与部署验收 |
+| 增量Claim增强用例 | 当时待测；后续b18已实际board_publish，专门增量边界仍待测 | 当时最后一次测试在未登记collector attempt的夹具设置处`FORBIDDEN_COLLECTOR`，未进入增量逻辑；`main-final-claim-check.txt`。该失败保留；后续真实board_publish联合用例与b18主链另见§7，模型产物不应计外部新证据的边界不因b18自动通过 |
+| 密码登录 | 当时代码已写，尚未部署或设置实际用户凭据；后续独立Core已部署 | 登录/多浏览器/单会话退出/重建及旧模式等7项、CLI1项和Web build通过；loopback HTTP与持久PVC的集成修正3项通过。原始记录`work/core-ctf-test-evidence/local-password/`；b18实际登录只作为机制入口，不替代完整C08会话矩阵 |
 | 运行中通知/board_publish | 实施中，框架通知接缝已局部验证 | 真实MAF框架的三轮mock stream通过：发布后下一模型边界获metadata、显式read后才获正文；失败不持久推进游标。原始记录`work/core-ctf-test-evidence/context-results/native-notice-middleware-final.txt`。PG联合节点在准备链修复后仍因旧Profile与native delivery通道不匹配失败，最终native配置调整尚未重跑；`db-notifications-node-final.txt`保留失败，不记C07通过 |
-| 任务概览/活动读视图与工作台 | 接口局部检查与前端构建通过，尚未部署 | PG与HTTP定向1项通过，覆盖Task权限、stale判据、真实预算、活动投影与分页/筛选；`work/core-ctf-test-evidence/task-workbench/task-read-views-db-final.txt`。概览/活动/工作区/发现页签、技术信息折叠、任务切换与独立请求、记录下钻已接线，Web build通过见同目录`web-build.txt`。同目录保留launch读取权限和SQL JOIN两次失败及修复过程；尚无完整浏览器验收 |
+| 任务概览/活动读视图与工作台 | 当时接口局部检查与前端构建通过、尚未部署；后续独立Core已部署 | PG与HTTP定向1项通过，覆盖Task权限、stale判据、真实预算、活动投影与分页/筛选；`work/core-ctf-test-evidence/task-workbench/task-read-views-db-final.txt`。概览/活动/工作区/发现页签、技术信息折叠、任务切换与独立请求、记录下钻已接线，Web build通过见同目录`web-build.txt`。同目录保留launch读取权限和SQL JOIN两次失败及修复过程；b18三页浏览器截图见§7，其余浏览器下钻未覆盖 |
 | M2a独立capture | HTTP/TLS、拒绝路径与Linux采集组件局部验证通过 | `work/core-ctf-test-evidence/capture/local-http-tls-final.txt`为3项通过；Linux镜像`sha256:c559bd5af0a216c638524e964c86c7b7a7c1302f8f1e9912e261c63fef7059ed`，运行记录`full-image-runtime-r2.txt`。报告`capture/report.md`含完整请求响应与`screenshots/capture-verification.png`。该证据不包含Task UID出口强制、mTLS拉取入库及完整停止；统计采样/丢包关断后续修正也不冒称被旧镜像覆盖 |
-| M1原生MCP与进程归档 | 无DB工具语义与PG主链局部通过 | `work/evidence/core-ctf-m1-20260923/no-db-tests.log`为9项通过；`process-pg-autofinalize.log`为单节点通过。真实native MCP→签名HTTPS Kali→单spawn重放→后台watch自主归档，得到accepted EvidenceReceipt、sealed command-log，父exec为exited。旧诊断版直接finalizer日志不替代自主路径；尚非Task Pod网络与取消终止联合验收 |
+| M1原生MCP与进程归档 | 当时无DB工具语义与PG主链局部通过 | `work/evidence/core-ctf-m1-20260923/no-db-tests.log`为9项通过；`process-pg-autofinalize.log`为单节点通过。真实native MCP→签名HTTPS Kali→单spawn重放→后台watch自主归档，得到accepted EvidenceReceipt、sealed command-log，父exec为exited。旧诊断版直接finalizer日志不替代自主路径；后续b18在真实Task Pod内完成MCP/Kali与取消终态，范围见§7 |
 | Kubernetes终止机制 | 独立三容器Pod探针通过 | `work/core-ctf-test-evidence/runtime-deadline/`记录docker-desktop v1.36.1下UID/resourceVersion条件patch，将activeDeadlineSeconds 600→1；同UID三个容器均terminated、Pod对象保留，后清理临时namespace。仅证明该K8s机制，不替代Wuji停止编排/终态持久化 |
-| M2b UID网络与抓包能力 | Docker共享netns中的真实Kali/capture机制通过，Task Pod装配未验收 | `work/core-ctf-test-evidence/runtime-netns/report.md`含截图、完整HTTP/TLS字节及规则/进程capability记录。capture `sha256:b6302759dd0f0b4a79f52699a1cbde9cfb621d0fafb18655cfc1fa875fbb8647`；Kali `sha256:a8779183fa81b73089e7e5a7cfc3b0fb3cc373c59250e5d929916eb3cd477fcc`。代理TLS成功、IPv4/IPv6直连拒绝；tcpdump独得NET_RAW、Kali与其他capture进程无有效cap。新core MAF入口、mTLS拉取、Runtime编排及完整K8s Pod联合链尚未覆盖 |
-| M3脚本发布/装载/CAS | 已落盘，联合节点尚未通过 | `context-results/workspace-bundle-a-to-b-node-v1.txt`缺少fixture角色限额；v2进入真实Scheduler后被旧工具能力白名单拒绝。后者已交A1修业务代码；集中窗口定向复测，不将collect-only或单模块完成写成C06通过 |
-| 有界知识/采集合同及读取接缝 | 无DB局部检查通过，PG联合检查待完成 | `work/core-ctf-test-evidence/context-results/context-m2c-no-db-final-v1.txt`记录合同生成一致、路由集合、process metadata-only、required-only query及采集材料renderer等13项通过。该次无DB检查时，capture PG节点曾停在fixture控制权限前置；后续结果见下一行。`runtime-capture-pg-attempts-v1.txt`是失败过程摘要，数据库/身份原始事件在同目录`b15098c4895b/`。该记录本身不覆盖有界snapshot容量、累计计数或terminal的PG验证。 |
-| 2026-09-23核心PG联合窗口 | capture服务节点通过；其余3项未通过 | `context-results/core-four-pg-final-v1.txt`四项共同阻断于新增0040重复CREATE FUNCTION，未进业务；迁移已改为append-only replacement。`core-four-pg-final-v2.txt`中capture节点通过，覆盖gap真实Artifact、固定引用重放、累计计数与无receiver/撤权后终态。M3/容量场景仍受当前执行校验及replay错误列阻断；通知场景需修正旧测试的派发时序。仅定向修复/复测这3项，已过capture不重跑；尚非完整Task采集与停止验收 |
-| 2026-09-23后继定向核对 | capture终态helper、容量ContextV4与F3读视图局部通过；M3/通知仍待测 | 本轮pytest工具transcript中，真实capture节点1项通过，覆盖完整四容器终态缺项阻断/齐全放行及累计水位；1001 items ContextV4节点1项通过。`test_task_read_views.py::test_task_overview_and_activity_are_acl_scoped_and_cursor_bound`扩展后1项通过，覆盖命令分页、读权限与空publication；合同生成`--check`一致。本轮stdout未另存文件，不用前轮日志冒充。M3节点已推进到B ContextV4后停在测试RootModel断言，修正后未重跑；通知节点审计显示夹具调度时间UPDATE 0，Reason尚在聚合窗口，按两轮限制延期。完整Task与非空F3 publication待联合主链核对。 |
-| 独立Core平台与密码Web装配 | renderer局部检查通过，未部署 | `work/core-ctf-test-evidence/platform-web/renderer-web.log` 7项通过，覆盖独立namespace、共享RunCredential加密key、Runtime 8MiB传输边界、capture CA路径、账号密码BFF、持久会话PVC与旧web默认兼容。入口要求6类固定镜像及私有scrypt文件；不包含浏览器或真实Task验收 |
-| 2026-09-23 Runtime/F3收口 | 代码冻结待联合部署 | GPT-6 Sol/high接续后报告Runtime定向10项、BFF新增读路由1项、capture HTTP摘要1项、web build及最终typecheck通过；stdout仅工具记录。已接命令/版本/HTTP/PCAP分页与真实容器停止投影，未做浏览器验收。主代理driver终态绑定/敏感头隐藏1项通过，原日志`work/core-ctf-test-evidence/mechanism-driver/pure-check.log`；真实driver尚未运行。renderer显式容量传参1项通过，`platform-web/renderer-capacity.log` |
-| 2026-09-23 F4采集材料路由 | 独立Core浏览器局部通过，C08整体仍待机制验收 | `75cfbd0` Web镜像实际digest `sha256:fd1ee55febf8ad42dc0873e35dbfcff4fa1a6fc9a95f989aee4e197df0ff1896`；Docker内typecheck/Vite build、core-web rollout/Ready通过。既有b6 Task的912B manifest `omitted+source`预览正常、原文下载SHA匹配；20,411,486B PCAP从材料页定位到对应采集原件item。实际页面截图、完整私有HTTP报文及原始响应见`work/core-ctf/local-20260923/evidence-f4/route-75cfbd0/report.md`。未重复执行Task控制、旧登录用例或机制driver |
-| 通用MCP/Kali、capture、共享脚本版本、任务详情整体改造 | 分阶段推进，未完整接通 | C01—C08仍not_run，不因局部检查提前标accepted |
+| M2b UID网络与抓包能力 | 当时Docker共享netns机制通过、Task Pod装配未验收 | `work/core-ctf-test-evidence/runtime-netns/report.md`含截图、完整HTTP/TLS字节及规则/进程capability记录。capture `sha256:b6302759dd0f0b4a79f52699a1cbde9cfb621d0fafb18655cfc1fa875fbb8647`；Kali `sha256:a8779183fa81b73089e7e5a7cfc3b0fb3cc373c59250e5d929916eb3cd477fcc`。代理TLS成功、IPv4/IPv6直连拒绝；tcpdump独得NET_RAW、Kali与其他capture进程无有效cap。后续b18已有真实Task Pod、mTLS采集拉取与Runtime终态证据，不能把当时镜像digest冒称b18版本 |
+| M3脚本发布/装载/CAS | 当时已落盘、联合节点未通过；后续定向PG节点1 passed，b18固定版本交接通过 | `context-results/workspace-bundle-a-to-b-node-v1.txt`缺少fixture角色限额；v2进入真实Scheduler后被旧工具能力白名单拒绝，这两次失败保留为当时结果。后续`test_workspace_bundles.py::test_workspace_bundle_a_to_b_fixed_version_materialize_and_cas`定向PG 1 passed（6.62秒），b18在真实Task完成A发布→B装载/执行并保存manifest与文件hash；C06全部CAS/权限矩阵仍未accepted |
+| 有界知识/采集合同及读取接缝 | 当时无DB局部检查通过、PG联合检查待完成；后续定向PG及b18见§7 | `work/core-ctf-test-evidence/context-results/context-m2c-no-db-final-v1.txt`记录合同生成一致、路由集合、process metadata-only、required-only query及采集材料renderer等13项通过。该次无DB检查时，capture PG节点曾停在fixture控制权限前置；后续结果见下一行。`runtime-capture-pg-attempts-v1.txt`是失败过程摘要，数据库/身份原始事件在同目录`b15098c4895b/`。该记录本身不覆盖有界snapshot容量、累计计数或terminal的PG验证。 |
+| 2026-09-23核心PG联合窗口 | 当时capture节点通过、其余3项未通过；后续分批修复/定向通过 | `context-results/core-four-pg-final-v1.txt`四项共同阻断于新增0040重复CREATE FUNCTION，未进业务；迁移已改为append-only replacement。`core-four-pg-final-v2.txt`中capture节点通过，覆盖gap真实Artifact、固定引用重放、累计计数与无receiver/撤权后终态。当时M3/容量受执行校验与replay错误列阻断，通知夹具时序不符；后续M3、容量和通知定向节点及b18实测见下一行与§7，旧失败不改写成通过 |
+| 2026-09-23后继定向核对 | 当时capture终态helper、容量ContextV4与F3读视图局部通过；M3/通知尚待后测 | 本轮pytest工具transcript中，真实capture节点1项通过，覆盖完整四容器终态缺项阻断/齐全放行及累计水位；1001 items ContextV4节点1项通过。`test_task_read_views.py::test_task_overview_and_activity_are_acl_scoped_and_cursor_bound`扩展后1项通过，覆盖命令分页、读权限与空publication；合同生成`--check`一致。本轮stdout未另存文件，不用前轮日志冒充。当时M3停在测试RootModel断言、通知夹具UPDATE 0；后续M3与隔离PG通知节点各1 passed，b18真实A/B及非空共享版本见§7，C07全边界仍未accepted。 |
+| 独立Core平台与密码Web装配 | 当时renderer局部检查通过、未部署；后续独立Core 8/8 Ready | `work/core-ctf-test-evidence/platform-web/renderer-web.log` 7项通过，覆盖独立namespace、共享RunCredential加密key、Runtime 8MiB传输边界、capture CA路径、账号密码BFF、持久会话PVC与旧web默认兼容。入口要求6类固定镜像及私有scrypt文件；后续b18实际浏览器和Task结果见§7 |
+| 2026-09-23 Runtime/F3收口 | 当时代码冻结待联合部署；后续b18真实driver通过 | GPT-6 Sol/high接续后报告Runtime定向10项、BFF新增读路由1项、capture HTTP摘要1项、web build及最终typecheck通过；stdout仅工具记录。已接命令/版本/HTTP/PCAP分页与真实容器停止投影。当时主代理driver终态绑定/敏感头隐藏1项通过，原日志`work/core-ctf-test-evidence/mechanism-driver/pure-check.log`；后续b18真实driver退出0、三页浏览器截图见§7，其他页面未完整验收。renderer显式容量传参1项通过，`platform-web/renderer-capacity.log` |
+| 2026-09-23 F4采集材料路由 | 独立Core浏览器局部通过；b18主链后来通过，C08全项仍未accepted | `75cfbd0` Web镜像实际digest `sha256:fd1ee55febf8ad42dc0873e35dbfcff4fa1a6fc9a95f989aee4e197df0ff1896`；Docker内typecheck/Vite build、core-web rollout/Ready通过。既有b6 Task的912B manifest `omitted+source`预览正常、原文下载SHA匹配；20,411,486B PCAP从材料页定位到对应采集原件item。实际页面截图、完整私有HTTP报文及原始响应见`work/core-ctf/local-20260923/evidence-f4/route-75cfbd0/report.md`。该轮未重复执行Task控制、旧登录用例或机制driver；b18本Task三页浏览器截图另见§7 |
+| 通用MCP/Kali、capture、共享脚本版本、任务详情整体改造 | b18 synthetic机制主链通过；完整验收仍分阶段推进 | C01—C08现为§1所列局部结果，完整组尚未accepted；真实模型/外部CTF仍not_run，不因单条主链把全部边界标通过 |
 
-上表为局部验证，M2a已有相应截图和请求包；完整Task联合链证据仍待补充，不能冒充已完成产品验收。参考平台产品研究不是本平台测试成果。
+上表保留早期局部验证及失败的历史截面，M2a已有相应截图和请求包；当前完整Task synthetic联合链证据见§7，C01—C08完整验收仍未accepted。参考平台产品研究不是本平台测试成果。
 
 ## 7. 2026-09-23 独立 Core synthetic 机制实测
 
