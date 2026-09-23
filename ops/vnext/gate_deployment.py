@@ -214,13 +214,8 @@ class WorkspaceTransferDispatch:
     def __init__(self, gate):
         self.gate = gate
 
-    def _executor(self, permit):
-        key = (
-            permit.identity.tenant_id,
-            permit.identity.project_id,
-            permit.identity.task_id,
-            permit.executor_ref,
-        )
+    def require_available(self, owner, executor_ref):
+        key = (*owner, executor_ref)
         executor = self.gate.executors.get(key)
         if executor is None or not all(
             callable(getattr(executor, name, None))
@@ -228,6 +223,13 @@ class WorkspaceTransferDispatch:
         ):
             raise DomainError("CAPABILITY_UNAVAILABLE", 503)
         return executor
+
+    def _executor(self, permit):
+        identity = permit.identity
+        return self.require_available(
+            (identity.tenant_id, identity.project_id, identity.task_id),
+            permit.executor_ref,
+        )
 
     async def export(self, permit, request):
         return await self._executor(permit).export(permit, request)
@@ -309,12 +311,12 @@ class RefreshingToolGate:
     def _refresh(self):
         return self._refresher.refresh(self._gate, self._authority)
 
-    def _assembly(self, access, ref):
+    def _assembly(self, access, ref, *, assemble=None):
         deadline = self._monotonic() + self._refresh_timeout
         while True:
             self._refresh()
             try:
-                return self._gate._assembly(access, ref)
+                return (assemble or self._gate._assembly)(access, ref)
             except DomainError as error:
                 remaining = deadline - self._monotonic()
                 if error.code != "CAPABILITY_UNAVAILABLE" or remaining <= 0:
@@ -373,16 +375,31 @@ def build_gates():
         deployment.uow, ledger=deployment.ledger, artifacts=deployment.artifacts
     )
     process_tools = ProcessToolGate(tools, refresh=refresh)
+    workspace_transfer = WorkspaceTransferDispatch(tools)
     workspace_service = WorkspaceBundleService(
         deployment.uow,
         registry=deployment.registry,
         artifacts=deployment.artifacts,
         knowledge_reads=knowledge_reads,
-        transfer=WorkspaceTransferDispatch(tools),
+        transfer=workspace_transfer,
     )
     workspace_tools = WorkspaceToolGate(
         tools, workspace_service, refresh=refresh
     )
+
+    def assemble_model_tool(access, ref, kind, name):
+        if kind == "process":
+            return refreshing_tools._assembly(access, ref, assemble=process_tools._assembly)
+        if kind == "workspace_bundle":
+            def check_workspace(access, ref):
+                _definition, registration = workspace_tools._definition(access, ref, name)
+                identity = tools.registry.binding(access).identity
+                return workspace_transfer.require_available(
+                    (identity.tenant_id, identity.project_id, identity.task_id),
+                    registration.ref,
+                )
+            return refreshing_tools._assembly(access, ref, assemble=check_workspace)
+        return refreshing_tools._assembly(access, ref)
     board_publisher = BoardPublishService(
         deployment.uow,
         registry=deployment.registry,
@@ -393,7 +410,8 @@ def build_gates():
     keys = KeyResolver(deployment)
     models = ModelGate(ModelAdmission(deployment.uow, registry=deployment.registry, ledger=ledger),
         registry=deployment.registry, ledger=ledger, key_resolver=keys,
-        transport=HttpxModelTransport(client), tool_capabilities=ToolCapabilityResolver(refreshing_tools))
+        transport=HttpxModelTransport(client),
+        tool_capabilities=ToolCapabilityResolver(refreshing_tools, assemble=assemble_model_tool))
     app = create_app(token_verifier=deployment.verifier, routers=[
         create_model_router(models), create_tool_router(refreshing_tools),
         create_executor_host_router(refreshing_authority),

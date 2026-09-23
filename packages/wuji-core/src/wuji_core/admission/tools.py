@@ -845,8 +845,8 @@ class ToolAdmission:
 class ToolCapabilityResolver:
     """Resolve model-advertised tools against the actual ToolGate assembly."""
 
-    def __init__(self, gate):
-        self.gate = gate
+    def __init__(self, gate, *, assemble=None):
+        self.gate, self.assemble = gate, assemble
 
     def require_available(self, access, tools):
         binding = self.gate.registry.binding(access)
@@ -870,11 +870,15 @@ class ToolCapabilityResolver:
                 ):
                     raise DomainError("CAPABILITY_UNAVAILABLE", 503)
                 if definition["category"] == "environment_action":
-                    refs.append(definition["source_ref"])
+                    ref = definition["source_ref"]
+                    refs.append((ref, tool_kind(self.gate.registry.tool(tx, ref)), function["name"]))
             if {tool.function.name for tool in tools} != set(capabilities):
                 raise DomainError("CAPABILITY_UNAVAILABLE", 503)
-        for ref in refs:
-            self.gate._assembly(access, ref)
+        for ref, kind, name in refs:
+            if self.assemble is None:
+                self.gate._assembly(access, ref)
+            else:
+                self.assemble(access, ref, kind, name)
 
 
 class ToolGate:

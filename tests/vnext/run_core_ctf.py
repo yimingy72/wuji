@@ -70,6 +70,10 @@ class OperationUnknown(RunFailure):
     pass
 
 
+class RetryableReadFailure(RunFailure):
+    pass
+
+
 def _write(path: Path, value: bytes) -> None:
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     with path.open("xb") as stream:
@@ -301,6 +305,8 @@ class Browser:
         })
         if status not in expected:
             message = f"{method} {path} returned {status or error_name}"
+            if method == "GET" and (status is None or status in {502, 503, 504}):
+                raise RetryableReadFailure(message)
             if method != "GET" and (status is None or status in {502, 503, 504}):
                 raise OperationUnknown(message)
             raise RunFailure(message)
@@ -549,8 +555,13 @@ def _wait_chain(
 ) -> dict:
     last = None
     while time.monotonic() < deadline:
-        task = browser.json("GET", f"/api/v2/tasks/{_q(task_id)}")
-        launch = browser.json("GET", f"/api/v2/tasks/{_q(task_id)}/launch")
+        try:
+            task = browser.json("GET", f"/api/v2/tasks/{_q(task_id)}")
+            launch = browser.json("GET", f"/api/v2/tasks/{_q(task_id)}/launch")
+        except RetryableReadFailure as error:
+            _event(events, "read_retry", task_id=task_id, error=str(error))
+            time.sleep(poll)
+            continue
         if launch.get("phase_status") == "failed":
             raise RunFailure("Task launch failed at " + str(launch.get("phase")))
         state = (task["desired_state"], task["observed_state"], task["version"])
@@ -559,7 +570,12 @@ def _wait_chain(
             last = state
         if task["observed_state"] == "closed":
             raise RunFailure("Task closed before the mechanism chain was verified")
-        chain = _read_chain(browser, task_id)
+        try:
+            chain = _read_chain(browser, task_id)
+        except RetryableReadFailure as error:
+            _event(events, "read_retry", task_id=task_id, error=str(error))
+            time.sleep(poll)
+            continue
         if chain is not None:
             chain["task"] = task
             return chain

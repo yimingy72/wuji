@@ -1,6 +1,7 @@
 """Refresh the real runtime composition without restarting existing routes."""
 
 from dataclasses import replace
+from contextlib import contextmanager
 import importlib.util
 import json
 from pathlib import Path
@@ -15,7 +16,11 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "ops/vnext"))
 
 from deployment_common import Deployment, Settings
+from wuji_core.admission.common import digest
+from wuji_core.admission.tools import ToolCapabilityResolver
 from wuji_core.execution.dispatch_outbox import TaskSupervisorTransport
+from wuji_core.execution.process_gate import ProcessToolGate
+from wuji_core.execution.workspace_gate import WorkspaceToolGate
 from wuji_core.persistence.uow import DomainError
 from wuji_maf_worker.factory import HarnessProfile
 
@@ -148,6 +153,98 @@ def test_gate_waits_for_one_projected_executor_refresh():
     assert wrapper._assembly("access", "tool-ref") == "available"
     assert calls == [("access", "tool-ref"), ("access", "tool-ref")]
     assert refreshes == ["refresh", "refresh"]
+
+
+def test_core_model_tools_use_their_real_process_and_workspace_assemblies():
+    gates = module("ops/vnext/gate_deployment.py", "core_model_assembly_test")
+    owner = ("tenant", "project", "task")
+    process = SimpleNamespace(name="kali_exec", allowed_target_kinds=["process"], executor_ref="core")
+    workspace = SimpleNamespace(name="workspace_publish", allowed_target_kinds=["workspace_bundle"],
+                                executor_ref="core", ref="workspace-ref")
+    registration = SimpleNamespace(ref="core", protocol="process.v1", collector_subject="collector",
+                                   allowed_tool_refs=["workspace-ref"])
+    executor = SimpleNamespace(
+        invoke=lambda *_a, **_k: None,
+        query_process=lambda *_a, **_k: None,
+        export=lambda *_a, **_k: None,
+        import_publication=lambda *_a, **_k: None,
+    )
+
+    @contextmanager
+    def transaction(_access, task_id):
+        assert task_id == owner[2]
+        yield SimpleNamespace(owner=owner)
+
+    registry = SimpleNamespace(
+        binding=lambda _access: SimpleNamespace(identity=SimpleNamespace(task_id=owner[2])),
+        tool=lambda _tx, ref: {"process-ref": process, "workspace-ref": workspace}[ref],
+        executor=lambda _tx, _ref: registration,
+    )
+    gate = SimpleNamespace(
+        registry=registry,
+        admission=SimpleNamespace(uow=SimpleNamespace(transaction=transaction)),
+        executors={(*owner, "core"): executor},
+        collector_accesses={(*owner, "core"): SimpleNamespace(
+            principal=SimpleNamespace(subject="collector")
+        )},
+        _assembly=lambda *_: pytest.fail("Core model tool entered the legacy executor contract"),
+    )
+    refresher = SimpleNamespace(refresh=lambda *_: None)
+    wrapper = gates.RefreshingToolGate(gate, refresher, object())
+    process_gate = ProcessToolGate(gate)
+    workspace_gate = WorkspaceToolGate(gate, SimpleNamespace())
+    transfer = gates.WorkspaceTransferDispatch(gate)
+    assert wrapper._assembly(None, "process-ref", assemble=process_gate._assembly)[-1] == "exec"
+    assert wrapper._assembly(
+        None, "workspace-ref",
+        assemble=lambda access, ref: (
+            workspace_gate._definition(access, ref, "workspace_publish"),
+            transfer.require_available(owner, "core"),
+        ),
+    )[1] is executor
+    del gate.executors[(*owner, "core")]
+    with pytest.raises(DomainError, match="CAPABILITY_UNAVAILABLE"):
+        transfer.require_available(owner, "core")
+
+
+def test_model_capability_resolver_routes_published_tool_kinds(monkeypatch):
+    import wuji_core.admission.tools as tool_module
+
+    definitions = {
+        "process-ref": SimpleNamespace(allowed_target_kinds=["process"]),
+        "workspace-ref": SimpleNamespace(allowed_target_kinds=["workspace_bundle"]),
+    }
+
+    @contextmanager
+    def transaction(_access, _task_id, *, capability):
+        assert capability == "model_request"
+        yield object()
+
+    registry = SimpleNamespace(
+        binding=lambda _access: SimpleNamespace(identity=SimpleNamespace(task_id="task")),
+        config=lambda _tx: object(),
+        tool=lambda _tx, ref: definitions[ref],
+    )
+    gate = SimpleNamespace(registry=registry, admission=SimpleNamespace(
+        uow=SimpleNamespace(transaction=transaction)
+    ))
+    monkeypatch.setattr(tool_module, "current_run", lambda *_args: (object(), object()))
+    monkeypatch.setattr(tool_module, "model_function_capabilities", lambda *_args: ({
+        "kali_exec": {"category": "environment_action", "source_ref": "process-ref", "input_schema_digest": digest({})},
+        "workspace_publish": {"category": "environment_action", "source_ref": "workspace-ref", "input_schema_digest": digest({})},
+    }, set()))
+    seen = []
+    advertised = [SimpleNamespace(
+        function=SimpleNamespace(name=name),
+        model_dump=lambda name=name, **_kwargs: {"function": {"name": name, "parameters": {}}},
+    ) for name in ("kali_exec", "workspace_publish")]
+    ToolCapabilityResolver(gate, assemble=lambda *args: seen.append(args)).require_available(
+        None, advertised
+    )
+    assert [item[1:] for item in seen] == [
+        ("process-ref", "process", "kali_exec"),
+        ("workspace-ref", "workspace_bundle", "workspace_publish"),
+    ]
 
 
 def test_runtime_refuses_to_start_without_the_session_transport(monkeypatch):
