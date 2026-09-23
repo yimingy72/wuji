@@ -218,8 +218,9 @@ def test_runtime_capture_gap_reuses_staged_part_and_terminal_without_session(
                 first = controller_capture.record_terminal_observation(
                     case.access, terminal
                 )
-                later = terminal.model_copy(
-                    update={
+                later = wire.RuntimeTerminalObservationV1.model_validate(
+                    {
+                        **terminal.model_dump(mode="json"),
                         "capture_session_id": session.capture_session_id,
                         "observed_at": datetime.now(timezone.utc) + timedelta(seconds=1),
                     }
@@ -242,6 +243,10 @@ def test_runtime_capture_gap_reuses_staged_part_and_terminal_without_session(
                 ):
                     next_payload = {
                         **terminal_payload,
+                        "capture_session_id": (
+                            session.capture_session_id
+                            if name == "task-network-init" else None
+                        ),
                         "container_name": name,
                         "state": state,
                         "exit_code": 0 if state == "terminated" else None,
@@ -255,9 +260,12 @@ def test_runtime_capture_gap_reuses_staged_part_and_terminal_without_session(
                             RuntimeCaptureService._terminal_source(next_terminal)
                         )}
                     )
-                    controller_capture.record_terminal_observation(
+                    recorded = controller_capture.record_terminal_observation(
                         case.access, next_terminal
                     )
+                    if name == "task-network-init":
+                        assert next_terminal.capture_session_id.root == session.capture_session_id
+                        assert recorded.capture_session_id.root == session.capture_session_id
                 states = controller_capture.terminal_container_states(
                     case.access, TASK, runtime_attempt=binding["runtime_attempt"],
                     execution_epoch=binding["execution_epoch"], pod_uid=POD_UID,

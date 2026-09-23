@@ -579,12 +579,16 @@ class RuntimeCaptureService:
         with self.uow.transaction(
             access, observation.binding.task_id, capability="control"
         ) as tx:
-            if observation.capture_session_id is not None:
+            capture_session_id = (
+                observation.capture_session_id.root
+                if observation.capture_session_id is not None else None
+            )
+            if capture_session_id is not None:
                 session = row(
                     tx.connection.execute(
                         """SELECT * FROM vnext.capture_session WHERE tenant_id=%s
                         AND project_id=%s AND task_id=%s AND capture_session_id=%s""",
-                        (*tx.owner, observation.capture_session_id),
+                        (*tx.owner, capture_session_id),
                     )
                 )
                 if session is None or _binding(
@@ -627,7 +631,7 @@ class RuntimeCaptureService:
                 (
                     *tx.owner,
                     terminal_id,
-                    observation.capture_session_id,
+                    capture_session_id,
                     observation.binding.runtime_attempt.root,
                     observation.binding.execution_epoch.root,
                     observation.binding.pod_uid,
@@ -643,7 +647,7 @@ class RuntimeCaptureService:
                 {
                     "schema_version": "wuji.runtime-terminal-observation-receipt.v1",
                     "terminal_observation_id": terminal_id,
-                    "capture_session_id": observation.capture_session_id,
+                    "capture_session_id": capture_session_id,
                     "container_name": observation.container_name,
                     "source_digest": observation.source_digest,
                     "observed_at": observation.observed_at,
