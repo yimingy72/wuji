@@ -12,7 +12,7 @@ from wuji_core.execution.pod_runtime import PodCaptureRegistration
 from wuji_core.persistence.uow import DomainError
 from wuji_task_runtime.models import RuntimeObservation
 from wuji_task_runtime.capture_client import CaptureControlClient
-from wuji_task_runtime.errors import RuntimeTransportError
+from wuji_task_runtime.errors import PermitDenied, RuntimeTransportError
 from wuji_task_runtime.process_cleanup import ProcessCleanupClient
 
 
@@ -284,6 +284,41 @@ def test_missing_pod_recovers_only_from_the_complete_terminal_set(
     result = runtime.stop(pod_uid="pod-uid")
 
     assert result.state == ("stopped" if complete else "stopping")
+
+
+@pytest.mark.parametrize(
+    ("bindings", "complete", "expected"),
+    [([], False, "stopping"), ([("pod-uid",)], False, "stopping"),
+     ([("pod-uid",)], True, "stopped"),
+     ([("pod-uid",), ("other-uid",)], True, "stopping")],
+)
+def test_revoked_without_receiver_recovers_only_one_complete_terminal_uid(
+    monkeypatch, bindings, complete, expected
+):
+    runtime = bare_runtime(monkeypatch)
+    calls = []
+
+    @contextmanager
+    def open_transaction():
+        yield SimpleNamespace(
+            owner=("tenant", "project", "task"),
+            connection=SimpleNamespace(execute=lambda statement, params: (
+                calls.append((statement, params)) or SimpleNamespace(fetchall=lambda: bindings)
+            )),
+        )
+
+    def denied(_tx):
+        raise PermitDenied("revoked", code="task_not_runnable")
+
+    runtime.permits = SimpleNamespace(transaction=open_transaction, in_transaction=denied)
+    runtime.pods = SimpleNamespace(read_pod=lambda *_args: None)
+    runtime._terminal_observations_complete = lambda uid: complete and uid == "pod-uid"
+
+    result = runtime.ensure()
+
+    assert result.state == expected
+    assert result.pod_uid == ("pod-uid" if expected == "stopped" else None)
+    assert not calls or calls[0][1] == ("tenant", "project", "task", 1, 1)
 
 
 @pytest.mark.parametrize("client_kind", ["capture", "process"])

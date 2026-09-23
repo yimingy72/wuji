@@ -934,6 +934,20 @@ The Task Pod only receives its own restricted runtime/TLS credentials.
                         self.config.namespace, self.config.pod_name
                     )
                     if pod is None:
+                        with self.permits.transaction() as tx:
+                            bindings = tx.connection.execute(
+                                """SELECT DISTINCT pod_uid FROM vnext.runtime_terminal_observation
+                                WHERE tenant_id=%s AND project_id=%s AND task_id=%s
+                                  AND runtime_attempt=%s AND execution_epoch=%s""",
+                                (*tx.owner, self.config.runtime_attempt, self.config.execution_epoch),
+                            ).fetchall()
+                        if len(bindings) == 1 and self._terminal_observations_complete(
+                            bindings[0][0]
+                        ):
+                            return RuntimeObservation(
+                                "stopped", self.config.pod_name, bindings[0][0],
+                                "terminal_observation_persisted",
+                            )
                         return RuntimeObservation(
                             "stopping", self.config.pod_name, None,
                             "permit_revoked_before_Pod_identity_was_observed",
