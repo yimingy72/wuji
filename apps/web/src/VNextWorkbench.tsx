@@ -133,7 +133,7 @@ export function VNextWorkbenchPage() {
           {state.status === 'signed-out' && <section className={styles.loginPage} aria-labelledby="wuji-login-title"><div className={styles.loginPanel}><h1 id="wuji-login-title">登录 Wuji</h1>{loginPrompt}</div></section>}
           {state.status === 'error' && <section className={styles.loginPage}><div className={styles.loginPanel}><Alert className={styles.loginAlert} showIcon type="error" title="登录服务暂时不可用" description={state.message} />{loginPrompt}</div></section>}
           <Activity mode={session && retainedSession ? 'visible' : 'hidden'}>
-            {retainedSession && <FirstUseWorkbench session={session ?? retainedSession} onSessionExpired={onSessionExpired} onLogout={logout} />}
+            {retainedSession && <FirstUseWorkbench session={session ?? retainedSession} onSessionExpired={onSessionExpired} />}
           </Activity>
         </main>
         <footer className={styles.statusbar}><span><strong>WUJI</strong></span><span>LOCAL DEVELOPMENT</span></footer>

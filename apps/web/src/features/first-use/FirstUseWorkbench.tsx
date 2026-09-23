@@ -64,7 +64,6 @@ const scenarioLabels: Readonly<Record<TaskCreate['scenario'], string>> = {
 interface FirstUseWorkbenchProps {
   readonly session: WorkbenchSession;
   readonly onSessionExpired: () => void;
-  readonly onLogout: () => Promise<void>;
 }
 
 interface CreateDraft {
@@ -209,9 +208,9 @@ function clearCreateKey(): void {
 
 function statusColor(label: string): string {
   if (label === '运行中') return 'green';
-  if (label === '已暂停' || label === '停止收敛中') return 'orange';
-  if (label === '待核对' || label === '收尾中' || label.includes('受理')) return 'gold';
-  if (label.includes('阻断')) return 'red';
+  if (label === '已暂停' || label === '正在停止') return 'orange';
+  if (label === '待核对' || label === '收尾中' || label === '正在启动' || label.includes('受理')) return 'gold';
+  if (label.includes('失败') || label.includes('受阻') || label.includes('阻断')) return 'red';
   if (label === '已停止' || label === '部分结果') return 'blue';
   return 'default';
 }
@@ -580,7 +579,7 @@ function TaskCreatePanel({ session, options, optionsError, onCreated, onClose, o
   );
 }
 
-export function FirstUseWorkbench({ session, onSessionExpired, onLogout }: FirstUseWorkbenchProps) {
+export function FirstUseWorkbench({ session, onSessionExpired }: FirstUseWorkbenchProps) {
   const [search, setSearch] = useSearchParams();
   const [tasks, setTasks] = useState<TaskView[]>([]);
   const [launchByTask, setLaunchByTask] = useState<Record<string, LaunchView>>({});
@@ -594,7 +593,6 @@ export function FirstUseWorkbench({ session, onSessionExpired, onLogout }: First
   const [loading, setLoading] = useState(true);
   const [listNonce, setListNonce] = useState(0);
   const [createOpen, setCreateOpen] = useState(false);
-  const [loggingOut, setLoggingOut] = useState(false);
   const listGeneration = useRef(0);
   const listController = useRef<AbortController | null>(null);
   const explicitSelection = useRef<string | null>(null);
@@ -683,17 +681,9 @@ export function FirstUseWorkbench({ session, onSessionExpired, onLogout }: First
     setSelectedTaskId(created.task_id);
     setSearch((current) => { const next = new URLSearchParams(current); next.set('task', created.task_id); return next; }, { replace: true });
   };
-  const logout = async () => {
-    setLoggingOut(true);
-    try { await onLogout(); } finally { setLoggingOut(false); }
-  };
-
   return (
     <div className={styles.workbench}>
-      <section className={styles.identity} aria-label="工作台身份">
-        <div><h1>任务工作台</h1><p>创建任务、查看进展和核对结果。</p></div>
-        <div className={styles.identityMeta}><span>{session.display_name}</span><Button loading={loggingOut} onClick={() => void logout()}>退出</Button></div>
-      </section>
+      <header className={styles.workbenchHeading}><h1>任务工作台</h1><p>创建任务、查看进展和核对结果。</p></header>
       {Boolean(listError) && <Alert showIcon type="error" title="任务目录读取失败" description={errorMessage(listError)} action={<Button onClick={refreshList}>重试</Button>} />}
       <div className={styles.body}>
         <aside className={styles.directory} aria-label="任务目录" data-testid="task-list">

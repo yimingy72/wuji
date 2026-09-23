@@ -389,6 +389,10 @@ def _normalized_spec(spec: dict) -> dict:
         for variable in container.get("env", []):
             if variable.get("value") == "":
                 variable.pop("value")
+        for name in ("livenessProbe", "readinessProbe", "startupProbe"):
+            probe = container.get(name)
+            if isinstance(probe, dict) and probe.get("initialDelaySeconds") == 0:
+                probe.pop("initialDelaySeconds")
         for mount in container.get("volumeMounts", []):
             if mount.get("readOnly") is False:
                 mount.pop("readOnly")

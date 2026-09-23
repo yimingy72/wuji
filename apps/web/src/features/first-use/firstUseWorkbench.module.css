@@ -1,9 +1,7 @@
 .workbench { display: grid; gap: 18px; min-width: 0; }
-.identity { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
-.identity h1 { margin: 5px 0 0; }
-.identity p { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
-.identityMeta { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 7px; }
-.identityMeta code { color: var(--text); font: 12px/1.4 var(--mono); }
+.workbenchHeading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px; }
+.workbenchHeading h1 { margin: 0; font-size: 20px; }
+.workbenchHeading p { margin: 0; color: var(--muted); font-size: 13px; }
 .body { display: grid; grid-template-columns: minmax(220px, 29%) minmax(0, 1fr); gap: 16px; align-items: start; min-width: 0; }
 .directory, .detail { min-width: 0; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--surface); }
 .directoryHeader, .detailHeader { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
