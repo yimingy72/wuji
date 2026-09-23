@@ -100,7 +100,8 @@ class PlatformWorkerHost:
             resolved = {
                 "profile": trusted, "client_model": config.model.client_model,
                 "limits": assignment.limits.model_dump(mode="json"),
-                "request_timeout_seconds": config.runtime.total_timeout_seconds,
+                # The MAF model/MCP request wire caps one call at 300 seconds.
+                "request_timeout_seconds": min(config.runtime.total_timeout_seconds, 300.0),
                 "tools": tools, "session_lineage": binding.session_lineage,
             }
             memory_files = None
