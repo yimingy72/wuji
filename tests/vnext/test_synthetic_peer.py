@@ -737,7 +737,11 @@ def test_core_explore_a_waits_for_running_process_then_publishes_board_before_re
 
     execute = peer.decision(request_body)
     assert execute["name"] == "kali_exec"
-    command = json.loads(execute["arguments"])["command"]
+    arguments = json.loads(execute["arguments"])
+    command = arguments["command"]
+    assert arguments["cwd"] == "/workspace"
+    assert "mkdir -p -- /workspace/work/work-core/src /workspace/work/work-core/output" in command
+    assert "cd -- /workspace/work/work-core" in command
     assert "base64 -d" in command and peer.CORE_SCRIPT in command
     complete_tool(request_body, execute, process_reply(state="running", cursor=0))
 
@@ -782,6 +786,20 @@ def test_core_explore_b_materializes_fixed_script_and_publishes_result():
         assets=[core_asset()],
     )
     request_body = core_request(role="explore", context=context)
+
+    prepare = peer.decision(request_body)
+    assert prepare["name"] == "kali_exec"
+    assert prepare["call_id"] == "call-core-b-prepare"
+    assert json.loads(prepare["arguments"]) == {
+        "command": "mkdir -p -- /workspace/work/work-core",
+        "cwd": "/workspace",
+        "timeout_seconds": 30,
+    }
+    complete_tool(request_body, prepare, process_reply(state="running"))
+    read_prepare = peer.decision(request_body)
+    assert read_prepare["name"] == "kali_read"
+    assert read_prepare["call_id"].startswith("call-core-b-prepare")
+    complete_tool(request_body, read_prepare, process_reply(state="exited", exit_code=0))
 
     materialize = peer.decision(request_body)
     assert materialize["name"] == "workspace_materialize"

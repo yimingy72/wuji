@@ -757,6 +757,20 @@ def core_explore_decision(request, messages, context):
         raise ValueError("the Core CTF brief carries no fixed Work path")
 
     if phase == "B":
+        prepare_prefix = "call-core-b-prepare"
+        if not any(
+            event["name"] == "kali_exec" and event["call_id"].startswith(prepare_prefix)
+            for event in events
+        ):
+            return tool_step(request, "kali_exec", prepare_prefix, {
+                "command": "mkdir -p -- " + shlex.quote(work_path),
+                "cwd": "/workspace", "timeout_seconds": 30,
+            })
+        next_step, prepared = _core_process_step(request, events, prepare_prefix)
+        if next_step is not None:
+            return next_step
+        if isinstance(prepared, dict) and prepared.get("schema_version") == "wuji.agent-payload.v3":
+            return {"kind": "payload", "document": prepared}
         assets = [
             item for item in context.get("published_asset_index") or ()
             if isinstance(item, dict)
@@ -781,7 +795,10 @@ def core_explore_decision(request, messages, context):
         if not isinstance(source, str) or not source.startswith(work_path + "/imports/"):
             raise ValueError("the fixed script was not materialized into this Work")
         prefix = "call-core-b-exec"
-        if not any(event["name"] == "kali_exec" for event in events):
+        if not any(
+            event["name"] == "kali_exec" and event["call_id"].startswith(prefix)
+            for event in events
+        ):
             command = (
                 "set -euo pipefail; mkdir -p output && "
                 + shlex.quote("/opt/wuji/ops/vnext/.venv/bin/python") + " "
@@ -796,14 +813,17 @@ def core_explore_decision(request, messages, context):
         if not any(event["name"] == "kali_exec" for event in events):
             encoded = base64.b64encode(_core_script().encode()).decode("ascii")
             command = (
-                "set -euo pipefail; mkdir -p src output && printf %s " + shlex.quote(encoded)
+                "set -euo pipefail; mkdir -p -- " + shlex.quote(work_path + "/src")
+                + " " + shlex.quote(work_path + "/output")
+                + " && cd -- " + shlex.quote(work_path)
+                + " && printf %s " + shlex.quote(encoded)
                 + " | base64 -d > " + shlex.quote(CORE_SCRIPT) + " && "
                 + shlex.quote("/opt/wuji/ops/vnext/.venv/bin/python") + " "
                 + shlex.quote(CORE_SCRIPT) + " " + shlex.quote(url)
                 + " | tee output/initial.json"
             )
             return tool_step(request, "kali_exec", prefix, {
-                "command": command, "cwd": work_path, "timeout_seconds": 30,
+                "command": command, "cwd": "/workspace", "timeout_seconds": 30,
             })
 
     next_step, process = _core_process_step(request, events, prefix)
