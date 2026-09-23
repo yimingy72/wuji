@@ -218,6 +218,13 @@ def test_core_profiles_and_binding_select_native_mcp_and_v2_kali():
     _, objects = task_launch.task_objects(
         binding, material, namespace="wuji-core-isolated"
     )
+    agent_config = next(
+        item for item in objects
+        if item["kind"] == "ConfigMap" and item["metadata"]["name"].endswith("agent-config")
+    )
+    supervisor = json.loads(agent_config["data"]["supervisor.json"])
+    assert supervisor["template_version"] == "core-ctf-v1"
+    assert supervisor["namespace"] == "wuji-core-isolated"
     kali_config = next(
         item for item in objects
         if item["kind"] == "ConfigMap" and item["metadata"]["name"].endswith("kali-config")

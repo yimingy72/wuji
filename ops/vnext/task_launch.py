@@ -1522,6 +1522,8 @@ def task_objects(binding, material, *, namespace):
         "port": 8443,
     }
     core_ctf = binding.get("template_version") == "core-ctf-v1"
+    if core_ctf:
+        supervisor.update(template_version="core-ctf-v1", namespace=binding["namespace"])
     executor_binding = {
         "tenant_id": binding["tenant_id"],
         "project_id": binding["project_id"],

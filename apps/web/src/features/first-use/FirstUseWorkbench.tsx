@@ -209,8 +209,8 @@ function clearCreateKey(): void {
 
 function statusColor(label: string): string {
   if (label === '运行中') return 'green';
-  if (label === '已暂停') return 'orange';
-  if (label === '待核对' || label.includes('受理')) return 'gold';
+  if (label === '已暂停' || label === '停止收敛中') return 'orange';
+  if (label === '待核对' || label === '收尾中' || label.includes('受理')) return 'gold';
   if (label.includes('阻断')) return 'red';
   if (label === '已停止' || label === '部分结果') return 'blue';
   return 'default';
@@ -255,9 +255,10 @@ interface TaskWorkspaceProps {
   readonly onSessionExpired: () => void;
   readonly onTaskUpdated: (task: TaskView) => void;
   readonly onLaunchUpdated: (taskId: string, launch: LaunchView) => void;
+  readonly onRuntimeUpdated: (taskId: string, state: TaskOverviewV1['runtime']['state']) => void;
 }
 
-function TaskWorkspace({ taskId, session, onSessionExpired, onTaskUpdated, onLaunchUpdated }: TaskWorkspaceProps) {
+function TaskWorkspace({ taskId, session, onSessionExpired, onTaskUpdated, onLaunchUpdated, onRuntimeUpdated }: TaskWorkspaceProps) {
   const [task, setTask] = useState<TaskView | null>(null);
   const [overview, setOverview] = useState<TaskOverviewV1 | null>(null);
   const [launch, setLaunch] = useState<LaunchView | null>(null);
@@ -302,7 +303,9 @@ function TaskWorkspace({ taskId, session, onSessionExpired, onTaskUpdated, onLau
       if (!controller.signal.aborted && generation.current === currentGeneration) setLoading(false);
     });
     void readTaskOverview(taskId, controller.signal).then((nextOverview) => {
-      if (!controller.signal.aborted && generation.current === currentGeneration) setOverview(nextOverview);
+      if (controller.signal.aborted || generation.current !== currentGeneration) return;
+      setOverview(nextOverview);
+      onRuntimeUpdated(taskId, nextOverview.runtime.state);
     }).catch((reason: unknown) => {
       if (controller.signal.aborted || generation.current !== currentGeneration) return;
       if (reason instanceof ApiRequestError && reason.status === 401) onSessionExpired();
@@ -318,7 +321,7 @@ function TaskWorkspace({ taskId, session, onSessionExpired, onTaskUpdated, onLau
     return () => {
       controller.abort();
     };
-  }, [taskId, refresh, statusRefresh, onSessionExpired, onTaskUpdated, onLaunchUpdated]);
+  }, [taskId, refresh, statusRefresh, onSessionExpired, onTaskUpdated, onLaunchUpdated, onRuntimeUpdated]);
 
   useEffect(() => () => readinessActive.current?.abort(), [taskId]);
 
@@ -344,7 +347,7 @@ function TaskWorkspace({ taskId, session, onSessionExpired, onTaskUpdated, onLau
     setViewChoice({ mode: 'live', snapshotId: null });
     setActiveTab('findings');
   }, []);
-  const label = taskStatusLabel(task, launch);
+  const label = taskStatusLabel(task, launch, overview?.runtime.state);
   const allowed = task?.allowed_actions ?? [];
 
   const refreshCurrent = () => setRefresh((value) => value + 1);
@@ -392,6 +395,15 @@ function TaskWorkspace({ taskId, session, onSessionExpired, onTaskUpdated, onLau
   if (loading && !task) return <div className={styles.detailBody}><div aria-live="polite"><Spin description="正在读取任务" /></div></div>;
   if (error && !task) return <div className={styles.detailBody}><Alert showIcon type="error" title="Task 读取失败" description={error} action={<Button onClick={refreshCurrent}>重新读取</Button>} /></div>;
   if (!task) return <div className={styles.detailBody}><Empty description="当前 Task 不可访问" /></div>;
+  const launchPreparing = launch?.phase_status === 'pending' || launch?.phase_status === 'running';
+  const statusMessage = task.observed_state !== 'closed' && overview?.runtime.state !== 'running'
+    ? launch?.phase_status === 'failed' ? '执行环境准备失败，尚未开始工作'
+      : launch?.phase_status === 'blocked' ? '执行环境准备受阻，尚未开始工作'
+      : launchPreparing ? '正在准备执行环境，尚未开始工作'
+      : overview?.runtime.state === 'stopped'
+        ? task.observed_state === 'paused' ? '已暂停，执行环境已停止' : '执行已停止，结果结算中'
+        : overview?.status_message ?? '正在读取任务概览'
+    : overview?.status_message ?? '正在读取任务概览';
 
   return (
     <div className={styles.detailBody}>
@@ -401,7 +413,7 @@ function TaskWorkspace({ taskId, session, onSessionExpired, onTaskUpdated, onLau
         <div className={styles.taskTitle}>
           <span>{scenarioLabels[task.scenario]}</span>
           <h1>{task.name}</h1>
-          <p>{launch?.phase_status === 'failed' && overview?.runtime.state !== 'running' ? '执行环境准备失败，尚未开始工作' : overview?.runtime.state === 'stopped' && task.observed_state !== 'closed' ? task.observed_state === 'paused' ? '已暂停，执行环境已停止' : '执行已停止，结果结算中' : overview?.status_message ?? '正在读取任务概览'}</p>
+          <p>{statusMessage}</p>
         </div>
         <div className={styles.taskMeta} data-testid="task-status">
           <Tag color={statusColor(label)}>{label}</Tag>
@@ -572,6 +584,7 @@ export function FirstUseWorkbench({ session, onSessionExpired, onLogout }: First
   const [search, setSearch] = useSearchParams();
   const [tasks, setTasks] = useState<TaskView[]>([]);
   const [launchByTask, setLaunchByTask] = useState<Record<string, LaunchView>>({});
+  const [runtimeByTask, setRuntimeByTask] = useState<Record<string, TaskOverviewV1['runtime']['state']>>({});
   const [cursor, setCursor] = useState<string | null>(null);
   const [taskCursor, setTaskCursor] = useState<string | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
@@ -593,6 +606,9 @@ export function FirstUseWorkbench({ session, onSessionExpired, onLogout }: First
   }, []);
   const updateLaunch = useCallback((taskId: string, nextLaunch: LaunchView) => {
     setLaunchByTask((current) => ({ ...current, [taskId]: nextLaunch }));
+  }, []);
+  const updateRuntime = useCallback((taskId: string, state: TaskOverviewV1['runtime']['state']) => {
+    setRuntimeByTask((current) => ({ ...current, [taskId]: state }));
   }, []);
   const selectTask = (taskId: string) => {
     if (!tasks.some((task) => task.task_id === taskId)) return;
@@ -682,11 +698,11 @@ export function FirstUseWorkbench({ session, onSessionExpired, onLogout }: First
       <div className={styles.body}>
         <aside className={styles.directory} aria-label="任务目录" data-testid="task-list">
           <div className={styles.directoryHeader}><div><strong>我的任务</strong></div><Button type="primary" onClick={() => setCreateOpen(true)} data-testid="new-task">新建任务</Button></div>
-          {loading && tasks.length === 0 ? <div className={styles.directoryEmpty}><Spin description="正在读取 Task 目录" /></div> : tasks.length === 0 ? <div className={styles.directoryEmpty}><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="当前没有可访问的 Task" /><Button type="primary" onClick={() => setCreateOpen(true)}>创建首个 Task</Button></div> : <div className={styles.taskList}>{tasks.map((task) => { const label = taskStatusLabel(task, launchByTask[task.task_id] ?? null); return <button className={`${styles.taskItem} ${selectedTaskId === task.task_id ? styles.taskItemActive : ''}`} type="button" key={task.task_id} onClick={() => selectTask(task.task_id)}><strong>{task.name}</strong><span className={styles.taskItemMeta}><Tag color={statusColor(label)}>{label}</Tag><span>{scenarioLabels[task.scenario]}</span></span></button>; })}</div>}
+          {loading && tasks.length === 0 ? <div className={styles.directoryEmpty}><Spin description="正在读取 Task 目录" /></div> : tasks.length === 0 ? <div className={styles.directoryEmpty}><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="当前没有可访问的 Task" /><Button type="primary" onClick={() => setCreateOpen(true)}>创建首个 Task</Button></div> : <div className={styles.taskList}>{tasks.map((task) => { const label = taskStatusLabel(task, launchByTask[task.task_id] ?? null, runtimeByTask[task.task_id]); return <button className={`${styles.taskItem} ${selectedTaskId === task.task_id ? styles.taskItemActive : ''}`} type="button" key={task.task_id} onClick={() => selectTask(task.task_id)}><strong>{task.name}</strong><span className={styles.taskItemMeta}><Tag color={statusColor(label)}>{label}</Tag><span>{scenarioLabels[task.scenario]}</span></span></button>; })}</div>}
           <div className={styles.directoryFooter}><Button size="small" icon={<ReloadOutlined />} onClick={refreshList}>刷新目录</Button>{cursor && <Button size="small" onClick={() => setTaskCursor(cursor)}>加载更多</Button>}</div>
         </aside>
         <main className={styles.detail} aria-label="Task 详情">
-          {createOpen ? <TaskCreatePanel session={session} options={options} optionsError={optionsError} onCreated={openCreated} onClose={() => setCreateOpen(false)} onSessionExpired={onSessionExpired} /> : selectedTask ? <TaskWorkspace key={selectedTask.task_id} taskId={selectedTask.task_id} session={session} onSessionExpired={onSessionExpired} onTaskUpdated={updateTask} onLaunchUpdated={updateLaunch} /> : <div className={styles.detailBody}><Empty description="从左侧选择一个 Task，或新建首个 Task" /></div>}
+          {createOpen ? <TaskCreatePanel session={session} options={options} optionsError={optionsError} onCreated={openCreated} onClose={() => setCreateOpen(false)} onSessionExpired={onSessionExpired} /> : selectedTask ? <TaskWorkspace key={selectedTask.task_id} taskId={selectedTask.task_id} session={session} onSessionExpired={onSessionExpired} onTaskUpdated={updateTask} onLaunchUpdated={updateLaunch} onRuntimeUpdated={updateRuntime} /> : <div className={styles.detailBody}><Empty description="从左侧选择一个 Task，或新建首个 Task" /></div>}
         </main>
       </div>
     </div>

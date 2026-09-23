@@ -386,6 +386,9 @@ def _normalized_spec(spec: dict) -> dict:
         }.items():
             if container.get(key) == default:
                 container.pop(key)
+        for variable in container.get("env", []):
+            if variable.get("value") == "":
+                variable.pop("value")
         for mount in container.get("volumeMounts", []):
             if mount.get("readOnly") is False:
                 mount.pop("readOnly")

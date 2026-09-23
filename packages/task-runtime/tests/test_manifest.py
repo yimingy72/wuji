@@ -111,6 +111,18 @@ def test_owned_pod_reuses_with_defaults_and_list_reordering(config):
     verify_pod_ownership(pod, config, expected_uid="pod-uid")
 
 
+def test_core_pod_accepts_kubernetes_omission_of_empty_env_value(config):
+    core = core_config(config)
+    pod = observed(core)
+    capture = next(item for item in pod["spec"]["containers"] if item["name"] == "capture")
+    drop_user = next(item for item in capture["env"] if item["name"] == "WUJI_CAPTURE_DROP_USER")
+    assert drop_user.pop("value") == ""
+    verify_pod_ownership(pod, core, expected_uid="pod-uid")
+    drop_user["value"] = "root"
+    with pytest.raises(OwnershipError):
+        verify_pod_ownership(pod, core, expected_uid="pod-uid")
+
+
 @pytest.mark.parametrize("change", ["image", "privilege", "task", "secret", "env", "extra-container"])
 def test_drift_is_rejected(config, change):
     pod = observed(config)

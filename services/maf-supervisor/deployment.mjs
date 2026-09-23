@@ -13,12 +13,16 @@ export async function buildSupervisor() {
   const config = parseJson(read(process.env.WUJI_DEPLOYMENT_CONFIG ?? '/config/supervisor.json').toString());
   const expected = ['schema_version','controller_origin','receiver','receiver_token_file',
     'profiles','inbox_dir','ca_file','certificate_file','private_key_file','port'];
-  if (Object.keys(config).length !== expected.length || expected.some(k => !Object.hasOwn(config, k))
+  const core = config.template_version === 'core-ctf-v1';
+  const fields = core ? [...expected,'template_version','namespace'] : expected;
+  if (Object.keys(config).length !== fields.length || fields.some(k => !Object.hasOwn(config, k))
       || config.schema_version !== 'wuji.supervisor.deployment.v1'
       || !Number.isInteger(config.port) || config.port < 1 || config.port > 65535
+      || (core && (typeof config.namespace !== 'string'
+        || !/^[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?$/.test(config.namespace)))
       || process.env.NODE_EXTRA_CA_CERTS !== config.ca_file) throw new Error('invalid Supervisor deployment');
   if (Object.hasOwn(config.receiver, 'pod_uid') || !process.env.WUJI_POD_UID
-      || process.env.WUJI_POD_NAMESPACE !== 'wuji-vnext-test') throw new Error('Downward API Pod identity required');
+      || process.env.WUJI_POD_NAMESPACE !== (core ? config.namespace : 'wuji-vnext-test')) throw new Error('Downward API Pod identity required');
   const receiver = {...config.receiver, pod_uid:process.env.WUJI_POD_UID};
   const adapter = new ControllerAdapter({origin:config.controller_origin, receiver,
     authorization:() => read(config.receiver_token_file,16384).toString().trim()});
