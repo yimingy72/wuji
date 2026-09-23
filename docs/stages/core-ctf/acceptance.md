@@ -1,20 +1,20 @@
 # Core CTF 验收定义与当前状态
 
-日期：2026-09-22。开发状态：in-progress。**运行验收：not_run**。
+日期：2026-09-22；更新至2026-09-24。开发状态：in-progress。**独立本地 synthetic 机制主链 b18 已通过；C01—C08 完整验收仍未 accepted，真实模型CTF为 not_run。**
 用户授权整体讨论后实施，Astra/high完成审查，Sol/xhigh开始核心调度及上下文切片。不把代码在写、子Agent意见或JSON结构检查当作产品通过。业务基准 `3682eda`，未来实际被测提交和镜像另记。
 
 ## 1. 八组必要验收
 
 | ID | 实际场景 | 必须看到的结果 | 当前 |
 | --- | --- | --- | --- |
-| C01 | 真实MAF原生MCP调用exec；登记后丢一次回复并重连 | 正常未篡改执行器下稳定identity/handle，针对同一平台调用的传输重发仅一次spawn；同键异参拒绝；不双扣额度 | not_run |
-| C02 | 长进程输出、stdin、读cursor、停止；Task取消与额度耗尽 | 字节连续有界；未知输入不重投；正常执行器的进程报告与外部Task终止分开核对；取消后exec/input拒绝且平台stop仍可用 | not_run |
-| C03 | Kali root能力/挂载检查；伪造本地receipt；独立Task handle | Kali UID0但dropALL；没有平台共享bearer/collector/数据库/模型凭据；本地报告不能直接写账本或伪造平台准入/发送/Runtime终止事实，只作为executor_reported观察保存；跨Task拒绝；init失败不启动 | not_run |
-| C04 | curl与Python通过代理访问自建HTTP/TLS；有限二进制/压缩/重复头 | 请求与响应实体长度/hash一致；协议如实记录；明文Artifact与PCAP可下载；H2只在实际验证后纳入 | not_run |
-| C05 | 清代理直连、未支持协议；capture退出及writer存储失败；在途连接 | 不悄悄旁路；现有代理连接收敛，Task停止/核对；受影响证据partial/unknown；正常封口与故障窗口区别明确 | not_run |
-| C06 | A生成脚本发布，B读取manifest并装载运行；重复发布与改缓存 | 同操作同publication；副本修改生成新版本；并发CAS一胜一冲突不丢工作副本；sealed旧版不变；publication ACL正确；B实际文件hash和来源可核对；新材料真实handoff | not_run |
-| C07 | 运行中发布发现、后继问题、已有后台exec、跨attempt材料恢复 | 不重复工作/不按token唤醒Reason；WorkResult有效依据进入brief；父exec未结算不done；旧workspace Session不自动续跑 | not_run |
-| C08 | 正式工作台新Task → 显式start → 双Agent交接 → 结果/证据 → cancel/finish | 创建后零执行；机制链实际通过；真实模型/CTF单独列结果；进程与采集清理真实完成或保留unknown | not_run |
+| C01 | 真实MAF原生MCP调用exec；登记后丢一次回复并重连 | 正常未篡改执行器下稳定identity/handle，针对同一平台调用的传输重发仅一次spawn；同键异参拒绝；不双扣额度 | 局部：b18 exec/read 主链通过；丢回复/重连未做完整Task验收 |
+| C02 | 长进程输出、stdin、读cursor、停止；Task取消与额度耗尽 | 字节连续有界；未知输入不重投；正常执行器的进程报告与外部Task终止分开核对；取消后exec/input拒绝且平台stop仍可用 | 局部：b18 命令和外部停止通过；stdin/额度边界未覆盖 |
+| C03 | Kali root能力/挂载检查；伪造本地receipt；独立Task handle | Kali UID0但dropALL；没有平台共享bearer/collector/数据库/模型凭据；本地报告不能直接写账本或伪造平台准入/发送/Runtime终止事实，只作为executor_reported观察保存；跨Task拒绝；init失败不启动 | 局部：先前隔离能力检查通过；完整Task权限矩阵未覆盖 |
+| C04 | curl与Python通过代理访问自建HTTP/TLS；有限二进制/压缩/重复头 | 请求与响应实体长度/hash一致；协议如实记录；明文Artifact与PCAP可下载；H2只在实际验证后纳入 | 局部：b18 Python HTTP 两交换、明文及PCAP通过；协议矩阵未覆盖 |
+| C05 | 清代理直连、未支持协议；capture退出及writer存储失败；在途连接 | 不悄悄旁路；现有代理连接收敛，Task停止/核对；受影响证据partial/unknown；正常封口与故障窗口区别明确 | 局部：b17 故障自动撤权、b18 正常封口实测；完整故障矩阵未覆盖 |
+| C06 | A生成脚本发布，B读取manifest并装载运行；重复发布与改缓存 | 同操作同publication；副本修改生成新版本；并发CAS一胜一冲突不丢工作副本；sealed旧版不变；publication ACL正确；B实际文件hash和来源可核对；新材料真实handoff | 局部：b18 A→B固定版本与结果通过；多版本并发CAS仍按定向PG证据单列 |
+| C07 | 运行中发布发现、后继问题、已有后台exec、跨attempt材料恢复 | 不重复工作/不按token唤醒Reason；WorkResult有效依据进入brief；父exec未结算不done；旧workspace Session不自动续跑 | 局部：b18 Reason→A/B及Claim/结果消费通过；跨attempt/通知全边界未覆盖 |
+| C08 | 正式工作台新Task → 显式start → 双Agent交接 → 结果/证据 → cancel/finish | 创建后零执行；机制链实际通过；真实模型/CTF单独列结果；进程与采集清理真实完成或保留unknown | 局部：b18 synthetic主链、capture sealed、外部四终态及三页只读浏览器通过；完整前端/业务close与真实CTF未通过 |
 
 D-NET已选严格受支持HTTP(S)明文，原始扫描/基础probe后置。不以PCAP密文留存通过明文验收。
 
@@ -53,11 +53,11 @@ C08增加用户最新前端与登录要求：账号密码登录；两个浏览�
 
 C01—C07及C08机制链的关键项通过，才可称本阶段核心开发交付。真实CTF另记success/failed/not_run及原因。正常主链路不得存在未解释采集缺口、未结算unknown、错误跨Task访问、传输重发导致的重复spawn或证据丢失。故障场景以正确关断、标记partial/unknown并保留已取得证据为通过条件；不能把故障交易写成complete。
 
-本稿完成时只检查了文档链接、字段来源、围栏和版本表述。当前没有本阶段运行截图/HTTP/PCAP成果，未伪造补齐。
+初稿完成时只检查了文档链接、字段来源、围栏和版本表述；2026-09-23后实际运行结果见下文§7。
 
 ## 6. 实施进度：局部代码检查，不替代C01—C08
 
-本轮基准HEAD仍为`3682eda`，以下为未提交工作树改动；未部署到现有工作台。代码开发为Sol/xhigh，主代理审阅与定向集成检查。
+以下为2026-09-23早期代码开发截面：当时基准HEAD为`3682eda`，改动未提交或部署。后续真实部署与验收以§7为准，不把旧状态冒称当前。
 
 | 切片 | 当前结果 | 实际检查/证据 |
 | --- | --- | --- |
@@ -78,6 +78,15 @@ C01—C07及C08机制链的关键项通过，才可称本阶段核心开发交�
 | 2026-09-23后继定向核对 | capture终态helper、容量ContextV4与F3读视图局部通过；M3/通知仍待测 | 本轮pytest工具transcript中，真实capture节点1项通过，覆盖完整四容器终态缺项阻断/齐全放行及累计水位；1001 items ContextV4节点1项通过。`test_task_read_views.py::test_task_overview_and_activity_are_acl_scoped_and_cursor_bound`扩展后1项通过，覆盖命令分页、读权限与空publication；合同生成`--check`一致。本轮stdout未另存文件，不用前轮日志冒充。M3节点已推进到B ContextV4后停在测试RootModel断言，修正后未重跑；通知节点审计显示夹具调度时间UPDATE 0，Reason尚在聚合窗口，按两轮限制延期。完整Task与非空F3 publication待联合主链核对。 |
 | 独立Core平台与密码Web装配 | renderer局部检查通过，未部署 | `work/core-ctf-test-evidence/platform-web/renderer-web.log` 7项通过，覆盖独立namespace、共享RunCredential加密key、Runtime 8MiB传输边界、capture CA路径、账号密码BFF、持久会话PVC与旧web默认兼容。入口要求6类固定镜像及私有scrypt文件；不包含浏览器或真实Task验收 |
 | 2026-09-23 Runtime/F3收口 | 代码冻结待联合部署 | GPT-6 Sol/high接续后报告Runtime定向10项、BFF新增读路由1项、capture HTTP摘要1项、web build及最终typecheck通过；stdout仅工具记录。已接命令/版本/HTTP/PCAP分页与真实容器停止投影，未做浏览器验收。主代理driver终态绑定/敏感头隐藏1项通过，原日志`work/core-ctf-test-evidence/mechanism-driver/pure-check.log`；真实driver尚未运行。renderer显式容量传参1项通过，`platform-web/renderer-capacity.log` |
+| 2026-09-23 F4采集材料路由 | 独立Core浏览器局部通过，C08整体仍待机制验收 | `75cfbd0` Web镜像实际digest `sha256:fd1ee55febf8ad42dc0873e35dbfcff4fa1a6fc9a95f989aee4e197df0ff1896`；Docker内typecheck/Vite build、core-web rollout/Ready通过。既有b6 Task的912B manifest `omitted+source`预览正常、原文下载SHA匹配；20,411,486B PCAP从材料页定位到对应采集原件item。实际页面截图、完整私有HTTP报文及原始响应见`work/core-ctf/local-20260923/evidence-f4/route-75cfbd0/report.md`。未重复执行Task控制、旧登录用例或机制driver |
 | 通用MCP/Kali、capture、共享脚本版本、任务详情整体改造 | 分阶段推进，未完整接通 | C01—C08仍not_run，不因局部检查提前标accepted |
 
 上表为局部验证，M2a已有相应截图和请求包；完整Task联合链证据仍待补充，不能冒充已完成产品验收。参考平台产品研究不是本平台测试成果。
+
+## 7. 2026-09-23 独立 Core synthetic 机制实测
+
+在独立`wuji-core-ctf`创建新Task `c29071ad-d332-435d-9ee3-6586f0e98ed6`（b18），固定 synthetic 模型与自建目标、非破坏性范围。driver实际退出码0，[完整私有报告与原始证据](../../../work/core-ctf/local-20260923/evidence-b18/report.md)保留了固定输入、全部HTTP请求响应、两条完整目标请求包、A/B清单与文件、三份命令记录、两条HTTP明文、PCAP、最终采集manifest及四容器终态；[执行停止截图](../../../work/core-ctf/local-20260923/evidence-b18/screenshots/b18-overview-stopped.png)、[活动截图](../../../work/core-ctf/local-20260923/evidence-b18/screenshots/b18-activity.png)、[共享版本截图](../../../work/core-ctf/local-20260923/evidence-b18/screenshots/b18-publications.png)是同Task实际浏览器渲染。前端命令/网络采集/发现页签只拿到API记录，浏览器下钻截图未完成，不记C08完整通过。
+
+本轮platform镜像来源`cc5ca31`，capture来源`8e89607`，agent/kali来源`f0eed7e`，Web来源`75cfbd0`；各角色实际digest在报告固定输入中。A/B两个Work及对应Claim、版本化脚本/结果、Kali MCP命令、同一capture session两条完整HTTP exchange + 7,593,624B PCAP + final manifest均有原始证据。driver在机制核对后正式cancel，Runtime同attempt/UID的init、agent、kali、capture四终态均terminated，采集批次sealed。Task业务仍`cancel/quiescing`、`completion_epoch_id=null`、`result_outcome=null`：取消撤权与外部停止已验证，P12完成审查/close不是本次driver自动执行的动作，故不记`closed`或Goal满足。
+
+历史b17 Task因capture status控制请求超时由Runtime自动fail-closed撤权，平台capture session保持failed；只读PVC发现第二条HTTP已由Sidecar写盘但未入库。根因是采集索引候选唯一key被摘要字段循环覆盖，第二条候选无法推进水位并持锁；`8e89607`只修该变量，定向两交换/late gap/重复refresh节点1 passed（0.41秒），b18新Task实测连续入库两条HTTP。不追认b17为通过。真实模型/外部CTF与C01—C08剩余矩阵均未运行；阶段仍in-progress。
