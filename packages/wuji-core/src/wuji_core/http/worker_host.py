@@ -1,5 +1,7 @@
 """Private authenticated Host routes over existing generated v2 contracts."""
 
+import json
+
 from fastapi import Request
 from pydantic import ValidationError
 import psycopg
@@ -22,7 +24,7 @@ from wuji_core.persistence.uow import AccessContext, DomainError
 def create_worker_host_router(bridge):
     router = VNextAPIRouter()
 
-    async def invoke(request, method, payload, *, exclude_unset=False):
+    async def invoke(request, method, payload, *, exclude_unset=False, log_refusal=False):
         access = AccessContext(current_principal(request), request.state.request_id)
         try:
             result = await run_in_threadpool(method, access, payload)
@@ -30,6 +32,15 @@ def create_worker_host_router(bridge):
                 result = result.model_dump(mode="python", exclude_unset=True)
             return DecimalJSONResponse(document(result), headers={"Cache-Control": "no-store"})
         except (DomainError, ValidationError, psycopg.Error, OSError, ValueError, TimeoutError) as error:
+            if log_refusal:
+                print(json.dumps({
+                    "event": "worker_knowledge_read_refused",
+                    "task_id": payload.assignment.identity.task_id,
+                    "request_id": access.request_id,
+                    "code": error.code if isinstance(error, DomainError) else "CAPABILITY_UNAVAILABLE",
+                    "status": error.status if isinstance(error, DomainError) else 503,
+                    "exception": type(error).__name__,
+                }, sort_keys=True), flush=True)
             return error_response(request, error)
 
     @router.post("/internal/v2/worker-host/await-start")
@@ -83,7 +94,7 @@ def create_worker_host_router(bridge):
 
     @router.post("/internal/v2/worker-host/knowledge-read")
     async def knowledge_read(request: Request, payload: WorkerKnowledgeReadRequest):
-        return await invoke(request, bridge.knowledge_read, payload)
+        return await invoke(request, bridge.knowledge_read, payload, log_refusal=True)
 
     @router.post("/internal/v2/worker-host/knowledge-refresh")
     async def knowledge_refresh(request: Request, payload: WorkerKnowledgeRefreshRequest):
