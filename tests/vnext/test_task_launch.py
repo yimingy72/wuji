@@ -1154,6 +1154,44 @@ def test_each_task_publishes_its_own_service_pair():
         task_launch.task_service_names("---")
 
 
+def test_capture_service_publishes_endpoint_before_pod_ready():
+    created = []
+
+    class Core:
+        def create_namespaced_service(self, namespace, body):
+            created.append(body)
+
+    for port in (8443, 8445):
+        task_launch.ensure_task_service(
+            Core(), f"task-service-{port}", {"wuji.dev/task-id": "task"}, port,
+            namespace="core-fixture",
+        )
+
+    assert "publishNotReadyAddresses" not in created[0]["spec"]
+    assert created[1]["spec"]["publishNotReadyAddresses"] is True
+
+    class Existing:
+        def __init__(self, service):
+            self.service = service
+            self.replacements = 0
+
+        def read_namespaced_service(self, name, namespace):
+            return self.service
+
+        def replace_namespaced_service(self, name, namespace, body):
+            self.service = body
+            self.replacements += 1
+
+    old = created[1]
+    old["spec"].pop("publishNotReadyAddresses")
+    core = Existing(old)
+    args = (core, "task-service-8445", {"wuji.dev/task-id": "task"})
+    assert task_launch.replace_service_selector(*args, namespace="core-fixture", publish_not_ready=True) == "replaced"
+    assert core.service["spec"]["publishNotReadyAddresses"] is True
+    assert task_launch.replace_service_selector(*args, namespace="core-fixture", publish_not_ready=True) == "unchanged"
+    assert core.replacements == 1
+
+
 def test_core_runtime_document_adds_capture_without_widening_legacy():
     binding = {
         "tenant_id": "tenant-fixture",

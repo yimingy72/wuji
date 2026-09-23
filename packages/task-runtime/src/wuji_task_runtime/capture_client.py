@@ -108,6 +108,12 @@ class CaptureControlClient:
             return response, bytes(body)
         except RuntimeTransportError:
             raise
+        except ssl.SSLError:
+            raise RuntimeTransportError("capture-control-tls") from None
+        except TimeoutError:
+            raise RuntimeTransportError("capture-control-timeout") from None
+        except OSError:
+            raise RuntimeTransportError("capture-control-connect") from None
         except Exception:
             raise RuntimeTransportError("capture-control") from None
         finally:

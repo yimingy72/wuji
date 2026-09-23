@@ -1912,6 +1912,7 @@ def ensure_task_service(core, name, selector, port, *, namespace):
             "type": "ClusterIP",
             "selector": dict(selector),
             "ports": [{"name": "tls", "port": port, "protocol": "TCP", "targetPort": port}],
+            **({"publishNotReadyAddresses": True} if port == 8445 else {}),
         },
     }
     try:
@@ -1920,17 +1921,22 @@ def ensure_task_service(core, name, selector, port, *, namespace):
     except k8s_client().exceptions.ApiException as error:
         if error.status != 409:
             raise
-    return replace_service_selector(core, name, selector, namespace=namespace)
+    return replace_service_selector(
+        core, name, selector, namespace=namespace, publish_not_ready=port == 8445
+    )
 
 
-def replace_service_selector(core, name, selector, *, namespace):
+def replace_service_selector(core, name, selector, *, namespace, publish_not_ready=False):
     client = k8s_client().ApiClient()
     service = _replaceable(
         client.sanitize_for_serialization(core.read_namespaced_service(name, namespace))
     )
-    if service["spec"].get("selector") == selector:
+    if (service["spec"].get("selector") == selector
+            and (not publish_not_ready or service["spec"].get("publishNotReadyAddresses") is True)):
         return "unchanged"
     service["spec"]["selector"] = dict(selector)
+    if publish_not_ready:
+        service["spec"]["publishNotReadyAddresses"] = True
     core.replace_namespaced_service(name, namespace, service)
     return "replaced"
 

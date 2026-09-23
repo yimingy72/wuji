@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 from threading import RLock
+import json
 import time
 from typing import Callable, Literal
 
@@ -1032,7 +1033,17 @@ The Task Pod only receives its own restricted runtime/TLS credentials.
                             raise
                         self._revoke_runtime_failure(uid, error.code)
                         return self.stop(pod_uid=uid)
-                    except (OwnershipError, RuntimeStateUnknown, RuntimeTransportError):
+                    except (OwnershipError, RuntimeStateUnknown, RuntimeTransportError) as error:
+                        detail = {
+                            "event": "capture_enforcement_unavailable",
+                            "task_id": str(self.config.task_id),
+                            "error": type(error).__name__,
+                        }
+                        if isinstance(error, RuntimeTransportError):
+                            detail["operation"] = error.operation
+                            if error.status is not None:
+                                detail["status"] = error.status
+                        print(json.dumps(detail, sort_keys=True), flush=True)
                         self._revoke_runtime_failure(uid, "capture_enforcement_unavailable")
                         return self.stop(pod_uid=uid)
                     self._ingest_capture_items(

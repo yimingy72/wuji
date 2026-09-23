@@ -2,6 +2,7 @@
 
 from contextlib import contextmanager
 from datetime import datetime, timezone
+import ssl
 from threading import RLock
 from types import SimpleNamespace
 
@@ -376,6 +377,36 @@ def test_cleanup_rpc_deadline_bounds_the_entire_response(monkeypatch, client_kin
     with pytest.raises(RuntimeTransportError):
         call()
     assert socket_timeouts == [2.0, 2.0]
+
+
+@pytest.mark.parametrize(
+    ("failure", "operation"),
+    [(ssl.SSLError("private TLS detail"), "capture-control-tls"),
+     (TimeoutError("private timeout detail"), "capture-control-timeout"),
+     (ConnectionRefusedError("private socket detail"), "capture-control-connect")],
+)
+def test_capture_client_reports_only_safe_transport_category(monkeypatch, failure, operation):
+    from wuji_task_runtime import capture_client as module
+
+    class Connection:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def request(self, *_args, **_kwargs):
+            raise failure
+
+        def close(self):
+            pass
+
+    client = CaptureControlClient.__new__(CaptureControlClient)
+    client.host, client.port, client.context = "localhost", 443, object()
+    client.timeout = 2.0
+    monkeypatch.setattr(module.http.client, "HTTPSConnection", Connection)
+
+    with pytest.raises(RuntimeTransportError) as result:
+        client._request("GET", "/v1/status")
+    assert result.value.operation == operation
+    assert "private" not in str(result.value)
 
 
 def test_partial_seal_persists_a_failed_capture_session(monkeypatch):
