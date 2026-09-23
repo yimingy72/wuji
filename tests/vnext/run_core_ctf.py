@@ -859,7 +859,7 @@ def run(config: dict, public: dict, images: dict) -> dict:
                     browser,
                     task_id,
                     config["run_id"] + ":cancel",
-                    deadline=max(deadline, time.monotonic() + 120),
+                    deadline=time.monotonic() + 120,
                     poll=float(config["poll_seconds"]),
                     events=events,
                     require_capture_seal=False,
