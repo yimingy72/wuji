@@ -108,7 +108,7 @@ export function PublicationInventory({ taskId }: { readonly taskId: string }) {
   </div>;
 }
 
-export function CaptureInventory({ taskId }: { readonly taskId: string }) {
+export function CaptureInventory({ taskId, focusArtifactRef }: { readonly taskId: string; readonly focusArtifactRef?: { id: string; version: string } | null }) {
   const [sessions, setSessions] = useState<RuntimeCaptureSessionPageV1['sessions']>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [items, setItems] = useState<RuntimeCaptureItemPageV1['items']>([]);
@@ -151,18 +151,27 @@ export function CaptureInventory({ taskId }: { readonly taskId: string }) {
     return () => controller.abort();
   }, [taskId, sessionId]);
 
+  useEffect(() => {
+    if (!focusArtifactRef || !sessionId) return;
+    const item = items.find(({ artifact_refs }) => artifact_refs.some((ref) => ref.id === focusArtifactRef.id && ref.version === focusArtifactRef.version));
+    if (item) document.getElementById(`capture-${taskId}-${sessionId}-${item.envelope.item_seq}`)?.scrollIntoView({ block: 'nearest' });
+  }, [taskId, sessionId, items, focusArtifactRef?.id, focusArtifactRef?.version]);
+
   const selected = sessions.find((session) => session.capture_session_id === sessionId);
+  const focusFound = !focusArtifactRef || items.some(({ artifact_refs }) => artifact_refs.some((ref) => ref.id === focusArtifactRef.id && ref.version === focusArtifactRef.version));
   return <div className={styles.inventory}>
     {sessionId && <Button size="small" loading={loading} onClick={() => void load(sessionId, 0, new AbortController().signal)}>刷新采集</Button>}
     {error && <Alert showIcon type="warning" title="采集读取失败" description={error} />}
+    {focusArtifactRef && !focusFound && !loading && sessions.length > 0 && <Alert showIcon type="info" title="当前采集页未找到该材料" description={after === null ? '请切换采集批次查找原始文件。' : '请加载更多采集记录，或切换批次查找原始文件。'} />}
     {sessions.length > 0 && <div className={styles.inventoryHeader}><Select aria-label="采集批次" value={sessionId} onChange={setSessionId} options={sessions.map((session) => ({ value: session.capture_session_id, label: `批次 ${session.binding.runtime_attempt} · ${session.state}` }))} /><Tag>{selected?.state}</Tag></div>}
-    {loading && items.length === 0 ? <Spin description="正在读取采集记录" /> : items.length === 0 ? <Empty description={sessions.length ? '这个批次暂无采集记录' : '当前没有采集批次'} /> : <ol className={styles.inventoryList}>{items.map(({ envelope }) => {
+    {loading && items.length === 0 ? <Spin description="正在读取采集记录" /> : items.length === 0 ? <Empty description={sessions.length ? '这个批次暂无采集记录' : '当前没有采集批次'} /> : <ol className={styles.inventoryList}>{items.map(({ envelope, artifact_refs }) => {
       const method = typeof envelope.metadata.method === 'string' ? envelope.metadata.method : 'HTTP';
       const url = typeof envelope.metadata.url === 'string' ? envelope.metadata.url : `交换 ${envelope.metadata.exchange_id ?? envelope.item_seq}`;
       const status = typeof envelope.metadata.status_code === 'number' ? envelope.metadata.status_code : null;
-      return <li key={envelope.item_seq}>
-        <div className={styles.inventoryHeader}><Tag>{envelope.kind === 'http_exchange' ? `${method} ${status ?? '待确认'}` : envelope.kind === 'pcap_segment' ? 'PCAP' : envelope.kind === 'gap' ? '采集缺口' : '采集清单'}</Tag><strong>{envelope.kind === 'http_exchange' ? url : envelope.kind === 'pcap_segment' ? String(envelope.metadata.segment_name ?? `分段 ${envelope.item_seq}`) : envelope.conditions.join('、') || `记录 ${envelope.item_seq}`}</strong><span>{envelope.completeness}</span></div>
-        {envelope.parts.length > 0 && <details><summary>下载原始数据（{envelope.parts.length} 项）</summary><div className={styles.inventoryParts}>{envelope.parts.map((part) => <Button key={part.part} size="small" onClick={() => void downloadCapturePart(taskId, sessionId!, envelope.item_seq, part.part, new AbortController().signal).then((blob) => save(blob, `capture-${envelope.item_seq}-${part.part}`)).catch((reason: unknown) => setError(message(reason)))}>{part.part} · {part.length} bytes</Button>)}</div></details>}
+      const focused = Boolean(focusArtifactRef && artifact_refs.some((ref) => ref.id === focusArtifactRef.id && ref.version === focusArtifactRef.version));
+      return <li key={envelope.item_seq} id={`capture-${taskId}-${sessionId}-${envelope.item_seq}`}>
+        <div className={styles.inventoryHeader}><Tag>{envelope.kind === 'http_exchange' ? `${method} ${status ?? '待确认'}` : envelope.kind === 'pcap_segment' ? 'PCAP' : envelope.kind === 'gap' ? '采集缺口' : '采集清单'}</Tag><strong>{envelope.kind === 'http_exchange' ? url : envelope.kind === 'pcap_segment' ? String(envelope.metadata.segment_name ?? `分段 ${envelope.item_seq}`) : envelope.conditions.join('、') || `记录 ${envelope.item_seq}`}</strong><span>{envelope.completeness}</span>{focused && <Tag color="blue">对应材料</Tag>}</div>
+        {envelope.parts.length > 0 && <details open={focused}><summary>下载原始数据（{envelope.parts.length} 项）</summary><div className={styles.inventoryParts}>{envelope.parts.map((part) => <Button key={part.part} size="small" onClick={() => void downloadCapturePart(taskId, sessionId!, envelope.item_seq, part.part, new AbortController().signal).then((blob) => save(blob, `capture-${envelope.item_seq}-${part.part}`)).catch((reason: unknown) => setError(message(reason)))}>{part.part} · {part.length} bytes</Button>)}</div></details>}
       </li>;
     })}</ol>}
     {sessionId && after !== null && <Button loading={loading} onClick={() => void load(sessionId, after, new AbortController().signal)}>加载更多采集记录</Button>}

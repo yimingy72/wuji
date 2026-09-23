@@ -295,9 +295,10 @@ function isInputAnswerReceipt(value: unknown): value is InputAnswerReceiptV1 {
 function isModelMaterial(value: unknown): value is ModelMaterialV2 {
   if (!isRecord(value) || value.schema_version !== 'wuji.model-material.v2' || !isString(value.tool_call_id)) return false;
   if (value.status !== 'delivered' && value.status !== 'omitted') return false;
-  if (value.status === 'omitted') return value.source === null && value.representation === null && (value.omission_reason === null || typeof value.omission_reason === 'string');
-  if (!isRecord(value.source) || !isBlobRef(value.source.artifact_ref) || !isString(value.source.artifact_sha256) || !isString(value.source.media_type)) return false;
-  if (value.source.completeness !== 'complete' && value.source.completeness !== 'partial' && value.source.completeness !== 'unknown') return false;
+  if (value.source !== null && (!isRecord(value.source) || !isBlobRef(value.source.artifact_ref) || !isString(value.source.artifact_sha256) || !isString(value.source.media_type)
+    || (value.source.completeness !== 'complete' && value.source.completeness !== 'partial' && value.source.completeness !== 'unknown'))) return false;
+  if (value.status === 'omitted') return value.representation === null && isString(value.omission_reason);
+  if (value.source === null) return false;
   if (!isRecord(value.representation) || value.representation.renderer_version !== 'wuji-http-renderer.v2' || value.representation.media_type !== 'text/plain; charset=utf-8' || value.representation.encoding !== 'utf-8' || typeof value.representation.text !== 'string' || typeof value.representation.byte_length !== 'number' || !isString(value.representation.representation_sha256) || typeof value.representation.truncated !== 'boolean' || typeof value.representation.redaction_applied !== 'boolean') return false;
   return value.omission_reason === null;
 }

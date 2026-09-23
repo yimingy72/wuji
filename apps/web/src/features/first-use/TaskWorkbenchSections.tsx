@@ -180,9 +180,11 @@ export function TaskWorkspacePanel({ taskId, overview }: { readonly taskId: stri
   const [material, setMaterial] = useState<ModelMaterialV2 | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [captureArtifact, setCaptureArtifact] = useState<TaskOverviewV1['artifacts'][number]['artifact_ref'] | null>(null);
+  const isCapturePcap = selected?.provenance === 'capture' && selected.media_type === 'application/vnd.tcpdump.pcap';
 
   useEffect(() => {
-    if (!selected) { setMaterial(null); setError(null); return; }
+    if (!selected || isCapturePcap) { setMaterial(null); setError(null); return; }
     const controller = new AbortController();
     setMaterial(null);
     setError(null);
@@ -190,7 +192,7 @@ export function TaskWorkspacePanel({ taskId, overview }: { readonly taskId: stri
       if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : '证据预览读取失败');
     });
     return () => controller.abort();
-  }, [taskId, selected?.artifact_ref.id, selected?.artifact_ref.version]);
+  }, [taskId, selected?.artifact_ref.id, selected?.artifact_ref.version, isCapturePcap]);
 
   const download = async () => {
     if (!selected) return;
@@ -209,14 +211,14 @@ export function TaskWorkspacePanel({ taskId, overview }: { readonly taskId: stri
   };
 
   return <div className={styles.workspaceView}>
-    <Segmented value={section} options={[{ value: 'files', label: '工作文件' }, { value: 'shared', label: '共享版本' }, { value: 'commands', label: '命令' }, { value: 'traffic', label: '网络采集' }, { value: 'evidence', label: `证据与材料 ${overview.artifacts.length}` }]} onChange={(value) => { setSection(value as typeof section); setSelected(null); }} />
+    <Segmented value={section} options={[{ value: 'files', label: '工作文件' }, { value: 'shared', label: '共享版本' }, { value: 'commands', label: '命令' }, { value: 'traffic', label: '网络采集' }, { value: 'evidence', label: `证据与材料 ${overview.artifacts.length}` }]} onChange={(value) => { setSection(value as typeof section); setSelected(null); setCaptureArtifact(null); }} />
     {section === 'files' && <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={overview.workspace_capabilities.work_files ? '当前没有可显示的工作文件' : '当前运行配置尚未开放工作文件浏览'} />}
     {section === 'shared' && <PublicationInventory taskId={taskId} />}
     {section === 'commands' && <CommandInventory taskId={taskId} />}
-    {section === 'traffic' && <CaptureInventory taskId={taskId} />}
+    {section === 'traffic' && <CaptureInventory taskId={taskId} focusArtifactRef={captureArtifact} />}
     {section === 'evidence' && <div className={styles.workspaceGrid}>
       <div className={styles.artifactList}>{overview.artifacts.length ? overview.artifacts.map((artifact) => <button type="button" className={selected?.artifact_ref.id === artifact.artifact_ref.id && selected.artifact_ref.version === artifact.artifact_ref.version ? styles.artifactSelected : ''} key={`${artifact.artifact_ref.id}:${artifact.artifact_ref.version}`} onClick={() => setSelected(artifact)}><strong>{artifact.provenance === 'import' ? '用户材料' : artifact.provenance === 'capture' ? '采集证据' : '运行记录'} · {artifact.media_type}</strong><span>{artifact.completeness} · {artifact.size_bytes} bytes</span><time dateTime={artifact.created_at}>{new Date(artifact.created_at).toLocaleString('zh-CN')}</time></button>) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="当前没有证据或用户材料" />}</div>
-      <section className={styles.artifactPreview}>{!selected ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="选择一份证据查看内容" /> : <><header><div><strong>{selected.media_type}</strong><span>{selected.provenance} · {selected.completeness}</span></div>{selected.download_available && <Button icon={<DownloadOutlined />} loading={busy} onClick={() => void download()}>下载原文</Button>}</header>{error && <Alert showIcon type="warning" title="证据读取失败" description={error} />}{material?.status === 'delivered' && material.representation ? <pre className={styles.material}>{material.representation.text}</pre> : material?.status === 'omitted' ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={material.omission_reason ?? '当前证据没有可显示的文本预览'} /> : !error && <Spin description="正在读取证据" />}<details><summary>来源详情</summary><dl><div><dt>Artifact</dt><dd>{selected.artifact_ref.id}@{selected.artifact_ref.version}</dd></div><div><dt>摘要</dt><dd>{selected.artifact_ref.sha256}</dd></div><div><dt>来源工作</dt><dd>{selected.source_work_item_id ?? '未关联'}</dd></div></dl></details></>}</section>
+      <section className={styles.artifactPreview}>{!selected ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="选择一份证据查看内容" /> : <><header><div><strong>{selected.media_type}</strong><span>{selected.provenance} · {selected.completeness}</span></div>{isCapturePcap ? <Button icon={<DownloadOutlined />} onClick={() => { setCaptureArtifact(selected.artifact_ref); setSection('traffic'); }}>前往网络采集</Button> : selected.download_available && <Button icon={<DownloadOutlined />} loading={busy} onClick={() => void download()}>下载原文</Button>}</header>{error && <Alert showIcon type="warning" title="证据读取失败" description={error} />}{isCapturePcap ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="PCAP 没有文本预览，请在网络采集下载原始文件" /> : material?.status === 'delivered' && material.representation ? <pre className={styles.material}>{material.representation.text}</pre> : material?.status === 'omitted' ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={material.omission_reason === 'unsupported_media' ? '当前材料没有文本预览，可下载原文核对' : material.omission_reason ?? '当前证据没有可显示的文本预览'} /> : !error && <Spin description="正在读取证据" />}<details><summary>来源详情</summary><dl><div><dt>Artifact</dt><dd>{selected.artifact_ref.id}@{selected.artifact_ref.version}</dd></div><div><dt>摘要</dt><dd>{selected.artifact_ref.sha256}</dd></div><div><dt>来源工作</dt><dd>{selected.source_work_item_id ?? '未关联'}</dd></div></dl></details></>}</section>
     </div>}
   </div>;
 }
