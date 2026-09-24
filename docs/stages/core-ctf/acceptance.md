@@ -14,7 +14,7 @@
 | C05 | 清代理直连、未支持协议；capture退出及writer存储失败；在途连接 | 不悄悄旁路；现有代理连接收敛，Task停止/核对；受影响证据partial/unknown；正常封口与故障窗口区别明确 | 局部：b17 故障自动撤权、b18 正常封口实测；完整故障矩阵未覆盖 |
 | C06 | A生成脚本发布，B读取manifest并装载运行；重复发布与改缓存 | 同操作同publication；副本修改生成新版本；并发CAS一胜一冲突不丢工作副本；sealed旧版不变；publication ACL正确；B实际文件hash和来源可核对；新材料真实handoff | 局部：b18 A→B固定版本与结果通过；多版本并发CAS仍按定向PG证据单列 |
 | C07 | 运行中发布发现、后继问题、已有后台exec、跨attempt材料恢复 | 不重复工作/不按token唤醒Reason；WorkResult有效依据进入brief；父exec未结算不done；旧workspace Session不自动续跑 | 局部：b18 Reason→A/B及Claim/结果消费通过；跨attempt/通知全边界未覆盖 |
-| C08 | 正式工作台新Task → 显式start → 双Agent交接 → 结果/证据 → cancel/finish | 创建后零执行；机制链实际通过；真实模型/CTF单独列结果；进程与采集清理真实完成或保留unknown | 局部：b18 synthetic主链、capture sealed、外部四终态及三页只读浏览器通过；完整前端/业务close与真实CTF未通过 |
+| C08 | 正式工作台新Task → 显式start → 双Agent交接 → 结果/证据 → cancel/finish | 创建后零执行；机制链实际通过；真实模型/CTF单独列结果；进程与采集清理真实完成或保留unknown | 局部：b18 synthetic主链、capture sealed、外部四终态及三页只读浏览器通过；新prelaunch取消经P12 closed/report通过；有成果完整Task的业务close与真实CTF未通过 |
 
 D-NET已选严格受支持HTTP(S)明文，原始扫描/基础probe后置。不以PCAP密文留存通过明文验收。
 
@@ -90,3 +90,11 @@ C01—C07及C08机制链的关键项通过，才可称本阶段核心开发交�
 本轮platform镜像来源`cc5ca31`，capture来源`8e89607`，agent/kali来源`f0eed7e`，Web来源`75cfbd0`；各角色实际digest在报告固定输入中。A/B两个Work及对应Claim、版本化脚本/结果、Kali MCP命令、同一capture session两条完整HTTP exchange + 7,593,624B PCAP + final manifest均有原始证据。driver在机制核对后正式cancel，Runtime同attempt/UID的init、agent、kali、capture四终态均terminated，采集批次sealed。Task业务仍`cancel/quiescing`、`completion_epoch_id=null`、`result_outcome=null`：取消撤权与外部停止已验证，P12完成审查/close不是本次driver自动执行的动作，故不记`closed`或Goal满足。
 
 历史b17 Task因capture status控制请求超时由Runtime自动fail-closed撤权，平台capture session保持failed；只读PVC发现第二条HTTP已由Sidecar写盘但未入库。根因是采集索引候选唯一key被摘要字段循环覆盖，第二条候选无法推进水位并持锁；`8e89607`只修该变量，定向两交换/late gap/重复refresh节点1 passed（0.41秒），b18新Task实测连续入库两条HTTP。不追认b17为通过。真实模型/外部CTF与C01—C08剩余矩阵均未运行；阶段仍in-progress。
+
+## 8. 2026-09-24 取消业务收口：新Task的prelaunch路径通过
+
+代码提交`3362a23061dc7899cb79362c5a129734725aae55`新增仅新取消请求的受信持久标记、用户取消与Runtime故障来源区分、内部P12取消epoch和现有Launch循环的有界可重入结算；不改公开Goal判据。独立Core数据库head为`vnext_0041_cancel_completion`，API/Runtime/Launch实际同一platform RepoDigest `sha256:19207ff12a9d17f9388ad21bd72eee3e7ca8446292f6dc96506efb45eddc5f5f`，8/8 Deployment Ready。Launch的`readOnlyRootFilesystem=true`保留，renderer和实际Deployment均将既有`platform-artifacts` PVC挂至同一路径；Launch写入私有探针、Runtime读到相同字节后删除，证明是共享可写卷。
+
+新Task `653538fe-6360-456a-9ca0-3d9d12a055e5`通过正式密码BFF创建且保持未启动，随即由正式Task命令取消；Launch自动写P12 `quiesce`、`close`各一条决策并冻结一份报告，Task最终`cancel/closed`、`result_outcome=not_assessed`，Goal criterion仍`missing`。Task无launch job、Pod/AgentRun、model_call、工具/进程执行或capture item，因此这次没有目标/付费模型请求。[实际工作台截图](../../../work/core-ctf/local-20260923/cancel-c1/screenshots/c1-closed.png)、[完整脱敏HTTP包](../../../work/core-ctf/local-20260923/cancel-c1/http-exchanges.jsonl)及[私有报告](../../../work/core-ctf/local-20260923/cancel-c1/report.md)保留原始结果；登录密码和会话值按密钥规则脱敏，不写入Git。
+
+定向隔离PG三情形节点1 passed：有完成Work与受信四终态时close/not_assessed/report保留成果；b11形状的prepare前置拒绝且无执行事实可按确证未启动close；缺终态保持未关闭，并验证Runtime受信来源和旧Task无标记不自动扫。旧Goal portal和Core renderer各1 passed，未扩回归。此PG有成果fixture没有b18真实6个Run/采集，不能代替完整Task业务实测。旧b18已只读核对四终态、6/6 Run与操作settled、采集sealed及原受权cancel回执，但两次显式marker回填均0行并回滚，故仍`cancel/quiescing`且epoch/outcome为空；第三次未执行。源码/RLS只读审查指向手工脚本未设`wuji.write=true`，该解释未用第三次写操作复验。其它历史Task未自动扫尾。本阶段C08仍局部、C01—C08整体未accepted，真实CTF not_run。
