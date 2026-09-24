@@ -151,14 +151,18 @@ def test_renderer_builds_an_independent_empty_arm64_platform(tmp_path, monkeypat
     assert launch_settings["capture_ca_cert_file"] == (
         runtime["pod_runtime"]["capture_client"]["ca_file"]
     )
+    assert launch_settings["artifact_root"] == "/var/lib/wuji/platform/artifacts"
     mounts = {
         item["name"]
         for item in launch["spec"]["template"]["spec"]["containers"][0]["volumeMounts"]
     }
     assert {
         "owner", "deployment", "agent-auth", "gates-auth", "capture-ca",
-        "capture-runtime",
+        "capture-runtime", "artifacts",
     } <= mounts
+    assert {item["name"]: item["persistentVolumeClaim"]["claimName"]
+            for item in launch["spec"]["template"]["spec"]["volumes"]
+            if "persistentVolumeClaim" in item} == {"artifacts": "platform-artifacts"}
     launch_credentials = _named(objects, "Secret", "core-launch-credentials")
     assert set(launch_credentials["data"]) == {
         "service.token", "signing.key", "receiver.token"

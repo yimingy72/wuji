@@ -54,10 +54,15 @@ def require_runtime_terminal(tx):
     This reads trusted persisted observations inside the caller's Task lock.
     """
     definition = strict_json_loads(tx.task["definition_json"])
-    if (
-        tx.task["activated_at"] is None
-        or definition.get("runtime_profile", {}).get("capture_policy") is None
-    ):
+    if definition.get("runtime_profile", {}).get("capture_policy") is None:
+        return
+    if tx.task["activated_at"] is None:
+        # Owner-only launch steps and hidden Pod-controller bindings are
+        # checked together by the scoped definer predicate.
+        if not tx.connection.execute(
+            "SELECT vnext.prelaunch_no_start(%s,%s,%s)", tx.owner,
+        ).fetchone()[0]:
+            raise DomainError("OPERATION_UNKNOWN", 409)
         return
     bindings = tx.connection.execute(
         """SELECT DISTINCT execution_epoch,pod_uid
@@ -91,6 +96,7 @@ class ControlCommandContext:
     operation_id: str
     command: TaskCommand | WorkCommand
     work_item_id: str | None = None
+    cancel_source: Literal["user_cancel", "system_failure"] = "user_cancel"
 
 
 class ProcessObservation(BaseModel):
@@ -490,6 +496,10 @@ class ControlService:
             raise ValueError("trusted ControlCommandContext required")
         work_id = context.work_item_id
         dto = (WorkCommand if work_id else TaskCommand).model_validate(context.command)
+        if context.cancel_source != "user_cancel" and (
+            work_id is not None or dto.command.value != "cancel"
+        ):
+            raise DomainError("INVALID_SCHEMA", 422)
         kind = "work_command" if work_id else "task_command"
         digest = sha256(
             canonical_json_bytes(
@@ -497,6 +507,8 @@ class ControlService:
                     "task_id": context.task_id,
                     "work_item_id": work_id,
                     "command": dto.model_dump(mode="python"),
+                    **({"cancel_source": context.cancel_source}
+                       if context.cancel_source != "user_cancel" else {}),
                 }
             )
         ).hexdigest()
@@ -515,12 +527,22 @@ class ControlService:
                     strict_json_loads(old["receipt_json"])
                 )
 
+        def require_source(tx):
+            if context.cancel_source == "user_cancel":
+                return
+            if "controller" not in context.access.principal.roles or not tx.connection.execute(
+                "SELECT vnext.is_current_task_pod_controller(%s,%s,%s)", tx.owner,
+            ).fetchone()[0]:
+                raise DomainError("NOT_FOUND_OR_FORBIDDEN")
+
         with self.uow.transaction(context.access, context.task_id) as tx:
+            require_source(tx)
             if (old := replay(tx)) is not None:
                 return old
         with self.uow.transaction(
             context.access, context.task_id, capability="control"
         ) as tx:
+            require_source(tx)
             if (old := replay(tx)) is not None:
                 return old
             target = _work(tx, work_id) if work_id else tx.task
@@ -530,7 +552,8 @@ class ControlService:
             if work_id:
                 self._work_command(tx, target, dto.command.value, dto.reason)
             else:
-                self._task_command(tx, dto.command.value, dto.reason)
+                self._task_command(tx, dto.command.value, dto.reason,
+                                   cancel_source=context.cancel_source)
             version = target["revision" if work_id else "control_version"]
             receipt = CommandReceipt.model_validate(
                 dict(
@@ -688,7 +711,7 @@ class ControlService:
                 self._cause(tx, work, "user_hold", work["work_item_id"])
             self._stop(tx, work, reason)
 
-    def _task_command(self, tx, command, reason):
+    def _task_command(self, tx, command, reason, *, cancel_source="user_cancel"):
         task = tx.task
         if task["observed_state"] == "closed" or task["desired_state"] in {
             "cancel",
@@ -728,11 +751,13 @@ class ControlService:
             )
             if command in {"cancel", "finish"}:
                 task["close_trigger"] = (
-                    "user_cancel" if command == "cancel" else "operator_finish"
+                    cancel_source if command == "cancel" else "operator_finish"
                 )
+                if command == "cancel":
+                    task["cancel_settlement_source"] = cancel_source
         task["control_version"] += 1
         tx.connection.execute(
-            "UPDATE vnext.task SET desired_state=%s,observed_state=%s,execution_allowed=%s,execution_epoch=%s,activated_at=%s,close_trigger=%s,control_version=%s WHERE tenant_id=%s AND project_id=%s AND task_id=%s",
+            "UPDATE vnext.task SET desired_state=%s,observed_state=%s,execution_allowed=%s,execution_epoch=%s,activated_at=%s,close_trigger=%s,control_version=%s,cancel_settlement_source=%s WHERE tenant_id=%s AND project_id=%s AND task_id=%s",
             (
                 task["desired_state"],
                 task["observed_state"],
@@ -741,6 +766,7 @@ class ControlService:
                 task["activated_at"],
                 task["close_trigger"],
                 task["control_version"],
+                task.get("cancel_settlement_source"),
                 *tx.owner,
             ),
         )
@@ -1040,8 +1066,14 @@ class ControlService:
                 basis_check(tx, decision)
             action, epoch = decision["action"], decision["epoch_id"]
             if action == "quiesce":
+                cancel_decision = decision["close_trigger"] in {"user_cancel", "system_failure"}
                 if (
-                    not task["activated_at"]
+                    (not task["activated_at"] and not cancel_decision)
+                    or (cancel_decision and (
+                        task["desired_state"] != "cancel"
+                        or task.get("cancel_settlement_source") != decision["close_trigger"]
+                        or task["close_trigger"] != decision["close_trigger"]
+                    ))
                     or task["completion_epoch_id"]
                     or decision["deadline"] <= datetime.now(timezone.utc)
                 ):
@@ -1071,6 +1103,12 @@ class ControlService:
                     close_trigger=None,
                 )
             elif action == "close":
+                if task.get("cancel_settlement_source") is not None and (
+                    task["desired_state"] != "cancel"
+                    or decision["close_trigger"] != task["cancel_settlement_source"]
+                    or decision["result_outcome"] != "not_assessed"
+                ):
+                    raise DomainError("STALE_EXECUTION", 409)
                 require_runtime_terminal(tx)
                 runs = _rows(
                     tx.connection.execute(

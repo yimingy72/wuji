@@ -197,6 +197,46 @@ class CompletionService:
             close_trigger=stored["close_trigger"],
         )
 
+    def propose_cancel(self, access, task_id) -> CompletionProposal:
+        """Platform-only P12 epoch for a newly marked, already revoked Task."""
+
+        if "controller" not in access.principal.roles or "agent" in access.principal.roles:
+            raise DomainError("NOT_FOUND_OR_FORBIDDEN")
+        moment = datetime.now(timezone.utc)
+        with self.uow.transaction(access, task_id, capability="control") as tx:
+            trigger = tx.task.get("cancel_settlement_source")
+            if (tx.task["desired_state"] != "cancel" or trigger not in
+                    {"user_cancel", "system_failure"} or
+                    tx.task["close_trigger"] != trigger or
+                    tx.task["completion_epoch_id"] is not None):
+                raise DomainError("STALE_EXECUTION", 409)
+            source = canonical_json_bytes(self.review_in_transaction(tx).receipt()).decode()
+            saved = tx.connection.execute(
+                "SELECT receipt_id FROM vnext.completion_decision WHERE tenant_id=%s "
+                "AND project_id=%s AND task_id=%s AND action='quiesce' "
+                "AND expected_control_version=%s AND board_revision=%s "
+                "AND close_trigger=%s AND source_receipt_json=%s AND deadline>%s "
+                "ORDER BY deadline DESC LIMIT 1",
+                (*tx.owner, tx.task["control_version"], tx.task["board_revision"],
+                 trigger, source, moment),
+            ).fetchone()
+            if saved:
+                receipt_id = saved[0]
+            else:
+                with platform_errors():
+                    receipt_id = tx.connection.execute(
+                        "SELECT vnext.prepare_cancel_completion_quiesce("
+                        "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                        (*tx.owner, str(uuid4()), str(uuid4()),
+                         tx.task["control_version"], tx.task["board_revision"],
+                         moment + timedelta(seconds=900), trigger, source),
+                    ).fetchone()[0]
+            stored = self._stored_decision(tx, receipt_id)
+        return CompletionProposal(receipt_id=receipt_id,
+                                  epoch_id=stored["epoch_id"],
+                                  deadline=stored["deadline"],
+                                  close_trigger=stored["close_trigger"])
+
     def close(
         self,
         access,

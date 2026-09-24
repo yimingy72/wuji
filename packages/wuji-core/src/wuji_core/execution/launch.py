@@ -243,6 +243,13 @@ class LaunchStore:
             (worker_id, lease_seconds, access.principal.subject),
         )
 
+    def claim_cancel(self, access: AccessContext):
+        return self._call(
+            access,
+            "SELECT vnext.claim_cancel_settlement(%s)",
+            (access.principal.subject,),
+        )
+
     def record(
         self,
         access: AccessContext,
@@ -411,6 +418,8 @@ class LaunchWorker:
         adapter: LaunchAdapter,
         worker_id: str,
         lease_seconds: int = 30,
+        completion=None,
+        reports=None,
     ) -> None:
         if not isinstance(access, AccessContext):
             raise TypeError("authenticated worker access is required")
@@ -427,6 +436,7 @@ class LaunchWorker:
         self.adapter = adapter
         self.worker_id = worker_id
         self.lease_seconds = lease_seconds
+        self.completion, self.reports = completion, reports
 
     def run_once(self, limit: int = 4) -> list[dict[str, Any]]:
         """Advance at most ``limit`` jobs and return bounded progress facts."""
@@ -469,7 +479,46 @@ class LaunchWorker:
                         }
                     )
                 )
+        if self.completion is not None and self.reports is not None:
+            seen = set()
+            for _ in range(limit):
+                candidate = self.store.claim_cancel(self.access)
+                if not candidate or candidate["task_id"] in seen:
+                    break
+                seen.add(candidate["task_id"])
+                try:
+                    progress.append(self._settle_cancel(candidate))
+                except DomainError as error:
+                    progress.append({"task_id": candidate["task_id"],
+                                     "phase": "cancel_settlement",
+                                     "phase_status": "reconciling",
+                                     "reason_code": error.code})
         return progress
+
+    def _settle_cancel(self, candidate):
+        task_id, source = candidate["task_id"], candidate["source"]
+        task = self.control.read_task(self.access, task_id)
+        if task["desired_state"] != "cancel" or task["cancel_settlement_source"] != source:
+            raise DomainError("STALE_EXECUTION", 409)
+        if task["completion_epoch_id"] is None:
+            proposal = self.completion.propose_cancel(self.access, task_id)
+            self.completion.apply(self.access, task_id, proposal.receipt_id)
+            task = self.control.read_task(self.access, task_id)
+        epoch = task["completion_epoch_id"]
+        if task["observed_state"] != "closed":
+            review = self.completion.precheck(self.access, task_id)
+            digest = self.completion.receipt_digest(review)
+            proposal = self.completion.close(
+                self.access, task_id,
+                receipt_key=f"cancel-close:{epoch}:{task['control_version']}:{digest}",
+                epoch_id=epoch, close_trigger=source, result_outcome="not_assessed",
+                expected_review_digest=digest,
+            )
+            self.completion.apply(self.access, task_id, proposal.receipt_id)
+        self.reports.freeze(self.access, task_id,
+                            report_key=f"cancel-report:{epoch}", epoch_id=epoch)
+        return {"task_id": task_id, "phase": "cancel_settlement",
+                "phase_status": "succeeded", "reason_code": "task_closed"}
 
     @staticmethod
     def _progress(job) -> dict[str, Any]:

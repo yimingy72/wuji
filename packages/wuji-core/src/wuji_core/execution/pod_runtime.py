@@ -660,6 +660,7 @@ The Task Pod only receives its own restricted runtime/TLS credentials.
                     + sha256((pod_uid + code).encode()).hexdigest()[:24]
                 ),
                 command=command,
+                cancel_source="system_failure",
             ))
         except DomainError as error:
             current = self.control.read_task(self.access, str(self.config.task_id))

@@ -123,8 +123,9 @@ from wuji_core.persistence.core_process_schema import HEAD as CORE_PROCESS_HEAD,
 from wuji_core.persistence.workspace_bundle_schema import HEAD as WORKSPACE_BUNDLE_HEAD, upgrade as upgrade_workspace_bundles
 from wuji_core.persistence.runtime_capture_schema import HEAD as RUNTIME_CAPTURE_HEAD, upgrade as upgrade_runtime_capture
 from wuji_core.persistence.project_access_schema import HEAD as PROJECT_ACCESS_HEAD, upgrade as upgrade_project_access
+from wuji_core.persistence.cancel_completion_schema import HEAD as CANCEL_COMPLETION_HEAD, upgrade as upgrade_cancel_completion
 
-HEAD = PROJECT_ACCESS_HEAD
+HEAD = CANCEL_COMPLETION_HEAD
 
 OWNER = "tenant_id,project_id,task_id"
 SCOPE_COLUMNS = (
@@ -520,6 +521,7 @@ def migrate(connection, *, application_role: str) -> None:
                 WORKSPACE_BUNDLE_HEAD,
                 RUNTIME_CAPTURE_HEAD,
                 PROJECT_ACCESS_HEAD,
+                CANCEL_COMPLETION_HEAD,
             ]
             if not heads or heads != set(chain[: len(heads)]):
                 raise ValueError("unrecognized vnext migration head")
@@ -563,6 +565,7 @@ def migrate(connection, *, application_role: str) -> None:
                 upgrade_workspace_bundles,
                 upgrade_runtime_capture,
                 upgrade_project_access,
+                upgrade_cancel_completion,
             ]
             for upgrade in upgrades[len(heads) - 1 :]:
                 upgrade(connection, application_role)
@@ -703,3 +706,4 @@ def migrate(connection, *, application_role: str) -> None:
         upgrade_workspace_bundles(connection, application_role)
         upgrade_runtime_capture(connection, application_role)
         upgrade_project_access(connection, application_role)
+        upgrade_cancel_completion(connection, application_role)

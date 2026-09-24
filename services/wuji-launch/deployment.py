@@ -14,6 +14,9 @@ from task_model_keys import KubernetesTaskKeyStore, NativeTaskBudget
 import task_launch
 from wuji_core.execution.control import ControlService
 from wuji_core.execution.launch import LaunchWorker
+from wuji_core.completion.precheck import CompletionService
+from wuji_core.completion.reports import ReportService
+from wuji_core.evidence.artifacts import ArtifactStore
 from wuji_core.http import strict_json_loads
 from wuji_core.http.auth import TokenVerifier
 from wuji_core.persistence.uow import AccessContext, UnitOfWork
@@ -50,6 +53,7 @@ class LaunchSettings(BaseModel):
     gateway_management_key_file: str | None = None
     gateway_ca_file: str | None = None
     lease_seconds: int = Field(default=30, ge=5, le=300)
+    artifact_root: str = Field(default="/var/lib/wuji/platform/artifacts", pattern=r"^/")
 
 
 class _OwnedAdapter:
@@ -133,8 +137,12 @@ def build_launch_worker():
                        store=KubernetesConfigMapStore(core, namespace=settings.namespace), task_budget=budget)
         adapter = _OwnedAdapter(DeploymentLaunchAdapter({**owner, "namespace": settings.namespace}, options), api, gateway)
         uow = UnitOfWork(partial(task_launch.application_connection, owner))
-        return LaunchWorker(uow, access=access, control=ControlService(uow), adapter=adapter,
-                            worker_id=os.environ.get("POD_UID", "launch-local"), lease_seconds=settings.lease_seconds)
+        artifacts = ArtifactStore(uow, Path(settings.artifact_root))
+        control = ControlService(uow)
+        return LaunchWorker(uow, access=access, control=control, adapter=adapter,
+                            worker_id=os.environ.get("POD_UID", "launch-local"), lease_seconds=settings.lease_seconds,
+                            completion=CompletionService(uow, control=control),
+                            reports=ReportService(uow, artifacts=artifacts))
     except BaseException:
         if gateway is not None:
             gateway.close()

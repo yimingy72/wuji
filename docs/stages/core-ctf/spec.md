@@ -148,6 +148,12 @@ Work完成表示模型结果及已报告操作已结算，assurance保持executo
 
 Core Task的P12关闭准备及最终应用均须核对当前runtime attempt的完整外部容器终态；仅AgentRun退出/结算不足以写入`closed`。此检查放在close阶段，不能阻断先quiesce撤权。已持久化的同Task/attempt/epoch/Pod UID四容器记录可在Pod删除后或Runtime重启时恢复停止事实；缺项、混合代次或UID不一致仍保持未确认。
 
+### 取消后的Task业务收口
+
+用户受权的Task取消先撤销执行并停止环境，再由平台在同一Task下创建取消专属CompletionEpoch，保存当时的P12目标审查快照。取消不要求Goal判据已满足，也不把已有成果判作Goal成功；关闭原因固定为`user_cancel`，结果保守记`not_assessed`，冻结报告仍列出已持久化的判据、Work与Run。Runtime确认的故障撤权走独立受信入口，关闭原因为`system_failure`；自由文本reason、命令ID或模型输出不能改变来源。公开Goal完成入口及其ready判据保持原样。
+
+平台仅对新取消请求写入持久待结算标记；现有Launch执行循环有界扫描并可在崩溃后从Task与决策回执继续，不自动扫尾旧Task。最终`closed`须同时有该代次四容器真实终态、Run及相关操作结算；缺失或结果不明维持`quiescing`/`reconciling`。确证未启动是另一条窄路径：Task未激活，Launch持久步骤可证明没有进入wire/Pod创建及外部效果，并且无receiver、Pod绑定、Run或未结算操作；已受理但在prepare前置检查失败可符合，单纯Pod 404不符合。旧Task仅能经逐Task受审计回填，不能因新代码部署自动关闭。
+
 ## 4. 流量与 HTTPS 明文采集合同
 
 ### 4.1 网络路径

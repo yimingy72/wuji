@@ -520,6 +520,7 @@ def render(
         "runtime_origin": f"https://runtime.{namespace}.svc:8443",
         "gate_url": f"https://gates.{namespace}.svc:8443",
         "evidence_ref": "core-ctf-local-mechanism",
+        "artifact_root": "/var/lib/wuji/platform/artifacts",
     }
     platform_objects.append(_configmap("core-launch-config", namespace, {
         "launch.json": json.dumps(launch_settings, sort_keys=True), **public_data,
@@ -551,14 +552,16 @@ def render(
                     "volumeMounts": [
                         {"name": name, "mountPath": path, "readOnly": True}
                         for name, _secret_name, path in launch_mounts
-                    ] + [{"name": "tmp", "mountPath": "/tmp"}],
+                    ] + [{"name": "tmp", "mountPath": "/tmp"},
+                         {"name": "artifacts", "mountPath": "/var/lib/wuji/platform/artifacts"}],
                 }],
                 "volumes": [
                     {"name": name, "configMap": {"name": secret_name}}
                     if name == "config" else
                     {"name": name, "secret": {"secretName": secret_name, "defaultMode": 0o440}}
                     for name, secret_name, _path in launch_mounts
-                ] + [{"name": "tmp", "emptyDir": {"sizeLimit": "64Mi"}}],
+                ] + [{"name": "tmp", "emptyDir": {"sizeLimit": "64Mi"}},
+                     {"name": "artifacts", "persistentVolumeClaim": {"claimName": "platform-artifacts"}}],
             }},
         },
     })
